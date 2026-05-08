@@ -4736,6 +4736,10 @@ class SurvivalScene extends Phaser.Scene {
 
   addOverlayAction(panel, onSelect, handlesOwnFlow = true) {
     this.overlayActions.push({ panel, onSelect, handlesOwnFlow });
+    panel.on("pointerup", (pointer, localX, localY, event) => {
+      event?.stopPropagation?.();
+      this.activateOverlayAction(panel);
+    });
   }
 
   createOverlayText(x, y, text, options = {}) {
