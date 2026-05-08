@@ -1,0 +1,39 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /leaderboardKills/{entryId} {
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly([
+          "name",
+          "kills",
+          "survivalTimeMs",
+          "level",
+          "eliteKills",
+          "uid",
+          "createdAt"
+        ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 1
+        && request.resource.data.name.size() <= 16
+        && request.resource.data.kills is int
+        && request.resource.data.kills >= 0
+        && request.resource.data.kills <= 100000
+        && request.resource.data.survivalTimeMs is int
+        && request.resource.data.survivalTimeMs >= 0
+        && request.resource.data.survivalTimeMs <= 86400000
+        && request.resource.data.level is int
+        && request.resource.data.level >= 0
+        && request.resource.data.level <= 999
+        && request.resource.data.eliteKills is int
+        && request.resource.data.eliteKills >= 0
+        && request.resource.data.eliteKills <= 100000
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+
+      allow update, delete: if false;
+    }
+  }
+}

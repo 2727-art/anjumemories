@@ -1,0 +1,22 @@
+.tmp_*/
+逕ｻ蜒十/
+
+# Local verification screenshots
+*_check.png
+*_check_*.png
+*_preview_sheet.png
+
+# Local generation/debug tooling
+scripts/
+
+# Source/reference assets not loaded by the game
+画像/**/mockups/
+画像/**/*source*.png
+画像/**/*_raw.png
+画像/**/*_preview_sheet.png
+
+node_modules/
+.firebase/
+firebase-debug.log
+Thumbs.db
+.DS_Store

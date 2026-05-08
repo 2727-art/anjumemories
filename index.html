@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ラスメモヴァンサバゲーム</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="page-header">
+      <p class="eyebrow">Phaser Minimal Prototype</p>
+      <h1>ラスメモヴァンサバゲーム</h1>
+      <p class="lede">
+        <code>./画像/maincharactor/</code> のキャラクター画像を使った、ブラウザで動く 2D サバイバルゲームの最小版です。
+      </p>
+    </header>
+
+    <section class="game-panel">
+      <div id="game-root" aria-label="game canvas"></div>
+    </section>
+  </main>
+
+  <script src="./vendor/phaser.min.js"></script>
+  <script src="./skillDefinitions.js"></script>
+  <script src="./stageDefinitions.js"></script>
+  <script src="./game.js"></script>
+</body>
+</html>

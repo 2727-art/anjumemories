@@ -1,0 +1,110 @@
+:root {
+  color-scheme: dark;
+  --bg-top: #08111b;
+  --bg-bottom: #02060b;
+  --panel: rgba(8, 19, 31, 0.86);
+  --panel-border: rgba(111, 207, 255, 0.25);
+  --accent: #6fcfff;
+  --text-main: #ecf7ff;
+  --text-muted: #9ab7cc;
+  --shadow: rgba(0, 0, 0, 0.45);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top, rgba(31, 77, 123, 0.36), transparent 36%),
+    linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+  color: var(--text-main);
+  font-family: "Segoe UI", "Yu Gothic UI", sans-serif;
+}
+
+body {
+  min-height: 100vh;
+}
+
+.app-shell {
+  width: min(1280px, calc(100vw - 24px));
+  margin: 0 auto;
+  padding: 24px 0 40px;
+}
+
+.page-header {
+  margin-bottom: 18px;
+  padding: 22px 24px;
+  border: 1px solid var(--panel-border);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(11, 25, 40, 0.92), rgba(8, 18, 29, 0.8));
+  box-shadow: 0 18px 40px var(--shadow);
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-size: 0.8rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: clamp(2rem, 3vw, 3rem);
+  line-height: 1.1;
+}
+
+.lede {
+  margin: 12px 0 0;
+  max-width: 70ch;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.game-panel {
+  padding: 14px;
+  border: 1px solid var(--panel-border);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(10, 22, 35, 0.94), rgba(6, 13, 22, 0.9));
+  box-shadow: 0 20px 50px var(--shadow);
+}
+
+#game-root {
+  min-height: 720px;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(111, 207, 255, 0.12);
+  background:
+    radial-gradient(circle at top, rgba(25, 74, 120, 0.25), transparent 42%),
+    #03080e;
+}
+
+#game-root canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+@media (max-width: 820px) {
+  .app-shell {
+    width: min(100vw - 16px, 1280px);
+    padding-top: 16px;
+  }
+
+  .page-header {
+    padding: 18px;
+  }
+
+  .game-panel {
+    padding: 8px;
+  }
+
+  #game-root {
+    min-height: 480px;
+  }
+}
