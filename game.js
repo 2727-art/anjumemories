@@ -4734,12 +4734,77 @@ class SurvivalScene extends Phaser.Scene {
     return object;
   }
 
-  addOverlayAction(panel, onSelect, handlesOwnFlow = true) {
-    this.overlayActions.push({ panel, onSelect, handlesOwnFlow });
+  addOverlayAction(panel, onSelect, handlesOwnFlow = true, hitPadding = 0) {
+    const action = { panel, onSelect, handlesOwnFlow, hitPadding };
+    this.overlayActions.push(action);
     panel.on("pointerup", (pointer, localX, localY, event) => {
-      event?.stopPropagation?.();
-      this.activateOverlayAction(panel);
+      if (this.isPointInsideOverlayAction(action, this.getOverlayPointerGamePosition(pointer))) {
+        event?.stopPropagation?.();
+        this.activateOverlayAction(panel);
+      }
     });
+  }
+
+  getOverlayPointerGamePosition(pointer) {
+    const sourceEvent = pointer?.event;
+    const canvas = this.game?.canvas;
+    if (sourceEvent && canvas?.getBoundingClientRect) {
+      const bounds = canvas.getBoundingClientRect();
+      if (bounds.width > 0 && bounds.height > 0) {
+        return {
+          x: ((sourceEvent.clientX - bounds.left) / bounds.width) * GAME_WIDTH,
+          y: ((sourceEvent.clientY - bounds.top) / bounds.height) * GAME_HEIGHT
+        };
+      }
+    }
+
+    return {
+      x: pointer?.x ?? 0,
+      y: pointer?.y ?? 0
+    };
+  }
+
+  getOverlayActionBounds(action) {
+    const panel = action?.panel;
+    if (!panel) {
+      return null;
+    }
+
+    let width = panel.displayWidth ?? panel.width ?? 0;
+    let height = panel.displayHeight ?? panel.height ?? 0;
+    let left = panel.x - width * (panel.originX ?? 0.5);
+    let top = panel.y - height * (panel.originY ?? 0.5);
+    let parent = panel.parentContainer;
+
+    while (parent && parent !== this.uiContainer) {
+      const scaleX = parent.scaleX ?? 1;
+      const scaleY = parent.scaleY ?? 1;
+      left = parent.x + left * scaleX;
+      top = parent.y + top * scaleY;
+      width *= scaleX;
+      height *= scaleY;
+      parent = parent.parentContainer;
+    }
+
+    const padding = Math.max(0, Number(action.hitPadding) || 0);
+    return {
+      left: left - padding,
+      top: top - padding,
+      right: left + width + padding,
+      bottom: top + height + padding
+    };
+  }
+
+  isPointInsideOverlayAction(action, point) {
+    const bounds = this.getOverlayActionBounds(action);
+    if (!bounds) {
+      return false;
+    }
+
+    return point.x >= bounds.left &&
+      point.x <= bounds.right &&
+      point.y >= bounds.top &&
+      point.y <= bounds.bottom;
   }
 
   createOverlayText(x, y, text, options = {}) {
@@ -4883,7 +4948,7 @@ class SurvivalScene extends Phaser.Scene {
         } else {
           this.purchaseCd(cd.id);
         }
-      });
+      }, true, 4);
     }
 
     const fallbackLockedKey = CD_CATALOG[0]?.lockedJacketTextureKey;
@@ -4959,7 +5024,7 @@ class SurvivalScene extends Phaser.Scene {
     });
     this.addOverlayAction(panel, () => {
       this.purchasePermanentUpgrade(definition.id);
-    });
+    }, true, 8);
 
     this.createOverlayText(x + 18, y + 14, definition.title, {
       fontSize: "20px",
@@ -5005,7 +5070,7 @@ class SurvivalScene extends Phaser.Scene {
     panel.on("pointerout", () => {
       panel.setFillStyle(fill, 0.96);
     });
-    this.addOverlayAction(panel, onSelect);
+    this.addOverlayAction(panel, onSelect, true, 18);
 
     this.createOverlayText(centerX, centerY - 14, title, {
       fontSize: "24px",
@@ -13017,9 +13082,9 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
+    const point = this.getOverlayPointerGamePosition(pointer);
     for (const action of this.overlayActions) {
-      const bounds = action.panel.getBounds();
-      if (Phaser.Geom.Rectangle.Contains(bounds, pointer.x, pointer.y)) {
+      if (this.isPointInsideOverlayAction(action, point)) {
         this.activateOverlayAction(action.panel);
         break;
       }
