@@ -14,6 +14,7 @@ const DEFAULT_SKILL_ID = "basicSkill";
 const SKILL_DEFINITIONS = window.skillDefinitions || {};
 const STAGE_DEFINITIONS = window.stageDefinitions || {};
 const ACTIVE_STAGE_ID = "shibuyaStage1";
+const DEBUG_STAGE_ID = null;
 const STARTING_UPGRADE_CHOICES = 3;
 const DASH_SPEED_MULTIPLIER = 1.68;
 const DASH_STAMINA_DRAIN_PER_SECOND = 38;
@@ -193,6 +194,12 @@ const STAGE_DEBUG_OPTIONS = {
   enabled: false,
   showObstacleHitboxes: true,
   showObstacleLabels: true,
+  showMapBounds: true,
+  showPlayBounds: true,
+  showCollisionZones: true,
+  showPlayerStart: true,
+  showSpawnAreas: true,
+  showSpawnSamplePoints: true,
   showCounts: true,
   layerVisibility: {
     backdrop: true,
@@ -205,6 +212,7 @@ const STAGE_DEBUG_OPTIONS = {
     obstacles: true
   }
 };
+const STAGE_COLLISION_EDITOR_STORAGE_PREFIX = "collisionEditor:";
 const HUD_STYLE = {
   panelFill: 0x06090b,
   panelAlpha: 0.72,
@@ -218,6 +226,102 @@ const HUD_STYLE = {
   xp: 0x45a9ff,
   slotFill: 0x0b1013,
   slotStroke: 0xb8c4c8
+};
+const LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS = 160;
+const LEVEL_UP_SKILL_UI_META = {
+  basicSkill: {
+    displayName: "Orbit Core",
+    description: "周回球で近くの敵を攻撃する",
+    themeColor: 0x8defff,
+    glowColor: 0xbef8ff,
+    accentColor: "#8defff",
+    iconTone: "ORBIT"
+  },
+  tornadoSkill: {
+    displayName: "Tornado",
+    description: "画面内の敵を追尾する竜巻を発生させる",
+    themeColor: 0x68ffc7,
+    glowColor: 0xb7ffe8,
+    accentColor: "#75ffcf",
+    iconTone: "WIND"
+  },
+  rabbitThunderSkill: {
+    displayName: "Rabbit Thunder",
+    description: "一方向へ突進する雷撃を放つ",
+    themeColor: 0xffd76b,
+    glowColor: 0xd4a8ff,
+    accentColor: "#ffd76b",
+    iconTone: "DASH"
+  }
+};
+const LEVEL_UP_PASSIVE_UI_META = {
+  overchargeBolt: {
+    displayName: "Overcharge Bolt",
+    description: "雷撃ダメージ +1",
+    chipLabel: "雷撃 +1",
+    themeColor: 0xffd86b,
+    accentColor: "#ffd86b",
+    iconTone: "DMG"
+  },
+  rapidSigil: {
+    displayName: "Rapid Sigil",
+    description: "放電間隔短縮",
+    chipLabel: "間隔短縮",
+    themeColor: 0x79d8ff,
+    accentColor: "#79d8ff",
+    iconTone: "SPD"
+  },
+  swiftStep: {
+    displayName: "Swift Step",
+    description: "移動速度アップ",
+    chipLabel: "移動 +30",
+    themeColor: 0x73ffb8,
+    accentColor: "#73ffb8",
+    iconTone: "MOVE"
+  },
+  staminaCore: {
+    displayName: "Stamina Core",
+    description: "耐久力アップ",
+    chipLabel: "スタミナ +25",
+    themeColor: 0xa8c4ff,
+    accentColor: "#a8c4ff",
+    iconTone: "CORE"
+  },
+  vitalBloom: {
+    displayName: "Vital Bloom",
+    description: "回復性能アップ",
+    chipLabel: "HP +20",
+    themeColor: 0xff8fc4,
+    accentColor: "#ff8fc4",
+    iconTone: "HEAL"
+  }
+};
+const LEVEL_UP_CARD_TYPE_META = {
+  newSkill: {
+    label: "NEW SKILL",
+    color: 0x75e6ff,
+    textColor: "#dffbff"
+  },
+  skillUpgrade: {
+    label: "SKILL UPGRADE",
+    color: 0x6fcfff,
+    textColor: "#dff5ff"
+  },
+  rareUpgrade: {
+    label: "RARE UPGRADE",
+    color: 0xc596ff,
+    textColor: "#f2e6ff"
+  },
+  finalStage: {
+    label: "FINAL STAGE",
+    color: 0xffd76b,
+    textColor: "#fff3c8"
+  },
+  passiveChip: {
+    label: "PASSIVE CHIP",
+    color: 0x8eb4ff,
+    textColor: "#e6eeff"
+  }
 };
 const HUD_IMAGE_ASSETS = {
   overlayFrame: {
@@ -1378,6 +1482,10 @@ class SurvivalScene extends Phaser.Scene {
     super("survival-scene");
   }
 
+  init() {
+    this.currentStage = this.selectCurrentStageDefinition();
+  }
+
   preload() {
     this.loadImageIfNeeded("player-idle", "./画像/maincharactor/sprite_0.png");
     this.loadImageIfNeeded("player-walk-a", "./画像/maincharactor/sprite_3.png");
@@ -1550,8 +1658,100 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
+  getUrlStageParam(name) {
+    if (typeof window === "undefined" || !window.location?.search) {
+      return null;
+    }
+
+    try {
+      return new URLSearchParams(window.location.search).get(name);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  getRequestedStageId() {
+    return DEBUG_STAGE_ID || this.getUrlStageParam("stage") || this.getUrlStageParam("debugStage") || null;
+  }
+
+  isStageDebugRequested() {
+    const debugMode = String(this.getUrlStageParam("debug") || "").toLowerCase();
+    if (debugMode === "stage") {
+      return true;
+    }
+
+    const value = this.getUrlStageParam("stageDebug") || this.getUrlStageParam("debugStageOverlay");
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  isStageCollisionEditorRequested() {
+    return String(this.getUrlStageParam("debug") || "").toLowerCase() === "stage";
+  }
+
+  getStageDebugStartOverride(worldBounds) {
+    if (!this.isStageCollisionEditorRequested()) {
+      return null;
+    }
+
+    const packedValue = this.getUrlStageParam("debugStart") || this.getUrlStageParam("start");
+    const packedParts = packedValue ? String(packedValue).split(/[,:x\s]+/i).filter(Boolean) : [];
+    const rawX = packedParts.length >= 2 ? packedParts[0] : this.getUrlStageParam("startX");
+    const rawY = packedParts.length >= 2 ? packedParts[1] : this.getUrlStageParam("startY");
+    const x = Number(rawX);
+    const y = Number(rawY);
+
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      return null;
+    }
+
+    return {
+      x: Phaser.Math.Clamp(Math.round(x), worldBounds.left, worldBounds.right),
+      y: Phaser.Math.Clamp(Math.round(y), worldBounds.top, worldBounds.bottom)
+    };
+  }
+
+  getTokyoRandomStages() {
+    return Array.isArray(STAGE_DEFINITIONS.tokyoRandomStages) ? STAGE_DEFINITIONS.tokyoRandomStages : [];
+  }
+
+  findStageDefinitionById(stageId) {
+    if (!stageId) {
+      return null;
+    }
+
+    const directStage = STAGE_DEFINITIONS[stageId];
+    if (directStage && !Array.isArray(directStage)) {
+      return directStage;
+    }
+
+    return this.getTokyoRandomStages().find((stage) => stage.id === stageId) || null;
+  }
+
+  selectCurrentStageDefinition() {
+    const requestedStageId = this.getRequestedStageId();
+    if (requestedStageId) {
+      const requestedStage = this.findStageDefinitionById(requestedStageId);
+      if (requestedStage) {
+        return requestedStage;
+      }
+
+      console.warn(`Stage ${requestedStageId} was requested but was not found. Falling back to random Tokyo stage.`);
+    }
+
+    const randomStages = this.getTokyoRandomStages();
+    if (randomStages.length > 0) {
+      return Phaser.Utils.Array.GetRandom(randomStages);
+    }
+
+    return this.findStageDefinitionById(ACTIVE_STAGE_ID);
+  }
+
   getCurrentStageDefinition() {
-    return STAGE_DEFINITIONS[ACTIVE_STAGE_ID] || null;
+    if (!this.currentStage) {
+      this.currentStage = this.selectCurrentStageDefinition();
+    }
+
+    return this.currentStage || null;
   }
 
   getStagePlayBounds(stage = this.currentStage, padding = 0) {
@@ -1611,17 +1811,64 @@ class SurvivalScene extends Phaser.Scene {
     };
   }
 
+  getStageMapSize(stage = this.currentStage) {
+    return {
+      width: Math.max(1, stage?.mapWidth || WORLD_WIDTH),
+      height: Math.max(1, stage?.mapHeight || WORLD_HEIGHT)
+    };
+  }
+
+  getStageWorldBounds(stage = this.currentStage) {
+    const size = this.getStageMapSize(stage);
+    return {
+      left: 0,
+      top: 0,
+      right: size.width,
+      bottom: size.height,
+      width: size.width,
+      height: size.height,
+      centerX: size.width * 0.5,
+      centerY: size.height * 0.5
+    };
+  }
+
+  getStageBaseImageAsset(stage = this.currentStage) {
+    const baseImage = stage?.baseImage || stage?.assets?.baseImage;
+    if (!baseImage) {
+      return null;
+    }
+
+    const textureKey = baseImage.textureKey || baseImage.key;
+    const imagePath = baseImage.imagePath || baseImage.path;
+    if (!textureKey || !imagePath) {
+      return null;
+    }
+
+    return { ...baseImage, textureKey, imagePath };
+  }
+
+  isSingleImageStageRequested(stage = this.currentStage) {
+    return stage?.renderMode === "singleImage" && Boolean(this.getStageBaseImageAsset(stage));
+  }
+
+  isSingleImageStageActive(stage = this.currentStage) {
+    const baseImage = this.getStageBaseImageAsset(stage);
+    return stage?.renderMode === "singleImage" && Boolean(baseImage && this.textures.exists(baseImage.textureKey));
+  }
+
   getStageAssetEntries(stage) {
-    if (!stage?.assets) {
+    if (!stage) {
       return [];
     }
 
+    const assets = stage.assets || {};
     return [
-      ...Object.values(stage.assets.ground || {}),
-      ...Object.values(stage.assets.decals || {}),
-      ...Object.values(stage.assets.boundaries || {}),
-      ...Object.values(stage.assets.obstacleTypes || {})
-    ];
+      this.getStageBaseImageAsset(stage),
+      ...Object.values(assets.ground || {}),
+      ...Object.values(assets.decals || {}),
+      ...Object.values(assets.boundaries || {}),
+      ...Object.values(assets.obstacleTypes || {})
+    ].filter(Boolean);
   }
 
   create() {
@@ -1957,6 +2204,10 @@ class SurvivalScene extends Phaser.Scene {
     this.activeGensoKnightsBgm = null;
     this.gensoKnightsBgmTween = null;
     this.currentStage = this.getCurrentStageDefinition();
+    this.stageCollisionEditor = null;
+    this.stageCollisionZoneInstances = [];
+    this.stageCollisionEditorHudText = null;
+    this.stageCollisionEditorMessageText = null;
     this.runStats = {
       kills: 0,
       eliteKills: 0
@@ -2941,18 +3192,19 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   createWorld() {
-    this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
-    this.worldCamera = this.cameras.main;
-    this.worldCamera.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
-    this.worldCamera.setZoom(WORLD_CAMERA_ZOOM);
     this.currentStage = this.getCurrentStageDefinition();
+    const worldBounds = this.getStageWorldBounds(this.currentStage);
+    this.physics.world.setBounds(0, 0, worldBounds.width, worldBounds.height);
+    this.worldCamera = this.cameras.main;
+    this.worldCamera.setBounds(0, 0, worldBounds.width, worldBounds.height);
+    this.worldCamera.setZoom(WORLD_CAMERA_ZOOM);
     this.stageDebugEnabled = false;
     this.stageDebugOptions = { ...STAGE_DEBUG_OPTIONS, layerVisibility: { ...STAGE_DEBUG_OPTIONS.layerVisibility } };
 
     if (!this.currentStage) {
       this.worldCamera.setBackgroundColor("#040a11");
       this.add
-        .tileSprite(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, WORLD_WIDTH, WORLD_HEIGHT, "floor-grid")
+        .tileSprite(worldBounds.centerX, worldBounds.centerY, worldBounds.width, worldBounds.height, "floor-grid")
         .setDepth(0);
       return;
     }
@@ -2965,9 +3217,11 @@ class SurvivalScene extends Phaser.Scene {
         ...(this.currentStage.debug?.layerVisibility || {})
       }
     };
-    this.stageDebugEnabled = Boolean(this.stageDebugOptions.enabled);
+    this.stageDebugEnabled = this.isStageDebugRequested() || Boolean(this.stageDebugOptions.enabled);
+    this.stageCollisionEditorEnabled = this.stageDebugEnabled && this.isStageCollisionEditorRequested();
     this.worldCamera.setBackgroundColor(this.currentStage.backgroundColor || "#58625d");
     this.createStageLayers();
+    this.prepareStageCollisionEditor(this.currentStage);
     this.buildStageBackdrop(this.currentStage);
     this.buildStageGround(this.currentStage);
     this.buildStageCrosswalks(this.currentStage);
@@ -2976,6 +3230,7 @@ class SurvivalScene extends Phaser.Scene {
     this.buildStageBoundaryOcclusion(this.currentStage);
     this.buildStageBoundaries(this.currentStage);
     this.buildStagePlayBoundsCollision(this.currentStage);
+    this.buildStageDebugGuides(this.currentStage);
   }
 
   createStageLayers() {
@@ -2992,6 +3247,7 @@ class SurvivalScene extends Phaser.Scene {
     this.stageDecalInstances = [];
     this.stageObstacleInstances = [];
     this.stageBoundaryInstances = [];
+    this.stageCollisionZoneInstances = [];
 
     this.stageBackdropLayer.setVisible(this.stageDebugOptions.layerVisibility.backdrop);
     this.stageGroundLayer.setVisible(this.stageDebugOptions.layerVisibility.ground);
@@ -3005,11 +3261,35 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   buildStageBackdrop(stage) {
+    const worldBounds = this.getStageWorldBounds(stage);
+    const baseImage = this.getStageBaseImageAsset(stage);
+
+    if (this.isSingleImageStageActive(stage)) {
+      const baseMap = this.add
+        .image(0, 0, baseImage.textureKey)
+        .setOrigin(0, 0)
+        .setDisplaySize(worldBounds.width, worldBounds.height)
+        .setDepth(-6);
+      this.stageBackdropLayer.add(baseMap);
+      return;
+    }
+
+    if (this.isSingleImageStageRequested(stage)) {
+      this.stageLoadWarnings = this.stageLoadWarnings || new Set();
+      const warningId = `${stage.id || "stage"}:singleImage`;
+      if (!this.stageLoadWarnings.has(warningId)) {
+        console.warn(
+          `Stage ${stage.id || "unknown"} requested singleImage background but ${baseImage.textureKey} was not loaded. Falling back to tiled background.`
+        );
+        this.stageLoadWarnings.add(warningId);
+      }
+    }
+
     const backdrop = this.add
-      .rectangle(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, WORLD_WIDTH, WORLD_HEIGHT, 0x626c66, 1)
+      .rectangle(worldBounds.centerX, worldBounds.centerY, worldBounds.width, worldBounds.height, 0x626c66, 1)
       .setDepth(-6);
     const hazeA = this.add
-      .ellipse(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, 4200, 2800, 0xb0bcaa, 0.08)
+      .ellipse(worldBounds.centerX, worldBounds.centerY, 4200, 2800, 0xb0bcaa, 0.08)
       .setDepth(-5.8);
     const hazeB = this.add
       .ellipse(stage.worldCenter.x, stage.worldCenter.y, 2600, 1800, 0x4e5a54, 0.12)
@@ -3022,6 +3302,14 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   buildStageGround(stage) {
+    if (this.isSingleImageStageActive(stage)) {
+      return;
+    }
+
+    if (this.isSingleImageStageRequested(stage) && !stage.assets?.ground) {
+      return;
+    }
+
     if (stage.bakedGround?.textureKey && this.textures.exists(stage.bakedGround.textureKey)) {
       const baked = stage.bakedGround;
       const ground = this.add
@@ -3037,9 +3325,10 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     const tileSize = stage.tileSize || 128;
+    const worldBounds = this.getStageWorldBounds(stage);
 
-    for (let y = tileSize / 2; y <= WORLD_HEIGHT - tileSize / 2; y += tileSize) {
-      for (let x = tileSize / 2; x <= WORLD_WIDTH - tileSize / 2; x += tileSize) {
+    for (let y = tileSize / 2; y <= worldBounds.height - tileSize / 2; y += tileSize) {
+      for (let x = tileSize / 2; x <= worldBounds.width - tileSize / 2; x += tileSize) {
         const key = this.pickStageGroundTexture(stage, x, y);
         const tile = this.add
           .image(x, y, key)
@@ -3051,6 +3340,14 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   buildStageCrosswalks(stage) {
+    if (this.isSingleImageStageActive(stage)) {
+      return;
+    }
+
+    if (!stage.layout?.crosswalks?.length || !stage.assets?.ground?.crosswalk) {
+      return;
+    }
+
     if (stage.bakedGround?.includesCrosswalks) {
       return;
     }
@@ -3083,6 +3380,11 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   buildStageDecals(stage) {
+    if (this.isSingleImageStageActive(stage)) {
+      this.stageDecalInstances = [];
+      return;
+    }
+
     const placements =
       Array.isArray(stage.decalPlacements) && stage.decalPlacements.length > 0
         ? stage.decalPlacements
@@ -3112,70 +3414,82 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   buildStageObstacles(stage) {
-    stage.obstaclePlacements.forEach((placement) => {
-      const definition = stage.assets.obstacleTypes[placement.sprite];
-      if (!definition) {
+    const placements = Array.isArray(stage.obstaclePlacements) ? stage.obstaclePlacements : [];
+    const singleImageActive = this.isSingleImageStageActive(stage);
+
+    placements.forEach((placement) => {
+      if (singleImageActive && !placement.hidden) {
         return;
       }
 
-      const depthBase = definition.depth || 8.4;
-      const shadowWidth = placement.shadowWidth || definition.shadowWidth;
-      const shadowHeight = placement.shadowHeight || definition.shadowHeight;
+      const definition = placement.sprite ? stage.assets.obstacleTypes?.[placement.sprite] : null;
+      const collisionBox = this.getStageObstacleCollisionBox(placement);
+      if (!collisionBox?.width || !collisionBox?.height) {
+        return;
+      }
 
-      if (shadowWidth && shadowHeight) {
-        const shadow = this.add
-          .ellipse(
-            placement.x,
-            placement.y + (placement.shadowOffsetY ?? definition.shadowOffsetY ?? shadowHeight * 0.16),
-            shadowWidth,
-            shadowHeight,
-            0x000000,
-            0.16
-          )
-          .setDepth(depthBase - 0.25);
+      const hidden = placement.hidden || !placement.sprite || !definition;
+      const depthBase = placement.depth || definition?.depth || 8.4;
+      let sprite = null;
 
-        if (placement.rotation) {
-          shadow.setRotation(placement.rotation * 0.45);
+      if (!hidden) {
+        const shadowWidth = placement.shadowWidth || definition.shadowWidth;
+        const shadowHeight = placement.shadowHeight || definition.shadowHeight;
+
+        if (shadowWidth && shadowHeight) {
+          const shadow = this.add
+            .ellipse(
+              placement.x,
+              placement.y + (placement.shadowOffsetY ?? definition.shadowOffsetY ?? shadowHeight * 0.16),
+              shadowWidth,
+              shadowHeight,
+              0x000000,
+              0.16
+            )
+            .setDepth(depthBase - 0.25);
+
+          if (placement.rotation) {
+            shadow.setRotation(placement.rotation * 0.45);
+          }
+
+          this.stageObstacleShadowLayer.add(shadow);
         }
 
-        this.stageObstacleShadowLayer.add(shadow);
+        sprite = this.add
+          .image(placement.x, placement.y, definition.textureKey)
+          .setDepth(depthBase);
+
+        if (typeof placement.anchorX === "number" || typeof placement.anchorY === "number") {
+          sprite.setOrigin(placement.anchorX ?? 0.5, placement.anchorY ?? 0.5);
+        }
+
+        if (placement.width && placement.height) {
+          sprite.setDisplaySize(placement.width, placement.height);
+        } else {
+          sprite.setScale(placement.scale || definition.scale || 1);
+        }
+
+        if (placement.rotation) {
+          sprite.setRotation(placement.rotation);
+        }
+
+        this.stageObstacleLayer.add(sprite);
       }
 
-      const sprite = this.add
-        .image(placement.x, placement.y, definition.textureKey)
-        .setDepth(depthBase);
-
-      if (typeof placement.anchorX === "number" || typeof placement.anchorY === "number") {
-        sprite.setOrigin(placement.anchorX ?? 0.5, placement.anchorY ?? 0.5);
-      }
-
-      if (placement.width && placement.height) {
-        sprite.setDisplaySize(placement.width, placement.height);
-      } else {
-        sprite.setScale(placement.scale || definition.scale || 1);
-      }
-
-      if (placement.rotation) {
-        sprite.setRotation(placement.rotation);
-      }
-
-      this.stageObstacleLayer.add(sprite);
-
-      const collisionBox = this.getStageObstacleCollisionBox(placement);
       const hitbox = this.add
         .rectangle(
           placement.x + (collisionBox.offsetX || 0),
           placement.y + (collisionBox.offsetY || 0),
           collisionBox.width,
           collisionBox.height,
-          0xff7373,
+          hidden ? 0xffd35a : 0xff7373,
           this.stageDebugEnabled && this.stageDebugOptions.showObstacleHitboxes ? 0.14 : 0
         )
         .setDepth(depthBase + 0.2)
         .setVisible(this.stageDebugEnabled && this.stageDebugOptions.showObstacleHitboxes);
 
       if (this.stageDebugEnabled && this.stageDebugOptions.showObstacleHitboxes) {
-        hitbox.setStrokeStyle(1, 0xff7373, 0.9);
+        hitbox.setStrokeStyle(1, hidden ? 0xffd35a : 0xff7373, 0.9);
       }
 
       this.physics.add.existing(hitbox, true);
@@ -3185,7 +3499,7 @@ class SurvivalScene extends Phaser.Scene {
         ...placement,
         sprite: placement.sprite,
         collisionBox,
-        textureKey: definition.textureKey,
+        textureKey: definition?.textureKey || null,
         displayObject: sprite,
         hitbox
       };
@@ -3212,9 +3526,138 @@ class SurvivalScene extends Phaser.Scene {
 
       this.stageObstacleInstances.push(instance);
     });
+
+    this.buildStageCollisionZones(stage);
+  }
+
+  buildStageCollisionZones(stage) {
+    const zones = Array.isArray(stage.collisionZones) ? stage.collisionZones : [];
+    if (zones.length === 0) {
+      return;
+    }
+
+    zones.forEach((zone) => {
+      this.createStageCollisionZoneInstance(zone);
+    });
+  }
+
+  createStageCollisionZoneInstance(zone) {
+    const showZone = this.stageDebugEnabled && this.stageDebugOptions.showCollisionZones;
+    const hitbox = this.add
+      .rectangle(0, 0, 1, 1, 0x55baff, showZone ? 0.12 : 0)
+      .setDepth(8.93)
+      .setVisible(showZone);
+
+    this.physics.add.existing(hitbox, true);
+    this.stageObstacleBodies.add(hitbox);
+
+    const instance = {
+      id: zone.id,
+      type: "collisionZone",
+      sprite: null,
+      x: 0,
+      y: 0,
+      collisionBox: {
+        offsetX: 0,
+        offsetY: 0,
+        width: 1,
+        height: 1
+      },
+      blocksMovement: true,
+      layer: "collisionZones",
+      zone: zone.id,
+      sourceZone: zone,
+      hitbox
+    };
+
+    if (showZone && this.stageDebugOptions.showObstacleLabels) {
+      const debugLabel = this.add
+        .text(0, 0, zone.id || "collisionZone", {
+          fontFamily: "Consolas, monospace",
+          fontSize: "11px",
+          color: "#d8f0ff",
+          backgroundColor: "rgba(10, 16, 22, 0.62)",
+          padding: { x: 4, y: 2 }
+        })
+        .setOrigin(0, 0)
+        .setDepth(8.96)
+        .setVisible(showZone);
+      this.stageDebugLayer.add(debugLabel);
+      instance.debugLabel = debugLabel;
+    }
+
+    this.stageCollisionZoneInstances.push(instance);
+    this.stageObstacleInstances.push(instance);
+    this.updateStageCollisionZoneInstance(instance);
+    return instance;
+  }
+
+  updateStageCollisionZoneInstance(instance) {
+    const zone = instance?.sourceZone;
+    const hitbox = instance?.hitbox;
+    if (!zone || !hitbox?.active) {
+      return;
+    }
+
+    zone.x = Math.round(zone.x || 0);
+    zone.y = Math.round(zone.y || 0);
+    zone.width = Math.max(1, Math.round(zone.width || 1));
+    zone.height = Math.max(1, Math.round(zone.height || 1));
+
+    const width = zone.width;
+    const height = zone.height;
+    const centerX = zone.x + width * 0.5;
+    const centerY = zone.y + height * 0.5;
+    const selected = this.stageCollisionEditor?.selectedZoneId === zone.id;
+    const showZone = this.stageDebugEnabled && this.stageDebugOptions.showCollisionZones;
+    const fillColor = selected ? 0xffd35a : 0x55baff;
+    const strokeColor = selected ? 0xfff45f : 0x55baff;
+
+    hitbox
+      .setPosition(centerX, centerY)
+      .setSize(width, height)
+      .setDisplaySize(width, height)
+      .setFillStyle(fillColor, showZone ? (selected ? 0.22 : 0.12) : 0)
+      .setVisible(showZone);
+
+    if (showZone) {
+      hitbox.setStrokeStyle(selected ? 4 : 2, strokeColor, selected ? 1 : 0.88);
+    }
+
+    if (hitbox.body) {
+      hitbox.body.setSize(width, height);
+      hitbox.body.updateFromGameObject();
+    }
+
+    instance.id = zone.id;
+    instance.x = centerX;
+    instance.y = centerY;
+    instance.zone = zone.id;
+    instance.collisionBox.width = width;
+    instance.collisionBox.height = height;
+
+    if (instance.debugLabel) {
+      instance.debugLabel
+        .setText(zone.id || "collisionZone")
+        .setPosition(zone.x + 6, zone.y + 6)
+        .setColor(selected ? "#fff7b0" : "#d8f0ff")
+        .setDepth(selected ? 8.99 : 8.96)
+        .setVisible(showZone && this.stageDebugOptions.showObstacleLabels);
+    }
+  }
+
+  updateStageCollisionZoneVisuals() {
+    (this.stageCollisionZoneInstances || []).forEach((instance) => {
+      this.updateStageCollisionZoneInstance(instance);
+    });
   }
 
   buildStageBoundaries(stage) {
+    if (this.isSingleImageStageActive(stage)) {
+      this.stageBoundaryInstances = [];
+      return;
+    }
+
     const placements = stage.boundaryPlacements || [];
     this.stageBoundaryInstances = [];
 
@@ -3248,18 +3691,23 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   buildStageBoundaryOcclusion(stage) {
+    if (this.isSingleImageStageActive(stage)) {
+      return;
+    }
+
     const bounds = this.getStagePlayBounds(stage);
     if (!bounds || !this.stageBoundaryOcclusionLayer) {
       return;
     }
 
+    const worldBounds = this.getStageWorldBounds(stage);
     const color = 0x04080b;
     const alpha = 0.86;
     const zones = [
-      { x: WORLD_WIDTH / 2, y: bounds.top * 0.5, width: WORLD_WIDTH, height: bounds.top },
-      { x: WORLD_WIDTH / 2, y: bounds.bottom + (WORLD_HEIGHT - bounds.bottom) * 0.5, width: WORLD_WIDTH, height: WORLD_HEIGHT - bounds.bottom },
+      { x: worldBounds.centerX, y: bounds.top * 0.5, width: worldBounds.width, height: bounds.top },
+      { x: worldBounds.centerX, y: bounds.bottom + (worldBounds.height - bounds.bottom) * 0.5, width: worldBounds.width, height: worldBounds.height - bounds.bottom },
       { x: bounds.left * 0.5, y: bounds.centerY, width: bounds.left, height: bounds.height },
-      { x: bounds.right + (WORLD_WIDTH - bounds.right) * 0.5, y: bounds.centerY, width: WORLD_WIDTH - bounds.right, height: bounds.height }
+      { x: bounds.right + (worldBounds.width - bounds.right) * 0.5, y: bounds.centerY, width: worldBounds.width - bounds.right, height: bounds.height }
     ];
 
     zones.forEach((zone) => {
@@ -3337,6 +3785,476 @@ class SurvivalScene extends Phaser.Scene {
         hitbox: debugWall
       });
     });
+  }
+
+  buildStageDebugGuides(stage) {
+    if (!this.stageDebugEnabled || !this.stageDebugLayer) {
+      return;
+    }
+
+    const graphics = this.add.graphics().setDepth(8.97);
+    const worldBounds = this.getStageWorldBounds(stage);
+    const playBounds = stage.playBounds || stage.layout?.playBounds;
+
+    if (this.stageDebugOptions.showMapBounds) {
+      graphics.lineStyle(3, 0x7be0ff, 0.85);
+      graphics.strokeRect(0, 0, worldBounds.width, worldBounds.height);
+    }
+
+    if (this.stageDebugOptions.showPlayBounds && playBounds) {
+      graphics.lineStyle(2, 0xf5ea75, 0.9);
+      graphics.strokeRect(playBounds.x, playBounds.y, playBounds.width, playBounds.height);
+    }
+
+    if (this.stageDebugOptions.showSpawnAreas) {
+      graphics.fillStyle(0x7bff9a, 0.08);
+      graphics.lineStyle(1, 0x7bff9a, 0.74);
+      (stage.enemySpawnAreas || []).forEach((area) => {
+        graphics.fillRect(area.x, area.y, area.width, area.height);
+        graphics.strokeRect(area.x, area.y, area.width, area.height);
+      });
+
+      if (this.stageDebugOptions.showSpawnSamplePoints) {
+        (stage.enemySpawnAreas || []).forEach((area) => {
+          const samples = [
+            { x: area.x + area.width * 0.5, y: area.y + area.height * 0.5 },
+            { x: area.x + area.width * 0.25, y: area.y + area.height * 0.25 },
+            { x: area.x + area.width * 0.75, y: area.y + area.height * 0.25 },
+            { x: area.x + area.width * 0.25, y: area.y + area.height * 0.75 },
+            { x: area.x + area.width * 0.75, y: area.y + area.height * 0.75 }
+          ];
+
+          samples.forEach((point) => {
+            const blocked = this.isPointNearStageObstacle(stage, point.x, point.y, this.getEnemySpawnObstaclePadding());
+            graphics.fillStyle(blocked ? 0xff5f73 : 0xa8ffb8, blocked ? 0.7 : 0.78);
+            graphics.fillCircle(point.x, point.y, blocked ? 5 : 4);
+          });
+        });
+      }
+    }
+
+    if (this.stageDebugOptions.showPlayerStart && stage.playerStart) {
+      graphics.fillStyle(0xffffff, 0.95);
+      graphics.fillCircle(stage.playerStart.x, stage.playerStart.y, 7);
+      graphics.lineStyle(2, 0xffffff, 0.95);
+      graphics.lineBetween(stage.playerStart.x - 18, stage.playerStart.y, stage.playerStart.x + 18, stage.playerStart.y);
+      graphics.lineBetween(stage.playerStart.x, stage.playerStart.y - 18, stage.playerStart.x, stage.playerStart.y + 18);
+    }
+
+    this.stageDebugLayer.add(graphics);
+  }
+
+  prepareStageCollisionEditor(stage) {
+    if (!this.stageCollisionEditorEnabled || !stage) {
+      this.stageCollisionEditor = null;
+      return;
+    }
+
+    const originalZones = this.cloneCollisionZones(stage.collisionZones);
+    this.stageCollisionEditor = {
+      active: true,
+      selectedZoneId: null,
+      selectedIndex: -1,
+      originalZones,
+      message: "N:add  Del:delete  C:copy  S:save  L:load  R:reset",
+      messageUntil: 0,
+      mouseWorld: { x: stage.playerStart?.x || 0, y: stage.playerStart?.y || 0 },
+      nextTemporaryIndex: this.getNextTemporaryZoneIndex(stage.collisionZones)
+    };
+  }
+
+  isStageCollisionEditorActive() {
+    return Boolean(this.stageCollisionEditor?.active);
+  }
+
+  cloneCollisionZones(zones) {
+    return (Array.isArray(zones) ? zones : []).map((zone) => ({
+      id: String(zone.id || "collision_zone"),
+      x: Math.round(zone.x || 0),
+      y: Math.round(zone.y || 0),
+      width: Math.max(1, Math.round(zone.width || 1)),
+      height: Math.max(1, Math.round(zone.height || 1))
+    }));
+  }
+
+  getNextTemporaryZoneIndex(zones) {
+    let nextIndex = 1;
+    (Array.isArray(zones) ? zones : []).forEach((zone) => {
+      const match = String(zone.id || "").match(/^temporary_zone_(\d+)$/);
+      if (match) {
+        nextIndex = Math.max(nextIndex, Number(match[1]) + 1);
+      }
+    });
+    return nextIndex;
+  }
+
+  getStageCollisionEditorStorageKey() {
+    return `${STAGE_COLLISION_EDITOR_STORAGE_PREFIX}${this.currentStage?.id || "unknown"}`;
+  }
+
+  setupStageCollisionEditorInput() {
+    this.input.off("pointerdown", this.handleStageCollisionEditorPointerDown, this);
+    this.input.off("pointermove", this.handleStageCollisionEditorPointerMove, this);
+    this.input.keyboard.off("keydown", this.handleStageCollisionEditorKeyDown, this);
+
+    if (!this.isStageCollisionEditorActive()) {
+      return;
+    }
+
+    this.input.on("pointerdown", this.handleStageCollisionEditorPointerDown, this);
+    this.input.on("pointermove", this.handleStageCollisionEditorPointerMove, this);
+    this.input.keyboard.on("keydown", this.handleStageCollisionEditorKeyDown, this);
+  }
+
+  getPointerWorldPosition(pointer = this.input?.activePointer) {
+    if (!pointer || !this.worldCamera) {
+      return { x: 0, y: 0 };
+    }
+
+    const worldPoint = this.worldCamera.getWorldPoint(pointer.x, pointer.y);
+    return {
+      x: Math.round(worldPoint.x),
+      y: Math.round(worldPoint.y)
+    };
+  }
+
+  updateStageCollisionEditorMouse(pointer = this.input?.activePointer) {
+    if (!this.isStageCollisionEditorActive()) {
+      return;
+    }
+
+    this.stageCollisionEditor.mouseWorld = this.getPointerWorldPosition(pointer);
+  }
+
+  handleStageCollisionEditorPointerMove(pointer) {
+    this.updateStageCollisionEditorMouse(pointer);
+  }
+
+  handleStageCollisionEditorPointerDown(pointer) {
+    if (!this.isStageCollisionEditorActive() || this.shopActive || this.levelUpActive) {
+      return;
+    }
+
+    const worldPoint = this.getPointerWorldPosition(pointer);
+    this.stageCollisionEditor.mouseWorld = worldPoint;
+    const zoneIndex = this.findCollisionZoneIndexAt(worldPoint.x, worldPoint.y);
+    this.selectStageCollisionZone(zoneIndex);
+  }
+
+  findCollisionZoneIndexAt(x, y) {
+    const zones = Array.isArray(this.currentStage?.collisionZones) ? this.currentStage.collisionZones : [];
+    for (let index = zones.length - 1; index >= 0; index -= 1) {
+      const zone = zones[index];
+      if (
+        x >= zone.x &&
+        x <= zone.x + zone.width &&
+        y >= zone.y &&
+        y <= zone.y + zone.height
+      ) {
+        return index;
+      }
+    }
+
+    return -1;
+  }
+
+  selectStageCollisionZone(index) {
+    if (!this.isStageCollisionEditorActive()) {
+      return;
+    }
+
+    const zones = this.currentStage?.collisionZones || [];
+    const zone = index >= 0 ? zones[index] : null;
+    this.stageCollisionEditor.selectedIndex = zone ? index : -1;
+    this.stageCollisionEditor.selectedZoneId = zone?.id || null;
+    this.setStageCollisionEditorMessage(zone ? `selected ${zone.id}` : "selection cleared", 1400);
+    this.updateStageCollisionZoneVisuals();
+  }
+
+  getSelectedStageCollisionZone() {
+    if (!this.isStageCollisionEditorActive()) {
+      return null;
+    }
+
+    const zones = this.currentStage?.collisionZones || [];
+    const selectedIndex = this.stageCollisionEditor.selectedIndex;
+    if (zones[selectedIndex]?.id === this.stageCollisionEditor.selectedZoneId) {
+      return zones[selectedIndex];
+    }
+
+    const fallbackIndex = zones.findIndex((zone) => zone.id === this.stageCollisionEditor.selectedZoneId);
+    this.stageCollisionEditor.selectedIndex = fallbackIndex;
+    return fallbackIndex >= 0 ? zones[fallbackIndex] : null;
+  }
+
+  handleStageCollisionEditorKeyDown(event) {
+    if (!this.isStageCollisionEditorActive() || this.rankingNameEntryActive) {
+      return;
+    }
+
+    const key = event.key;
+    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(key)) {
+      if (this.adjustSelectedCollisionZoneWithKey(event)) {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+      }
+      return;
+    }
+
+    const normalizedKey = String(key || "").toLowerCase();
+    if (normalizedKey === "n") {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      this.addTemporaryCollisionZoneAtMouse();
+    } else if (key === "Delete" || key === "Backspace") {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      this.deleteSelectedCollisionZone();
+    } else if (normalizedKey === "c") {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      this.copyStageCollisionZonesToConsole();
+    } else if (normalizedKey === "s") {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      this.saveStageCollisionZonesToLocalStorage();
+    } else if (normalizedKey === "l") {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      this.loadStageCollisionZonesFromLocalStorage();
+    } else if (normalizedKey === "r") {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      this.resetStageCollisionZonesToDefinitions();
+    } else if (key === "Escape") {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      this.selectStageCollisionZone(-1);
+    }
+  }
+
+  adjustSelectedCollisionZoneWithKey(event) {
+    const zone = this.getSelectedStageCollisionZone();
+    if (!zone) {
+      return false;
+    }
+
+    const step = event.shiftKey ? 1 : 10;
+    const resizing = event.ctrlKey || event.altKey || event.metaKey;
+    if (resizing) {
+      if (event.key === "ArrowLeft") {
+        zone.width = Math.max(1, zone.width - step);
+      } else if (event.key === "ArrowRight") {
+        zone.width += step;
+      } else if (event.key === "ArrowUp") {
+        zone.height = Math.max(1, zone.height - step);
+      } else if (event.key === "ArrowDown") {
+        zone.height += step;
+      }
+    } else if (event.key === "ArrowLeft") {
+      zone.x -= step;
+    } else if (event.key === "ArrowRight") {
+      zone.x += step;
+    } else if (event.key === "ArrowUp") {
+      zone.y -= step;
+    } else if (event.key === "ArrowDown") {
+      zone.y += step;
+    }
+
+    this.clampCollisionZoneToMap(zone);
+    this.updateStageCollisionZoneVisuals();
+    this.setStageCollisionEditorMessage(`${zone.id} ${zone.x},${zone.y},${zone.width},${zone.height}`, 900);
+    return true;
+  }
+
+  clampCollisionZoneToMap(zone) {
+    const worldBounds = this.getStageWorldBounds(this.currentStage);
+    zone.width = Math.max(1, Math.round(zone.width || 1));
+    zone.height = Math.max(1, Math.round(zone.height || 1));
+    zone.x = Phaser.Math.Clamp(Math.round(zone.x || 0), 0, Math.max(0, worldBounds.width - zone.width));
+    zone.y = Phaser.Math.Clamp(Math.round(zone.y || 0), 0, Math.max(0, worldBounds.height - zone.height));
+  }
+
+  addTemporaryCollisionZoneAtMouse() {
+    if (!this.isStageCollisionEditorActive() || !this.currentStage) {
+      return;
+    }
+
+    const editor = this.stageCollisionEditor;
+    const point = editor.mouseWorld || this.getPointerWorldPosition();
+    const id = `temporary_zone_${String(editor.nextTemporaryIndex).padStart(3, "0")}`;
+    editor.nextTemporaryIndex += 1;
+
+    const zone = {
+      id,
+      x: Math.round(point.x - 150),
+      y: Math.round(point.y - 150),
+      width: 300,
+      height: 300
+    };
+    this.clampCollisionZoneToMap(zone);
+    this.currentStage.collisionZones.push(zone);
+    this.createStageCollisionZoneInstance(zone);
+    this.selectStageCollisionZone(this.currentStage.collisionZones.length - 1);
+    this.setStageCollisionEditorMessage(`added ${id}`, 1600);
+  }
+
+  deleteSelectedCollisionZone() {
+    const zone = this.getSelectedStageCollisionZone();
+    if (!zone) {
+      this.setStageCollisionEditorMessage("no collisionZone selected", 1400);
+      return;
+    }
+
+    const zones = this.currentStage?.collisionZones || [];
+    const index = zones.findIndex((candidate) => candidate.id === zone.id);
+    if (index < 0) {
+      return;
+    }
+
+    const [removedZone] = zones.splice(index, 1);
+    const instanceIndex = this.stageCollisionZoneInstances.findIndex((instance) => instance.sourceZone === removedZone);
+    if (instanceIndex >= 0) {
+      this.destroyStageCollisionZoneInstance(this.stageCollisionZoneInstances[instanceIndex]);
+      this.stageCollisionZoneInstances.splice(instanceIndex, 1);
+    }
+
+    this.stageObstacleInstances = (this.stageObstacleInstances || []).filter((instance) => instance.sourceZone !== removedZone);
+    this.selectStageCollisionZone(-1);
+    this.setStageCollisionEditorMessage(`deleted ${removedZone.id}`, 1600);
+  }
+
+  destroyStageCollisionZoneInstance(instance) {
+    if (!instance) {
+      return;
+    }
+
+    if (instance.hitbox) {
+      this.stageObstacleBodies?.remove(instance.hitbox, false, false);
+      instance.hitbox.destroy();
+    }
+
+    instance.debugLabel?.destroy();
+  }
+
+  replaceStageCollisionZones(zones, message) {
+    if (!this.isStageCollisionEditorActive() || !this.currentStage) {
+      return;
+    }
+
+    (this.stageCollisionZoneInstances || []).forEach((instance) => this.destroyStageCollisionZoneInstance(instance));
+    this.stageObstacleInstances = (this.stageObstacleInstances || []).filter((instance) => instance.type !== "collisionZone");
+    this.stageCollisionZoneInstances = [];
+    this.currentStage.collisionZones = this.cloneCollisionZones(zones);
+    this.currentStage.collisionZones.forEach((zone) => this.createStageCollisionZoneInstance(zone));
+    this.stageCollisionEditor.nextTemporaryIndex = this.getNextTemporaryZoneIndex(this.currentStage.collisionZones);
+    this.selectStageCollisionZone(-1);
+    this.setStageCollisionEditorMessage(message, 1800);
+  }
+
+  formatCollisionZonesForStageDefinition() {
+    const zones = this.cloneCollisionZones(this.currentStage?.collisionZones);
+    const lines = zones.map((zone) => {
+      const id = zone.id.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+      return `      { id: "${id}", x: ${zone.x}, y: ${zone.y}, width: ${zone.width}, height: ${zone.height} }`;
+    });
+
+    return `    collisionZones: [\n${lines.join(",\n")}\n    ]`;
+  }
+
+  copyStageCollisionZonesToConsole() {
+    const text = `// ${this.currentStage?.id || "stage"}\n${this.formatCollisionZonesForStageDefinition()}`;
+    console.log(text);
+
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(() => this.setStageCollisionEditorMessage("collisionZones copied to clipboard + console", 1800))
+        .catch(() => this.setStageCollisionEditorMessage("collisionZones logged to console", 1800));
+    } else {
+      this.setStageCollisionEditorMessage("collisionZones logged to console", 1800);
+    }
+  }
+
+  saveStageCollisionZonesToLocalStorage() {
+    try {
+      localStorage.setItem(this.getStageCollisionEditorStorageKey(), JSON.stringify(this.cloneCollisionZones(this.currentStage?.collisionZones)));
+      this.setStageCollisionEditorMessage("saved to localStorage", 1600);
+    } catch (error) {
+      console.warn("Failed to save collision editor data.", error);
+      this.setStageCollisionEditorMessage("localStorage save failed", 1800);
+    }
+  }
+
+  loadStageCollisionZonesFromLocalStorage() {
+    try {
+      const rawValue = localStorage.getItem(this.getStageCollisionEditorStorageKey());
+      if (!rawValue) {
+        this.setStageCollisionEditorMessage("no localStorage data for this stage", 1800);
+        return;
+      }
+
+      const zones = JSON.parse(rawValue);
+      this.replaceStageCollisionZones(zones, "loaded from localStorage");
+    } catch (error) {
+      console.warn("Failed to load collision editor data.", error);
+      this.setStageCollisionEditorMessage("localStorage load failed", 1800);
+    }
+  }
+
+  resetStageCollisionZonesToDefinitions() {
+    if (!this.isStageCollisionEditorActive()) {
+      return;
+    }
+
+    this.replaceStageCollisionZones(this.stageCollisionEditor.originalZones, "reset to stageDefinitions data");
+  }
+
+  setStageCollisionEditorMessage(message, durationMs = 1600) {
+    if (!this.isStageCollisionEditorActive()) {
+      return;
+    }
+
+    this.stageCollisionEditor.message = message;
+    this.stageCollisionEditor.messageUntil = this.time.now + durationMs;
+  }
+
+  isStageCollisionEditorAdjustingSelection() {
+    return this.isStageCollisionEditorActive() && Boolean(this.getSelectedStageCollisionZone());
+  }
+
+  updateStageCollisionEditorHud() {
+    if (!this.isStageCollisionEditorActive() || !this.stageCollisionEditorHudText) {
+      return;
+    }
+
+    this.updateStageCollisionEditorMouse();
+    const mouse = this.stageCollisionEditor.mouseWorld || { x: 0, y: 0 };
+    const player = this.playerHitbox
+      ? { x: Math.round(this.playerHitbox.x), y: Math.round(this.playerHitbox.y) }
+      : { x: 0, y: 0 };
+    const zone = this.getSelectedStageCollisionZone();
+    const zoneLabel = zone
+      ? `${zone.id}\n  x:${zone.x} y:${zone.y} w:${zone.width} h:${zone.height}`
+      : "none";
+    const storageKey = this.getStageCollisionEditorStorageKey();
+
+    this.stageCollisionEditorHudText.setText(
+      `STAGE COLLISION EDITOR\n` +
+      `stage: ${this.currentStage?.id || "none"}\n` +
+      `mouse: ${mouse.x}, ${mouse.y}\n` +
+      `player: ${player.x}, ${player.y}\n` +
+      `selected: ${zoneLabel}\n` +
+      `storage: ${storageKey}\n` +
+      `move: Arrows / Shift=1px\n` +
+      `resize: Ctrl|Alt + Arrows`
+    );
+
+    if (this.stageCollisionEditorMessageText) {
+      const activeMessage = this.time.now <= (this.stageCollisionEditor.messageUntil || 0)
+        ? this.stageCollisionEditor.message
+        : "N add / Delete remove / C copy / S save / L load / R reset / Esc clear";
+      this.stageCollisionEditorMessageText.setText(activeMessage);
+    }
   }
 
   buildLegacyStageDecalPlacements(stage) {
@@ -3547,16 +4465,81 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
-  isPointNearStageObstacle(stage, x, y, padding = 0) {
-    return stage.obstaclePlacements.some((placement) => {
-      const box = this.getStageObstacleCollisionBox(placement);
-      const left = placement.x + (box.offsetX || 0) - box.width * 0.5 - padding;
-      const right = placement.x + (box.offsetX || 0) + box.width * 0.5 + padding;
-      const top = placement.y + (box.offsetY || 0) - box.height * 0.5 - padding;
-      const bottom = placement.y + (box.offsetY || 0) + box.height * 0.5 + padding;
+  getStageCollisionBoxes(stage) {
+    if (!stage) {
+      return [];
+    }
 
-      return x >= left && x <= right && y >= top && y <= bottom;
+    const boxes = [];
+    const singleImageActive = this.isSingleImageStageActive(stage);
+    const placements = Array.isArray(stage.obstaclePlacements) ? stage.obstaclePlacements : [];
+    placements.forEach((placement) => {
+      if (singleImageActive && !placement.hidden) {
+        return;
+      }
+
+      const box = this.getStageObstacleCollisionBox(placement);
+      if (!box?.width || !box?.height) {
+        return;
+      }
+
+      boxes.push({
+        left: placement.x + (box.offsetX || 0) - box.width * 0.5,
+        right: placement.x + (box.offsetX || 0) + box.width * 0.5,
+        top: placement.y + (box.offsetY || 0) - box.height * 0.5,
+        bottom: placement.y + (box.offsetY || 0) + box.height * 0.5
+      });
     });
+
+    (stage.collisionZones || []).forEach((zone) => {
+      boxes.push({
+        left: zone.x,
+        right: zone.x + zone.width,
+        top: zone.y,
+        bottom: zone.y + zone.height
+      });
+    });
+
+    return boxes;
+  }
+
+  isPointNearStageObstacle(stage, x, y, padding = 0) {
+    return this.getStageCollisionBoxes(stage).some((box) => {
+      return x >= box.left - padding && x <= box.right + padding && y >= box.top - padding && y <= box.bottom + padding;
+    });
+  }
+
+  getSafeDropPoint(x, y, padding = 24) {
+    const worldBounds = this.getStageWorldBounds(this.currentStage);
+    const bounds = this.getStageMovementBounds(this.currentStage, padding) || {
+      left: padding,
+      top: padding,
+      right: worldBounds.right - padding,
+      bottom: worldBounds.bottom - padding
+    };
+    const clampPoint = (pointX, pointY) => this.clampPointToBounds(pointX, pointY, bounds);
+    const isClear = (point) => !this.currentStage || !this.isPointNearStageObstacle(this.currentStage, point.x, point.y, padding);
+    const origin = clampPoint(x, y);
+
+    if (isClear(origin)) {
+      return origin;
+    }
+
+    const searchRadii = [36, 64, 96, 132, 176, 232, 304];
+    for (const radius of searchRadii) {
+      const steps = Math.max(8, Math.ceil(radius / 16));
+      const angleOffset = Phaser.Math.FloatBetween(0, Math.PI * 2);
+
+      for (let step = 0; step < steps; step += 1) {
+        const angle = angleOffset + (Math.PI * 2 * step) / steps;
+        const point = clampPoint(x + Math.cos(angle) * radius, y + Math.sin(angle) * radius);
+        if (isClear(point)) {
+          return point;
+        }
+      }
+    }
+
+    return origin;
   }
 
   getStageNoise(x, y, offset = 0) {
@@ -3583,8 +4566,10 @@ class SurvivalScene extends Phaser.Scene {
 
   createPlayer() {
     const playBounds = this.getStagePlayBounds(this.currentStage);
-    const startX = playBounds?.centerX || WORLD_WIDTH / 2;
-    const startY = playBounds?.centerY || WORLD_HEIGHT / 2;
+    const worldBounds = this.getStageWorldBounds(this.currentStage);
+    const debugStart = this.getStageDebugStartOverride(worldBounds);
+    const startX = debugStart?.x ?? this.currentStage?.playerStart?.x ?? playBounds?.centerX ?? worldBounds.centerX;
+    const startY = debugStart?.y ?? this.currentStage?.playerStart?.y ?? playBounds?.centerY ?? worldBounds.centerY;
 
     this.playerHitbox = this.add.circle(startX, startY, PLAYER_HITBOX_RADIUS, 0xffffff, 0);
     this.physics.add.existing(this.playerHitbox);
@@ -3953,6 +4938,7 @@ class SurvivalScene extends Phaser.Scene {
     });
     this.input.keyboard.off("keydown", this.handleRankingNameKeyDown, this);
     this.input.keyboard.on("keydown", this.handleRankingNameKeyDown, this);
+    this.setupStageCollisionEditorInput();
   }
 
   handleRankingNameKeyDown(event) {
@@ -4134,11 +5120,16 @@ class SurvivalScene extends Phaser.Scene {
     });
 
     this.createHudPanel(12, this.hudUsesFrameAsset ? 466 : GAME_HEIGHT - 178, 252, this.hudUsesFrameAsset ? 242 : 166);
-    this.hudAreaText = this.createHudText(this.hudUsesFrameAsset ? 36 : 28, this.hudUsesFrameAsset ? 482 : GAME_HEIGHT - 164, "AREA: SHIBUYA SCRAMBLE", {
+    this.hudAreaText = this.createHudText(
+      this.hudUsesFrameAsset ? 36 : 28,
+      this.hudUsesFrameAsset ? 482 : GAME_HEIGHT - 164,
+      `AREA: ${this.currentStage?.areaLabel || this.currentStage?.name || "Unknown Area"}`,
+      {
       fontSize: "14px",
       color: HUD_STYLE.warn,
       fontStyle: "bold"
-    });
+      }
+    );
     this.minimapConfig = {
       x: this.hudUsesFrameAsset ? 30 : 30,
       y: this.hudUsesFrameAsset ? 512 : GAME_HEIGHT - 136,
@@ -4200,6 +5191,34 @@ class SurvivalScene extends Phaser.Scene {
           })
           .setScrollFactor(0)
           .setDepth(203)
+      );
+    }
+
+    if (this.isStageCollisionEditorActive()) {
+      this.stageCollisionEditorHudText = this.registerUiObject(
+        this.add
+          .text(GAME_WIDTH - 436, 176, "", {
+            fontFamily: "Consolas, monospace",
+            fontSize: "12px",
+            color: "#e8fbff",
+            backgroundColor: "rgba(2, 8, 14, 0.78)",
+            padding: { x: 8, y: 7 },
+            lineSpacing: 3
+          })
+          .setScrollFactor(0)
+          .setDepth(704)
+      );
+      this.stageCollisionEditorMessageText = this.registerUiObject(
+        this.add
+          .text(GAME_WIDTH - 436, 342, "", {
+            fontFamily: "Consolas, monospace",
+            fontSize: "12px",
+            color: "#fff3a6",
+            backgroundColor: "rgba(2, 8, 14, 0.78)",
+            padding: { x: 8, y: 5 }
+          })
+          .setScrollFactor(0)
+          .setDepth(704)
       );
     }
   }
@@ -4595,13 +5614,14 @@ class SurvivalScene extends Phaser.Scene {
 
     this.nextMinimapRefreshAt = this.time.now + 160;
     const { x, y, width, height } = this.minimapConfig;
+    const worldBounds = this.getStageWorldBounds(this.currentStage);
     const mapBounds = this.getStagePlayBounds(this.currentStage) || {
       left: 0,
       top: 0,
-      width: WORLD_WIDTH,
-      height: WORLD_HEIGHT,
-      centerX: WORLD_WIDTH / 2,
-      centerY: WORLD_HEIGHT / 2
+      width: worldBounds.width,
+      height: worldBounds.height,
+      centerX: worldBounds.centerX,
+      centerY: worldBounds.centerY
     };
     const mapX = (worldX) => x + Phaser.Math.Clamp((worldX - mapBounds.left) / mapBounds.width, 0, 1) * width;
     const mapY = (worldY) => y + Phaser.Math.Clamp((worldY - mapBounds.top) / mapBounds.height, 0, 1) * height;
@@ -4719,6 +5739,10 @@ class SurvivalScene extends Phaser.Scene {
 
     this.overlayButtons = [];
     this.overlayActions = [];
+    this.levelUpCardRecords = [];
+    this.levelUpInputEnabled = false;
+    this.levelUpSelectionLocked = false;
+    this.levelUpKeyHandler = null;
     this.input.off("pointerup", this.handleOverlayPointerUp, this);
     this.input.on("pointerup", this.handleOverlayPointerUp, this);
   }
@@ -4902,8 +5926,8 @@ class SurvivalScene extends Phaser.Scene {
       this.startGameFromShop();
     }, 0x174766, 0x236b92);
 
-    this.overlayBackdrop.setVisible(true);
-    this.overlayContainer.setVisible(true);
+    this.overlayBackdrop.setAlpha(1).setVisible(true);
+    this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
   }
 
   renderCdShopGrid(originX, originY) {
@@ -5102,7 +6126,8 @@ class SurvivalScene extends Phaser.Scene {
 
   configureCameras() {
     this.worldCamera = this.cameras.main;
-    this.worldCamera.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+    const worldBounds = this.getStageWorldBounds(this.currentStage);
+    this.worldCamera.setBounds(0, 0, worldBounds.width, worldBounds.height);
     this.worldCamera.setZoom(WORLD_CAMERA_ZOOM);
 
     if (this.uiContainer) {
@@ -5133,6 +6158,7 @@ class SurvivalScene extends Phaser.Scene {
     if (this.stageObstacleBodies) {
       this.physics.add.collider(this.playerHitbox, this.stageObstacleBodies);
       this.physics.add.collider(this.enemies, this.stageObstacleBodies);
+      this.physics.add.collider(this.enemyProjectiles, this.stageObstacleBodies, this.handleEnemyProjectileObstacleHit, null, this);
     }
   }
 
@@ -5147,7 +6173,7 @@ class SurvivalScene extends Phaser.Scene {
         Phaser.Input.Keyboard.JustDown(this.keys.restart) ||
         Phaser.Input.Keyboard.JustDown(this.keys.enter)
       )) {
-        this.scene.restart();
+        this.restartGame();
       }
       return;
     }
@@ -5236,10 +6262,11 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   updatePlayerMovement(delta) {
-    const moveX = (this.keys.left.isDown || this.keys.a.isDown ? -1 : 0) +
-      (this.keys.right.isDown || this.keys.d.isDown ? 1 : 0);
-    const moveY = (this.keys.up.isDown || this.keys.w.isDown ? -1 : 0) +
-      (this.keys.down.isDown || this.keys.s.isDown ? 1 : 0);
+    const editorUsesArrows = this.isStageCollisionEditorAdjustingSelection();
+    const moveX = ((!editorUsesArrows && this.keys.left.isDown) || this.keys.a.isDown ? -1 : 0) +
+      ((!editorUsesArrows && this.keys.right.isDown) || this.keys.d.isDown ? 1 : 0);
+    const moveY = ((!editorUsesArrows && this.keys.up.isDown) || this.keys.w.isDown ? -1 : 0) +
+      ((!editorUsesArrows && this.keys.down.isDown) || this.keys.s.isDown ? 1 : 0);
 
     const direction = new Phaser.Math.Vector2(moveX, moveY);
     const isMoving = direction.lengthSq() > 0;
@@ -6973,6 +8000,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   updateEnemyProjectiles(time) {
+    const worldBounds = this.getStageWorldBounds(this.currentStage);
     this.enemyProjectiles.children.each((projectile) => {
       if (!projectile.active) {
         return;
@@ -6984,8 +8012,8 @@ class SurvivalScene extends Phaser.Scene {
         projectile.expireAt <= time ||
         projectile.x < -32 ||
         projectile.y < -32 ||
-        projectile.x > WORLD_WIDTH + 32 ||
-        projectile.y > WORLD_HEIGHT + 32
+        projectile.x > worldBounds.width + 32 ||
+        projectile.y > worldBounds.height + 32
       ) {
         projectile.destroy();
       }
@@ -7089,6 +8117,29 @@ class SurvivalScene extends Phaser.Scene {
     return source?.enemySpawnObstaclePadding ?? ENEMY_SPAWN_OBSTACLE_PADDING;
   }
 
+  getStageEnemySpawnAreas(stage, bounds) {
+    const areas = Array.isArray(stage?.enemySpawnAreas) ? stage.enemySpawnAreas : [];
+    if (!bounds) {
+      return areas;
+    }
+
+    return areas
+      .map((area) => {
+        const left = Math.max(area.x, bounds.left);
+        const top = Math.max(area.y, bounds.top);
+        const right = Math.min(area.x + area.width, bounds.right);
+        const bottom = Math.min(area.y + area.height, bounds.bottom);
+        return {
+          ...area,
+          x: left,
+          y: top,
+          width: Math.max(0, right - left),
+          height: Math.max(0, bottom - top)
+        };
+      })
+      .filter((area) => area.width > 1 && area.height > 1);
+  }
+
   isEnemySpawnPointClear(point, bounds, obstaclePadding) {
     if (
       bounds &&
@@ -7109,13 +8160,23 @@ class SurvivalScene extends Phaser.Scene {
     const halfHeight = GAME_HEIGHT * 0.5 / this.cameras.main.zoom;
     const centerX = this.playerHitbox.x;
     const centerY = this.playerHitbox.y;
+    const worldBounds = this.getStageWorldBounds(this.currentStage);
     const spawnBounds = this.getEnemySpawnBounds(margin) || {
       left: 32,
       top: 32,
-      right: WORLD_WIDTH - 32,
-      bottom: WORLD_HEIGHT - 32
+      right: worldBounds.right - 32,
+      bottom: worldBounds.bottom - 32
     };
     const obstaclePadding = this.getEnemySpawnObstaclePadding();
+    const spawnAreas = this.getStageEnemySpawnAreas(this.currentStage, spawnBounds);
+    const isOutsideView = (point) => {
+      return (
+        point.x < centerX - halfWidth - 48 ||
+        point.x > centerX + halfWidth + 48 ||
+        point.y < centerY - halfHeight - 48 ||
+        point.y > centerY + halfHeight + 48
+      );
+    };
 
     const makeCandidate = () => {
       const edge = Phaser.Math.Between(0, 3);
@@ -7147,6 +8208,18 @@ class SurvivalScene extends Phaser.Scene {
       };
     };
 
+    const makeAreaCandidate = () => {
+      if (spawnAreas.length === 0) {
+        return null;
+      }
+
+      const area = Phaser.Utils.Array.GetRandom(spawnAreas);
+      return {
+        x: Phaser.Math.Between(Math.round(area.x), Math.round(area.x + area.width)),
+        y: Phaser.Math.Between(Math.round(area.y), Math.round(area.y + area.height))
+      };
+    };
+
     const clampSpawnPoint = (point) => {
       const clampedPoint = this.clampPointToBounds(point.x, point.y, spawnBounds);
       return {
@@ -7157,6 +8230,31 @@ class SurvivalScene extends Phaser.Scene {
 
     let fallbackPoint = null;
     let fallbackDistance = -Infinity;
+    let clearAreaFallback = null;
+
+    for (let attempt = 0; attempt < ENEMY_SPAWN_POINT_ATTEMPTS && spawnAreas.length > 0; attempt += 1) {
+      const point = clampSpawnPoint(makeAreaCandidate());
+      const distance = Phaser.Math.Distance.Between(point.x, point.y, centerX, centerY);
+
+      if (distance > fallbackDistance) {
+        fallbackPoint = point;
+        fallbackDistance = distance;
+      }
+
+      if (!this.isEnemySpawnPointClear(point, spawnBounds, obstaclePadding)) {
+        continue;
+      }
+
+      if (isOutsideView(point)) {
+        return point;
+      }
+
+      clearAreaFallback = clearAreaFallback || point;
+    }
+
+    if (clearAreaFallback) {
+      return clearAreaFallback;
+    }
 
     for (let attempt = 0; attempt < ENEMY_SPAWN_POINT_ATTEMPTS; attempt += 1) {
       const point = clampSpawnPoint(makeCandidate());
@@ -8428,6 +9526,14 @@ class SurvivalScene extends Phaser.Scene {
     projectile.destroy();
   }
 
+  handleEnemyProjectileObstacleHit(projectile) {
+    if (!projectile?.active) {
+      return;
+    }
+
+    projectile.destroy();
+  }
+
   killEnemy(enemy) {
     if (!enemy.active || enemy.isDying) {
       return;
@@ -8483,6 +9589,9 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   spawnXpOrb(x, y, value) {
+    const dropPoint = this.getSafeDropPoint(x, y, 18);
+    x = dropPoint.x;
+    y = dropPoint.y;
     const orb = this.physics.add.image(x, y, "xp-orb").setDepth(12);
     orb.body.setAllowGravity(false);
     orb.setCircle(8);
@@ -8611,6 +9720,9 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   spawnRareItem(x, y, definition) {
+    const dropPoint = this.getSafeDropPoint(x, y, definition.pickupRadius || 24);
+    x = dropPoint.x;
+    y = dropPoint.y;
     const textureKey = this.textures.exists(definition.textureKey) ? definition.textureKey : "rare-token";
     const item = this.physics.add.image(x, y, textureKey).setDepth(13);
     const sourceImage = item.texture.getSourceImage();
@@ -8737,6 +9849,9 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   spawnSpecialItem(x, y, definition) {
+    const dropPoint = this.getSafeDropPoint(x, y, 24);
+    x = dropPoint.x;
+    y = dropPoint.y;
     const item = this.physics.add.image(x, y, definition.textureKey).setDepth(13);
     item.body.setAllowGravity(false);
     item.body.setCircle(10, 8, 8);
@@ -8823,6 +9938,9 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   spawnRobotItem(x, y, definition) {
+    const dropPoint = this.getSafeDropPoint(x, y, definition.pickupRadius || 28);
+    x = dropPoint.x;
+    y = dropPoint.y;
     const textureKey = this.textures.exists(definition.textureKey) ? definition.textureKey : "rare-token";
     const item = this.physics.add.image(x, y, textureKey).setDepth(13);
     const frame = item.frame;
@@ -12586,7 +13704,7 @@ class SurvivalScene extends Phaser.Scene {
     this.cancelActiveEnemyBeamCharges();
     this.physics.world.pause();
 
-    this.showOverlay(
+    this.showLevelUpCardOverlay(
       isStartingDraft ? "Opening Boost" : "Level Up",
       isStartingDraft
         ? `開始前に ${this.startingUpgradeSelectionsRemaining} 回ぶんの強化を選択`
@@ -12596,8 +13714,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getPassiveUpgradeChoices() {
-    return [
+    const choices = [
       {
+        id: "overchargeBolt",
+        type: "passive",
         title: "Overcharge Bolt",
         description: "電撃ダメージ +1",
         onSelect: () => {
@@ -12605,13 +13725,8 @@ class SurvivalScene extends Phaser.Scene {
         }
       },
       {
-        title: "Rapid Sigil",
-        description: "放電間隔 -70ms",
-        onSelect: () => {
-          this.stats.fireInterval = Math.max(160, this.stats.fireInterval - 70);
-        }
-      },
-      {
+        id: "swiftStep",
+        type: "passive",
         title: "Swift Step",
         description: "移動速度 +30",
         onSelect: () => {
@@ -12619,6 +13734,8 @@ class SurvivalScene extends Phaser.Scene {
         }
       },
       {
+        id: "staminaCore",
+        type: "passive",
         title: "Stamina Core",
         description: "最大スタミナ +25、スタミナも25回復",
         onSelect: () => {
@@ -12628,6 +13745,8 @@ class SurvivalScene extends Phaser.Scene {
         }
       },
       {
+        id: "vitalBloom",
+        type: "passive",
         title: "Vital Bloom",
         description: "最大HP +20、HPも20回復",
         onSelect: () => {
@@ -12638,12 +13757,42 @@ class SurvivalScene extends Phaser.Scene {
         }
       }
     ];
+
+    if ((this.stats.fireInterval || 0) > LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS) {
+      const effectiveReduction = Math.min(70, this.stats.fireInterval - LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS);
+      choices.splice(1, 0, {
+        id: "rapidSigil",
+        type: "passive",
+        title: "Rapid Sigil",
+        description: `放電間隔 -${effectiveReduction}ms`,
+        onSelect: () => {
+          this.stats.fireInterval = Math.max(LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS, this.stats.fireInterval - 70);
+        }
+      });
+    }
+
+    return choices;
   }
 
   getAvailableSkillChoices() {
-    return Object.keys(SKILL_DEFINITIONS)
-      .map((skillId) => this.buildSkillChoice(skillId))
-      .filter(Boolean);
+    const upgradeChoices = [];
+    const unlockChoices = [];
+
+    Object.keys(SKILL_DEFINITIONS).forEach((skillId) => {
+      const choice = this.buildSkillChoice(skillId);
+      if (!choice) {
+        return;
+      }
+
+      if (choice.actionType === "unlock") {
+        unlockChoices.push(choice);
+        return;
+      }
+
+      upgradeChoices.push(choice);
+    });
+
+    return this.shuffleArray([...upgradeChoices, ...unlockChoices]);
   }
 
   buildSkillChoice(skillId) {
@@ -12662,6 +13811,12 @@ class SurvivalScene extends Phaser.Scene {
 
     const firstStage = definition.stages[0];
     return {
+      type: "skill",
+      actionType: "unlock",
+      skillId,
+      definition,
+      currentStage: null,
+      nextStage: firstStage,
       title: `Unlock ${definition.name}`,
       description: this.buildSkillUnlockSummary(definition, firstStage),
       onSelect: () => {
@@ -12684,6 +13839,12 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     return {
+      type: "skill",
+      actionType: "upgrade",
+      skillId,
+      definition: skillState.definition,
+      currentStage,
+      nextStage,
       title: `${skillState.definition.name} Stage ${nextStage.stage}`,
       description: this.buildSkillGrowthSummary(skillState.definition, currentStage, nextStage),
       onSelect: () => {
@@ -12760,6 +13921,244 @@ class SurvivalScene extends Phaser.Scene {
     return changes.join(" / ");
   }
 
+  shuffleArray(array) {
+    return Phaser.Utils.Array.Shuffle([...(array || [])]);
+  }
+
+  getSkillUiMeta(skillId) {
+    const definition = SKILL_DEFINITIONS[skillId];
+    return LEVEL_UP_SKILL_UI_META[skillId] || {
+      displayName: definition?.name || skillId,
+      description: "スキル性能を強化する",
+      themeColor: 0x6fcfff,
+      glowColor: 0xb8eaff,
+      accentColor: "#9bdfff",
+      iconTone: "SKILL"
+    };
+  }
+
+  getPassiveUiMeta(passiveId) {
+    return LEVEL_UP_PASSIVE_UI_META[passiveId] || {
+      displayName: passiveId || "Passive Chip",
+      description: "基礎性能を強化する",
+      chipLabel: "Rank +1",
+      themeColor: 0x8eb4ff,
+      accentColor: "#b7caff",
+      iconTone: "CHIP"
+    };
+  }
+
+  colorToCss(color) {
+    if (typeof color === "string") {
+      return color;
+    }
+
+    return `#${Math.max(0, color || 0).toString(16).padStart(6, "0").slice(-6)}`;
+  }
+
+  getSkillMaxStage(definition) {
+    return Math.max(...(definition?.stages || []).map((stage, index) => stage.stage || index + 1), 1);
+  }
+
+  buildLevelUpCardModel(option, index) {
+    if (option?.type === "skill") {
+      const meta = this.getSkillUiMeta(option.skillId);
+      const maxStage = this.getSkillMaxStage(option.definition);
+      const currentStageNumber = option.currentStage?.stage || 0;
+      const nextStageNumber = option.nextStage?.stage || 1;
+      const newEffects = this.detectNewEffects(option.currentStage, option.nextStage, option.skillId);
+      const cardType = this.getLevelUpCardType(option, newEffects);
+      const typeMeta = LEVEL_UP_CARD_TYPE_META[cardType] || LEVEL_UP_CARD_TYPE_META.skillUpgrade;
+      const chips = this.formatStatDiffChips(option.currentStage, option.nextStage, option.skillId)
+        .slice(0, newEffects.length > 0 ? 4 : 6);
+
+      return {
+        option,
+        index,
+        kind: "skill",
+        cardType,
+        typeLabel: typeMeta.label,
+        typeColor: typeMeta.color,
+        typeTextColor: typeMeta.textColor,
+        title: meta.displayName,
+        stageLabel: option.actionType === "unlock"
+          ? `Unlock Stage ${nextStageNumber}`
+          : (nextStageNumber >= maxStage ? "FINAL STAGE" : `Stage ${currentStageNumber} → ${nextStageNumber}`),
+        description: meta.description,
+        stageProgress: this.formatStageProgress(nextStageNumber, maxStage),
+        chips,
+        newEffects,
+        themeColor: meta.themeColor,
+        glowColor: meta.glowColor,
+        accentColor: meta.accentColor,
+        iconTone: meta.iconTone,
+        iconTextureKey: option.nextStage?.textureKey || option.definition?.hudIconTextureKey || null
+      };
+    }
+
+    const passiveId = option?.id || "passiveChip";
+    const meta = this.getPassiveUiMeta(passiveId);
+    const typeMeta = LEVEL_UP_CARD_TYPE_META.passiveChip;
+    return {
+      option,
+      index,
+      kind: "passive",
+      cardType: "passiveChip",
+      typeLabel: typeMeta.label,
+      typeColor: typeMeta.color,
+      typeTextColor: typeMeta.textColor,
+      title: meta.displayName || option.title,
+      stageLabel: "Rank +1",
+      description: meta.description || option.description,
+      stageProgress: "",
+      chips: [{ label: meta.chipLabel || option.description || "Rank +1", priority: 100 }],
+      newEffects: [],
+      themeColor: meta.themeColor,
+      glowColor: meta.themeColor,
+      accentColor: meta.accentColor,
+      iconTone: meta.iconTone
+    };
+  }
+
+  getLevelUpCardType(option, newEffects) {
+    if (option?.type !== "skill") {
+      return "passiveChip";
+    }
+    if (option.actionType === "unlock") {
+      return "newSkill";
+    }
+
+    const maxStage = this.getSkillMaxStage(option.definition);
+    if ((option.nextStage?.stage || 0) >= maxStage) {
+      return "finalStage";
+    }
+    if ((newEffects || []).length > 0) {
+      return "rareUpgrade";
+    }
+
+    return "skillUpgrade";
+  }
+
+  formatStageProgress(currentStage, maxStage) {
+    const filled = Phaser.Math.Clamp(Math.round(currentStage || 0), 0, maxStage || 0);
+    return Array.from({ length: maxStage || 0 }, (_, index) => index < filled ? "●" : "○").join("");
+  }
+
+  detectNewEffects(beforeStage, afterStage, skillId) {
+    if (!beforeStage || !afterStage) {
+      return [];
+    }
+
+    const effects = [];
+    if ((beforeStage.suctionRadius || 0) <= 0 && (afterStage.suctionRadius || 0) > 0) {
+      effects.push("吸引フィールド解放");
+    }
+    if ((beforeStage.impactRadius || 0) <= 0 && (afterStage.impactRadius || 0) > 0) {
+      effects.push("着地雷衝撃");
+    }
+    if (skillId === "rabbitThunderSkill" && (beforeStage.impactRepeatCount || 1) < 2 && (afterStage.impactRepeatCount || 1) >= 2) {
+      effects.push("2連続の着地雷衝撃");
+    }
+    if ((beforeStage.orbitRadiusPulseAmount || 0) <= 0 && (afterStage.orbitRadiusPulseAmount || 0) > 0) {
+      effects.push("可変オービット");
+    }
+    if ((beforeStage.pulseSpeed || 0) <= 0 && (afterStage.pulseSpeed || 0) > 0) {
+      effects.push("パルス強化");
+    }
+
+    return effects;
+  }
+
+  formatStatDiffChips(beforeStage, afterStage, skillId) {
+    if (!afterStage) {
+      return [];
+    }
+
+    const specs = [
+      { key: "damage", label: "DMG", priority: 120, unlock: true },
+      { key: "contactTickMs", label: "HIT", priority: 115, unlock: true, ms: true },
+      { key: "autoAttackShots", label: "雷撃本数", priority: 108 },
+      { key: "orbitCount", label: "球数", priority: 106 },
+      { key: "moveSpeed", label: "SPD", priority: 104, unlock: skillId === "tornadoSkill" },
+      { key: "dashDistance", label: "距離", priority: 104, unlock: skillId === "rabbitThunderSkill" },
+      { key: "cooldownMs", label: "再発動", priority: 102, ms: true },
+      { key: "hitRadius", label: "範囲", priority: 100, unlock: true },
+      { key: "orbitRadius", label: "半径", priority: 98 },
+      { key: "displayScale", label: "SIZE", priority: 94, decimal: true },
+      { key: "dashDurationMs", label: "突進時間", priority: 92, ms: true },
+      { key: "impactRadius", label: "衝撃範囲", priority: 88 },
+      { key: "suctionRadius", label: "吸引範囲", priority: 86 },
+      { key: "suctionForce", label: "吸引力", priority: 84 }
+    ];
+
+    const isUnlock = !beforeStage;
+    const chips = [];
+    specs.forEach((spec) => {
+      const afterValue = afterStage[spec.key];
+      if (typeof afterValue !== "number") {
+        return;
+      }
+
+      if (isUnlock) {
+        if (spec.unlock) {
+          chips.push({
+            label: `${spec.label} ${this.formatStatValue(afterValue, spec)}`,
+            priority: spec.priority
+          });
+        }
+        return;
+      }
+
+      const beforeValue = beforeStage[spec.key];
+      if (typeof beforeValue !== "number" || beforeValue === afterValue) {
+        return;
+      }
+
+      chips.push({
+        label: `${spec.label} ${spec.key === "displayScale"
+          ? this.formatScalePercentDelta(beforeValue, afterValue)
+          : this.formatStatDelta(afterValue - beforeValue, spec)}`,
+        priority: spec.priority
+      });
+    });
+
+    return chips.sort((left, right) => right.priority - left.priority);
+  }
+
+  formatStatValue(value, spec = {}) {
+    if (spec.ms) {
+      return `${Math.round(value)}ms`;
+    }
+    if (spec.decimal) {
+      return value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+    }
+    return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, "");
+  }
+
+  formatStatDelta(delta, spec = {}) {
+    const sign = delta > 0 ? "+" : "-";
+    const amount = Math.abs(delta);
+    if (spec.ms) {
+      return amount >= 1000
+        ? `${sign}${(amount / 1000).toFixed(1).replace(/\.0$/, "")}s`
+        : `${sign}${Math.round(amount)}ms`;
+    }
+    if (spec.decimal) {
+      return `${sign}${amount.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}`;
+    }
+    return `${sign}${Number.isInteger(amount) ? amount : amount.toFixed(1).replace(/\.0$/, "")}`;
+  }
+
+  formatScalePercentDelta(beforeValue, afterValue) {
+    if (!beforeValue) {
+      return this.formatStatDelta(afterValue - beforeValue, { decimal: true });
+    }
+
+    const percentDelta = ((afterValue - beforeValue) / beforeValue) * 100;
+    const sign = percentDelta > 0 ? "+" : "-";
+    return `${sign}${Math.max(1, Math.round(Math.abs(percentDelta)))}%`;
+  }
+
   unlockSkill(skillId) {
     const definition = SKILL_DEFINITIONS[skillId];
     if (!definition?.stages?.length || this.playerSkills[skillId]) {
@@ -12833,6 +14232,10 @@ class SurvivalScene extends Phaser.Scene {
       ? `[${baseName}]`
       : baseName;
     this.rankingNameInputText.setText(`${displayName}${cursor}`);
+  }
+
+  restartGame() {
+    window.location.reload();
   }
 
   createGameOverRankingButton(centerX, centerY, width, height, title, description, onSelect) {
@@ -12981,16 +14384,586 @@ class SurvivalScene extends Phaser.Scene {
         this.submitPendingRankingEntry();
       });
       this.createGameOverRankingButton(156, 248, 280, 64, "Restart", "登録せず最初からプレイ", () => {
-        this.scene.restart();
+        this.restartGame();
       });
     } else {
       this.createGameOverRankingButton(0, 248, 320, 64, "Restart", "最初からもう一度プレイする", () => {
-        this.scene.restart();
+        this.restartGame();
       });
     }
 
-    this.overlayBackdrop.setVisible(true);
-    this.overlayContainer.setVisible(true);
+    this.overlayBackdrop.setAlpha(1).setVisible(true);
+    this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
+  }
+
+  showLevelUpCardOverlay(title, body, options) {
+    this.clearOverlayButtons();
+    const models = (options || []).map((option, index) => this.buildLevelUpCardModel(option, index));
+    const layout = this.getLevelUpCardLayout(models.length);
+
+    this.configureOverlayPanel(layout.panelWidth, layout.panelHeight);
+    this.overlayPanel
+      .setFillStyle(0x050b12, 0.92)
+      .setStrokeStyle(2, 0x6fcfff, 0.45);
+    this.overlayTitle
+      .setStyle({
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: layout.orientation === "vertical" ? "30px" : "38px",
+        color: "#ecfaff",
+        fontStyle: "bold",
+        align: "center"
+      })
+      .setOrigin(0.5)
+      .setPosition(0, layout.titleY)
+      .setText(title.toUpperCase());
+    this.overlayBody
+      .setStyle({
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: layout.orientation === "vertical" ? "15px" : "17px",
+        color: "#9fc9df",
+        align: "center",
+        wordWrap: { width: layout.panelWidth - 160 }
+      })
+      .setOrigin(0.5)
+      .setPosition(0, layout.bodyY)
+      .setText(body);
+
+    const panelFrame = this.createLevelUpPanelFrame(layout);
+    const hint = this.add.text(0, layout.hintY, "クリック / タップ / 1・2・3キーで選択", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "15px",
+      color: "#bcecff",
+      fontStyle: "bold",
+      align: "center"
+    }).setOrigin(0.5);
+
+    this.overlayContainer.add([panelFrame, hint]);
+    this.overlayButtons.push(panelFrame, hint);
+    this.levelUpCardRecords = models.map((model, index) => this.createLevelUpCard(model, index, layout));
+    this.registerLevelUpKeyboardInput();
+
+    this.overlayBackdrop
+      .setFillStyle(0x01040a, 0.86)
+      .setAlpha(0)
+      .setVisible(true);
+    this.overlayContainer
+      .setVisible(true)
+      .setAlpha(0)
+      .setScale(0.96);
+    this.playLevelUpOpenAnimation(this.overlayContainer, this.levelUpCardRecords);
+  }
+
+  getLevelUpCardLayout(cardCount) {
+    const bounds = this.game?.canvas?.getBoundingClientRect?.();
+    const isNarrow = bounds && bounds.width > 0 && (bounds.width < 760 || bounds.height > bounds.width * 1.05);
+
+    if (isNarrow) {
+      const cardWidth = 640;
+      const cardHeight = 142;
+      const gap = 18;
+      const totalHeight = cardCount * cardHeight + Math.max(0, cardCount - 1) * gap;
+      const startY = -totalHeight / 2 + cardHeight / 2 + 22;
+      return {
+        orientation: "vertical",
+        panelWidth: 780,
+        panelHeight: 650,
+        cardWidth,
+        cardHeight,
+        titleY: -286,
+        bodyY: -246,
+        hintY: 294,
+        cardPositions: Array.from({ length: cardCount }, (_, index) => ({
+          x: 0,
+          y: startY + index * (cardHeight + gap)
+        }))
+      };
+    }
+
+    const cardWidth = cardCount <= 2 ? 360 : 330;
+    const cardHeight = 342;
+    const gap = 26;
+    const totalWidth = cardCount * cardWidth + Math.max(0, cardCount - 1) * gap;
+    const startX = -totalWidth / 2 + cardWidth / 2;
+    return {
+      orientation: "horizontal",
+      panelWidth: 1128,
+      panelHeight: 572,
+      cardWidth,
+      cardHeight,
+      titleY: -248,
+      bodyY: -204,
+      hintY: 258,
+      cardPositions: Array.from({ length: cardCount }, (_, index) => ({
+        x: startX + index * (cardWidth + gap),
+        y: 28
+      }))
+    };
+  }
+
+  createLevelUpPanelFrame(layout) {
+    const width = layout.panelWidth;
+    const height = layout.panelHeight;
+    const left = -width / 2;
+    const top = -height / 2;
+    const graphics = this.add.graphics();
+
+    graphics.lineStyle(2, 0x6fcfff, 0.42);
+    graphics.strokeRoundedRect(left + 7, top + 7, width - 14, height - 14, 8);
+    graphics.lineStyle(1, 0xbdefff, 0.16);
+    for (let y = top + 64; y < top + height - 28; y += 18) {
+      graphics.lineBetween(left + 28, y, left + width - 28, y);
+    }
+    graphics.lineStyle(2, 0x6fcfff, 0.5);
+    [
+      [left + 28, top + 28, left + 112, top + 28],
+      [left + 28, top + 28, left + 28, top + 88],
+      [left + width - 28, top + 28, left + width - 112, top + 28],
+      [left + width - 28, top + 28, left + width - 28, top + 88],
+      [left + 28, top + height - 28, left + 116, top + height - 28],
+      [left + 28, top + height - 28, left + 28, top + height - 86],
+      [left + width - 28, top + height - 28, left + width - 116, top + height - 28],
+      [left + width - 28, top + height - 28, left + width - 28, top + height - 86]
+    ].forEach(([x1, y1, x2, y2]) => graphics.lineBetween(x1, y1, x2, y2));
+    graphics.fillStyle(0x6fcfff, 0.08);
+    graphics.fillTriangle(left + 26, top + 102, left + 118, top + 102, left + 26, top + 132);
+    graphics.fillTriangle(left + width - 26, top + height - 102, left + width - 118, top + height - 102, left + width - 26, top + height - 132);
+
+    return graphics;
+  }
+
+  createLevelUpCard(model, index, layout) {
+    const position = layout.cardPositions[index] || { x: 0, y: 0 };
+    const container = this.add.container(position.x, position.y);
+    const background = this.add.graphics();
+    const record = {
+      model,
+      index,
+      layout,
+      container,
+      background,
+      focused: false,
+      selected: false,
+      disabled: false
+    };
+
+    container.add(background);
+    this.drawLevelUpCardBackground(record);
+
+    const compact = layout.orientation === "vertical";
+    const width = layout.cardWidth;
+    const height = layout.cardHeight;
+    const left = -width / 2;
+    const top = -height / 2;
+    const typeColorCss = this.colorToCss(model.typeColor);
+    const themeColorCss = this.colorToCss(model.themeColor);
+    const badgeWidth = compact ? 132 : 158;
+    const badge = this.add.rectangle(left + 18, top + 16, badgeWidth, 26, model.typeColor, 0.14)
+      .setOrigin(0, 0)
+      .setStrokeStyle(1, model.typeColor, 0.64);
+    const badgeText = this.add.text(left + 28, top + 21, model.typeLabel, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: compact ? "11px" : "12px",
+      color: model.typeTextColor,
+      fontStyle: "bold"
+    });
+    const keyCap = this.add.rectangle(width / 2 - 38, top + 18, 28, 28, 0x0d1c2b, 0.96)
+      .setStrokeStyle(1, model.typeColor, 0.72);
+    const keyText = this.add.text(width / 2 - 38, top + 17, String(index + 1), {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "18px",
+      color: "#ecfaff",
+      fontStyle: "bold",
+      align: "center"
+    }).setOrigin(0.5, 0);
+    record.keyText = keyText;
+
+    if (model.kind === "skill") {
+      const iconSize = compact ? 62 : 98;
+      const iconX = compact ? left + 70 : 0;
+      const iconY = compact ? 10 : -83;
+      this.createLevelUpSkillIcon(container, model, iconX, iconY, iconSize);
+    } else {
+      const iconSize = compact ? 62 : 92;
+      const iconX = compact ? left + 70 : 0;
+      const iconY = compact ? 10 : -80;
+      this.createLevelUpPassiveIcon(container, model, iconX, iconY, iconSize);
+    }
+
+    const contentLeft = compact ? left + 118 : left + 24;
+    const contentWidth = compact ? width - 150 : width - 48;
+    const titleX = compact ? contentLeft : 0;
+    const textOriginX = compact ? 0 : 0.5;
+    const title = this.add.text(titleX, compact ? -48 : -25, model.title, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: compact ? "22px" : "25px",
+      color: "#f4fbff",
+      fontStyle: "bold",
+      align: compact ? "left" : "center",
+      wordWrap: { width: contentWidth }
+    }).setOrigin(textOriginX, 0.5);
+    const stage = this.add.text(titleX, compact ? -22 : 4, model.stageLabel, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: compact ? "14px" : "16px",
+      color: themeColorCss,
+      fontStyle: "bold",
+      align: compact ? "left" : "center"
+    }).setOrigin(textOriginX, 0.5);
+    const description = this.add.text(titleX, compact ? 2 : 58, model.description, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: compact ? "13px" : "14px",
+      color: "#b9d8e8",
+      align: compact ? "left" : "center",
+      wordWrap: { width: contentWidth }
+    }).setOrigin(textOriginX, 0.5);
+
+    container.add([badge, badgeText, keyCap, keyText, title, stage, description]);
+
+    if (model.stageProgress) {
+      const dots = this.add.text(titleX, compact ? 24 : 31, model.stageProgress, {
+        fontFamily: "Consolas, Segoe UI, sans-serif",
+        fontSize: compact ? "15px" : "18px",
+        color: themeColorCss,
+        align: compact ? "left" : "center"
+      }).setOrigin(textOriginX, 0.5);
+      container.add(dots);
+    }
+
+    let chipY = compact ? 46 : 116;
+    if (model.newEffects.length > 0) {
+      const effectWidth = compact ? Math.min(360, contentWidth) : width - 54;
+      const effectX = compact ? contentLeft : -effectWidth / 2;
+      const effectY = compact ? 42 : 88;
+      const effectPanel = this.add.rectangle(effectX, effectY, effectWidth, 30, model.typeColor, 0.18)
+        .setOrigin(compact ? 0 : 0, 0)
+        .setStrokeStyle(1, model.typeColor, 0.78);
+      const effectText = this.add.text(effectX + 12, effectY + 7, `NEW EFFECT: ${model.newEffects[0]}`, {
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: compact ? "12px" : "13px",
+        color: model.typeTextColor,
+        fontStyle: "bold"
+      });
+      container.add([effectPanel, effectText]);
+      chipY = compact ? 78 : 130;
+    }
+
+    this.createLevelUpChipList(
+      container,
+      model.chips,
+      compact ? contentLeft : left + 24,
+      chipY,
+      compact ? contentWidth : width - 48,
+      {
+        maxChips: compact ? 3 : 6,
+        color: model.kind === "passive" ? 0x27344e : 0x10283a,
+        stroke: model.themeColor
+      }
+    );
+
+    const hitZone = this.add.zone(0, 0, width, height)
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    hitZone.on("pointerover", () => this.setLevelUpCardFocused(record, true));
+    hitZone.on("pointerout", () => this.setLevelUpCardFocused(record, false));
+    hitZone.on("pointerup", (pointer, localX, localY, event) => {
+      event?.stopPropagation?.();
+      this.selectLevelUpCard(index);
+    });
+    container.add(hitZone);
+    record.hitZone = hitZone;
+
+    this.overlayContainer.add(container);
+    this.overlayButtons.push(container);
+    this.overlayActions.push({
+      panel: hitZone,
+      onSelect: () => this.selectLevelUpCard(index),
+      handlesOwnFlow: true
+    });
+
+    return record;
+  }
+
+  createLevelUpSkillIcon(container, model, x, y, size) {
+    if (model.iconTextureKey && this.textures.exists(model.iconTextureKey)) {
+      const frame = this.add.rectangle(x, y, size + 16, size + 16, 0x07131c, 0.78)
+        .setStrokeStyle(1, model.themeColor, 0.46);
+      const icon = this.add.image(x, y, model.iconTextureKey)
+        .setDisplaySize(size, size)
+        .setAlpha(0.96);
+      const glow = this.add.circle(x, y, size * 0.55, model.themeColor, 0.1)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      container.add([glow, frame, icon]);
+      return;
+    }
+
+    this.createLevelUpFallbackIcon(container, model, x, y, size, false);
+  }
+
+  createLevelUpPassiveIcon(container, model, x, y, size) {
+    this.createLevelUpFallbackIcon(container, model, x, y, size, true);
+  }
+
+  createLevelUpFallbackIcon(container, model, x, y, size, hexagonal) {
+    const graphics = this.add.graphics();
+    graphics.fillStyle(model.themeColor, 0.16);
+    graphics.lineStyle(2, model.themeColor, 0.72);
+    if (hexagonal) {
+      const radius = size / 2;
+      graphics.beginPath();
+      for (let index = 0; index < 6; index += 1) {
+        const angle = Math.PI / 6 + index * Math.PI / 3;
+        const px = x + Math.cos(angle) * radius;
+        const py = y + Math.sin(angle) * radius;
+        if (index === 0) {
+          graphics.moveTo(px, py);
+        } else {
+          graphics.lineTo(px, py);
+        }
+      }
+      graphics.closePath();
+      graphics.fillPath();
+      graphics.strokePath();
+    } else {
+      graphics.fillCircle(x, y, size / 2);
+      graphics.strokeCircle(x, y, size / 2);
+      graphics.lineStyle(2, model.glowColor || model.themeColor, 0.34);
+      graphics.strokeCircle(x, y, size * 0.34);
+    }
+
+    graphics.lineStyle(2, model.themeColor, 0.36);
+    graphics.lineBetween(x - size * 0.34, y, x + size * 0.34, y);
+    graphics.lineBetween(x, y - size * 0.34, x, y + size * 0.34);
+
+    const label = this.add.text(x, y - 8, model.iconTone || "UP", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: hexagonal ? "13px" : "12px",
+      color: this.colorToCss(model.themeColor),
+      fontStyle: "bold",
+      align: "center"
+    }).setOrigin(0.5);
+    container.add([graphics, label]);
+  }
+
+  createLevelUpChipList(container, chips, startX, startY, maxWidth, options = {}) {
+    let x = startX;
+    let y = startY;
+    const lineHeight = 28;
+    const visibleChips = (chips || []).slice(0, options.maxChips || 6);
+    visibleChips.forEach((chip) => {
+      const label = chip.label || String(chip);
+      const text = this.add.text(0, 0, label, {
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "12px",
+        color: "#e8f7ff",
+        fontStyle: "bold"
+      });
+      const chipWidth = Math.min(Math.max(62, text.width + 20), maxWidth);
+      if (x > startX && x + chipWidth > startX + maxWidth) {
+        x = startX;
+        y += lineHeight;
+      }
+
+      const back = this.add.rectangle(x, y, chipWidth, 23, options.color || 0x10283a, 0.88)
+        .setOrigin(0, 0)
+        .setStrokeStyle(1, options.stroke || 0x6fcfff, 0.34);
+      text.setPosition(x + 10, y + 4);
+      container.add([back, text]);
+      x += chipWidth + 8;
+    });
+  }
+
+  drawLevelUpCardBackground(record) {
+    const { background, layout, model } = record;
+    const width = layout.cardWidth;
+    const height = layout.cardHeight;
+    const left = -width / 2;
+    const top = -height / 2;
+    const strokeAlpha = record.selected ? 0.96 : (record.focused ? 0.78 : 0.36);
+    const fillColor = model.kind === "passive" ? 0x080d18 : 0x06111a;
+    const accent = model.typeColor || model.themeColor;
+
+    background.clear();
+    background.fillStyle(fillColor, record.disabled ? 0.64 : 0.94);
+    background.fillRoundedRect(left, top, width, height, 8);
+    background.lineStyle(record.selected ? 4 : (record.focused ? 3 : 2), accent, strokeAlpha);
+    background.strokeRoundedRect(left + 1, top + 1, width - 2, height - 2, 8);
+    background.lineStyle(1, model.themeColor, record.focused || record.selected ? 0.28 : 0.12);
+    for (let y = top + 42; y < top + height - 18; y += 24) {
+      background.lineBetween(left + 18, y, left + width - 18, y);
+    }
+    background.lineStyle(2, model.themeColor, record.selected ? 0.52 : 0.22);
+    background.lineBetween(left + 18, top + height - 34, left + 92, top + height - 34);
+    background.lineBetween(left + width - 18, top + 34, left + width - 92, top + 34);
+
+    if (model.kind === "passive") {
+      background.lineStyle(1, model.themeColor, 0.26);
+      background.strokeCircle(left + 68, 10, 38);
+      background.strokeCircle(left + 68, 10, 25);
+    } else {
+      background.lineStyle(1, model.themeColor, 0.2);
+      background.strokeCircle(0, layout.orientation === "vertical" ? 10 : -83, layout.orientation === "vertical" ? 46 : 70);
+      background.lineBetween(left + 26, top + 58, left + width - 26, top + 28);
+    }
+  }
+
+  setLevelUpCardFocused(record, focused) {
+    if (!record || record.disabled || (this.levelUpSelectionLocked && !record.selected)) {
+      return;
+    }
+
+    record.focused = focused;
+    this.drawLevelUpCardBackground(record);
+    this.tweens.killTweensOf(record.container);
+    this.tweens.add({
+      targets: record.container,
+      scale: focused ? 1.035 : 1,
+      duration: 110,
+      ease: "Sine.easeOut"
+    });
+    record.keyText?.setColor(focused ? this.colorToCss(record.model.typeColor) : "#ecfaff");
+  }
+
+  registerLevelUpKeyboardInput() {
+    if (this.levelUpKeyHandler) {
+      this.input.keyboard.off("keydown", this.levelUpKeyHandler);
+    }
+
+    this.levelUpKeyHandler = (event) => {
+      if (!this.levelUpActive || !this.levelUpInputEnabled || this.levelUpSelectionLocked) {
+        return;
+      }
+
+      const index = ["1", "2", "3"].indexOf(event.key);
+      if (index < 0) {
+        return;
+      }
+
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      this.selectLevelUpCard(index);
+    };
+    this.input.keyboard.on("keydown", this.levelUpKeyHandler);
+  }
+
+  playLevelUpOpenAnimation(container, cards) {
+    this.levelUpInputEnabled = false;
+    this.levelUpSelectionLocked = false;
+    cards.forEach((record, index) => {
+      record.baseY = record.container.y;
+      record.container
+        .setAlpha(0)
+        .setY(record.baseY + 20)
+        .setScale(0.98);
+      this.tweens.add({
+        targets: record.container,
+        alpha: 1,
+        y: record.baseY,
+        scale: 1,
+        delay: 140 + index * 90,
+        duration: 260,
+        ease: "Cubic.easeOut"
+      });
+    });
+
+    this.tweens.add({
+      targets: this.overlayBackdrop,
+      alpha: 1,
+      duration: 180,
+      ease: "Sine.easeOut"
+    });
+    this.tweens.add({
+      targets: container,
+      alpha: 1,
+      scale: 1,
+      duration: 280,
+      ease: "Back.easeOut"
+    });
+
+    this.levelUpOpenTimer = this.time.delayedCall(680, () => {
+      this.levelUpInputEnabled = true;
+    });
+  }
+
+  selectLevelUpCard(index) {
+    const record = this.levelUpCardRecords?.[index];
+    if (!record || !this.levelUpInputEnabled || this.levelUpSelectionLocked) {
+      return;
+    }
+
+    this.levelUpSelectionLocked = true;
+    this.levelUpInputEnabled = false;
+    this.overlayActions = [];
+    record.selected = true;
+    this.drawLevelUpCardBackground(record);
+    const otherCards = this.levelUpCardRecords.filter((card) => card !== record);
+    otherCards.forEach((card) => {
+      card.disabled = true;
+      this.drawLevelUpCardBackground(card);
+    });
+    this.playLevelUpSelectAnimation(record, otherCards, () => this.completeLevelUpCardSelection(record.model.option));
+  }
+
+  playLevelUpSelectAnimation(selectedCard, otherCards, onComplete) {
+    this.tweens.killTweensOf(selectedCard.container);
+    this.tweens.add({
+      targets: selectedCard.container,
+      scale: 1.07,
+      alpha: 1,
+      duration: 130,
+      yoyo: true,
+      hold: 90,
+      ease: "Sine.easeOut"
+    });
+    otherCards.forEach((record) => {
+      this.tweens.killTweensOf(record.container);
+      this.tweens.add({
+        targets: record.container,
+        alpha: 0.28,
+        scale: 0.96,
+        duration: 170,
+        ease: "Sine.easeOut"
+      });
+    });
+
+    this.levelUpSelectTimer = this.time.delayedCall(360, onComplete);
+  }
+
+  completeLevelUpCardSelection(option) {
+    option?.onSelect?.();
+    this.pendingLevelUps = Math.max(0, this.pendingLevelUps - 1);
+    if (this.startingUpgradeSelectionsRemaining > 0) {
+      this.startingUpgradeSelectionsRemaining -= 1;
+    }
+
+    if (this.gameOver) {
+      return;
+    }
+
+    if (this.pendingLevelUps > 0) {
+      this.showLevelUpChoices();
+      return;
+    }
+
+    this.levelUpActive = false;
+    this.hideOverlay();
+    this.physics.world.resume();
+  }
+
+  teardownLevelUpOverlay() {
+    if (this.levelUpKeyHandler) {
+      this.input.keyboard.off("keydown", this.levelUpKeyHandler);
+      this.levelUpKeyHandler = null;
+    }
+    this.levelUpOpenTimer?.remove(false);
+    this.levelUpOpenTimer = null;
+    this.levelUpSelectTimer?.remove(false);
+    this.levelUpSelectTimer = null;
+    (this.levelUpCardRecords || []).forEach((record) => {
+      this.tweens.killTweensOf(record.container);
+    });
+    this.tweens.killTweensOf([this.overlayContainer, this.overlayBackdrop]);
+    this.levelUpCardRecords = [];
+    this.levelUpInputEnabled = false;
+    this.levelUpSelectionLocked = false;
   }
 
   showOverlay(title, body, buttons) {
@@ -13061,17 +15034,18 @@ class SurvivalScene extends Phaser.Scene {
       this.overlayActions.push({ panel, onSelect: button.onSelect, handlesOwnFlow: false });
     });
 
-    this.overlayBackdrop.setVisible(true);
-    this.overlayContainer.setVisible(true);
+    this.overlayBackdrop.setAlpha(1).setVisible(true);
+    this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
   }
 
   hideOverlay() {
     this.clearOverlayButtons();
-    this.overlayBackdrop.setVisible(false);
-    this.overlayContainer.setVisible(false);
+    this.overlayBackdrop.setAlpha(1).setVisible(false);
+    this.overlayContainer.setAlpha(1).setScale(1).setVisible(false);
   }
 
   clearOverlayButtons() {
+    this.teardownLevelUpOverlay();
     this.overlayButtons.forEach((item) => item.destroy());
     this.overlayButtons = [];
     this.overlayActions = [];
@@ -13215,9 +15189,11 @@ class SurvivalScene extends Phaser.Scene {
 
     if (this.debugHudText) {
       this.debugHudText.setText(
-        `DBG DEC ${this.stageDecalInstances?.length || 0} / OBS ${this.stageObstacleInstances?.length || 0}\nLAY D:${this.stageDebugOptions.layerVisibility.decals ? "on" : "off"} O:${this.stageDebugOptions.layerVisibility.obstacles ? "on" : "off"}`
+        `DBG ${this.currentStage?.id || "no-stage"}\nOBS ${this.stageObstacleInstances?.length || 0} / DEC ${this.stageDecalInstances?.length || 0}\nLAY D:${this.stageDebugOptions.layerVisibility.decals ? "on" : "off"} O:${this.stageDebugOptions.layerVisibility.obstacles ? "on" : "off"}`
       );
     }
+
+    this.updateStageCollisionEditorHud();
   }
 }
 
