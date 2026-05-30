@@ -321,6 +321,66 @@ const LEVEL_UP_CARD_TYPE_META = {
     label: "PASSIVE CHIP",
     color: 0x8eb4ff,
     textColor: "#e6eeff"
+  },
+  robotMissile: {
+    label: "MISSILE MODULE",
+    color: 0xffd468,
+    textColor: "#fff3c7"
+  },
+  robotField: {
+    label: "FIELD MODULE",
+    color: 0xa9e6ff,
+    textColor: "#e8f8ff"
+  }
+};
+const ROBOT_TUNING_UI_META = {
+  fireRateLevel: {
+    displayName: "Rapid Launcher",
+    description: "ミサイル発射サイクルを短縮する",
+    statLabel: "発射間隔",
+    unit: "ms",
+    direction: "lower",
+    group: "missile",
+    themeColor: 0xffd468,
+    glowColor: 0xfff2ba,
+    accentColor: "#ffd468",
+    iconTone: "RAPID"
+  },
+  damageLevel: {
+    displayName: "Warhead Boost",
+    description: "ミサイル弾頭の爆発威力を強化する",
+    statLabel: "威力",
+    unit: "",
+    direction: "higher",
+    group: "missile",
+    themeColor: 0xff9b68,
+    glowColor: 0xffddbd,
+    accentColor: "#ffb06e",
+    iconTone: "DMG"
+  },
+  healIntervalLevel: {
+    displayName: "Field Cycle",
+    description: "回復フィールドの再展開を高速化する",
+    statLabel: "回復間隔",
+    unit: "ms",
+    direction: "lower",
+    group: "field",
+    themeColor: 0x9edcff,
+    glowColor: 0xf0f6ff,
+    accentColor: "#a9e6ff",
+    iconTone: "CYCLE"
+  },
+  healAmountLevel: {
+    displayName: "Care Output",
+    description: "回復フィールドの回復量を増幅する",
+    statLabel: "回復量",
+    unit: "",
+    direction: "higher",
+    group: "field",
+    themeColor: 0xff8fd6,
+    glowColor: 0xffd8ef,
+    accentColor: "#ff9edb",
+    iconTone: "CARE"
   }
 };
 const HUD_IMAGE_ASSETS = {
@@ -5743,6 +5803,7 @@ class SurvivalScene extends Phaser.Scene {
     this.levelUpInputEnabled = false;
     this.levelUpSelectionLocked = false;
     this.levelUpKeyHandler = null;
+    this.levelUpSelectionMode = "level";
     this.input.off("pointerup", this.handleOverlayPointerUp, this);
     this.input.on("pointerup", this.handleOverlayPointerUp, this);
   }
@@ -10365,7 +10426,7 @@ class SurvivalScene extends Phaser.Scene {
     this.levelUpActive = true;
     this.cancelActiveEnemyBeamCharges();
     this.physics.world.pause();
-    this.showOverlay(
+    this.showRobotTuningCardOverlay(
       group === "field" ? "Field Tuning" : "Missile Tuning",
       `${definition.label}\nロボット能力を1つ選択`,
       Phaser.Utils.Array.Shuffle(choices).slice(0, 2)
@@ -10389,24 +10450,28 @@ class SurvivalScene extends Phaser.Scene {
       this.buildRobotAbilityChoice(
         "fireRateLevel",
         "Rapid Launcher",
-        `発射間隔 ${this.getRobotMissileFireInterval()}ms -> ${this.getRobotMissileFireIntervalForLevel(this.robotState.fireRateLevel + 1)}ms`
+        `発射間隔 ${this.getRobotMissileFireInterval()}ms -> ${this.getRobotMissileFireIntervalForLevel(this.robotState.fireRateLevel + 1)}ms`,
+        "missile"
       ),
       this.buildRobotAbilityChoice(
         "damageLevel",
         "Warhead Boost",
-        `ミサイル威力 ${this.getRobotMissileDamage()} -> ${this.getRobotMissileDamageForLevel(this.robotState.damageLevel + 1, this.robotState.missileLevel)}`
+        `ミサイル威力 ${this.getRobotMissileDamage()} -> ${this.getRobotMissileDamageForLevel(this.robotState.damageLevel + 1, this.robotState.missileLevel)}`,
+        "missile"
       )
     ];
     const fieldChoices = [
       this.buildRobotAbilityChoice(
         "healIntervalLevel",
         "Field Cycle",
-        `回復間隔 ${this.getRobotHealInterval()}ms -> ${this.getRobotHealIntervalForLevel(this.robotState.healIntervalLevel + 1, this.robotState.healLevel)}ms`
+        `回復間隔 ${this.getRobotHealInterval()}ms -> ${this.getRobotHealIntervalForLevel(this.robotState.healIntervalLevel + 1, this.robotState.healLevel)}ms`,
+        "field"
       ),
       this.buildRobotAbilityChoice(
         "healAmountLevel",
         "Care Output",
-        `回復量 ${this.getRobotHealAmount()} -> ${this.getRobotHealAmountForLevel(this.robotState.healAmountLevel + 1, this.robotState.healLevel)}`
+        `回復量 ${this.getRobotHealAmount()} -> ${this.getRobotHealAmountForLevel(this.robotState.healAmountLevel + 1, this.robotState.healLevel)}`,
+        "field"
       )
     ];
 
@@ -10420,13 +10485,19 @@ class SurvivalScene extends Phaser.Scene {
     return [...missileChoices, ...fieldChoices].filter(Boolean);
   }
 
-  buildRobotAbilityChoice(key, title, description) {
+  buildRobotAbilityChoice(key, title, description, group = "all") {
     const currentLevel = this.robotState?.[key] || 0;
     if (currentLevel >= ROBOT_ABILITY_MAX_LEVEL) {
       return null;
     }
 
     return {
+      type: "robotAbility",
+      key,
+      group,
+      baseTitle: title,
+      currentLevel,
+      nextLevel: currentLevel + 1,
       title: `${title} Lv.${currentLevel + 1}`,
       description,
       onSelect: () => {
@@ -13948,6 +14019,21 @@ class SurvivalScene extends Phaser.Scene {
     };
   }
 
+  getRobotTuningUiMeta(key) {
+    return ROBOT_TUNING_UI_META[key] || {
+      displayName: key || "Robot Module",
+      description: "ロボット能力をチューニングする",
+      statLabel: "性能",
+      unit: "",
+      direction: "higher",
+      group: "all",
+      themeColor: 0x9edcff,
+      glowColor: 0xf0f6ff,
+      accentColor: "#a9e6ff",
+      iconTone: "TUNE"
+    };
+  }
+
   colorToCss(color) {
     if (typeof color === "string") {
       return color;
@@ -13961,6 +14047,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   buildLevelUpCardModel(option, index) {
+    if (option?.type === "robotAbility") {
+      return this.buildRobotTuningCardModel(option, index);
+    }
+
     if (option?.type === "skill") {
       const meta = this.getSkillUiMeta(option.skillId);
       const maxStage = this.getSkillMaxStage(option.definition);
@@ -14018,6 +14108,106 @@ class SurvivalScene extends Phaser.Scene {
       accentColor: meta.accentColor,
       iconTone: meta.iconTone
     };
+  }
+
+  buildRobotTuningCardModel(option, index) {
+    const meta = this.getRobotTuningUiMeta(option.key);
+    const group = option.group || meta.group || "field";
+    const typeKey = group === "missile" ? "robotMissile" : "robotField";
+    const typeMeta = LEVEL_UP_CARD_TYPE_META[typeKey] || LEVEL_UP_CARD_TYPE_META.robotField;
+    const currentLevel = option.currentLevel ?? (this.robotState?.[option.key] || 0);
+    const nextLevel = Math.min(ROBOT_ABILITY_MAX_LEVEL, option.nextLevel ?? currentLevel + 1);
+    const beforeValue = this.getRobotAbilityValue(option.key, currentLevel);
+    const afterValue = this.getRobotAbilityValue(option.key, nextLevel);
+    const chips = this.formatRobotAbilityDiffChips(meta, beforeValue, afterValue, currentLevel, nextLevel);
+    const sourceTexture = group === "missile"
+      ? ROBOT_ITEM_IMAGE_ASSETS.missileChest.textureKey
+      : ROBOT_ITEM_IMAGE_ASSETS.healChest.textureKey;
+    const maxReached = nextLevel >= ROBOT_ABILITY_MAX_LEVEL;
+
+    return {
+      option,
+      index,
+      kind: "robot",
+      cardType: typeKey,
+      typeLabel: maxReached ? "MAX TUNE" : typeMeta.label,
+      typeColor: maxReached ? LEVEL_UP_CARD_TYPE_META.finalStage.color : typeMeta.color,
+      typeTextColor: maxReached ? LEVEL_UP_CARD_TYPE_META.finalStage.textColor : typeMeta.textColor,
+      title: meta.displayName,
+      stageLabel: maxReached ? "FINAL TUNE" : `Tune Lv.${currentLevel} → ${nextLevel}`,
+      description: meta.description,
+      stageProgress: this.formatRobotModuleProgress(nextLevel, ROBOT_ABILITY_MAX_LEVEL),
+      chips,
+      newEffects: maxReached ? ["最大出力チューニング到達"] : [],
+      themeColor: meta.themeColor,
+      glowColor: meta.glowColor,
+      accentColor: meta.accentColor,
+      iconTone: meta.iconTone,
+      iconTextureKey: sourceTexture,
+      beforeValue,
+      afterValue
+    };
+  }
+
+  getRobotAbilityValue(key, level) {
+    if (key === "fireRateLevel") {
+      return this.getRobotMissileFireIntervalForLevel(level);
+    }
+    if (key === "damageLevel") {
+      return this.getRobotMissileDamageForLevel(level, this.robotState?.missileLevel || 1);
+    }
+    if (key === "healIntervalLevel") {
+      return this.getRobotHealIntervalForLevel(level, this.robotState?.healLevel || 1);
+    }
+    if (key === "healAmountLevel") {
+      return this.getRobotHealAmountForLevel(level, this.robotState?.healLevel || 1);
+    }
+
+    return level;
+  }
+
+  formatRobotAbilityDiffChips(meta, beforeValue, afterValue, currentLevel, nextLevel) {
+    const delta = afterValue - beforeValue;
+    const betterDelta = meta.direction === "lower" ? -delta : delta;
+    const valueDelta = this.formatRobotTuningDelta(delta, meta);
+    const chips = [
+      {
+        label: `${meta.statLabel} ${valueDelta}`,
+        priority: 120
+      },
+      {
+        label: `Module Lv +${nextLevel - currentLevel}`,
+        priority: 90
+      }
+    ];
+
+    if (betterDelta > 0) {
+      const boostLabel = meta.direction === "lower" ? "応答速度向上" : "出力向上";
+      chips.push({
+        label: boostLabel,
+        priority: 80
+      });
+    }
+
+    return chips;
+  }
+
+  formatRobotTuningDelta(delta, meta) {
+    const sign = delta > 0 ? "+" : "-";
+    const amount = Math.abs(delta);
+    if (meta.unit === "ms") {
+      return amount >= 1000
+        ? `${sign}${(amount / 1000).toFixed(1).replace(/\.0$/, "")}s`
+        : `${sign}${Math.round(amount)}ms`;
+    }
+
+    return `${sign}${Number.isInteger(amount) ? amount : amount.toFixed(1).replace(/\.0$/, "")}`;
+  }
+
+  formatRobotModuleProgress(currentLevel, maxLevel) {
+    const segments = 10;
+    const filled = Phaser.Math.Clamp(Math.ceil((currentLevel / maxLevel) * segments), 0, segments);
+    return Array.from({ length: segments }, (_, index) => index < filled ? "●" : "○").join("");
   }
 
   getLevelUpCardType(option, newEffects) {
@@ -14396,8 +14586,13 @@ class SurvivalScene extends Phaser.Scene {
     this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
   }
 
-  showLevelUpCardOverlay(title, body, options) {
+  showRobotTuningCardOverlay(title, body, options) {
+    this.showLevelUpCardOverlay(title, body, options, "robot");
+  }
+
+  showLevelUpCardOverlay(title, body, options, selectionMode = "level") {
     this.clearOverlayButtons();
+    this.levelUpSelectionMode = selectionMode;
     const models = (options || []).map((option, index) => this.buildLevelUpCardModel(option, index));
     const layout = this.getLevelUpCardLayout(models.length);
 
@@ -14429,7 +14624,8 @@ class SurvivalScene extends Phaser.Scene {
       .setText(body);
 
     const panelFrame = this.createLevelUpPanelFrame(layout);
-    const hint = this.add.text(0, layout.hintY, "クリック / タップ / 1・2・3キーで選択", {
+    const keyHint = models.length <= 2 ? "1・2キー" : "1・2・3キー";
+    const hint = this.add.text(0, layout.hintY, `クリック / タップ / ${keyHint}で選択`, {
       fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
       fontSize: "15px",
       color: "#bcecff",
@@ -14582,6 +14778,11 @@ class SurvivalScene extends Phaser.Scene {
       const iconX = compact ? left + 70 : 0;
       const iconY = compact ? 10 : -83;
       this.createLevelUpSkillIcon(container, model, iconX, iconY, iconSize);
+    } else if (model.kind === "robot") {
+      const iconSize = compact ? 62 : 96;
+      const iconX = compact ? left + 70 : 0;
+      const iconY = compact ? 10 : -82;
+      this.createLevelUpRobotIcon(container, model, iconX, iconY, iconSize);
     } else {
       const iconSize = compact ? 62 : 92;
       const iconX = compact ? left + 70 : 0;
@@ -14700,6 +14901,39 @@ class SurvivalScene extends Phaser.Scene {
 
   createLevelUpPassiveIcon(container, model, x, y, size) {
     this.createLevelUpFallbackIcon(container, model, x, y, size, true);
+  }
+
+  createLevelUpRobotIcon(container, model, x, y, size) {
+    const base = this.add.graphics();
+    base.fillStyle(0x06131c, 0.82);
+    base.lineStyle(2, model.themeColor, 0.62);
+    base.fillRoundedRect(x - size * 0.58, y - size * 0.44, size * 1.16, size * 0.88, 7);
+    base.strokeRoundedRect(x - size * 0.58, y - size * 0.44, size * 1.16, size * 0.88, 7);
+    base.lineStyle(1, model.glowColor || model.themeColor, 0.28);
+    base.strokeCircle(x, y, size * 0.56);
+    base.strokeCircle(x, y, size * 0.36);
+    base.lineBetween(x - size * 0.5, y, x + size * 0.5, y);
+    base.lineBetween(x, y - size * 0.36, x, y + size * 0.36);
+
+    const glow = this.add.circle(x, y, size * 0.56, model.themeColor, 0.12)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    container.add([glow, base]);
+
+    if (model.iconTextureKey && this.textures.exists(model.iconTextureKey)) {
+      const icon = this.add.image(x, y, model.iconTextureKey)
+        .setDisplaySize(size * 0.72, size * 0.72)
+        .setAlpha(0.96);
+      container.add(icon);
+    }
+
+    const label = this.add.text(x, y + size * 0.38, model.iconTone || "TUNE", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "12px",
+      color: this.colorToCss(model.themeColor),
+      fontStyle: "bold",
+      align: "center"
+    }).setOrigin(0.5);
+    container.add(label);
   }
 
   createLevelUpFallbackIcon(container, model, x, y, size, hexagonal) {
@@ -14929,6 +15163,22 @@ class SurvivalScene extends Phaser.Scene {
 
   completeLevelUpCardSelection(option) {
     option?.onSelect?.();
+    if (this.levelUpSelectionMode === "robot") {
+      if (this.gameOver) {
+        return;
+      }
+
+      if (this.pendingLevelUps > 0) {
+        this.showLevelUpChoices();
+        return;
+      }
+
+      this.levelUpActive = false;
+      this.hideOverlay();
+      this.physics.world.resume();
+      return;
+    }
+
     this.pendingLevelUps = Math.max(0, this.pendingLevelUps - 1);
     if (this.startingUpgradeSelectionsRemaining > 0) {
       this.startingUpgradeSelectionsRemaining -= 1;
@@ -14964,6 +15214,7 @@ class SurvivalScene extends Phaser.Scene {
     this.levelUpCardRecords = [];
     this.levelUpInputEnabled = false;
     this.levelUpSelectionLocked = false;
+    this.levelUpSelectionMode = "level";
   }
 
   showOverlay(title, body, buttons) {
