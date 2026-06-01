@@ -41,6 +41,13 @@ const GATE_WARNING_LEAD_MS = 30000;
 const GATE_STABLE_MS = 30000;
 const GATE_INSTABILITY_DEPTH = 6;
 const GATE_ENTER_RADIUS = 112;
+const GATE_URGENT_LEAD_MS = 10000;
+const GATE_TENSION_HUD_BAR = {
+  x: GAME_WIDTH / 2 - 188,
+  y: 147,
+  width: 376,
+  height: 5
+};
 const EXTRACTION_MESSAGE_SESSION_KEY = "lastmemoVansabaExtractionMessage";
 const BOSS_SPAWN_DELAY_MS = 15000;
 const ENEMY_SPAWN_EDGE_PADDING = 180;
@@ -2354,6 +2361,9 @@ class SurvivalScene extends Phaser.Scene {
     this.gateChoiceLocked = false;
     this.gateChoiceKeyHandler = null;
     this.gateChoiceRecords = [];
+    this.gateSignalVisual = null;
+    this.gateWarningFlashUntil = 0;
+    this.gateInstabilityFlashUntil = 0;
     this.lastRunCoinLoss = null;
     this.lastGameOverReason = null;
     this.extractionComplete = false;
@@ -5549,6 +5559,12 @@ class SurvivalScene extends Phaser.Scene {
       align: "center",
       depth: 204
     }).setOrigin(0.5, 0);
+    this.hudGateTensionGraphics = this.registerUiObject(
+      this.add
+        .graphics()
+        .setScrollFactor(0)
+        .setDepth(203.5)
+    );
 
     this.createHudPanel(GAME_WIDTH - 304, 12, 132, 58);
     this.createHudPanel(GAME_WIDTH - 164, 12, 152, 58);
@@ -6674,6 +6690,295 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
+  getGateTensionState() {
+    const status = this.gateState?.status || "closed";
+    if (status === "closed") {
+      const remainingMs = Math.max(0, GATE_INTERVAL_MS - (this.stageDepthElapsedMs || 0));
+      if (remainingMs > GATE_WARNING_LEAD_MS && !this.gateState?.warningShown) {
+        return { phase: "idle", status, ratio: 0, remainingMs, urgent: false };
+      }
+
+      const ratio = Phaser.Math.Clamp(1 - remainingMs / GATE_WARNING_LEAD_MS, 0, 1);
+      return {
+        phase: "incoming",
+        status,
+        ratio,
+        remainingMs,
+        urgent: remainingMs <= GATE_URGENT_LEAD_MS
+      };
+    }
+
+    const remainingMs = Math.max(0, GATE_STABLE_MS - (this.gateState?.activeElapsedMs || 0));
+    const ratio = Phaser.Math.Clamp((this.gateState?.activeElapsedMs || 0) / GATE_STABLE_MS, 0, 1);
+    return {
+      phase: status === "unstable" ? "unstable" : "open",
+      status,
+      ratio,
+      remainingMs,
+      urgent: status === "unstable" || remainingMs <= GATE_URGENT_LEAD_MS
+    };
+  }
+
+  getGateTensionPalette(state) {
+    if (state.phase === "unstable") {
+      return {
+        primary: 0xff4fb8,
+        secondary: 0x8f54ff,
+        text: "#ffb3e6",
+        dangerText: "#ff6f91"
+      };
+    }
+
+    if (state.urgent) {
+      return {
+        primary: 0xff6f5e,
+        secondary: 0xffc857,
+        text: "#ffd4ba",
+        dangerText: "#ff7970"
+      };
+    }
+
+    if (state.phase === "incoming") {
+      return {
+        primary: 0xf0c463,
+        secondary: 0x65e6ff,
+        text: "#f3d58f",
+        dangerText: "#f3c06b"
+      };
+    }
+
+    return {
+      primary: 0x65e6ff,
+      secondary: 0xb8fbff,
+      text: "#aef7ff",
+      dangerText: "#9fe7ff"
+    };
+  }
+
+  updateGateTensionHud(state = this.getGateTensionState()) {
+    const graphics = this.hudGateTensionGraphics;
+    if (!graphics) {
+      return;
+    }
+
+    graphics.clear();
+    if (state.phase === "idle") {
+      return;
+    }
+
+    const palette = this.getGateTensionPalette(state);
+    const pulse = (Math.sin(this.time.now / (state.urgent ? 95 : 190)) + 1) * 0.5;
+    const intensity = Phaser.Math.Clamp((state.phase === "incoming" ? state.ratio : Math.max(state.ratio, 0.45)) + pulse * 0.18, 0, 1);
+    const edgeAlpha = 0.035 + intensity * (state.urgent ? 0.12 : 0.07);
+    const edgeSize = 10 + intensity * (state.urgent ? 16 : 8);
+
+    graphics.fillStyle(palette.primary, edgeAlpha);
+    graphics.fillRect(0, 0, GAME_WIDTH, edgeSize);
+    graphics.fillRect(0, GAME_HEIGHT - edgeSize, GAME_WIDTH, edgeSize);
+    graphics.fillRect(0, 0, edgeSize * 0.65, GAME_HEIGHT);
+    graphics.fillRect(GAME_WIDTH - edgeSize * 0.65, 0, edgeSize * 0.65, GAME_HEIGHT);
+
+    const flashUntil = Math.max(this.gateWarningFlashUntil || 0, this.gateInstabilityFlashUntil || 0);
+    if (flashUntil > this.time.now) {
+      const flashRatio = Phaser.Math.Clamp((flashUntil - this.time.now) / 1100, 0, 1);
+      graphics.fillStyle(palette.primary, flashRatio * 0.12);
+      graphics.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    }
+
+    const bracketLength = 76 + intensity * 42;
+    const inset = 12;
+    graphics.lineStyle(state.urgent ? 3 : 2, palette.primary, 0.32 + intensity * 0.42);
+    [
+      [inset, inset, inset + bracketLength, inset],
+      [inset, inset, inset, inset + bracketLength],
+      [GAME_WIDTH - inset, inset, GAME_WIDTH - inset - bracketLength, inset],
+      [GAME_WIDTH - inset, inset, GAME_WIDTH - inset, inset + bracketLength],
+      [inset, GAME_HEIGHT - inset, inset + bracketLength, GAME_HEIGHT - inset],
+      [inset, GAME_HEIGHT - inset, inset, GAME_HEIGHT - inset - bracketLength],
+      [GAME_WIDTH - inset, GAME_HEIGHT - inset, GAME_WIDTH - inset - bracketLength, GAME_HEIGHT - inset],
+      [GAME_WIDTH - inset, GAME_HEIGHT - inset, GAME_WIDTH - inset, GAME_HEIGHT - inset - bracketLength]
+    ].forEach(([x1, y1, x2, y2]) => graphics.lineBetween(x1, y1, x2, y2));
+
+    const barRatio = state.phase === "incoming" ? state.ratio : 1 - state.ratio;
+    const bar = GATE_TENSION_HUD_BAR;
+    graphics.fillStyle(0x02070a, 0.86);
+    graphics.fillRoundedRect(bar.x, bar.y, bar.width, bar.height, 2);
+    graphics.lineStyle(1, palette.secondary, 0.26 + intensity * 0.22);
+    graphics.strokeRoundedRect(bar.x - 1, bar.y - 1, bar.width + 2, bar.height + 2, 3);
+    graphics.fillStyle(palette.primary, 0.72 + pulse * 0.22);
+    graphics.fillRoundedRect(bar.x, bar.y, Math.max(0, bar.width * Phaser.Math.Clamp(barRatio, 0, 1)), bar.height, 2);
+  }
+
+  spawnGateWorldPulse(x, y, tint = 0x65e6ff, options = {}) {
+    const ringKey = this.textures.exists("skill-hit-ring") ? "skill-hit-ring" : "skill-hit-glow";
+    const glowKey = this.textures.exists("skill-hit-glow") ? "skill-hit-glow" : ringKey;
+    const duration = options.duration ?? 680;
+    const startScale = options.startScale ?? 0.85;
+    const endScale = options.endScale ?? 2.7;
+    const depth = options.depth ?? 20.5;
+    const glow = this.add
+      .image(x, y, glowKey)
+      .setDepth(depth)
+      .setScale(startScale * 1.15)
+      .setTint(tint)
+      .setAlpha(options.glowAlpha ?? 0.34)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const ring = this.add
+      .image(x, y, ringKey)
+      .setDepth(depth + 0.1)
+      .setScale(startScale)
+      .setTint(tint)
+      .setAlpha(options.ringAlpha ?? 0.86)
+      .setBlendMode(Phaser.BlendModes.ADD);
+
+    this.skillEffectsLayer?.add([glow, ring]);
+    this.tweens.add({
+      targets: glow,
+      scaleX: endScale * 1.25,
+      scaleY: endScale * 1.25,
+      alpha: 0,
+      duration,
+      ease: "Cubic.Out",
+      onComplete: () => glow.destroy()
+    });
+    this.tweens.add({
+      targets: ring,
+      scaleX: endScale,
+      scaleY: endScale,
+      alpha: 0,
+      duration,
+      ease: "Cubic.Out",
+      onComplete: () => ring.destroy()
+    });
+  }
+
+  spawnGateSignalVisual() {
+    if (this.gateSignalVisual?.container?.active) {
+      return;
+    }
+
+    const center = this.getStageGateCenter();
+    const container = this.add.container(center.x, center.y).setDepth(18.8);
+    const graphics = this.add.graphics().setBlendMode(Phaser.BlendModes.ADD);
+    const anchor = this.add
+      .circle(0, 0, 10, 0xf0c463, 0.5)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const label = this.add
+      .text(0, 86, "GATE SIGNAL", {
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "17px",
+        color: "#f3d58f",
+        fontStyle: "bold",
+        align: "center"
+      })
+      .setOrigin(0.5);
+    const countdownText = this.add
+      .text(0, 110, "00:30", {
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "22px",
+        color: "#ecfaff",
+        fontStyle: "bold",
+        align: "center"
+      })
+      .setOrigin(0.5);
+    const particles = Array.from({ length: 18 }, (_, index) => {
+      const particle = this.add
+        .circle(0, 0, index % 3 === 0 ? 3 : 2, 0xf0c463, 0.58)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      particle.baseAngle = (Math.PI * 2 * index) / 18;
+      particle.orbitOffset = index * 0.37;
+      return particle;
+    });
+
+    container.add([graphics, anchor, label, countdownText, ...particles]);
+    this.gateSignalVisual = {
+      container,
+      graphics,
+      anchor,
+      label,
+      countdownText,
+      particles
+    };
+    this.spawnGateWorldPulse(center.x, center.y, 0xf0c463, { startScale: 0.65, endScale: 2.1, duration: 720, depth: 18.7 });
+  }
+
+  destroyGateSignalVisual() {
+    const visual = this.gateSignalVisual;
+    if (!visual) {
+      return;
+    }
+
+    this.tweens.killTweensOf([visual.container, visual.anchor, ...(visual.particles || [])]);
+    visual.container?.destroy();
+    this.gateSignalVisual = null;
+  }
+
+  updateGateSignalVisual(state = this.getGateTensionState(), delta = 0) {
+    if (state.phase !== "incoming") {
+      this.destroyGateSignalVisual();
+      return;
+    }
+
+    if (!this.gateSignalVisual?.container?.active) {
+      this.spawnGateSignalVisual();
+    }
+
+    const visual = this.gateSignalVisual;
+    if (!visual?.graphics?.active) {
+      return;
+    }
+
+    const palette = this.getGateTensionPalette(state);
+    const pulse = (Math.sin(this.time.now / (state.urgent ? 95 : 170)) + 1) * 0.5;
+    const sweep = (this.time.now / (state.urgent ? 460 : 720)) % (Math.PI * 2);
+    const baseRadius = 72 + state.ratio * 52;
+    const outerRadius = baseRadius + pulse * (state.urgent ? 20 : 10);
+    const innerRadius = Math.max(28, 58 - state.ratio * 18 + pulse * 4);
+    const graphics = visual.graphics;
+
+    graphics.clear();
+    graphics.lineStyle(2, palette.secondary, 0.24 + pulse * 0.18);
+    graphics.strokeCircle(0, 0, outerRadius + 28);
+    graphics.lineStyle(state.urgent ? 5 : 3, palette.primary, 0.46 + pulse * 0.34);
+    graphics.strokeCircle(0, 0, outerRadius);
+    graphics.lineStyle(2, 0xecfaff, 0.32 + state.ratio * 0.24);
+    graphics.strokeCircle(0, 0, innerRadius);
+    graphics.lineStyle(4, palette.primary, 0.58 + pulse * 0.22);
+    graphics.beginPath();
+    graphics.arc(0, 0, outerRadius + 12, sweep, sweep + Math.PI * (state.urgent ? 0.72 : 0.48), false);
+    graphics.strokePath();
+    graphics.lineStyle(1, palette.secondary, 0.3 + pulse * 0.2);
+    graphics.lineBetween(-outerRadius - 16, 0, -innerRadius, 0);
+    graphics.lineBetween(innerRadius, 0, outerRadius + 16, 0);
+    graphics.lineBetween(0, -outerRadius - 16, 0, -innerRadius);
+    graphics.lineBetween(0, innerRadius, 0, outerRadius + 16);
+    graphics.fillStyle(palette.primary, 0.08 + pulse * 0.08);
+    graphics.fillCircle(0, 0, outerRadius * 0.58);
+
+    visual.anchor
+      ?.setFillStyle(palette.primary, 0.42 + pulse * 0.28)
+      .setScale(1 + state.ratio * 1.2 + pulse * 0.35);
+    visual.label
+      ?.setText(state.urgent ? "GATE IMMINENT" : "GATE SIGNAL")
+      .setColor(state.urgent ? palette.dangerText : palette.text);
+    visual.countdownText
+      ?.setText(this.formatTimeMs(state.remainingMs))
+      .setColor(state.urgent ? "#fff1a8" : "#ecfaff");
+
+    visual.particles?.forEach((particle, index) => {
+      if (!particle.active) {
+        return;
+      }
+      const angle = particle.baseAngle + this.time.now * (state.urgent ? 0.0042 : 0.0024);
+      const radius = outerRadius + 18 + Math.sin(this.time.now / 150 + particle.orbitOffset) * (state.urgent ? 14 : 8);
+      particle.setPosition(Math.cos(angle) * radius, Math.sin(angle) * radius);
+      particle.setFillStyle(index % 2 === 0 ? palette.primary : palette.secondary, 0.38 + pulse * 0.34);
+      particle.setScale(1 + state.ratio * 0.5 + Math.sin(this.time.now / 90 + index) * 0.24);
+    });
+
+    visual.container.setScale(1 + state.ratio * 0.08 + (state.urgent ? pulse * 0.05 : 0));
+  }
+
   updateGateTimer(delta) {
     if (this.gameOver || this.shopActive || this.levelUpActive || this.gateChoiceActive || this.extractionComplete) {
       return;
@@ -6707,6 +7012,8 @@ class SurvivalScene extends Phaser.Scene {
     } else {
       this.gateState.warningShown = true;
     }
+    this.gateWarningFlashUntil = this.time.now + 900;
+    this.spawnGateSignalVisual();
     this.setLastPickupNotice("GATE SIGNAL DETECTED");
   }
 
@@ -6725,6 +7032,7 @@ class SurvivalScene extends Phaser.Scene {
 
   spawnStageGate() {
     this.destroyStageGate();
+    this.destroyGateSignalVisual();
     const center = this.getStageGateCenter();
     const container = this.add.container(center.x, center.y).setDepth(19);
     const graphics = this.add.graphics();
@@ -6794,6 +7102,7 @@ class SurvivalScene extends Phaser.Scene {
       ease: "Sine.easeInOut"
     });
     this.knockbackEnemiesFromGate(center.x, center.y);
+    this.spawnGateWorldPulse(center.x, center.y, 0x65e6ff, { startScale: 0.9, endScale: 3.3, duration: 760, depth: 19.2 });
     this.setLastPickupNotice("GATE ONLINE");
   }
 
@@ -6806,11 +7115,18 @@ class SurvivalScene extends Phaser.Scene {
     const graphics = gate.graphics;
     const unstable = this.gateState?.status === "unstable";
     const stack = this.gateInstabilityStacks || 0;
-    const pulse = (Math.sin(this.time.now / (unstable ? 95 : 280)) + 1) * 0.5;
-    const ringTint = unstable ? 0xff4fb8 : 0x65e6ff;
-    const coreTint = unstable ? 0xff5b73 : 0x89f7ff;
-    const outerRadius = unstable ? 76 + pulse * (6 + Math.min(10, stack * 2)) : 76 + pulse * 3;
-    const innerRadius = unstable ? 48 + Math.sin(this.time.now / 130) * 5 : 48;
+    const activeElapsedMs = this.gateState?.activeElapsedMs || 0;
+    const activeRatio = Phaser.Math.Clamp(activeElapsedMs / GATE_STABLE_MS, 0, 1);
+    const remainingRatio = 1 - activeRatio;
+    const remainingMs = Math.max(0, GATE_STABLE_MS - activeElapsedMs);
+    const danger = unstable || remainingMs <= GATE_URGENT_LEAD_MS;
+    const pulse = (Math.sin(this.time.now / (unstable ? 95 : (danger ? 135 : 280))) + 1) * 0.5;
+    const ringTint = unstable ? 0xff4fb8 : (danger ? 0xff6f5e : 0x65e6ff);
+    const coreTint = unstable ? 0xff5b73 : (danger ? 0xffc857 : 0x89f7ff);
+    const outerRadius = unstable
+      ? 76 + pulse * (8 + Math.min(12, stack * 2.2))
+      : 76 + pulse * (3 + activeRatio * 8);
+    const innerRadius = unstable ? 48 + Math.sin(this.time.now / 130) * 5 : 48 + pulse * (danger ? 3 : 1);
 
     graphics.clear();
     graphics.lineStyle(7, ringTint, unstable ? 0.58 + pulse * 0.3 : 0.72);
@@ -6826,9 +7142,36 @@ class SurvivalScene extends Phaser.Scene {
     graphics.strokePath();
     graphics.fillStyle(coreTint, unstable ? 0.08 + pulse * 0.1 : 0.1);
     graphics.fillCircle(0, 0, 58);
+
+    graphics.lineStyle(9, 0x02070a, 0.62);
+    graphics.strokeCircle(0, 0, 104);
+    graphics.lineStyle(danger ? 8 : 6, ringTint, danger ? 0.74 + pulse * 0.18 : 0.56);
+    graphics.beginPath();
+    graphics.arc(0, 0, 104, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * remainingRatio, false);
+    graphics.strokePath();
+
+    if (danger) {
+      const fractureCount = unstable ? 12 : 7;
+      graphics.lineStyle(2, unstable ? 0xff9de1 : 0xfff0a6, unstable ? 0.34 + pulse * 0.26 : 0.26 + pulse * 0.2);
+      for (let index = 0; index < fractureCount; index += 1) {
+        const angle = this.time.now * 0.0012 + index * 2.399;
+        const startRadius = 38 + (index % 3) * 12;
+        const endRadius = outerRadius + 18 + Math.sin(this.time.now / 180 + index) * 14;
+        graphics.lineBetween(
+          Math.cos(angle) * startRadius,
+          Math.sin(angle) * startRadius,
+          Math.cos(angle + Math.sin(index) * 0.16) * endRadius,
+          Math.sin(angle + Math.cos(index) * 0.16) * endRadius
+        );
+      }
+    }
   }
 
   updateGateVisuals(delta) {
+    const tensionState = this.getGateTensionState();
+    this.updateGateTensionHud(tensionState);
+    this.updateGateSignalVisual(tensionState, delta);
+
     const gate = this.stageGate;
     if (!gate?.container?.active) {
       return;
@@ -6836,22 +7179,33 @@ class SurvivalScene extends Phaser.Scene {
 
     const unstable = this.gateState?.status === "unstable";
     const stack = this.gateInstabilityStacks || 0;
+    const remainingMs = Math.max(0, GATE_STABLE_MS - (this.gateState?.activeElapsedMs || 0));
+    const danger = unstable || remainingMs <= GATE_URGENT_LEAD_MS;
+    const pulse = (Math.sin(this.time.now / (danger ? 90 : 180)) + 1) * 0.5;
     this.drawStageGateGraphics();
-    gate.warningText?.setText(unstable ? "UNSTABLE GATE" : "GATE ONLINE");
-    gate.warningText?.setColor(unstable ? "#ffb3e6" : "#aef7ff");
-    gate.stackText?.setText(unstable ? `INSTABILITY STACK ${stack}` : "");
-    gate.core?.setFillStyle(unstable ? 0xff5b73 : 0x5fdcff, unstable ? 0.22 : 0.18);
+    gate.container?.setScale(1 + (danger ? pulse * 0.045 : 0));
+    gate.warningText?.setText(unstable ? "UNSTABLE GATE" : (danger ? "GATE COLLAPSING" : "GATE ONLINE"));
+    gate.warningText?.setColor(unstable ? "#ffb3e6" : (danger ? "#ffd4ba" : "#aef7ff"));
+    gate.stackText
+      ?.setText(unstable ? `INSTABILITY STACK ${stack}` : `COLLAPSE ${this.formatTimeMs(remainingMs)}`)
+      .setColor(danger ? "#ffb3a8" : "#9fe7ff");
+    gate.core?.setFillStyle(unstable ? 0xff5b73 : (danger ? 0xffc857 : 0x5fdcff), unstable ? 0.22 : (danger ? 0.24 : 0.18));
 
     gate.particles?.forEach((particle, index) => {
       if (!particle.active) {
         return;
       }
 
-      const angle = particle.baseAngle + this.time.now * particle.orbitSpeed * (unstable ? 1.8 : 1);
-      const radius = particle.orbitRadius + Math.sin(this.time.now / 180 + index) * (unstable ? 10 : 4);
+      const angle = particle.baseAngle + this.time.now * particle.orbitSpeed * (danger ? 2.2 : 1);
+      const radius = particle.orbitRadius + Math.sin(this.time.now / (danger ? 90 : 180) + index) * (danger ? 14 : 4);
       particle.setPosition(Math.cos(angle) * radius, Math.sin(angle) * radius);
-      particle.setFillStyle(unstable ? (index % 2 === 0 ? 0xff5b73 : 0x9d67ff) : 0xbdf8ff, unstable ? 0.44 + Math.random() * 0.26 : 0.46);
-      particle.setScale(unstable ? 1 + Math.sin(this.time.now / 70 + index) * 0.28 : 1);
+      particle.setFillStyle(
+        unstable
+          ? (index % 2 === 0 ? 0xff5b73 : 0x9d67ff)
+          : (danger ? (index % 2 === 0 ? 0xff6f5e : 0xffc857) : 0xbdf8ff),
+        danger ? 0.48 + pulse * 0.28 : 0.46
+      );
+      particle.setScale(danger ? 1 + Math.sin(this.time.now / 70 + index) * 0.34 : 1);
     });
   }
 
@@ -6879,9 +7233,12 @@ class SurvivalScene extends Phaser.Scene {
       this.tweens.killTweensOf([gate.container, gate.core, ...(gate.particles || [])]);
       gate.container?.destroy();
     }
+    this.destroyGateSignalVisual();
     this.stageGate = null;
     if (resetState) {
       this.gateState = { status: "closed", warningShown: false, activeElapsedMs: 0 };
+      this.gateWarningFlashUntil = 0;
+      this.gateInstabilityFlashUntil = 0;
     }
   }
 
@@ -7229,6 +7586,16 @@ class SurvivalScene extends Phaser.Scene {
     this.gateInstabilityStacks += 1;
     this.gateState.status = "unstable";
     this.gateState.activeElapsedMs = 0;
+    this.gateInstabilityFlashUntil = this.time.now + 1100;
+    if (this.stageGate?.container?.active) {
+      this.spawnGateWorldPulse(this.stageGate.container.x, this.stageGate.container.y, 0xff4fb8, {
+        startScale: 1.1,
+        endScale: 3.8,
+        duration: 860,
+        depth: 19.4,
+        glowAlpha: 0.42
+      });
+    }
     this.setLastPickupNotice(`GATE INSTABILITY +${this.gateInstabilityStacks}`);
     this.drawStageGateGraphics();
   }
@@ -16516,8 +16883,11 @@ class SurvivalScene extends Phaser.Scene {
 
     const coinScaling = this.getCurrentCoinScaling();
     const gateStatus = this.gateState?.status || "closed";
+    const tensionState = this.getGateTensionState();
     let gateText = "GATE --:--";
     let gateColor = "#9ab7cc";
+    let tensionText = "";
+    let tensionColor = "#ff8bd6";
 
     if (gateStatus === "closed") {
       const remainingMs = Math.max(0, GATE_INTERVAL_MS - (this.stageDepthElapsedMs || 0));
@@ -16526,15 +16896,23 @@ class SurvivalScene extends Phaser.Scene {
         ? `GATE SIGNAL ${this.formatTimeMs(remainingMs)}`
         : `GATE ${this.formatTimeMs(remainingMs)}`;
       gateColor = warningActive ? "#f3c06b" : "#9ab7cc";
+      if (warningActive) {
+        tensionText = `SIGNAL LOCK ${Math.round(tensionState.ratio * 100)}%`;
+        tensionColor = tensionState.urgent ? "#ffb3a8" : "#f3c06b";
+      }
     } else {
       const remainingMs = Math.max(0, GATE_STABLE_MS - (this.gateState?.activeElapsedMs || 0));
       const warningActive = remainingMs <= 10000;
       if (gateStatus === "unstable") {
         gateText = `UNSTABLE ${this.formatTimeMs(remainingMs)}`;
         gateColor = warningActive ? "#ff6f91" : "#ff9de1";
+        tensionText = `INSTABILITY ${this.gateInstabilityStacks || 0} / EXTRACT ${Math.round(coinScaling.emergencyExtractRate * 100)}%`;
+        tensionColor = warningActive ? "#ff6f91" : "#ff8bd6";
       } else {
         gateText = `GATE ${this.formatTimeMs(remainingMs)}`;
         gateColor = warningActive ? "#ff7970" : "#9fe7ff";
+        tensionText = warningActive ? "COLLAPSE IMMINENT" : `GATE STABLE ${this.formatTimeMs(remainingMs)}`;
+        tensionColor = warningActive ? "#ffb3a8" : "#9fe7ff";
       }
     }
 
@@ -16543,7 +16921,8 @@ class SurvivalScene extends Phaser.Scene {
     this.hudCoinMultiplierText?.setText(`GEEK x${coinScaling.amount.toFixed(2)}`);
     this.hudGateText?.setText(gateText);
     this.hudGateText?.setColor(gateColor);
-    this.hudInstabilityText?.setText((this.gateInstabilityStacks || 0) > 0 ? `INSTABILITY ${this.gateInstabilityStacks}` : "");
+    this.hudInstabilityText?.setText(tensionText);
+    this.hudInstabilityText?.setColor(tensionColor);
   }
 
   updateHud() {
