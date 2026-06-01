@@ -2,12 +2,25 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
   <title>ラスメモヴァンサバゲーム</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
+  <div id="mobile-start-gate" class="mobile-start-gate" role="dialog" aria-modal="true" aria-labelledby="mobile-start-title" hidden>
+    <div class="mobile-start-panel">
+      <p class="mobile-start-kicker">スマートフォンで接続中</p>
+      <h1 id="mobile-start-title">横向きフルスクリーンで開始しますか？</h1>
+      <p class="mobile-start-copy">横向きにすると画面全体を使ってプレイできます。対応端末ではフルスクリーンと画面回転をリクエストします。</p>
+      <div class="mobile-start-actions">
+        <button id="mobile-start-fullscreen" type="button">横向きフルスクリーン</button>
+        <button id="mobile-start-windowed" type="button">通常表示で開始</button>
+      </div>
+      <p class="mobile-start-note">端末やブラウザの制限で自動回転できない場合は、端末を横向きにして開始してください。</p>
+    </div>
+  </div>
+
   <main class="app-shell">
     <section class="game-panel">
       <div id="game-root" aria-label="game canvas"></div>

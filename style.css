@@ -18,11 +18,13 @@ html,
 body {
   margin: 0;
   min-height: 100%;
+  width: 100%;
   background:
     radial-gradient(circle at top, rgba(31, 77, 123, 0.36), transparent 36%),
     linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
   color: var(--text-main);
   font-family: "Segoe UI", "Yu Gothic UI", sans-serif;
+  overscroll-behavior: none;
 }
 
 body {
@@ -52,12 +54,144 @@ body {
   background:
     radial-gradient(circle at top, rgba(25, 74, 120, 0.25), transparent 42%),
     #03080e;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 #game-root canvas {
   display: block;
+  max-width: 100%;
+  max-height: 100%;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.mobile-start-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(18px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+  background:
+    linear-gradient(180deg, rgba(3, 8, 14, 0.96), rgba(2, 6, 11, 0.98));
+  touch-action: none;
+}
+
+.mobile-start-gate[hidden] {
+  display: none;
+}
+
+.mobile-start-panel {
+  width: min(520px, 100%);
+  padding: 24px;
+  border: 1px solid rgba(111, 207, 255, 0.36);
+  border-radius: 8px;
+  background: rgba(8, 19, 31, 0.96);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.46);
+}
+
+.mobile-start-kicker {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.mobile-start-panel h1 {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 24px;
+  line-height: 1.35;
+  letter-spacing: 0;
+}
+
+.mobile-start-copy,
+.mobile-start-note {
+  margin: 14px 0 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.mobile-start-note {
+  font-size: 12px;
+}
+
+.mobile-start-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.mobile-start-actions button {
   width: 100%;
+  min-height: 48px;
+  border: 1px solid rgba(111, 207, 255, 0.48);
+  border-radius: 8px;
+  background: #174766;
+  color: var(--text-main);
+  font: 700 16px/1.2 "Segoe UI", "Yu Gothic UI", sans-serif;
+  letter-spacing: 0;
+  touch-action: manipulation;
+}
+
+.mobile-start-actions button + button {
+  background: #101b2a;
+  color: #c8dceb;
+}
+
+.mobile-start-actions button:active {
+  transform: translateY(1px);
+}
+
+body.mobile-session {
+  overflow: hidden;
+  min-height: 100dvh;
+  background: #02060b;
+  touch-action: none;
+}
+
+body.mobile-session .app-shell {
+  width: 100vw;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+}
+
+body.mobile-session .game-panel {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: #03080e;
+  box-shadow: none;
+}
+
+body.mobile-session #game-root {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0;
+  background: #03080e;
+}
+
+body.mobile-session #game-root canvas {
+  width: auto;
   height: auto;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 @media (max-width: 820px) {
@@ -71,5 +205,24 @@ body {
 
   #game-root {
     min-height: 480px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .mobile-start-panel {
+    padding: 18px;
+  }
+
+  .mobile-start-panel h1 {
+    font-size: 21px;
+  }
+
+  .mobile-start-copy,
+  .mobile-start-note {
+    margin-top: 10px;
+  }
+
+  .mobile-start-actions {
+    margin-top: 16px;
   }
 }
