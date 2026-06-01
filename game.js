@@ -6241,15 +6241,36 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
+  getSourceEventClientPosition(sourceEvent) {
+    if (!sourceEvent) {
+      return null;
+    }
+
+    const touch =
+      sourceEvent.changedTouches?.[0] ||
+      sourceEvent.touches?.[0] ||
+      sourceEvent.targetTouches?.[0] ||
+      null;
+    const clientX = touch?.clientX ?? sourceEvent.clientX;
+    const clientY = touch?.clientY ?? sourceEvent.clientY;
+
+    if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) {
+      return null;
+    }
+
+    return { clientX, clientY };
+  }
+
   getOverlayPointerGamePosition(pointer) {
     const sourceEvent = pointer?.event;
     const canvas = this.game?.canvas;
     if (sourceEvent && canvas?.getBoundingClientRect) {
       const bounds = canvas.getBoundingClientRect();
-      if (bounds.width > 0 && bounds.height > 0) {
+      const clientPoint = this.getSourceEventClientPosition(sourceEvent);
+      if (clientPoint && bounds.width > 0 && bounds.height > 0) {
         return {
-          x: ((sourceEvent.clientX - bounds.left) / bounds.width) * GAME_WIDTH,
-          y: ((sourceEvent.clientY - bounds.top) / bounds.height) * GAME_HEIGHT
+          x: ((clientPoint.clientX - bounds.left) / bounds.width) * GAME_WIDTH,
+          y: ((clientPoint.clientY - bounds.top) / bounds.height) * GAME_HEIGHT
         };
       }
     }
@@ -16592,6 +16613,9 @@ const config = {
     }
   },
   scene: [SurvivalScene],
+  input: {
+    activePointers: 3
+  },
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH
