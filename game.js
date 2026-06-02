@@ -1953,6 +1953,18 @@ class SurvivalScene extends Phaser.Scene {
     return stage?.renderMode === "singleImage" && Boolean(baseImage && this.textures.exists(baseImage.textureKey));
   }
 
+  shouldUseStageCollisionZones(stage = this.currentStage) {
+    if (!stage) {
+      return false;
+    }
+
+    if (stage.collisionZonesBlockMovement === false) {
+      return Boolean(this.stageCollisionEditorEnabled || this.stageDebugEnabled);
+    }
+
+    return true;
+  }
+
   getStageAssetEntries(stage) {
     if (!stage) {
       return [];
@@ -2297,6 +2309,7 @@ class SurvivalScene extends Phaser.Scene {
     this.shopActive = false;
     this.shopStatusMessage = "";
     this.gameOver = false;
+    this.restartInProgress = false;
     this.currentWaveId = 1;
     this.waveStartedAt = 0;
     this.nextBossSpawnAt = BOSS_SPAWN_DELAY_MS;
@@ -3716,7 +3729,7 @@ class SurvivalScene extends Phaser.Scene {
 
   buildStageCollisionZones(stage) {
     const zones = Array.isArray(stage.collisionZones) ? stage.collisionZones : [];
-    if (zones.length === 0) {
+    if (zones.length === 0 || !this.shouldUseStageCollisionZones(stage)) {
       return;
     }
 
@@ -4675,14 +4688,16 @@ class SurvivalScene extends Phaser.Scene {
       });
     });
 
-    (stage.collisionZones || []).forEach((zone) => {
-      boxes.push({
-        left: zone.x,
-        right: zone.x + zone.width,
-        top: zone.y,
-        bottom: zone.y + zone.height
+    if (this.shouldUseStageCollisionZones(stage)) {
+      (stage.collisionZones || []).forEach((zone) => {
+        boxes.push({
+          left: zone.x,
+          right: zone.x + zone.width,
+          top: zone.y,
+          bottom: zone.y + zone.height
+        });
       });
-    });
+    }
 
     return boxes;
   }
@@ -15899,7 +15914,36 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   restartGame() {
-    window.location.reload();
+    if (this.restartInProgress) {
+      return;
+    }
+
+    this.restartInProgress = true;
+    this.gameOver = false;
+    this.rankingNameEntryActive = false;
+    this.pendingRankingSaved = true;
+    this.levelUpActive = false;
+    this.gateChoiceActive = false;
+    this.extractionComplete = false;
+    this.overlayActions = [];
+    this.releaseMobileControlPointers?.();
+    const overlayTweenTargets = [this.overlayContainer, this.overlayBackdrop].filter(Boolean);
+    if (overlayTweenTargets.length > 0) {
+      this.tweens.killTweensOf(overlayTweenTargets);
+    }
+    this.overlayBackdrop?.setAlpha(1).setVisible(false);
+    this.overlayContainer?.setAlpha(1).setScale(1).setVisible(false);
+    this.physics?.world?.resume();
+    this.sound?.stopAll();
+
+    window.setTimeout(() => {
+      if (this.scene?.manager) {
+        this.scene.restart();
+        return;
+      }
+
+      window.location.reload();
+    }, 0);
   }
 
   createGameOverRankingButton(centerX, centerY, width, height, title, description, onSelect) {

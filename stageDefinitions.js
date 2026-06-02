@@ -400,6 +400,7 @@ function createTokyoRandomStageDefinition(spec) {
     playerStart: { ...preset.playerStart },
     playBounds,
     baseImage,
+    collisionZonesBlockMovement: false,
     collisionZones: preset.collisionZones.map((zone) => ({ ...zone })),
     enemySpawnAreas: createTokyoRandomStageSpawnAreas(playBounds),
     debug: {
@@ -2267,6 +2268,7 @@ window.stageDefinitions = {
     obstacleCollisionPresets: STAGE1_OBSTACLE_COLLISION_PRESETS,
     obstacleLayoutGroups: STAGE1_OBSTACLE_LAYOUT_GROUPS,
     obstaclePlacements: STAGE1_OBSTACLE_PLACEMENTS,
+    collisionZonesBlockMovement: false,
     collisionZones: STAGE1_SINGLE_IMAGE_COLLISION_ZONES,
     enemySpawnAreas: STAGE1_SINGLE_IMAGE_SPAWN_AREAS
   }
