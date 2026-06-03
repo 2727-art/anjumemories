@@ -3243,6 +3243,17 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   consumePendingExtractionShopMessage() {
+    const runtimeMessage = window.__SURVIVAL_PENDING_SHOP_MESSAGE__ || "";
+    if (runtimeMessage) {
+      window.__SURVIVAL_PENDING_SHOP_MESSAGE__ = "";
+      try {
+        window.sessionStorage?.removeItem(EXTRACTION_MESSAGE_SESSION_KEY);
+      } catch (error) {
+        // The in-memory message is already consumed.
+      }
+      return runtimeMessage;
+    }
+
     try {
       const message = window.sessionStorage?.getItem(EXTRACTION_MESSAGE_SESSION_KEY) || "";
       if (message) {
@@ -7533,12 +7544,7 @@ class SurvivalScene extends Phaser.Scene {
     this.time.delayedCall(1800, () => {
       const securedText = `${result.secured.toLocaleString()} GEEK SECURED`;
       const lostText = result.lost > 0 ? ` / LOST ${result.lost.toLocaleString()}` : "";
-      try {
-        window.sessionStorage?.setItem(EXTRACTION_MESSAGE_SESSION_KEY, `作戦成功 ${securedText}${lostText}`);
-      } catch (error) {
-        // Session storage is only used for the one-shot shop message.
-      }
-      window.location.reload();
+      this.returnToOpeningShop(`作戦成功 ${securedText}${lostText}`);
     });
   }
 
@@ -15914,11 +15920,16 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   restartGame() {
+    this.returnToOpeningShop("");
+  }
+
+  returnToOpeningShop(message = "") {
     if (this.restartInProgress) {
       return;
     }
 
     this.restartInProgress = true;
+    this.remoteRankingRequestId += 1;
     this.gameOver = false;
     this.rankingNameEntryActive = false;
     this.pendingRankingSaved = true;
@@ -15937,12 +15948,7 @@ class SurvivalScene extends Phaser.Scene {
     this.sound?.stopAll();
 
     window.setTimeout(() => {
-      if (this.scene?.manager) {
-        this.scene.restart();
-        return;
-      }
-
-      window.location.reload();
+      resetSurvivalGameToShop(message);
     }, 0);
   }
 
@@ -17094,6 +17100,25 @@ async function requestLandscapeFullscreen() {
   }
 }
 
+function setPendingOpeningShopMessage(message = "") {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const normalizedMessage = String(message || "");
+  window.__SURVIVAL_PENDING_SHOP_MESSAGE__ = normalizedMessage;
+
+  try {
+    if (normalizedMessage) {
+      window.sessionStorage?.setItem(EXTRACTION_MESSAGE_SESSION_KEY, normalizedMessage);
+    } else {
+      window.sessionStorage?.removeItem(EXTRACTION_MESSAGE_SESSION_KEY);
+    }
+  } catch (error) {
+    // The in-memory message is enough when storage is blocked.
+  }
+}
+
 function startSurvivalGame() {
   if (window.__SURVIVAL_GAME__) {
     return;
@@ -17103,6 +17128,39 @@ function startSurvivalGame() {
   window.setTimeout(() => {
     window.__SURVIVAL_GAME__?.scale?.refresh?.();
   }, 80);
+}
+
+function resetSurvivalGameToShop(message = "") {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  setPendingOpeningShopMessage(message);
+  if (window.__SURVIVAL_GAME_RESETTING__) {
+    return;
+  }
+
+  window.__SURVIVAL_GAME_RESETTING__ = true;
+  const previousGame = window.__SURVIVAL_GAME__ || null;
+  window.__SURVIVAL_GAME__ = null;
+
+  try {
+    previousGame?.destroy?.(true);
+  } catch (error) {
+    console.warn("Failed to destroy previous game instance before reset.", error);
+  }
+
+  window.setTimeout(() => {
+    try {
+      document.querySelectorAll("#game-root canvas").forEach((canvas) => canvas.remove());
+      window.__SURVIVAL_GAME_RESETTING__ = false;
+      startSurvivalGame();
+    } catch (error) {
+      window.__SURVIVAL_GAME_RESETTING__ = false;
+      console.error("Failed to recreate game instance after reset.", error);
+      window.location.reload();
+    }
+  }, 60);
 }
 
 function setupMobileLaunchGate() {
