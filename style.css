@@ -151,6 +151,106 @@ body {
   transform: translateY(1px);
 }
 
+.shop-loading-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100dvh;
+  min-height: 100vh;
+  z-index: 9500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: max(18px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+  background:
+    radial-gradient(circle at 50% 42%, rgba(111, 207, 255, 0.16), transparent 30%),
+    linear-gradient(180deg, rgba(2, 6, 11, 0.98), rgba(3, 9, 16, 0.995));
+  opacity: 1;
+  transition: opacity 160ms ease;
+  touch-action: none;
+}
+
+.shop-loading-screen[hidden] {
+  display: none;
+}
+
+.shop-loading-screen.is-hiding {
+  opacity: 0;
+}
+
+.shop-loading-panel {
+  width: min(420px, 100%);
+  padding: 26px 24px 24px;
+  border: 1px solid rgba(111, 207, 255, 0.36);
+  border-radius: 8px;
+  background: rgba(7, 18, 30, 0.96);
+  box-shadow: 0 22px 58px rgba(0, 0, 0, 0.52);
+  text-align: center;
+}
+
+.shop-loading-emblem {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 14px;
+  place-items: center;
+  border: 2px solid rgba(111, 207, 255, 0.78);
+  border-radius: 50%;
+  color: #ecf7ff;
+  font: 800 28px/1 "Segoe UI", "Yu Gothic UI", sans-serif;
+  box-shadow: 0 0 24px rgba(111, 207, 255, 0.28);
+}
+
+.shop-loading-kicker {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.shop-loading-panel h2 {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 24px;
+  line-height: 1.35;
+  letter-spacing: 0;
+}
+
+.shop-loading-bar {
+  position: relative;
+  height: 5px;
+  margin-top: 22px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(111, 207, 255, 0.16);
+}
+
+.shop-loading-bar span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 38%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(111, 207, 255, 0.12), rgba(111, 207, 255, 0.92), rgba(240, 196, 99, 0.84));
+  animation: shop-loading-sweep 1.05s ease-in-out infinite;
+}
+
+body.shop-loading-active {
+  overflow: hidden;
+  touch-action: none;
+}
+
+@keyframes shop-loading-sweep {
+  0% {
+    transform: translateX(-105%);
+  }
+  100% {
+    transform: translateX(275%);
+  }
+}
+
 body.mobile-session {
   overflow: hidden;
   min-height: 100dvh;
@@ -211,6 +311,22 @@ body.mobile-session #game-root canvas {
 @media (orientation: landscape) and (max-height: 520px) {
   .mobile-start-panel {
     padding: 18px;
+  }
+
+  .shop-loading-panel {
+    width: min(380px, 100%);
+    padding: 20px;
+  }
+
+  .shop-loading-emblem {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 10px;
+    font-size: 23px;
+  }
+
+  .shop-loading-panel h2 {
+    font-size: 21px;
   }
 
   .mobile-start-panel h1 {

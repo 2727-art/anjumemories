@@ -36,6 +36,7 @@ const MOBILE_CONTROL_MIN_MARGIN = 88;
 const MOBILE_DASH_BUTTON_X = GAME_WIDTH - 126;
 const MOBILE_DASH_BUTTON_Y = 350;
 const MOBILE_DASH_BUTTON_RADIUS = 58;
+const SHOP_LOADING_MIN_VISIBLE_MS = 650;
 const GATE_INTERVAL_MS = 180000;
 const GATE_WARNING_LEAD_MS = 30000;
 const GATE_STABLE_MS = 30000;
@@ -110,6 +111,7 @@ const GENSO_KNIGHTS_GUARD_EFFECT_FRAME_MS = 46;
 const GENSO_KNIGHTS_GUARD_EFFECT_SIZE = 250;
 const DAMAGE_TEXT_FONT_SIZE_MULTIPLIER = 2;
 const CD_SHOP_SLOT_COUNT = 10;
+const CD_PURCHASE_PRICE = 100000;
 const DEFAULT_BEST_RECORD = {
   survivalTimeMs: 0,
   level: 0,
@@ -134,40 +136,91 @@ const CD_CATALOG = [
     id: "nandeyanen",
     title: "なんでやねんねん",
     subtitle: "Akane Orange Beat",
-    price: 5000,
+    price: CD_PURCHASE_PRICE,
     startsUnlocked: false,
     jacketTextureKey: "cd-jacket-nandeyanen",
     lockedJacketTextureKey: "cd-jacket-nandeyanen-locked",
     jacketPath: "./画像/cd/nandeyanen.png",
     lockedJacketPath: "./画像/cd/nandeyanen_locked.png",
     audioKey: "bgm-nandeyanen",
-    audioPath: "./音声/bgm/nandeyanen.mp3"
+    audioPath: "./音声/bgm/nandeyanen.mp3",
+    bonusLabel: "ATK +10% / 弾速 +6%",
+    statBonus: {
+      damageMultiplierAdd: 0.1,
+      bulletSpeedMultiplier: 1.06
+    }
   },
   {
     id: "hanseikai",
     title: "反省会",
     subtitle: "Neon HipHop Session",
-    price: 8000,
+    price: CD_PURCHASE_PRICE,
     startsUnlocked: false,
     jacketTextureKey: "cd-jacket-hanseikai",
     lockedJacketTextureKey: "cd-jacket-hanseikai-locked",
     jacketPath: "./画像/cd/hanseikai.png",
     lockedJacketPath: "./画像/cd/hanseikai_locked.png",
     audioKey: "bgm-hanseikai",
-    audioPath: "./音声/bgm/hanseikai.mp3"
+    audioPath: "./音声/bgm/hanseikai_ver2.wav",
+    bonusLabel: "HP +25 / STAM +20",
+    statBonus: {
+      maxHpAdd: 25,
+      maxStaminaAdd: 20
+    }
   },
   {
     id: "miraiwoikiteru",
     title: "未来を生きてる",
     subtitle: "Beat Fusion Future",
-    price: 12000,
+    price: CD_PURCHASE_PRICE,
     startsUnlocked: false,
     jacketTextureKey: "cd-jacket-miraiwoikiteru",
     lockedJacketTextureKey: "cd-jacket-miraiwoikiteru-locked",
     jacketPath: "./画像/cd/miraiwoikiteru.png",
     lockedJacketPath: "./画像/cd/miraiwoikiteru_locked.png",
     audioKey: "bgm-miraiwoikiteru",
-    audioPath: "./音声/bgm/miraiwoikiteru.mp3"
+    audioPath: "./音声/bgm/miraiwoikiteru.mp3",
+    bonusLabel: "SPD +20 / 連射 +5%",
+    statBonus: {
+      moveSpeedAdd: 20,
+      fireIntervalMultiplier: 0.95
+    }
+  },
+  {
+    id: "kotokoto",
+    title: "コトコト",
+    subtitle: "Cyber Maid Beat",
+    price: CD_PURCHASE_PRICE,
+    startsUnlocked: false,
+    jacketTextureKey: "cd-jacket-kotokoto",
+    lockedJacketTextureKey: "cd-jacket-kotokoto-locked",
+    jacketPath: "./画像/cd/kotokoto.png",
+    lockedJacketPath: "./画像/cd/kotokoto_locked.png",
+    audioKey: "bgm-kotokoto",
+    audioPath: "./音声/bgm/kotokoto.wav",
+    bonusLabel: "ATK +6% / STAM +15",
+    statBonus: {
+      damageMultiplierAdd: 0.06,
+      maxStaminaAdd: 15
+    }
+  },
+  {
+    id: "ichaina",
+    title: "いっちゃいな",
+    subtitle: "Beat Spark!",
+    price: CD_PURCHASE_PRICE,
+    startsUnlocked: false,
+    jacketTextureKey: "cd-jacket-ichaina",
+    lockedJacketTextureKey: "cd-jacket-ichaina-locked",
+    jacketPath: "./画像/cd/ichaina.png",
+    lockedJacketPath: "./画像/cd/ichaina_locked.png",
+    audioKey: "bgm-ichaina",
+    audioPath: "./音声/bgm/ichaina.mp3",
+    bonusLabel: "弾速 +8% / SPD +12",
+    statBonus: {
+      bulletSpeedMultiplier: 1.08,
+      moveSpeedAdd: 12
+    }
   }
 ];
 const SHOP_UPGRADE_DEFINITIONS = {
@@ -2512,8 +2565,36 @@ class SurvivalScene extends Phaser.Scene {
 
     this.stats.damageMultiplier = 1 + weaponLevel * 0.06;
     this.stats.maxHp += armorLevel * 10;
-    this.stats.hp = this.stats.maxHp;
     this.stats.moveSpeed += shoesLevel * 8;
+    this.applyOwnedCdBonusesToStats();
+    this.stats.hp = this.stats.maxHp;
+    this.stats.stamina = this.stats.maxStamina;
+  }
+
+  applyOwnedCdBonusesToStats() {
+    if (!this.stats) {
+      return;
+    }
+
+    this.getOwnedCdDefinitions().forEach((cd) => {
+      const bonus = cd.statBonus;
+      if (!bonus) {
+        return;
+      }
+
+      this.stats.damageMultiplier += Number(bonus.damageMultiplierAdd) || 0;
+      this.stats.bulletSpeed *= Number(bonus.bulletSpeedMultiplier) || 1;
+      this.stats.maxHp += Number(bonus.maxHpAdd) || 0;
+      this.stats.maxStamina += Number(bonus.maxStaminaAdd) || 0;
+      this.stats.moveSpeed += Number(bonus.moveSpeedAdd) || 0;
+      this.stats.fireInterval *= Number(bonus.fireIntervalMultiplier) || 1;
+    });
+
+    this.stats.bulletSpeed = Math.round(this.stats.bulletSpeed);
+    this.stats.maxHp = Math.round(this.stats.maxHp);
+    this.stats.maxStamina = Math.round(this.stats.maxStamina);
+    this.stats.moveSpeed = Math.round(this.stats.moveSpeed);
+    this.stats.fireInterval = Math.max(120, Math.round(this.stats.fireInterval));
   }
 
   getPermanentUpgradeCost(upgradeId) {
@@ -2583,6 +2664,17 @@ class SurvivalScene extends Phaser.Scene {
     return Boolean(cdId && this.shopState?.ownedCdIds?.includes(cdId));
   }
 
+  getOwnedCdDefinitions() {
+    const ownedIds = new Set(Array.isArray(this.shopState?.ownedCdIds)
+      ? this.shopState.ownedCdIds
+      : []);
+    return CD_CATALOG.filter((cd) => ownedIds.has(cd.id));
+  }
+
+  getCdBonusText(cd) {
+    return cd?.bonusLabel || "";
+  }
+
   purchaseCd(cdId) {
     const cd = this.getCdDefinition(cdId);
     if (!cd) {
@@ -2602,7 +2694,11 @@ class SurvivalScene extends Phaser.Scene {
     this.shopState.selectedCdId = cd.id;
     this.saveShopState();
     this.playSelectedBgm();
-    this.showPreGameShop(`${cd.title} を解放しました`);
+    this.rebuildStartingStats();
+    const bonusText = this.getCdBonusText(cd);
+    this.showPreGameShop(bonusText
+      ? `${cd.title} 解放: ${bonusText}`
+      : `${cd.title} を解放しました`);
   }
 
   selectCd(cdId) {
@@ -6482,11 +6578,12 @@ class SurvivalScene extends Phaser.Scene {
 
     this.overlayBackdrop.setAlpha(1).setVisible(true);
     this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
+    window.requestAnimationFrame?.(() => hideShopLoadingScreen());
   }
 
   renderCdShopGrid(originX, originY) {
     const cardWidth = 124;
-    const cardHeight = 166;
+    const cardHeight = 178;
     const gap = 12;
     const slots = Array.from({ length: CD_SHOP_SLOT_COUNT }, (_, index) => CD_CATALOG[index] || null);
 
@@ -6535,15 +6632,15 @@ class SurvivalScene extends Phaser.Scene {
       : (this.textures.exists(fallbackLockedKey) ? fallbackLockedKey : "cd-placeholder-slot");
     const image = this.addOverlayChild(
       this.add
-        .image(x + width / 2, y + 55, imageKey)
-        .setDisplaySize(96, 96)
+        .image(x + width / 2, y + 50, imageKey)
+        .setDisplaySize(90, 90)
         .setAlpha(enabled ? 1 : 0.42)
     );
 
     if (!owned) {
       this.addOverlayChild(
         this.add
-          .rectangle(x + width / 2, y + 55, 96, 96, 0x02060b, enabled ? 0.22 : 0.52)
+          .rectangle(x + width / 2, y + 50, 90, 90, 0x02060b, enabled ? 0.22 : 0.52)
       );
       image.setTint(0x9f92d8);
     }
@@ -6555,20 +6652,27 @@ class SurvivalScene extends Phaser.Scene {
     const actionLabel = !cd
       ? "SOON"
       : (selected ? "SELECTED" : (owned ? "SELECT" : `BUY ${this.normalizeCoinAmount(cd.price).toLocaleString()} GEEK`));
+    const bonusLabel = cd ? this.getCdBonusText(cd) : "";
 
-    this.createOverlayText(x + 10, y + 110, title, {
+    this.createOverlayText(x + 10, y + 101, title, {
       fontSize: "14px",
       color: enabled ? "#ecf7ff" : "#617484",
       fontStyle: "bold",
       wordWrap: { width: width - 20 }
     });
-    this.createOverlayText(x + 10, y + 130, subtitle, {
+    this.createOverlayText(x + 10, y + 121, subtitle, {
       fontSize: "10px",
       color: enabled ? "#9ab7cc" : "#566875",
       wordWrap: { width: width - 20 }
     });
-    this.createOverlayText(x + width / 2, y + height - 20, actionLabel, {
-      fontSize: "12px",
+    this.createOverlayText(x + 10, y + 137, bonusLabel, {
+      fontSize: "10px",
+      color: owned ? "#66d25f" : (enabled ? "#f0c463" : "#566875"),
+      fontStyle: "bold",
+      wordWrap: { width: width - 20 }
+    });
+    this.createOverlayText(x + width / 2, y + height - 16, actionLabel, {
+      fontSize: owned || selected ? "12px" : "11px",
       color: selected ? "#f0c463" : (enabled ? "#ecf7ff" : "#566875"),
       fontStyle: "bold",
       align: "center",
@@ -15928,6 +16032,7 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
+    showShopLoadingScreen(message ? "GEEK 確定中" : "ショップへ戻っています");
     this.restartInProgress = true;
     this.remoteRankingRequestId += 1;
     this.gameOver = false;
@@ -17119,11 +17224,161 @@ function setPendingOpeningShopMessage(message = "") {
   }
 }
 
-function startSurvivalGame() {
+function getShopLoadingTitleForMessage(message = "") {
+  return String(message || "") ? "GEEK 確定中" : "ショップ準備中";
+}
+
+function assignShopLoadingStyles(element, styles) {
+  if (!element) {
+    return;
+  }
+
+  Object.assign(element.style, styles);
+}
+
+function applyShopLoadingInlineStyles(screen) {
+  const panel = screen?.querySelector(".shop-loading-panel");
+  const emblem = screen?.querySelector(".shop-loading-emblem");
+  const kicker = screen?.querySelector(".shop-loading-kicker");
+  const title = screen?.querySelector("#shop-loading-title");
+  const bar = screen?.querySelector(".shop-loading-bar");
+  const barFill = screen?.querySelector(".shop-loading-bar span");
+
+  assignShopLoadingStyles(screen, {
+    position: "fixed",
+    top: "0",
+    left: "0",
+    width: "100vw",
+    height: "100dvh",
+    minHeight: "100vh",
+    zIndex: "9500",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    padding: "18px",
+    background: "linear-gradient(180deg, rgba(2, 6, 11, 0.98), rgba(3, 9, 16, 0.995))",
+    opacity: "1",
+    touchAction: "none"
+  });
+  assignShopLoadingStyles(panel, {
+    width: "min(420px, calc(100vw - 36px))",
+    padding: "26px 24px 24px",
+    border: "1px solid rgba(111, 207, 255, 0.36)",
+    borderRadius: "8px",
+    background: "rgba(7, 18, 30, 0.96)",
+    boxShadow: "0 22px 58px rgba(0, 0, 0, 0.52)",
+    textAlign: "center"
+  });
+  assignShopLoadingStyles(emblem, {
+    display: "grid",
+    width: "58px",
+    height: "58px",
+    margin: "0 auto 14px",
+    placeItems: "center",
+    border: "2px solid rgba(111, 207, 255, 0.78)",
+    borderRadius: "50%",
+    color: "#ecf7ff",
+    font: "800 28px/1 Segoe UI, Yu Gothic UI, sans-serif"
+  });
+  assignShopLoadingStyles(kicker, {
+    margin: "0 0 8px",
+    color: "#6fcfff",
+    fontSize: "12px",
+    fontWeight: "800"
+  });
+  assignShopLoadingStyles(title, {
+    margin: "0",
+    color: "#ecf7ff",
+    fontSize: "24px",
+    lineHeight: "1.35",
+    fontWeight: "700"
+  });
+  assignShopLoadingStyles(bar, {
+    position: "relative",
+    height: "5px",
+    marginTop: "22px",
+    overflow: "hidden",
+    borderRadius: "999px",
+    background: "rgba(111, 207, 255, 0.16)"
+  });
+  assignShopLoadingStyles(barFill, {
+    position: "absolute",
+    inset: "0 auto 0 0",
+    width: "38%",
+    borderRadius: "inherit",
+    background: "linear-gradient(90deg, rgba(111, 207, 255, 0.12), rgba(111, 207, 255, 0.92), rgba(240, 196, 99, 0.84))",
+    animation: "shop-loading-sweep 1.05s ease-in-out infinite"
+  });
+}
+
+function showShopLoadingScreen(title = "ショップ準備中") {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  const screen = document.getElementById("shop-loading-screen");
+  if (!screen) {
+    return;
+  }
+
+  applyShopLoadingInlineStyles(screen);
+  const titleElement = document.getElementById("shop-loading-title");
+  if (titleElement) {
+    titleElement.textContent = title || "ショップ準備中";
+  }
+
+  window.scrollTo?.(0, 0);
+  window.__SURVIVAL_SHOP_LOADING_TOKEN__ = (window.__SURVIVAL_SHOP_LOADING_TOKEN__ || 0) + 1;
+  window.__SURVIVAL_SHOP_LOADING_STARTED_AT__ = performance?.now?.() ?? Date.now();
+  screen.classList.remove("is-hiding");
+  screen.hidden = false;
+  screen.setAttribute("aria-hidden", "false");
+  document.body?.classList.add("shop-loading-active");
+}
+
+function hideShopLoadingScreen() {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  const screen = document.getElementById("shop-loading-screen");
+  if (!screen || screen.hidden) {
+    document.body?.classList.remove("shop-loading-active");
+    return;
+  }
+
+  const token = window.__SURVIVAL_SHOP_LOADING_TOKEN__ || 0;
+  const startedAt = window.__SURVIVAL_SHOP_LOADING_STARTED_AT__ || 0;
+  const now = performance?.now?.() ?? Date.now();
+  const waitMs = Math.max(0, SHOP_LOADING_MIN_VISIBLE_MS - (now - startedAt));
+
+  window.setTimeout(() => {
+    if ((window.__SURVIVAL_SHOP_LOADING_TOKEN__ || 0) !== token) {
+      return;
+    }
+
+    screen.classList.add("is-hiding");
+    screen.style.opacity = "0";
+    window.setTimeout(() => {
+      if ((window.__SURVIVAL_SHOP_LOADING_TOKEN__ || 0) !== token) {
+        return;
+      }
+      screen.hidden = true;
+      screen.style.display = "none";
+      screen.classList.remove("is-hiding");
+      screen.setAttribute("aria-hidden", "true");
+      document.body?.classList.remove("shop-loading-active");
+    }, 180);
+  }, waitMs);
+}
+
+function startSurvivalGame(loadingTitle = "ショップ準備中") {
   if (window.__SURVIVAL_GAME__) {
     return;
   }
 
+  showShopLoadingScreen(loadingTitle);
   window.__SURVIVAL_GAME__ = new Phaser.Game(config);
   window.setTimeout(() => {
     window.__SURVIVAL_GAME__?.scale?.refresh?.();
@@ -17154,7 +17409,7 @@ function resetSurvivalGameToShop(message = "") {
     try {
       document.querySelectorAll("#game-root canvas").forEach((canvas) => canvas.remove());
       window.__SURVIVAL_GAME_RESETTING__ = false;
-      startSurvivalGame();
+      startSurvivalGame(getShopLoadingTitleForMessage(message));
     } catch (error) {
       window.__SURVIVAL_GAME_RESETTING__ = false;
       console.error("Failed to recreate game instance after reset.", error);
