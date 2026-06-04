@@ -12,6 +12,10 @@ service cloud.firestore {
           "survivalTimeMs",
           "level",
           "eliteKills",
+          "maxDepthReached",
+          "anjuMemoryEarned",
+          "selectedTitle",
+          "selectedBadge",
           "uid",
           "createdAt"
         ])
@@ -30,6 +34,20 @@ service cloud.firestore {
         && request.resource.data.eliteKills is int
         && request.resource.data.eliteKills >= 0
         && request.resource.data.eliteKills <= 100000
+        && (!request.resource.data.keys().hasAny(["maxDepthReached"])
+          || (request.resource.data.maxDepthReached is int
+            && request.resource.data.maxDepthReached >= 1
+            && request.resource.data.maxDepthReached <= 999))
+        && (!request.resource.data.keys().hasAny(["anjuMemoryEarned"])
+          || (request.resource.data.anjuMemoryEarned is int
+            && request.resource.data.anjuMemoryEarned >= 0
+            && request.resource.data.anjuMemoryEarned <= 100000))
+        && (!request.resource.data.keys().hasAny(["selectedTitle"])
+          || (request.resource.data.selectedTitle is string
+            && request.resource.data.selectedTitle.size() <= 32))
+        && (!request.resource.data.keys().hasAny(["selectedBadge"])
+          || (request.resource.data.selectedBadge is string
+            && request.resource.data.selectedBadge.size() <= 12))
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.createdAt == request.time;
 
