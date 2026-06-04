@@ -28,6 +28,7 @@ const DASH_HUD_CONFIG = {
 };
 const MOBILE_CONTROL_QUERY_PARAM = "mobileControls";
 const MOBILE_GATE_SKIP_SESSION_KEY = "lastmemoVansabaSkipMobileGateOnce";
+const MOBILE_GATE_SKIP_QUERY_PARAM = "skipMobileGateOnce";
 const MOBILE_TOUCH_LEFT_BOUNDARY = GAME_WIDTH * 0.58;
 const MOBILE_JOYSTICK_DEFAULT_X = 150;
 const MOBILE_JOYSTICK_DEFAULT_Y = 370;
@@ -38,6 +39,7 @@ const MOBILE_DASH_BUTTON_X = GAME_WIDTH - 126;
 const MOBILE_DASH_BUTTON_Y = 350;
 const MOBILE_DASH_BUTTON_RADIUS = 58;
 const SHOP_LOADING_MIN_VISIBLE_MS = 650;
+const SHOP_RETURN_RELOAD_DELAY_MS = 720;
 const GATE_INTERVAL_MS = 180000;
 const GATE_WARNING_LEAD_MS = 30000;
 const GATE_STABLE_MS = 30000;
@@ -3065,6 +3067,7 @@ class SurvivalScene extends Phaser.Scene {
     this.remoteRankingStatus = "ONLINE 未接続";
     this.remoteRankingRequestId = 0;
     this.gameOverRecordState = null;
+    this.pendingShopReturnMessage = "";
     this.coins = this.loadCoinWallet();
     this.uiObjects = [];
     this.worldCamera = this.cameras.main;
@@ -5747,7 +5750,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   refreshGameOverRankingOverlay() {
-    if (this.gameOver && this.overlayContainer) {
+    if ((this.gameOver || this.extractionComplete) && this.overlayContainer) {
       this.showGameOverRankingOverlay();
     }
   }
@@ -8533,7 +8536,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   handleRankingNameKeyDown(event) {
-    if (!this.rankingNameEntryActive || !this.gameOver || this.pendingRankingSaved) {
+    if (!this.rankingNameEntryActive || (!this.gameOver && !this.extractionComplete) || this.pendingRankingSaved) {
       return;
     }
 
@@ -11483,14 +11486,61 @@ class SurvivalScene extends Phaser.Scene {
     this.hideOverlay();
     this.clearActiveLostArmEffects();
     this.physics.world.pause();
-    this.saveBestRecordIfNeeded();
+    const recordState = this.saveBestRecordIfNeeded();
+    const securedText = `${result.secured.toLocaleString()} GEEK SECURED`;
+    const lostText = result.lost > 0 ? ` / LOST ${result.lost.toLocaleString()}` : "";
+    const anjuMemoryText = this.formatAnjuMemoryAwardLine(anjuMemoryAward);
+    const returnMessage = [`作戦成功 ${securedText}${lostText}`, lostArmsMessage, anjuMemoryText].filter(Boolean).join("\n");
+    this.prepareExtractionRankingEntry(recordState, {
+      reason: emergency ? "emergencyExtract" : "extract",
+      securedCoins: result.secured,
+      lostCoins: result.lost,
+      lostArmsMessage,
+      anjuMemoryText,
+      returnMessage
+    });
     this.showExtractionCompleteOverlay(result, emergency, lostArmsMessage, anjuMemoryAward);
     this.time.delayedCall(1800, () => {
-      const securedText = `${result.secured.toLocaleString()} GEEK SECURED`;
-      const lostText = result.lost > 0 ? ` / LOST ${result.lost.toLocaleString()}` : "";
-      const anjuMemoryText = this.formatAnjuMemoryAwardLine(anjuMemoryAward);
-      this.returnToOpeningShop([`作戦成功 ${securedText}${lostText}`, lostArmsMessage, anjuMemoryText].filter(Boolean).join("\n"));
+      this.showExtractionRankingOverlayOrReturn();
     });
+  }
+
+  prepareExtractionRankingEntry(recordState, context = {}) {
+    if (!recordState?.currentRecord || !recordState?.bestRecord) {
+      this.pendingShopReturnMessage = context.returnMessage || "";
+      return;
+    }
+
+    this.gameOverRecordState = recordState;
+    this.pendingRankingRecord = recordState.currentRecord;
+    this.pendingRankingSaved = false;
+    this.rankingPlayerName = DEFAULT_PLAYER_NAME;
+    this.rankingNameEntryActive = true;
+    this.rankingNameSelectAll = true;
+    this.highlightRankingEntryId = null;
+    this.rankingSaveMessage = "名前を入力して Enter、または ENTRY を押す";
+    this.lastGameOverReason = {
+      reason: context.reason || "extract",
+      lostCoins: this.normalizeCoinAmount(context.lostCoins),
+      securedCoins: this.normalizeCoinAmount(context.securedCoins),
+      lostArmsMessage: context.lostArmsMessage || "",
+      anjuMemoryText: context.anjuMemoryText || ""
+    };
+    this.pendingShopReturnMessage = context.returnMessage || "";
+  }
+
+  showExtractionRankingOverlayOrReturn() {
+    if (!this.extractionComplete) {
+      return;
+    }
+
+    if (!this.pendingRankingRecord || !this.gameOverRecordState?.currentRecord) {
+      this.returnToOpeningShop(this.pendingShopReturnMessage || "");
+      return;
+    }
+
+    this.showGameOverRankingOverlay();
+    this.loadRemoteKillRanking();
   }
 
   showExtractionCompleteOverlay(result, emergency, lostArmsMessage = "", anjuMemoryAward = null) {
@@ -20838,6 +20888,15 @@ class SurvivalScene extends Phaser.Scene {
     this.returnToOpeningShop("");
   }
 
+  isExtractionRankingResult() {
+    const reason = this.lastGameOverReason?.reason || "";
+    return reason === "extract" || reason === "emergencyExtract";
+  }
+
+  continueToOpeningShopFromRanking() {
+    this.returnToOpeningShop(this.pendingShopReturnMessage || "");
+  }
+
   returnToOpeningShop(message = "") {
     if (this.restartInProgress) {
       return;
@@ -20941,12 +21000,19 @@ class SurvivalScene extends Phaser.Scene {
 
     const updateLine = improved ? "\nBEST UPDATE!" : "";
     const reason = this.lastGameOverReason?.reason || "playerDeath";
+    const isExtractionResult = this.isExtractionRankingResult();
     const lostCoins = this.normalizeCoinAmount(this.lastGameOverReason?.lostCoins);
+    const securedCoins = this.normalizeCoinAmount(this.lastGameOverReason?.securedCoins);
     const lostArmsMessage = this.lastGameOverReason?.lostArmsMessage || "";
-    const reasonLine = reason === "gateCollapse"
-      ? `GATE COLLAPSE\n未確定GEEK LOST: ${lostCoins.toLocaleString()}\n${lostArmsMessage ? `${lostArmsMessage}\n` : ""}作戦失敗\n`
-      : `${lostCoins > 0 ? `未確定GEEK LOST: ${lostCoins.toLocaleString()}\n` : ""}${lostArmsMessage ? `${lostArmsMessage}\n` : ""}`;
-    this.overlayTitle.setText(reason === "gateCollapse" ? "Gate Collapse" : "Game Over");
+    const anjuMemoryText = this.lastGameOverReason?.anjuMemoryText || "";
+    const reasonLine = isExtractionResult
+      ? `${securedCoins.toLocaleString()} GEEK SECURED\n${lostCoins > 0 ? `${lostCoins.toLocaleString()} GEEK LOST\n` : ""}${anjuMemoryText ? `${anjuMemoryText}\n` : ""}${lostArmsMessage ? `${lostArmsMessage}\n` : ""}作戦成功\n`
+      : (reason === "gateCollapse"
+        ? `GATE COLLAPSE\n未確定GEEK LOST: ${lostCoins.toLocaleString()}\n${lostArmsMessage ? `${lostArmsMessage}\n` : ""}作戦失敗\n`
+        : `${lostCoins > 0 ? `未確定GEEK LOST: ${lostCoins.toLocaleString()}\n` : ""}${lostArmsMessage ? `${lostArmsMessage}\n` : ""}`);
+    this.overlayTitle.setText(isExtractionResult
+      ? (reason === "emergencyExtract" ? "Emergency Extraction" : "Extraction Complete")
+      : (reason === "gateCollapse" ? "Gate Collapse" : "Game Over"));
     this.overlayBody.setText(
       `${reasonLine}RUN  ${this.formatRecordSummary(currentRecord)}\nBEST ${this.formatRecordSummary(bestRecord)}${updateLine}`
     );
@@ -21022,11 +21088,19 @@ class SurvivalScene extends Phaser.Scene {
       this.createGameOverRankingButton(-156, 248, 280, 64, "ENTRY", "ランキングへ登録する", () => {
         this.submitPendingRankingEntry();
       });
-      this.createGameOverRankingButton(156, 248, 280, 64, "Restart", "登録せず最初からプレイ", () => {
+      this.createGameOverRankingButton(156, 248, 280, 64, isExtractionResult ? "Opening Shop" : "Restart", isExtractionResult ? "登録せずショップへ帰還" : "登録せず最初からプレイ", () => {
+        if (isExtractionResult) {
+          this.continueToOpeningShopFromRanking();
+          return;
+        }
         this.restartGame();
       });
     } else {
-      this.createGameOverRankingButton(0, 248, 320, 64, "Restart", "最初からもう一度プレイする", () => {
+      this.createGameOverRankingButton(0, 248, 320, 64, isExtractionResult ? "Opening Shop" : "Restart", isExtractionResult ? "ショップへ帰還する" : "最初からもう一度プレイする", () => {
+        if (isExtractionResult) {
+          this.continueToOpeningShopFromRanking();
+          return;
+        }
         this.restartGame();
       });
     }
@@ -22070,15 +22144,30 @@ function consumeMobileLaunchGateSkip() {
 
   const inMemorySkip = Boolean(window.__SURVIVAL_SKIP_MOBILE_GATE_ONCE__);
   window.__SURVIVAL_SKIP_MOBILE_GATE_ONCE__ = false;
+  const urlSkip = consumeMobileLaunchGateSkipFromUrl();
 
   try {
     const storedSkip = window.sessionStorage?.getItem(MOBILE_GATE_SKIP_SESSION_KEY) === "1";
     if (storedSkip) {
       window.sessionStorage?.removeItem(MOBILE_GATE_SKIP_SESSION_KEY);
     }
-    return inMemorySkip || storedSkip;
+    return inMemorySkip || storedSkip || urlSkip;
   } catch (error) {
-    return inMemorySkip;
+    return inMemorySkip || urlSkip;
+  }
+}
+
+function consumeMobileLaunchGateSkipFromUrl() {
+  try {
+    const url = new URL(window.location.href);
+    const shouldSkip = url.searchParams.get(MOBILE_GATE_SKIP_QUERY_PARAM) === "1";
+    if (shouldSkip) {
+      url.searchParams.delete(MOBILE_GATE_SKIP_QUERY_PARAM);
+      window.history?.replaceState?.(window.history.state, document.title, `${url.pathname}${url.search}${url.hash}`);
+    }
+    return shouldSkip;
+  } catch (error) {
+    return false;
   }
 }
 
@@ -22092,6 +22181,16 @@ function skipMobileLaunchGateOnce() {
     window.sessionStorage?.setItem(MOBILE_GATE_SKIP_SESSION_KEY, "1");
   } catch (error) {
     // The in-memory flag still covers same-document fallbacks.
+  }
+}
+
+function buildOpeningShopReloadUrl() {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set(MOBILE_GATE_SKIP_QUERY_PARAM, "1");
+    return url.toString();
+  } catch (error) {
+    return window.location?.href || "";
   }
 }
 
@@ -22352,14 +22451,19 @@ function resetSurvivalGameToShop(message = "") {
   }
 
   window.__SURVIVAL_GAME_RESETTING__ = true;
+  const reloadUrl = buildOpeningShopReloadUrl();
   window.setTimeout(() => {
     try {
-      window.location.reload();
+      if (reloadUrl) {
+        window.location.replace(reloadUrl);
+      } else {
+        window.location.reload();
+      }
     } catch (error) {
       window.__SURVIVAL_GAME_RESETTING__ = false;
       console.error("Failed to reload game for opening shop.", error);
     }
-  }, 80);
+  }, SHOP_RETURN_RELOAD_DELAY_MS);
 }
 
 function setupMobileLaunchGate() {
