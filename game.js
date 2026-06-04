@@ -27,6 +27,7 @@ const DASH_HUD_CONFIG = {
   radius: 45
 };
 const MOBILE_CONTROL_QUERY_PARAM = "mobileControls";
+const MOBILE_GATE_SKIP_SESSION_KEY = "lastmemoVansabaSkipMobileGateOnce";
 const MOBILE_TOUCH_LEFT_BOUNDARY = GAME_WIDTH * 0.58;
 const MOBILE_JOYSTICK_DEFAULT_X = 150;
 const MOBILE_JOYSTICK_DEFAULT_Y = 370;
@@ -43,6 +44,28 @@ const GATE_STABLE_MS = 30000;
 const GATE_INSTABILITY_DEPTH = 6;
 const GATE_ENTER_RADIUS = 112;
 const GATE_URGENT_LEAD_MS = 10000;
+const DROP_CLEANUP_CONFIG = {
+  xpReturnRate: 0.25,
+  coinReturnRate: 0.25,
+  maxDataCaches: 3,
+  twoCacheSourceCount: 40,
+  threeCacheSourceCount: 120,
+  twoCacheRewardScore: 80,
+  threeCacheRewardScore: 220,
+  spawnRadius: 86,
+  spawnPadding: 30
+};
+const DROP_LIMITS = {
+  total: 260,
+  xp: 170,
+  value: 90,
+  robot: 28,
+  support: 16,
+  recovery: 4,
+  magnet: 3,
+  dataCache: 3,
+  periodicCleanupMs: 1000
+};
 const GATE_TENSION_HUD_BAR = {
   x: GAME_WIDTH / 2 - 188,
   y: 147,
@@ -50,6 +73,444 @@ const GATE_TENSION_HUD_BAR = {
   height: 5
 };
 const EXTRACTION_MESSAGE_SESSION_KEY = "lastmemoVansabaExtractionMessage";
+const ANOMALY_CONTRACT_DEBUG_QUERY_PARAM = "debugAnomalyContract";
+const ANOMALY_CONTRACT_CONFIG = {
+  unlockDepth: 6,
+  debugUnlockDepth: 2,
+  choicesPerGate: 3,
+  rerollAvoidSameAsPrevious: true,
+  hudNameMaxLength: 18,
+  dataCacheCompressionRateMax: 0.5,
+  contracts: [
+    {
+      id: "greedProtocol",
+      title: "GREED PROTOCOL",
+      subtitle: "高リスクGEEK増幅",
+      danger: ["敵HP +18%", "敵攻撃力 +8%"],
+      reward: ["GEEK係数 +0.35", "Bronze / Silver / Gold価値上昇"],
+      modifiers: {
+        enemyHpMultiplier: 1.18,
+        enemyDamageMultiplier: 1.08,
+        geekMultiplierAdd: 0.35
+      }
+    },
+    {
+      id: "lostSignal",
+      title: "LOST SIGNAL",
+      subtitle: "LOST ARMS探知",
+      danger: ["ボスHP +30%", "敵HP +8%"],
+      reward: ["LOST ARMS抽選率 +2.5%", "LOST ARMS pity上昇量 +25%"],
+      modifiers: {
+        enemyHpMultiplier: 1.08,
+        bossHpMultiplier: 1.30,
+        lostArmsChanceAdd: 0.025,
+        lostArmsPityGainMultiplier: 1.25
+      }
+    },
+    {
+      id: "stabilizeAnchor",
+      title: "STABILIZE ANCHOR",
+      subtitle: "Gate安定化",
+      danger: ["敵HP +12%"],
+      reward: ["STABILIZE獲得量 +35%", "次Gate安定時間 +5秒", "緊急脱出保護率 +10%"],
+      modifiers: {
+        enemyHpMultiplier: 1.12,
+        stabilizeGainMultiplier: 1.35,
+        gateStableSecondsAdd: 5,
+        emergencyExtractProtectionAdd: 0.10
+      }
+    },
+    {
+      id: "overdriveCircuit",
+      title: "OVERDRIVE CIRCUIT",
+      subtitle: "XP overflow強化",
+      danger: ["敵移動速度 +8%", "敵攻撃力 +6%"],
+      reward: ["OVERDRIVE獲得量 +40%", "OVERDRIVE時間 +5秒"],
+      modifiers: {
+        enemySpeedMultiplier: 1.08,
+        enemyDamageMultiplier: 1.06,
+        overdriveGainMultiplier: 1.40,
+        overdriveDurationMsAdd: 5000
+      }
+    },
+    {
+      id: "cacheBloom",
+      title: "CACHE BLOOM",
+      subtitle: "未回収報酬圧縮",
+      danger: ["敵HP +10%", "敵攻撃力 +6%"],
+      reward: ["DATA CACHE圧縮率 +10%", "DATA CACHE報酬GEEK +15%"],
+      modifiers: {
+        enemyHpMultiplier: 1.10,
+        enemyDamageMultiplier: 1.06,
+        dataCacheCompressionRateAdd: 0.10,
+        dataCacheGeekMultiplier: 1.15
+      }
+    },
+    {
+      id: "goldStorm",
+      title: "GOLD STORM",
+      subtitle: "価値ドロップ特化",
+      danger: ["敵HP +15%", "ボス攻撃力 +10%"],
+      reward: ["Gold / Silver Slime抽選補正", "Bronze / Silver / Gold GEEK +20%"],
+      modifiers: {
+        enemyHpMultiplier: 1.15,
+        bossDamageMultiplier: 1.10,
+        rareSlimeChanceMultiplier: 1.25,
+        valueDropGeekMultiplier: 1.20
+      }
+    }
+  ]
+};
+const ANJU_MEMORY_STORAGE_KEY = "lastmemoVansabaAnjuMemoryState";
+const ANJU_MEMORY_DEBUG_QUERY_PARAM = "debugAnjuMemory";
+const ANJU_MEMORY_CONFIG = {
+  unlockDepth: 6,
+  normalExtractMultiplier: 1,
+  emergencyExtractMultiplier: 0.35,
+  emergencyExtractMaxMultiplier: 0.5,
+  instabilityBonusPerStack: 0.08,
+  instabilityBonusMax: 0.4,
+  milestones: [
+    { depth: 6, reward: 3 },
+    { depth: 8, reward: 5 },
+    { depth: 10, reward: 8 },
+    { depth: 12, reward: 12 },
+    { depth: 15, reward: 20 }
+  ]
+};
+const DEFAULT_ANJU_MEMORY_SELECTIONS = {
+  hudSkin: "default",
+  gateSkin: "default",
+  lostArmsSkin: "default",
+  title: "none",
+  badge: "none",
+  resultFrame: "default",
+  contractCardBack: "default"
+};
+const ANJU_MEMORY_DEFAULT_REWARD_IDS = [
+  "hudDefault",
+  "gateDefault",
+  "lostArmsDefault",
+  "titleNone",
+  "badgeNone",
+  "resultFrameDefault",
+  "contractBackDefault"
+];
+const ANJU_MEMORY_REWARD_CATALOG = [
+  {
+    id: "deepCdAnjuEcho",
+    category: "deepCd",
+    title: "ANJU ECHO",
+    cost: 8,
+    description: "Depth6+でSTABILIZE獲得量を少し伸ばす",
+    effectText: "STABILIZE +5%",
+    modifiers: { stabilizeGainMultiplierAdd: 0.05 }
+  },
+  {
+    id: "deepCdVoidSignal",
+    category: "deepCd",
+    title: "VOID SIGNAL",
+    cost: 12,
+    description: "Depth6+のLOST ARMS探知をわずかに強化",
+    effectText: "LOST ARMS +0.5%",
+    modifiers: { lostArmsChanceAdd: 0.005 }
+  },
+  {
+    id: "deepCdGateRefrain",
+    category: "deepCd",
+    title: "GATE REFRAIN",
+    cost: 15,
+    description: "Depth6+のGate安定時間を延長",
+    effectText: "GATE +2s",
+    modifiers: { gateStableSecondsAdd: 2 }
+  },
+  {
+    id: "hudDefault",
+    category: "hudSkin",
+    title: "DEFAULT HUD",
+    cost: 0,
+    description: "標準の黒ガラスHUD",
+    effectText: "VISUAL",
+    selectionKey: "hudSkin",
+    selectionValue: "default",
+    palette: {}
+  },
+  {
+    id: "hudMemoryCyan",
+    category: "hudSkin",
+    title: "MEMORY CYAN",
+    cost: 6,
+    description: "ANJU MEMORYに合わせた青白いHUD",
+    effectText: "HUD SKIN",
+    selectionKey: "hudSkin",
+    selectionValue: "memoryCyan",
+    palette: { panelFill: 0x061322, panelStroke: 0x7ff6ff, text: "#f2fdff", muted: "#b8e8f0", warn: "#93f7ff" }
+  },
+  {
+    id: "hudRoseBlack",
+    category: "hudSkin",
+    title: "ROSE BLACK",
+    cost: 9,
+    description: "黒ガラスに赤紫ネオンを足すHUD",
+    effectText: "HUD SKIN",
+    selectionKey: "hudSkin",
+    selectionValue: "roseBlack",
+    palette: { panelFill: 0x120812, panelStroke: 0xff73c8, text: "#fff2fb", muted: "#e8bdd9", warn: "#ff9de1" }
+  },
+  {
+    id: "gateDefault",
+    category: "gateSkin",
+    title: "DEFAULT GATE",
+    cost: 0,
+    description: "標準Gateリング",
+    effectText: "VISUAL",
+    selectionKey: "gateSkin",
+    selectionValue: "default",
+    palette: {}
+  },
+  {
+    id: "gateMemoryHalo",
+    category: "gateSkin",
+    title: "MEMORY HALO",
+    cost: 7,
+    description: "記憶光の輪郭を持つGate",
+    effectText: "GATE SKIN",
+    selectionKey: "gateSkin",
+    selectionValue: "memoryHalo",
+    palette: { primary: 0xaef7ff, secondary: 0xf0c463, core: 0xe6fbff, text: "#dffcff" }
+  },
+  {
+    id: "gateRoseCircuit",
+    category: "gateSkin",
+    title: "ROSE CIRCUIT",
+    cost: 10,
+    description: "赤紫回路のGate演出",
+    effectText: "GATE SKIN",
+    selectionKey: "gateSkin",
+    selectionValue: "roseCircuit",
+    palette: { primary: 0xff70d4, secondary: 0x8f54ff, core: 0xffd6f2, text: "#ffd8f3" }
+  },
+  {
+    id: "lostArmsDefault",
+    category: "lostArmsSkin",
+    title: "DEFAULT ARMS",
+    cost: 0,
+    description: "標準LOST ARMSコア",
+    effectText: "VISUAL",
+    selectionKey: "lostArmsSkin",
+    selectionValue: "default",
+    palette: {}
+  },
+  {
+    id: "lostArmsBlueArchive",
+    category: "lostArmsSkin",
+    title: "BLUE ARCHIVE",
+    cost: 8,
+    description: "LOST ARMSドロップを記録光に寄せる",
+    effectText: "ARMS SKIN",
+    selectionKey: "lostArmsSkin",
+    selectionValue: "blueArchive",
+    palette: { tint: 0x8ff5ff, glowTint: 0xf0feff }
+  },
+  {
+    id: "lostArmsVioletBloom",
+    category: "lostArmsSkin",
+    title: "VIOLET BLOOM",
+    cost: 10,
+    description: "LOST ARMSドロップに紫の余韻を足す",
+    effectText: "ARMS SKIN",
+    selectionKey: "lostArmsSkin",
+    selectionValue: "violetBloom",
+    palette: { tint: 0xce8cff, glowTint: 0xffd6fb }
+  },
+  {
+    id: "openingBoostPlusOne",
+    category: "ticket",
+    title: "OPENING BOOST +1",
+    cost: 9,
+    description: "次のラン開始時、最初のOpening Boostだけ4択にする",
+    effectText: "CONSUMABLE",
+    consumableId: "openingBoostPlusOne"
+  },
+  {
+    id: "openingBoostReroll",
+    category: "ticket",
+    title: "BOOST REROLL",
+    cost: 7,
+    description: "Opening Boost画面で1回だけ候補を引き直す",
+    effectText: "CONSUMABLE",
+    consumableId: "openingBoostReroll"
+  },
+  {
+    id: "titleNone",
+    category: "title",
+    title: "NO TITLE",
+    cost: 0,
+    description: "称号を表示しない",
+    effectText: "TITLE",
+    selectionKey: "title",
+    selectionValue: "none"
+  },
+  {
+    id: "titleMemoryDiver",
+    category: "title",
+    title: "MEMORY DIVER",
+    cost: 6,
+    description: "ランキングとHUDに表示できる称号",
+    effectText: "TITLE",
+    selectionKey: "title",
+    selectionValue: "memoryDiver",
+    label: "Memory Diver"
+  },
+  {
+    id: "titleGateWitness",
+    category: "title",
+    title: "GATE WITNESS",
+    cost: 9,
+    description: "Depth6+到達者向け称号",
+    effectText: "TITLE",
+    selectionKey: "title",
+    selectionValue: "gateWitness",
+    label: "Gate Witness"
+  },
+  {
+    id: "badgeNone",
+    category: "badge",
+    title: "NO BADGE",
+    cost: 0,
+    description: "バッジを表示しない",
+    effectText: "BADGE",
+    selectionKey: "badge",
+    selectionValue: "none"
+  },
+  {
+    id: "badgeMemoryChip",
+    category: "badge",
+    title: "MEMORY CHIP",
+    cost: 5,
+    description: "ランキング名の横に短いバッジを表示",
+    effectText: "BADGE",
+    selectionKey: "badge",
+    selectionValue: "memoryChip",
+    label: "MC"
+  },
+  {
+    id: "badgeDepthSix",
+    category: "badge",
+    title: "DEPTH 6",
+    cost: 8,
+    description: "Depth6到達を示すランキングバッジ",
+    effectText: "BADGE",
+    selectionKey: "badge",
+    selectionValue: "depthSix",
+    label: "D6"
+  },
+  {
+    id: "memoryLogDepth6",
+    category: "memoryLog",
+    title: "LOG: DEPTH 6",
+    cost: 4,
+    description: "ANJU MEMORY解放時の記録",
+    effectText: "READABLE",
+    logText: "Depth 6: 記憶の残響がGateの向こう側で同期を始めた。生還した記録だけが保存される。"
+  },
+  {
+    id: "memoryLogGate",
+    category: "memoryLog",
+    title: "LOG: GATE",
+    cost: 6,
+    description: "Gateの安定と崩壊に関する記録",
+    effectText: "READABLE",
+    logText: "Gate: 安定時間は信号の鮮度そのもの。焦らず、しかし長居しすぎないこと。"
+  },
+  {
+    id: "memoryLogLostArms",
+    category: "memoryLog",
+    title: "LOG: LOST ARMS",
+    cost: 7,
+    description: "LOST ARMS反応の断片",
+    effectText: "READABLE",
+    logText: "LOST ARMS: 失われた武装は深層ほど呼び声を強める。持ち帰れなければ記録は霧散する。"
+  },
+  {
+    id: "resultFrameDefault",
+    category: "resultFrame",
+    title: "DEFAULT RESULT",
+    cost: 0,
+    description: "標準抽出結果フレーム",
+    effectText: "VISUAL",
+    selectionKey: "resultFrame",
+    selectionValue: "default",
+    palette: {}
+  },
+  {
+    id: "resultFrameArchive",
+    category: "resultFrame",
+    title: "ARCHIVE FRAME",
+    cost: 7,
+    description: "Depth6+抽出結果に記録フレームを適用",
+    effectText: "RESULT SKIN",
+    selectionKey: "resultFrame",
+    selectionValue: "archive",
+    palette: { stroke: 0xaef7ff, fill: 0x071a25, title: "#e7feff" }
+  },
+  {
+    id: "resultFrameRose",
+    category: "resultFrame",
+    title: "ROSE FRAME",
+    cost: 9,
+    description: "Depth6+抽出結果に赤紫フレームを適用",
+    effectText: "RESULT SKIN",
+    selectionKey: "resultFrame",
+    selectionValue: "rose",
+    palette: { stroke: 0xff73c8, fill: 0x160917, title: "#ffe6f7" }
+  },
+  {
+    id: "contractBackDefault",
+    category: "contractCardBack",
+    title: "DEFAULT CONTRACT",
+    cost: 0,
+    description: "標準Contractカード背面",
+    effectText: "VISUAL",
+    selectionKey: "contractCardBack",
+    selectionValue: "default",
+    palette: {}
+  },
+  {
+    id: "contractBackGlass",
+    category: "contractCardBack",
+    title: "GLASS CIRCUIT",
+    cost: 8,
+    description: "ANOMALY CONTRACTカードに青い回路線を追加",
+    effectText: "CARD BACK",
+    selectionKey: "contractCardBack",
+    selectionValue: "glassCircuit",
+    palette: { fill: 0x071826, line: 0xaef7ff, accent: 0x72ecff }
+  },
+  {
+    id: "contractBackVoid",
+    category: "contractCardBack",
+    title: "VOID TRACE",
+    cost: 10,
+    description: "ANOMALY CONTRACTカードに深層の紫軌跡を追加",
+    effectText: "CARD BACK",
+    selectionKey: "contractCardBack",
+    selectionValue: "voidTrace",
+    palette: { fill: 0x12091c, line: 0xd89cff, accent: 0xff73c8 }
+  }
+];
+const ANJU_MEMORY_SHOP_TABS = [
+  { id: "deepCd", label: "DEEP CD" },
+  { id: "hudSkin", label: "HUD" },
+  { id: "gateSkin", label: "GATE" },
+  { id: "lostArmsSkin", label: "ARMS" },
+  { id: "ticket", label: "TICKET" },
+  { id: "title", label: "TITLE" },
+  { id: "badge", label: "BADGE" },
+  { id: "memoryLog", label: "LOG" },
+  { id: "resultFrame", label: "RESULT" },
+  { id: "contractCardBack", label: "CONTRACT" }
+];
 const BOSS_SPAWN_DELAY_MS = 15000;
 const ENEMY_SPAWN_EDGE_PADDING = 180;
 const ENEMY_SPAWN_OBSTACLE_PADDING = 46;
@@ -58,6 +519,7 @@ const BEST_RECORD_STORAGE_KEY = "lastmemoVansabaBestRecord";
 const KILL_RANKING_STORAGE_KEY = "lastmemoVansabaKillRanking";
 const COIN_WALLET_STORAGE_KEY = "lastmemoVansabaCoins";
 const SHOP_STATE_STORAGE_KEY = "lastmemoVansabaShopState";
+const LOST_ARMS_STORAGE_KEY = "lastmemoVansabaLostArmsState";
 const DEFAULT_PLAYER_NAME = "anju";
 const PLAYER_NAME_MAX_LENGTH = 16;
 const MAX_KILL_RANKING_ENTRIES = 10;
@@ -264,7 +726,75 @@ const DEFAULT_SHOP_STATE = {
     shoes: 0
   }
 };
-const MAX_ACTIVE_SPECIAL_ITEMS = 6;
+const LOST_ARMS_MAX_LEVEL = 8;
+const LOST_ARMS_RUN_PICKUP_LIMIT = 2;
+const LOST_ARMS_PITY_STEP = 0.005;
+const LOST_ARMS_PITY_MAX = 0.10;
+const LOST_ARMS_DEBUG_QUERY_PARAM = "debugLostArms";
+const LOST_ARMS_IDS = ["abyssRail", "gravitySeed"];
+const DEFAULT_LOST_ARMS_LEVELS = {
+  abyssRail: 0,
+  gravitySeed: 0
+};
+const LOST_ARMS_DEFINITIONS = window.lostArmsDefinitions || {
+  abyssRail: {
+    id: "abyssRail",
+    displayName: "ABYSS RAIL",
+    jpName: "アビスレール",
+    hudLabel: "ABYSS",
+    coreLabel: "ABYSS RAIL CORE",
+    iconTextureKey: "lost-arm-abyss-icon",
+    itemTextureKey: "lost-arm-abyss-core",
+    tint: 0x62f0ff,
+    glowTint: 0xe8fdff,
+    darkTint: 0x082038
+  },
+  gravitySeed: {
+    id: "gravitySeed",
+    displayName: "GRAVITY SEED",
+    jpName: "グラビティシード",
+    hudLabel: "GRAV",
+    coreLabel: "GRAVITY SEED CORE",
+    iconTextureKey: "lost-arm-gravity-icon",
+    itemTextureKey: "lost-arm-gravity-core",
+    tint: 0xc06bff,
+    glowTint: 0xf2d8ff,
+    darkTint: 0x12081f
+  }
+};
+const LOST_ARMS_DROP_RATES = [
+  { depth: 1, boss: 0.0025, elite: 0.0005 },
+  { depth: 2, boss: 0.0060, elite: 0.0010 },
+  { depth: 3, boss: 0.0120, elite: 0.0020 },
+  { depth: 4, boss: 0.0250, elite: 0.0040 },
+  { depth: 5, boss: 0.0450, elite: 0.0075 },
+  { depth: 6, boss: 0.0700, elite: 0.0120 },
+  { depth: 7, boss: 0.1050, elite: 0.0180 },
+  { depth: 8, boss: 0.1500, elite: 0.0250 }
+];
+const ABYSS_RAIL_LEVELS = [
+  null,
+  { damage: 18, cooldownMs: 6500, width: 20, chargeMs: 420, bossMult: 1.00, eliteMult: 1.00, residual: false, vulnerability: false, crossEvery: 0 },
+  { damage: 25, cooldownMs: 6000, width: 22, chargeMs: 390, bossMult: 1.00, eliteMult: 1.00, residual: false, vulnerability: false, crossEvery: 0 },
+  { damage: 34, cooldownMs: 5400, width: 26, chargeMs: 360, bossMult: 1.00, eliteMult: 1.00, residual: false, vulnerability: false, crossEvery: 0 },
+  { damage: 44, cooldownMs: 5000, width: 30, chargeMs: 330, bossMult: 1.35, eliteMult: 1.20, residual: false, vulnerability: false, crossEvery: 0 },
+  { damage: 54, cooldownMs: 4600, width: 34, chargeMs: 310, bossMult: 1.35, eliteMult: 1.20, residual: true, vulnerability: false, crossEvery: 0 },
+  { damage: 66, cooldownMs: 4100, width: 38, chargeMs: 280, bossMult: 1.40, eliteMult: 1.25, residual: true, vulnerability: false, crossEvery: 0 },
+  { damage: 78, cooldownMs: 3800, width: 42, chargeMs: 250, bossMult: 1.45, eliteMult: 1.30, residual: true, vulnerability: true, crossEvery: 0 },
+  { damage: 95, cooldownMs: 3400, width: 48, chargeMs: 220, bossMult: 1.50, eliteMult: 1.35, residual: true, vulnerability: true, crossEvery: 3 }
+];
+const GRAVITY_SEED_LEVELS = [
+  null,
+  { damage: 3, tickMs: 350, cooldownMs: 8200, radius: 95, durationMs: 2600, pull: 0, slow: 0.10, collapseDamage: 0, maxFields: 1, weaken: 0.00, killCooldownRefundMs: 0 },
+  { damage: 4, tickMs: 350, cooldownMs: 7800, radius: 110, durationMs: 2800, pull: 0, slow: 0.12, collapseDamage: 0, maxFields: 1, weaken: 0.00, killCooldownRefundMs: 0 },
+  { damage: 5, tickMs: 350, cooldownMs: 7400, radius: 125, durationMs: 3000, pull: 50, slow: 0.15, collapseDamage: 0, maxFields: 1, weaken: 0.00, killCooldownRefundMs: 0 },
+  { damage: 6, tickMs: 350, cooldownMs: 7000, radius: 135, durationMs: 3200, pull: 65, slow: 0.18, collapseDamage: 25, maxFields: 1, weaken: 0.00, killCooldownRefundMs: 0 },
+  { damage: 7, tickMs: 350, cooldownMs: 6600, radius: 145, durationMs: 3400, pull: 80, slow: 0.20, collapseDamage: 35, maxFields: 2, weaken: 0.00, killCooldownRefundMs: 0 },
+  { damage: 8, tickMs: 350, cooldownMs: 6200, radius: 155, durationMs: 3600, pull: 95, slow: 0.22, collapseDamage: 45, maxFields: 2, weaken: 0.10, killCooldownRefundMs: 0 },
+  { damage: 9, tickMs: 350, cooldownMs: 5800, radius: 165, durationMs: 3800, pull: 110, slow: 0.25, weaken: 0.12, collapseDamage: 55, maxFields: 2, killCooldownRefundMs: 350 },
+  { damage: 11, tickMs: 320, cooldownMs: 5400, radius: 190, durationMs: 4000, pull: 140, slow: 0.30, weaken: 0.15, collapseDamage: 85, maxFields: 2, killCooldownRefundMs: 500 }
+];
+const MAX_ACTIVE_SPECIAL_ITEMS = DROP_LIMITS.support + DROP_LIMITS.recovery + DROP_LIMITS.magnet;
 const SUPPORT_CHARACTER_BODY_HEIGHT_MULTIPLIER = 1.2;
 const STAGE_DEBUG_OPTIONS = {
   enabled: false,
@@ -304,6 +834,35 @@ const HUD_STYLE = {
   slotStroke: 0xb8c4c8
 };
 const LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS = 160;
+const LEVEL_UP_PASSIVE_MAX_LEVEL = 10;
+const OVERFLOW_REWARD_CONFIG = {
+  overdrive: {
+    gaugeMax: 100,
+    xpToGaugeRate: 1,
+    xpToGeekRate: 0.12,
+    durationMs: 30000,
+    maxDurationMs: 60000,
+    damageMultiplier: 1.15,
+    moveSpeedMultiplier: 1.12,
+    fireIntervalMultiplier: 0.88
+  },
+  stabilize: {
+    gaugeMax: 100,
+    maxCharges: 3,
+    secondsPerCharge: 5,
+    robotCoreGauge: 28,
+    robotTuneGauge: 18,
+    robotGoldenTuneGauge: 42,
+    supportGauge: 22
+  },
+  geek: {
+    robotCoreBase: 120,
+    robotTuneBase: 80,
+    robotGoldenTuneBase: 220,
+    supportBase: 100,
+    stabilizeOverflowBase: 150
+  }
+};
 const LEVEL_UP_SKILL_UI_META = {
   basicSkill: {
     displayName: "Orbit Core",
@@ -1123,6 +1682,18 @@ const RARE_ITEM_DEFINITIONS = {
     effectScale: 1.22,
     pickupRadius: 28
   }
+};
+const DATA_CACHE_ITEM_DEFINITION = {
+  id: "dataCache",
+  label: "DATA CACHE",
+  textureKey: "data-cache",
+  xpValue: 0,
+  coinValue: 0,
+  tint: 0x55eaff,
+  glowTint: 0xc8ffff,
+  scale: 0.76,
+  effectScale: 0.82,
+  pickupRadius: 28
 };
 const SPECIAL_ITEM_DEFINITIONS = {
   heal: {
@@ -2047,6 +2618,8 @@ class SurvivalScene extends Phaser.Scene {
     this.createInput();
     this.createHud();
     this.createOverlay();
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.resetAnomalyContractState("sceneShutdown"));
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetAnomalyContractState("sceneDestroy"));
     this.setupMobileControls();
     this.configureCameras();
     this.createColliders();
@@ -2115,6 +2688,7 @@ class SurvivalScene extends Phaser.Scene {
       this.textures.exists("bullet-core") &&
       this.textures.exists("xp-orb") &&
       this.textures.exists("rare-token") &&
+      this.textures.exists("data-cache") &&
       this.textures.exists("pickup-heal") &&
       this.textures.exists("pickup-magnet") &&
       this.textures.exists("pickup-bomb") &&
@@ -2123,7 +2697,11 @@ class SurvivalScene extends Phaser.Scene {
       this.textures.exists("skill-hit-spark") &&
       this.textures.exists("wind-streak") &&
       this.textures.exists("hud-icon-basic-skill") &&
-      this.textures.exists("hud-icon-tornado-skill")
+      this.textures.exists("hud-icon-tornado-skill") &&
+      this.textures.exists("lost-arm-abyss-icon") &&
+      this.textures.exists("lost-arm-gravity-icon") &&
+      this.textures.exists("lost-arm-abyss-core") &&
+      this.textures.exists("lost-arm-gravity-core")
     ) {
       return;
     }
@@ -2186,6 +2764,25 @@ class SurvivalScene extends Phaser.Scene {
     graphics.fillStyle(0xffffff, 0.42);
     graphics.fillRoundedRect(7, 7, 18, 10, 4);
     graphics.generateTexture("rare-token", 32, 32);
+    graphics.clear();
+
+    graphics.fillStyle(0x062434, 0.98);
+    graphics.fillRoundedRect(4, 8, 24, 20, 4);
+    graphics.fillStyle(0x0b4056, 0.96);
+    graphics.fillTriangle(4, 8, 16, 2, 28, 8);
+    graphics.fillStyle(0x0a3347, 0.98);
+    graphics.fillTriangle(28, 8, 34, 15, 28, 28);
+    graphics.lineStyle(2, 0x68f4ff, 0.92);
+    graphics.strokeRoundedRect(4, 8, 24, 20, 4);
+    graphics.lineStyle(2, 0xc8ffff, 0.74);
+    graphics.strokeLineShape(new Phaser.Geom.Line(4, 8, 16, 2));
+    graphics.strokeLineShape(new Phaser.Geom.Line(16, 2, 28, 8));
+    graphics.strokeLineShape(new Phaser.Geom.Line(28, 8, 34, 15));
+    graphics.strokeLineShape(new Phaser.Geom.Line(28, 28, 34, 15));
+    graphics.fillStyle(0xb9ffff, 0.62);
+    graphics.fillRoundedRect(9, 13, 14, 3, 2);
+    graphics.fillRoundedRect(9, 19, 10, 2, 1);
+    graphics.generateTexture("data-cache", 38, 34);
     graphics.clear();
 
     graphics.fillStyle(0xffffff, 0.98);
@@ -2318,6 +2915,67 @@ class SurvivalScene extends Phaser.Scene {
     graphics.generateTexture("hud-icon-tornado-skill", 48, 48);
     graphics.clear();
 
+    graphics.fillStyle(0x071521, 0.96);
+    graphics.fillCircle(24, 24, 22);
+    graphics.lineStyle(3, 0x62f0ff, 0.9);
+    graphics.strokeCircle(24, 24, 19);
+    graphics.lineStyle(5, 0xf6feff, 0.96);
+    graphics.strokeLineShape(new Phaser.Geom.Line(10, 24, 38, 24));
+    graphics.lineStyle(2, 0x62f0ff, 0.86);
+    graphics.strokeLineShape(new Phaser.Geom.Line(24, 7, 24, 41));
+    graphics.lineStyle(2, 0xbef8ff, 0.7);
+    graphics.strokeCircle(24, 24, 8);
+    graphics.fillStyle(0xffffff, 0.82);
+    graphics.fillCircle(24, 24, 3);
+    graphics.generateTexture("lost-arm-abyss-icon", 48, 48);
+    graphics.clear();
+
+    graphics.fillStyle(0x10051c, 0.98);
+    graphics.fillCircle(24, 24, 22);
+    graphics.lineStyle(3, 0xc06bff, 0.86);
+    graphics.strokeCircle(24, 24, 19);
+    graphics.lineStyle(2, 0xf2d8ff, 0.62);
+    graphics.beginPath();
+    graphics.arc(24, 24, 13, Math.PI * 0.14, Math.PI * 1.7, false);
+    graphics.strokePath();
+    graphics.beginPath();
+    graphics.arc(24, 24, 7, Math.PI * 1.05, Math.PI * 2.75, false);
+    graphics.strokePath();
+    graphics.fillStyle(0x05020a, 1);
+    graphics.fillCircle(24, 24, 7);
+    graphics.fillStyle(0xdcb7ff, 0.82);
+    graphics.fillCircle(24, 24, 3);
+    graphics.generateTexture("lost-arm-gravity-icon", 48, 48);
+    graphics.clear();
+
+    graphics.fillStyle(0x061827, 0.98);
+    graphics.fillRoundedRect(6, 6, 32, 32, 8);
+    graphics.lineStyle(3, 0x62f0ff, 0.92);
+    graphics.strokeRoundedRect(7, 7, 30, 30, 8);
+    graphics.lineStyle(5, 0xf8feff, 0.95);
+    graphics.strokeLineShape(new Phaser.Geom.Line(12, 22, 32, 22));
+    graphics.lineStyle(2, 0x8ff8ff, 0.74);
+    graphics.strokeLineShape(new Phaser.Geom.Line(22, 10, 22, 34));
+    graphics.fillStyle(0xffffff, 0.78);
+    graphics.fillCircle(22, 22, 3);
+    graphics.generateTexture("lost-arm-abyss-core", 44, 44);
+    graphics.clear();
+
+    graphics.fillStyle(0x090312, 1);
+    graphics.fillCircle(22, 22, 17);
+    graphics.lineStyle(3, 0xc06bff, 0.92);
+    graphics.strokeCircle(22, 22, 16);
+    graphics.lineStyle(2, 0xf2d8ff, 0.62);
+    graphics.beginPath();
+    graphics.arc(22, 22, 10, Math.PI * 0.1, Math.PI * 1.6, false);
+    graphics.strokePath();
+    graphics.fillStyle(0x020106, 0.98);
+    graphics.fillCircle(22, 22, 8);
+    graphics.fillStyle(0xd8a8ff, 0.88);
+    graphics.fillCircle(22, 22, 3);
+    graphics.generateTexture("lost-arm-gravity-core", 44, 44);
+    graphics.clear();
+
     graphics.fillStyle(0x06090f, 1);
     graphics.fillRoundedRect(0, 0, 128, 128, 10);
     graphics.lineStyle(2, 0x40546a, 0.82);
@@ -2337,10 +2995,20 @@ class SurvivalScene extends Phaser.Scene {
 
   createState() {
     this.shopState = this.loadShopState();
+    this.anjuMemoryState = this.loadAnjuMemoryState();
+    this.shopViewMode = "geek";
+    this.anjuMemoryShopTab = "deepCd";
+    this.anjuMemoryReadLogId = null;
     this.rebuildStartingStats();
 
     this.survivalTime = 0;
     this.initializeDepthRunState();
+    this.initializeAnjuMemoryRunState();
+    this.initializeAnomalyContractState();
+    this.initializeOverflowRewardState();
+    this.lostArmsState = this.createLostArmsRunState();
+    this.abyssRailState = this.createAbyssRailRuntimeState();
+    this.gravitySeedState = this.createGravitySeedRuntimeState();
     this.enemySpawnTimer = 0;
     this.shootTimer = 0;
     this.walkFrameTimer = 0;
@@ -2403,6 +3071,8 @@ class SurvivalScene extends Phaser.Scene {
     this.uiContainer = null;
     this.lastPickupNotice = "";
     this.lastPickupNoticeUntil = 0;
+    this.dropSpawnSerial = 0;
+    this.nextDropLimitCleanupAt = 0;
     this.activeBgm = null;
     this.activeBgmCdId = null;
     this.bgmVolumeTween = null;
@@ -2420,7 +3090,9 @@ class SurvivalScene extends Phaser.Scene {
     this.gateState = {
       status: "closed",
       warningShown: false,
-      activeElapsedMs: 0
+      activeElapsedMs: 0,
+      stableDurationMs: GATE_STABLE_MS,
+      stabilizeBonusMs: 0
     };
     this.stageGate = null;
     this.gateChoiceActive = false;
@@ -2433,6 +3105,329 @@ class SurvivalScene extends Phaser.Scene {
     this.lastRunCoinLoss = null;
     this.lastGameOverReason = null;
     this.extractionComplete = false;
+  }
+
+  initializeAnomalyContractState() {
+    this.anomalyContractState = {
+      active: null,
+      activeDepth: 0,
+      pending: null,
+      pendingDepth: 0,
+      selectionOpen: false,
+      selectionLocked: false,
+      history: []
+    };
+    this.anomalyContractKeyHandler = null;
+    this.anomalyContractCardRecords = [];
+    this.pendingAnomalyContractSelectionCallback = null;
+  }
+
+  resetAnomalyContractState(reason = "reset") {
+    this.teardownAnomalyContractOverlay?.();
+    this.initializeAnomalyContractState();
+    this.updateAnomalyContractHud?.();
+    if (this.isAnomalyContractDebugEnabled?.()) {
+      console.log("[ANOMALY CONTRACT] reset", { reason });
+    }
+  }
+
+  isAnomalyContractDebugEnabled() {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    try {
+      const params = new URLSearchParams(window.location?.search || "");
+      return params.get(ANOMALY_CONTRACT_DEBUG_QUERY_PARAM) === "1";
+    } catch (error) {
+      return false;
+    }
+  }
+
+  getAnomalyContractUnlockDepth() {
+    return this.isAnomalyContractDebugEnabled()
+      ? ANOMALY_CONTRACT_CONFIG.debugUnlockDepth
+      : ANOMALY_CONTRACT_CONFIG.unlockDepth;
+  }
+
+  getAnomalyContractDefinition(contractId) {
+    return ANOMALY_CONTRACT_CONFIG.contracts.find((contract) => contract.id === contractId) || null;
+  }
+
+  cloneAnomalyContractDefinition(contract) {
+    if (!contract) {
+      return null;
+    }
+
+    return {
+      ...contract,
+      danger: [...(contract.danger || [])],
+      reward: [...(contract.reward || [])],
+      modifiers: { ...(contract.modifiers || {}) }
+    };
+  }
+
+  shouldOfferAnomalyContract(targetDepth, gateMode = "next") {
+    if (!["next", "force"].includes(gateMode)) {
+      return false;
+    }
+    return Math.max(1, Math.floor(Number(targetDepth) || 1)) >= this.getAnomalyContractUnlockDepth();
+  }
+
+  getActiveAnomalyContract() {
+    const state = this.anomalyContractState;
+    if (
+      !state?.active ||
+      state.selectionOpen ||
+      this.gameOver ||
+      this.extractionComplete ||
+      this.shopActive ||
+      state.activeDepth !== (this.stageDepth || 1)
+    ) {
+      return null;
+    }
+
+    return state.active;
+  }
+
+  getAnomalyContractModifier(key, fallbackValue = 1) {
+    const contract = this.getActiveAnomalyContract();
+    const modifiers = contract?.modifiers || {};
+    if (!Object.prototype.hasOwnProperty.call(modifiers, key)) {
+      return fallbackValue;
+    }
+    return modifiers[key];
+  }
+
+  getAnomalyEnemyHpMultiplier() {
+    return Math.max(0.1, Number(this.getAnomalyContractModifier("enemyHpMultiplier", 1)) || 1);
+  }
+
+  getAnomalyEnemyDamageMultiplier() {
+    return Math.max(0.1, Number(this.getAnomalyContractModifier("enemyDamageMultiplier", 1)) || 1);
+  }
+
+  getAnomalyEnemySpeedMultiplier() {
+    return Math.max(0.1, Number(this.getAnomalyContractModifier("enemySpeedMultiplier", 1)) || 1);
+  }
+
+  getAnomalyBossHpMultiplier() {
+    return Math.max(0.1, Number(this.getAnomalyContractModifier("bossHpMultiplier", 1)) || 1);
+  }
+
+  getAnomalyBossDamageMultiplier() {
+    return Math.max(0.1, Number(this.getAnomalyContractModifier("bossDamageMultiplier", 1)) || 1);
+  }
+
+  getAnomalyGeekMultiplierAdd() {
+    return Number(this.getAnomalyContractModifier("geekMultiplierAdd", 0)) || 0;
+  }
+
+  getAnomalyValueDropGeekMultiplier() {
+    return Math.max(0, Number(this.getAnomalyContractModifier("valueDropGeekMultiplier", 1)) || 1);
+  }
+
+  getAnomalyLostArmsChanceAdd() {
+    return Math.max(0, Number(this.getAnomalyContractModifier("lostArmsChanceAdd", 0)) || 0);
+  }
+
+  getAnomalyLostArmsPityGainMultiplier() {
+    return Math.max(0, Number(this.getAnomalyContractModifier("lostArmsPityGainMultiplier", 1)) || 1);
+  }
+
+  getAnomalyOverdriveGainMultiplier() {
+    return Math.max(0, Number(this.getAnomalyContractModifier("overdriveGainMultiplier", 1)) || 1);
+  }
+
+  getAnomalyOverdriveDurationBonusMs() {
+    return Math.max(0, Math.floor(Number(this.getAnomalyContractModifier("overdriveDurationMsAdd", 0)) || 0));
+  }
+
+  getAnomalyStabilizeGainMultiplier() {
+    return Math.max(0, Number(this.getAnomalyContractModifier("stabilizeGainMultiplier", 1)) || 1);
+  }
+
+  getAnomalyGateStableSecondsAdd() {
+    return Math.max(0, Number(this.getAnomalyContractModifier("gateStableSecondsAdd", 0)) || 0);
+  }
+
+  getAnomalyEmergencyExtractProtectionAdd() {
+    return Math.max(0, Number(this.getAnomalyContractModifier("emergencyExtractProtectionAdd", 0)) || 0);
+  }
+
+  getAnomalyDataCacheCompressionRateAdd() {
+    return Math.max(0, Number(this.getAnomalyContractModifier("dataCacheCompressionRateAdd", 0)) || 0);
+  }
+
+  getAnomalyDataCacheGeekMultiplier() {
+    return Math.max(0, Number(this.getAnomalyContractModifier("dataCacheGeekMultiplier", 1)) || 1);
+  }
+
+  getAnomalyRareSlimeChanceMultiplier() {
+    return Math.max(0, Number(this.getAnomalyContractModifier("rareSlimeChanceMultiplier", 1)) || 1);
+  }
+
+  buildAnomalyContractChoices(targetDepth) {
+    const choiceCount = Math.max(1, ANOMALY_CONTRACT_CONFIG.choicesPerGate || 3);
+    const allContracts = ANOMALY_CONTRACT_CONFIG.contracts.map((contract) => this.cloneAnomalyContractDefinition(contract));
+    const previousId = this.anomalyContractState?.history?.slice(-1)?.[0]?.id || null;
+    let pool = allContracts;
+
+    if (ANOMALY_CONTRACT_CONFIG.rerollAvoidSameAsPrevious && previousId && allContracts.length > choiceCount) {
+      const filtered = allContracts.filter((contract) => contract.id !== previousId);
+      if (filtered.length >= choiceCount) {
+        pool = filtered;
+      }
+    }
+
+    const shuffled = Phaser.Utils.Array.Shuffle([...pool]);
+    const choices = shuffled.slice(0, choiceCount);
+    if (choices.length < choiceCount) {
+      allContracts.forEach((contract) => {
+        if (choices.length < choiceCount && !choices.some((choice) => choice.id === contract.id)) {
+          choices.push(contract);
+        }
+      });
+    }
+
+    if (this.isAnomalyContractDebugEnabled()) {
+      console.log("[ANOMALY CONTRACT] choices", {
+        targetDepth,
+        previousId,
+        choices: choices.map((contract) => contract.id)
+      });
+    }
+
+    return choices;
+  }
+
+  selectAnomalyContract(contractId, targetDepth) {
+    const definition = this.getAnomalyContractDefinition(contractId);
+    if (!definition || !this.anomalyContractState) {
+      return null;
+    }
+
+    const contract = this.cloneAnomalyContractDefinition(definition);
+    this.anomalyContractState.pending = contract;
+    this.anomalyContractState.pendingDepth = targetDepth;
+    this.anomalyContractState.history.push({
+      id: contract.id,
+      targetDepth,
+      selectedAt: this.time?.now || 0
+    });
+    this.anomalyContractState.history = this.anomalyContractState.history.slice(-12);
+
+    if (this.isAnomalyContractDebugEnabled()) {
+      console.log("[ANOMALY CONTRACT] selected", {
+        targetDepth,
+        id: contract.id,
+        modifiers: contract.modifiers
+      });
+    }
+
+    return contract;
+  }
+
+  activatePendingAnomalyContract(targetDepth) {
+    const state = this.anomalyContractState;
+    if (!state?.pending || state.pendingDepth !== targetDepth) {
+      this.clearActiveAnomalyContract("noPendingContract", { silent: true });
+      return null;
+    }
+
+    state.active = state.pending;
+    state.activeDepth = targetDepth;
+    state.pending = null;
+    state.pendingDepth = 0;
+    state.selectionOpen = false;
+    state.selectionLocked = false;
+    this.updateAnomalyContractHud();
+    this.showAnomalyContractToast(`CONTRACT ACTIVE: ${state.active.title}`);
+
+    if (this.isAnomalyContractDebugEnabled()) {
+      console.log("[ANOMALY CONTRACT] active", {
+        depth: targetDepth,
+        id: state.active.id,
+        modifiers: state.active.modifiers
+      });
+    }
+
+    return state.active;
+  }
+
+  clearActiveAnomalyContract(reason = "expired", options = {}) {
+    const state = this.anomalyContractState;
+    if (!state) {
+      return;
+    }
+
+    const previous = state.active;
+    state.active = null;
+    state.activeDepth = 0;
+    if (!options.keepPending) {
+      state.pending = null;
+      state.pendingDepth = 0;
+    }
+    state.selectionOpen = false;
+    state.selectionLocked = false;
+    this.updateAnomalyContractHud?.();
+
+    if (previous && !options.silent) {
+      this.showAnomalyContractToast("CONTRACT EXPIRED");
+    }
+
+    if (previous && this.isAnomalyContractDebugEnabled()) {
+      console.log("[ANOMALY CONTRACT] cleared", {
+        reason,
+        id: previous.id
+      });
+    }
+  }
+
+  getAnomalyContractHudTitle(contract = this.getActiveAnomalyContract()) {
+    if (!contract?.title) {
+      return "";
+    }
+    const maxLength = ANOMALY_CONTRACT_CONFIG.hudNameMaxLength || 18;
+    return contract.title.length > maxLength
+      ? `${contract.title.slice(0, Math.max(0, maxLength - 1))}…`
+      : contract.title;
+  }
+
+  getAnomalyContractPrimarySummary(contract = this.getActiveAnomalyContract()) {
+    const reward = contract?.reward?.[0] || "REWARD ACTIVE";
+    const danger = contract?.danger?.[0] || "DANGER ACTIVE";
+    return `${reward} / ${danger}`;
+  }
+
+  updateAnomalyContractHud() {
+    const text = this.hudAnomalyContractText;
+    if (!text) {
+      return;
+    }
+
+    const contract = this.getActiveAnomalyContract();
+    if (!contract) {
+      this.hudAnomalyContractPanel?.setVisible(false);
+      text.setVisible(false);
+      return;
+    }
+
+    this.hudAnomalyContractPanel?.setVisible(true);
+    text
+      .setVisible(true)
+      .setText(`CONTRACT: ${this.getAnomalyContractHudTitle(contract)}\n${this.getAnomalyContractPrimarySummary(contract)}\nNEXT DEPTH ONLY`);
+  }
+
+  showAnomalyContractToast(text) {
+    if (!text) {
+      return;
+    }
+
+    this.setLastPickupNotice(text);
+    if (this.playerHitbox?.active) {
+      this.showOverflowRewardText(text, this.playerHitbox.x, this.playerHitbox.y - 58, "#9ff7ff");
+    }
   }
 
   createBasePlayerStats() {
@@ -2543,6 +3538,489 @@ class SurvivalScene extends Phaser.Scene {
     } catch (error) {
       // Ignore storage failures so the shop can still be used during this session.
     }
+  }
+
+  isAnjuMemoryDebugEnabled() {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    try {
+      const params = new URLSearchParams(window.location?.search || "");
+      return params.get(ANJU_MEMORY_DEBUG_QUERY_PARAM) === "1";
+    } catch (error) {
+      return false;
+    }
+  }
+
+  normalizeAnjuMemoryAmount(value) {
+    return Math.max(0, Math.floor(Number(value) || 0));
+  }
+
+  createDefaultAnjuMemoryState() {
+    return {
+      amount: 0,
+      totalEarned: 0,
+      totalSpent: 0,
+      bestDepthReached: 0,
+      bestExtractDepth: 0,
+      milestonesClaimed: {},
+      ownedRewardIds: [...ANJU_MEMORY_DEFAULT_REWARD_IDS],
+      selected: { ...DEFAULT_ANJU_MEMORY_SELECTIONS },
+      consumables: {
+        openingBoostPlusOne: 0,
+        openingBoostReroll: 0
+      },
+      viewedMemoryLogIds: []
+    };
+  }
+
+  getAnjuMemoryRewardDefinition(rewardId) {
+    return ANJU_MEMORY_REWARD_CATALOG.find((reward) => reward.id === rewardId) || null;
+  }
+
+  getAnjuMemoryRewardsByCategory(categoryId = this.anjuMemoryShopTab) {
+    return ANJU_MEMORY_REWARD_CATALOG.filter((reward) => reward.category === categoryId);
+  }
+
+  normalizeAnjuMemoryState(record) {
+    const defaults = this.createDefaultAnjuMemoryState();
+    const catalogIds = new Set(ANJU_MEMORY_REWARD_CATALOG.map((reward) => reward.id));
+    const ownedRewardIds = new Set(defaults.ownedRewardIds);
+    if (Array.isArray(record?.ownedRewardIds)) {
+      record.ownedRewardIds.forEach((rewardId) => {
+        if (catalogIds.has(rewardId)) {
+          ownedRewardIds.add(rewardId);
+        }
+      });
+    }
+    ANJU_MEMORY_REWARD_CATALOG.forEach((reward) => {
+      if (this.normalizeAnjuMemoryAmount(reward.cost) <= 0) {
+        ownedRewardIds.add(reward.id);
+      }
+    });
+
+    const selected = { ...defaults.selected };
+    Object.keys(selected).forEach((selectionKey) => {
+      const requestedValue = typeof record?.selected?.[selectionKey] === "string"
+        ? record.selected[selectionKey]
+        : selected[selectionKey];
+      const reward = ANJU_MEMORY_REWARD_CATALOG.find((entry) => (
+        entry.selectionKey === selectionKey &&
+        entry.selectionValue === requestedValue &&
+        ownedRewardIds.has(entry.id)
+      ));
+      selected[selectionKey] = reward?.selectionValue || defaults.selected[selectionKey];
+    });
+
+    const claimed = {};
+    ANJU_MEMORY_CONFIG.milestones.forEach((milestone) => {
+      if (record?.milestonesClaimed?.[milestone.depth]) {
+        claimed[milestone.depth] = true;
+      }
+    });
+
+    return {
+      amount: this.normalizeAnjuMemoryAmount(record?.amount),
+      totalEarned: this.normalizeAnjuMemoryAmount(record?.totalEarned),
+      totalSpent: this.normalizeAnjuMemoryAmount(record?.totalSpent),
+      bestDepthReached: Math.max(0, Math.floor(Number(record?.bestDepthReached) || 0)),
+      bestExtractDepth: Math.max(0, Math.floor(Number(record?.bestExtractDepth) || 0)),
+      milestonesClaimed: claimed,
+      ownedRewardIds: [...ownedRewardIds],
+      selected,
+      consumables: {
+        openingBoostPlusOne: this.normalizeAnjuMemoryAmount(record?.consumables?.openingBoostPlusOne),
+        openingBoostReroll: this.normalizeAnjuMemoryAmount(record?.consumables?.openingBoostReroll)
+      },
+      viewedMemoryLogIds: Array.isArray(record?.viewedMemoryLogIds)
+        ? record.viewedMemoryLogIds.filter((rewardId) => catalogIds.has(rewardId))
+        : []
+    };
+  }
+
+  loadAnjuMemoryState() {
+    let rawState = null;
+
+    try {
+      rawState = window.localStorage?.getItem(ANJU_MEMORY_STORAGE_KEY) || null;
+    } catch (error) {
+      rawState = null;
+    }
+
+    if (!rawState) {
+      return this.normalizeAnjuMemoryState(this.createDefaultAnjuMemoryState());
+    }
+
+    try {
+      return this.normalizeAnjuMemoryState(JSON.parse(rawState));
+    } catch (error) {
+      return this.normalizeAnjuMemoryState(this.createDefaultAnjuMemoryState());
+    }
+  }
+
+  saveAnjuMemoryState() {
+    this.anjuMemoryState = this.normalizeAnjuMemoryState(this.anjuMemoryState);
+
+    try {
+      window.localStorage?.setItem(ANJU_MEMORY_STORAGE_KEY, JSON.stringify(this.anjuMemoryState));
+    } catch (error) {
+      // Ignore storage failures so ANJU MEMORY never blocks a run or shop flow.
+    }
+  }
+
+  isAnjuMemoryRewardOwned(rewardId) {
+    const reward = this.getAnjuMemoryRewardDefinition(rewardId);
+    if (!reward) {
+      return false;
+    }
+    if (this.normalizeAnjuMemoryAmount(reward.cost) <= 0) {
+      return true;
+    }
+    return Boolean(this.anjuMemoryState?.ownedRewardIds?.includes(rewardId));
+  }
+
+  getAnjuMemorySelectedReward(selectionKey) {
+    const selectedValue = this.anjuMemoryState?.selected?.[selectionKey] ?? DEFAULT_ANJU_MEMORY_SELECTIONS[selectionKey];
+    return ANJU_MEMORY_REWARD_CATALOG.find((reward) => (
+      reward.selectionKey === selectionKey &&
+      reward.selectionValue === selectedValue &&
+      this.isAnjuMemoryRewardOwned(reward.id)
+    )) || null;
+  }
+
+  getAnjuMemorySelectedLabel(selectionKey) {
+    const reward = this.getAnjuMemorySelectedReward(selectionKey);
+    return reward?.label || reward?.title || "";
+  }
+
+  getAnjuMemorySelectedRankingLabel(selectionKey) {
+    const reward = this.getAnjuMemorySelectedReward(selectionKey);
+    if (!reward || reward.selectionValue === "none") {
+      return "";
+    }
+    return reward.label || reward.title || "";
+  }
+
+  getAnjuMemoryConsumableCount(consumableId) {
+    return this.normalizeAnjuMemoryAmount(this.anjuMemoryState?.consumables?.[consumableId]);
+  }
+
+  consumeAnjuMemoryConsumable(consumableId, count = 1) {
+    const amount = this.normalizeAnjuMemoryAmount(count);
+    if (amount <= 0 || this.getAnjuMemoryConsumableCount(consumableId) < amount) {
+      return false;
+    }
+    this.anjuMemoryState.consumables[consumableId] = this.getAnjuMemoryConsumableCount(consumableId) - amount;
+    this.saveAnjuMemoryState();
+    return true;
+  }
+
+  purchaseAnjuMemoryReward(rewardId) {
+    const reward = this.getAnjuMemoryRewardDefinition(rewardId);
+    if (!reward) {
+      this.showPreGameShop("ANJU MEMORY報酬が見つかりません");
+      return;
+    }
+
+    if (reward.consumableId) {
+      const cost = this.normalizeAnjuMemoryAmount(reward.cost);
+      if (this.normalizeAnjuMemoryAmount(this.anjuMemoryState?.amount) < cost) {
+        this.showPreGameShop(`${reward.title}: ANJU MEMORY不足`);
+        return;
+      }
+      this.anjuMemoryState.amount = this.normalizeAnjuMemoryAmount(this.anjuMemoryState.amount - cost);
+      this.anjuMemoryState.totalSpent = this.normalizeAnjuMemoryAmount(this.anjuMemoryState.totalSpent + cost);
+      this.anjuMemoryState.consumables[reward.consumableId] = this.getAnjuMemoryConsumableCount(reward.consumableId) + 1;
+      this.saveAnjuMemoryState();
+      this.showPreGameShop(`${reward.title} を購入しました`);
+      return;
+    }
+
+    if (this.isAnjuMemoryRewardOwned(reward.id)) {
+      this.activateOwnedAnjuMemoryReward(reward);
+      return;
+    }
+
+    const cost = this.normalizeAnjuMemoryAmount(reward.cost);
+    if (this.normalizeAnjuMemoryAmount(this.anjuMemoryState?.amount) < cost) {
+      this.showPreGameShop(`${reward.title}: ANJU MEMORY不足`);
+      return;
+    }
+
+    this.anjuMemoryState.amount = this.normalizeAnjuMemoryAmount(this.anjuMemoryState.amount - cost);
+    this.anjuMemoryState.totalSpent = this.normalizeAnjuMemoryAmount(this.anjuMemoryState.totalSpent + cost);
+    this.anjuMemoryState.ownedRewardIds = [...new Set([...(this.anjuMemoryState.ownedRewardIds || []), reward.id])];
+    if (reward.selectionKey) {
+      this.anjuMemoryState.selected[reward.selectionKey] = reward.selectionValue;
+    }
+    if (reward.category === "memoryLog") {
+      this.anjuMemoryReadLogId = reward.id;
+      this.anjuMemoryState.viewedMemoryLogIds = [...new Set([...(this.anjuMemoryState.viewedMemoryLogIds || []), reward.id])];
+    }
+    this.saveAnjuMemoryState();
+    this.showPreGameShop(`${reward.title} を解放しました`);
+  }
+
+  activateOwnedAnjuMemoryReward(reward) {
+    if (!reward) {
+      return;
+    }
+
+    if (reward.selectionKey) {
+      this.anjuMemoryState.selected[reward.selectionKey] = reward.selectionValue;
+      this.saveAnjuMemoryState();
+      this.showPreGameShop(`${reward.title} を選択中`);
+      return;
+    }
+
+    if (reward.category === "memoryLog") {
+      this.anjuMemoryReadLogId = reward.id;
+      this.anjuMemoryState.viewedMemoryLogIds = [...new Set([...(this.anjuMemoryState.viewedMemoryLogIds || []), reward.id])];
+      this.saveAnjuMemoryState();
+      this.showPreGameShop(`${reward.title} を表示中`);
+      return;
+    }
+
+    this.showPreGameShop(`${reward.title} は解放済みです`);
+  }
+
+  getAnjuMemoryRewardActionLabel(reward) {
+    if (!reward) {
+      return "LOCKED";
+    }
+    if (reward.consumableId) {
+      const count = this.getAnjuMemoryConsumableCount(reward.consumableId);
+      return `BUY ${reward.cost} AM / x${count}`;
+    }
+    const owned = this.isAnjuMemoryRewardOwned(reward.id);
+    if (!owned) {
+      return `BUY ${reward.cost} AM`;
+    }
+    if (reward.selectionKey) {
+      const selected = this.anjuMemoryState?.selected?.[reward.selectionKey] === reward.selectionValue;
+      return selected ? "SELECTED" : "SELECT";
+    }
+    if (reward.category === "memoryLog") {
+      return "READ";
+    }
+    return "OWNED";
+  }
+
+  isDepthSixOrDeeper() {
+    return (this.stageDepth || 1) >= ANJU_MEMORY_CONFIG.unlockDepth;
+  }
+
+  getAnjuMemoryOwnedRewardModifiers(category = "deepCd") {
+    if (!this.isDepthSixOrDeeper()) {
+      return [];
+    }
+    const owned = new Set(this.anjuMemoryState?.ownedRewardIds || []);
+    return ANJU_MEMORY_REWARD_CATALOG
+      .filter((reward) => reward.category === category && owned.has(reward.id) && reward.modifiers)
+      .map((reward) => reward.modifiers);
+  }
+
+  getAnjuStabilizeGainMultiplier() {
+    const add = this.getAnjuMemoryOwnedRewardModifiers()
+      .reduce((sum, modifiers) => sum + (Number(modifiers.stabilizeGainMultiplierAdd) || 0), 0);
+    return Math.max(0, 1 + add);
+  }
+
+  getAnjuLostArmsChanceAdd() {
+    return this.getAnjuMemoryOwnedRewardModifiers()
+      .reduce((sum, modifiers) => sum + (Number(modifiers.lostArmsChanceAdd) || 0), 0);
+  }
+
+  getAnjuGateStableSecondsAdd() {
+    return this.getAnjuMemoryOwnedRewardModifiers()
+      .reduce((sum, modifiers) => sum + (Number(modifiers.gateStableSecondsAdd) || 0), 0);
+  }
+
+  getAnjuHudSkinPalette() {
+    return this.getAnjuMemorySelectedReward("hudSkin")?.palette || {};
+  }
+
+  getAnjuGateSkinPalette() {
+    return this.getAnjuMemorySelectedReward("gateSkin")?.palette || {};
+  }
+
+  getAnjuLostArmsSkinPalette() {
+    return this.getAnjuMemorySelectedReward("lostArmsSkin")?.palette || {};
+  }
+
+  getAnjuResultFramePalette() {
+    return this.getAnjuMemorySelectedReward("resultFrame")?.palette || {};
+  }
+
+  getAnjuContractCardBackPalette() {
+    return this.getAnjuMemorySelectedReward("contractCardBack")?.palette || {};
+  }
+
+  initializeAnjuMemoryRunState() {
+    this.runAnjuMemoryState = {
+      maxDepthReached: this.stageDepth || 1,
+      unlockedNoticeShown: false,
+      awarded: false,
+      pendingAward: null,
+      openingBoostExtraChoiceUsed: false,
+      openingBoostExtraChoiceActive: false,
+      openingBoostRerollUsed: false
+    };
+    this.lastAnjuMemoryAward = null;
+  }
+
+  clearPendingAnjuMemory(reason = "reset") {
+    if (!this.runAnjuMemoryState) {
+      return;
+    }
+    this.runAnjuMemoryState.pendingAward = null;
+    this.runAnjuMemoryState.awarded = false;
+    if (this.isAnjuMemoryDebugEnabled()) {
+      console.log("[ANJU MEMORY] pending cleared", { reason });
+    }
+  }
+
+  updateAnjuMemoryDepthProgress(depth = this.stageDepth) {
+    if (!this.runAnjuMemoryState) {
+      this.initializeAnjuMemoryRunState();
+    }
+    const nextDepth = Math.max(1, Math.floor(Number(depth) || 1));
+    const previousDepth = Math.max(1, Math.floor(Number(this.runAnjuMemoryState.maxDepthReached) || 1));
+    this.runAnjuMemoryState.maxDepthReached = Math.max(previousDepth, nextDepth);
+
+    if (
+      previousDepth < ANJU_MEMORY_CONFIG.unlockDepth &&
+      this.runAnjuMemoryState.maxDepthReached >= ANJU_MEMORY_CONFIG.unlockDepth &&
+      !this.runAnjuMemoryState.unlockedNoticeShown
+    ) {
+      this.runAnjuMemoryState.unlockedNoticeShown = true;
+      this.showAnjuMemoryUnlockNotice();
+    }
+    if (!this.runAnjuMemoryState.awarded && this.runAnjuMemoryState.maxDepthReached >= ANJU_MEMORY_CONFIG.unlockDepth) {
+      this.runAnjuMemoryState.pendingAward = this.calculateAnjuMemoryReward("normal");
+    }
+    this.updateAnjuMemoryHud?.();
+  }
+
+  showAnjuMemoryUnlockNotice() {
+    const text = "ANJU MEMORY UNLOCKED / Extract alive to preserve";
+    this.setLastPickupNotice(text);
+    if (this.playerHitbox?.active) {
+      this.showOverflowRewardText("ANJU MEMORY UNLOCKED", this.playerHitbox.x, this.playerHitbox.y - 74, "#f0e6ff");
+    }
+  }
+
+  getAnjuMemoryRepeatDepthBonus(maxDepthReached) {
+    const level = Math.max(0, Math.floor(Number(maxDepthReached) || 0) - (ANJU_MEMORY_CONFIG.unlockDepth - 1));
+    return Math.floor((level * (level + 1)) / 2);
+  }
+
+  getPendingAnjuMemoryMilestones(maxDepthReached) {
+    return ANJU_MEMORY_CONFIG.milestones.filter((milestone) => (
+      maxDepthReached >= milestone.depth &&
+      !this.anjuMemoryState?.milestonesClaimed?.[milestone.depth]
+    ));
+  }
+
+  calculateAnjuMemoryReward(mode = "normal") {
+    const maxDepthReached = Math.max(
+      Math.floor(Number(this.runAnjuMemoryState?.maxDepthReached) || 1),
+      Math.floor(Number(this.stageDepth) || 1)
+    );
+    if (maxDepthReached < ANJU_MEMORY_CONFIG.unlockDepth) {
+      return {
+        mode,
+        amount: 0,
+        raw: 0,
+        depthBonus: 0,
+        firstReachBonus: 0,
+        instabilityMultiplier: 1,
+        maxDepthReached,
+        milestones: []
+      };
+    }
+
+    const depthBonus = this.getAnjuMemoryRepeatDepthBonus(maxDepthReached);
+    const milestones = this.getPendingAnjuMemoryMilestones(maxDepthReached);
+    const firstReachBonus = milestones.reduce((sum, milestone) => sum + milestone.reward, 0);
+    const instabilityBonus = Phaser.Math.Clamp(
+      (this.gateInstabilityStacks || 0) * ANJU_MEMORY_CONFIG.instabilityBonusPerStack,
+      0,
+      ANJU_MEMORY_CONFIG.instabilityBonusMax
+    );
+    const instabilityMultiplier = 1 + instabilityBonus;
+    const raw = Math.floor((depthBonus + firstReachBonus) * instabilityMultiplier);
+    const emergency = mode === "emergency";
+    const multiplier = emergency
+      ? Math.min(ANJU_MEMORY_CONFIG.emergencyExtractMultiplier, ANJU_MEMORY_CONFIG.emergencyExtractMaxMultiplier)
+      : ANJU_MEMORY_CONFIG.normalExtractMultiplier;
+    let amount = Math.floor(raw * multiplier);
+    if (!emergency && maxDepthReached >= ANJU_MEMORY_CONFIG.unlockDepth) {
+      amount = Math.max(1, amount);
+    } else if (emergency && raw > 0) {
+      amount = Math.max(1, amount);
+    }
+
+    return {
+      mode,
+      amount,
+      raw,
+      depthBonus,
+      firstReachBonus,
+      instabilityMultiplier,
+      maxDepthReached,
+      milestones
+    };
+  }
+
+  awardAnjuMemoryOnExtraction(mode = "normal") {
+    if (!this.runAnjuMemoryState || this.runAnjuMemoryState.awarded) {
+      return this.runAnjuMemoryState?.pendingAward || null;
+    }
+
+    const reward = this.calculateAnjuMemoryReward(mode);
+    if (reward.amount <= 0 || reward.maxDepthReached < ANJU_MEMORY_CONFIG.unlockDepth) {
+      this.clearPendingAnjuMemory(`extract:${mode}:noReward`);
+      return reward;
+    }
+
+    this.anjuMemoryState.amount = this.normalizeAnjuMemoryAmount(this.anjuMemoryState.amount + reward.amount);
+    this.anjuMemoryState.totalEarned = this.normalizeAnjuMemoryAmount(this.anjuMemoryState.totalEarned + reward.amount);
+    this.anjuMemoryState.bestDepthReached = Math.max(this.anjuMemoryState.bestDepthReached || 0, reward.maxDepthReached);
+    this.anjuMemoryState.bestExtractDepth = Math.max(this.anjuMemoryState.bestExtractDepth || 0, reward.maxDepthReached);
+    reward.milestones.forEach((milestone) => {
+      this.anjuMemoryState.milestonesClaimed[milestone.depth] = true;
+    });
+    this.saveAnjuMemoryState();
+    this.runAnjuMemoryState.awarded = true;
+    this.runAnjuMemoryState.pendingAward = reward;
+    this.lastAnjuMemoryAward = reward;
+
+    if (this.isAnjuMemoryDebugEnabled()) {
+      console.log("[ANJU MEMORY] awarded", reward);
+    }
+
+    return reward;
+  }
+
+  formatAnjuMemoryAwardLine(reward) {
+    if (!reward || reward.amount <= 0) {
+      return "";
+    }
+    const modeLabel = reward.mode === "emergency" ? "EMERGENCY" : "EXTRACT";
+    const milestoneLabel = reward.milestones?.length > 0
+      ? ` / FIRST D${reward.milestones.map((milestone) => milestone.depth).join(",D")}`
+      : "";
+    return `ANJU MEMORY +${reward.amount} (${modeLabel}${milestoneLabel})`;
+  }
+
+  getAnjuMemoryPreviewLine() {
+    const reward = this.calculateAnjuMemoryReward("normal");
+    if (reward.maxDepthReached < ANJU_MEMORY_CONFIG.unlockDepth) {
+      return "";
+    }
+    return `ANJU MEMORY +${reward.amount}? / Extract to preserve`;
   }
 
   getPermanentUpgradeLevel(upgradeId) {
@@ -2978,7 +4456,1042 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   scalePlayerDamage(damage) {
-    return Math.max(0, Number(damage) || 0) * (this.stats.damageMultiplier || 1);
+    return Math.max(0, Number(damage) || 0) * (this.stats.damageMultiplier || 1) * this.getOverdriveDamageMultiplier();
+  }
+
+  clampLostArmsLevel(value) {
+    return Phaser.Math.Clamp(Math.floor(Number(value) || 0), 0, LOST_ARMS_MAX_LEVEL);
+  }
+
+  normalizeLostArmsLevels(levels = {}) {
+    return LOST_ARMS_IDS.reduce((normalized, armId) => {
+      normalized[armId] = this.clampLostArmsLevel(levels?.[armId]);
+      return normalized;
+    }, {});
+  }
+
+  normalizeLostArmsStoredState(record = {}) {
+    return {
+      version: 1,
+      levels: this.normalizeLostArmsLevels(record?.levels || DEFAULT_LOST_ARMS_LEVELS),
+      pity: Phaser.Math.Clamp(Number(record?.pity) || 0, 0, LOST_ARMS_PITY_MAX)
+    };
+  }
+
+  loadLostArmsStoredState() {
+    let rawState = null;
+
+    try {
+      rawState = window.localStorage?.getItem(LOST_ARMS_STORAGE_KEY) || null;
+    } catch (error) {
+      rawState = null;
+    }
+
+    if (!rawState) {
+      return this.normalizeLostArmsStoredState();
+    }
+
+    try {
+      return this.normalizeLostArmsStoredState(JSON.parse(rawState));
+    } catch (error) {
+      return this.normalizeLostArmsStoredState();
+    }
+  }
+
+  saveLostArmsState() {
+    if (!this.lostArmsState) {
+      return;
+    }
+
+    const storedState = this.normalizeLostArmsStoredState({
+      levels: this.lostArmsState.permanentLevels,
+      pity: this.lostArmsState.pity
+    });
+    this.lostArmsState.permanentLevels = { ...storedState.levels };
+    this.lostArmsState.pity = storedState.pity;
+
+    try {
+      window.localStorage?.setItem(LOST_ARMS_STORAGE_KEY, JSON.stringify(storedState));
+    } catch (error) {
+      // Ignore storage failures so the current run can continue.
+    }
+  }
+
+  createLostArmsRunState() {
+    const storedState = this.loadLostArmsStoredState();
+    const state = {
+      permanentLevels: { ...storedState.levels },
+      pendingLevels: { ...DEFAULT_LOST_ARMS_LEVELS },
+      runtimeLevels: { ...DEFAULT_LOST_ARMS_LEVELS },
+      securedThisRun: [],
+      pickedThisRun: 0,
+      pity: storedState.pity
+    };
+    this.refreshLostArmsRuntimeLevels(state);
+    return state;
+  }
+
+  createAbyssRailRuntimeState() {
+    return {
+      cooldownTimer: 0,
+      charging: false,
+      shotCount: 0,
+      chargeEvent: null,
+      chargeObjects: []
+    };
+  }
+
+  createGravitySeedRuntimeState() {
+    return {
+      cooldownTimer: 0,
+      fields: []
+    };
+  }
+
+  refreshLostArmsRuntimeLevels(state = this.lostArmsState) {
+    if (!state) {
+      return;
+    }
+
+    LOST_ARMS_IDS.forEach((armId) => {
+      const permanentLevel = this.clampLostArmsLevel(state.permanentLevels?.[armId]);
+      const pendingLevel = this.clampLostArmsLevel(state.pendingLevels?.[armId]);
+      state.permanentLevels[armId] = permanentLevel;
+      state.pendingLevels[armId] = pendingLevel;
+      state.runtimeLevels[armId] = this.clampLostArmsLevel(permanentLevel + pendingLevel);
+    });
+  }
+
+  getLostArmDefinition(armId) {
+    return LOST_ARMS_DEFINITIONS[armId] || null;
+  }
+
+  getLostArmRuntimeLevel(armId) {
+    this.refreshLostArmsRuntimeLevels();
+    return this.clampLostArmsLevel(this.lostArmsState?.runtimeLevels?.[armId]);
+  }
+
+  isLostArmPending(armId) {
+    return this.clampLostArmsLevel(this.lostArmsState?.pendingLevels?.[armId]) > 0;
+  }
+
+  isLostArmsDebugEnabled() {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    try {
+      const params = new URLSearchParams(window.location?.search || "");
+      return params.get(LOST_ARMS_DEBUG_QUERY_PARAM) === "1";
+    } catch (error) {
+      return false;
+    }
+  }
+
+  getLostArmsDropRatesForDepth(depth = this.stageDepth || 1) {
+    const normalizedDepth = Math.max(1, Math.floor(Number(depth) || 1));
+    const tableRate = LOST_ARMS_DROP_RATES.find((entry) => entry.depth === normalizedDepth);
+    if (tableRate) {
+      return { boss: tableRate.boss, elite: tableRate.elite };
+    }
+
+    const extraDepth = normalizedDepth - 8;
+    return {
+      boss: Math.min(0.20, 0.15 + extraDepth * 0.025),
+      elite: Math.min(0.03, 0.025 + extraDepth * 0.0025)
+    };
+  }
+
+  getLostArmsDropKind(enemy) {
+    if (!enemy || (!enemy.active && !enemy.isDying)) {
+      return null;
+    }
+    if (enemy.isBoss) {
+      return "boss";
+    }
+    if (enemy.isElite || enemy.enemyTypeId === "gold_slime" || enemy.enemyTypeId === "silver_slime") {
+      return "elite";
+    }
+    return null;
+  }
+
+  trySpawnLostArmDrop(enemy) {
+    const dropKind = this.getLostArmsDropKind(enemy);
+    if (!dropKind || !this.lostArmsState) {
+      return false;
+    }
+
+    const rates = this.getLostArmsDropRatesForDepth();
+    const baseRate = rates[dropKind] || 0;
+    const debugEnabled = this.isLostArmsDebugEnabled();
+    const anomalyChanceAdd = this.getAnomalyLostArmsChanceAdd();
+    const anjuChanceAdd = this.getAnjuLostArmsChanceAdd();
+    const finalRate = debugEnabled ? 1 : Phaser.Math.Clamp(baseRate + anomalyChanceAdd + anjuChanceAdd + (this.lostArmsState.pity || 0), 0, 1);
+    const success = Math.random() < finalRate;
+
+    if (debugEnabled || this.isAnomalyContractDebugEnabled() || this.isAnjuMemoryDebugEnabled()) {
+      console.log("[LOST ARMS]", {
+        source: dropKind,
+        enemyTypeId: enemy.enemyTypeId,
+        depth: this.stageDepth,
+        baseRate,
+        anomalyChanceAdd,
+        anjuChanceAdd,
+        pity: this.lostArmsState.pity,
+        finalRate,
+        success
+      });
+    }
+
+    if (!success) {
+      this.lostArmsState.pity = Math.min(
+        LOST_ARMS_PITY_MAX,
+        (this.lostArmsState.pity || 0) + LOST_ARMS_PITY_STEP * this.getAnomalyLostArmsPityGainMultiplier()
+      );
+      this.saveLostArmsState();
+      return false;
+    }
+
+    this.lostArmsState.pity = 0;
+    this.saveLostArmsState();
+    const armId = this.pickLostArmDropCandidate();
+    if (!armId) {
+      this.spawnLostArmFallbackReward(enemy.x, enemy.y);
+      return false;
+    }
+
+    this.spawnLostArmCore(enemy.x, enemy.y, armId);
+    return true;
+  }
+
+  pickLostArmDropCandidate() {
+    if (!this.lostArmsState || (this.lostArmsState.pickedThisRun || 0) >= LOST_ARMS_RUN_PICKUP_LIMIT) {
+      return null;
+    }
+
+    this.refreshLostArmsRuntimeLevels();
+    const pickedIds = new Set(this.lostArmsState.securedThisRun || []);
+    const candidates = LOST_ARMS_IDS.filter((armId) => {
+      const runtimeLevel = this.clampLostArmsLevel(this.lostArmsState.runtimeLevels?.[armId]);
+      return runtimeLevel < LOST_ARMS_MAX_LEVEL && !pickedIds.has(armId);
+    });
+
+    if (!candidates.length) {
+      return null;
+    }
+
+    const unownedCandidates = candidates.filter((armId) => this.lostArmsState.runtimeLevels[armId] <= 0);
+    if (unownedCandidates.length > 0) {
+      return Phaser.Utils.Array.GetRandom(unownedCandidates);
+    }
+
+    const weightedCandidates = candidates.map((armId) => ({
+      armId,
+      weight: Math.max(1, LOST_ARMS_MAX_LEVEL + 1 - this.lostArmsState.runtimeLevels[armId])
+    }));
+    const totalWeight = weightedCandidates.reduce((sum, entry) => sum + entry.weight, 0);
+    let roll = Phaser.Math.FloatBetween(0, totalWeight);
+
+    for (const entry of weightedCandidates) {
+      roll -= entry.weight;
+      if (roll <= 0) {
+        return entry.armId;
+      }
+    }
+
+    return weightedCandidates[0]?.armId || null;
+  }
+
+  spawnLostArmFallbackReward(x, y) {
+    const definition = RARE_ITEM_DEFINITIONS.gold || RARE_ITEM_DEFINITIONS.silver || RARE_ITEM_DEFINITIONS.bronze;
+    if (!definition) {
+      return;
+    }
+
+    this.spawnRareItem(x, y, definition);
+    this.setLastPickupNotice("LOST ARMS CONVERTED / GOLD CACHE");
+  }
+
+  canApplyLostArmPickup(armId) {
+    if (!this.lostArmsState || !LOST_ARMS_IDS.includes(armId)) {
+      return false;
+    }
+
+    this.refreshLostArmsRuntimeLevels();
+    return (
+      (this.lostArmsState.pickedThisRun || 0) < LOST_ARMS_RUN_PICKUP_LIMIT &&
+      this.clampLostArmsLevel(this.lostArmsState.pendingLevels?.[armId]) <= 0 &&
+      this.clampLostArmsLevel(this.lostArmsState.runtimeLevels?.[armId]) < LOST_ARMS_MAX_LEVEL
+    );
+  }
+
+  pickupLostArmCore(armId) {
+    const definition = this.getLostArmDefinition(armId);
+    if (!definition) {
+      return false;
+    }
+
+    if (!this.canApplyLostArmPickup(armId)) {
+      this.spawnLostArmFallbackReward(this.playerHitbox.x, this.playerHitbox.y - 16);
+      return false;
+    }
+
+    this.lostArmsState.pendingLevels[armId] = this.clampLostArmsLevel((this.lostArmsState.pendingLevels[armId] || 0) + 1);
+    this.lostArmsState.pickedThisRun = Math.min(
+      LOST_ARMS_RUN_PICKUP_LIMIT,
+      (this.lostArmsState.pickedThisRun || 0) + 1
+    );
+    if (!this.lostArmsState.securedThisRun.includes(armId)) {
+      this.lostArmsState.securedThisRun.push(armId);
+    }
+    this.refreshLostArmsRuntimeLevels();
+
+    if (armId === "abyssRail") {
+      this.abyssRailState.cooldownTimer = Math.max(
+        this.abyssRailState.cooldownTimer || 0,
+        this.getLostArmCooldownMs(ABYSS_RAIL_LEVELS[this.getLostArmRuntimeLevel(armId)]?.cooldownMs || 6500) * 0.72
+      );
+    } else if (armId === "gravitySeed") {
+      this.gravitySeedState.cooldownTimer = Math.max(
+        this.gravitySeedState.cooldownTimer || 0,
+        this.getLostArmCooldownMs(GRAVITY_SEED_LEVELS[this.getLostArmRuntimeLevel(armId)]?.cooldownMs || 8200) * 0.72
+      );
+    }
+
+    this.setLastPickupNotice(`LOST ARMS ${definition.displayName} Lv.${this.getLostArmRuntimeLevel(armId)} UNSECURED`);
+    this.showLostArmsNotification(definition);
+    this.updateHud();
+    return true;
+  }
+
+  securePendingLostArms() {
+    if (!this.lostArmsState) {
+      return "";
+    }
+
+    this.refreshLostArmsRuntimeLevels();
+    const securedLines = [];
+    LOST_ARMS_IDS.forEach((armId) => {
+      const pendingLevel = this.clampLostArmsLevel(this.lostArmsState.pendingLevels?.[armId]);
+      if (pendingLevel <= 0) {
+        return;
+      }
+
+      const definition = this.getLostArmDefinition(armId);
+      const beforeLevel = this.clampLostArmsLevel(this.lostArmsState.permanentLevels?.[armId]);
+      const afterLevel = this.clampLostArmsLevel(beforeLevel + pendingLevel);
+      this.lostArmsState.permanentLevels[armId] = afterLevel;
+      this.lostArmsState.pendingLevels[armId] = 0;
+      securedLines.push(`${definition?.displayName || armId} Lv.${beforeLevel} -> Lv.${afterLevel}`);
+    });
+
+    this.refreshLostArmsRuntimeLevels();
+    this.saveLostArmsState();
+    this.updateHud();
+    return securedLines.length > 0
+      ? `LOST ARMS SECURED\n${securedLines.join("\n")}`
+      : "";
+  }
+
+  discardPendingLostArms() {
+    if (!this.lostArmsState) {
+      return "";
+    }
+
+    this.refreshLostArmsRuntimeLevels();
+    const lostLines = LOST_ARMS_IDS
+      .filter((armId) => this.clampLostArmsLevel(this.lostArmsState.pendingLevels?.[armId]) > 0)
+      .map((armId) => this.getLostArmDefinition(armId)?.coreLabel || armId);
+
+    if (lostLines.length <= 0) {
+      return "";
+    }
+
+    LOST_ARMS_IDS.forEach((armId) => {
+      this.lostArmsState.pendingLevels[armId] = 0;
+    });
+    this.refreshLostArmsRuntimeLevels();
+    this.updateHud();
+    return `LOST ARMS LOST\n${lostLines.join("\n")}`;
+  }
+
+  showLostArmsNotification(definition) {
+    const lines = [
+      "LOST ARMS DETECTED",
+      definition.coreLabel,
+      "UNSECURED WEAPON"
+    ];
+    const container = this.add
+      .container(GAME_WIDTH / 2, 206)
+      .setScrollFactor(0)
+      .setDepth(720);
+    const panel = this.add
+      .rectangle(0, 0, 410, 104, 0x050b12, 0.9)
+      .setStrokeStyle(2, definition.tint, 0.6);
+    const glow = this.add
+      .image(-176, -4, "skill-hit-glow")
+      .setScale(0.78)
+      .setTint(definition.tint)
+      .setAlpha(0.42)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const icon = this.add
+      .image(-176, -4, definition.iconTextureKey)
+      .setDisplaySize(42, 42)
+      .setAlpha(0.94);
+    const text = this.add
+      .text(-138, -38, lines.join("\n"), {
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "15px",
+        color: "#ecfaff",
+        fontStyle: "bold",
+        lineSpacing: 5
+      });
+
+    container.add([panel, glow, icon, text]);
+    this.uiContainer?.add(container);
+    this.tweens.add({
+      targets: container,
+      y: container.y - 14,
+      alpha: 0,
+      delay: 1400,
+      duration: 420,
+      ease: "Quad.In",
+      onComplete: () => {
+        container.destroy();
+      }
+    });
+  }
+
+  scaleLostArmDamage(damage) {
+    const baseDamage = Math.max(0, Number(damage) || 0);
+    const playerDamageMultiplier = Math.max(0, Number(this.stats?.damageMultiplier) || 1);
+    return baseDamage * (1 + (playerDamageMultiplier - 1) * 0.65);
+  }
+
+  getLostArmCooldownMs(baseCooldownMs) {
+    const baseCooldown = Math.max(120, Number(baseCooldownMs) || 1000);
+    const baseFireInterval = 540;
+    const currentFireInterval = Math.max(LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS, Number(this.stats?.fireInterval) || baseFireInterval);
+    const cooldownReduction = Phaser.Math.Clamp(1 - currentFireInterval / baseFireInterval, 0, 0.74);
+    return Math.max(200, Math.round(baseCooldown * (1 - cooldownReduction * 0.65)));
+  }
+
+  updateLostArmsCombat(delta) {
+    this.updateAbyssRail(delta);
+    this.updateGravitySeed(delta);
+    this.updateGravitySeedFields(delta);
+  }
+
+  updateAbyssRail(delta) {
+    const level = this.getLostArmRuntimeLevel("abyssRail");
+    if (level <= 0 || !this.abyssRailState) {
+      return;
+    }
+    if (this.abyssRailState.charging) {
+      return;
+    }
+
+    const config = ABYSS_RAIL_LEVELS[level];
+    const cooldownMs = this.getLostArmCooldownMs(config.cooldownMs);
+    this.abyssRailState.cooldownTimer = Math.min(
+      cooldownMs,
+      (this.abyssRailState.cooldownTimer || 0) + delta
+    );
+    if (this.abyssRailState.cooldownTimer < cooldownMs) {
+      return;
+    }
+
+    const target = this.findAbyssRailTarget();
+    if (!target) {
+      return;
+    }
+
+    this.abyssRailState.cooldownTimer = 0;
+    this.beginAbyssRailCharge(target, level, config);
+  }
+
+  findAbyssRailTarget() {
+    const candidates = [];
+    const originX = this.playerHitbox.x;
+    const originY = this.playerHitbox.y;
+
+    this.enemies.children.each((enemy) => {
+      if (!enemy.active || enemy.isDying) {
+        return;
+      }
+
+      const distance = Phaser.Math.Distance.Between(originX, originY, enemy.x, enemy.y);
+      const hpScore = Math.max(0, Number(enemy.hp) || 0);
+      const priority = hpScore + (enemy.isBoss ? 900 : 0) + (enemy.isElite ? 220 : 0) - distance * 0.012;
+      candidates.push({ enemy, priority, distance });
+    });
+
+    candidates.sort((left, right) => {
+      if (right.priority !== left.priority) {
+        return right.priority - left.priority;
+      }
+      return left.distance - right.distance;
+    });
+    return candidates[0]?.enemy || null;
+  }
+
+  beginAbyssRailCharge(target, level, config) {
+    const originX = this.playerHitbox.x;
+    const originY = this.playerHitbox.y - 18;
+    const angle = Phaser.Math.Angle.Between(originX, originY, target.x, target.y);
+    const range = 1780;
+    const endX = originX + Math.cos(angle) * range;
+    const endY = originY + Math.sin(angle) * range;
+    const centerX = (originX + endX) * 0.5;
+    const centerY = (originY + endY) * 0.5;
+    const lineLength = Phaser.Math.Distance.Between(originX, originY, endX, endY);
+    const chargeMs = Math.max(120, config.chargeMs || 320);
+    const warning = this.add
+      .rectangle(centerX, centerY, lineLength, 4, 0x62f0ff, 0.24)
+      .setRotation(angle)
+      .setDepth(18)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const sight = this.add
+      .rectangle(centerX, centerY, lineLength, 1.5, 0xffffff, 0.64)
+      .setRotation(angle)
+      .setDepth(19)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const muzzle = this.add
+      .image(originX, originY, "lost-arm-abyss-icon")
+      .setDepth(20)
+      .setScale(0.58)
+      .setTint(0x62f0ff)
+      .setAlpha(0.82)
+      .setBlendMode(Phaser.BlendModes.ADD);
+
+    this.abyssRailState.charging = true;
+    this.abyssRailState.chargeObjects = [warning, sight, muzzle];
+    this.skillEffectsLayer.add(this.abyssRailState.chargeObjects);
+    this.tweens.add({
+      targets: [warning, sight, muzzle],
+      alpha: { from: 0.16, to: 0.82 },
+      duration: chargeMs,
+      ease: "Sine.In"
+    });
+    this.abyssRailState.chargeEvent = this.time.delayedCall(chargeMs, () => {
+      this.destroyAbyssRailChargeObjects();
+      if (this.gameOver || this.shopActive || this.levelUpActive || this.gateChoiceActive || this.extractionComplete) {
+        return;
+      }
+
+      const nextOriginX = this.playerHitbox.x;
+      const nextOriginY = this.playerHitbox.y - 18;
+      const nextAngle = target.active && !target.isDying
+        ? Phaser.Math.Angle.Between(nextOriginX, nextOriginY, target.x, target.y)
+        : angle;
+      this.fireAbyssRail(nextOriginX, nextOriginY, nextAngle, target, level, config);
+    });
+  }
+
+  destroyAbyssRailChargeObjects() {
+    if (!this.abyssRailState) {
+      return;
+    }
+
+    this.abyssRailState.chargeEvent?.remove(false);
+    this.abyssRailState.chargeEvent = null;
+    this.tweens.killTweensOf(this.abyssRailState.chargeObjects || []);
+    (this.abyssRailState.chargeObjects || []).forEach((object) => {
+      if (object?.active) {
+        object.destroy();
+      }
+    });
+    this.abyssRailState.chargeObjects = [];
+    this.abyssRailState.charging = false;
+  }
+
+  fireAbyssRail(originX, originY, angle, target, level, config) {
+    const range = 1880;
+    const endX = originX + Math.cos(angle) * range;
+    const endY = originY + Math.sin(angle) * range;
+    this.abyssRailState.shotCount = (this.abyssRailState.shotCount || 0) + 1;
+    this.damageAbyssRailLine(originX, originY, endX, endY, level, config, false);
+
+    if (config.crossEvery > 0 && this.abyssRailState.shotCount % config.crossEvery === 0) {
+      const crossCenterX = target?.active && !target.isDying ? target.x : originX + Math.cos(angle) * 620;
+      const crossCenterY = target?.active && !target.isDying ? target.y : originY + Math.sin(angle) * 620;
+      const crossAngle = angle + Math.PI * 0.5;
+      const crossRange = 760;
+      this.damageAbyssRailLine(
+        crossCenterX - Math.cos(crossAngle) * crossRange,
+        crossCenterY - Math.sin(crossAngle) * crossRange,
+        crossCenterX + Math.cos(crossAngle) * crossRange,
+        crossCenterY + Math.sin(crossAngle) * crossRange,
+        level,
+        config,
+        true
+      );
+    }
+
+    this.cameras.main.shake(90, 0.0011);
+  }
+
+  damageAbyssRailLine(startX, startY, endX, endY, level, config, isCrossRail) {
+    const width = Math.max(12, config.width || 24) * (isCrossRail ? 0.82 : 1);
+    const angle = Phaser.Math.Angle.Between(startX, startY, endX, endY);
+    const length = Phaser.Math.Distance.Between(startX, startY, endX, endY);
+    const centerX = (startX + endX) * 0.5;
+    const centerY = (startY + endY) * 0.5;
+    const glow = this.add
+      .rectangle(centerX, centerY, length, width, 0x62f0ff, isCrossRail ? 0.28 : 0.38)
+      .setRotation(angle)
+      .setDepth(21)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const core = this.add
+      .rectangle(centerX, centerY, length, Math.max(4, width * 0.22), 0xf8feff, 0.96)
+      .setRotation(angle)
+      .setDepth(22)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const flash = this.add
+      .image(startX, startY, "skill-hit-spark")
+      .setRotation(angle)
+      .setScale(0.92, 0.3)
+      .setTint(0xffffff)
+      .setAlpha(0.9)
+      .setDepth(23)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const hitDamage = this.scaleLostArmDamage(config.damage || 1);
+    let hitCount = 0;
+
+    this.skillEffectsLayer.add([glow, core, flash]);
+    this.enemies.children.each((enemy) => {
+      if (!enemy.active || enemy.isDying) {
+        return;
+      }
+
+      const distance = this.getPointToSegmentDistance(enemy.x, enemy.y, startX, startY, endX, endY);
+      if (distance > width * 0.5 + (enemy.hitRadius || 20) * 0.65) {
+        return;
+      }
+
+      let damage = hitDamage;
+      if (enemy.isBoss) {
+        damage *= config.bossMult || 1;
+      } else if (enemy.isElite) {
+        damage *= config.eliteMult || 1;
+      }
+      hitCount += 1;
+      if (config.vulnerability) {
+        enemy.lostArmsVulnerableUntil = Math.max(enemy.lostArmsVulnerableUntil || 0, this.time.now + 2500);
+        enemy.lostArmsVulnerableMult = Math.max(enemy.lostArmsVulnerableMult || 1, 1.10);
+      }
+      this.applyDamageToEnemy(enemy, Math.max(1, Math.round(damage)), 0xe8fdff, {
+        sourceX: startX,
+        sourceY: startY,
+        force: isCrossRail ? 130 : 190,
+        recoverMs: 95,
+        damageAlreadyScaled: true
+      });
+    });
+
+    if (config.residual) {
+      this.spawnAbyssRailResidualField(startX, startY, endX, endY, width, hitDamage);
+    }
+
+    this.tweens.add({
+      targets: [glow, core, flash],
+      alpha: 0,
+      duration: hitCount > 0 ? 180 : 140,
+      ease: "Quad.Out",
+      onComplete: () => {
+        glow.destroy();
+        core.destroy();
+        flash.destroy();
+      }
+    });
+  }
+
+  spawnAbyssRailResidualField(startX, startY, endX, endY, width, baseDamage) {
+    const angle = Phaser.Math.Angle.Between(startX, startY, endX, endY);
+    const length = Phaser.Math.Distance.Between(startX, startY, endX, endY);
+    const centerX = (startX + endX) * 0.5;
+    const centerY = (startY + endY) * 0.5;
+    const field = this.add
+      .rectangle(centerX, centerY, length, Math.max(8, width * 0.55), 0x62f0ff, 0.12)
+      .setRotation(angle)
+      .setDepth(18)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const tickDamage = Math.max(1, Math.round(baseDamage * 0.22));
+
+    this.skillEffectsLayer.add(field);
+    const tickEvent = this.time.addEvent({
+      delay: 280,
+      repeat: 2,
+      callback: () => {
+        if (!field.active || this.gameOver) {
+          return;
+        }
+        this.enemies.children.each((enemy) => {
+          if (!enemy.active || enemy.isDying) {
+            return;
+          }
+          const distance = this.getPointToSegmentDistance(enemy.x, enemy.y, startX, startY, endX, endY);
+          if (distance <= width * 0.42 + (enemy.hitRadius || 20) * 0.55) {
+            this.applyDamageToEnemy(enemy, tickDamage, 0xa8f8ff, {
+              sourceX: centerX,
+              sourceY: centerY,
+              force: 70,
+              recoverMs: 50,
+              damageAlreadyScaled: true
+            });
+          }
+        });
+      }
+    });
+
+    this.tweens.add({
+      targets: field,
+      alpha: 0,
+      duration: 980,
+      ease: "Quad.In",
+      onComplete: () => {
+        tickEvent.remove(false);
+        field.destroy();
+      }
+    });
+  }
+
+  updateGravitySeed(delta) {
+    const level = this.getLostArmRuntimeLevel("gravitySeed");
+    if (level <= 0 || !this.gravitySeedState) {
+      return;
+    }
+
+    const config = GRAVITY_SEED_LEVELS[level];
+    const cooldownMs = this.getLostArmCooldownMs(config.cooldownMs);
+    const activeFields = this.gravitySeedState.fields.filter((field) => field?.active);
+    this.gravitySeedState.fields = activeFields;
+    if (activeFields.length >= (config.maxFields || 1)) {
+      this.gravitySeedState.cooldownTimer = Math.min(this.gravitySeedState.cooldownTimer || 0, cooldownMs);
+      return;
+    }
+
+    this.gravitySeedState.cooldownTimer = Math.min(
+      cooldownMs,
+      (this.gravitySeedState.cooldownTimer || 0) + delta
+    );
+    if (this.gravitySeedState.cooldownTimer < cooldownMs) {
+      return;
+    }
+
+    const targetPoint = this.findGravitySeedTargetPoint(config);
+    if (!targetPoint) {
+      return;
+    }
+
+    this.gravitySeedState.cooldownTimer = 0;
+    this.spawnGravitySeedField(targetPoint.x, targetPoint.y, level, config);
+  }
+
+  findGravitySeedTargetPoint(config) {
+    const enemies = [];
+    this.enemies.children.each((enemy) => {
+      if (enemy.active && !enemy.isDying) {
+        enemies.push(enemy);
+      }
+    });
+    if (!enemies.length) {
+      return null;
+    }
+
+    const sample = enemies
+      .sort((left, right) => {
+        const leftDistance = Phaser.Math.Distance.Squared(left.x, left.y, this.playerHitbox.x, this.playerHitbox.y);
+        const rightDistance = Phaser.Math.Distance.Squared(right.x, right.y, this.playerHitbox.x, this.playerHitbox.y);
+        return leftDistance - rightDistance;
+      })
+      .slice(0, 42);
+    const radiusSq = Math.pow((config.radius || 120) * 0.95, 2);
+    let best = null;
+
+    sample.forEach((candidate) => {
+      let score = candidate.isBoss ? 4 : (candidate.isElite ? 2.5 : 1);
+      sample.forEach((other) => {
+        if (candidate === other) {
+          return;
+        }
+        const distanceSq = Phaser.Math.Distance.Squared(candidate.x, candidate.y, other.x, other.y);
+        if (distanceSq <= radiusSq) {
+          score += other.isBoss ? 3 : (other.isElite ? 1.8 : 1);
+        }
+      });
+
+      if (!best || score > best.score) {
+        best = { enemy: candidate, score };
+      }
+    });
+
+    if (!best) {
+      return null;
+    }
+
+    const jitter = Math.min(42, (config.radius || 120) * 0.24);
+    const point = this.getSafeDropPoint(
+      best.enemy.x + Phaser.Math.Between(-jitter, jitter),
+      best.enemy.y + Phaser.Math.Between(-jitter, jitter),
+      Math.max(24, Math.round((config.radius || 120) * 0.28))
+    );
+    return point;
+  }
+
+  spawnGravitySeedField(x, y, level, config) {
+    const radius = config.radius || 120;
+    const graphics = this.add.graphics().setDepth(17).setBlendMode(Phaser.BlendModes.ADD);
+    const ring = this.add
+      .image(x, y, "skill-hit-ring")
+      .setDepth(19)
+      .setScale(Math.max(0.8, radius / 82))
+      .setTint(0xc06bff)
+      .setAlpha(0.54)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const core = this.add
+      .image(x, y, "lost-arm-gravity-icon")
+      .setDepth(20)
+      .setScale(0.72)
+      .setTint(0xdcb7ff)
+      .setAlpha(0.95)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const field = {
+      active: true,
+      x,
+      y,
+      level,
+      config,
+      radius,
+      expiresAt: this.time.now + (config.durationMs || 3000),
+      nextTickAt: this.time.now + Math.max(80, config.tickMs || 350),
+      pulseTimer: Phaser.Math.FloatBetween(0, Math.PI * 2),
+      graphics,
+      ring,
+      core
+    };
+
+    this.skillEffectsLayer.add([graphics, ring, core]);
+    this.gravitySeedState.fields.push(field);
+    this.spawnGravitySeedOpenEffect(x, y, radius, config);
+  }
+
+  spawnGravitySeedOpenEffect(x, y, radius, config) {
+    const ring = this.add
+      .image(x, y, "skill-hit-ring")
+      .setDepth(20)
+      .setScale(Math.max(0.52, radius / 150))
+      .setTint(0xf2d8ff)
+      .setAlpha(0.74)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.skillEffectsLayer.add(ring);
+    this.tweens.add({
+      targets: ring,
+      scaleX: Math.max(1.1, radius / 54),
+      scaleY: Math.max(1.1, radius / 54),
+      alpha: 0,
+      duration: 360,
+      ease: "Cubic.Out",
+      onComplete: () => {
+        ring.destroy();
+      }
+    });
+  }
+
+  updateGravitySeedFields(delta) {
+    if (!this.gravitySeedState?.fields?.length) {
+      return;
+    }
+
+    const now = this.time.now;
+    this.gravitySeedState.fields.slice().forEach((field) => {
+      if (!field.active) {
+        return;
+      }
+
+      if (now >= field.expiresAt) {
+        this.collapseGravitySeedField(field);
+        return;
+      }
+
+      this.updateGravitySeedFieldVisuals(field, delta);
+      this.applyGravitySeedFieldForces(field, delta);
+      if (now >= field.nextTickAt) {
+        field.nextTickAt = now + Math.max(80, field.config.tickMs || 350);
+        this.tickGravitySeedField(field);
+      }
+    });
+    this.gravitySeedState.fields = this.gravitySeedState.fields.filter((field) => field.active);
+  }
+
+  updateGravitySeedFieldVisuals(field, delta) {
+    field.pulseTimer += delta / 360;
+    const pulse = (Math.sin(field.pulseTimer) + 1) * 0.5;
+    const radius = field.radius;
+    field.graphics.clear();
+    field.graphics.fillStyle(0x14051f, 0.12 + pulse * 0.08);
+    field.graphics.fillCircle(field.x, field.y, radius);
+    field.graphics.lineStyle(2, 0xc06bff, 0.28 + pulse * 0.22);
+    field.graphics.strokeCircle(field.x, field.y, radius * (0.92 + pulse * 0.04));
+    field.graphics.lineStyle(1, 0xf2d8ff, 0.18 + pulse * 0.18);
+    field.graphics.strokeCircle(field.x, field.y, radius * (0.48 + pulse * 0.08));
+    field.ring?.setPosition(field.x, field.y);
+    field.ring.rotation -= 0.018 * (delta / 16.6667);
+    field.ring?.setScale(Math.max(0.8, radius / 82) * (0.95 + pulse * 0.08));
+    field.ring?.setAlpha(0.3 + pulse * 0.2);
+    field.core?.setPosition(field.x, field.y);
+    field.core.rotation += 0.022 * (delta / 16.6667);
+    field.core?.setScale(0.62 + pulse * 0.16);
+    field.core?.setAlpha(0.8 + pulse * 0.16);
+  }
+
+  applyGravitySeedFieldForces(field, delta) {
+    const config = field.config;
+    const radius = field.radius;
+    const now = this.time.now;
+    this.enemies.children.each((enemy) => {
+      if (!enemy.active || enemy.isDying) {
+        return;
+      }
+
+      const distance = Phaser.Math.Distance.Between(field.x, field.y, enemy.x, enemy.y);
+      if (distance > radius) {
+        return;
+      }
+
+      const slowMultiplier = Phaser.Math.Clamp(1 - (config.slow || 0), 0.38, 1);
+      enemy.lostArmsSlowUntil = Math.max(enemy.lostArmsSlowUntil || 0, now + 140);
+      enemy.lostArmsSlowMult = Math.min(enemy.lostArmsSlowMult || 1, slowMultiplier);
+      if ((config.weaken || 0) > 0) {
+        enemy.lostArmsWeakenUntil = Math.max(enemy.lostArmsWeakenUntil || 0, now + 180);
+        enemy.lostArmsWeakenMult = Math.min(enemy.lostArmsWeakenMult || 1, 1 - config.weaken);
+      }
+      if ((config.pull || 0) <= 0 || distance <= 10 || !enemy.body) {
+        return;
+      }
+
+      const pullRatio = Phaser.Math.Clamp(1 - distance / Math.max(radius, 1), 0.18, 0.8);
+      const maxStep = (config.pull || 0) * pullRatio * (delta / 1000);
+      const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, field.x, field.y);
+      enemy.x += Math.cos(angle) * maxStep;
+      enemy.y += Math.sin(angle) * maxStep;
+      enemy.body.updateFromGameObject();
+    });
+  }
+
+  tickGravitySeedField(field) {
+    const config = field.config;
+    const damage = Math.max(1, Math.round(this.scaleLostArmDamage(config.damage || 1)));
+    this.enemies.children.each((enemy) => {
+      if (!enemy.active || enemy.isDying) {
+        return;
+      }
+
+      const distance = Phaser.Math.Distance.Between(field.x, field.y, enemy.x, enemy.y);
+      if (distance > field.radius) {
+        return;
+      }
+
+      const hpBefore = enemy.hp;
+      this.applyDamageToEnemy(enemy, damage, 0xdcb7ff, {
+        sourceX: field.x,
+        sourceY: field.y,
+        force: 72,
+        recoverMs: 55,
+        damageAlreadyScaled: true
+      });
+      if (hpBefore > 0 && enemy.isDying && (config.killCooldownRefundMs || 0) > 0) {
+        this.gravitySeedState.cooldownTimer = Math.min(
+          this.getLostArmCooldownMs(config.cooldownMs || 5400),
+          (this.gravitySeedState.cooldownTimer || 0) + config.killCooldownRefundMs
+        );
+      }
+    });
+  }
+
+  collapseGravitySeedField(field) {
+    if (!field?.active) {
+      return;
+    }
+
+    field.active = false;
+    const config = field.config;
+    const radius = config.collapseDamage > 0
+      ? field.radius * (field.level >= LOST_ARMS_MAX_LEVEL ? 1.24 : 1.08)
+      : field.radius * 0.72;
+    if ((config.collapseDamage || 0) > 0) {
+      const damage = Math.max(1, Math.round(this.scaleLostArmDamage(config.collapseDamage)));
+      this.enemies.children.each((enemy) => {
+        if (!enemy.active || enemy.isDying) {
+          return;
+        }
+        const distance = Phaser.Math.Distance.Between(field.x, field.y, enemy.x, enemy.y);
+        if (distance <= radius) {
+          this.applyDamageToEnemy(enemy, damage, 0xf2d8ff, {
+            sourceX: field.x,
+            sourceY: field.y,
+            force: field.level >= LOST_ARMS_MAX_LEVEL ? 260 : 190,
+            recoverMs: 120,
+            damageAlreadyScaled: true
+          });
+        }
+      });
+    }
+
+    const collapseRing = this.add
+      .image(field.x, field.y, "skill-hit-ring")
+      .setDepth(22)
+      .setScale(Math.max(0.8, radius / 90))
+      .setTint(0xf2d8ff)
+      .setAlpha(0.72)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.skillEffectsLayer.add(collapseRing);
+    this.tweens.add({
+      targets: collapseRing,
+      scaleX: collapseRing.scaleX * 1.54,
+      scaleY: collapseRing.scaleY * 1.54,
+      alpha: 0,
+      duration: 300,
+      ease: "Cubic.Out",
+      onComplete: () => {
+        collapseRing.destroy();
+      }
+    });
+    field.graphics?.destroy();
+    field.ring?.destroy();
+    field.core?.destroy();
+  }
+
+  clearActiveLostArmEffects() {
+    this.destroyAbyssRailChargeObjects();
+    this.gravitySeedState?.fields?.forEach((field) => {
+      field.active = false;
+      field.graphics?.destroy();
+      field.ring?.destroy();
+      field.core?.destroy();
+    });
+    if (this.gravitySeedState) {
+      this.gravitySeedState.fields = [];
+    }
+  }
+
+  getEnemyLostArmsSlowMultiplier(enemy) {
+    if (this.time.now >= (enemy.lostArmsSlowUntil || 0)) {
+      enemy.lostArmsSlowMult = 1;
+      return 1;
+    }
+    return Phaser.Math.Clamp(Number(enemy.lostArmsSlowMult) || 1, 0.38, 1);
+  }
+
+  getEnemyOutgoingDamage(enemy, amount) {
+    let finalAmount = Math.max(0, Number(amount) || 0);
+    if (enemy?.isBoss) {
+      finalAmount *= Math.max(0.1, Number(enemy.anomalyBossDamageMultiplier) || 1);
+    }
+    if (!enemy || this.time.now >= (enemy.lostArmsWeakenUntil || 0)) {
+      return Math.max(0, Math.round(finalAmount));
+    }
+    return Math.max(0, Math.round(finalAmount * Phaser.Math.Clamp(Number(enemy.lostArmsWeakenMult) || 1, 0.35, 1)));
   }
 
   loadBestRecord() {
@@ -3006,7 +5519,9 @@ class SurvivalScene extends Phaser.Scene {
       survivalTimeMs: Math.max(0, Math.floor(Number(record?.survivalTimeMs) || 0)),
       level: Math.max(0, Math.floor(Number(record?.level) || 0)),
       kills: Math.max(0, Math.floor(Number(record?.kills) || 0)),
-      eliteKills: Math.max(0, Math.floor(Number(record?.eliteKills) || 0))
+      eliteKills: Math.max(0, Math.floor(Number(record?.eliteKills) || 0)),
+      maxDepthReached: Math.max(1, Math.floor(Number(record?.maxDepthReached) || 1)),
+      anjuMemoryEarned: this.normalizeAnjuMemoryAmount(record?.anjuMemoryEarned)
     };
   }
 
@@ -3015,7 +5530,9 @@ class SurvivalScene extends Phaser.Scene {
       survivalTimeMs: this.survivalTime,
       level: this.stats.level,
       kills: this.runStats.kills,
-      eliteKills: this.runStats.eliteKills
+      eliteKills: this.runStats.eliteKills,
+      maxDepthReached: this.runAnjuMemoryState?.maxDepthReached || this.stageDepth || 1,
+      anjuMemoryEarned: this.lastAnjuMemoryAward?.amount || 0
     });
   }
 
@@ -3026,13 +5543,17 @@ class SurvivalScene extends Phaser.Scene {
       survivalTimeMs: Math.max(previousBest.survivalTimeMs, currentRecord.survivalTimeMs),
       level: Math.max(previousBest.level, currentRecord.level),
       kills: Math.max(previousBest.kills, currentRecord.kills),
-      eliteKills: Math.max(previousBest.eliteKills, currentRecord.eliteKills)
+      eliteKills: Math.max(previousBest.eliteKills, currentRecord.eliteKills),
+      maxDepthReached: Math.max(previousBest.maxDepthReached || 1, currentRecord.maxDepthReached || 1),
+      anjuMemoryEarned: Math.max(previousBest.anjuMemoryEarned || 0, currentRecord.anjuMemoryEarned || 0)
     };
     const improved =
       nextBest.survivalTimeMs > previousBest.survivalTimeMs ||
       nextBest.level > previousBest.level ||
       nextBest.kills > previousBest.kills ||
-      nextBest.eliteKills > previousBest.eliteKills;
+      nextBest.eliteKills > previousBest.eliteKills ||
+      nextBest.maxDepthReached > (previousBest.maxDepthReached || 1) ||
+      nextBest.anjuMemoryEarned > (previousBest.anjuMemoryEarned || 0);
 
     this.bestRecord = nextBest;
 
@@ -3069,6 +5590,10 @@ class SurvivalScene extends Phaser.Scene {
       level: record.level,
       kills: record.kills,
       eliteKills: record.eliteKills,
+      maxDepthReached: record.maxDepthReached,
+      anjuMemoryEarned: record.anjuMemoryEarned,
+      selectedTitle: String(entry?.selectedTitle || "").slice(0, 32),
+      selectedBadge: String(entry?.selectedBadge || "").slice(0, 12),
       recordedAt: Math.max(0, Math.floor(Number(entry?.recordedAt) || 0))
     };
   }
@@ -3144,6 +5669,8 @@ class SurvivalScene extends Phaser.Scene {
       ...this.normalizeBestRecord(record),
       id: `${Date.now()}-${Math.floor(Math.random() * 1000000)}`,
       name,
+      selectedTitle: this.getAnjuMemorySelectedRankingLabel("title"),
+      selectedBadge: this.getAnjuMemorySelectedRankingLabel("badge"),
       recordedAt: Date.now()
     });
 
@@ -3281,6 +5808,10 @@ class SurvivalScene extends Phaser.Scene {
           survivalTimeMs: normalizedEntry.survivalTimeMs,
           level: normalizedEntry.level,
           eliteKills: normalizedEntry.eliteKills,
+          maxDepthReached: normalizedEntry.maxDepthReached,
+          anjuMemoryEarned: normalizedEntry.anjuMemoryEarned,
+          selectedTitle: normalizedEntry.selectedTitle,
+          selectedBadge: normalizedEntry.selectedBadge,
           uid,
           createdAt: firestore.serverTimestamp()
         }
@@ -3310,10 +5841,13 @@ class SurvivalScene extends Phaser.Scene {
       .map((entry, index) => {
         const marker = entry.id === highlightEntryId ? ">" : " ";
         const rank = String(index + 1).padStart(2, " ");
-        const name = this.formatRankingName(entry.name).padEnd(12, " ");
+        const badge = entry.selectedBadge ? `[${String(entry.selectedBadge).slice(0, 3)}]` : "";
+        const name = `${badge}${this.formatRankingName(entry.name)}`.slice(0, 13).padEnd(13, " ");
         const kills = String(entry.kills).padStart(5, " ");
+        const depth = String(entry.maxDepthReached || 1).padStart(2, " ");
+        const anjuMemory = String(entry.anjuMemoryEarned || 0).padStart(3, " ");
         const level = String(entry.level).padStart(2, " ");
-        return `${marker}${rank} ${name} K ${kills}  ${this.formatTimeMs(entry.survivalTimeMs)}  LV ${level}`;
+        return `${marker}${rank} ${name} K ${kills} D ${depth} AM ${anjuMemory} ${this.formatTimeMs(entry.survivalTimeMs)} LV ${level}`;
       })
       .join("\n");
   }
@@ -3419,19 +5953,413 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   formatRecordSummary(record) {
-    return `${this.formatTimeMs(record.survivalTimeMs)} / LV ${record.level} / K ${record.kills} / E ${record.eliteKills}`;
+    return `${this.formatTimeMs(record.survivalTimeMs)} / LV ${record.level} / K ${record.kills} / D ${record.maxDepthReached || 1} / AM ${record.anjuMemoryEarned || 0}`;
   }
 
   formatHudBestSummary(record) {
     const robotText = this.robotState
       ? `\nROBOT M${this.robotState.missileLevel} / F${this.robotState.healLevel}`
       : "";
-    return `BEST ${this.formatTimeMs(record.survivalTimeMs)} / LV ${record.level}\nK ${record.kills} / RUN E ${this.runStats.eliteKills}${robotText}`;
+    const title = this.getAnjuMemorySelectedLabel("title");
+    const titleText = title && title !== "NO TITLE" ? `\nTITLE ${title}` : "";
+    return `BEST ${this.formatTimeMs(record.survivalTimeMs)} / LV ${record.level}\nK ${record.kills} / D ${record.maxDepthReached || 1} / AM ${record.anjuMemoryEarned || 0}${titleText}${robotText}`;
   }
 
   setLastPickupNotice(text) {
     this.lastPickupNotice = text;
     this.lastPickupNoticeUntil = this.time.now + 2200;
+  }
+
+  initializeOverflowRewardState() {
+    this.passiveLevels = {};
+    this.overflowRewardState = {
+      overdriveGauge: 0,
+      overdriveRemainingMs: 0,
+      stabilizeGauge: 0,
+      stabilizeCharges: 0
+    };
+  }
+
+  ensureOverflowRewardState() {
+    if (!this.passiveLevels) {
+      this.passiveLevels = {};
+    }
+    if (!this.overflowRewardState) {
+      this.overflowRewardState = {
+        overdriveGauge: 0,
+        overdriveRemainingMs: 0,
+        stabilizeGauge: 0,
+        stabilizeCharges: 0
+      };
+    }
+    return this.overflowRewardState;
+  }
+
+  resetOverflowRewardState() {
+    this.initializeOverflowRewardState();
+    this.updateOverflowHud?.();
+  }
+
+  getPassiveLevel(passiveId) {
+    return Math.max(0, Math.floor(Number(this.passiveLevels?.[passiveId]) || 0));
+  }
+
+  incrementPassiveLevel(passiveId) {
+    if (!passiveId) {
+      return 0;
+    }
+    if (!this.passiveLevels) {
+      this.passiveLevels = {};
+    }
+    const nextLevel = Math.min(LEVEL_UP_PASSIVE_MAX_LEVEL, this.getPassiveLevel(passiveId) + 1);
+    this.passiveLevels[passiveId] = nextLevel;
+    return nextLevel;
+  }
+
+  isPassiveUpgradeAvailable(passiveId) {
+    return this.getPassiveLevel(passiveId) < LEVEL_UP_PASSIVE_MAX_LEVEL;
+  }
+
+  buildPassiveUpgradeChoice(choice) {
+    if (!choice?.id || !this.isPassiveUpgradeAvailable(choice.id)) {
+      return null;
+    }
+
+    const currentLevel = this.getPassiveLevel(choice.id);
+    const nextLevel = currentLevel + 1;
+    return {
+      ...choice,
+      baseTitle: choice.title,
+      currentLevel,
+      nextLevel,
+      maxLevel: LEVEL_UP_PASSIVE_MAX_LEVEL,
+      title: `${choice.title} Lv.${nextLevel}`,
+      description: `${choice.description} / Lv.${currentLevel}->${nextLevel}`,
+      onSelect: () => {
+        choice.onSelect?.();
+        this.incrementPassiveLevel(choice.id);
+      }
+    };
+  }
+
+  hasAvailableLevelUpUpgrade() {
+    return this.getAvailableSkillChoices().length > 0 || this.getPassiveUpgradeChoices().length > 0;
+  }
+
+  isXpProgressionCapped() {
+    return !this.hasAvailableLevelUpUpgrade();
+  }
+
+  getOverflowGeekAmount(baseAmount) {
+    const base = Math.max(0, Math.floor(Number(baseAmount) || 0));
+    if (base <= 0) {
+      return 0;
+    }
+    return this.normalizeCoinAmount(this.scaleRunCoinReward(base));
+  }
+
+  addOverflowUnsecuredGeek(amount) {
+    const normalized = this.normalizeCoinAmount(amount);
+    if (normalized > 0) {
+      this.addRunCoin(normalized);
+    }
+    return normalized;
+  }
+
+  addOverdriveFromXp(xpAmount, x = this.playerHitbox?.x, y = this.playerHitbox?.y - 24) {
+    const amount = Math.max(0, Math.floor(Number(xpAmount) || 0));
+    if (amount <= 0) {
+      return { triggered: false, geek: 0 };
+    }
+
+    const state = this.ensureOverflowRewardState();
+    const config = OVERFLOW_REWARD_CONFIG.overdrive;
+    const gaugeGain = amount * config.xpToGaugeRate * this.getAnomalyOverdriveGainMultiplier();
+    const geekBase = Math.floor(amount * config.xpToGeekRate);
+    const geek = this.addOverflowUnsecuredGeek(this.getOverflowGeekAmount(geekBase));
+    state.overdriveGauge = Phaser.Math.Clamp((state.overdriveGauge || 0) + gaugeGain, 0, config.gaugeMax);
+
+    let notice = `XP MAX -> OVERDRIVE ${Math.floor(state.overdriveGauge)}%`;
+    let triggered = false;
+    if (state.overdriveGauge >= config.gaugeMax) {
+      state.overdriveGauge = 0;
+      const activeSeconds = this.activateOverdrive({ silent: true });
+      notice = `XP MAX -> OVERDRIVE ${activeSeconds}s`;
+      triggered = true;
+    }
+    if (geek > 0) {
+      notice = `${notice} / +${geek.toLocaleString()} GEEK`;
+    }
+
+    this.setLastPickupNotice(notice);
+    this.showOverflowRewardText(triggered ? "OVERDRIVE" : `OVERDRIVE ${Math.floor(state.overdriveGauge)}%`, x, y, "#91f6ff");
+    this.updateOverflowHud();
+    return { triggered, geek };
+  }
+
+  activateOverdrive(options = {}) {
+    const state = this.ensureOverflowRewardState();
+    const config = OVERFLOW_REWARD_CONFIG.overdrive;
+    const durationMs = config.durationMs + this.getAnomalyOverdriveDurationBonusMs();
+    state.overdriveRemainingMs = Math.min(
+      config.maxDurationMs,
+      Math.max(0, state.overdriveRemainingMs || 0) + durationMs
+    );
+    const seconds = Math.ceil(state.overdriveRemainingMs / 1000);
+    if (!options.silent) {
+      this.setLastPickupNotice(`OVERDRIVE ${seconds}s`);
+      this.showOverflowRewardText(`OVERDRIVE ${seconds}s`, this.playerHitbox?.x, this.playerHitbox?.y - 34, "#91f6ff");
+    }
+    this.updateOverflowHud();
+    return seconds;
+  }
+
+  updateOverdrive(delta) {
+    const state = this.ensureOverflowRewardState();
+    const previousMs = Math.max(0, state.overdriveRemainingMs || 0);
+    if (previousMs <= 0) {
+      return;
+    }
+    state.overdriveRemainingMs = Math.max(0, previousMs - Math.max(0, Number(delta) || 0));
+    if (previousMs > 0 && state.overdriveRemainingMs <= 0) {
+      this.setLastPickupNotice("OVERDRIVE END");
+      this.showOverflowRewardText("OVERDRIVE END", this.playerHitbox?.x, this.playerHitbox?.y - 34, "#b7c7cf");
+    }
+  }
+
+  isOverdriveActive() {
+    return Math.max(0, this.overflowRewardState?.overdriveRemainingMs || 0) > 0;
+  }
+
+  getOverdriveDamageMultiplier() {
+    return this.isOverdriveActive() ? OVERFLOW_REWARD_CONFIG.overdrive.damageMultiplier : 1;
+  }
+
+  getOverdriveMoveSpeedMultiplier() {
+    return this.isOverdriveActive() ? OVERFLOW_REWARD_CONFIG.overdrive.moveSpeedMultiplier : 1;
+  }
+
+  getOverdriveFireIntervalMultiplier() {
+    return this.isOverdriveActive() ? OVERFLOW_REWARD_CONFIG.overdrive.fireIntervalMultiplier : 1;
+  }
+
+  getCurrentPlayerFireInterval() {
+    const baseInterval = Math.max(
+      LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS,
+      Number(this.stats?.fireInterval) || LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS
+    );
+    return Math.max(
+      LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS,
+      Math.round(baseInterval * this.getOverdriveFireIntervalMultiplier())
+    );
+  }
+
+  getCurrentGateStableDurationMs() {
+    return Math.max(1000, Math.floor(Number(this.gateState?.stableDurationMs) || GATE_STABLE_MS));
+  }
+
+  consumeStabilizeChargesForGate() {
+    const state = this.ensureOverflowRewardState();
+    const charges = Phaser.Math.Clamp(
+      Math.floor(Number(state.stabilizeCharges) || 0),
+      0,
+      OVERFLOW_REWARD_CONFIG.stabilize.maxCharges
+    );
+    if (charges <= 0) {
+      return 0;
+    }
+
+    state.stabilizeCharges = 0;
+    const bonusMs = charges * OVERFLOW_REWARD_CONFIG.stabilize.secondsPerCharge * 1000;
+    this.updateOverflowHud();
+    return bonusMs;
+  }
+
+  addStabilizeGauge(amount, options = {}) {
+    const gaugeAmount = Math.max(0, Number(amount) || 0) * this.getAnomalyStabilizeGainMultiplier() * this.getAnjuStabilizeGainMultiplier();
+    const state = this.ensureOverflowRewardState();
+    const config = OVERFLOW_REWARD_CONFIG.stabilize;
+    const result = {
+      gaugeAdded: 0,
+      chargesAdded: 0,
+      overflowGeek: 0
+    };
+    if (gaugeAmount <= 0) {
+      return result;
+    }
+
+    if ((state.stabilizeCharges || 0) >= config.maxCharges) {
+      result.overflowGeek = this.addOverflowUnsecuredGeek(this.getOverflowGeekAmount(OVERFLOW_REWARD_CONFIG.geek.stabilizeOverflowBase));
+      if (!options.silent) {
+        this.setLastPickupNotice(`STABILIZE MAX -> +${result.overflowGeek.toLocaleString()} GEEK`);
+      }
+      this.updateOverflowHud();
+      return result;
+    }
+
+    state.stabilizeGauge = Math.max(0, Number(state.stabilizeGauge) || 0) + gaugeAmount;
+    result.gaugeAdded = gaugeAmount;
+    while (state.stabilizeGauge >= config.gaugeMax && state.stabilizeCharges < config.maxCharges) {
+      state.stabilizeGauge -= config.gaugeMax;
+      state.stabilizeCharges += 1;
+      result.chargesAdded += 1;
+    }
+
+    if (state.stabilizeCharges >= config.maxCharges && state.stabilizeGauge > 0) {
+      const overflowBase = Math.floor((state.stabilizeGauge / config.gaugeMax) * OVERFLOW_REWARD_CONFIG.geek.stabilizeOverflowBase);
+      result.overflowGeek += this.addOverflowUnsecuredGeek(this.getOverflowGeekAmount(overflowBase));
+      state.stabilizeGauge = 0;
+    }
+
+    if (!options.silent) {
+      const chargeText = result.chargesAdded > 0 ? ` / CHARGE +${result.chargesAdded}` : "";
+      const geekText = result.overflowGeek > 0 ? ` / +${result.overflowGeek.toLocaleString()} GEEK` : "";
+      this.setLastPickupNotice(`STABILIZE +${Math.round(gaugeAmount)}%${chargeText}${geekText}`);
+    }
+    this.updateOverflowHud();
+    return result;
+  }
+
+  showOverflowRewardText(text, x, y, color = "#9fe7ff") {
+    if (!text || !this.add) {
+      return;
+    }
+    const labelX = Number.isFinite(x) ? x : (this.playerHitbox?.x ?? this.worldCamera?.midPoint?.x ?? GAME_WIDTH / 2);
+    const labelY = Number.isFinite(y) ? y : (this.playerHitbox?.y ?? this.worldCamera?.midPoint?.y ?? GAME_HEIGHT / 2) - 34;
+    const label = this.add
+      .text(labelX, labelY, text, {
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "15px",
+        color,
+        fontStyle: "bold",
+        align: "center"
+      })
+      .setOrigin(0.5)
+      .setDepth(24)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.skillEffectsLayer?.add(label);
+    this.tweens.add({
+      targets: label,
+      y: labelY - 28,
+      alpha: 0,
+      duration: 820,
+      ease: "Cubic.Out",
+      onComplete: () => label.destroy()
+    });
+  }
+
+  canApplyRobotReward(definition) {
+    if (!definition || !this.robotState) {
+      return true;
+    }
+    if (definition.effectType === "robotMissileLevel") {
+      return (this.robotState.missileLevel || 1) < ROBOT_MAX_LEVEL;
+    }
+    if (definition.effectType === "robotHealLevel") {
+      return (this.robotState.healLevel || 1) < ROBOT_MAX_LEVEL;
+    }
+    if (definition.effectType === "robotMissileAbilityChoice") {
+      return this.getRobotAbilityChoices("missile").length > 0;
+    }
+    if (definition.effectType === "robotFieldAbilityChoice") {
+      return this.getRobotAbilityChoices("field").length > 0;
+    }
+    return true;
+  }
+
+  isRobotProgressionCapped() {
+    if (!this.robotState) {
+      return false;
+    }
+    return (this.robotState.missileLevel || 1) >= ROBOT_MAX_LEVEL
+      && (this.robotState.healLevel || 1) >= ROBOT_MAX_LEVEL
+      && this.getRobotAbilityChoices("all").length <= 0;
+  }
+
+  convertRobotOverflowReward(definition, x, y) {
+    let stabilizeGauge = OVERFLOW_REWARD_CONFIG.stabilize.robotCoreGauge;
+    let geekBase = OVERFLOW_REWARD_CONFIG.geek.robotCoreBase;
+    if (definition?.effectType === "robotMissileAbilityChoice") {
+      stabilizeGauge = OVERFLOW_REWARD_CONFIG.stabilize.robotGoldenTuneGauge;
+      geekBase = OVERFLOW_REWARD_CONFIG.geek.robotGoldenTuneBase;
+    } else if (definition?.effectType === "robotFieldAbilityChoice") {
+      stabilizeGauge = OVERFLOW_REWARD_CONFIG.stabilize.robotTuneGauge;
+      geekBase = OVERFLOW_REWARD_CONFIG.geek.robotTuneBase;
+    }
+
+    const stabilizeResult = this.addStabilizeGauge(stabilizeGauge, { silent: true });
+    const geek = this.addOverflowUnsecuredGeek(this.getOverflowGeekAmount(geekBase));
+    const totalGeek = geek + stabilizeResult.overflowGeek;
+    const chargeText = stabilizeResult.chargesAdded > 0 ? ` / CHARGE +${stabilizeResult.chargesAdded}` : "";
+    const geekText = totalGeek > 0 ? ` / +${totalGeek.toLocaleString()} GEEK` : "";
+    this.setLastPickupNotice(`ROBOT MAX -> STABILIZE +${Math.round(stabilizeResult.gaugeAdded)}%${chargeText}${geekText}`);
+    this.showOverflowRewardText(`STABILIZE +${Math.round(stabilizeResult.gaugeAdded)}%`, x, y, "#b8fbff");
+    this.updateOverflowHud();
+  }
+
+  canApplySupportReward(definition) {
+    if (definition?.effectType !== "bomb") {
+      return true;
+    }
+    if (this.isGensoKnightsEventActive()) {
+      return false;
+    }
+    return SUPPORT_ATTACK_DEFINITIONS.length > 0 || Boolean(GENSO_KNIGHTS_SUPPORT_DEFINITION);
+  }
+
+  isSupportProgressionCapped() {
+    return !this.canApplySupportReward(SPECIAL_ITEM_DEFINITIONS.bomb);
+  }
+
+  convertSupportOverflowReward(definition, x, y) {
+    const stabilizeGauge = OVERFLOW_REWARD_CONFIG.stabilize.supportGauge;
+    const stabilizeResult = this.addStabilizeGauge(stabilizeGauge, { silent: true });
+    const geek = this.addOverflowUnsecuredGeek(this.getOverflowGeekAmount(OVERFLOW_REWARD_CONFIG.geek.supportBase));
+    const totalGeek = geek + stabilizeResult.overflowGeek;
+    const chargeText = stabilizeResult.chargesAdded > 0 ? ` / CHARGE +${stabilizeResult.chargesAdded}` : "";
+    const geekText = totalGeek > 0 ? ` / +${totalGeek.toLocaleString()} GEEK` : "";
+    this.setLastPickupNotice(`${definition?.label?.toUpperCase() || "SUPPORT"} MAX -> STABILIZE +${Math.round(stabilizeResult.gaugeAdded)}%${chargeText}${geekText}`);
+    this.showOverflowRewardText(`STABILIZE +${Math.round(stabilizeResult.gaugeAdded)}%`, x, y, "#b8fbff");
+    this.updateOverflowHud();
+  }
+
+  updateOverflowHud() {
+    const state = this.ensureOverflowRewardState();
+    const text = this.hudOverflowText;
+    const graphics = this.hudOverflowGraphics;
+    if (!text || !graphics) {
+      return;
+    }
+
+    const overdriveConfig = OVERFLOW_REWARD_CONFIG.overdrive;
+    const stabilizeConfig = OVERFLOW_REWARD_CONFIG.stabilize;
+    const overdriveGauge = Phaser.Math.Clamp((state.overdriveGauge || 0) / overdriveConfig.gaugeMax, 0, 1);
+    const stabilizeGauge = Phaser.Math.Clamp((state.stabilizeGauge || 0) / stabilizeConfig.gaugeMax, 0, 1);
+    const activeSeconds = Math.ceil(Math.max(0, state.overdriveRemainingMs || 0) / 1000);
+    const overdriveText = activeSeconds > 0 ? `OD ${activeSeconds}s` : `OD ${Math.floor(overdriveGauge * 100)}%`;
+    const stabilizeText = `ST ${Math.floor(stabilizeGauge * 100)}% x${Math.floor(state.stabilizeCharges || 0)}`;
+
+    text
+      .setText(`${overdriveText}   ${stabilizeText}`)
+      .setColor(activeSeconds > 0 ? "#91f6ff" : "#b8d7e5");
+
+    const y = 162;
+    const leftX = GAME_WIDTH / 2 - 186;
+    const rightX = GAME_WIDTH / 2 + 56;
+    const width = 130;
+    const height = 4;
+    graphics.clear();
+    [
+      { x: leftX, ratio: overdriveGauge, color: activeSeconds > 0 ? 0x91f6ff : 0x45a9ff },
+      { x: rightX, ratio: stabilizeGauge, color: 0xb8fbff }
+    ].forEach((bar) => {
+      graphics.fillStyle(0x02070a, 0.74);
+      graphics.fillRoundedRect(bar.x, y, width, height, 2);
+      graphics.lineStyle(1, 0xa9b7bb, 0.18);
+      graphics.strokeRoundedRect(bar.x, y, width, height, 2);
+      graphics.fillStyle(bar.color, 0.84);
+      graphics.fillRoundedRect(bar.x, y, Math.max(0, width * bar.ratio), height, 2);
+    });
   }
 
   registerUiObject(object) {
@@ -3461,6 +6389,77 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     this.pendingLevelUps += this.startingUpgradeSelectionsRemaining;
+    this.showLevelUpChoices();
+  }
+
+  isOpeningBoostDraftActive() {
+    return this.startingUpgradeSelectionsRemaining > 0 && this.survivalTime === 0;
+  }
+
+  getOpeningBoostChoiceLimit(isStartingDraft = this.isOpeningBoostDraftActive()) {
+    if (!isStartingDraft) {
+      return STARTING_UPGRADE_CHOICES;
+    }
+    const isFirstOpeningBoost = this.startingUpgradeSelectionsRemaining === STARTING_UPGRADE_CHOICES;
+    if (
+      isFirstOpeningBoost &&
+      this.runAnjuMemoryState?.openingBoostExtraChoiceActive
+    ) {
+      return STARTING_UPGRADE_CHOICES + 1;
+    }
+    if (
+      isFirstOpeningBoost &&
+      !this.runAnjuMemoryState?.openingBoostExtraChoiceUsed &&
+      this.getAnjuMemoryConsumableCount("openingBoostPlusOne") > 0
+    ) {
+      return STARTING_UPGRADE_CHOICES + 1;
+    }
+    return STARTING_UPGRADE_CHOICES;
+  }
+
+  consumeOpeningBoostExtraChoiceTicketIfNeeded(isStartingDraft, choiceCount) {
+    if (!isStartingDraft || !this.runAnjuMemoryState) {
+      return false;
+    }
+    const isFirstOpeningBoost = this.startingUpgradeSelectionsRemaining === STARTING_UPGRADE_CHOICES;
+    if (
+      !isFirstOpeningBoost ||
+      this.runAnjuMemoryState.openingBoostExtraChoiceUsed ||
+      this.runAnjuMemoryState.openingBoostExtraChoiceActive ||
+      choiceCount <= STARTING_UPGRADE_CHOICES ||
+      this.getAnjuMemoryConsumableCount("openingBoostPlusOne") <= 0
+    ) {
+      return false;
+    }
+
+    if (!this.consumeAnjuMemoryConsumable("openingBoostPlusOne", 1)) {
+      return false;
+    }
+    this.runAnjuMemoryState.openingBoostExtraChoiceUsed = true;
+    this.runAnjuMemoryState.openingBoostExtraChoiceActive = true;
+    this.setLastPickupNotice("OPENING BOOST +1 TICKET USED");
+    return true;
+  }
+
+  canUseOpeningBoostRerollTicket() {
+    return Boolean(
+      this.levelUpActive &&
+      this.levelUpOpeningBoostActive &&
+      !this.levelUpSelectionLocked &&
+      !this.runAnjuMemoryState?.openingBoostRerollUsed &&
+      this.getAnjuMemoryConsumableCount("openingBoostReroll") > 0
+    );
+  }
+
+  rerollOpeningBoostChoices() {
+    if (!this.canUseOpeningBoostRerollTicket()) {
+      return;
+    }
+    if (!this.consumeAnjuMemoryConsumable("openingBoostReroll", 1)) {
+      return;
+    }
+    this.runAnjuMemoryState.openingBoostRerollUsed = true;
+    this.setLastPickupNotice("OPENING BOOST REROLL USED");
     this.showLevelUpChoices();
   }
 
@@ -4862,6 +7861,7 @@ class SurvivalScene extends Phaser.Scene {
     this.rareItems = this.physics.add.group();
     this.specialItems = this.physics.add.group();
     this.robotItems = this.physics.add.group();
+    this.lostArmItems = this.physics.add.group();
     this.pickupEffectsLayer = this.add.layer().setDepth(11);
     this.skillEffectsLayer = this.add.layer().setDepth(21);
     this.robotEffectsLayer = this.add.layer().setDepth(22);
@@ -5245,7 +8245,38 @@ class SurvivalScene extends Phaser.Scene {
     this.input.addPointer(2);
     this.input.keyboard.off("keydown", this.handleRankingNameKeyDown, this);
     this.input.keyboard.on("keydown", this.handleRankingNameKeyDown, this);
+    this.rearmInputManagerListeners();
     this.setupStageCollisionEditorInput();
+  }
+
+  rearmInputManagerListeners() {
+    const inputManager = this.game?.input;
+    if (!inputManager) {
+      return;
+    }
+
+    inputManager.enabled = true;
+    [inputManager.keyboard, inputManager.mouse, inputManager.touch].forEach((manager) => {
+      if (!manager?.target || typeof manager.stopListeners !== "function" || typeof manager.startListeners !== "function") {
+        return;
+      }
+
+      try {
+        manager.stopListeners();
+        manager.startListeners();
+      } catch (error) {
+        console.warn("Failed to rearm Phaser input listeners.", error);
+      }
+    });
+  }
+
+  restoreGameplayInputAfterOverlay() {
+    hideShopLoadingScreen({ immediate: true });
+    this.input.enabled = true;
+    if (this.input.keyboard) {
+      this.input.keyboard.enabled = true;
+    }
+    this.rearmInputManagerListeners();
   }
 
   shouldUseMobileControls() {
@@ -5642,7 +8673,7 @@ class SurvivalScene extends Phaser.Scene {
       align: "center"
     }).setOrigin(0.5, 0);
 
-    this.createHudPanel(GAME_WIDTH / 2 - 214, 74, 428, 78, {
+    this.createHudPanel(GAME_WIDTH / 2 - 214, 74, 428, 96, {
       forceShape: true,
       depth: 203,
       alpha: this.hudUsesFrameAsset ? 0.56 : 0.72,
@@ -5681,12 +8712,48 @@ class SurvivalScene extends Phaser.Scene {
       align: "center",
       depth: 204
     }).setOrigin(0.5, 0);
+    this.hudOverflowText = this.createHudText(GAME_WIDTH / 2, 148, "OD 0%   ST 0% x0", {
+      fontSize: "11px",
+      color: "#b8d7e5",
+      fontStyle: "bold",
+      align: "center",
+      depth: 204
+    }).setOrigin(0.5, 0);
+    this.hudAnjuMemoryText = this.createHudText(GAME_WIDTH / 2, 160, "", {
+      fontSize: "10px",
+      color: "#f0e6ff",
+      fontStyle: "bold",
+      align: "center",
+      depth: 204
+    }).setOrigin(0.5, 0);
+    this.hudOverflowGraphics = this.registerUiObject(
+      this.add
+        .graphics()
+        .setScrollFactor(0)
+        .setDepth(204)
+    );
     this.hudGateTensionGraphics = this.registerUiObject(
       this.add
         .graphics()
         .setScrollFactor(0)
         .setDepth(203.5)
     );
+    this.hudAnomalyContractPanel = this.createHudPanel(GAME_WIDTH / 2 - 214, 176, 428, 54, {
+      forceShape: true,
+      depth: 203,
+      alpha: this.hudUsesFrameAsset ? 0.48 : 0.64,
+      strokeAlpha: 0.26
+    });
+    this.hudAnomalyContractText = this.createHudText(GAME_WIDTH / 2, 183, "", {
+      fontSize: "11px",
+      color: "#bcecff",
+      fontStyle: "bold",
+      align: "center",
+      depth: 204,
+      wordWrap: { width: 390 }
+    }).setOrigin(0.5, 0);
+    this.hudAnomalyContractPanel.setVisible(false);
+    this.hudAnomalyContractText.setVisible(false);
 
     this.createHudPanel(GAME_WIDTH - 304, 12, 132, 58);
     this.createHudPanel(GAME_WIDTH - 164, 12, 152, 58);
@@ -5984,23 +9051,25 @@ class SurvivalScene extends Phaser.Scene {
       );
     }
 
+    const hudPalette = this.getAnjuHudSkinPalette?.() || {};
     return this.registerUiObject(
       this.add
-        .rectangle(x, y, width, height, options.fill ?? HUD_STYLE.panelFill, options.alpha ?? HUD_STYLE.panelAlpha)
+        .rectangle(x, y, width, height, options.fill ?? hudPalette.panelFill ?? HUD_STYLE.panelFill, options.alpha ?? HUD_STYLE.panelAlpha)
         .setOrigin(0, 0)
-        .setStrokeStyle(options.strokeWidth ?? 1, options.stroke ?? HUD_STYLE.panelStroke, options.strokeAlpha ?? 0.28)
+        .setStrokeStyle(options.strokeWidth ?? 1, options.stroke ?? hudPalette.panelStroke ?? HUD_STYLE.panelStroke, options.strokeAlpha ?? 0.28)
         .setScrollFactor(0)
         .setDepth(options.depth ?? 200)
     );
   }
 
   createHudText(x, y, text, options = {}) {
+    const hudPalette = this.getAnjuHudSkinPalette?.() || {};
     return this.registerUiObject(
       this.add
         .text(x, y, text, {
           fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
           fontSize: options.fontSize ?? "16px",
-          color: options.color ?? HUD_STYLE.text,
+          color: options.color ?? hudPalette.text ?? HUD_STYLE.text,
           fontStyle: options.fontStyle ?? "",
           align: options.align ?? "left",
           lineSpacing: options.lineSpacing ?? 0,
@@ -6081,6 +9150,8 @@ class SurvivalScene extends Phaser.Scene {
       icon,
       label,
       stageDots,
+      x,
+      y,
       size,
       iconMaxSize: options.iconMaxSize || Math.round(size * 0.54),
       baseLabel: options.label || "",
@@ -6126,8 +9197,13 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    const skillIds = Object.keys(SKILL_DEFINITIONS);
+    const skillIds = Object.keys(SKILL_DEFINITIONS).slice(0, 3);
     this.hudSkillSlots.forEach((slot, index) => {
+      if (index >= skillIds.length) {
+        this.updateHudLostArmSlot(slot, LOST_ARMS_IDS[index - skillIds.length]);
+        return;
+      }
+
       const skillId = skillIds[index];
       const skillState = skillId ? this.playerSkills[skillId] : null;
       const definition = skillId ? SKILL_DEFINITIONS[skillId] : null;
@@ -6153,9 +9229,58 @@ class SurvivalScene extends Phaser.Scene {
       }
       slot.panel.setAlpha(skillState ? 0.88 : 0.46);
       slot.label
+        .setFontSize("10px")
+        .setLineSpacing(0)
+        .setPosition(slot.x + slot.size / 2, slot.y + slot.size - (this.hudUsesFrameAsset ? 17 : 14))
         .setText(skillState ? `Lv.${currentStage}` : "LOCK")
         .setColor(skillState ? "#f0c463" : HUD_STYLE.muted);
       this.setHudSkillStageDots(slot, currentStage, maxStage, Boolean(skillState));
+    });
+  }
+
+  updateHudLostArmSlot(slot, armId) {
+    const definition = this.getLostArmDefinition(armId);
+    if (!definition) {
+      slot.icon.setVisible(false);
+      slot.label.setText("");
+      slot.panel.setAlpha(0.42);
+      this.setHudSkillStageDots(slot, 0, 0, false);
+      return;
+    }
+
+    const runtimeLevel = this.getLostArmRuntimeLevel(armId);
+    const pending = this.isLostArmPending(armId);
+    const iconKey = this.textures.exists(definition.iconTextureKey) ? definition.iconTextureKey : "skill-hit-glow";
+    const labelText = runtimeLevel <= 0
+      ? "???\nLOCKED"
+      : `${definition.hudLabel}\n${runtimeLevel >= LOST_ARMS_MAX_LEVEL ? "MAX" : `Lv.${runtimeLevel}`}${pending ? "\nUNSECURED" : ""}`;
+    const activeColor = runtimeLevel >= LOST_ARMS_MAX_LEVEL
+      ? "#fff3c8"
+      : (pending ? "#f0c463" : "#9fe7ff");
+
+    slot.icon
+      .setVisible(true)
+      .setAlpha(runtimeLevel > 0 ? 0.95 : 0.28);
+    this.setHudIconToFit(slot.icon, iconKey, Math.max(24, slot.iconMaxSize - (pending ? 5 : 1)));
+    slot.panel
+      .setAlpha(runtimeLevel > 0 ? 0.9 : 0.5)
+      .setStrokeStyle?.(1, pending ? 0xf0c463 : (runtimeLevel > 0 ? definition.tint : HUD_STYLE.slotStroke), pending ? 0.7 : 0.36);
+    slot.label
+      .setFontSize(pending ? "8px" : "9px")
+      .setLineSpacing(pending ? -1 : 0)
+      .setPosition(slot.x + slot.size / 2, slot.y + slot.size - (this.hudUsesFrameAsset ? (pending ? 40 : 33) : (pending ? 34 : 27)))
+      .setText(labelText)
+      .setColor(activeColor);
+    this.setHudSkillStageDots(slot, runtimeLevel, LOST_ARMS_MAX_LEVEL, runtimeLevel > 0);
+    slot.stageDots?.forEach((dot, index) => {
+      if (!dot.visible) {
+        return;
+      }
+      const filled = index < runtimeLevel;
+      dot.setFillStyle(
+        filled ? (pending ? 0xf0c463 : definition.tint) : 0x596366,
+        filled ? 0.96 : 0.38
+      );
     });
   }
 
@@ -6291,6 +9416,21 @@ class SurvivalScene extends Phaser.Scene {
       graphics.lineBetween(bossX + radius + 1, bossY, bossX + radius + 3, bossY);
       graphics.lineBetween(bossX, bossY - radius - 3, bossX, bossY - radius - 1);
       graphics.lineBetween(bossX, bossY + radius + 1, bossX, bossY + radius + 3);
+    });
+
+    this.lostArmItems?.getChildren().forEach((item) => {
+      if (!item.active) {
+        return;
+      }
+
+      const definition = item.itemDefinition || this.getLostArmDefinition(item.armId);
+      const itemX = mapX(item.x);
+      const itemY = mapY(item.y);
+      const pulse = (Math.sin(this.time.now / 170) + 1) * 0.5;
+      graphics.fillStyle(definition?.tint || 0xc06bff, 0.95);
+      graphics.fillCircle(itemX, itemY, 2.4 + pulse * 1.2);
+      graphics.lineStyle(1, definition?.glowTint || 0xffffff, 0.82);
+      graphics.strokeCircle(itemX, itemY, 4.4 + pulse * 1.8);
     });
 
     graphics.fillStyle(0xeef8ff, 1);
@@ -6499,6 +9639,234 @@ class SurvivalScene extends Phaser.Scene {
     return this.addOverlayChild(label);
   }
 
+  renderShopHeaderBalances() {
+    const coinIconKey = this.textures.exists(ITEM_IMAGE_ASSETS.coin.textureKey)
+      ? ITEM_IMAGE_ASSETS.coin.textureKey
+      : "rare-token";
+    this.addOverlayChild(
+      this.add
+        .rectangle(430, -292, 250, 36, 0x0c1724, 0.92)
+        .setStrokeStyle(1, 0xf0c463, 0.45)
+    );
+    this.addOverlayChild(
+      this.add
+        .image(328, -292, coinIconKey)
+        .setDisplaySize(24, 24)
+    );
+    this.createOverlayText(350, -306, this.normalizeCoinAmount(this.coins).toLocaleString(), {
+      fontSize: "22px",
+      color: "#ecf7ff",
+      fontStyle: "bold"
+    });
+
+    this.addOverlayChild(
+      this.add
+        .rectangle(430, -248, 250, 36, 0x120f24, 0.92)
+        .setStrokeStyle(1, 0xc596ff, 0.45)
+    );
+    this.createOverlayText(318, -260, "AM", {
+      fontSize: "15px",
+      color: "#f0e6ff",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(350, -262, this.normalizeAnjuMemoryAmount(this.anjuMemoryState?.amount).toLocaleString(), {
+      fontSize: "22px",
+      color: "#f7f1ff",
+      fontStyle: "bold"
+    });
+  }
+
+  renderShopModeTabs() {
+    this.createShopModeTab(-270, -286, 138, "GEEK SHOP", "geek");
+    this.createShopModeTab(-120, -286, 164, "ANJU MEMORY", "anjuMemory");
+  }
+
+  createShopModeTab(centerX, centerY, width, label, mode) {
+    const selected = this.shopViewMode === mode;
+    const panel = this.addOverlayChild(
+      this.add
+        .rectangle(centerX, centerY, width, 34, selected ? 0x18334a : 0x0b1623, selected ? 0.98 : 0.88)
+        .setStrokeStyle(selected ? 2 : 1, selected ? 0x6fcfff : 0x466578, selected ? 0.72 : 0.38)
+        .setInteractive({ useHandCursor: true })
+    );
+    panel.on("pointerover", () => panel.setFillStyle(selected ? 0x1f405d : 0x13243a, 0.98));
+    panel.on("pointerout", () => panel.setFillStyle(selected ? 0x18334a : 0x0b1623, selected ? 0.98 : 0.88));
+    this.addOverlayAction(panel, () => {
+      this.shopViewMode = mode;
+      this.showPreGameShop(this.shopStatusMessage);
+    }, true, 6);
+    this.createOverlayText(centerX, centerY - 8, label, {
+      fontSize: "14px",
+      color: selected ? "#ecfaff" : "#9ab7cc",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+  }
+
+  renderAnjuMemoryShopContent() {
+    this.createOverlayText(-530, -210, "ANJU MEMORY SHOP", {
+      fontSize: "15px",
+      color: "#f0e6ff",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(-530, -188, "Depth6+から生還した抽出だけで保存される別通貨", {
+      fontSize: "13px",
+      color: "#9ab7cc"
+    });
+    this.renderAnjuMemoryCategoryTabs(-530, -160);
+    this.renderAnjuMemoryRewardCards(-530, -86);
+    this.renderAnjuMemoryShopSummary(246, 126);
+  }
+
+  renderAnjuMemoryCategoryTabs(originX, originY) {
+    const tabWidth = 102;
+    const tabHeight = 30;
+    const gap = 8;
+    ANJU_MEMORY_SHOP_TABS.forEach((tab, index) => {
+      const column = index % 5;
+      const row = Math.floor(index / 5);
+      const x = originX + column * (tabWidth + gap);
+      const y = originY + row * (tabHeight + 8);
+      const selected = this.anjuMemoryShopTab === tab.id;
+      const panel = this.addOverlayChild(
+        this.add
+          .rectangle(x, y, tabWidth, tabHeight, selected ? 0x21193a : 0x0b1623, selected ? 0.96 : 0.82)
+          .setOrigin(0, 0)
+          .setStrokeStyle(selected ? 2 : 1, selected ? 0xc596ff : 0x466578, selected ? 0.68 : 0.28)
+          .setInteractive({ useHandCursor: true })
+      );
+      panel.on("pointerover", () => panel.setFillStyle(selected ? 0x2a2050 : 0x13243a, 0.96));
+      panel.on("pointerout", () => panel.setFillStyle(selected ? 0x21193a : 0x0b1623, selected ? 0.96 : 0.82));
+      this.addOverlayAction(panel, () => {
+        this.anjuMemoryShopTab = tab.id;
+        this.showPreGameShop(this.shopStatusMessage);
+      }, true, 4);
+      this.createOverlayText(x + tabWidth / 2, y + 7, tab.label, {
+        fontSize: "12px",
+        color: selected ? "#f7f1ff" : "#9ab7cc",
+        fontStyle: "bold",
+        align: "center",
+        origin: { x: 0.5, y: 0 }
+      });
+    });
+  }
+
+  renderAnjuMemoryRewardCards(originX, originY) {
+    const rewards = this.getAnjuMemoryRewardsByCategory(this.anjuMemoryShopTab);
+    const cardWidth = 348;
+    const cardHeight = 148;
+    const gap = 18;
+    rewards.forEach((reward, index) => {
+      const x = originX + index * (cardWidth + gap);
+      this.createAnjuMemoryRewardCard(reward, x, originY, cardWidth, cardHeight);
+    });
+  }
+
+  createAnjuMemoryRewardCard(reward, x, y, width, height) {
+    const owned = this.isAnjuMemoryRewardOwned(reward.id);
+    const selected = Boolean(reward.selectionKey && this.anjuMemoryState?.selected?.[reward.selectionKey] === reward.selectionValue);
+    const cost = this.normalizeAnjuMemoryAmount(reward.cost);
+    const affordable = this.normalizeAnjuMemoryAmount(this.anjuMemoryState?.amount) >= cost;
+    const locked = !owned && !reward.consumableId && !affordable;
+    const consumableLocked = Boolean(reward.consumableId && !affordable);
+    const stroke = selected ? 0xf0e6ff : (owned ? 0x8ff5ff : 0xc596ff);
+    const fill = selected ? 0x21193a : (owned ? 0x101f2f : 0x0b1424);
+    const panel = this.addOverlayChild(
+      this.add
+        .rectangle(x, y, width, height, fill, locked || consumableLocked ? 0.68 : 0.94)
+        .setOrigin(0, 0)
+        .setStrokeStyle(selected ? 2 : 1, stroke, selected ? 0.74 : 0.36)
+        .setInteractive({ useHandCursor: true })
+    );
+    panel.on("pointerover", () => panel.setFillStyle(selected ? 0x302154 : 0x182940, 0.98));
+    panel.on("pointerout", () => panel.setFillStyle(fill, locked || consumableLocked ? 0.68 : 0.94));
+    this.addOverlayAction(panel, () => {
+      if (owned && !reward.consumableId) {
+        this.activateOwnedAnjuMemoryReward(reward);
+        return;
+      }
+      this.purchaseAnjuMemoryReward(reward.id);
+    }, true, 6);
+
+    this.createOverlayText(x + 18, y + 14, reward.title, {
+      fontSize: "19px",
+      color: locked || consumableLocked ? "#7f90a0" : "#f7f1ff",
+      fontStyle: "bold",
+      wordWrap: { width: width - 36 }
+    });
+    this.createOverlayText(x + 18, y + 44, reward.description, {
+      fontSize: "12px",
+      color: locked || consumableLocked ? "#617484" : "#b8d4e8",
+      wordWrap: { width: width - 36 }
+    });
+    this.createOverlayText(x + 18, y + 86, reward.effectText || "", {
+      fontSize: "14px",
+      color: owned || selected ? "#8ff5ff" : "#f0c463",
+      fontStyle: "bold",
+      wordWrap: { width: width - 120 }
+    });
+    this.createOverlayText(x + width - 18, y + 18, cost <= 0 ? "FREE" : `${cost} AM`, {
+      fontSize: "14px",
+      color: owned && !reward.consumableId ? "#77f0b4" : "#f0e6ff",
+      fontStyle: "bold",
+      align: "right",
+      origin: { x: 1, y: 0 }
+    });
+    this.createOverlayText(x + width / 2, y + height - 28, this.getAnjuMemoryRewardActionLabel(reward), {
+      fontSize: "14px",
+      color: selected ? "#f0e6ff" : (locked || consumableLocked ? "#7f90a0" : "#ecf7ff"),
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0.5 }
+    });
+  }
+
+  renderAnjuMemoryShopSummary(x, y) {
+    const selectedTitle = this.getAnjuMemorySelectedLabel("title");
+    const selectedBadge = this.getAnjuMemorySelectedLabel("badge");
+    const summaryLines = [
+      `TOTAL EARNED ${this.normalizeAnjuMemoryAmount(this.anjuMemoryState?.totalEarned).toLocaleString()} AM`,
+      `BEST EXTRACT DEPTH ${Math.max(0, this.anjuMemoryState?.bestExtractDepth || 0)}`,
+      `BOOST +1 x${this.getAnjuMemoryConsumableCount("openingBoostPlusOne")} / REROLL x${this.getAnjuMemoryConsumableCount("openingBoostReroll")}`,
+      `TITLE ${selectedTitle || "NONE"} / BADGE ${selectedBadge || "NONE"}`
+    ];
+    this.addOverlayChild(
+      this.add
+        .rectangle(x, y, 482, 96, 0x0c1322, 0.84)
+        .setStrokeStyle(1, 0xc596ff, 0.28)
+    );
+    this.createOverlayText(x - 220, y - 38, "MEMORY STATUS", {
+      fontSize: "14px",
+      color: "#f0e6ff",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(x - 220, y - 16, summaryLines.join("\n"), {
+      fontSize: "12px",
+      color: "#b8d4e8",
+      lineSpacing: 3
+    });
+
+    const logReward = this.getAnjuMemoryRewardDefinition(this.anjuMemoryReadLogId);
+    const logText = logReward?.logText || "Memory Logを購入するとここに本文が表示されます";
+    this.addOverlayChild(
+      this.add
+        .rectangle(x, y + 86, 482, 68, 0x120f24, 0.78)
+        .setStrokeStyle(1, 0x8ff5ff, 0.22)
+    );
+    this.createOverlayText(x - 220, y + 60, logReward?.title || "MEMORY LOG", {
+      fontSize: "13px",
+      color: "#8ff5ff",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(x - 220, y + 78, logText, {
+      fontSize: "11px",
+      color: "#d5e8f5",
+      wordWrap: { width: 440 },
+      lineSpacing: 2
+    });
+  }
+
   showPreGameShop(message = "") {
     this.shopActive = true;
     this.shopStatusMessage = message || "";
@@ -6532,24 +9900,20 @@ class SurvivalScene extends Phaser.Scene {
       .setPosition(-530, -248)
       .setText(this.shopStatusMessage || "ショップ準備完了");
 
-    const coinIconKey = this.textures.exists(ITEM_IMAGE_ASSETS.coin.textureKey)
-      ? ITEM_IMAGE_ASSETS.coin.textureKey
-      : "rare-token";
-    this.addOverlayChild(
-      this.add
-        .rectangle(430, -284, 250, 44, 0x0c1724, 0.92)
-        .setStrokeStyle(1, 0xf0c463, 0.45)
-    );
-    this.addOverlayChild(
-      this.add
-        .image(328, -284, coinIconKey)
-        .setDisplaySize(28, 28)
-    );
-    this.createOverlayText(350, -297, this.normalizeCoinAmount(this.coins).toLocaleString(), {
-      fontSize: "26px",
-      color: "#ecf7ff",
-      fontStyle: "bold"
-    });
+    this.renderShopHeaderBalances();
+    this.renderShopModeTabs();
+
+    if (this.shopViewMode === "anjuMemory") {
+      this.renderAnjuMemoryShopContent();
+      this.createShopButton(392, 280, 318, 62, "GAME START", "開始前強化へ", () => {
+        this.startGameFromShop();
+      }, 0x174766, 0x236b92);
+
+      this.overlayBackdrop.setAlpha(1).setVisible(true);
+      this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
+      window.requestAnimationFrame?.(() => hideShopLoadingScreen());
+      return;
+    }
 
     this.createOverlayText(-530, -210, "CD SHOP", {
       fontSize: "15px",
@@ -6774,6 +10138,7 @@ class SurvivalScene extends Phaser.Scene {
   startGameFromShop() {
     this.shopActive = false;
     this.shopStatusMessage = "";
+    this.restoreGameplayInputAfterOverlay();
     this.hideOverlay();
     this.playSelectedBgm();
     this.beginStartingUpgradeDraft();
@@ -6812,6 +10177,7 @@ class SurvivalScene extends Phaser.Scene {
     this.physics.add.overlap(this.playerHitbox, this.rareItems, this.handleRareItemPickup, null, this);
     this.physics.add.overlap(this.playerHitbox, this.specialItems, this.handleSpecialItemPickup, null, this);
     this.physics.add.overlap(this.playerHitbox, this.robotItems, this.handleRobotItemPickup, null, this);
+    this.physics.add.overlap(this.playerHitbox, this.lostArmItems, this.handleLostArmCorePickup, null, this);
 
     if (this.stageObstacleBodies) {
       this.physics.add.collider(this.playerHitbox, this.stageObstacleBodies);
@@ -6838,8 +10204,9 @@ class SurvivalScene extends Phaser.Scene {
       };
     }
 
-    const remainingMs = Math.max(0, GATE_STABLE_MS - (this.gateState?.activeElapsedMs || 0));
-    const ratio = Phaser.Math.Clamp((this.gateState?.activeElapsedMs || 0) / GATE_STABLE_MS, 0, 1);
+    const stableDurationMs = this.getCurrentGateStableDurationMs();
+    const remainingMs = Math.max(0, stableDurationMs - (this.gateState?.activeElapsedMs || 0));
+    const ratio = Phaser.Math.Clamp((this.gateState?.activeElapsedMs || 0) / stableDurationMs, 0, 1);
     return {
       phase: status === "unstable" ? "unstable" : "open",
       status,
@@ -7131,14 +10498,20 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    if (this.gateState.activeElapsedMs >= GATE_STABLE_MS) {
+    if (this.gateState.activeElapsedMs >= this.getCurrentGateStableDurationMs()) {
       this.collapseGate();
     }
   }
 
   showGateWarning() {
     if (!this.gateState) {
-      this.gateState = { status: "closed", warningShown: true, activeElapsedMs: 0 };
+      this.gateState = {
+        status: "closed",
+        warningShown: true,
+        activeElapsedMs: 0,
+        stableDurationMs: GATE_STABLE_MS,
+        stabilizeBonusMs: 0
+      };
     } else {
       this.gateState.warningShown = true;
     }
@@ -7164,16 +10537,23 @@ class SurvivalScene extends Phaser.Scene {
     this.destroyStageGate();
     this.destroyGateSignalVisual();
     const center = this.getStageGateCenter();
+    const stabilizeBonusMs = this.consumeStabilizeChargesForGate();
+    const anomalyStableBonusMs = this.getAnomalyGateStableSecondsAdd() * 1000;
+    const anjuStableBonusMs = this.getAnjuGateStableSecondsAdd() * 1000;
+    const stableDurationMs = GATE_STABLE_MS + stabilizeBonusMs + anomalyStableBonusMs + anjuStableBonusMs;
+    const gatePalette = this.getAnjuGateSkinPalette();
+    const stablePrimary = gatePalette.primary || 0x5fdcff;
+    const stableParticle = gatePalette.secondary || 0xbdf8ff;
     const container = this.add.container(center.x, center.y).setDepth(19);
     const graphics = this.add.graphics();
     const core = this.add
-      .circle(0, 0, 42, 0x5fdcff, 0.18)
+      .circle(0, 0, 42, stablePrimary, 0.18)
       .setBlendMode(Phaser.BlendModes.ADD);
     const warningText = this.add
       .text(0, 82, "GATE ONLINE", {
         fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
         fontSize: "18px",
-        color: "#aef7ff",
+        color: gatePalette.text || "#aef7ff",
         fontStyle: "bold",
         align: "center"
       })
@@ -7190,7 +10570,7 @@ class SurvivalScene extends Phaser.Scene {
     const particles = Array.from({ length: 14 }, (_, index) => {
       const angle = (Math.PI * 2 * index) / 14;
       const particle = this.add
-        .circle(Math.cos(angle) * 72, Math.sin(angle) * 72, index % 3 === 0 ? 3 : 2, 0xbdf8ff, 0.58)
+        .circle(Math.cos(angle) * 72, Math.sin(angle) * 72, index % 3 === 0 ? 3 : 2, stableParticle, 0.58)
         .setBlendMode(Phaser.BlendModes.ADD);
       particle.baseAngle = angle;
       particle.orbitRadius = 60 + (index % 4) * 10;
@@ -7211,7 +10591,11 @@ class SurvivalScene extends Phaser.Scene {
     this.gateState = {
       status: "stable",
       warningShown: true,
-      activeElapsedMs: 0
+      activeElapsedMs: 0,
+      stableDurationMs,
+      stabilizeBonusMs,
+      anomalyStableBonusMs,
+      anjuStableBonusMs
     };
     this.drawStageGateGraphics();
     this.tweens.add({
@@ -7232,8 +10616,14 @@ class SurvivalScene extends Phaser.Scene {
       ease: "Sine.easeInOut"
     });
     this.knockbackEnemiesFromGate(center.x, center.y);
-    this.spawnGateWorldPulse(center.x, center.y, 0x65e6ff, { startScale: 0.9, endScale: 3.3, duration: 760, depth: 19.2 });
-    this.setLastPickupNotice("GATE ONLINE");
+    this.spawnGateWorldPulse(center.x, center.y, gatePalette.primary || 0x65e6ff, { startScale: 0.9, endScale: 3.3, duration: 760, depth: 19.2 });
+    const totalGateBonusMs = stabilizeBonusMs + anomalyStableBonusMs + anjuStableBonusMs;
+    if (totalGateBonusMs > 0) {
+      this.setLastPickupNotice(`GATE STABILIZED +${Math.round(totalGateBonusMs / 1000)}s`);
+      this.showOverflowRewardText(`GATE +${Math.round(totalGateBonusMs / 1000)}s`, center.x, center.y - 132, "#b8fbff");
+    } else {
+      this.setLastPickupNotice("GATE ONLINE");
+    }
   }
 
   drawStageGateGraphics() {
@@ -7246,13 +10636,18 @@ class SurvivalScene extends Phaser.Scene {
     const unstable = this.gateState?.status === "unstable";
     const stack = this.gateInstabilityStacks || 0;
     const activeElapsedMs = this.gateState?.activeElapsedMs || 0;
-    const activeRatio = Phaser.Math.Clamp(activeElapsedMs / GATE_STABLE_MS, 0, 1);
+    const stableDurationMs = this.getCurrentGateStableDurationMs();
+    const activeRatio = Phaser.Math.Clamp(activeElapsedMs / stableDurationMs, 0, 1);
     const remainingRatio = 1 - activeRatio;
-    const remainingMs = Math.max(0, GATE_STABLE_MS - activeElapsedMs);
+    const remainingMs = Math.max(0, stableDurationMs - activeElapsedMs);
     const danger = unstable || remainingMs <= GATE_URGENT_LEAD_MS;
     const pulse = (Math.sin(this.time.now / (unstable ? 95 : (danger ? 135 : 280))) + 1) * 0.5;
-    const ringTint = unstable ? 0xff4fb8 : (danger ? 0xff6f5e : 0x65e6ff);
-    const coreTint = unstable ? 0xff5b73 : (danger ? 0xffc857 : 0x89f7ff);
+    const gatePalette = this.getAnjuGateSkinPalette();
+    const stableRingTint = gatePalette.primary || 0x65e6ff;
+    const stableCoreTint = gatePalette.core || 0x89f7ff;
+    const stableAccentTint = gatePalette.secondary || 0xb8fbff;
+    const ringTint = unstable ? 0xff4fb8 : (danger ? 0xff6f5e : stableRingTint);
+    const coreTint = unstable ? 0xff5b73 : (danger ? 0xffc857 : stableCoreTint);
     const outerRadius = unstable
       ? 76 + pulse * (8 + Math.min(12, stack * 2.2))
       : 76 + pulse * (3 + activeRatio * 8);
@@ -7263,7 +10658,7 @@ class SurvivalScene extends Phaser.Scene {
     graphics.strokeCircle(0, 0, outerRadius);
     graphics.lineStyle(2, coreTint, unstable ? 0.58 : 0.5);
     graphics.strokeCircle(0, 0, innerRadius);
-    graphics.lineStyle(4, unstable ? 0x8f54ff : 0xb8fbff, unstable ? 0.46 : 0.6);
+    graphics.lineStyle(4, unstable ? 0x8f54ff : stableAccentTint, unstable ? 0.46 : 0.6);
     graphics.beginPath();
     graphics.arc(0, 0, 62 + pulse * 4, -0.3, Math.PI * 0.88, false);
     graphics.strokePath();
@@ -7309,13 +10704,14 @@ class SurvivalScene extends Phaser.Scene {
 
     const unstable = this.gateState?.status === "unstable";
     const stack = this.gateInstabilityStacks || 0;
-    const remainingMs = Math.max(0, GATE_STABLE_MS - (this.gateState?.activeElapsedMs || 0));
+    const remainingMs = Math.max(0, this.getCurrentGateStableDurationMs() - (this.gateState?.activeElapsedMs || 0));
     const danger = unstable || remainingMs <= GATE_URGENT_LEAD_MS;
     const pulse = (Math.sin(this.time.now / (danger ? 90 : 180)) + 1) * 0.5;
+    const gatePalette = this.getAnjuGateSkinPalette();
     this.drawStageGateGraphics();
     gate.container?.setScale(1 + (danger ? pulse * 0.045 : 0));
     gate.warningText?.setText(unstable ? "UNSTABLE GATE" : (danger ? "GATE COLLAPSING" : "GATE ONLINE"));
-    gate.warningText?.setColor(unstable ? "#ffb3e6" : (danger ? "#ffd4ba" : "#aef7ff"));
+    gate.warningText?.setColor(unstable ? "#ffb3e6" : (danger ? "#ffd4ba" : (gatePalette.text || "#aef7ff")));
     gate.stackText
       ?.setText(unstable ? `INSTABILITY STACK ${stack}` : `COLLAPSE ${this.formatTimeMs(remainingMs)}`)
       .setColor(danger ? "#ffb3a8" : "#9fe7ff");
@@ -7366,7 +10762,13 @@ class SurvivalScene extends Phaser.Scene {
     this.destroyGateSignalVisual();
     this.stageGate = null;
     if (resetState) {
-      this.gateState = { status: "closed", warningShown: false, activeElapsedMs: 0 };
+      this.gateState = {
+        status: "closed",
+        warningShown: false,
+        activeElapsedMs: 0,
+        stableDurationMs: GATE_STABLE_MS,
+        stabilizeBonusMs: 0
+      };
       this.gateWarningFlashUntil = 0;
       this.gateInstabilityFlashUntil = 0;
     }
@@ -7378,7 +10780,9 @@ class SurvivalScene extends Phaser.Scene {
     this.gateState = {
       status: "closed",
       warningShown: false,
-      activeElapsedMs: 0
+      activeElapsedMs: 0,
+      stableDurationMs: GATE_STABLE_MS,
+      stabilizeBonusMs: 0
     };
   }
 
@@ -7413,17 +10817,25 @@ class SurvivalScene extends Phaser.Scene {
     this.gateChoiceLocked = false;
     const unstable = this.gateState?.status === "unstable";
     const coinScaling = this.getCurrentCoinScaling();
+    const nextDepth = (this.stageDepth || 1) + 1;
+    const activeContract = this.getActiveAnomalyContract();
+    const activeContractLine = activeContract
+      ? `\nACTIVE CONTRACT: ${activeContract.title}`
+      : "";
+    const nextContractHint = this.shouldOfferAnomalyContract(nextDepth, unstable ? "force" : "next")
+      ? " / Contract選択"
+      : "";
     const title = unstable ? "UNSTABLE GATE" : "STAGE GATE";
     const body = unstable
-      ? `未確定GEEK ${this.runUnsecuredCoins.toLocaleString()} / 帰還確定率 ${Math.round(coinScaling.emergencyExtractRate * 100)}%`
-      : `未確定GEEK ${this.runUnsecuredCoins.toLocaleString()} / Depth ${this.stageDepth}`;
+      ? `未確定GEEK ${this.runUnsecuredCoins.toLocaleString()} / 帰還確定率 ${Math.round(coinScaling.emergencyExtractRate * 100)}%${activeContractLine}`
+      : `未確定GEEK ${this.runUnsecuredCoins.toLocaleString()} / Depth ${this.stageDepth}${activeContractLine}`;
     const options = unstable
       ? [
         {
           key: "1",
           title: "FORCE BREAKTHROUGH",
           subtitle: "強行突破する",
-          detail: `Depth ${this.stageDepth + 1}へ進む / 不安定度 ${this.gateInstabilityStacks} 継続`,
+          detail: `Depth ${nextDepth}へ進む / 不安定度 ${this.gateInstabilityStacks} 継続${nextContractHint}`,
           accent: 0xff5b73,
           onSelect: () => this.chooseForceBreakthrough()
         },
@@ -7441,7 +10853,7 @@ class SurvivalScene extends Phaser.Scene {
           key: "1",
           title: "NEXT STAGE",
           subtitle: "次のステージへ進む",
-          detail: `Depth ${this.stageDepth + 1} / 敵強化 / GEEK倍率上昇`,
+          detail: `Depth ${nextDepth} / 敵強化 / GEEK倍率上昇${nextContractHint}`,
           accent: 0x65e6ff,
           onSelect: () => this.chooseNextStage()
         },
@@ -7587,19 +10999,406 @@ class SurvivalScene extends Phaser.Scene {
     this.gateChoiceRecords = [];
   }
 
+  openAnomalyContractSelection(targetDepth, onSelected) {
+    this.clearOverlayButtons();
+    if (!this.anomalyContractState) {
+      this.initializeAnomalyContractState();
+    }
+
+    this.anomalyContractState.selectionOpen = true;
+    this.anomalyContractState.selectionLocked = false;
+    this.pendingAnomalyContractSelectionCallback = onSelected;
+    const choices = this.buildAnomalyContractChoices(targetDepth);
+    const layout = this.getAnomalyContractLayout(choices.length);
+
+    this.configureOverlayPanel(layout.panelWidth, layout.panelHeight);
+    this.overlayPanel
+      .setFillStyle(0x050b12, 0.94)
+      .setStrokeStyle(2, 0x65e6ff, 0.5);
+    this.overlayTitle
+      .setStyle({
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: layout.orientation === "vertical" ? "29px" : "38px",
+        color: "#ecfaff",
+        fontStyle: "bold",
+        align: "center"
+      })
+      .setOrigin(0.5)
+      .setPosition(0, layout.titleY)
+      .setText("ANOMALY CONTRACT");
+    this.overlayBody
+      .setStyle({
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: layout.orientation === "vertical" ? "14px" : "17px",
+        color: "#9fc9df",
+        align: "center",
+        wordWrap: { width: layout.panelWidth - 160 }
+      })
+      .setOrigin(0.5)
+      .setPosition(0, layout.bodyY)
+      .setText(`Depth ${targetDepth} Deep Protocol / 次のDepthだけ有効な異常契約を選択`);
+
+    const frame = this.createLevelUpPanelFrame(layout);
+    const hint = this.add.text(0, layout.hintY, "クリック / タップ / 1・2・3キーで選択", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "15px",
+      color: "#bcecff",
+      fontStyle: "bold",
+      align: "center"
+    }).setOrigin(0.5);
+    this.overlayContainer.add([frame, hint]);
+    this.overlayButtons.push(frame, hint);
+
+    this.anomalyContractCardRecords = choices.map((contract, index) => (
+      this.createAnomalyContractCard(contract, index, targetDepth, layout)
+    ));
+    this.registerAnomalyContractKeyboardInput();
+
+    this.overlayBackdrop
+      .setFillStyle(0x01040a, 0.88)
+      .setAlpha(0)
+      .setVisible(true);
+    this.overlayContainer
+      .setVisible(true)
+      .setAlpha(0)
+      .setScale(0.96);
+    this.playAnomalyContractOpenAnimation();
+  }
+
+  getAnomalyContractLayout(cardCount) {
+    const bounds = this.game?.canvas?.getBoundingClientRect?.();
+    const isNarrow = bounds && bounds.width > 0 && (bounds.width < 760 || bounds.height > bounds.width * 1.05);
+
+    if (isNarrow) {
+      const cardWidth = 650;
+      const cardHeight = 146;
+      const gap = 16;
+      const totalHeight = cardCount * cardHeight + Math.max(0, cardCount - 1) * gap;
+      const startY = -totalHeight / 2 + cardHeight / 2 + 24;
+      return {
+        orientation: "vertical",
+        panelWidth: 790,
+        panelHeight: 650,
+        cardWidth,
+        cardHeight,
+        titleY: -286,
+        bodyY: -246,
+        hintY: 294,
+        cardPositions: Array.from({ length: cardCount }, (_, index) => ({
+          x: 0,
+          y: startY + index * (cardHeight + gap)
+        }))
+      };
+    }
+
+    const cardWidth = 334;
+    const cardHeight = 352;
+    const gap = 28;
+    const totalWidth = cardCount * cardWidth + Math.max(0, cardCount - 1) * gap;
+    const startX = -totalWidth / 2 + cardWidth / 2;
+    return {
+      orientation: "horizontal",
+      panelWidth: 1144,
+      panelHeight: 590,
+      cardWidth,
+      cardHeight,
+      titleY: -254,
+      bodyY: -210,
+      hintY: 268,
+      cardPositions: Array.from({ length: cardCount }, (_, index) => ({
+        x: startX + index * (cardWidth + gap),
+        y: 30
+      }))
+    };
+  }
+
+  createAnomalyContractCard(contract, index, targetDepth, layout) {
+    const position = layout.cardPositions[index] || { x: 0, y: 0 };
+    const container = this.add.container(position.x, position.y);
+    const background = this.add.graphics();
+    const record = {
+      contract,
+      index,
+      targetDepth,
+      layout,
+      container,
+      background,
+      focused: false,
+      selected: false,
+      disabled: false
+    };
+    container.add(background);
+    this.drawAnomalyContractCardBackground(record);
+
+    const compact = layout.orientation === "vertical";
+    const width = layout.cardWidth;
+    const height = layout.cardHeight;
+    const left = -width / 2;
+    const top = -height / 2;
+    const accent = this.getAnomalyContractAccentColor(contract);
+    const keyCap = this.add.rectangle(left + 34, top + 28, 34, 28, 0x0d1c2b, 0.96)
+      .setStrokeStyle(1, accent, 0.72);
+    const keyText = this.add.text(left + 34, top + 17, String(index + 1), {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "18px",
+      color: "#ecfaff",
+      fontStyle: "bold",
+      align: "center"
+    }).setOrigin(0.5, 0);
+    record.keyText = keyText;
+
+    const title = this.add.text(compact ? left + 64 : 0, compact ? top + 18 : top + 42, contract.title, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: compact ? "21px" : "24px",
+      color: "#f4fbff",
+      fontStyle: "bold",
+      align: compact ? "left" : "center",
+      wordWrap: { width: compact ? width - 88 : width - 58 }
+    }).setOrigin(compact ? 0 : 0.5, 0);
+    const subtitle = this.add.text(compact ? left + 64 : 0, compact ? top + 48 : top + 74, contract.subtitle, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: compact ? "13px" : "15px",
+      color: "#f0c463",
+      fontStyle: "bold",
+      align: compact ? "left" : "center",
+      wordWrap: { width: compact ? width - 88 : width - 58 }
+    }).setOrigin(compact ? 0 : 0.5, 0);
+
+    const dangerX = compact ? left + 64 : left + 24;
+    const rewardX = compact ? left + 344 : left + 24;
+    const listY = compact ? top + 82 : top + 122;
+    const listWidth = compact ? 260 : width - 48;
+    const rewardY = compact ? listY : listY + 96;
+    const dangerLabel = this.add.text(dangerX, listY, "DANGER", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "12px",
+      color: "#ffb3a8",
+      fontStyle: "bold"
+    });
+    const dangerText = this.add.text(dangerX, listY + 21, contract.danger.join("\n"), {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: compact ? "12px" : "13px",
+      color: "#ffc9c0",
+      lineSpacing: compact ? 2 : 4,
+      wordWrap: { width: listWidth }
+    });
+    const rewardLabel = this.add.text(rewardX, rewardY, "REWARD", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "12px",
+      color: "#9ff7ff",
+      fontStyle: "bold"
+    });
+    const rewardText = this.add.text(rewardX, rewardY + 21, contract.reward.join("\n"), {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: compact ? "12px" : "13px",
+      color: "#d9fbff",
+      lineSpacing: compact ? 2 : 4,
+      wordWrap: { width: listWidth }
+    });
+    const term = this.add.text(0, top + height - 32, "NEXT DEPTH ONLY", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "12px",
+      color: "#bcecff",
+      fontStyle: "bold",
+      align: "center"
+    }).setOrigin(0.5);
+
+    const hitZone = this.add.zone(0, 0, width, height)
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    hitZone.on("pointerover", () => this.setAnomalyContractCardFocused(record, true));
+    hitZone.on("pointerout", () => this.setAnomalyContractCardFocused(record, false));
+    hitZone.on("pointerup", (pointer, localX, localY, event) => {
+      event?.stopPropagation?.();
+      this.selectAnomalyContractCard(index);
+    });
+    record.hitZone = hitZone;
+
+    container.add([
+      keyCap,
+      keyText,
+      title,
+      subtitle,
+      dangerLabel,
+      dangerText,
+      rewardLabel,
+      rewardText,
+      term,
+      hitZone
+    ]);
+    this.overlayContainer.add(container);
+    this.overlayButtons.push(container);
+    this.overlayActions.push({
+      panel: hitZone,
+      onSelect: () => this.selectAnomalyContractCard(index),
+      handlesOwnFlow: true
+    });
+    return record;
+  }
+
+  getAnomalyContractAccentColor(contract) {
+    if (contract?.id === "greedProtocol" || contract?.id === "goldStorm") {
+      return 0xf0c463;
+    }
+    if (contract?.id === "lostSignal" || contract?.id === "cacheBloom") {
+      return 0xc06bff;
+    }
+    return 0x65e6ff;
+  }
+
+  drawAnomalyContractCardBackground(record) {
+    const { background, layout, contract } = record;
+    const width = layout.cardWidth;
+    const height = layout.cardHeight;
+    const left = -width / 2;
+    const top = -height / 2;
+    const accent = this.getAnomalyContractAccentColor(contract);
+    const backPalette = this.getAnjuContractCardBackPalette();
+    const fillColor = backPalette.fill || 0x06111a;
+    const lineColor = backPalette.line || 0x6fcfff;
+    const backAccent = backPalette.accent || accent;
+    const strokeAlpha = record.selected ? 0.96 : (record.focused ? 0.78 : 0.38);
+    background.clear();
+    background.fillStyle(fillColor, record.disabled ? 0.66 : 0.95);
+    background.fillRoundedRect(left, top, width, height, 8);
+    background.lineStyle(record.selected ? 4 : (record.focused ? 3 : 2), accent, strokeAlpha);
+    background.strokeRoundedRect(left + 1, top + 1, width - 2, height - 2, 8);
+    background.lineStyle(1, lineColor, record.focused || record.selected ? 0.24 : 0.12);
+    for (let y = top + 42; y < top + height - 22; y += 24) {
+      background.lineBetween(left + 18, y, left + width - 18, y);
+    }
+    background.lineStyle(1, backAccent, record.selected ? 0.34 : 0.16);
+    background.lineBetween(left + 32, top + height - 44, left + width - 64, top + 58);
+    background.lineBetween(left + 64, top + height - 22, left + width - 32, top + 92);
+    background.fillStyle(backAccent, record.selected ? 0.17 : 0.09);
+    background.fillTriangle(left + 18, top + 18, left + 108, top + 18, left + 18, top + 54);
+    background.fillTriangle(left + width - 18, top + height - 18, left + width - 108, top + height - 18, left + width - 18, top + height - 54);
+  }
+
+  setAnomalyContractCardFocused(record, focused) {
+    if (!record || record.disabled || (this.anomalyContractState?.selectionLocked && !record.selected)) {
+      return;
+    }
+
+    record.focused = focused;
+    this.drawAnomalyContractCardBackground(record);
+    this.tweens.killTweensOf(record.container);
+    this.tweens.add({
+      targets: record.container,
+      scale: focused ? 1.035 : 1,
+      duration: 110,
+      ease: "Sine.easeOut"
+    });
+    record.keyText?.setColor(focused ? this.colorToCss(this.getAnomalyContractAccentColor(record.contract)) : "#ecfaff");
+  }
+
+  registerAnomalyContractKeyboardInput() {
+    if (this.anomalyContractKeyHandler) {
+      this.input?.keyboard?.off("keydown", this.anomalyContractKeyHandler);
+      this.anomalyContractKeyHandler = null;
+    }
+    this.anomalyContractKeyHandler = (event) => {
+      if (!this.anomalyContractState?.selectionOpen || this.anomalyContractState.selectionLocked) {
+        return;
+      }
+
+      const index = ["1", "2", "3", "4"].indexOf(event.key);
+      if (index < 0) {
+        return;
+      }
+
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      this.selectAnomalyContractCard(index);
+    };
+    this.input?.keyboard?.on("keydown", this.anomalyContractKeyHandler);
+  }
+
+  teardownAnomalyContractOverlay() {
+    if (this.anomalyContractKeyHandler) {
+      this.input?.keyboard?.off("keydown", this.anomalyContractKeyHandler);
+      this.anomalyContractKeyHandler = null;
+    }
+    this.anomalyContractCardRecords = [];
+  }
+
+  playAnomalyContractOpenAnimation() {
+    this.anomalyContractCardRecords.forEach((record, index) => {
+      record.baseY = record.container.y;
+      record.container
+        .setAlpha(0)
+        .setY(record.baseY + 18)
+        .setScale(0.98);
+      this.tweens.add({
+        targets: record.container,
+        alpha: 1,
+        y: record.baseY,
+        scale: 1,
+        delay: 120 + index * 80,
+        duration: 250,
+        ease: "Cubic.easeOut"
+      });
+    });
+    this.tweens.add({
+      targets: this.overlayBackdrop,
+      alpha: 1,
+      duration: 180,
+      ease: "Sine.easeOut"
+    });
+    this.tweens.add({
+      targets: this.overlayContainer,
+      alpha: 1,
+      scale: 1,
+      duration: 260,
+      ease: "Back.easeOut"
+    });
+  }
+
+  selectAnomalyContractCard(index) {
+    const state = this.anomalyContractState;
+    if (!state?.selectionOpen || state.selectionLocked) {
+      return;
+    }
+
+    const record = this.anomalyContractCardRecords[index];
+    if (!record) {
+      return;
+    }
+
+    state.selectionLocked = true;
+    const selected = this.selectAnomalyContract(record.contract.id, record.targetDepth);
+    this.anomalyContractCardRecords.forEach((entry) => {
+      entry.selected = entry === record;
+      entry.disabled = entry !== record;
+      entry.focused = false;
+      this.drawAnomalyContractCardBackground(entry);
+      this.tweens.killTweensOf(entry.container);
+      this.tweens.add({
+        targets: entry.container,
+        scale: entry.selected ? 1.05 : 0.96,
+        alpha: entry.selected ? 1 : 0.46,
+        duration: 160,
+        ease: "Sine.easeOut"
+      });
+    });
+
+    const callback = this.pendingAnomalyContractSelectionCallback;
+    this.pendingAnomalyContractSelectionCallback = null;
+    this.time.delayedCall(330, () => {
+      state.selectionOpen = false;
+      if (callback) {
+        callback(selected);
+      }
+    });
+  }
+
   chooseNextStage() {
     if (this.gateChoiceLocked) {
       return;
     }
 
     this.gateChoiceLocked = true;
-    this.stageDepth += 1;
-    this.gateInstabilityStacks = 0;
-    this.resetGateCycleForNextDepth();
-    this.gateChoiceActive = false;
-    this.hideOverlay();
-    this.physics.world.resume();
-    this.setLastPickupNotice(`DEPTH ${this.stageDepth}`);
+    this.beginGateDepthTransition("next");
   }
 
   chooseExtract() {
@@ -7609,7 +11408,8 @@ class SurvivalScene extends Phaser.Scene {
 
     this.gateChoiceLocked = true;
     const result = this.secureRunCoins(1);
-    this.completeExtraction(result, false);
+    const lostArmsMessage = this.securePendingLostArms();
+    this.completeExtraction(result, false, lostArmsMessage);
   }
 
   chooseForceBreakthrough() {
@@ -7618,12 +11418,47 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     this.gateChoiceLocked = true;
-    this.stageDepth += 1;
+    this.beginGateDepthTransition("force");
+  }
+
+  beginGateDepthTransition(mode = "next") {
+    const targetDepth = (this.stageDepth || 1) + 1;
+    const dataCachePayload = this.cleanupDropsOnDepthTransition();
+    const transition = {
+      mode,
+      targetDepth,
+      dataCachePayload,
+      nextInstabilityStacks: mode === "next" ? 0 : (this.gateInstabilityStacks || 0)
+    };
+
+    if (this.shouldOfferAnomalyContract(targetDepth, mode)) {
+      this.openAnomalyContractSelection(targetDepth, () => this.completeGateDepthTransition(transition));
+      return;
+    }
+
+    this.completeGateDepthTransition(transition);
+  }
+
+  completeGateDepthTransition(transition) {
+    const targetDepth = Math.max(1, Math.floor(Number(transition?.targetDepth) || ((this.stageDepth || 1) + 1)));
+    const mode = transition?.mode === "force" ? "force" : "next";
+    this.clearActiveAnomalyContract("depthTransition", { silent: true, keepPending: true });
+    this.stageDepth = targetDepth;
+    this.gateInstabilityStacks = Math.max(0, Math.floor(Number(transition?.nextInstabilityStacks) || 0));
+    this.updateAnjuMemoryDepthProgress(this.stageDepth);
     this.resetGateCycleForNextDepth();
+    const dataCacheCount = this.spawnDataCacheDrops(transition?.dataCachePayload);
     this.gateChoiceActive = false;
+    this.gateChoiceLocked = false;
+    if (this.anomalyContractState) {
+      this.anomalyContractState.selectionOpen = false;
+      this.anomalyContractState.selectionLocked = false;
+    }
     this.hideOverlay();
     this.physics.world.resume();
-    this.setLastPickupNotice(`FORCE BREAKTHROUGH DEPTH ${this.stageDepth}`);
+    const prefix = mode === "force" ? "FORCE BREAKTHROUGH DEPTH" : "DEPTH";
+    this.setLastPickupNotice(dataCacheCount > 0 ? `${prefix} ${this.stageDepth} / DATA CACHE ${dataCacheCount}` : `${prefix} ${this.stageDepth}`);
+    this.activatePendingAnomalyContract(targetDepth);
   }
 
   chooseEmergencyExtract() {
@@ -7633,36 +11468,47 @@ class SurvivalScene extends Phaser.Scene {
 
     this.gateChoiceLocked = true;
     const result = this.secureRunCoins(this.getCurrentCoinScaling().emergencyExtractRate);
-    this.completeExtraction(result, true);
+    const lostArmsMessage = this.discardPendingLostArms();
+    this.completeExtraction(result, true, lostArmsMessage);
   }
 
-  completeExtraction(result, emergency) {
+  completeExtraction(result, emergency, lostArmsMessage = "") {
+    const anjuMemoryAward = this.awardAnjuMemoryOnExtraction(emergency ? "emergency" : "normal");
     this.extractionComplete = true;
     this.gateChoiceActive = false;
     this.levelUpActive = false;
+    this.resetAnomalyContractState(emergency ? "emergencyExtract" : "extract");
+    this.resetOverflowRewardState();
     this.destroyStageGate();
     this.hideOverlay();
+    this.clearActiveLostArmEffects();
     this.physics.world.pause();
     this.saveBestRecordIfNeeded();
-    this.showExtractionCompleteOverlay(result, emergency);
+    this.showExtractionCompleteOverlay(result, emergency, lostArmsMessage, anjuMemoryAward);
     this.time.delayedCall(1800, () => {
       const securedText = `${result.secured.toLocaleString()} GEEK SECURED`;
       const lostText = result.lost > 0 ? ` / LOST ${result.lost.toLocaleString()}` : "";
-      this.returnToOpeningShop(`作戦成功 ${securedText}${lostText}`);
+      const anjuMemoryText = this.formatAnjuMemoryAwardLine(anjuMemoryAward);
+      this.returnToOpeningShop([`作戦成功 ${securedText}${lostText}`, lostArmsMessage, anjuMemoryText].filter(Boolean).join("\n"));
     });
   }
 
-  showExtractionCompleteOverlay(result, emergency) {
+  showExtractionCompleteOverlay(result, emergency, lostArmsMessage = "", anjuMemoryAward = null) {
+    const framePalette = anjuMemoryAward?.amount > 0 ? this.getAnjuResultFramePalette() : {};
+    const strokeColor = framePalette.stroke || (emergency ? 0xff5bba : 0x6fcfff);
+    const fillColor = framePalette.fill || 0x07131d;
+    const titleColor = framePalette.title || "#ecfaff";
+    const anjuMemoryText = this.formatAnjuMemoryAwardLine(anjuMemoryAward);
     this.clearOverlayButtons();
     this.configureOverlayPanel(680, 330);
     this.overlayPanel
-      .setFillStyle(0x07131d, 0.96)
-      .setStrokeStyle(2, emergency ? 0xff5bba : 0x6fcfff, emergency ? 0.48 : 0.42);
+      .setFillStyle(fillColor, 0.96)
+      .setStrokeStyle(2, strokeColor, emergency ? 0.48 : 0.42);
     this.overlayTitle
       .setStyle({
         fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
         fontSize: "36px",
-        color: "#ecfaff",
+        color: titleColor,
         fontStyle: "bold",
         align: "center"
       })
@@ -7679,11 +11525,11 @@ class SurvivalScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setPosition(0, -42)
-      .setText(`${result.secured.toLocaleString()} GEEK SECURED\n${result.lost > 0 ? `${result.lost.toLocaleString()} GEEK LOST\n` : ""}作戦成功`);
+      .setText(`${result.secured.toLocaleString()} GEEK SECURED\n${result.lost > 0 ? `${result.lost.toLocaleString()} GEEK LOST\n` : ""}${anjuMemoryText ? `${anjuMemoryText}\n` : ""}作戦成功${lostArmsMessage ? `\n\n${lostArmsMessage}` : ""}`);
     const glow = this.add
       .image(0, 78, "skill-hit-glow")
       .setScale(1.5)
-      .setTint(emergency ? 0xff5bba : 0x6fcfff)
+      .setTint(strokeColor)
       .setAlpha(0.26)
       .setBlendMode(Phaser.BlendModes.ADD);
     this.overlayContainer.add(glow);
@@ -7711,6 +11557,8 @@ class SurvivalScene extends Phaser.Scene {
     this.gateInstabilityStacks += 1;
     this.gateState.status = "unstable";
     this.gateState.activeElapsedMs = 0;
+    this.gateState.stableDurationMs = GATE_STABLE_MS;
+    this.gateState.stabilizeBonusMs = 0;
     this.gateInstabilityFlashUntil = this.time.now + 1100;
     if (this.stageGate?.container?.active) {
       this.spawnGateWorldPulse(this.stageGate.container.x, this.stageGate.container.y, 0xff4fb8, {
@@ -7758,6 +11606,7 @@ class SurvivalScene extends Phaser.Scene {
     this.survivalTime += delta;
     this.enemySpawnTimer += delta;
     this.shootTimer += delta;
+    this.updateOverdrive(delta);
     this.updateBossSpawns();
     this.updateGateTimer(delta);
 
@@ -7779,8 +11628,11 @@ class SurvivalScene extends Phaser.Scene {
     this.updateRareItems(delta);
     this.updateSpecialItems(delta);
     this.updateRobotItems(delta);
+    this.updateLostArmItems(delta);
+    this.updateDropLimitSafetyCleanup();
     this.updateRobotCombat(time, delta);
     this.updateRobotHealing(delta);
+    this.updateLostArmsCombat(delta);
     this.updateBullets(time);
     this.updateRobotMissiles(time, delta);
     this.updateEnemyProjectiles(time);
@@ -7790,7 +11642,7 @@ class SurvivalScene extends Phaser.Scene {
       this.spawnEnemyWave();
     }
 
-    if (this.shootTimer >= this.stats.fireInterval) {
+    if (this.shootTimer >= this.getCurrentPlayerFireInterval()) {
       this.shootTimer = 0;
       this.fireAtClosestEnemy(time);
     }
@@ -7853,7 +11705,7 @@ class SurvivalScene extends Phaser.Scene {
     const isMoving = direction.lengthSq() > 0;
     const isDashing = this.updatePlayerDashState(delta, isMoving);
     if (isMoving) {
-      const moveSpeed = this.stats.moveSpeed * (isDashing ? DASH_SPEED_MULTIPLIER : 1);
+      const moveSpeed = this.stats.moveSpeed * this.getOverdriveMoveSpeedMultiplier() * (isDashing ? DASH_SPEED_MULTIPLIER : 1);
       direction.normalize().scale(moveSpeed);
       this.playerAimAngle = Math.atan2(direction.y, direction.x);
     }
@@ -8399,6 +12251,11 @@ class SurvivalScene extends Phaser.Scene {
           break;
       }
 
+      const lostArmsSlowMultiplier = this.getEnemyLostArmsSlowMultiplier(enemy);
+      if (lostArmsSlowMultiplier < 1 && enemy.body?.velocity) {
+        enemy.body.velocity.scale(lostArmsSlowMultiplier);
+      }
+
       this.constrainEnemyToMovementBounds(enemy);
     });
   }
@@ -8614,7 +12471,7 @@ class SurvivalScene extends Phaser.Scene {
     this.skillEffectsLayer.add([glow, core, muzzleFlash]);
 
     if (this.isPlayerInEnemyBeam(startX, startY, endX, endY, beamWidth * 0.5 + PLAYER_HITBOX_RADIUS)) {
-      this.applyDamageToPlayer(enemy.beamDamage || enemy.projectileDamage || 8);
+      this.applyDamageToPlayer(this.getEnemyOutgoingDamage(enemy, enemy.beamDamage || enemy.projectileDamage || 8));
     }
 
     this.tweens.add({
@@ -8754,7 +12611,7 @@ class SurvivalScene extends Phaser.Scene {
       );
 
       if (this.isPlayerInBossCircle(center.x, center.y, radius)) {
-        this.applyDamageToPlayer(enemy.attackDamage || 16);
+        this.applyDamageToPlayer(this.getEnemyOutgoingDamage(enemy, enemy.attackDamage || 16));
       }
     });
   }
@@ -8791,7 +12648,7 @@ class SurvivalScene extends Phaser.Scene {
       );
 
       if (this.isPlayerInEnemyBeam(startX, startY, endX, endY, width * 0.5 + PLAYER_HITBOX_RADIUS)) {
-        this.applyDamageToPlayer(enemy.attackDamage || 16);
+        this.applyDamageToPlayer(this.getEnemyOutgoingDamage(enemy, enemy.attackDamage || 16));
       }
     });
   }
@@ -8821,7 +12678,7 @@ class SurvivalScene extends Phaser.Scene {
       );
 
       if (this.isPlayerInBossFan(origin.x, origin.y, angle, range, fanAngle)) {
-        this.applyDamageToPlayer(enemy.attackDamage || 16);
+        this.applyDamageToPlayer(this.getEnemyOutgoingDamage(enemy, enemy.attackDamage || 16));
       }
     });
   }
@@ -8956,7 +12813,7 @@ class SurvivalScene extends Phaser.Scene {
     );
 
     if (this.isPlayerInEnemyBeam(start.x, start.y, end.x, end.y, width * 0.5 + PLAYER_HITBOX_RADIUS)) {
-      this.applyDamageToPlayer(enemy.attackDamage || 15);
+      this.applyDamageToPlayer(this.getEnemyOutgoingDamage(enemy, enemy.attackDamage || 15));
     }
 
     strikePoints.forEach((point, index) => {
@@ -9129,7 +12986,7 @@ class SurvivalScene extends Phaser.Scene {
   detonateBossCircleAttack(enemy, x, y, radius, textureKey, duration) {
     this.spawnBossAttackImage(textureKey, x, y, radius * 2.35, radius * 2.35, 0, duration);
     if (this.isPlayerInBossCircle(x, y, radius)) {
-      this.applyDamageToPlayer(enemy.attackDamage || 14);
+      this.applyDamageToPlayer(this.getEnemyOutgoingDamage(enemy, enemy.attackDamage || 14));
     }
   }
 
@@ -9193,7 +13050,7 @@ class SurvivalScene extends Phaser.Scene {
     const projectile = this.physics.add.image(enemy.x, enemy.y, "enemy-shot-core").setDepth(18);
     projectile.body.setAllowGravity(false);
     projectile.body.setCircle(6, 4, 4);
-    projectile.damage = enemy.projectileDamage || 8;
+    projectile.damage = this.getEnemyOutgoingDamage(enemy, enemy.projectileDamage || 8);
     projectile.expireAt = this.time.now + (enemy.projectileLifeMs || 3600);
     projectile.spinSpeed = Phaser.Math.FloatBetween(-0.08, 0.08);
     projectile.setScale(enemy.projectileScale || 0.82);
@@ -9413,7 +13270,8 @@ class SurvivalScene extends Phaser.Scene {
         orb.setAlpha(0.92 + pulse * 0.08);
       }
 
-      orb.setScale(0.94 + pulse * 0.14);
+      const valueScale = Math.min(1.65, 1 + Math.log2(Math.max(1, Number(orb.value) || 1)) * 0.055);
+      orb.setScale(valueScale * (0.94 + pulse * 0.14));
     });
   }
 
@@ -9441,10 +13299,14 @@ class SurvivalScene extends Phaser.Scene {
 
       const bob = isForcedPull ? 0 : Math.sin(item.floatTimer) * 5;
       const effectScale = item.effectScale || 1;
+      const mergedScale = Math.min(1.36, 1 + Math.log2(Math.max(1, item.mergedSourceCount || 1)) * 0.045);
 
       item.setPosition(item.baseX, item.baseY + bob);
-      item.setScale(item.baseScale * (0.96 + pulse * 0.08));
+      item.setScale(item.baseScale * mergedScale * (0.96 + pulse * 0.08));
       item.setAlpha(0.94 + pulse * 0.06);
+      if (this.isDataCacheDrop(item)) {
+        item.setAngle(Math.sin(item.floatTimer * 0.82) * 7);
+      }
 
       if (item.pillarEffect?.active) {
         item.pillarEffect.setPosition(item.x, item.y + 58);
@@ -9572,6 +13434,593 @@ class SurvivalScene extends Phaser.Scene {
     item.forcePullSpeed = Math.max(item.forcePullSpeed || 0, speed);
   }
 
+  prepareDropObject(drop, category, groupName) {
+    if (!drop) {
+      return drop;
+    }
+
+    this.dropSpawnSerial = (this.dropSpawnSerial || 0) + 1;
+    drop.dropCategory = category;
+    drop.dropGroupName = groupName;
+    drop.createdAt = this.time?.now || 0;
+    drop.dropSerial = this.dropSpawnSerial;
+    drop.dropCleanupInProgress = false;
+    return drop;
+  }
+
+  isDropActive(drop) {
+    return Boolean(drop?.active && !drop.dropCleanupInProgress);
+  }
+
+  isDataCacheDrop(drop) {
+    return Boolean(drop?.isDataCache || drop?.itemDefinition?.id === DATA_CACHE_ITEM_DEFINITION.id);
+  }
+
+  collectActiveDropsForCleanup() {
+    return this.getActiveDropObjects();
+  }
+
+  getActiveDropObjects() {
+    const groups = [
+      { group: this.xpOrbs, groupName: "xpOrbs", fallbackCategory: "xp" },
+      { group: this.rareItems, groupName: "rareItems", fallbackCategory: "value" },
+      { group: this.specialItems, groupName: "specialItems", fallbackCategory: "other" },
+      { group: this.robotItems, groupName: "robotItems", fallbackCategory: "robot" },
+      { group: this.lostArmItems, groupName: "lostArmItems", fallbackCategory: "lostArm" }
+    ];
+    const drops = [];
+
+    groups.forEach(({ group, groupName, fallbackCategory }) => {
+      group?.getChildren?.().slice().forEach((drop) => {
+        if (!this.isDropActive(drop)) {
+          return;
+        }
+
+        drop.dropGroupName = drop.dropGroupName || groupName;
+        drop.dropCategory = drop.dropCategory || this.getDropCategory(drop) || fallbackCategory;
+        drops.push(drop);
+      });
+    });
+
+    return drops;
+  }
+
+  getDropCategory(drop) {
+    if (!drop) {
+      return "other";
+    }
+    if (drop.dropCategory) {
+      return drop.dropCategory;
+    }
+    if (this.isDataCacheDrop(drop)) {
+      return "dataCache";
+    }
+    if (drop.dropGroupName === "xpOrbs" || Number.isFinite(drop.value)) {
+      return "xp";
+    }
+    if (drop.dropGroupName === "robotItems" || drop.itemDefinition?.effectType?.startsWith?.("robot")) {
+      return "robot";
+    }
+    if (drop.dropGroupName === "lostArmItems" || drop.armId) {
+      return "lostArm";
+    }
+
+    const effectType = drop.itemDefinition?.effectType;
+    if (effectType === "heal") {
+      return "recovery";
+    }
+    if (effectType === "magnet") {
+      return "magnet";
+    }
+    if (effectType === "bomb") {
+      return "support";
+    }
+    if (drop.dropGroupName === "rareItems" || RARE_ITEM_DEFINITIONS[drop.itemDefinition?.id]) {
+      return "value";
+    }
+
+    return "other";
+  }
+
+  getDropGroupName(drop) {
+    if (drop?.dropGroupName) {
+      return drop.dropGroupName;
+    }
+    const category = this.getDropCategory(drop);
+    if (category === "xp") {
+      return "xpOrbs";
+    }
+    if (category === "value" || category === "dataCache") {
+      return "rareItems";
+    }
+    if (category === "recovery" || category === "magnet" || category === "support") {
+      return "specialItems";
+    }
+    if (category === "robot") {
+      return "robotItems";
+    }
+    if (category === "lostArm") {
+      return "lostArmItems";
+    }
+    return null;
+  }
+
+  getDropRewardEstimate(drop) {
+    if (!this.isDropActive(drop)) {
+      return { xp: 0, unsecuredGeek: 0 };
+    }
+
+    const category = this.getDropCategory(drop);
+    if (category === "xp") {
+      return {
+        xp: Math.max(0, Math.floor(Number(drop.value) || 0)),
+        unsecuredGeek: 0
+      };
+    }
+
+    if (category === "dataCache") {
+      const payload = drop.dataCachePayload || {};
+      return {
+        xp: Math.max(0, Math.floor(Number(payload.xp ?? drop.xpValue) || 0)),
+        unsecuredGeek: this.normalizeCoinAmount(payload.unsecuredGeek ?? drop.coinValue)
+      };
+    }
+
+    if (category === "value") {
+      const definition = drop.itemDefinition || {};
+      const fallbackCoin = definition.coinValue
+        ? this.scaleValueDropCoinReward(definition.coinValue)
+        : 0;
+      return {
+        xp: Math.max(0, Math.floor(Number(drop.xpValue ?? definition.xpValue) || 0)),
+        unsecuredGeek: this.normalizeCoinAmount(drop.coinValue ?? fallbackCoin)
+      };
+    }
+
+    return { xp: 0, unsecuredGeek: 0 };
+  }
+
+  compressDropsToDataCachePayload(drops) {
+    let rawXp = 0;
+    let rawUnsecuredGeek = 0;
+    let sourceCount = 0;
+
+    (drops || []).forEach((drop) => {
+      const reward = this.getDropRewardEstimate(drop);
+      if (reward.xp <= 0 && reward.unsecuredGeek <= 0) {
+        return;
+      }
+
+      rawXp += reward.xp;
+      rawUnsecuredGeek += reward.unsecuredGeek;
+      sourceCount += 1;
+    });
+
+    const xp = rawXp > 0
+      ? Math.max(1, Math.floor(rawXp * DROP_CLEANUP_CONFIG.xpReturnRate))
+      : 0;
+    const coinReturnRate = Phaser.Math.Clamp(
+      DROP_CLEANUP_CONFIG.coinReturnRate + this.getAnomalyDataCacheCompressionRateAdd(),
+      0,
+      ANOMALY_CONTRACT_CONFIG.dataCacheCompressionRateMax
+    );
+    const unsecuredGeek = rawUnsecuredGeek > 0
+      ? this.normalizeCoinAmount(Math.max(1, Math.floor(rawUnsecuredGeek * coinReturnRate * this.getAnomalyDataCacheGeekMultiplier())))
+      : 0;
+
+    return {
+      xp,
+      unsecuredGeek,
+      rawXp,
+      rawUnsecuredGeek,
+      sourceCount
+    };
+  }
+
+  cleanupDropsOnDepthTransition() {
+    const drops = this.collectActiveDropsForCleanup();
+    const payload = this.compressDropsToDataCachePayload(drops);
+    drops.forEach((drop) => this.removeDropSafely(drop));
+    this.nextDropLimitCleanupAt = this.time?.now || 0;
+    return payload;
+  }
+
+  getDropTweenTargets(drop) {
+    if (!drop) {
+      return [];
+    }
+
+    return [
+      drop,
+      drop.pillarEffect,
+      drop.outerBeam,
+      drop.innerBeam,
+      drop.beamCore,
+      ...(drop.beamLines || []),
+      drop.baseGlow,
+      drop.floorFlare,
+      drop.glow,
+      drop.ring,
+      ...(drop.pillarSparkles || []),
+      drop.beam,
+      drop.scanLine
+    ].filter(Boolean);
+  }
+
+  removeDropSafely(drop) {
+    if (!this.isDropActive(drop)) {
+      return false;
+    }
+
+    drop.dropCleanupInProgress = true;
+    const groupName = this.getDropGroupName(drop);
+    const group = groupName ? this[groupName] : null;
+    group?.remove?.(drop, false, false);
+    this.tweens?.killTweensOf(this.getDropTweenTargets(drop));
+
+    if (groupName === "rareItems") {
+      if (this.isDataCacheDrop(drop)) {
+        this.destroyDataCacheItem(drop);
+      } else {
+        this.destroyRareItem(drop);
+      }
+    } else if (groupName === "specialItems") {
+      this.destroySpecialItem(drop);
+    } else if (groupName === "robotItems") {
+      this.destroyRobotItem(drop);
+    } else if (groupName === "lostArmItems") {
+      this.destroyLostArmItem(drop);
+    } else if (drop.active) {
+      drop.destroy();
+    }
+
+    return true;
+  }
+
+  getDropLimitRemovalPriority(drop) {
+    const category = this.getDropCategory(drop);
+    if (category === "xp") {
+      return 10;
+    }
+    if (category === "value") {
+      const id = drop.itemDefinition?.id;
+      if (id === "bronze") {
+        return 30;
+      }
+      if (id === "silver") {
+        return 40;
+      }
+      if (id === "gold") {
+        return 80;
+      }
+      return 45;
+    }
+    if (category === "recovery") {
+      return 50;
+    }
+    if (category === "magnet") {
+      return 52;
+    }
+    if (category === "support") {
+      return 60;
+    }
+    if (category === "robot") {
+      return 62;
+    }
+    if (category === "lostArm") {
+      return 84;
+    }
+    if (category === "dataCache") {
+      return 90;
+    }
+    return 70;
+  }
+
+  compareDropsForLimitRemoval(left, right) {
+    const priorityDelta = this.getDropLimitRemovalPriority(left) - this.getDropLimitRemovalPriority(right);
+    if (priorityDelta !== 0) {
+      return priorityDelta;
+    }
+
+    const leftReward = this.getDropRewardEstimate(left);
+    const rightReward = this.getDropRewardEstimate(right);
+    const leftValue = leftReward.xp + leftReward.unsecuredGeek / 100;
+    const rightValue = rightReward.xp + rightReward.unsecuredGeek / 100;
+    if (leftValue !== rightValue) {
+      return leftValue - rightValue;
+    }
+
+    const createdDelta = (left.createdAt || 0) - (right.createdAt || 0);
+    if (createdDelta !== 0) {
+      return createdDelta;
+    }
+
+    return (left.dropSerial || 0) - (right.dropSerial || 0);
+  }
+
+  canMergeDropReward(target, source) {
+    if (!target || !source || target === source || !this.isDropActive(target) || !this.isDropActive(source)) {
+      return false;
+    }
+
+    const targetCategory = this.getDropCategory(target);
+    const sourceCategory = this.getDropCategory(source);
+    return (
+      (targetCategory === "xp" && sourceCategory === "xp") ||
+      (targetCategory === "value" && sourceCategory === "value") ||
+      (targetCategory === "dataCache" && sourceCategory === "dataCache")
+    );
+  }
+
+  findMergeTarget(source, candidates) {
+    const sourceCategory = this.getDropCategory(source);
+    const sourceDefinitionId = source.itemDefinition?.id || "";
+    const mergeCandidates = (candidates || [])
+      .filter((candidate) => this.canMergeDropReward(candidate, source))
+      .sort((left, right) => {
+        const leftSameKind = left.itemDefinition?.id === sourceDefinitionId ? 0 : 1;
+        const rightSameKind = right.itemDefinition?.id === sourceDefinitionId ? 0 : 1;
+        if (leftSameKind !== rightSameKind) {
+          return leftSameKind - rightSameKind;
+        }
+
+        const leftDistance = Phaser.Math.Distance.Between(source.x, source.y, left.x, left.y);
+        const rightDistance = Phaser.Math.Distance.Between(source.x, source.y, right.x, right.y);
+        if (leftDistance !== rightDistance) {
+          return leftDistance - rightDistance;
+        }
+
+        if (sourceCategory === "value") {
+          return this.getDropLimitRemovalPriority(right) - this.getDropLimitRemovalPriority(left);
+        }
+
+        return (left.createdAt || 0) - (right.createdAt || 0);
+      });
+
+    return mergeCandidates[0] || null;
+  }
+
+  mergeDropReward(target, source) {
+    if (!this.canMergeDropReward(target, source)) {
+      return false;
+    }
+
+    const targetCategory = this.getDropCategory(target);
+    const sourceReward = this.getDropRewardEstimate(source);
+    const targetReward = this.getDropRewardEstimate(target);
+
+    if (targetCategory === "xp") {
+      target.value = targetReward.xp + sourceReward.xp;
+      target.mergedSourceCount = (target.mergedSourceCount || 1) + (source.mergedSourceCount || 1);
+      return true;
+    }
+
+    if (targetCategory === "dataCache") {
+      const payload = {
+        xp: targetReward.xp + sourceReward.xp,
+        unsecuredGeek: this.normalizeCoinAmount(targetReward.unsecuredGeek + sourceReward.unsecuredGeek)
+      };
+      target.dataCachePayload = payload;
+      target.xpValue = payload.xp;
+      target.coinValue = payload.unsecuredGeek;
+      target.mergedSourceCount = (target.mergedSourceCount || 1) + (source.mergedSourceCount || 1);
+      return true;
+    }
+
+    target.xpValue = targetReward.xp + sourceReward.xp;
+    target.coinValue = this.normalizeCoinAmount(targetReward.unsecuredGeek + sourceReward.unsecuredGeek);
+    target.mergedSourceCount = (target.mergedSourceCount || 1) + (source.mergedSourceCount || 1);
+    return true;
+  }
+
+  enforceCategoryDropLimit(drops, category, limit) {
+    if (!Number.isFinite(limit) || limit < 0) {
+      return;
+    }
+
+    let candidates = drops
+      .filter((drop) => this.isDropActive(drop) && this.getDropCategory(drop) === category)
+      .sort((left, right) => this.compareDropsForLimitRemoval(left, right));
+
+    while (candidates.length > limit) {
+      const source = candidates.shift();
+      if (!this.isDropActive(source)) {
+        continue;
+      }
+
+      const target = this.findMergeTarget(source, candidates);
+      if (target) {
+        this.mergeDropReward(target, source);
+      }
+      this.removeDropSafely(source);
+      candidates = candidates.filter((drop) => this.isDropActive(drop));
+    }
+  }
+
+  enforceTotalDropLimit() {
+    let guard = 0;
+    let drops = this.getActiveDropObjects();
+
+    while (drops.length > DROP_LIMITS.total && guard < DROP_LIMITS.total * 2) {
+      guard += 1;
+      const sorted = drops
+        .filter((drop) => this.isDropActive(drop))
+        .sort((left, right) => this.compareDropsForLimitRemoval(left, right));
+      const source = sorted[0];
+      if (!source) {
+        break;
+      }
+
+      const target = this.findMergeTarget(source, sorted.slice(1));
+      if (target) {
+        this.mergeDropReward(target, source);
+      }
+      this.removeDropSafely(source);
+      drops = this.getActiveDropObjects();
+    }
+  }
+
+  enforceDropLimits(reason = "spawn") {
+    const drops = this.getActiveDropObjects();
+    this.enforceCategoryDropLimit(drops, "xp", DROP_LIMITS.xp);
+    this.enforceCategoryDropLimit(drops, "value", DROP_LIMITS.value);
+    this.enforceCategoryDropLimit(drops, "robot", DROP_LIMITS.robot);
+    this.enforceCategoryDropLimit(drops, "support", DROP_LIMITS.support);
+    this.enforceCategoryDropLimit(drops, "recovery", DROP_LIMITS.recovery);
+    this.enforceCategoryDropLimit(drops, "magnet", DROP_LIMITS.magnet);
+    this.enforceCategoryDropLimit(drops, "dataCache", DROP_LIMITS.dataCache);
+    this.enforceTotalDropLimit();
+
+    if (reason === "periodic") {
+      this.nextDropLimitCleanupAt = (this.time?.now || 0) + DROP_LIMITS.periodicCleanupMs;
+    }
+  }
+
+  updateDropLimitSafetyCleanup() {
+    if (this.time.now < (this.nextDropLimitCleanupAt || 0)) {
+      return;
+    }
+
+    this.enforceDropLimits("periodic");
+  }
+
+  getDataCacheCount(payload) {
+    if (!payload || (payload.xp <= 0 && payload.unsecuredGeek <= 0)) {
+      return 0;
+    }
+
+    const rewardScore = payload.xp + payload.unsecuredGeek / 100;
+    if (
+      payload.sourceCount >= DROP_CLEANUP_CONFIG.threeCacheSourceCount ||
+      rewardScore >= DROP_CLEANUP_CONFIG.threeCacheRewardScore
+    ) {
+      return Math.min(3, DROP_CLEANUP_CONFIG.maxDataCaches);
+    }
+    if (
+      payload.sourceCount >= DROP_CLEANUP_CONFIG.twoCacheSourceCount ||
+      rewardScore >= DROP_CLEANUP_CONFIG.twoCacheRewardScore
+    ) {
+      return Math.min(2, DROP_CLEANUP_CONFIG.maxDataCaches);
+    }
+
+    return 1;
+  }
+
+  splitDataCachePayload(payload, count) {
+    const chunks = [];
+    let remainingXp = Math.max(0, Math.floor(Number(payload?.xp) || 0));
+    let remainingGeek = this.normalizeCoinAmount(payload?.unsecuredGeek);
+
+    for (let index = 0; index < count; index += 1) {
+      const remainingSlots = count - index;
+      const xp = Math.floor(remainingXp / remainingSlots);
+      const unsecuredGeek = this.normalizeCoinAmount(Math.floor(remainingGeek / remainingSlots));
+      remainingXp -= xp;
+      remainingGeek -= unsecuredGeek;
+      if (xp > 0 || unsecuredGeek > 0) {
+        chunks.push({ xp, unsecuredGeek });
+      }
+    }
+
+    return chunks;
+  }
+
+  getDataCacheSpawnPoint(index, count) {
+    const worldBounds = this.getStageWorldBounds(this.currentStage);
+    const originX = this.playerHitbox?.x ?? worldBounds.centerX;
+    const originY = this.playerHitbox?.y ?? worldBounds.centerY;
+    const spread = count <= 1 ? 0 : (index - (count - 1) / 2) * 0.62;
+    const angle = -Math.PI / 2 + spread;
+    const radius = DROP_CLEANUP_CONFIG.spawnRadius + (index % 2) * 18;
+
+    return this.getSafeDropPoint(
+      originX + Math.cos(angle) * radius,
+      originY + Math.sin(angle) * radius,
+      DROP_CLEANUP_CONFIG.spawnPadding
+    );
+  }
+
+  spawnDataCacheDrops(payload) {
+    const count = this.getDataCacheCount(payload);
+    if (count <= 0) {
+      return 0;
+    }
+
+    const chunks = this.splitDataCachePayload(payload, count);
+    chunks.forEach((chunk, index) => {
+      const point = this.getDataCacheSpawnPoint(index, chunks.length);
+      this.spawnDataCacheDrop(point.x, point.y, chunk);
+    });
+    return chunks.length;
+  }
+
+  spawnDataCacheDrop(x, y, payload) {
+    const dropPoint = this.getSafeDropPoint(x, y, DATA_CACHE_ITEM_DEFINITION.pickupRadius || 28);
+    const definition = DATA_CACHE_ITEM_DEFINITION;
+    const textureKey = this.textures.exists(definition.textureKey) ? definition.textureKey : "rare-token";
+    const item = this.physics.add.image(dropPoint.x, dropPoint.y, textureKey).setDepth(13);
+    const frame = item.frame;
+    const pickupRadius = definition.pickupRadius || 28;
+    const sourceScale = Math.max(0.001, definition.scale || 1);
+    const bodyRadius = Math.max(8, pickupRadius / sourceScale);
+    const bodyOffsetX = Math.max(0, (frame?.width || 38) * 0.5 - bodyRadius);
+    const bodyOffsetY = Math.max(0, (frame?.height || 34) * 0.5 - bodyRadius);
+
+    item.body.setAllowGravity(false);
+    item.body.setVelocity(0, 0);
+    item.body.setCircle(bodyRadius, bodyOffsetX, bodyOffsetY);
+    item.itemDefinition = definition;
+    item.isDataCache = true;
+    item.dataCachePayload = {
+      xp: Math.max(0, Math.floor(Number(payload?.xp) || 0)),
+      unsecuredGeek: this.normalizeCoinAmount(payload?.unsecuredGeek)
+    };
+    item.xpValue = item.dataCachePayload.xp;
+    item.coinValue = item.dataCachePayload.unsecuredGeek;
+    item.baseX = dropPoint.x;
+    item.baseY = dropPoint.y;
+    item.baseScale = definition.scale;
+    item.effectScale = definition.effectScale || 1;
+    item.floatTimer = Phaser.Math.FloatBetween(0, Math.PI * 2);
+    item.forcePullUntil = 0;
+    item.forcePullSpeed = 0;
+    item.setScale(definition.scale);
+    item.setTint(definition.tint);
+    item.setBlendMode(Phaser.BlendModes.SCREEN);
+    this.prepareDropObject(item, "dataCache", "rareItems");
+
+    item.baseGlow = this.add
+      .ellipse(dropPoint.x, dropPoint.y + 20, 94 * item.effectScale, 28 * item.effectScale, definition.glowTint, 0.24)
+      .setDepth(11)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    item.floorFlare = this.add
+      .image(dropPoint.x, dropPoint.y + 18, "skill-hit-ring")
+      .setDepth(12)
+      .setScale(item.effectScale * 0.82, item.effectScale * 0.24)
+      .setTint(definition.glowTint)
+      .setAlpha(0.18)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    item.glow = this.add
+      .image(dropPoint.x, dropPoint.y, "skill-hit-glow")
+      .setDepth(12)
+      .setScale(item.effectScale * 0.62)
+      .setTint(definition.tint)
+      .setAlpha(0.22)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    item.ring = this.add
+      .image(dropPoint.x, dropPoint.y, "skill-hit-ring")
+      .setDepth(12)
+      .setScale(item.effectScale * 0.44)
+      .setTint(definition.glowTint)
+      .setAlpha(0.18)
+      .setBlendMode(Phaser.BlendModes.ADD);
+
+    this.pickupEffectsLayer.add([item.baseGlow, item.floorFlare, item.glow, item.ring]);
+    this.rareItems.add(item);
+    this.enforceDropLimits("spawnDataCache");
+    return item;
+  }
+
   updateBullets(time) {
     this.bullets.children.each((bullet) => {
       if (bullet.active && bullet.expireAt <= time) {
@@ -9621,8 +14070,9 @@ class SurvivalScene extends Phaser.Scene {
     const dashWeight = base.enemyWeights.dash + Math.min(7, Math.floor(waveIndex * 0.65));
     const tankWeight = base.enemyWeights.tank + Math.min(6, Math.floor(waveIndex * 0.5));
     const rangedWeight = base.enemyWeights.ranged + Math.min(6, Math.floor(waveIndex * 0.55));
-    const goldSlimeWeight = base.enemyWeights.gold_slime + Math.min(0.045, waveIndex * 0.002);
-    const silverSlimeWeight = base.enemyWeights.silver_slime + Math.min(0.09, waveIndex * 0.004);
+    const rareSlimeChanceMultiplier = this.getAnomalyRareSlimeChanceMultiplier();
+    const goldSlimeWeight = (base.enemyWeights.gold_slime + Math.min(0.045, waveIndex * 0.002)) * rareSlimeChanceMultiplier;
+    const silverSlimeWeight = (base.enemyWeights.silver_slime + Math.min(0.09, waveIndex * 0.004)) * rareSlimeChanceMultiplier;
     const bossTypeId = BOSS_TYPE_SEQUENCE[waveIndex % BOSS_TYPE_SEQUENCE.length];
 
     return {
@@ -9690,18 +14140,27 @@ class SurvivalScene extends Phaser.Scene {
     const depthScaling = this.getDepthScaling(this.stageDepth);
     const instabilityScaling = this.getInstabilityScaling(this.gateInstabilityStacks);
     return {
-      enemyHp: depthScaling.enemyHp * instabilityScaling.enemyHp,
-      enemyDamage: depthScaling.enemyDamage * instabilityScaling.enemyDamage,
-      enemySpeed: depthScaling.enemySpeed
+      enemyHp: depthScaling.enemyHp * instabilityScaling.enemyHp * this.getAnomalyEnemyHpMultiplier(),
+      enemyDamage: depthScaling.enemyDamage * instabilityScaling.enemyDamage * this.getAnomalyEnemyDamageMultiplier(),
+      enemySpeed: depthScaling.enemySpeed * this.getAnomalyEnemySpeedMultiplier(),
+      bossHp: this.getAnomalyBossHpMultiplier(),
+      bossDamage: this.getAnomalyBossDamageMultiplier()
     };
   }
 
   getCurrentCoinScaling() {
     const depthScaling = this.getDepthScaling(this.stageDepth);
     const instabilityScaling = this.getInstabilityScaling(this.gateInstabilityStacks);
+    const contractBonus = this.getAnomalyGeekMultiplierAdd();
+    const emergencyExtractRate = Phaser.Math.Clamp(
+      instabilityScaling.extractRate + this.getAnomalyEmergencyExtractProtectionAdd(),
+      0,
+      1
+    );
     return {
-      amount: depthScaling.coinAmount + instabilityScaling.coinBonus,
-      emergencyExtractRate: instabilityScaling.extractRate
+      amount: depthScaling.coinAmount + instabilityScaling.coinBonus + contractBonus,
+      contractBonus,
+      emergencyExtractRate
     };
   }
 
@@ -9712,6 +14171,14 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     return Math.max(1, Math.round(amount * this.getCurrentCoinScaling().amount));
+  }
+
+  scaleValueDropCoinReward(baseAmount) {
+    const amount = this.scaleRunCoinReward(baseAmount);
+    if (amount <= 0) {
+      return 0;
+    }
+    return Math.max(1, Math.round(amount * this.getAnomalyValueDropGeekMultiplier()));
   }
 
   getActiveEnemyCount() {
@@ -10074,9 +14541,10 @@ class SurvivalScene extends Phaser.Scene {
     enemy.baseScale = displayScale;
     enemy.effectScale = (definition.effectScale || (isUsingFallbackTexture ? definition.scale : 1)) * (options.isElite ? 1.18 : 1);
     enemy.depthEnemyScaling = enemyScaling;
-    enemy.hp = Math.round(definition.hp * wave.hpScale * eliteHpMultiplier * enemyScaling.enemyHp);
+    enemy.hp = Math.round(definition.hp * wave.hpScale * eliteHpMultiplier * enemyScaling.enemyHp * (options.isBoss ? enemyScaling.bossHp : 1));
     enemy.moveSpeed = definition.speed * wave.speedScale * eliteSpeedMultiplier * enemyScaling.enemySpeed;
     enemy.contactDamage = Math.round(definition.contactDamage * (wave.damageScale || 1) * (options.isElite ? 1.4 : 1) * enemyScaling.enemyDamage);
+    enemy.anomalyBossDamageMultiplier = options.isBoss ? enemyScaling.bossDamage : 1;
     enemy.xpValue = Math.round(definition.xpValue * (options.isElite ? 6 : 1));
     enemy.knockbackResist = definition.knockbackResist || 0;
     enemy.hitRecoverUntil = 0;
@@ -10093,6 +14561,12 @@ class SurvivalScene extends Phaser.Scene {
     enemy.stunUntil = 0;
     enemy.supportStatusTintActive = false;
     enemy.supportDamageHoldUntil = 0;
+    enemy.lostArmsSlowUntil = 0;
+    enemy.lostArmsSlowMult = 1;
+    enemy.lostArmsWeakenUntil = 0;
+    enemy.lostArmsWeakenMult = 1;
+    enemy.lostArmsVulnerableUntil = 0;
+    enemy.lostArmsVulnerableMult = 1;
 
     if (definition.aiBehavior === "dash") {
       enemy.burstSpeed = definition.dashSpeed * wave.speedScale * eliteSpeedMultiplier * enemyScaling.enemySpeed;
@@ -11102,7 +15576,12 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    const finalDamage = this.scalePlayerDamage(damage);
+    let finalDamage = impact?.damageAlreadyScaled
+      ? Math.max(0, Number(damage) || 0)
+      : this.scalePlayerDamage(damage);
+    if (this.time.now < (enemy.lostArmsVulnerableUntil || 0)) {
+      finalDamage *= Phaser.Math.Clamp(Number(enemy.lostArmsVulnerableMult) || 1, 1, 1.5);
+    }
     enemy.hp -= finalDamage;
     this.spawnEnemyDamageNumber(enemy, finalDamage);
     this.applyEnemyImpact(enemy, impact);
@@ -11151,7 +15630,7 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    const tookDamage = this.applyDamageToPlayer(enemy.contactDamage);
+    const tookDamage = this.applyDamageToPlayer(this.getEnemyOutgoingDamage(enemy, enemy.contactDamage));
     if (!tookDamage) {
       return;
     }
@@ -11198,6 +15677,7 @@ class SurvivalScene extends Phaser.Scene {
     }
     this.trySpawnSpecialItem(enemy);
     this.trySpawnRobotBossDrop(enemy);
+    this.trySpawnLostArmDrop(enemy);
     enemy.clearTint();
     this.tweens.killTweensOf(enemy);
     this.tweens.killTweensOf(enemy.eliteAura);
@@ -11238,12 +15718,14 @@ class SurvivalScene extends Phaser.Scene {
     const orb = this.physics.add.image(x, y, "xp-orb").setDepth(12);
     orb.body.setAllowGravity(false);
     orb.setCircle(8);
-    orb.value = value;
+    orb.value = Math.max(0, Math.floor(Number(value) || 0));
     orb.floatTimer = Phaser.Math.FloatBetween(0, Math.PI * 2);
     orb.trailTimer = 0;
     orb.forcePullUntil = 0;
     orb.forcePullSpeed = 0;
+    this.prepareDropObject(orb, "xp", "xpOrbs");
     this.xpOrbs.add(orb);
+    this.enforceDropLimits("spawnXpOrb");
   }
 
   spawnXpTrailEffect(orb) {
@@ -11377,7 +15859,8 @@ class SurvivalScene extends Phaser.Scene {
     item.body.setAllowGravity(false);
     item.body.setVelocity(0, 0);
     item.itemDefinition = definition;
-    item.coinValue = this.scaleRunCoinReward(definition.coinValue);
+    item.xpValue = Math.max(0, Math.floor(Number(definition.xpValue) || 0));
+    item.coinValue = this.scaleValueDropCoinReward(definition.coinValue);
     item.baseX = x;
     item.baseY = y;
     item.baseScale = definition.scale;
@@ -11457,7 +15940,9 @@ class SurvivalScene extends Phaser.Scene {
       item.glow,
       item.ring
     ].filter(Boolean));
+    this.prepareDropObject(item, "value", "rareItems");
     this.rareItems.add(item);
+    this.enforceDropLimits("spawnRareItem");
   }
 
   getActiveSpecialItemCount() {
@@ -11508,6 +15993,13 @@ class SurvivalScene extends Phaser.Scene {
     item.setTint(definition.tint);
     item.setScale(definition.scale);
     item.setBlendMode(Phaser.BlendModes.SCREEN);
+    this.prepareDropObject(
+      item,
+      definition.effectType === "heal"
+        ? "recovery"
+        : (definition.effectType === "magnet" ? "magnet" : "support"),
+      "specialItems"
+    );
 
     item.glow = this.add
       .image(x, y, "skill-hit-glow")
@@ -11526,6 +16018,7 @@ class SurvivalScene extends Phaser.Scene {
 
     this.pickupEffectsLayer.add([item.glow, item.ring]);
     this.specialItems.add(item);
+    this.enforceDropLimits("spawnSpecialItem");
   }
 
   getActiveRobotItemCount() {
@@ -11541,7 +16034,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   trySpawnRobotBossDrop(enemy) {
-    if (!enemy.isBoss || Math.random() > ROBOT_BOSS_DROP_CHANCE || this.getActiveRobotItemCount() >= 4) {
+    if (!enemy.isBoss || Math.random() > ROBOT_BOSS_DROP_CHANCE || this.getActiveRobotItemCount() >= DROP_LIMITS.robot) {
       return;
     }
 
@@ -11605,6 +16098,7 @@ class SurvivalScene extends Phaser.Scene {
     item.forcePullUntil = 0;
     item.forcePullSpeed = 0;
     item.setScale(definition.scale);
+    this.prepareDropObject(item, "robot", "robotItems");
 
     if (textureKey === "rare-token") {
       item.setTint(definition.tint);
@@ -11632,6 +16126,200 @@ class SurvivalScene extends Phaser.Scene {
 
     this.pickupEffectsLayer.add([item.beam, item.glow, item.ring]);
     this.robotItems.add(item);
+    this.enforceDropLimits("spawnRobotItem");
+  }
+
+  spawnLostArmCore(x, y, armId) {
+    const definition = this.getLostArmDefinition(armId);
+    if (!definition) {
+      return;
+    }
+
+    const dropPoint = this.getSafeDropPoint(x, y, 34);
+    x = dropPoint.x;
+    y = dropPoint.y;
+    const textureKey = this.textures.exists(definition.itemTextureKey)
+      ? definition.itemTextureKey
+      : "rare-token";
+    const visualPalette = this.getAnjuLostArmsSkinPalette();
+    const tint = visualPalette.tint || definition.tint;
+    const glowTint = visualPalette.glowTint || definition.glowTint;
+    const item = this.physics.add.image(x, y, textureKey).setDepth(14);
+    const frame = item.frame;
+    const pickupRadius = 34;
+    const sourceScale = 0.72;
+    const bodyRadius = pickupRadius / sourceScale;
+    const bodyOffsetX = Math.max(0, (frame?.width || 44) * 0.5 - bodyRadius);
+    const bodyOffsetY = Math.max(0, (frame?.height || 44) * 0.5 - bodyRadius);
+
+    item.body.setAllowGravity(false);
+    item.body.setVelocity(0, 0);
+    item.body.setCircle(bodyRadius, bodyOffsetX, bodyOffsetY);
+    item.itemDefinition = definition;
+    item.armId = armId;
+    item.baseX = x;
+    item.baseY = y;
+    item.baseScale = sourceScale;
+    item.floatTimer = Phaser.Math.FloatBetween(0, Math.PI * 2);
+    item.forcePullUntil = 0;
+    item.forcePullSpeed = 0;
+    item.setScale(sourceScale);
+    item.setTint(tint);
+    item.setBlendMode(Phaser.BlendModes.SCREEN);
+    item.visualTint = tint;
+    item.visualGlowTint = glowTint;
+    this.prepareDropObject(item, "lostArm", "lostArmItems");
+
+    item.beam = this.add
+      .rectangle(x, y - 96, 34, 250, tint, 0.22)
+      .setDepth(10)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    item.innerBeam = this.add
+      .rectangle(x, y - 96, 8, 266, glowTint, 0.34)
+      .setDepth(11)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    item.glow = this.add
+      .image(x, y, "skill-hit-glow")
+      .setDepth(13)
+      .setScale(1.02)
+      .setTint(tint)
+      .setAlpha(0.34)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    item.ring = this.add
+      .image(x, y, "skill-hit-ring")
+      .setDepth(13)
+      .setScale(0.66)
+      .setTint(glowTint)
+      .setAlpha(0.34)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    item.scanLine = this.add
+      .rectangle(x, y - 48, 76, 3, glowTint, 0.72)
+      .setDepth(14)
+      .setBlendMode(Phaser.BlendModes.ADD);
+
+    this.pickupEffectsLayer.add([item.beam, item.innerBeam, item.glow, item.ring, item.scanLine]);
+    this.lostArmItems.add(item);
+    this.enforceDropLimits("spawnLostArmCore");
+  }
+
+  updateLostArmItems(delta) {
+    this.lostArmItems.children.each((item) => {
+      if (!item.active) {
+        return;
+      }
+
+      const definition = item.itemDefinition || this.getLostArmDefinition(item.armId);
+      const isForcedPull = this.time.now < (item.forcePullUntil || 0);
+      item.floatTimer += delta / 240;
+      const pulse = (Math.sin(item.floatTimer * 1.55) + 1) * 0.5;
+
+      if (isForcedPull) {
+        const targetX = this.playerHitbox.x;
+        const targetY = this.playerHitbox.y - 8;
+        const deltaX = targetX - item.baseX;
+        const deltaY = targetY - item.baseY;
+        const distance = Math.hypot(deltaX, deltaY);
+        const maxStep = (item.forcePullSpeed || 820) * (delta / 1000);
+        const moveRatio = distance > 0 ? Math.min(1, maxStep / distance) : 1;
+        item.baseX += deltaX * moveRatio;
+        item.baseY += deltaY * moveRatio;
+      }
+
+      const bob = isForcedPull ? 0 : Math.sin(item.floatTimer) * 6;
+      item.setPosition(item.baseX, item.baseY + bob);
+      item.setScale(item.baseScale * (0.94 + pulse * 0.12));
+      item.setAlpha(0.9 + pulse * 0.1);
+
+      if (item.beam?.active) {
+        item.beam.setPosition(item.x, item.y - 96);
+        item.beam.setDisplaySize(28 + pulse * 18, 232 + pulse * 58);
+        item.beam.setAlpha((isForcedPull ? 0.28 : 0.16) + pulse * 0.18);
+      }
+      if (item.innerBeam?.active) {
+        item.innerBeam.setPosition(item.x, item.y - 96);
+        item.innerBeam.setDisplaySize(5 + pulse * 7, 250 + pulse * 52);
+        item.innerBeam.setAlpha(0.26 + pulse * 0.34);
+      }
+      if (item.glow?.active) {
+        item.glow.setPosition(item.x, item.y);
+        item.glow.setScale(0.88 + pulse * 0.28);
+        item.glow.setAlpha(0.22 + pulse * 0.22);
+      }
+      if (item.ring?.active) {
+        item.ring.setPosition(item.x, item.y);
+        item.ring.rotation += 0.026 * (delta / 16.6667);
+        item.ring.setScale(0.56 + pulse * 0.28);
+        item.ring.setAlpha(0.18 + pulse * 0.22);
+      }
+      if (item.scanLine?.active) {
+        const scanOffset = -116 + ((item.floatTimer * 44) % 160);
+        item.scanLine.setPosition(item.x, item.y + scanOffset);
+        item.scanLine.setDisplaySize(62 + pulse * 32, 2 + pulse * 2);
+        item.scanLine.setFillStyle(item.visualGlowTint || definition?.glowTint || 0xffffff, 0.38 + pulse * 0.44);
+      }
+    });
+  }
+
+  destroyLostArmItem(item) {
+    if (!item) {
+      return;
+    }
+    this.lostArmItems?.remove?.(item, false, false);
+    item.beam?.destroy();
+    item.innerBeam?.destroy();
+    item.glow?.destroy();
+    item.ring?.destroy();
+    item.scanLine?.destroy();
+    if (item.active) {
+      item.destroy();
+    }
+  }
+
+  spawnLostArmPickupEffect(x, y, definition, visualPalette = {}) {
+    const tint = visualPalette.tint || definition.tint;
+    const glowTint = visualPalette.glowTint || definition.glowTint;
+    const glow = this.add
+      .image(x, y, "skill-hit-glow")
+      .setDepth(24)
+      .setScale(1.05)
+      .setTint(tint)
+      .setAlpha(0.92)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const ring = this.add
+      .image(x, y, "skill-hit-ring")
+      .setDepth(24)
+      .setScale(0.72)
+      .setTint(glowTint)
+      .setAlpha(0.96)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const beam = this.add
+      .rectangle(x, y - 70, 26, 190, tint, 0.28)
+      .setDepth(23)
+      .setBlendMode(Phaser.BlendModes.ADD);
+
+    this.skillEffectsLayer.add([glow, ring, beam]);
+    this.tweens.add({
+      targets: [glow, ring],
+      scaleX: "+=1.1",
+      scaleY: "+=1.1",
+      alpha: 0,
+      duration: 280,
+      ease: "Cubic.Out",
+      onComplete: () => {
+        glow.destroy();
+        ring.destroy();
+      }
+    });
+    this.tweens.add({
+      targets: beam,
+      scaleY: 1.35,
+      alpha: 0,
+      duration: 300,
+      ease: "Quad.Out",
+      onComplete: () => {
+        beam.destroy();
+      }
+    });
   }
 
   updateRobotItems(delta) {
@@ -11682,23 +16370,39 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   destroyRobotItem(item) {
+    if (!item) {
+      return;
+    }
+    this.robotItems?.remove?.(item, false, false);
     item.beam?.destroy();
     item.glow?.destroy();
     item.ring?.destroy();
-    item.destroy();
+    if (item.active) {
+      item.destroy();
+    }
   }
 
   destroySpecialItem(item) {
+    if (!item) {
+      return;
+    }
+    this.specialItems?.remove?.(item, false, false);
     if (item.glow) {
       item.glow.destroy();
     }
     if (item.ring) {
       item.ring.destroy();
     }
-    item.destroy();
+    if (item.active) {
+      item.destroy();
+    }
   }
 
   destroyRareItem(item) {
+    if (!item) {
+      return;
+    }
+    this.rareItems?.remove?.(item, false, false);
     if (item.pillarEffect) {
       item.pillarEffect.destroy();
     }
@@ -11729,7 +16433,13 @@ class SurvivalScene extends Phaser.Scene {
     item.pillarSparkles?.forEach((sparkle) => {
       sparkle.destroy();
     });
-    item.destroy();
+    if (item.active) {
+      item.destroy();
+    }
+  }
+
+  destroyDataCacheItem(item) {
+    this.destroyRareItem(item);
   }
 
   spawnRareItemPickupEffect(x, y, definition) {
@@ -11867,6 +16577,7 @@ class SurvivalScene extends Phaser.Scene {
     this.gainExperience(orb.value);
     this.spawnXpPickupEffect(playerHitbox.x, playerHitbox.y - 8);
     this.pulseXpBar();
+    this.xpOrbs.remove(orb, false, false);
     orb.destroy();
   }
 
@@ -11875,14 +16586,39 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
+    if (this.isDataCacheDrop(item)) {
+      this.handleDataCachePickup(playerHitbox, item);
+      return;
+    }
+
     const definition = item.itemDefinition;
+    if (!definition) {
+      return;
+    }
+
+    const xpValue = Math.max(0, Math.floor(Number(item.xpValue ?? definition.xpValue) || 0));
     const coinValue = this.normalizeCoinAmount(item.coinValue ?? this.scaleRunCoinReward(definition.coinValue));
-    this.gainExperience(definition.xpValue);
-    this.setLastPickupNotice(`${definition.label.toUpperCase()} +${definition.xpValue} XP / +${coinValue.toLocaleString()} GEEK UNSECURED`);
+    this.gainExperience(xpValue);
+    this.setLastPickupNotice(`${definition.label.toUpperCase()} +${xpValue} XP / +${coinValue.toLocaleString()} GEEK UNSECURED`);
     this.addRunCoin(coinValue);
     this.spawnRareItemPickupEffect(playerHitbox.x, playerHitbox.y - 10, definition);
     this.pulseXpBar();
     this.destroyRareItem(item);
+  }
+
+  handleDataCachePickup(playerHitbox, item) {
+    const reward = this.getDropRewardEstimate(item);
+    if (reward.xp > 0) {
+      this.gainExperience(reward.xp);
+      this.pulseXpBar();
+    }
+    if (reward.unsecuredGeek > 0) {
+      this.addRunCoin(reward.unsecuredGeek);
+    }
+
+    this.setLastPickupNotice(`DATA CACHE +${reward.xp} XP / +${reward.unsecuredGeek.toLocaleString()} GEEK`);
+    this.spawnRareItemPickupEffect(playerHitbox.x, playerHitbox.y - 10, DATA_CACHE_ITEM_DEFINITION);
+    this.destroyDataCacheItem(item);
   }
 
   handleSpecialItemPickup(playerHitbox, item) {
@@ -11891,6 +16627,13 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     const definition = item.itemDefinition;
+
+    if (definition.effectType === "bomb" && !this.canApplySupportReward(definition)) {
+      this.spawnSpecialItemPickupEffect(playerHitbox.x, playerHitbox.y - 10, definition);
+      this.convertSupportOverflowReward(definition, playerHitbox.x, playerHitbox.y - 18);
+      this.destroySpecialItem(item);
+      return;
+    }
 
     if (definition.effectType === "heal") {
       this.applyHealItemEffect(definition);
@@ -11912,6 +16655,11 @@ class SurvivalScene extends Phaser.Scene {
     this.spawnRobotItemPickupEffect(playerHitbox.x, playerHitbox.y - 10, definition);
     this.destroyRobotItem(item);
 
+    if (!this.canApplyRobotReward(definition)) {
+      this.convertRobotOverflowReward(definition, playerHitbox.x, playerHitbox.y - 18);
+      return;
+    }
+
     if (definition.effectType === "robotMissileLevel") {
       this.upgradeRobotMissileLevel();
     } else if (definition.effectType === "robotHealLevel") {
@@ -11923,6 +16671,20 @@ class SurvivalScene extends Phaser.Scene {
       this.addRobotSubsystemXp("field", ROBOT_VASE_XP_BONUS, { silent: false });
       this.showRobotAbilityChoices(definition, "field");
     }
+  }
+
+  handleLostArmCorePickup(playerHitbox, item) {
+    if (!item.active || !item.itemDefinition || !item.armId) {
+      return;
+    }
+
+    const definition = item.itemDefinition;
+    this.spawnLostArmPickupEffect(playerHitbox.x, playerHitbox.y - 10, definition, {
+      tint: item.visualTint,
+      glowTint: item.visualGlowTint
+    });
+    this.destroyLostArmItem(item);
+    this.pickupLostArmCore(definition.id);
   }
 
   spawnRobotItemPickupEffect(x, y, definition) {
@@ -12107,7 +16869,9 @@ class SurvivalScene extends Phaser.Scene {
   applyMagnetItemEffect(definition) {
     let orbCount = 0;
     let rareCount = 0;
+    let dataCacheCount = 0;
     let robotCount = 0;
+    let lostArmCount = 0;
 
     this.xpOrbs.children.each((orb) => {
       if (!orb.active) {
@@ -12129,7 +16893,11 @@ class SurvivalScene extends Phaser.Scene {
       const distance = Phaser.Math.Distance.Between(item.x, item.y, this.playerHitbox.x, this.playerHitbox.y);
       if (distance <= definition.magnetRadius) {
         this.setPickupPullToPlayer(item, definition.magnetDurationMs, definition.magnetPullSpeed);
-        rareCount += 1;
+        if (this.isDataCacheDrop(item)) {
+          dataCacheCount += 1;
+        } else {
+          rareCount += 1;
+        }
       }
     });
 
@@ -12145,8 +16913,20 @@ class SurvivalScene extends Phaser.Scene {
       }
     });
 
+    this.lostArmItems.children.each((item) => {
+      if (!item.active) {
+        return;
+      }
+
+      const distance = Phaser.Math.Distance.Between(item.x, item.y, this.playerHitbox.x, this.playerHitbox.y);
+      if (distance <= definition.magnetRadius) {
+        this.setPickupPullToPlayer(item, definition.magnetDurationMs, definition.magnetPullSpeed);
+        lostArmCount += 1;
+      }
+    });
+
     this.spawnSpecialItemPickupEffect(this.playerHitbox.x, this.playerHitbox.y - 10, definition);
-    this.setLastPickupNotice(`MAGNET XP ${orbCount}${rareCount > 0 ? ` / GEEK ITEM ${rareCount}` : ""}${robotCount > 0 ? ` / ROBOT ${robotCount}` : ""}`);
+    this.setLastPickupNotice(`MAGNET XP ${orbCount}${rareCount > 0 ? ` / GEEK ITEM ${rareCount}` : ""}${dataCacheCount > 0 ? ` / DATA CACHE ${dataCacheCount}` : ""}${robotCount > 0 ? ` / ROBOT ${robotCount}` : ""}${lostArmCount > 0 ? ` / LOST ARMS ${lostArmCount}` : ""}`);
   }
 
   applyBombItemEffect(definition) {
@@ -15334,7 +20114,17 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   gainExperience(value) {
-    this.stats.xp += value;
+    const xpValue = Math.max(0, Math.floor(Number(value) || 0));
+    if (xpValue <= 0) {
+      return;
+    }
+
+    if (this.isXpProgressionCapped()) {
+      this.addOverdriveFromXp(xpValue);
+      return;
+    }
+
+    this.stats.xp += xpValue;
 
     while (this.stats.xp >= this.stats.nextLevelXp) {
       this.stats.xp -= this.stats.nextLevelXp;
@@ -15349,12 +20139,26 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   showLevelUpChoices() {
+    const isStartingDraft = this.isOpeningBoostDraftActive();
+    const choiceLimit = this.getOpeningBoostChoiceLimit(isStartingDraft);
     const skillChoices = this.getAvailableSkillChoices();
     const passiveChoices = Phaser.Utils.Array.Shuffle(this.getPassiveUpgradeChoices());
-    const skillChoiceLimit = Math.min(passiveChoices.length > 0 ? 2 : 3, skillChoices.length);
-    const upgrades = [...skillChoices.slice(0, skillChoiceLimit), ...passiveChoices].slice(0, 3);
-    const isStartingDraft = this.startingUpgradeSelectionsRemaining > 0 && this.survivalTime === 0;
+    const skillChoiceLimit = Math.min(passiveChoices.length > 0 ? Math.min(2, choiceLimit - 1) : choiceLimit, skillChoices.length);
+    const upgrades = [...skillChoices.slice(0, skillChoiceLimit), ...passiveChoices].slice(0, choiceLimit);
 
+    if (!upgrades.length) {
+      this.pendingLevelUps = 0;
+      if (this.levelUpActive && !this.gameOver) {
+        this.levelUpActive = false;
+        this.hideOverlay();
+        this.physics.world.resume();
+      }
+      this.setLastPickupNotice("UPGRADE MAX / XP -> OVERDRIVE");
+      return;
+    }
+
+    this.consumeOpeningBoostExtraChoiceTicketIfNeeded(isStartingDraft, upgrades.length);
+    this.levelUpOpeningBoostActive = isStartingDraft;
     this.levelUpActive = true;
     this.cancelActiveEnemyBeamCharges();
     this.physics.world.pause();
@@ -15364,7 +20168,9 @@ class SurvivalScene extends Phaser.Scene {
       isStartingDraft
         ? `開始前に ${this.startingUpgradeSelectionsRemaining} 回ぶんの強化を選択`
         : "左クリックで1つ選んで強化を獲得",
-      upgrades
+      upgrades,
+      "level",
+      { openingBoost: isStartingDraft }
     );
   }
 
@@ -15426,7 +20232,7 @@ class SurvivalScene extends Phaser.Scene {
       });
     }
 
-    return choices;
+    return choices.map((choice) => this.buildPassiveUpgradeChoice(choice)).filter(Boolean);
   }
 
   getAvailableSkillChoices() {
@@ -15966,15 +20772,20 @@ class SurvivalScene extends Phaser.Scene {
     const lostCoins = gameOverOptions.skipCoinLoss
       ? this.normalizeCoinAmount(gameOverOptions.lostCoins)
       : this.loseRunCoins(reason);
+    const lostArmsMessage = this.discardPendingLostArms();
 
     this.gameOver = true;
     this.levelUpActive = false;
     this.gateChoiceActive = false;
     this.extractionComplete = false;
-    this.lastGameOverReason = { reason, lostCoins };
+    this.clearPendingAnjuMemory(reason);
+    this.resetAnomalyContractState(reason);
+    this.resetOverflowRewardState();
+    this.lastGameOverReason = { reason, lostCoins, lostArmsMessage };
     this.supportAttackBgmDuckingCount = 0;
     this.destroyStageGate(true);
     this.hideOverlay();
+    this.clearActiveLostArmEffects();
     this.cleanupGensoKnightsEvent(this.gensoKnightsEvent, true);
     this.stopSupportAttackBgmOverride(null, false, true);
     this.fadeBgmToVolume(DEFAULT_BGM_VOLUME, SUPPORT_ATTACK_BGM_DUCK_OUT_MS);
@@ -16041,6 +20852,9 @@ class SurvivalScene extends Phaser.Scene {
     this.levelUpActive = false;
     this.gateChoiceActive = false;
     this.extractionComplete = false;
+    this.clearPendingAnjuMemory("returnToOpeningShop");
+    this.resetAnomalyContractState("returnToOpeningShop");
+    this.resetOverflowRewardState();
     this.overlayActions = [];
     this.releaseMobileControlPointers?.();
     const overlayTweenTargets = [this.overlayContainer, this.overlayBackdrop].filter(Boolean);
@@ -16128,9 +20942,10 @@ class SurvivalScene extends Phaser.Scene {
     const updateLine = improved ? "\nBEST UPDATE!" : "";
     const reason = this.lastGameOverReason?.reason || "playerDeath";
     const lostCoins = this.normalizeCoinAmount(this.lastGameOverReason?.lostCoins);
+    const lostArmsMessage = this.lastGameOverReason?.lostArmsMessage || "";
     const reasonLine = reason === "gateCollapse"
-      ? `GATE COLLAPSE\n未確定GEEK LOST: ${lostCoins.toLocaleString()}\n作戦失敗\n`
-      : (lostCoins > 0 ? `未確定GEEK LOST: ${lostCoins.toLocaleString()}\n` : "");
+      ? `GATE COLLAPSE\n未確定GEEK LOST: ${lostCoins.toLocaleString()}\n${lostArmsMessage ? `${lostArmsMessage}\n` : ""}作戦失敗\n`
+      : `${lostCoins > 0 ? `未確定GEEK LOST: ${lostCoins.toLocaleString()}\n` : ""}${lostArmsMessage ? `${lostArmsMessage}\n` : ""}`;
     this.overlayTitle.setText(reason === "gateCollapse" ? "Gate Collapse" : "Game Over");
     this.overlayBody.setText(
       `${reasonLine}RUN  ${this.formatRecordSummary(currentRecord)}\nBEST ${this.formatRecordSummary(bestRecord)}${updateLine}`
@@ -16224,9 +21039,10 @@ class SurvivalScene extends Phaser.Scene {
     this.showLevelUpCardOverlay(title, body, options, "robot");
   }
 
-  showLevelUpCardOverlay(title, body, options, selectionMode = "level") {
+  showLevelUpCardOverlay(title, body, options, selectionMode = "level", context = {}) {
     this.clearOverlayButtons();
     this.levelUpSelectionMode = selectionMode;
+    this.levelUpOpeningBoostActive = Boolean(context.openingBoost);
     const models = (options || []).map((option, index) => this.buildLevelUpCardModel(option, index));
     const layout = this.getLevelUpCardLayout(models.length);
 
@@ -16258,7 +21074,7 @@ class SurvivalScene extends Phaser.Scene {
       .setText(body);
 
     const panelFrame = this.createLevelUpPanelFrame(layout);
-    const keyHint = models.length <= 2 ? "1・2キー" : "1・2・3キー";
+    const keyHint = models.map((model, index) => String(index + 1)).join("・") + "キー";
     const hint = this.add.text(0, layout.hintY, `クリック / タップ / ${keyHint}で選択`, {
       fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
       fontSize: "15px",
@@ -16271,6 +21087,9 @@ class SurvivalScene extends Phaser.Scene {
     this.overlayButtons.push(panelFrame, hint);
     this.levelUpCardRecords = models.map((model, index) => this.createLevelUpCard(model, index, layout));
     this.registerLevelUpKeyboardInput();
+    if (this.canUseOpeningBoostRerollTicket()) {
+      this.createOpeningBoostRerollButton(layout);
+    }
 
     this.overlayBackdrop
       .setFillStyle(0x01040a, 0.86)
@@ -16281,6 +21100,44 @@ class SurvivalScene extends Phaser.Scene {
       .setAlpha(0)
       .setScale(0.96);
     this.playLevelUpOpenAnimation(this.overlayContainer, this.levelUpCardRecords);
+  }
+
+  createOpeningBoostRerollButton(layout) {
+    const width = 146;
+    const height = 36;
+    const x = layout.panelWidth / 2 - width / 2 - 64;
+    const y = layout.hintY;
+    const panel = this.add
+      .rectangle(x, y, width, height, 0x21193a, 0.96)
+      .setStrokeStyle(2, 0xc596ff, 0.62)
+      .setInteractive({ useHandCursor: true });
+    const label = this.add.text(x, y - 9, "REROLL", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "15px",
+      color: "#f7f1ff",
+      fontStyle: "bold",
+      align: "center"
+    }).setOrigin(0.5, 0);
+    const count = this.add.text(x, y + 8, `ticket x${this.getAnjuMemoryConsumableCount("openingBoostReroll")}`, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "10px",
+      color: "#b8d4e8",
+      align: "center"
+    }).setOrigin(0.5, 0);
+
+    panel.on("pointerover", () => panel.setFillStyle(0x302154, 0.98));
+    panel.on("pointerout", () => panel.setFillStyle(0x21193a, 0.96));
+    panel.on("pointerup", (pointer, localX, localY, event) => {
+      event?.stopPropagation?.();
+      this.rerollOpeningBoostChoices();
+    });
+    this.overlayContainer.add([panel, label, count]);
+    this.overlayButtons.push(panel, label, count);
+    this.overlayActions.push({
+      panel,
+      onSelect: () => this.rerollOpeningBoostChoices(),
+      handlesOwnFlow: true
+    });
   }
 
   getLevelUpCardLayout(cardCount) {
@@ -16309,14 +21166,14 @@ class SurvivalScene extends Phaser.Scene {
       };
     }
 
-    const cardWidth = cardCount <= 2 ? 360 : 330;
+    const cardWidth = cardCount >= 4 ? 270 : (cardCount <= 2 ? 360 : 330);
     const cardHeight = 342;
     const gap = 26;
     const totalWidth = cardCount * cardWidth + Math.max(0, cardCount - 1) * gap;
     const startX = -totalWidth / 2 + cardWidth / 2;
     return {
       orientation: "horizontal",
-      panelWidth: 1128,
+      panelWidth: Math.max(1128, totalWidth + 80),
       panelHeight: 572,
       cardWidth,
       cardHeight,
@@ -16809,13 +21666,18 @@ class SurvivalScene extends Phaser.Scene {
 
       this.levelUpActive = false;
       this.hideOverlay();
+      this.restoreGameplayInputAfterOverlay();
       this.physics.world.resume();
       return;
     }
 
+    const wasFirstOpeningBoost = this.levelUpOpeningBoostActive && this.startingUpgradeSelectionsRemaining === STARTING_UPGRADE_CHOICES;
     this.pendingLevelUps = Math.max(0, this.pendingLevelUps - 1);
     if (this.startingUpgradeSelectionsRemaining > 0) {
       this.startingUpgradeSelectionsRemaining -= 1;
+    }
+    if (wasFirstOpeningBoost && this.runAnjuMemoryState) {
+      this.runAnjuMemoryState.openingBoostExtraChoiceActive = false;
     }
 
     if (this.gameOver) {
@@ -16829,6 +21691,7 @@ class SurvivalScene extends Phaser.Scene {
 
     this.levelUpActive = false;
     this.hideOverlay();
+    this.restoreGameplayInputAfterOverlay();
     this.physics.world.resume();
   }
 
@@ -16849,6 +21712,7 @@ class SurvivalScene extends Phaser.Scene {
     this.levelUpInputEnabled = false;
     this.levelUpSelectionLocked = false;
     this.levelUpSelectionMode = "level";
+    this.levelUpOpeningBoostActive = false;
   }
 
   showOverlay(title, body, buttons) {
@@ -16932,6 +21796,7 @@ class SurvivalScene extends Phaser.Scene {
   clearOverlayButtons() {
     this.teardownLevelUpOverlay();
     this.teardownGateChoiceOverlay();
+    this.teardownAnomalyContractOverlay();
     this.overlayButtons.forEach((item) => item.destroy());
     this.overlayButtons = [];
     this.overlayActions = [];
@@ -17031,6 +21896,17 @@ class SurvivalScene extends Phaser.Scene {
     return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   }
 
+  updateAnjuMemoryHud() {
+    if (!this.hudAnjuMemoryText) {
+      return;
+    }
+
+    const previewLine = this.getAnjuMemoryPreviewLine();
+    this.hudAnjuMemoryText
+      .setVisible(Boolean(previewLine))
+      .setText(previewLine);
+  }
+
   updateDepthHud() {
     if (!this.hudDepthText) {
       return;
@@ -17056,7 +21932,7 @@ class SurvivalScene extends Phaser.Scene {
         tensionColor = tensionState.urgent ? "#ffb3a8" : "#f3c06b";
       }
     } else {
-      const remainingMs = Math.max(0, GATE_STABLE_MS - (this.gateState?.activeElapsedMs || 0));
+      const remainingMs = Math.max(0, this.getCurrentGateStableDurationMs() - (this.gateState?.activeElapsedMs || 0));
       const warningActive = remainingMs <= 10000;
       if (gateStatus === "unstable") {
         gateText = `UNSTABLE ${this.formatTimeMs(remainingMs)}`;
@@ -17073,11 +21949,12 @@ class SurvivalScene extends Phaser.Scene {
 
     this.hudDepthText.setText(`DEPTH ${this.stageDepth || 1}`);
     this.hudUnsecuredCoinText?.setText(`UNSECURED GEEK ${this.normalizeCoinAmount(this.runUnsecuredCoins).toLocaleString()}`);
-    this.hudCoinMultiplierText?.setText(`GEEK x${coinScaling.amount.toFixed(2)}`);
+    this.hudCoinMultiplierText?.setText(`GEEK x${coinScaling.amount.toFixed(2)}${coinScaling.contractBonus > 0 ? " + CONTRACT" : ""}`);
     this.hudGateText?.setText(gateText);
     this.hudGateText?.setColor(gateColor);
     this.hudInstabilityText?.setText(tensionText);
     this.hudInstabilityText?.setColor(tensionColor);
+    this.updateAnjuMemoryHud();
   }
 
   updateHud() {
@@ -17103,6 +21980,8 @@ class SurvivalScene extends Phaser.Scene {
     this.hudResourceText.setText(this.formatHudBestSummary(this.bestRecord));
     this.hudCoinText?.setText(this.normalizeCoinAmount(this.runUnsecuredCoins).toLocaleString());
     this.updateDepthHud();
+    this.updateOverflowHud();
+    this.updateAnomalyContractHud();
 
     const specialCounts = {
       heal: this.countActiveSpecialItems("heal"),
@@ -17161,6 +22040,10 @@ function shouldShowMobileLaunchGate() {
     return false;
   }
 
+  if (consumeMobileLaunchGateSkip()) {
+    return false;
+  }
+
   try {
     const params = new URLSearchParams(window.location?.search || "");
     if (params.get("mobileGate") === "1") {
@@ -17178,6 +22061,38 @@ function shouldShowMobileLaunchGate() {
   const mobileUserAgent = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent || "");
   const smallScreen = Math.min(screen.width || window.innerWidth, screen.height || window.innerHeight) <= 920;
   return mobileUserAgent || (touchPoints > 0 && coarsePointer && smallScreen);
+}
+
+function consumeMobileLaunchGateSkip() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const inMemorySkip = Boolean(window.__SURVIVAL_SKIP_MOBILE_GATE_ONCE__);
+  window.__SURVIVAL_SKIP_MOBILE_GATE_ONCE__ = false;
+
+  try {
+    const storedSkip = window.sessionStorage?.getItem(MOBILE_GATE_SKIP_SESSION_KEY) === "1";
+    if (storedSkip) {
+      window.sessionStorage?.removeItem(MOBILE_GATE_SKIP_SESSION_KEY);
+    }
+    return inMemorySkip || storedSkip;
+  } catch (error) {
+    return inMemorySkip;
+  }
+}
+
+function skipMobileLaunchGateOnce() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.__SURVIVAL_SKIP_MOBILE_GATE_ONCE__ = true;
+  try {
+    window.sessionStorage?.setItem(MOBILE_GATE_SKIP_SESSION_KEY, "1");
+  } catch (error) {
+    // The in-memory flag still covers same-document fallbacks.
+  }
 }
 
 function prepareMobileViewport() {
@@ -17221,6 +22136,22 @@ function setPendingOpeningShopMessage(message = "") {
     }
   } catch (error) {
     // The in-memory message is enough when storage is blocked.
+  }
+}
+
+function peekPendingOpeningShopMessage() {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  if (typeof window.__SURVIVAL_PENDING_SHOP_MESSAGE__ === "string") {
+    return window.__SURVIVAL_PENDING_SHOP_MESSAGE__;
+  }
+
+  try {
+    return window.sessionStorage?.getItem(EXTRACTION_MESSAGE_SESSION_KEY) || "";
+  } catch (error) {
+    return "";
   }
 }
 
@@ -17332,19 +22263,46 @@ function showShopLoadingScreen(title = "ショップ準備中") {
   window.__SURVIVAL_SHOP_LOADING_TOKEN__ = (window.__SURVIVAL_SHOP_LOADING_TOKEN__ || 0) + 1;
   window.__SURVIVAL_SHOP_LOADING_STARTED_AT__ = performance?.now?.() ?? Date.now();
   screen.classList.remove("is-hiding");
+  screen.style.pointerEvents = "auto";
   screen.hidden = false;
   screen.setAttribute("aria-hidden", "false");
   document.body?.classList.add("shop-loading-active");
 }
 
-function hideShopLoadingScreen() {
+function finishShopLoadingHide(screen) {
+  if (!screen) {
+    document.body?.classList.remove("shop-loading-active");
+    return;
+  }
+
+  screen.hidden = true;
+  screen.style.display = "none";
+  screen.style.opacity = "";
+  screen.style.pointerEvents = "none";
+  screen.classList.remove("is-hiding");
+  screen.setAttribute("aria-hidden", "true");
+  document.body?.classList.remove("shop-loading-active");
+}
+
+function hideShopLoadingScreen(options = {}) {
   if (typeof document === "undefined") {
     return;
   }
 
   const screen = document.getElementById("shop-loading-screen");
   if (!screen || screen.hidden) {
+    if (screen) {
+      screen.style.pointerEvents = "none";
+      screen.classList.remove("is-hiding");
+    }
     document.body?.classList.remove("shop-loading-active");
+    return;
+  }
+
+  const immediate = options === true || options?.immediate === true;
+  if (immediate) {
+    window.__SURVIVAL_SHOP_LOADING_TOKEN__ = (window.__SURVIVAL_SHOP_LOADING_TOKEN__ || 0) + 1;
+    finishShopLoadingHide(screen);
     return;
   }
 
@@ -17360,15 +22318,12 @@ function hideShopLoadingScreen() {
 
     screen.classList.add("is-hiding");
     screen.style.opacity = "0";
+    screen.style.pointerEvents = "none";
     window.setTimeout(() => {
       if ((window.__SURVIVAL_SHOP_LOADING_TOKEN__ || 0) !== token) {
         return;
       }
-      screen.hidden = true;
-      screen.style.display = "none";
-      screen.classList.remove("is-hiding");
-      screen.setAttribute("aria-hidden", "true");
-      document.body?.classList.remove("shop-loading-active");
+      finishShopLoadingHide(screen);
     }, 180);
   }, waitMs);
 }
@@ -17391,37 +22346,26 @@ function resetSurvivalGameToShop(message = "") {
   }
 
   setPendingOpeningShopMessage(message);
+  skipMobileLaunchGateOnce();
   if (window.__SURVIVAL_GAME_RESETTING__) {
     return;
   }
 
   window.__SURVIVAL_GAME_RESETTING__ = true;
-  const previousGame = window.__SURVIVAL_GAME__ || null;
-  window.__SURVIVAL_GAME__ = null;
-
-  try {
-    previousGame?.destroy?.(true);
-  } catch (error) {
-    console.warn("Failed to destroy previous game instance before reset.", error);
-  }
-
   window.setTimeout(() => {
     try {
-      document.querySelectorAll("#game-root canvas").forEach((canvas) => canvas.remove());
-      window.__SURVIVAL_GAME_RESETTING__ = false;
-      startSurvivalGame(getShopLoadingTitleForMessage(message));
+      window.location.reload();
     } catch (error) {
       window.__SURVIVAL_GAME_RESETTING__ = false;
-      console.error("Failed to recreate game instance after reset.", error);
-      window.location.reload();
+      console.error("Failed to reload game for opening shop.", error);
     }
-  }, 60);
+  }, 80);
 }
 
 function setupMobileLaunchGate() {
   const gate = document.getElementById("mobile-start-gate");
   if (!gate || !shouldShowMobileLaunchGate()) {
-    startSurvivalGame();
+    startSurvivalGame(getShopLoadingTitleForMessage(peekPendingOpeningShopMessage()));
     return;
   }
 
@@ -17429,7 +22373,7 @@ function setupMobileLaunchGate() {
   const windowedButton = document.getElementById("mobile-start-windowed");
   const finish = () => {
     gate.hidden = true;
-    startSurvivalGame();
+    startSurvivalGame(getShopLoadingTitleForMessage(peekPendingOpeningShopMessage()));
   };
 
   gate.hidden = false;

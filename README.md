@@ -1,8 +1,8 @@
 # ラスメモヴァンサバゲーム
 
-Phaser 3 製のブラウザ向けサバイバルゲームです。ビルド工程はなく、静的ファイルをローカル HTTP サーバーで配信して遊びます。
+Phaser 3 製のブラウザ向け 2D サバイバルゲームです。ビルド工程はなく、`index.html`、`vendor/phaser.min.js`、`skillDefinitions.js`、`stageDefinitions.js`、`game.js` をローカル HTTP サーバーで配信して動かします。
 
-プレイヤーはスキル、サポート攻撃、随伴ロボットを強化しながら敵を倒し、XP と未確定 GEEK を集めます。3 分ごとに出現する Stage Gate では、Depth を上げて続行するか、未確定 GEEK を確定して帰還するかを選びます。
+プレイヤーはスキル、パッシブ、サポート攻撃、随伴ロボット、LOST ARMS を強化しながら敵を倒し、XP と未確定 GEEK を集めます。3 分ごとに出現する Stage Gate では、Depth を上げて続行するか、未確定 GEEK を確定して帰還するかを選びます。
 
 ## 起動方法
 
@@ -10,13 +10,30 @@ Phaser 3 製のブラウザ向けサバイバルゲームです。ビルド工�
 python -m http.server 4173 --bind 127.0.0.1
 ```
 
-起動後、ブラウザで `http://127.0.0.1:4173/` を開きます。LAN 上のスマートフォンで確認する場合は、PC とスマートフォンを同じネットワークに接続し、PC の LAN IP で HTTP サーバーへアクセスします。
+起動後、ブラウザで以下を開きます。
+
+```text
+http://127.0.0.1:4173/
+```
+
+このリポジトリはビルドなしの静的構成です。`file://` 直開きは画像、音声、Phaser の読み込みで不安定になる可能性があるため、ローカル HTTP サーバー経由で確認してください。
+
+LAN 上のスマートフォンで確認する場合は、PC とスマートフォンを同じネットワークに接続し、PC の LAN IP に対して HTTP サーバーへアクセスします。
+
+## 操作方法
+
+- 移動: `WASD` / 矢印キー / 左仮想スティック
+- DASH: `Shift` / `Space` / 右 DASH ボタン
+- レベルアップ選択: クリック / タップ / `1` `2` `3`、Opening Boost +1 使用時のみ `4`
+- Gate 選択: クリック / タップ / `1` `2`
+- ランキング入力: 名前入力後 `Enter`
+- ゲームオーバー後: `R` または `Enter` でショップへ戻る
 
 ## スマートフォン対応
 
 スマートフォンで接続すると、開始前に横向きフルスクリーン開始ゲートが表示されます。対応ブラウザではフルスクリーン化と画面向きロックをリクエストし、未対応環境では通常表示で開始できます。
 
-モバイル操作は左側の仮想スティックと右側の DASH ボタンです。ショップ、開始前強化、ゲート選択、ランキング入力もタップ操作に対応しています。
+モバイル操作は左側の仮想スティックと右側の DASH ボタンです。ショップ、開始前強化、Gate 選択、ランキング入力もタップ操作に対応しています。
 
 クエリパラメータ:
 
@@ -25,24 +42,16 @@ python -m http.server 4173 --bind 127.0.0.1
 - `?mobileControls=1`: PC ブラウザでもモバイル操作 UI を表示します。
 - `?mobileControls=0`: モバイル操作 UI を無効化します。
 
-## 操作方法
-
-- 移動: `WASD` / 矢印キー / 左仮想スティック
-- DASH: `Shift` / `Space` / 右 DASH ボタン
-- 選択: クリック / タップ / 数字キー
-- ゲート選択: `1` / `2`
-- ランキング入力: 名前入力後 `Enter`
-- ゲームオーバー後: `R` または `Enter` でショップへ戻る
-
 ## ゲーム進行
 
 1. Opening Shop で CD、BGM、永続強化を購入または選択します。
-2. `GAME START` で出撃し、Opening Boost として開始前に 3 回ぶんの強化を選択します。
-3. 敵を倒して XP、未確定 GEEK、Support、Robot アイテムを集めます。
+2. `GAME START` で出撃し、Opening Boost として開始前に 3 回ぶんの強化を選択します。ANJU MEMORY の +1 チケットを持っている場合、最初の Opening Boost だけ 4 択になります。
+3. 敵を倒して XP、未確定 GEEK、Support、Robot、LOST ARMS アイテムを集めます。
 4. レベルアップ時はスキル解放、スキル強化、パッシブ強化から 3 択で 1 つ選びます。
 5. 各 Depth の開始から 180 秒で Stage Gate が開きます。
 6. Stage Gate では次の Depth へ進むか、未確定 GEEK を確定してショップへ帰還します。
-7. 帰還、ゲームオーバー、ゲート崩壊後はローディング表示を挟んで Opening Shop に戻ります。
+7. `NEXT STAGE` / `FORCE BREAKTHROUGH` で次 Depth へ進むと、地面に残った一部報酬が DATA CACHE に圧縮されます。
+8. 帰還、ゲームオーバー、Gate 崩壊後はローディング表示を挟んで Opening Shop に戻ります。
 
 ## GEEK 仕様
 
@@ -50,18 +59,14 @@ python -m http.server 4173 --bind 127.0.0.1
 
 - 確定 GEEK: ショップで使用できる所持通貨です。
 - 未確定 GEEK: ラン中に獲得し、帰還するまで確定しない通貨です。
-- HUD には未確定 GEEK、GEEK 係数、Depth、ゲート残り時間が表示されます。
-- 通常帰還では未確定 GEEK の 100% が確定 GEEK になります。
-- 通常ゲームオーバー、Depth 5 までのゲート崩壊では未確定 GEEK を失います。
-- Depth 6 以降の不安定ゲートでは、緊急脱出時に未確定 GEEK の一部だけを確定できます。
+- HUD には未確定 GEEK、GEEK 係数、Depth、Gate 残り時間が表示されます。
+- 通常 `EXTRACT` では未確定 GEEK の 100% が確定 GEEK になります。
+- 通常ゲームオーバー、Depth 5 までの Gate 崩壊では未確定 GEEK を失います。
+- Depth 6 以降の不安定 Gate では、緊急脱出時に未確定 GEEK の一部だけを確定できます。
 
 互換性維持のため、確定 GEEK の localStorage キー名は `lastmemoVansabaCoins` のままです。
 
-## GEEK 獲得アイテム
-
-Bronze / Silver / Gold が、未確定 GEEK を獲得できる専用アイテムです。旧仕様の単独通貨アイテム、単独 GEEK オーブ、GEEK だけを直接付与するピックアップは使っていません。
-
-Bronze / Silver / Gold は XP と未確定 GEEK を同時に付与します。獲得 GEEK 量は Depth とゲート不安定度で増加します。
+## アイテムと報酬
 
 通常アイテム:
 
@@ -69,35 +74,140 @@ Bronze / Silver / Gold は XP と未確定 GEEK を同時に付与します。�
 - Bronze: 10 XP / 基礎 100 GEEK を獲得します。
 - Silver: 20 XP / 基礎 1,000 GEEK を獲得します。
 - Gold: 38 XP / 基礎 3,000 GEEK を獲得します。
+- DATA CACHE: Depth 遷移時に残った XP / 未確定 GEEK 報酬を圧縮した箱です。
 - Heal: HP を回復します。
-- Magnet: XP オーブ、Bronze / Silver / Gold、Robot アイテムを引き寄せます。
+- Magnet: XP オーブ、Bronze / Silver / Gold、DATA CACHE、Robot、LOST ARMS を引き寄せます。
 - Support: サポート攻撃を発動します。
 - Robot: 随伴ロボットの本体レベルやチューニングを強化します。
+- LOST ARMS コア: レア武器のラン内仮強化です。
+
+Bronze / Silver / Gold の獲得 GEEK 量は Depth と Gate 不安定度で増加します。旧仕様の単独 GEEK オーブや、GEEK だけを直接付与する通常ピックアップは使っていません。
 
 Gold Slime は Gold と Golden Tune Vase、Silver Slime は Silver と Silver Tune Vase を確定ドロップします。
 
+## DATA CACHE とドロップ整理
+
+ラン中のドロップが増えすぎないように、ドロップ上限と報酬圧縮があります。
+
+アクティブドロップ上限:
+
+- 全体: 260
+- XP: 170
+- Bronze / Silver / Gold: 90
+- Robot: 28
+- Support: 16
+- Heal: 4
+- Magnet: 3
+- DATA CACHE: 3
+
+上限を超えた場合、同カテゴリの報酬は可能な範囲で近いドロップへ統合され、優先度と報酬価値が低いものから整理されます。整理チェックはドロップ生成時と 1 秒ごとの安全クリーンアップで走ります。
+
+Depth 遷移時には、地面に残っている XP / Bronze / Silver / Gold / DATA CACHE の報酬量を集計し、XP と未確定 GEEK の 25% を DATA CACHE として再配置します。報酬量や元ドロップ数に応じて 1 から 3 個に分割されます。
+
+## XP、レベルアップ、Overflow 報酬
+
+XP を獲得してレベルアップすると、3 択カード UI が表示されます。
+
+- スキル候補は最大 2 枠です。
+- 残り枠はパッシブ候補です。
+- 未所持スキルは `NEW SKILL`、所持済みスキルは `SKILL UPGRADE` として表示されます。
+- 上限到達済み、または選んでも効果が出ない候補は表示されません。
+- パッシブはラン内 Lv.10 が上限です。
+
+すべてのスキル候補とパッシブ候補が上限に達した後の XP は `OVERDRIVE` に変換されます。
+
+OVERDRIVE:
+
+- 100% で発動します。
+- 1 XP が 1% ゲージになります。
+- Overflow XP の 12% 相当を基礎値として、Depth / 不安定度補正つきの未確定 GEEK も得ます。
+- 発動時間は 30 秒、延長込み最大 60 秒です。
+- 発動中はダメージ x1.15、移動速度 x1.12、攻撃間隔 x0.88 になります。
+- HUD 中央に `OD` ゲージと残り秒数が表示されます。
+
+## STABILIZE
+
+Robot 報酬や Support 報酬が上限または無効で通常効果を出せない場合、`STABILIZE` と未確定 GEEK に変換されます。
+
+変換量:
+
+- Robot Core 上限: STABILIZE +28%、基礎 120 GEEK
+- Silver Tune Vase 上限: STABILIZE +18%、基礎 80 GEEK
+- Golden Tune Vase 上限: STABILIZE +42%、基礎 220 GEEK
+- Support 無効時: STABILIZE +22%、基礎 100 GEEK
+
+STABILIZE は 100% で 1 チャージになり、最大 3 チャージまで保持します。次に Stage Gate が出現したとき、保持チャージをすべて消費し、1 チャージあたり Gate 安定時間を 5 秒延長します。チャージ上限を超える分は未確定 GEEK に変換されます。
+
+HUD 中央に `ST` ゲージとチャージ数が表示されます。抽出、ゲームオーバー、ショップ復帰時には OVERDRIVE / STABILIZE とラン内パッシブ Lv はリセットされます。
+
 ## Depth と Stage Gate
 
-Depth は 1 から開始します。各 Depth の開始から 180 秒で Stage Gate が開き、出現 30 秒前から警告が始まります。ゲートは出現後 30 秒間安定し、時間切れになると崩壊または不安定化します。
+Depth は 1 から開始します。各 Depth の開始から 180 秒で Stage Gate が開き、出現 30 秒前から警告が始まります。Gate は通常 30 秒間安定し、STABILIZE チャージを持っている場合は出現時に安定時間が延長されます。
 
-ゲート接近演出:
+Gate 接近演出:
 
 - 30 秒前からワールド中央に `GATE SIGNAL` とカウントダウンリングが表示されます。
 - 残り 10 秒から `GATE IMMINENT` になり、HUD のエッジ警告とテンションバーが強まります。
-- ゲート出現中は `GATE ONLINE` / `GATE COLLAPSING` / `UNSTABLE GATE` の表示、円形タイマー、粒子、パルスで残り時間と危険度を示します。
-- 不安定化時は画面フラッシュ、ピンク系のゲート色、`INSTABILITY STACK` 表示で状態変化を示します。
+- Gate 出現中は `GATE ONLINE` / `GATE COLLAPSING` / `UNSTABLE GATE` の表示、円形タイマー、粒子、パルスで残り時間と危険度を示します。
+- 不安定化時は画面フラッシュ、ピンク系の Gate 色、`INSTABILITY STACK` 表示で状態変化を示します。
 
-通常ゲート選択:
+通常 Gate 選択:
 
 - `NEXT STAGE`: 次の Depth に進み、敵強化と GEEK 係数上昇を受けます。
 - `EXTRACT`: 未確定 GEEK を 100% 確定してランを終了します。
 
-不安定ゲート選択:
+不安定 Gate 選択:
 
 - `FORCE BREAKTHROUGH`: 不安定度を保持したまま次の Depth へ進みます。
 - `EMERGENCY EXTRACT`: 不安定度に応じた割合だけ未確定 GEEK を確定し、残りを失います。
 
-Depth 5 までにゲートを放置すると崩壊してゲームオーバーになります。Depth 6 以降では崩壊の代わりに不安定度が蓄積し、敵 HP、敵攻撃力、GEEK 係数、緊急脱出率に影響します。
+Depth 5 までに Gate を放置すると崩壊してゲームオーバーになります。Depth 6 以降では崩壊の代わりに不安定度が蓄積し、敵 HP、敵攻撃力、GEEK 係数、緊急脱出率に影響します。
+
+## ANOMALY CONTRACT
+
+Depth 6 以降へ `NEXT STAGE` または `FORCE BREAKTHROUGH` で進むと、次 Depth だけ有効な `ANOMALY CONTRACT` を 3 択から選びます。契約には `DANGER` と `REWARD` があり、契約状態はラン内だけの一時状態です。ショップ永続強化、確定 GEEK、localStorage には保存されません。
+
+契約一覧:
+
+- `GREED PROTOCOL`: 敵 HP +18%、敵攻撃力 +8% / GEEK 係数 +0.35
+- `LOST SIGNAL`: 敵 HP +8%、ボス HP +30% / LOST ARMS 抽選率 +2.5%、pity 上昇量 +25%
+- `STABILIZE ANCHOR`: 敵 HP +12% / STABILIZE 獲得量 +35%、Gate 安定時間 +5 秒、EMERGENCY EXTRACT 保護率 +10%
+- `OVERDRIVE CIRCUIT`: 敵移動速度 +8%、敵攻撃力 +6% / OVERDRIVE 獲得量 +40%、発動時間 +5 秒
+- `CACHE BLOOM`: 敵 HP +10%、敵攻撃力 +6% / DATA CACHE 圧縮率 +10%、DATA CACHE 内の未確定 GEEK +15%
+- `GOLD STORM`: 敵 HP +15%、ボス攻撃力 +10% / Gold Slime・Silver Slime 抽選重み x1.25、Bronze / Silver / Gold の未確定 GEEK +20%
+
+## ANJU MEMORY
+
+`ANJU MEMORY` は Depth 6 以降の生還でだけ獲得できるメタ報酬通貨です。確定 GEEK、未確定 GEEK、CD/永続強化のショップ状態とは別に保存され、`lastmemoVansabaCoins` や `lastmemoVansabaShopState` には混ざりません。
+
+獲得条件:
+
+- ラン中に到達した最大 Depth が 6 以上のときだけ候補になります。
+- 通常 `EXTRACT` または `EMERGENCY EXTRACT` が成功した瞬間に保存されます。
+- ゲームオーバー、Depth 5 までの Gate 崩壊、リスタート、ショップ復帰、デバッグ終了では保存されません。
+- Depth 6 に初到達したランでは `ANJU MEMORY UNLOCKED` が表示されますが、抽出するまで保存されません。
+
+報酬計算:
+
+- Depth 繰り返し報酬は `maxDepthReached - 5` の三角数です。例: D6=1、D7=3、D8=6、D9=10、D10=15、D12=28。
+- 初到達マイルストーンは D6:+3、D8:+5、D10:+8、D12:+12、D15:+20 です。
+- 不安定度 1 スタックごとに +8%、最大 +40% のボーナスが乗ります。
+- 通常抽出は `floor(raw * 1.0)`、Depth 6 以上なら最低 1 AM です。
+- 緊急抽出は `floor(raw * 0.35)` で、raw が 1 以上なら最低 1 AM です。
+- マイルストーンは保存された報酬が 1 AM 以上のときだけ達成済みにします。緊急抽出でも 1 AM 以上を獲得した場合は、そのランで到達した未達マイルストーンを消費します。
+
+Opening Shop の `ANJU MEMORY` タブでは、AM 残高、累計獲得、最高抽出 Depth、チケット所持数を確認できます。HUD では Depth 6 以降に `ANJU MEMORY +n? / Extract to preserve` として未確定の見込み値を表示します。
+
+ANJU MEMORY ショップ報酬:
+
+- Deep CD: `ANJU ECHO` は Depth6+ の STABILIZE 獲得量 +5%、`VOID SIGNAL` は Depth6+ の LOST ARMS 抽選率 +0.005、`GATE REFRAIN` は Depth6+ の Gate 安定時間 +2 秒です。購入後は選択不要で常時有効ですが、効果は Depth6+ のみです。
+- HUD / Gate / LOST ARMS スキン: 購入して選択します。見た目だけを変え、性能には影響しません。
+- Opening Boost +1 Ticket: 次ラン開始時、最初の Opening Boost だけ候補数を +1 し、表示直前に 1 枚消費します。
+- Opening Boost Reroll Ticket: Opening Boost 画面に `REROLL` を表示し、1 ラン 1 回だけ候補を引き直します。押した時点で 1 枚消費します。
+- Title / Badge: 購入して選択すると HUD やランキング表示に反映されます。
+- Memory Log: 購入後、ANJU MEMORY ショップ内で本文を読めます。
+- Result Frame: Depth6+抽出で AM を獲得した結果画面のフレームを変えます。
+- Contract Card Back: ANOMALY CONTRACT のカード背面を変えます。
 
 ## 戦闘仕様
 
@@ -138,6 +248,28 @@ Depth 5 までにゲートを放置すると崩壊してゲームオーバーに
 - Stamina Core: 最大スタミナとスタミナ回復余地を増やします。
 - Vital Bloom: 最大 HP と現在 HP を増やします。
 
+## LOST ARMS / ロストアームズ
+
+左上 HUD の既存スキル 3 枠の右側 2 枠は、レア武器 `LOST ARMS` 専用枠です。通常のレベルアップ 3 択には出ません。
+
+- `ABYSS RAIL` / アビスレール: 高 HP 敵、ボス、エリートを狙う貫通レーザーです。
+- `GRAVITY SEED` / グラビティシード: 敵密集地点に重力核を置き、鈍足、吸引、継続ダメージ、崩壊爆発で範囲制圧します。
+
+共通仕様:
+
+- 各武器の最大 Lv は 8、初期 Lv は 0 です。
+- Lv.1 以上はラン開始時から自動発動します。
+- 1 ランで拾える LOST ARMS 強化は最大 2 個までです。
+- MVP では同じ武器の仮強化は 1 ラン中に最大 +1 までです。
+- `NEXT STAGE` では仮強化を持ったまま次 Depth へ進みます。
+- 通常 `EXTRACT` では仮強化を永続 Lv に保存します。
+- ゲームオーバー、Gate 崩壊、`EMERGENCY EXTRACT` では、そのラン中の仮強化は失われます。
+- 両方 Lv.8、またはそのランで候補がない場合の抽選成功は Gold 相当の代替報酬に変換されます。
+
+LOST ARMS コアは通常敵からは出ず、ボス、エリート、Gold Slime、Silver Slime の追加抽選でのみ出現します。ドロップ率は Depth と対象種別で変わり、対象抽選に失敗するたびに pity が最大 0.10 まで増えます。成功時は pity が 0 に戻ります。
+
+検証用に `?debugLostArms=1` を付けると、対象敵の LOST ARMS 抽選が成功扱いになり、console に抽選ログが出ます。
+
 ## サポート
 
 Support アイテムを拾うとサポート攻撃が発動します。直前と同じ通常サポートは避けて抽選され、元素騎士は専用イベントとして低確率で発動します。
@@ -158,7 +290,7 @@ Support アイテムを拾うとサポート攻撃が発動します。直前と
 - ひろまろ、アラモード、オマル、くろかげがそれぞれ攻撃、掃討、防御役として動きます。
 - イベント中の報酬でも Bronze / Silver / Gold が出現し、Depth と不安定度の GEEK 補正を受けます。
 
-いしでんのタイミング報酬でも Bronze / Silver / Gold が出現します。
+いしでんのタイミング報酬でも Bronze / Silver / Gold が出現します。元素騎士イベント中など Support が通常発動できない状態で Support アイテムを拾った場合は、STABILIZE と未確定 GEEK に変換されます。
 
 ## ロボット
 
@@ -169,17 +301,19 @@ Support アイテムを拾うとサポート攻撃が発動します。直前と
 - Golden Tune Vase: ミサイル系チューニングを 2 択で選びます。
 - Silver Tune Vase: フィールド系チューニングを 2 択で選びます。
 
-ミサイルと回復フィールドの本体レベルは最大 Lv.10 です。チューニングは Rapid Launcher、Warhead Boost、Field Cycle、Care Output があり、それぞれ最大 Lv.20 です。ミサイル命中、撃破、回復パルスでもロボット経験値が入り、ボス撃破時には Robot アイテムの追加ドロップ抽選があります。
+ミサイルと回復フィールドの本体レベルは最大 Lv.10 です。チューニングは Rapid Launcher、Warhead Boost、Field Cycle、Care Output があり、それぞれ最大 Lv.20 です。
+
+ミサイル命中、撃破、回復パルスでもロボット経験値が入り、ボス撃破時には Robot アイテムの追加ドロップ抽選があります。すでに上限に達した Robot 報酬を拾った場合は、STABILIZE と未確定 GEEK に変換されます。
 
 ## ショップ
 
-Opening Shop では確定 GEEK を使用します。CD は BGM 選択と永続ボーナスを兼ねており、購入済み CD の永続効果は選択中 BGM に関係なく常時発動します。
+Opening Shop では `GEEK SHOP` と `ANJU MEMORY` をタブで切り替えます。GEEK SHOP では確定 GEEK を使用します。CD は BGM 選択と永続ボーナスを兼ねており、購入済み CD の永続効果は選択中 BGM に関係なく常時発動します。
 
 CD:
 
 - Anju: 初期所持
 - なんでやねんねん: 100,000 GEEK / 攻撃力 +10%、弾速 +6%
-- 反省会: 100,000 GEEK / 最大 HP +25、最大スタミナ +20
+- 反省会: 100,000 GEEK / 最大 HP +25、最大スタミナ +20 / `./音声/bgm/hanseikai_ver2.wav`
 - 未来を生きてる: 100,000 GEEK / 移動速度 +20、連射 +5%
 - コトコト: 100,000 GEEK / 攻撃力 +6%、最大スタミナ +15
 - いっちゃいな: 100,000 GEEK / 弾速 +8%、移動速度 +12
@@ -195,6 +329,19 @@ CD:
 ## ステージ
 
 通常プレイでは `stageDefinitions.js` の `tokyoRandomStages` から 10 種類の東京ステージがランダム選択されます。指定ステージが見つからない場合はランダム東京ステージへフォールバックし、ランダム定義がない場合は `shibuyaStage1` を使用します。
+
+東京ランダムステージ:
+
+- Tokyo 01: Scramble Crossing
+- Tokyo 02: Skyscraper Plaza
+- Tokyo 03: Electric Town
+- Tokyo 04: Luxury Avenue
+- Tokyo 05: Waterfront Plaza
+- Tokyo 06: Underpass Infrastructure
+- Tokyo 07: Station Rotary
+- Tokyo 08: Residential Arterial
+- Tokyo 09: Civic Plaza
+- Tokyo 10: Urban Shrine Approach
 
 ステージ関連のクエリパラメータ:
 
@@ -226,7 +373,7 @@ CD:
 
 Firebase SDK は `12.13.0` を dynamic import し、匿名認証で Firestore を使用します。Firebase 設定は `game.js` 内の `FIREBASE_CONFIG` にあります。Firestore ルールは `firestore.rules` を参照してください。
 
-ランキングはキル数、生存時間、レベル、エリート撃破数の順で並び、最大 10 件を表示します。オンライン取得に失敗した場合はローカルランキング表示に戻ります。
+ランキングはキル数、生存時間、レベル、エリート撃破数の順で並び、最大 10 件を表示します。表示上は到達 Depth、抽出で得た ANJU MEMORY、選択中バッジも併記します。オンライン取得に失敗した場合はローカルランキング表示に戻ります。
 
 ## 保存データ
 
@@ -236,6 +383,8 @@ localStorage キー:
 - `lastmemoVansabaKillRanking`: ローカルキルランキング
 - `lastmemoVansabaCoins`: 確定 GEEK
 - `lastmemoVansabaShopState`: CD 所持、選択 BGM、永続強化状態
+- `lastmemoVansabaLostArmsState`: LOST ARMS 永続 Lv と pity
+- `lastmemoVansabaAnjuMemoryState`: ANJU MEMORY 残高、購入済み報酬、選択中スキン/称号/バッジ、チケット、到達済みマイルストーン
 - `collisionEditor:<stageId>`: 衝突判定編集モードの一時保存データ
 
 sessionStorage キー:
@@ -248,11 +397,12 @@ sessionStorage キー:
 
 - `index.html`: DOM 構造、スマートフォン開始ゲート、ショップローディング画面、スクリプト読み込み
 - `style.css`: ページ枠、モバイル表示、スマートフォン開始ゲート、ショップローディング画面
-- `game.js`: ゲーム本体、ショップ、ゲート、戦闘、ロボット、サポート、Firebase 連携
+- `game.js`: ゲーム本体、ショップ、Gate、戦闘、ロボット、サポート、LOST ARMS、Firebase 連携
 - `skillDefinitions.js`: スキル定義
 - `stageDefinitions.js`: ステージ定義、東京ランダムステージ、衝突判定定義
 - `vendor/phaser.min.js`: Phaser 3 本体
 - `firestore.rules`: Firestore セキュリティルール
+- `AGENTS.md`: Codex 作業時のリポジトリ内開発指示
 - `画像/`: キャラクター、敵、スキル、ステージ、CD ジャケットなどの画像素材
 - `音声/`: BGM、サポート音声、SE などの音声素材
 
@@ -272,4 +422,13 @@ node --check stageDefinitions.js
 python -m http.server 4173 --bind 127.0.0.1
 ```
 
-このリポジトリはビルドなしの静的構成です。ゲーム確認時は `file://` ではなくローカル HTTP サーバー経由で開いてください。
+代表的な確認 URL:
+
+```text
+http://127.0.0.1:4173/?mobileGate=0&mobileControls=0
+http://127.0.0.1:4173/?debugLostArms=1
+http://127.0.0.1:4173/?debugAnjuMemory=1
+http://127.0.0.1:4173/?debug=stage
+```
+
+このプロジェクトには npm、bundler、TypeScript はありません。新規アセットを必須にする変更は避け、画像がない場合でも Phaser Graphics などでフォールバックできる実装を優先します。
