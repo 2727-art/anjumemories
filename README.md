@@ -136,7 +136,17 @@ Robot 報酬や Support 報酬が上限または無効で通常効果を出せ�
 - Golden Tune Vase 上限: STABILIZE +42%、基礎 220 GEEK
 - Support 無効時: STABILIZE +22%、基礎 100 GEEK
 
-STABILIZE は 100% で 1 チャージになり、最大 3 チャージまで保持します。次に Stage Gate が出現したとき、保持チャージをすべて消費し、1 チャージあたり Gate 安定時間を 5 秒延長します。チャージ上限を超える分は未確定 GEEK に変換されます。
+STABILIZE は 100% で 1 チャージになり、最大 3 チャージまで保持します。チャージ上限を超える分は未確定 GEEK に変換されます。Depth 1〜5 では従来どおり、次に Stage Gate が出現したとき保持チャージをすべて自動消費し、1 チャージあたり Gate 安定時間を 5 秒延長します。
+
+Depth 6 以降では Stage Gate 出現時に STABILIZE チャージを自動消費せず、Gate 上で `STABILIZE PROTOCOL` として使い道を選べます。Gate 選択中に `3`、または `STABILIZE PROTOCOL` パネルを押すと Protocol メニューを開きます。1 つの Gate で使える Protocol action は 1 回だけです。
+
+STABILIZE PROTOCOL:
+
+- `EXTEND GATE`: 全チャージ消費、1 チャージあたり Gate 安定時間 +5 秒、最大 +15 秒。
+- `SEAL INSTABILITY`: 2 チャージ消費、不安定度 -1。現在の不安定度が 0 の場合は使えません。
+- `SECURE CACHE`: 1 チャージ消費、次 Depth 開始時の DATA CACHE 報酬に 60 + Depth x10 XP と Depth / 不安定度補正つきの基礎 500 GEEK を追加または統合します。次 Depth へ進まない場合、この予約報酬は破棄されます。
+- `ANCHOR EXTRACT`: 3 チャージ消費、次の `EMERGENCY EXTRACT` の未確定 GEEK 保護率 +25%。保護率は既存の不安定度・契約補正を下げない範囲で最大 85% 目安に制限され、ANJU MEMORY の保存率には影響しません。
+- `HOLD CHARGES`: 消費せずに Protocol メニューを閉じ、チャージを温存します。
 
 HUD 中央に `ST` ゲージとチャージ数が表示されます。抽出、ゲームオーバー、ショップ復帰時には OVERDRIVE / STABILIZE とラン内パッシブ Lv はリセットされます。
 

@@ -865,6 +865,42 @@ const OVERFLOW_REWARD_CONFIG = {
     stabilizeOverflowBase: 150
   }
 };
+const STABILIZE_PROTOCOL_DEBUG_QUERY_PARAM = "debugStabilizeProtocol";
+const STABILIZE_PROTOCOL_CONFIG = {
+  unlockDepth: 6,
+  debugUnlockDepth: 1,
+  actionsPerGate: 1,
+  extendGate: {
+    id: "extendGate",
+    title: "EXTEND GATE",
+    costMode: "all",
+    secondsPerCharge: 5,
+    maxSeconds: 15
+  },
+  sealInstability: {
+    id: "sealInstability",
+    title: "SEAL INSTABILITY",
+    cost: 2,
+    stacksReduced: 1
+  },
+  secureCache: {
+    id: "secureCache",
+    title: "SECURE CACHE",
+    cost: 1,
+    cacheCount: 1,
+    baseXp: 60,
+    xpPerDepth: 10,
+    baseGeek: 500,
+    maxDataCacheCount: 3
+  },
+  anchorExtract: {
+    id: "anchorExtract",
+    title: "ANCHOR EXTRACT",
+    cost: 3,
+    emergencyProtectionAdd: 0.25,
+    maxEmergencyProtection: 0.85
+  }
+};
 const LEVEL_UP_SKILL_UI_META = {
   basicSkill: {
     displayName: "Orbit Core",
@@ -2622,6 +2658,8 @@ class SurvivalScene extends Phaser.Scene {
     this.createOverlay();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.resetAnomalyContractState("sceneShutdown"));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetAnomalyContractState("sceneDestroy"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.resetStabilizeProtocolState("sceneShutdown"));
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetStabilizeProtocolState("sceneDestroy"));
     this.setupMobileControls();
     this.configureCameras();
     this.createColliders();
@@ -3008,6 +3046,12 @@ class SurvivalScene extends Phaser.Scene {
     this.initializeAnjuMemoryRunState();
     this.initializeAnomalyContractState();
     this.initializeOverflowRewardState();
+    this.initializeStabilizeProtocolState();
+    if (this.isStabilizeProtocolDebugEnabled()) {
+      this.overflowRewardState.stabilizeCharges = OVERFLOW_REWARD_CONFIG.stabilize.maxCharges;
+      this.overflowRewardState.stabilizeGauge = 0;
+      this.stageDepthElapsedMs = Math.max(0, GATE_INTERVAL_MS - 2500);
+    }
     this.lostArmsState = this.createLostArmsRunState();
     this.abyssRailState = this.createAbyssRailRuntimeState();
     this.gravitySeedState = this.createGravitySeedRuntimeState();
@@ -6003,6 +6047,245 @@ class SurvivalScene extends Phaser.Scene {
     this.updateOverflowHud?.();
   }
 
+  initializeStabilizeProtocolState() {
+    this.stabilizeProtocolState = {
+      gateId: null,
+      actionUsedThisGate: false,
+      pendingSecureCache: null,
+      emergencyProtectionBonus: 0,
+      lastActionId: null,
+      overlayOpen: false,
+      overlayLocked: false
+    };
+    this.stabilizeProtocolKeyHandler = null;
+    this.stabilizeProtocolActionRecords = [];
+  }
+
+  resetStabilizeProtocolState(reason = "reset") {
+    this.teardownStabilizeProtocolOverlay?.();
+    this.initializeStabilizeProtocolState();
+    this.updateDepthHud?.();
+    if (this.isStabilizeProtocolDebugEnabled?.()) {
+      console.log("[STABILIZE PROTOCOL] reset", { reason });
+    }
+  }
+
+  isStabilizeProtocolDebugEnabled() {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get(STABILIZE_PROTOCOL_DEBUG_QUERY_PARAM) === "1";
+    } catch (error) {
+      return false;
+    }
+  }
+
+  getStabilizeProtocolUnlockDepth() {
+    return this.isStabilizeProtocolDebugEnabled()
+      ? STABILIZE_PROTOCOL_CONFIG.debugUnlockDepth
+      : STABILIZE_PROTOCOL_CONFIG.unlockDepth;
+  }
+
+  getStabilizeCharges() {
+    const state = this.ensureOverflowRewardState();
+    return Phaser.Math.Clamp(
+      Math.floor(Number(state.stabilizeCharges) || 0),
+      0,
+      OVERFLOW_REWARD_CONFIG.stabilize.maxCharges
+    );
+  }
+
+  shouldAutoConsumeStabilizeChargesForGate() {
+    return Math.max(1, Math.floor(Number(this.stageDepth) || 1)) < this.getStabilizeProtocolUnlockDepth();
+  }
+
+  shouldEnableStabilizeProtocol() {
+    if (this.gameOver || this.extractionComplete || this.levelUpActive || this.shopActive) {
+      return false;
+    }
+    if (!this.stageGate?.container?.active || !this.gateState || this.gateState.status === "closed") {
+      return false;
+    }
+    if (Math.max(1, Math.floor(Number(this.stageDepth) || 1)) < this.getStabilizeProtocolUnlockDepth()) {
+      return false;
+    }
+    return this.getStabilizeCharges() > 0;
+  }
+
+  getStabilizeProtocolGateId() {
+    if (!this.gateState?.protocolGateId) {
+      const depth = Math.max(1, Math.floor(Number(this.stageDepth) || 1));
+      this.gateState.protocolGateId = `depth-${depth}-${Math.floor(this.time?.now || Date.now())}`;
+    }
+    return this.gateState.protocolGateId;
+  }
+
+  ensureStabilizeProtocolGateState() {
+    if (!this.stabilizeProtocolState) {
+      this.initializeStabilizeProtocolState();
+    }
+    const gateId = this.getStabilizeProtocolGateId();
+    if (this.stabilizeProtocolState.gateId !== gateId) {
+      this.stabilizeProtocolState.gateId = gateId;
+      this.stabilizeProtocolState.actionUsedThisGate = false;
+      this.stabilizeProtocolState.pendingSecureCache = null;
+      this.stabilizeProtocolState.lastActionId = null;
+      this.stabilizeProtocolState.overlayOpen = false;
+      this.stabilizeProtocolState.overlayLocked = false;
+    }
+    return this.stabilizeProtocolState;
+  }
+
+  clearGateStabilizeProtocolState(reason = "gateClear", options = {}) {
+    if (!this.stabilizeProtocolState) {
+      this.initializeStabilizeProtocolState();
+      return;
+    }
+    this.teardownStabilizeProtocolOverlay();
+    this.stabilizeProtocolState.gateId = null;
+    this.stabilizeProtocolState.actionUsedThisGate = false;
+    this.stabilizeProtocolState.pendingSecureCache = null;
+    this.stabilizeProtocolState.lastActionId = null;
+    this.stabilizeProtocolState.overlayOpen = false;
+    this.stabilizeProtocolState.overlayLocked = false;
+    if (!options.preserveAnchor) {
+      this.stabilizeProtocolState.emergencyProtectionBonus = 0;
+    }
+    if (this.isStabilizeProtocolDebugEnabled()) {
+      console.log("[STABILIZE PROTOCOL] gate clear", { reason, preserveAnchor: Boolean(options.preserveAnchor) });
+    }
+  }
+
+  spendStabilizeCharges(amount, reason = "protocol") {
+    const chargeCost = Math.max(0, Math.floor(Number(amount) || 0));
+    const state = this.ensureOverflowRewardState();
+    const currentCharges = this.getStabilizeCharges();
+    if (chargeCost <= 0 || currentCharges < chargeCost) {
+      return false;
+    }
+
+    state.stabilizeCharges = Math.max(0, currentCharges - chargeCost);
+    this.updateOverflowHud();
+    if (this.isStabilizeProtocolDebugEnabled()) {
+      console.log("[STABILIZE PROTOCOL] spend", { reason, chargeCost, remaining: state.stabilizeCharges });
+    }
+    return true;
+  }
+
+  addGateStableTime(seconds, reason = "protocol") {
+    const addMs = Math.max(0, Math.floor(Number(seconds) || 0) * 1000);
+    if (addMs <= 0 || !this.gateState || this.gateState.status === "closed") {
+      return 0;
+    }
+
+    this.gateState.stableDurationMs = this.getCurrentGateStableDurationMs() + addMs;
+    this.gateState.stabilizeBonusMs = Math.max(0, Math.floor(Number(this.gateState.stabilizeBonusMs) || 0)) + addMs;
+    this.drawStageGateGraphics();
+    this.updateGateVisuals(0);
+    this.updateDepthHud();
+    if (this.isStabilizeProtocolDebugEnabled()) {
+      console.log("[STABILIZE PROTOCOL] gate extended", { reason, seconds, stableDurationMs: this.gateState.stableDurationMs });
+    }
+    return Math.round(addMs / 1000);
+  }
+
+  reduceGateInstability(amount, reason = "protocol") {
+    const reduction = Math.max(0, Math.floor(Number(amount) || 0));
+    if (reduction <= 0) {
+      return 0;
+    }
+
+    const before = Math.max(0, Math.floor(Number(this.gateInstabilityStacks) || 0));
+    const after = Math.max(0, before - reduction);
+    this.gateInstabilityStacks = after;
+    if (after <= 0 && this.gateState?.status === "unstable") {
+      this.gateState.status = "stable";
+    }
+    this.gateInstabilityFlashUntil = this.time.now + 850;
+    this.drawStageGateGraphics();
+    this.updateGateVisuals(0);
+    this.updateDepthHud();
+    if (this.isStabilizeProtocolDebugEnabled()) {
+      console.log("[STABILIZE PROTOCOL] instability reduced", { reason, before, after });
+    }
+    return before - after;
+  }
+
+  buildStabilizeSecureCachePayload() {
+    const config = STABILIZE_PROTOCOL_CONFIG.secureCache;
+    const depth = Math.max(1, Math.floor(Number(this.stageDepth) || 1));
+    const xp = Math.max(1, Math.floor(config.baseXp + depth * config.xpPerDepth));
+    const unsecuredGeek = this.normalizeCoinAmount(this.scaleRunCoinReward(config.baseGeek));
+    return {
+      xp,
+      unsecuredGeek,
+      rawXp: xp,
+      rawUnsecuredGeek: unsecuredGeek,
+      sourceCount: Math.max(1, Math.floor(Number(config.cacheCount) || 1)),
+      stabilizeProtocol: true
+    };
+  }
+
+  reserveSecureDataCacheFromStabilize() {
+    const state = this.ensureStabilizeProtocolGateState();
+    state.pendingSecureCache = this.buildStabilizeSecureCachePayload();
+    if (this.isStabilizeProtocolDebugEnabled()) {
+      console.log("[STABILIZE PROTOCOL] secure cache reserved", state.pendingSecureCache);
+    }
+    return state.pendingSecureCache;
+  }
+
+  consumePendingStabilizeSecureCachePayload() {
+    const state = this.stabilizeProtocolState;
+    const payload = state?.pendingSecureCache || null;
+    if (state) {
+      state.pendingSecureCache = null;
+    }
+    return payload;
+  }
+
+  applyAnchorExtractProtection(amount = STABILIZE_PROTOCOL_CONFIG.anchorExtract.emergencyProtectionAdd) {
+    if (!this.stabilizeProtocolState) {
+      this.initializeStabilizeProtocolState();
+    }
+    const bonus = Math.max(0, Number(amount) || 0);
+    this.stabilizeProtocolState.emergencyProtectionBonus = Math.max(
+      this.stabilizeProtocolState.emergencyProtectionBonus || 0,
+      bonus
+    );
+    this.updateDepthHud();
+    if (this.isStabilizeProtocolDebugEnabled()) {
+      console.log("[STABILIZE PROTOCOL] anchor extract ready", { bonus });
+    }
+    return this.stabilizeProtocolState.emergencyProtectionBonus;
+  }
+
+  getStabilizeProtocolEmergencyProtectionBonus() {
+    return Math.max(0, Number(this.stabilizeProtocolState?.emergencyProtectionBonus) || 0);
+  }
+
+  getStabilizeProtocolHudLine() {
+    const charges = this.getStabilizeCharges();
+    const anchorBonus = this.getStabilizeProtocolEmergencyProtectionBonus();
+    const enabledDepth = Math.max(1, Math.floor(Number(this.stageDepth) || 1)) >= this.getStabilizeProtocolUnlockDepth();
+    if (anchorBonus > 0) {
+      return `ANCHOR READY +${Math.round(anchorBonus * 100)}%`;
+    }
+    if (!enabledDepth || charges <= 0) {
+      return "";
+    }
+    if (this.gateState?.status && this.gateState.status !== "closed") {
+      const state = this.ensureStabilizeProtocolGateState();
+      return state.actionUsedThisGate
+        ? `STABILIZE USED: ${this.getStabilizeActionTitle(state.lastActionId)}`
+        : `STABILIZE x${charges} / 3 PROTOCOL`;
+    }
+    return `ST x${charges} / PROTOCOL READY`;
+  }
+
   getPassiveLevel(passiveId) {
     return Math.max(0, Math.floor(Number(this.passiveLevels?.[passiveId]) || 0));
   }
@@ -6162,6 +6445,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   consumeStabilizeChargesForGate() {
+    if (!this.shouldAutoConsumeStabilizeChargesForGate()) {
+      return 0;
+    }
+
     const state = this.ensureOverflowRewardState();
     const charges = Phaser.Math.Clamp(
       Math.floor(Number(state.stabilizeCharges) || 0),
@@ -10598,8 +10885,10 @@ class SurvivalScene extends Phaser.Scene {
       stableDurationMs,
       stabilizeBonusMs,
       anomalyStableBonusMs,
-      anjuStableBonusMs
+      anjuStableBonusMs,
+      protocolGateId: `depth-${Math.max(1, Math.floor(Number(this.stageDepth) || 1))}-${Math.floor(this.time?.now || Date.now())}`
     };
+    this.ensureStabilizeProtocolGateState();
     this.drawStageGateGraphics();
     this.tweens.add({
       targets: container,
@@ -10624,6 +10913,8 @@ class SurvivalScene extends Phaser.Scene {
     if (totalGateBonusMs > 0) {
       this.setLastPickupNotice(`GATE STABILIZED +${Math.round(totalGateBonusMs / 1000)}s`);
       this.showOverflowRewardText(`GATE +${Math.round(totalGateBonusMs / 1000)}s`, center.x, center.y - 132, "#b8fbff");
+    } else if (this.shouldEnableStabilizeProtocol()) {
+      this.setLastPickupNotice(`STABILIZE PROTOCOL READY x${this.getStabilizeCharges()}`);
     } else {
       this.setLastPickupNotice("GATE ONLINE");
     }
@@ -10774,6 +11065,7 @@ class SurvivalScene extends Phaser.Scene {
       };
       this.gateWarningFlashUntil = 0;
       this.gateInstabilityFlashUntil = 0;
+      this.clearGateStabilizeProtocolState("destroyStageGate");
     }
   }
 
@@ -10825,13 +11117,15 @@ class SurvivalScene extends Phaser.Scene {
     const activeContractLine = activeContract
       ? `\nACTIVE CONTRACT: ${activeContract.title}`
       : "";
+    const protocolLine = this.getStabilizeProtocolHudLine();
+    const protocolBodyLine = protocolLine ? `\n${protocolLine}` : "";
     const nextContractHint = this.shouldOfferAnomalyContract(nextDepth, unstable ? "force" : "next")
       ? " / Contract選択"
       : "";
     const title = unstable ? "UNSTABLE GATE" : "STAGE GATE";
     const body = unstable
-      ? `未確定GEEK ${this.runUnsecuredCoins.toLocaleString()} / 帰還確定率 ${Math.round(coinScaling.emergencyExtractRate * 100)}%${activeContractLine}`
-      : `未確定GEEK ${this.runUnsecuredCoins.toLocaleString()} / Depth ${this.stageDepth}${activeContractLine}`;
+      ? `未確定GEEK ${this.runUnsecuredCoins.toLocaleString()} / 帰還確定率 ${Math.round(coinScaling.emergencyExtractRate * 100)}%${activeContractLine}${protocolBodyLine}`
+      : `未確定GEEK ${this.runUnsecuredCoins.toLocaleString()} / Depth ${this.stageDepth}${activeContractLine}${protocolBodyLine}`;
     const options = unstable
       ? [
         {
@@ -10869,8 +11163,9 @@ class SurvivalScene extends Phaser.Scene {
           onSelect: () => this.chooseExtract()
         }
       ];
+    const protocolOption = this.buildGateStabilizeProtocolOption();
 
-    this.configureOverlayPanel(900, 500);
+    this.configureOverlayPanel(900, protocolOption ? 560 : 500);
     this.overlayPanel
       .setFillStyle(0x050b12, 0.94)
       .setStrokeStyle(2, unstable ? 0xff5bba : 0x6fcfff, unstable ? 0.52 : 0.42);
@@ -10897,9 +11192,13 @@ class SurvivalScene extends Phaser.Scene {
       .setPosition(0, -162)
       .setText(body);
 
-    this.createGateChoiceCard(-220, 34, 340, 250, options[0]);
-    this.createGateChoiceCard(220, 34, 340, 250, options[1]);
-    const hint = this.add.text(0, 210, "クリック / タップ / 1・2キーで選択", {
+    this.createGateChoiceCard(-220, protocolOption ? 18 : 34, 340, 250, options[0]);
+    this.createGateChoiceCard(220, protocolOption ? 18 : 34, 340, 250, options[1]);
+    if (protocolOption) {
+      options.push(protocolOption);
+      this.createGateStabilizeProtocolButton(0, 198, 760, 72, protocolOption);
+    }
+    const hint = this.add.text(0, protocolOption ? 258 : 210, protocolOption ? "クリック / タップ / 1・2・3キーで選択" : "クリック / タップ / 1・2キーで選択", {
       fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
       fontSize: "15px",
       color: "#bcecff",
@@ -10973,6 +11272,470 @@ class SurvivalScene extends Phaser.Scene {
     this.addOverlayAction(panel, option.onSelect, true, 8);
     this.gateChoiceRecords.push({ panel, option });
     return panel;
+  }
+
+  getStabilizeActionTitle(actionId) {
+    const titles = {
+      extendGate: STABILIZE_PROTOCOL_CONFIG.extendGate.title,
+      sealInstability: STABILIZE_PROTOCOL_CONFIG.sealInstability.title,
+      secureCache: STABILIZE_PROTOCOL_CONFIG.secureCache.title,
+      anchorExtract: STABILIZE_PROTOCOL_CONFIG.anchorExtract.title,
+      holdCharges: "HOLD CHARGES"
+    };
+    return titles[actionId] || "STABILIZE";
+  }
+
+  buildGateStabilizeProtocolOption() {
+    if (!this.stageGate?.container?.active || !this.gateState || this.gateState.status === "closed") {
+      return null;
+    }
+    if (Math.max(1, Math.floor(Number(this.stageDepth) || 1)) < this.getStabilizeProtocolUnlockDepth()) {
+      return null;
+    }
+
+    const state = this.ensureStabilizeProtocolGateState();
+    const charges = this.getStabilizeCharges();
+    if (charges <= 0 && !state.actionUsedThisGate) {
+      return null;
+    }
+
+    return {
+      key: "3",
+      title: "STABILIZE PROTOCOL",
+      subtitle: state.actionUsedThisGate ? "STABILIZE USED" : `STABILIZE x${charges}`,
+      detail: state.actionUsedThisGate
+        ? `${this.getStabilizeActionTitle(state.lastActionId)} / 1 action per Gate`
+        : "Choose how to spend ST charges",
+      accent: 0xb8fbff,
+      onSelect: () => this.openStabilizeProtocolMenu()
+    };
+  }
+
+  createGateStabilizeProtocolButton(centerX, centerY, width, height, option) {
+    const panel = this.add
+      .rectangle(centerX, centerY, width, height, 0x071b2b, 0.96)
+      .setStrokeStyle(2, option.accent, 0.5)
+      .setInteractive({ useHandCursor: true });
+    const keyBadge = this.add
+      .rectangle(centerX - width / 2 + 34, centerY, 42, 34, 0x03101a, 0.95)
+      .setStrokeStyle(1, option.accent, 0.7);
+    const keyText = this.add.text(keyBadge.x, keyBadge.y - 11, option.key, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "20px",
+      color: "#ecfaff",
+      fontStyle: "bold",
+      align: "center"
+    }).setOrigin(0.5, 0);
+    const title = this.add.text(centerX - width / 2 + 66, centerY - 22, option.title, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "20px",
+      color: "#ecfaff",
+      fontStyle: "bold"
+    });
+    const subtitle = this.add.text(centerX - width / 2 + 66, centerY + 4, option.subtitle, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "15px",
+      color: "#b8fbff",
+      fontStyle: "bold"
+    });
+    const detail = this.add.text(centerX + width / 2 - 24, centerY - 8, option.detail, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "14px",
+      color: "#9fc9df",
+      fontStyle: "bold",
+      align: "right"
+    }).setOrigin(1, 0);
+
+    panel.on("pointerover", () => {
+      panel.setFillStyle(0x0d2a40, 0.98);
+      panel.setStrokeStyle(2, option.accent, 0.82);
+    });
+    panel.on("pointerout", () => {
+      panel.setFillStyle(0x071b2b, 0.96);
+      panel.setStrokeStyle(2, option.accent, 0.5);
+    });
+
+    this.overlayContainer.add([panel, keyBadge, keyText, title, subtitle, detail]);
+    this.overlayButtons.push(panel, keyBadge, keyText, title, subtitle, detail);
+    this.addOverlayAction(panel, option.onSelect, true, 8);
+    return panel;
+  }
+
+  getStabilizeProtocolActionStatus(actionId) {
+    const state = this.ensureStabilizeProtocolGateState();
+    if (actionId === "holdCharges") {
+      return { enabled: true, reason: "" };
+    }
+    if (!this.stageGate?.container?.active || !this.gateState || this.gateState.status === "closed") {
+      return { enabled: false, reason: "GATE OFFLINE" };
+    }
+    if (Math.max(1, Math.floor(Number(this.stageDepth) || 1)) < this.getStabilizeProtocolUnlockDepth()) {
+      return { enabled: false, reason: "DEPTH 6+ ONLY" };
+    }
+    if (state.actionUsedThisGate) {
+      return { enabled: false, reason: "USED THIS GATE" };
+    }
+
+    const charges = this.getStabilizeCharges();
+    const costMap = {
+      extendGate: Math.max(1, charges),
+      sealInstability: STABILIZE_PROTOCOL_CONFIG.sealInstability.cost,
+      secureCache: STABILIZE_PROTOCOL_CONFIG.secureCache.cost,
+      anchorExtract: STABILIZE_PROTOCOL_CONFIG.anchorExtract.cost
+    };
+    const cost = costMap[actionId] || 0;
+    if (charges < cost) {
+      return { enabled: false, reason: `NEED ST x${cost}` };
+    }
+    if (actionId === "sealInstability" && (this.gateInstabilityStacks || 0) <= 0) {
+      return { enabled: false, reason: "NO INSTABILITY" };
+    }
+    if (actionId === "anchorExtract" && this.getStabilizeProtocolEmergencyProtectionBonus() > 0) {
+      return { enabled: false, reason: "ANCHOR READY" };
+    }
+
+    return { enabled: true, reason: "" };
+  }
+
+  buildStabilizeProtocolActions() {
+    const charges = this.getStabilizeCharges();
+    const securePayload = this.buildStabilizeSecureCachePayload();
+    const actionModels = [
+      {
+        id: "extendGate",
+        key: "1",
+        title: STABILIZE_PROTOCOL_CONFIG.extendGate.title,
+        chip: "SAFETY",
+        costText: `ALL ST x${charges}`,
+        detail: `Gate安定時間 +${Math.min(STABILIZE_PROTOCOL_CONFIG.extendGate.maxSeconds, charges * STABILIZE_PROTOCOL_CONFIG.extendGate.secondsPerCharge)}s`,
+        accent: 0x65e6ff
+      },
+      {
+        id: "sealInstability",
+        key: "2",
+        title: STABILIZE_PROTOCOL_CONFIG.sealInstability.title,
+        chip: "SAFETY",
+        costText: `ST x${STABILIZE_PROTOCOL_CONFIG.sealInstability.cost}`,
+        detail: `INSTABILITY -${STABILIZE_PROTOCOL_CONFIG.sealInstability.stacksReduced}`,
+        accent: 0x91f6ff
+      },
+      {
+        id: "secureCache",
+        key: "3",
+        title: STABILIZE_PROTOCOL_CONFIG.secureCache.title,
+        chip: "REWARD",
+        costText: `ST x${STABILIZE_PROTOCOL_CONFIG.secureCache.cost}`,
+        detail: `Next Depth only / DATA CACHE +${securePayload.xp} XP +${securePayload.unsecuredGeek.toLocaleString()} GEEK`,
+        accent: 0xf0c463
+      },
+      {
+        id: "anchorExtract",
+        key: "4",
+        title: STABILIZE_PROTOCOL_CONFIG.anchorExtract.title,
+        chip: "ESCAPE",
+        costText: `ST x${STABILIZE_PROTOCOL_CONFIG.anchorExtract.cost}`,
+        detail: `EMERGENCY EXTRACT +${Math.round(STABILIZE_PROTOCOL_CONFIG.anchorExtract.emergencyProtectionAdd * 100)}%`,
+        accent: 0xb58cff
+      },
+      {
+        id: "holdCharges",
+        key: "5",
+        title: "HOLD CHARGES",
+        chip: "HOLD",
+        costText: "ST x0",
+        detail: "Keep charges and return to Gate choices",
+        accent: 0x9ab7cc
+      }
+    ];
+
+    return actionModels.map((action) => {
+      const status = this.getStabilizeProtocolActionStatus(action.id);
+      return { ...action, enabled: status.enabled, disabledReason: status.reason };
+    });
+  }
+
+  openStabilizeProtocolMenu() {
+    const state = this.ensureStabilizeProtocolGateState();
+    if (!this.stageGate?.container?.active || !this.gateChoiceActive || this.gateChoiceLocked) {
+      this.setLastPickupNotice("STABILIZE PROTOCOL unavailable");
+      return;
+    }
+
+    this.clearOverlayButtons();
+    state.overlayOpen = true;
+    state.overlayLocked = false;
+    const actions = this.buildStabilizeProtocolActions();
+    const charges = this.getStabilizeCharges();
+    const anchorLine = this.getStabilizeProtocolEmergencyProtectionBonus() > 0
+      ? ` / ANCHOR READY +${Math.round(this.getStabilizeProtocolEmergencyProtectionBonus() * 100)}%`
+      : "";
+
+    this.configureOverlayPanel(940, 600);
+    this.overlayPanel
+      .setFillStyle(0x050b12, 0.95)
+      .setStrokeStyle(2, 0x65e6ff, 0.48);
+    this.overlayTitle
+      .setStyle({
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "34px",
+        color: "#ecfaff",
+        fontStyle: "bold",
+        align: "center"
+      })
+      .setOrigin(0.5)
+      .setPosition(0, -254)
+      .setText("STABILIZE PROTOCOL");
+    this.overlayBody
+      .setStyle({
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "15px",
+        color: "#9fc9df",
+        align: "center",
+        wordWrap: { width: 800 }
+      })
+      .setOrigin(0.5)
+      .setPosition(0, -214)
+      .setText(`STABILIZE x${charges} / 1 action per Gate${anchorLine}`);
+
+    const layouts = [
+      { x: -230, y: -102, width: 410, height: 92 },
+      { x: 230, y: -102, width: 410, height: 92 },
+      { x: -230, y: 12, width: 410, height: 92 },
+      { x: 230, y: 12, width: 410, height: 92 },
+      { x: 0, y: 126, width: 850, height: 78 }
+    ];
+    actions.forEach((action, index) => {
+      this.createStabilizeProtocolActionCard(action, layouts[index]);
+    });
+    const hint = this.add.text(0, 252, "1-4: use protocol / 5 or Esc: hold charges", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "14px",
+      color: "#bcecff",
+      fontStyle: "bold",
+      align: "center"
+    }).setOrigin(0.5);
+    this.overlayContainer.add(hint);
+    this.overlayButtons.push(hint);
+
+    this.registerStabilizeProtocolKeyboardInput(actions);
+    this.overlayBackdrop.setAlpha(1).setVisible(true);
+    this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
+    if (this.isStabilizeProtocolDebugEnabled()) {
+      console.log("[STABILIZE PROTOCOL] actions", actions);
+    }
+  }
+
+  createStabilizeProtocolActionCard(action, layout) {
+    const container = this.add.container(layout.x, layout.y);
+    const panel = this.add
+      .rectangle(0, 0, layout.width, layout.height, action.enabled ? 0x071522 : 0x0b1017, action.enabled ? 0.96 : 0.7)
+      .setStrokeStyle(2, action.enabled ? action.accent : 0x596366, action.enabled ? 0.46 : 0.24)
+      .setInteractive({ useHandCursor: true });
+    const keyBadge = this.add
+      .rectangle(-layout.width / 2 + 31, -layout.height / 2 + 27, 38, 29, 0x020a11, 0.95)
+      .setStrokeStyle(1, action.enabled ? action.accent : 0x596366, 0.6);
+    const keyText = this.add.text(keyBadge.x, keyBadge.y - 10, action.key, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "18px",
+      color: action.enabled ? "#ecfaff" : "#7f8e95",
+      fontStyle: "bold",
+      align: "center"
+    }).setOrigin(0.5, 0);
+    const chip = this.add.text(-layout.width / 2 + 56, -layout.height / 2 + 12, action.chip, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "11px",
+      color: this.colorToCss(action.accent),
+      fontStyle: "bold"
+    });
+    const title = this.add.text(-layout.width / 2 + 56, -layout.height / 2 + 30, action.title, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: layout.width > 500 ? "20px" : "18px",
+      color: action.enabled ? "#ecfaff" : "#8a9aa2",
+      fontStyle: "bold",
+      wordWrap: { width: layout.width - 190 }
+    });
+    const cost = this.add.text(layout.width / 2 - 18, -layout.height / 2 + 15, action.enabled ? action.costText : action.disabledReason, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "12px",
+      color: action.enabled ? "#f0c463" : "#ffb3a8",
+      fontStyle: "bold",
+      align: "right",
+      wordWrap: { width: 132 }
+    }).setOrigin(1, 0);
+    const detail = this.add.text(-layout.width / 2 + 22, layout.height / 2 - 32, action.detail, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: layout.width > 500 ? "13px" : "12px",
+      color: action.enabled ? "#9fc9df" : "#70818a",
+      wordWrap: { width: layout.width - 44 }
+    });
+    const underline = this.add.rectangle(0, layout.height / 2 - 12, layout.width - 42, 2, action.accent, action.enabled ? 0.5 : 0.18);
+
+    panel.on("pointerover", () => {
+      panel.setFillStyle(action.enabled ? 0x0e2638 : 0x111820, action.enabled ? 0.98 : 0.76);
+      panel.setStrokeStyle(2, action.enabled ? action.accent : 0x596366, action.enabled ? 0.82 : 0.34);
+    });
+    panel.on("pointerout", () => {
+      panel.setFillStyle(action.enabled ? 0x071522 : 0x0b1017, action.enabled ? 0.96 : 0.7);
+      panel.setStrokeStyle(2, action.enabled ? action.accent : 0x596366, action.enabled ? 0.46 : 0.24);
+    });
+
+    container.add([panel, keyBadge, keyText, chip, title, cost, detail, underline]);
+    this.overlayContainer.add(container);
+    this.overlayButtons.push(container);
+    this.overlayActions.push({
+      panel,
+      onSelect: () => this.selectStabilizeProtocolAction(action.id),
+      handlesOwnFlow: true,
+      hitPadding: 8
+    });
+    this.stabilizeProtocolActionRecords.push({ action, container, panel });
+    return container;
+  }
+
+  registerStabilizeProtocolKeyboardInput(actions) {
+    if (this.stabilizeProtocolKeyHandler) {
+      this.input?.keyboard?.off("keydown", this.stabilizeProtocolKeyHandler);
+      this.stabilizeProtocolKeyHandler = null;
+    }
+    const actionList = actions || [];
+    this.stabilizeProtocolKeyHandler = (event) => {
+      const state = this.stabilizeProtocolState;
+      if (!state?.overlayOpen || state.overlayLocked) {
+        return;
+      }
+
+      const key = event.key === "Escape" ? "5" : event.key;
+      const action = actionList.find((entry) => entry.key === key);
+      if (!action) {
+        return;
+      }
+
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      this.selectStabilizeProtocolAction(action.id);
+    };
+    this.input?.keyboard?.on("keydown", this.stabilizeProtocolKeyHandler);
+  }
+
+  teardownStabilizeProtocolOverlay(options = {}) {
+    if (this.stabilizeProtocolKeyHandler) {
+      this.input?.keyboard?.off("keydown", this.stabilizeProtocolKeyHandler);
+      this.stabilizeProtocolKeyHandler = null;
+    }
+    if (!options.keepRecords) {
+      (this.stabilizeProtocolActionRecords || []).forEach((record) => {
+        this.tweens?.killTweensOf(record.container);
+      });
+      this.stabilizeProtocolActionRecords = [];
+    }
+    if (this.stabilizeProtocolState) {
+      this.stabilizeProtocolState.overlayOpen = false;
+      this.stabilizeProtocolState.overlayLocked = false;
+    }
+  }
+
+  closeStabilizeProtocolMenu(reason = "hold") {
+    this.teardownStabilizeProtocolOverlay();
+    if (this.gateChoiceActive && !this.gateChoiceLocked && this.stageGate?.container?.active) {
+      this.showGateChoiceOverlay();
+      return;
+    }
+    this.hideOverlay();
+  }
+
+  selectStabilizeProtocolAction(actionId) {
+    const state = this.ensureStabilizeProtocolGateState();
+    if (!state.overlayOpen || state.overlayLocked) {
+      return;
+    }
+    if (actionId === "holdCharges") {
+      this.closeStabilizeProtocolMenu("holdCharges");
+      return;
+    }
+
+    const status = this.getStabilizeProtocolActionStatus(actionId);
+    if (!status.enabled) {
+      this.setLastPickupNotice(status.reason || "STABILIZE PROTOCOL unavailable");
+      return;
+    }
+
+    state.overlayLocked = true;
+    this.overlayActions = [];
+    const used = this.useStabilizeAction(actionId);
+    if (!used) {
+      state.overlayLocked = false;
+      return;
+    }
+
+    this.stabilizeProtocolActionRecords.forEach((record) => {
+      const selected = record.action.id === actionId;
+      record.panel.setStrokeStyle(2, selected ? record.action.accent : 0x596366, selected ? 0.95 : 0.18);
+      this.tweens.add({
+        targets: record.container,
+        alpha: selected ? 1 : 0.34,
+        scale: selected ? 1.04 : 0.98,
+        duration: 150,
+        ease: "Sine.easeOut"
+      });
+    });
+    this.time.delayedCall(280, () => this.closeStabilizeProtocolMenu(actionId));
+  }
+
+  useStabilizeAction(actionId) {
+    const state = this.ensureStabilizeProtocolGateState();
+    let notice = "";
+    let success = false;
+
+    if (actionId === "extendGate") {
+      const charges = this.getStabilizeCharges();
+      const seconds = Math.min(
+        STABILIZE_PROTOCOL_CONFIG.extendGate.maxSeconds,
+        charges * STABILIZE_PROTOCOL_CONFIG.extendGate.secondsPerCharge
+      );
+      success = this.spendStabilizeCharges(charges, actionId);
+      if (success) {
+        const appliedSeconds = this.addGateStableTime(seconds, actionId);
+        notice = `GATE EXTENDED +${appliedSeconds}s`;
+      }
+    } else if (actionId === "sealInstability") {
+      const config = STABILIZE_PROTOCOL_CONFIG.sealInstability;
+      success = this.spendStabilizeCharges(config.cost, actionId);
+      if (success) {
+        const reduced = this.reduceGateInstability(config.stacksReduced, actionId);
+        notice = `INSTABILITY SEALED -${reduced}`;
+      }
+    } else if (actionId === "secureCache") {
+      const config = STABILIZE_PROTOCOL_CONFIG.secureCache;
+      success = this.spendStabilizeCharges(config.cost, actionId);
+      if (success) {
+        const payload = this.reserveSecureDataCacheFromStabilize();
+        notice = `SECURE CACHE READY +${payload.xp} XP`;
+      }
+    } else if (actionId === "anchorExtract") {
+      const config = STABILIZE_PROTOCOL_CONFIG.anchorExtract;
+      success = this.spendStabilizeCharges(config.cost, actionId);
+      if (success) {
+        const bonus = this.applyAnchorExtractProtection(config.emergencyProtectionAdd);
+        notice = `ANCHOR EXTRACT READY +${Math.round(bonus * 100)}%`;
+      }
+    }
+
+    if (!success) {
+      return false;
+    }
+
+    state.actionUsedThisGate = true;
+    state.lastActionId = actionId;
+    this.setLastPickupNotice(notice);
+    if (this.stageGate?.container?.active) {
+      this.showOverflowRewardText(notice, this.stageGate.container.x, this.stageGate.container.y - 148, "#b8fbff");
+    }
+    this.updateOverflowHud();
+    this.updateDepthHud();
+    if (this.isStabilizeProtocolDebugEnabled()) {
+      console.log("[STABILIZE PROTOCOL] used", { actionId, notice, state: { ...state } });
+    }
+    return true;
   }
 
   registerGateChoiceKeyboardInput(options) {
@@ -11426,7 +12189,10 @@ class SurvivalScene extends Phaser.Scene {
 
   beginGateDepthTransition(mode = "next") {
     const targetDepth = (this.stageDepth || 1) + 1;
-    const dataCachePayload = this.cleanupDropsOnDepthTransition();
+    const dataCachePayload = this.mergeDataCachePayload(
+      this.cleanupDropsOnDepthTransition(),
+      this.consumePendingStabilizeSecureCachePayload()
+    );
     const transition = {
       mode,
       targetDepth,
@@ -11459,6 +12225,7 @@ class SurvivalScene extends Phaser.Scene {
     }
     this.hideOverlay();
     this.physics.world.resume();
+    this.clearGateStabilizeProtocolState("depthTransition", { preserveAnchor: true });
     const prefix = mode === "force" ? "FORCE BREAKTHROUGH DEPTH" : "DEPTH";
     this.setLastPickupNotice(dataCacheCount > 0 ? `${prefix} ${this.stageDepth} / DATA CACHE ${dataCacheCount}` : `${prefix} ${this.stageDepth}`);
     this.activatePendingAnomalyContract(targetDepth);
@@ -11470,8 +12237,12 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     this.gateChoiceLocked = true;
-    const result = this.secureRunCoins(this.getCurrentCoinScaling().emergencyExtractRate);
-    const lostArmsMessage = this.discardPendingLostArms();
+    const coinScaling = this.getCurrentCoinScaling();
+    const result = this.secureRunCoins(coinScaling.emergencyExtractRate);
+    const anchorMessage = coinScaling.stabilizeProtectionBonus > 0
+      ? `ANCHOR PROTECTION +${Math.round(coinScaling.stabilizeProtectionBonus * 100)}%`
+      : "";
+    const lostArmsMessage = [this.discardPendingLostArms(), anchorMessage].filter(Boolean).join("\n");
     this.completeExtraction(result, true, lostArmsMessage);
   }
 
@@ -11481,6 +12252,7 @@ class SurvivalScene extends Phaser.Scene {
     this.gateChoiceActive = false;
     this.levelUpActive = false;
     this.resetAnomalyContractState(emergency ? "emergencyExtract" : "extract");
+    this.resetStabilizeProtocolState(emergency ? "emergencyExtract" : "extract");
     this.resetOverflowRewardState();
     this.destroyStageGate();
     this.hideOverlay();
@@ -11535,7 +12307,7 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     if (!this.pendingRankingRecord || !this.gameOverRecordState?.currentRecord) {
-      this.returnToOpeningShop(this.pendingShopReturnMessage || "");
+      this.returnToOpeningShop(this.pendingShopReturnMessage || "", { showMobileLaunchGate: true });
       return;
     }
 
@@ -13667,6 +14439,28 @@ class SurvivalScene extends Phaser.Scene {
     };
   }
 
+  normalizeDataCachePayload(payload) {
+    return {
+      xp: Math.max(0, Math.floor(Number(payload?.xp) || 0)),
+      unsecuredGeek: this.normalizeCoinAmount(payload?.unsecuredGeek),
+      rawXp: Math.max(0, Math.floor(Number(payload?.rawXp ?? payload?.xp) || 0)),
+      rawUnsecuredGeek: this.normalizeCoinAmount(payload?.rawUnsecuredGeek ?? payload?.unsecuredGeek),
+      sourceCount: Math.max(0, Math.floor(Number(payload?.sourceCount) || 0))
+    };
+  }
+
+  mergeDataCachePayload(basePayload, extraPayload) {
+    const base = this.normalizeDataCachePayload(basePayload);
+    const extra = this.normalizeDataCachePayload(extraPayload);
+    return {
+      xp: base.xp + extra.xp,
+      unsecuredGeek: this.normalizeCoinAmount(base.unsecuredGeek + extra.unsecuredGeek),
+      rawXp: base.rawXp + extra.rawXp,
+      rawUnsecuredGeek: this.normalizeCoinAmount(base.rawUnsecuredGeek + extra.rawUnsecuredGeek),
+      sourceCount: base.sourceCount + extra.sourceCount
+    };
+  }
+
   cleanupDropsOnDepthTransition() {
     const drops = this.collectActiveDropsForCleanup();
     const payload = this.compressDropsToDataCachePayload(drops);
@@ -14202,15 +14996,25 @@ class SurvivalScene extends Phaser.Scene {
     const depthScaling = this.getDepthScaling(this.stageDepth);
     const instabilityScaling = this.getInstabilityScaling(this.gateInstabilityStacks);
     const contractBonus = this.getAnomalyGeekMultiplierAdd();
-    const emergencyExtractRate = Phaser.Math.Clamp(
+    const baseEmergencyExtractRate = Phaser.Math.Clamp(
       instabilityScaling.extractRate + this.getAnomalyEmergencyExtractProtectionAdd(),
       0,
       1
     );
+    const stabilizeProtectionBonus = this.getStabilizeProtocolEmergencyProtectionBonus();
+    const anchoredRate = stabilizeProtectionBonus > 0
+      ? Phaser.Math.Clamp(
+        baseEmergencyExtractRate + stabilizeProtectionBonus,
+        0,
+        STABILIZE_PROTOCOL_CONFIG.anchorExtract.maxEmergencyProtection
+      )
+      : baseEmergencyExtractRate;
+    const emergencyExtractRate = Math.max(baseEmergencyExtractRate, anchoredRate);
     return {
       amount: depthScaling.coinAmount + instabilityScaling.coinBonus + contractBonus,
       contractBonus,
-      emergencyExtractRate
+      emergencyExtractRate,
+      stabilizeProtectionBonus
     };
   }
 
@@ -20830,6 +21634,7 @@ class SurvivalScene extends Phaser.Scene {
     this.extractionComplete = false;
     this.clearPendingAnjuMemory(reason);
     this.resetAnomalyContractState(reason);
+    this.resetStabilizeProtocolState(reason);
     this.resetOverflowRewardState();
     this.lastGameOverReason = { reason, lostCoins, lostArmsMessage };
     this.supportAttackBgmDuckingCount = 0;
@@ -20894,10 +21699,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   continueToOpeningShopFromRanking() {
-    this.returnToOpeningShop(this.pendingShopReturnMessage || "");
+    this.returnToOpeningShop(this.pendingShopReturnMessage || "", { showMobileLaunchGate: true });
   }
 
-  returnToOpeningShop(message = "") {
+  returnToOpeningShop(message = "", options = {}) {
     if (this.restartInProgress) {
       return;
     }
@@ -20913,6 +21718,7 @@ class SurvivalScene extends Phaser.Scene {
     this.extractionComplete = false;
     this.clearPendingAnjuMemory("returnToOpeningShop");
     this.resetAnomalyContractState("returnToOpeningShop");
+    this.resetStabilizeProtocolState("returnToOpeningShop");
     this.resetOverflowRewardState();
     this.overlayActions = [];
     this.releaseMobileControlPointers?.();
@@ -20926,7 +21732,7 @@ class SurvivalScene extends Phaser.Scene {
     this.sound?.stopAll();
 
     window.setTimeout(() => {
-      resetSurvivalGameToShop(message);
+      resetSurvivalGameToShop(message, options);
     }, 0);
   }
 
@@ -21871,6 +22677,7 @@ class SurvivalScene extends Phaser.Scene {
     this.teardownLevelUpOverlay();
     this.teardownGateChoiceOverlay();
     this.teardownAnomalyContractOverlay();
+    this.teardownStabilizeProtocolOverlay();
     this.overlayButtons.forEach((item) => item.destroy());
     this.overlayButtons = [];
     this.overlayActions = [];
@@ -22019,6 +22826,12 @@ class SurvivalScene extends Phaser.Scene {
         tensionText = warningActive ? "COLLAPSE IMMINENT" : `GATE STABLE ${this.formatTimeMs(remainingMs)}`;
         tensionColor = warningActive ? "#ffb3a8" : "#9fe7ff";
       }
+    }
+
+    const stabilizeProtocolLine = this.getStabilizeProtocolHudLine();
+    if (stabilizeProtocolLine) {
+      tensionText = tensionText ? `${tensionText} / ${stabilizeProtocolLine}` : stabilizeProtocolLine;
+      tensionColor = stabilizeProtocolLine.startsWith("ANCHOR") ? "#d6c2ff" : "#b8fbff";
     }
 
     this.hudDepthText.setText(`DEPTH ${this.stageDepth || 1}`);
@@ -22184,10 +22997,27 @@ function skipMobileLaunchGateOnce() {
   }
 }
 
-function buildOpeningShopReloadUrl() {
+function clearMobileLaunchGateSkip() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.__SURVIVAL_SKIP_MOBILE_GATE_ONCE__ = false;
+  try {
+    window.sessionStorage?.removeItem(MOBILE_GATE_SKIP_SESSION_KEY);
+  } catch (error) {
+    // Ignore storage failures; the in-memory flag was already cleared.
+  }
+}
+
+function buildOpeningShopReloadUrl(options = {}) {
   try {
     const url = new URL(window.location.href);
-    url.searchParams.set(MOBILE_GATE_SKIP_QUERY_PARAM, "1");
+    if (options.skipMobileGate) {
+      url.searchParams.set(MOBILE_GATE_SKIP_QUERY_PARAM, "1");
+    } else {
+      url.searchParams.delete(MOBILE_GATE_SKIP_QUERY_PARAM);
+    }
     return url.toString();
   } catch (error) {
     return window.location?.href || "";
@@ -22439,19 +23269,24 @@ function startSurvivalGame(loadingTitle = "ショップ準備中") {
   }, 80);
 }
 
-function resetSurvivalGameToShop(message = "") {
+function resetSurvivalGameToShop(message = "", options = {}) {
   if (typeof window === "undefined") {
     return;
   }
 
   setPendingOpeningShopMessage(message);
-  skipMobileLaunchGateOnce();
+  const skipMobileGate = options?.showMobileLaunchGate !== true;
+  if (skipMobileGate) {
+    skipMobileLaunchGateOnce();
+  } else {
+    clearMobileLaunchGateSkip();
+  }
   if (window.__SURVIVAL_GAME_RESETTING__) {
     return;
   }
 
   window.__SURVIVAL_GAME_RESETTING__ = true;
-  const reloadUrl = buildOpeningShopReloadUrl();
+  const reloadUrl = buildOpeningShopReloadUrl({ skipMobileGate });
   window.setTimeout(() => {
     try {
       if (reloadUrl) {
