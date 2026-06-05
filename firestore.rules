@@ -13,9 +13,15 @@ service cloud.firestore {
           "level",
           "eliteKills",
           "maxDepthReached",
+          "bestDepth",
+          "extractedGeek",
+          "extractMode",
+          "extractionSucceeded",
           "anjuMemoryEarned",
           "selectedTitle",
           "selectedBadge",
+          "submittedAt",
+          "version",
           "uid",
           "createdAt"
         ])
@@ -38,6 +44,19 @@ service cloud.firestore {
           || (request.resource.data.maxDepthReached is int
             && request.resource.data.maxDepthReached >= 1
             && request.resource.data.maxDepthReached <= 999))
+        && (!request.resource.data.keys().hasAny(["bestDepth"])
+          || (request.resource.data.bestDepth is int
+            && request.resource.data.bestDepth >= 1
+            && request.resource.data.bestDepth <= 999))
+        && (!request.resource.data.keys().hasAny(["extractedGeek"])
+          || (request.resource.data.extractedGeek is int
+            && request.resource.data.extractedGeek >= 0
+            && request.resource.data.extractedGeek <= 1000000000))
+        && (!request.resource.data.keys().hasAny(["extractMode"])
+          || (request.resource.data.extractMode is string
+            && request.resource.data.extractMode in ["none", "normal", "emergency"]))
+        && (!request.resource.data.keys().hasAny(["extractionSucceeded"])
+          || request.resource.data.extractionSucceeded is bool)
         && (!request.resource.data.keys().hasAny(["anjuMemoryEarned"])
           || (request.resource.data.anjuMemoryEarned is int
             && request.resource.data.anjuMemoryEarned >= 0
@@ -48,6 +67,13 @@ service cloud.firestore {
         && (!request.resource.data.keys().hasAny(["selectedBadge"])
           || (request.resource.data.selectedBadge is string
             && request.resource.data.selectedBadge.size() <= 12))
+        && (!request.resource.data.keys().hasAny(["submittedAt"])
+          || (request.resource.data.submittedAt is int
+            && request.resource.data.submittedAt >= 0))
+        && (!request.resource.data.keys().hasAny(["version"])
+          || (request.resource.data.version is int
+            && request.resource.data.version >= 1
+            && request.resource.data.version <= 10))
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.createdAt == request.time;
 

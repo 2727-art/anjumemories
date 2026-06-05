@@ -379,18 +379,20 @@ CD:
 
 ## ランキング
 
-ゲームオーバー時に名前を入力すると、キル数ランキングへ登録します。ローカルランキングは localStorage に保存され、Firebase 接続に成功した場合はオンラインランキング `leaderboardKills` も読み書きします。
+ゲームオーバーまたは抽出完了時に名前を入力すると、ラン記録をランキングへ登録します。ローカルランキングは localStorage に保存され、Firebase 接続に成功した場合はオンラインランキング `leaderboardKills` も読み書きします。
 
 Firebase SDK は `12.13.0` を dynamic import し、匿名認証で Firestore を使用します。Firebase 設定は `game.js` 内の `FIREBASE_CONFIG` にあります。Firestore ルールは `firestore.rules` を参照してください。
 
-ランキングはキル数、生存時間、レベル、エリート撃破数の順で並び、最大 10 件を表示します。表示上は到達 Depth、抽出で得た ANJU MEMORY、選択中バッジも併記します。オンライン取得に失敗した場合はローカルランキング表示に戻ります。
+ランキング画面では `KILLS`、`DEPTH`、`GEEK` の 3 モードを切り替えられ、最大 10 件を表示します。`KILLS` はキル数、生存時間、レベル、エリート撃破数、Best Depth、Extracted GEEK の順で並びます。`DEPTH` は Best Depth、Extracted GEEK、キル数、生存時間、レベルの順、`GEEK` は Extracted GEEK、Best Depth、キル数、生存時間、レベルの順で並びます。表示上は選択中バッジと抽出で得た ANJU MEMORY も併記します。オンライン取得に失敗した場合はローカルランキング表示に戻ります。
+
+Best Depth はそのランで実際に到達した最大 Depth です。Extracted GEEK はそのランの抽出で実際に確定できた未確定 GEEK 量で、通常抽出では 100%、緊急抽出では最終保護率ぶん、ゲームオーバーや Gate 崩壊では 0 になります。これは確定 GEEK ウォレット `lastmemoVansabaCoins` の総額ではありません。
 
 ## 保存データ
 
 localStorage キー:
 
-- `lastmemoVansabaBestRecord`: ベスト記録
-- `lastmemoVansabaKillRanking`: ローカルキルランキング
+- `lastmemoVansabaBestRecord`: ベスト記録。`bestDepth` と `bestExtractedGeek` も保存します。
+- `lastmemoVansabaKillRanking`: ローカルランキング。各 entry は `bestDepth`、`extractedGeek`、`extractMode`、`extractionSucceeded`、`submittedAt`、`version` を持ち、古い entry にフィールドがない場合は `bestDepth = 1`、`extractedGeek = 0`、`extractMode = none` に補完します。
 - `lastmemoVansabaCoins`: 確定 GEEK
 - `lastmemoVansabaShopState`: CD 所持、選択 BGM、永続強化状態
 - `lastmemoVansabaLostArmsState`: LOST ARMS 永続 Lv と pity
@@ -438,6 +440,7 @@ python -m http.server 4173 --bind 127.0.0.1
 http://127.0.0.1:4173/?mobileGate=0&mobileControls=0
 http://127.0.0.1:4173/?debugLostArms=1
 http://127.0.0.1:4173/?debugAnjuMemory=1
+http://127.0.0.1:4173/?debugRankingDepth=1
 http://127.0.0.1:4173/?debug=stage
 ```
 

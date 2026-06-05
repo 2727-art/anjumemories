@@ -75,6 +75,7 @@ const GATE_TENSION_HUD_BAR = {
   height: 5
 };
 const EXTRACTION_MESSAGE_SESSION_KEY = "lastmemoVansabaExtractionMessage";
+const RANKING_DEBUG_QUERY_PARAM = "debugRankingDepth";
 const ANOMALY_CONTRACT_DEBUG_QUERY_PARAM = "debugAnomalyContract";
 const ANOMALY_CONTRACT_CONFIG = {
   unlockDepth: 6,
@@ -524,7 +525,15 @@ const SHOP_STATE_STORAGE_KEY = "lastmemoVansabaShopState";
 const LOST_ARMS_STORAGE_KEY = "lastmemoVansabaLostArmsState";
 const DEFAULT_PLAYER_NAME = "anju";
 const PLAYER_NAME_MAX_LENGTH = 16;
-const MAX_KILL_RANKING_ENTRIES = 10;
+const MAX_KILL_RANKING_ENTRIES = 50;
+const MAX_RANKING_DISPLAY_ENTRIES = 10;
+const RANKING_ENTRY_VERSION = 2;
+const DEFAULT_RANKING_MODE = "kills";
+const RANKING_MODES = {
+  kills: { label: "KILLS", orderField: "kills" },
+  depth: { label: "DEPTH", orderField: "bestDepth" },
+  geek: { label: "GEEK", orderField: "extractedGeek" }
+};
 const FIREBASE_SDK_VERSION = "12.13.0";
 const FIREBASE_APP_NAME = "lastmemoVansabaLeaderboard";
 const FIREBASE_LEADERBOARD_COLLECTION = "leaderboardKills";
@@ -580,7 +589,15 @@ const DEFAULT_BEST_RECORD = {
   survivalTimeMs: 0,
   level: 0,
   kills: 0,
-  eliteKills: 0
+  eliteKills: 0,
+  maxDepthReached: 1,
+  bestDepth: 1,
+  extractedGeek: 0,
+  bestExtractedGeek: 0,
+  extractMode: "none",
+  extractionSucceeded: false,
+  submittedAt: 0,
+  version: RANKING_ENTRY_VERSION
 };
 const CD_CATALOG = [
   {
@@ -2429,6 +2446,11 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
+  isRankingDebugEnabled() {
+    const value = this.getUrlStageParam(RANKING_DEBUG_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
   getRequestedStageId() {
     return DEBUG_STAGE_ID || this.getUrlStageParam("stage") || this.getUrlStageParam("debugStage") || null;
   }
@@ -2669,6 +2691,9 @@ class SurvivalScene extends Phaser.Scene {
     this.updateSkills(0);
     this.updateHud();
     this.showPreGameShop(this.consumePendingExtractionShopMessage());
+    if (this.isRankingDebugEnabled()) {
+      this.time.delayedCall(120, () => this.showDebugRankingOverlay());
+    }
   }
 
   createEnemyAnimations() {
@@ -3098,6 +3123,8 @@ class SurvivalScene extends Phaser.Scene {
       kills: 0,
       eliteKills: 0
     };
+    this.rankingDisplayMode = DEFAULT_RANKING_MODE;
+    this.remoteRankingMode = DEFAULT_RANKING_MODE;
     this.bestRecord = this.loadBestRecord();
     this.killRanking = this.loadKillRanking();
     this.pendingRankingRecord = null;
@@ -3131,6 +3158,7 @@ class SurvivalScene extends Phaser.Scene {
 
   initializeDepthRunState() {
     this.stageDepth = 1;
+    this.runRankingStats = this.createRunRankingStats(this.stageDepth);
     this.stageDepthElapsedMs = 0;
     this.runUnsecuredCoins = 0;
     this.gateInstabilityStacks = 0;
@@ -5561,24 +5589,211 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
+  normalizeDepthValue(value, fallback = 1) {
+    const normalizedFallback = Math.max(1, Math.floor(Number(fallback) || 1));
+    return Math.max(1, Math.floor(Number(value) || normalizedFallback));
+  }
+
+  normalizeRankingExtractMode(value) {
+    const mode = String(value || "none");
+    if (mode === "extract" || mode === "normalExtract") {
+      return "normal";
+    }
+    if (mode === "emergencyExtract") {
+      return "emergency";
+    }
+    return mode === "normal" || mode === "emergency" ? mode : "none";
+  }
+
+  createRunRankingStats(depth = 1) {
+    return {
+      maxDepthReached: this.normalizeDepthValue(depth, 1),
+      extractedGeek: 0,
+      extractMode: "none",
+      extractionSucceeded: false,
+      submitted: false
+    };
+  }
+
+  normalizeRunRankingStats(stats = this.runRankingStats) {
+    return {
+      maxDepthReached: this.normalizeDepthValue(stats?.maxDepthReached, this.stageDepth || 1),
+      extractedGeek: this.normalizeCoinAmount(stats?.extractedGeek),
+      extractMode: this.normalizeRankingExtractMode(stats?.extractMode),
+      extractionSucceeded: Boolean(stats?.extractionSucceeded),
+      submitted: Boolean(stats?.submitted)
+    };
+  }
+
+  updateRunRankingDepthProgress(depth = this.stageDepth) {
+    if (!this.runRankingStats) {
+      this.runRankingStats = this.createRunRankingStats(depth);
+    }
+    const current = this.normalizeRunRankingStats(this.runRankingStats);
+    const nextDepth = this.normalizeDepthValue(depth, current.maxDepthReached);
+    current.maxDepthReached = Math.max(current.maxDepthReached, nextDepth);
+    this.runRankingStats = current;
+    return current.maxDepthReached;
+  }
+
+  setRunRankingExtractionStats(mode, extractedGeek, extractionSucceeded) {
+    const current = this.normalizeRunRankingStats(this.runRankingStats);
+    current.extractMode = extractionSucceeded ? this.normalizeRankingExtractMode(mode) : "none";
+    current.extractionSucceeded = Boolean(extractionSucceeded);
+    current.extractedGeek = current.extractionSucceeded ? this.normalizeCoinAmount(extractedGeek) : 0;
+    this.runRankingStats = current;
+    return current;
+  }
+
+  markRunRankingSubmitted() {
+    if (!this.runRankingStats) {
+      this.runRankingStats = this.createRunRankingStats(this.stageDepth || 1);
+    }
+    this.runRankingStats.submitted = true;
+  }
+
+  showDebugRankingOverlay() {
+    if (!this.isRankingDebugEnabled()) {
+      return;
+    }
+    const now = Date.now();
+    const debugEntries = [
+      {
+        id: `debug-ranking-depth-${now}`,
+        name: "debugDepth",
+        survivalTimeMs: 412000,
+        level: 18,
+        kills: 1840,
+        eliteKills: 22,
+        maxDepthReached: 8,
+        bestDepth: 8,
+        extractedGeek: 23800,
+        bestExtractedGeek: 23800,
+        extractMode: "normal",
+        extractionSucceeded: true,
+        anjuMemoryEarned: 6,
+        selectedBadge: "D8",
+        recordedAt: now,
+        submittedAt: now,
+        version: RANKING_ENTRY_VERSION
+      },
+      {
+        id: `debug-ranking-geek-${now}`,
+        name: "debugGeek",
+        survivalTimeMs: 365000,
+        level: 15,
+        kills: 1260,
+        eliteKills: 15,
+        maxDepthReached: 6,
+        bestDepth: 6,
+        extractedGeek: 42000,
+        bestExtractedGeek: 42000,
+        extractMode: "emergency",
+        extractionSucceeded: true,
+        anjuMemoryEarned: 2,
+        selectedBadge: "EX",
+        recordedAt: now + 1,
+        submittedAt: now + 1,
+        version: RANKING_ENTRY_VERSION
+      },
+      {
+        id: `debug-ranking-kills-${now}`,
+        name: "debugKills",
+        survivalTimeMs: 298000,
+        level: 16,
+        kills: 3200,
+        eliteKills: 28,
+        maxDepthReached: 5,
+        bestDepth: 5,
+        extractedGeek: 0,
+        bestExtractedGeek: 0,
+        extractMode: "none",
+        extractionSucceeded: false,
+        anjuMemoryEarned: 0,
+        selectedBadge: "KO",
+        recordedAt: now + 2,
+        submittedAt: now + 2,
+        version: RANKING_ENTRY_VERSION
+      }
+    ];
+    this.killRanking = this.sortKillRanking(debugEntries, DEFAULT_RANKING_MODE, MAX_KILL_RANKING_ENTRIES);
+    this.remoteKillRanking = [];
+    this.remoteRankingMode = this.getValidRankingMode(this.rankingDisplayMode);
+    this.remoteRankingStatus = "DEBUG PREVIEW / ONLINE 未接続";
+    this.gameOver = false;
+    this.extractionComplete = true;
+    this.pendingRankingSaved = true;
+    this.rankingNameEntryActive = false;
+    this.pendingRankingRecord = debugEntries[0];
+    this.rankingPlayerName = "debug";
+    this.rankingNameSelectAll = false;
+    this.rankingSaveMessage = "DEBUG PREVIEW / 登録は行いません";
+    this.highlightRankingEntryId = debugEntries[0].id;
+    this.lastGameOverReason = {
+      reason: "extract",
+      securedCoins: debugEntries[0].extractedGeek,
+      lostCoins: 0,
+      lostArmsMessage: "",
+      anjuMemoryText: "ANJU MEMORY +6"
+    };
+    this.gameOverRecordState = {
+      currentRecord: this.normalizeBestRecord(debugEntries[0]),
+      bestRecord: this.normalizeBestRecord({
+        ...debugEntries[1],
+        bestExtractedGeek: debugEntries[1].extractedGeek
+      }),
+      improved: true
+    };
+    this.hideOverlay();
+    this.showGameOverRankingOverlay();
+  }
+
+  getRecordBestDepth(record) {
+    return this.normalizeDepthValue(record?.bestDepth ?? record?.maxDepthReached, 1);
+  }
+
+  getRecordExtractedGeek(record) {
+    return this.normalizeCoinAmount(record?.extractedGeek ?? record?.bestExtractedGeek);
+  }
+
   normalizeBestRecord(record) {
+    const bestDepth = this.normalizeDepthValue(record?.bestDepth ?? record?.maxDepthReached, 1);
+    const extractedGeek = this.normalizeCoinAmount(record?.extractedGeek);
+    const bestExtractedGeek = this.normalizeCoinAmount(record?.bestExtractedGeek ?? extractedGeek);
+    const extractMode = this.normalizeRankingExtractMode(record?.extractMode);
+    const submittedAt = Math.max(0, Math.floor(Number(record?.submittedAt ?? record?.recordedAt) || 0));
     return {
       survivalTimeMs: Math.max(0, Math.floor(Number(record?.survivalTimeMs) || 0)),
       level: Math.max(0, Math.floor(Number(record?.level) || 0)),
       kills: Math.max(0, Math.floor(Number(record?.kills) || 0)),
       eliteKills: Math.max(0, Math.floor(Number(record?.eliteKills) || 0)),
-      maxDepthReached: Math.max(1, Math.floor(Number(record?.maxDepthReached) || 1)),
+      maxDepthReached: bestDepth,
+      bestDepth,
+      extractedGeek,
+      bestExtractedGeek,
+      extractMode,
+      extractionSucceeded: Boolean(record?.extractionSucceeded) || extractMode !== "none",
+      submittedAt,
+      version: Math.max(1, Math.floor(Number(record?.version) || 1)),
       anjuMemoryEarned: this.normalizeAnjuMemoryAmount(record?.anjuMemoryEarned)
     };
   }
 
   buildCurrentRunRecord() {
+    this.updateRunRankingDepthProgress(this.stageDepth || 1);
+    const rankingStats = this.normalizeRunRankingStats(this.runRankingStats);
     return this.normalizeBestRecord({
       survivalTimeMs: this.survivalTime,
       level: this.stats.level,
       kills: this.runStats.kills,
       eliteKills: this.runStats.eliteKills,
-      maxDepthReached: this.runAnjuMemoryState?.maxDepthReached || this.stageDepth || 1,
+      maxDepthReached: rankingStats.maxDepthReached,
+      bestDepth: rankingStats.maxDepthReached,
+      extractedGeek: rankingStats.extractedGeek,
+      bestExtractedGeek: rankingStats.extractedGeek,
+      extractMode: rankingStats.extractMode,
+      extractionSucceeded: rankingStats.extractionSucceeded,
+      version: RANKING_ENTRY_VERSION,
       anjuMemoryEarned: this.lastAnjuMemoryAward?.amount || 0
     });
   }
@@ -5586,12 +5801,25 @@ class SurvivalScene extends Phaser.Scene {
   saveBestRecordIfNeeded() {
     const currentRecord = this.buildCurrentRunRecord();
     const previousBest = this.normalizeBestRecord(this.bestRecord);
+    const nextBestDepth = Math.max(this.getRecordBestDepth(previousBest), this.getRecordBestDepth(currentRecord));
+    const nextBestExtractedGeek = Math.max(
+      this.normalizeCoinAmount(previousBest.bestExtractedGeek ?? previousBest.extractedGeek),
+      this.normalizeCoinAmount(currentRecord.extractedGeek)
+    );
+    const didImproveExtractedGeek = nextBestExtractedGeek > this.normalizeCoinAmount(previousBest.bestExtractedGeek ?? previousBest.extractedGeek);
     const nextBest = {
       survivalTimeMs: Math.max(previousBest.survivalTimeMs, currentRecord.survivalTimeMs),
       level: Math.max(previousBest.level, currentRecord.level),
       kills: Math.max(previousBest.kills, currentRecord.kills),
       eliteKills: Math.max(previousBest.eliteKills, currentRecord.eliteKills),
-      maxDepthReached: Math.max(previousBest.maxDepthReached || 1, currentRecord.maxDepthReached || 1),
+      maxDepthReached: nextBestDepth,
+      bestDepth: nextBestDepth,
+      extractedGeek: nextBestExtractedGeek,
+      bestExtractedGeek: nextBestExtractedGeek,
+      extractMode: didImproveExtractedGeek ? currentRecord.extractMode : previousBest.extractMode,
+      extractionSucceeded: Boolean(previousBest.extractionSucceeded || currentRecord.extractionSucceeded),
+      submittedAt: Math.max(previousBest.submittedAt || 0, currentRecord.submittedAt || 0),
+      version: RANKING_ENTRY_VERSION,
       anjuMemoryEarned: Math.max(previousBest.anjuMemoryEarned || 0, currentRecord.anjuMemoryEarned || 0)
     };
     const improved =
@@ -5599,7 +5827,8 @@ class SurvivalScene extends Phaser.Scene {
       nextBest.level > previousBest.level ||
       nextBest.kills > previousBest.kills ||
       nextBest.eliteKills > previousBest.eliteKills ||
-      nextBest.maxDepthReached > (previousBest.maxDepthReached || 1) ||
+      nextBest.bestDepth > this.getRecordBestDepth(previousBest) ||
+      nextBest.bestExtractedGeek > this.normalizeCoinAmount(previousBest.bestExtractedGeek ?? previousBest.extractedGeek) ||
       nextBest.anjuMemoryEarned > (previousBest.anjuMemoryEarned || 0);
 
     this.bestRecord = nextBest;
@@ -5629,6 +5858,8 @@ class SurvivalScene extends Phaser.Scene {
     const id = typeof entry?.id === "string" && entry.id.length > 0
       ? entry.id
       : `${Number(entry?.recordedAt) || 0}-${this.normalizePlayerName(entry?.name)}-${record.kills}`;
+    const recordedAt = Math.max(0, Math.floor(Number(entry?.recordedAt ?? record.submittedAt) || 0));
+    const submittedAt = Math.max(0, Math.floor(Number(entry?.submittedAt ?? recordedAt) || 0));
 
     return {
       id,
@@ -5638,10 +5869,17 @@ class SurvivalScene extends Phaser.Scene {
       kills: record.kills,
       eliteKills: record.eliteKills,
       maxDepthReached: record.maxDepthReached,
+      bestDepth: record.bestDepth,
+      extractedGeek: record.extractedGeek,
+      bestExtractedGeek: record.bestExtractedGeek,
+      extractMode: record.extractMode,
+      extractionSucceeded: record.extractionSucceeded,
       anjuMemoryEarned: record.anjuMemoryEarned,
       selectedTitle: String(entry?.selectedTitle || "").slice(0, 32),
       selectedBadge: String(entry?.selectedBadge || "").slice(0, 12),
-      recordedAt: Math.max(0, Math.floor(Number(entry?.recordedAt) || 0))
+      recordedAt,
+      submittedAt,
+      version: Math.max(1, Math.floor(Number(entry?.version) || record.version || RANKING_ENTRY_VERSION))
     };
   }
 
@@ -5653,33 +5891,50 @@ class SurvivalScene extends Phaser.Scene {
       ?? (Number(data?.createdAt?.seconds) > 0 ? Number(data.createdAt.seconds) * 1000 : undefined)
       ?? Number(data?.recordedAt)
       ?? 0;
+    const submittedAt = Math.max(0, Math.floor(Number(data?.submittedAt) || createdAt || 0));
 
     return this.normalizeRankingEntry({
       ...data,
       id: documentSnapshot?.id || data?.id,
-      recordedAt: createdAt
+      recordedAt: submittedAt || createdAt,
+      submittedAt
     });
   }
 
-  sortKillRanking(entries) {
+  getValidRankingMode(mode = this.rankingDisplayMode) {
+    return RANKING_MODES[mode] ? mode : DEFAULT_RANKING_MODE;
+  }
+
+  getRankingModeLabel(mode = this.rankingDisplayMode) {
+    return RANKING_MODES[this.getValidRankingMode(mode)].label;
+  }
+
+  getRankingOrderField(mode = this.rankingDisplayMode) {
+    return RANKING_MODES[this.getValidRankingMode(mode)].orderField;
+  }
+
+  compareRankingEntries(left, right, mode = this.rankingDisplayMode) {
+    const metricKeysByMode = {
+      kills: ["kills", "survivalTimeMs", "level", "eliteKills", "bestDepth", "extractedGeek"],
+      depth: ["bestDepth", "extractedGeek", "kills", "survivalTimeMs", "level"],
+      geek: ["extractedGeek", "bestDepth", "kills", "survivalTimeMs", "level"]
+    };
+    const metricKeys = metricKeysByMode[this.getValidRankingMode(mode)] || metricKeysByMode.kills;
+    for (const key of metricKeys) {
+      const leftValue = Math.max(0, Number(left?.[key]) || 0);
+      const rightValue = Math.max(0, Number(right?.[key]) || 0);
+      if (rightValue !== leftValue) {
+        return rightValue - leftValue;
+      }
+    }
+    return (left.recordedAt || 0) - (right.recordedAt || 0);
+  }
+
+  sortKillRanking(entries, mode = this.rankingDisplayMode, limit = MAX_KILL_RANKING_ENTRIES) {
     return entries
       .map((entry) => this.normalizeRankingEntry(entry))
-      .sort((left, right) => {
-        if (right.kills !== left.kills) {
-          return right.kills - left.kills;
-        }
-        if (right.survivalTimeMs !== left.survivalTimeMs) {
-          return right.survivalTimeMs - left.survivalTimeMs;
-        }
-        if (right.level !== left.level) {
-          return right.level - left.level;
-        }
-        if (right.eliteKills !== left.eliteKills) {
-          return right.eliteKills - left.eliteKills;
-        }
-        return left.recordedAt - right.recordedAt;
-      })
-      .slice(0, MAX_KILL_RANKING_ENTRIES);
+      .sort((left, right) => this.compareRankingEntries(left, right, mode))
+      .slice(0, limit);
   }
 
   loadKillRanking() {
@@ -5712,13 +5967,16 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   addKillRankingEntry(name, record) {
+    const submittedAt = Date.now();
     const entry = this.normalizeRankingEntry({
       ...this.normalizeBestRecord(record),
-      id: `${Date.now()}-${Math.floor(Math.random() * 1000000)}`,
+      id: `${submittedAt}-${Math.floor(Math.random() * 1000000)}`,
       name,
       selectedTitle: this.getAnjuMemorySelectedRankingLabel("title"),
       selectedBadge: this.getAnjuMemorySelectedRankingLabel("badge"),
-      recordedAt: Date.now()
+      recordedAt: submittedAt,
+      submittedAt,
+      version: RANKING_ENTRY_VERSION
     });
 
     this.killRanking = this.sortKillRanking([...(this.killRanking || []), entry]);
@@ -5782,15 +6040,16 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getDisplayedKillRankingEntries() {
-    return this.remoteKillRanking?.length > 0
+    return this.remoteKillRanking?.length > 0 && this.remoteRankingMode === this.getValidRankingMode(this.rankingDisplayMode)
       ? this.remoteKillRanking
       : this.killRanking || [];
   }
 
   getDisplayedKillRankingTitle() {
-    return this.remoteKillRanking?.length > 0
-      ? "ONLINE KILL RANKING"
-      : "LOCAL KILL RANKING";
+    const source = this.remoteKillRanking?.length > 0 && this.remoteRankingMode === this.getValidRankingMode(this.rankingDisplayMode)
+      ? "ONLINE"
+      : "LOCAL";
+    return `${source} ${this.getRankingModeLabel()} RANKING`;
   }
 
   refreshGameOverRankingOverlay() {
@@ -5800,26 +6059,43 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   async loadRemoteKillRanking() {
+    const rankingMode = this.getValidRankingMode(this.rankingDisplayMode);
     const requestId = this.remoteRankingRequestId + 1;
     this.remoteRankingRequestId = requestId;
+    this.remoteRankingMode = rankingMode;
     this.remoteRankingStatus = "ONLINE 読み込み中...";
     this.refreshGameOverRankingOverlay();
 
     try {
       const { db, firestore } = await this.getFirebaseLeaderboardClient();
-      const rankingQuery = firestore.query(
-        firestore.collection(db, FIREBASE_LEADERBOARD_COLLECTION),
-        firestore.orderBy("kills", "desc"),
-        firestore.limit(FIREBASE_REMOTE_RANKING_LIMIT)
-      );
-      const snapshot = await firestore.getDocs(rankingQuery);
+      const collectionRef = firestore.collection(db, FIREBASE_LEADERBOARD_COLLECTION);
+      const orderFields = [this.getRankingOrderField(rankingMode)];
+      if (!orderFields.includes("kills")) {
+        orderFields.push("kills");
+      }
+      const snapshots = await Promise.all(orderFields.map((orderField) => {
+        const rankingQuery = firestore.query(
+          collectionRef,
+          firestore.orderBy(orderField, "desc"),
+          firestore.limit(FIREBASE_REMOTE_RANKING_LIMIT)
+        );
+        return firestore.getDocs(rankingQuery);
+      }));
 
       if (this.remoteRankingRequestId !== requestId) {
         return;
       }
 
+      const mergedDocs = new Map();
+      snapshots.forEach((snapshot) => {
+        snapshot.docs.forEach((documentSnapshot) => {
+          mergedDocs.set(documentSnapshot.id, documentSnapshot);
+        });
+      });
       this.remoteKillRanking = this.sortKillRanking(
-        snapshot.docs.map((documentSnapshot) => this.normalizeRemoteRankingEntry(documentSnapshot))
+        Array.from(mergedDocs.values()).map((documentSnapshot) => this.normalizeRemoteRankingEntry(documentSnapshot)),
+        rankingMode,
+        FIREBASE_REMOTE_RANKING_LIMIT
       );
       this.remoteRankingStatus = this.remoteKillRanking.length > 0
         ? "ONLINE 接続中"
@@ -5856,9 +6132,15 @@ class SurvivalScene extends Phaser.Scene {
           level: normalizedEntry.level,
           eliteKills: normalizedEntry.eliteKills,
           maxDepthReached: normalizedEntry.maxDepthReached,
+          bestDepth: normalizedEntry.bestDepth,
+          extractedGeek: normalizedEntry.extractedGeek,
+          extractMode: normalizedEntry.extractMode,
+          extractionSucceeded: normalizedEntry.extractionSucceeded,
           anjuMemoryEarned: normalizedEntry.anjuMemoryEarned,
           selectedTitle: normalizedEntry.selectedTitle,
           selectedBadge: normalizedEntry.selectedBadge,
+          submittedAt: normalizedEntry.submittedAt || normalizedEntry.recordedAt || Date.now(),
+          version: RANKING_ENTRY_VERSION,
           uid,
           createdAt: firestore.serverTimestamp()
         }
@@ -5878,24 +6160,50 @@ class SurvivalScene extends Phaser.Scene {
     return normalized.length > 12 ? `${normalized.slice(0, 11)}.` : normalized;
   }
 
+  formatRankingNumber(value, width = 5) {
+    const amount = this.normalizeCoinAmount(value);
+    if (amount >= 1000000) {
+      return `${Math.floor(amount / 100000) / 10}M`.padStart(width, " ");
+    }
+    if (amount >= 10000) {
+      return `${Math.floor(amount / 100) / 10}K`.padStart(width, " ");
+    }
+    return String(amount).padStart(width, " ");
+  }
+
+  formatRankingEntryLine(entry, index, highlightEntryId = null) {
+    const marker = entry.id === highlightEntryId ? ">" : " ";
+    const rank = String(index + 1).padStart(2, " ");
+    const badge = entry.selectedBadge ? `[${String(entry.selectedBadge).slice(0, 3)}]` : "";
+    const name = `${badge}${this.formatRankingName(entry.name)}`.slice(0, 13).padEnd(13, " ");
+    const kills = String(entry.kills).padStart(5, " ");
+    const depth = String(this.getRecordBestDepth(entry)).padStart(2, " ");
+    const geek = this.formatRankingNumber(entry.extractedGeek, 6);
+    const level = String(entry.level).padStart(2, " ");
+    const anjuMemory = String(entry.anjuMemoryEarned || 0).padStart(3, " ");
+    const mode = this.getValidRankingMode(this.rankingDisplayMode);
+
+    if (mode === "depth") {
+      return `${marker}${rank} ${name} D ${depth} G ${geek} K ${kills} ${this.formatTimeMs(entry.survivalTimeMs)} LV ${level} AM ${anjuMemory}`;
+    }
+    if (mode === "geek") {
+      return `${marker}${rank} ${name} G ${geek} D ${depth} K ${kills} ${this.formatTimeMs(entry.survivalTimeMs)} LV ${level} AM ${anjuMemory}`;
+    }
+    return `${marker}${rank} ${name} K ${kills} D ${depth} G ${geek} ${this.formatTimeMs(entry.survivalTimeMs)} LV ${level} AM ${anjuMemory}`;
+  }
+
   formatKillRankingLines(highlightEntryId = null, sourceEntries = null) {
-    const entries = this.sortKillRanking(sourceEntries || this.killRanking || []);
+    const entries = this.sortKillRanking(
+      sourceEntries || this.killRanking || [],
+      this.rankingDisplayMode,
+      MAX_RANKING_DISPLAY_ENTRIES
+    );
     if (entries.length <= 0) {
       return "まだ記録がありません";
     }
 
     return entries
-      .map((entry, index) => {
-        const marker = entry.id === highlightEntryId ? ">" : " ";
-        const rank = String(index + 1).padStart(2, " ");
-        const badge = entry.selectedBadge ? `[${String(entry.selectedBadge).slice(0, 3)}]` : "";
-        const name = `${badge}${this.formatRankingName(entry.name)}`.slice(0, 13).padEnd(13, " ");
-        const kills = String(entry.kills).padStart(5, " ");
-        const depth = String(entry.maxDepthReached || 1).padStart(2, " ");
-        const anjuMemory = String(entry.anjuMemoryEarned || 0).padStart(3, " ");
-        const level = String(entry.level).padStart(2, " ");
-        return `${marker}${rank} ${name} K ${kills} D ${depth} AM ${anjuMemory} ${this.formatTimeMs(entry.survivalTimeMs)} LV ${level}`;
-      })
+      .map((entry, index) => this.formatRankingEntryLine(entry, index, highlightEntryId))
       .join("\n");
   }
 
@@ -6000,7 +6308,9 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   formatRecordSummary(record) {
-    return `${this.formatTimeMs(record.survivalTimeMs)} / LV ${record.level} / K ${record.kills} / D ${record.maxDepthReached || 1} / AM ${record.anjuMemoryEarned || 0}`;
+    const bestDepth = this.getRecordBestDepth(record);
+    const extractedGeek = this.getRecordExtractedGeek(record);
+    return `${this.formatTimeMs(record.survivalTimeMs)} / LV ${record.level} / K ${record.kills} / BD ${bestDepth} / EX ${extractedGeek.toLocaleString()} / AM ${record.anjuMemoryEarned || 0}`;
   }
 
   formatHudBestSummary(record) {
@@ -6009,7 +6319,7 @@ class SurvivalScene extends Phaser.Scene {
       : "";
     const title = this.getAnjuMemorySelectedLabel("title");
     const titleText = title && title !== "NO TITLE" ? `\nTITLE ${title}` : "";
-    return `BEST ${this.formatTimeMs(record.survivalTimeMs)} / LV ${record.level}\nK ${record.kills} / D ${record.maxDepthReached || 1} / AM ${record.anjuMemoryEarned || 0}${titleText}${robotText}`;
+    return `BEST ${this.formatTimeMs(record.survivalTimeMs)} / LV ${record.level}\nK ${record.kills} / BD ${this.getRecordBestDepth(record)} / EX ${this.getRecordExtractedGeek(record).toLocaleString()} / AM ${record.anjuMemoryEarned || 0}${titleText}${robotText}`;
   }
 
   setLastPickupNotice(text) {
@@ -12213,6 +12523,7 @@ class SurvivalScene extends Phaser.Scene {
     const mode = transition?.mode === "force" ? "force" : "next";
     this.clearActiveAnomalyContract("depthTransition", { silent: true, keepPending: true });
     this.stageDepth = targetDepth;
+    this.updateRunRankingDepthProgress(this.stageDepth);
     this.gateInstabilityStacks = Math.max(0, Math.floor(Number(transition?.nextInstabilityStacks) || 0));
     this.updateAnjuMemoryDepthProgress(this.stageDepth);
     this.resetGateCycleForNextDepth();
@@ -12248,6 +12559,7 @@ class SurvivalScene extends Phaser.Scene {
 
   completeExtraction(result, emergency, lostArmsMessage = "") {
     const anjuMemoryAward = this.awardAnjuMemoryOnExtraction(emergency ? "emergency" : "normal");
+    this.setRunRankingExtractionStats(emergency ? "emergency" : "normal", result?.secured, true);
     this.extractionComplete = true;
     this.gateChoiceActive = false;
     this.levelUpActive = false;
@@ -12321,8 +12633,10 @@ class SurvivalScene extends Phaser.Scene {
     const fillColor = framePalette.fill || 0x07131d;
     const titleColor = framePalette.title || "#ecfaff";
     const anjuMemoryText = this.formatAnjuMemoryAwardLine(anjuMemoryAward);
+    const rankingStats = this.normalizeRunRankingStats(this.runRankingStats);
+    const resultStatsText = `BEST DEPTH ${rankingStats.maxDepthReached}\nEXTRACTED GEEK ${rankingStats.extractedGeek.toLocaleString()}`;
     this.clearOverlayButtons();
-    this.configureOverlayPanel(680, 330);
+    this.configureOverlayPanel(680, 390);
     this.overlayPanel
       .setFillStyle(fillColor, 0.96)
       .setStrokeStyle(2, strokeColor, emergency ? 0.48 : 0.42);
@@ -12335,7 +12649,7 @@ class SurvivalScene extends Phaser.Scene {
         align: "center"
       })
       .setOrigin(0.5)
-      .setPosition(0, -104)
+      .setPosition(0, -138)
       .setText(emergency ? "EMERGENCY EXTRACTION" : "EXTRACTION COMPLETE");
     this.overlayBody
       .setStyle({
@@ -12346,10 +12660,10 @@ class SurvivalScene extends Phaser.Scene {
         lineSpacing: 8
       })
       .setOrigin(0.5)
-      .setPosition(0, -42)
-      .setText(`${result.secured.toLocaleString()} GEEK SECURED\n${result.lost > 0 ? `${result.lost.toLocaleString()} GEEK LOST\n` : ""}${anjuMemoryText ? `${anjuMemoryText}\n` : ""}作戦成功${lostArmsMessage ? `\n\n${lostArmsMessage}` : ""}`);
+      .setPosition(0, -68)
+      .setText(`${result.secured.toLocaleString()} GEEK SECURED\n${result.lost > 0 ? `${result.lost.toLocaleString()} GEEK LOST\n` : ""}${resultStatsText}\n${anjuMemoryText ? `${anjuMemoryText}\n` : ""}作戦成功${lostArmsMessage ? `\n\n${lostArmsMessage}` : ""}`);
     const glow = this.add
-      .image(0, 78, "skill-hit-glow")
+      .image(0, 118, "skill-hit-glow")
       .setScale(1.5)
       .setTint(strokeColor)
       .setAlpha(0.26)
@@ -21637,6 +21951,7 @@ class SurvivalScene extends Phaser.Scene {
     this.resetStabilizeProtocolState(reason);
     this.resetOverflowRewardState();
     this.lastGameOverReason = { reason, lostCoins, lostArmsMessage };
+    this.setRunRankingExtractionStats("none", 0, false);
     this.supportAttackBgmDuckingCount = 0;
     this.destroyStageGate(true);
     this.hideOverlay();
@@ -21659,13 +21974,14 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   submitPendingRankingEntry() {
-    if (!this.pendingRankingRecord || this.pendingRankingSaved) {
+    if (!this.pendingRankingRecord || this.pendingRankingSaved || this.normalizeRunRankingStats(this.runRankingStats).submitted) {
       return;
     }
 
     this.rankingPlayerName = this.normalizePlayerName(this.rankingPlayerName);
     const result = this.addKillRankingEntry(this.rankingPlayerName, this.pendingRankingRecord);
     this.pendingRankingSaved = true;
+    this.markRunRankingSubmitted();
     this.rankingNameEntryActive = false;
     this.rankingNameSelectAll = false;
     this.highlightRankingEntryId = result.entry.id;
@@ -21700,6 +22016,54 @@ class SurvivalScene extends Phaser.Scene {
 
   continueToOpeningShopFromRanking() {
     this.returnToOpeningShop(this.pendingShopReturnMessage || "", { showMobileLaunchGate: true });
+  }
+
+  setRankingDisplayMode(mode) {
+    const nextMode = this.getValidRankingMode(mode);
+    if (nextMode === this.getValidRankingMode(this.rankingDisplayMode)) {
+      return;
+    }
+    this.rankingDisplayMode = nextMode;
+    this.remoteKillRanking = [];
+    this.remoteRankingStatus = "ONLINE 読み込み中...";
+    if (this.isRankingDebugEnabled()) {
+      this.remoteRankingStatus = "DEBUG PREVIEW / ONLINE 未接続";
+      this.showGameOverRankingOverlay();
+      return;
+    }
+    this.showGameOverRankingOverlay();
+    this.loadRemoteKillRanking();
+  }
+
+  createRankingModeButton(centerX, centerY, mode) {
+    const rankingMode = this.getValidRankingMode(mode);
+    const active = rankingMode === this.getValidRankingMode(this.rankingDisplayMode);
+    const width = 114;
+    const height = 30;
+    const panel = this.add
+      .rectangle(centerX, centerY, width, height, active ? 0x1b3a54 : 0x0e1c2c, 1)
+      .setStrokeStyle(2, active ? 0x77f0ff : 0x5aa7d8, active ? 0.64 : 0.24)
+      .setInteractive({ useHandCursor: true });
+    const label = this.add.text(centerX, centerY + 1, this.getRankingModeLabel(rankingMode), {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "14px",
+      color: active ? "#ecfaff" : "#9ab7cc",
+      fontStyle: "bold",
+      align: "center"
+    }).setOrigin(0.5);
+
+    panel.on("pointerover", () => {
+      panel.setFillStyle(active ? 0x214863 : 0x142a42, 1);
+    });
+
+    panel.on("pointerout", () => {
+      panel.setFillStyle(active ? 0x1b3a54 : 0x0e1c2c, 1);
+    });
+
+    this.overlayContainer.add([panel, label]);
+    this.overlayButtons.push(panel, label);
+    this.addOverlayAction(panel, () => this.setRankingDisplayMode(rankingMode), true, 4);
+    return panel;
   }
 
   returnToOpeningShop(message = "", options = {}) {
@@ -21780,7 +22144,7 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     this.clearOverlayButtons();
-    this.configureOverlayPanel(760, 620);
+    this.configureOverlayPanel(800, 660);
     this.overlayPanel
       .setFillStyle(0x081320, 0.97)
       .setStrokeStyle(2, 0x6fcfff, 0.35);
@@ -21793,16 +22157,16 @@ class SurvivalScene extends Phaser.Scene {
         align: "center"
       })
       .setOrigin(0.5)
-      .setPosition(0, -266);
+      .setPosition(0, -292);
     this.overlayBody
       .setStyle({
         fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
-        fontSize: "17px",
+        fontSize: "16px",
         color: "#9ab7cc",
         align: "center"
       })
-      .setOrigin(0.5)
-      .setPosition(0, -220);
+      .setOrigin(0.5, 0)
+      .setPosition(0, -260);
 
     const updateLine = improved ? "\nBEST UPDATE!" : "";
     const reason = this.lastGameOverReason?.reason || "playerDeath";
@@ -21812,40 +22176,44 @@ class SurvivalScene extends Phaser.Scene {
     const lostArmsMessage = this.lastGameOverReason?.lostArmsMessage || "";
     const anjuMemoryText = this.lastGameOverReason?.anjuMemoryText || "";
     const reasonLine = isExtractionResult
-      ? `${securedCoins.toLocaleString()} GEEK SECURED\n${lostCoins > 0 ? `${lostCoins.toLocaleString()} GEEK LOST\n` : ""}${anjuMemoryText ? `${anjuMemoryText}\n` : ""}${lostArmsMessage ? `${lostArmsMessage}\n` : ""}作戦成功\n`
+      ? `EXTRACTED GEEK ${securedCoins.toLocaleString()} / BEST DEPTH ${this.getRecordBestDepth(currentRecord)}${lostCoins > 0 ? ` / LOST ${lostCoins.toLocaleString()}` : ""}\n${anjuMemoryText ? `${anjuMemoryText}\n` : ""}${lostArmsMessage ? `${lostArmsMessage}\n` : ""}`
       : (reason === "gateCollapse"
         ? `GATE COLLAPSE\n未確定GEEK LOST: ${lostCoins.toLocaleString()}\n${lostArmsMessage ? `${lostArmsMessage}\n` : ""}作戦失敗\n`
         : `${lostCoins > 0 ? `未確定GEEK LOST: ${lostCoins.toLocaleString()}\n` : ""}${lostArmsMessage ? `${lostArmsMessage}\n` : ""}`);
     this.overlayTitle.setText(isExtractionResult
       ? (reason === "emergencyExtract" ? "Emergency Extraction" : "Extraction Complete")
       : (reason === "gateCollapse" ? "Gate Collapse" : "Game Over"));
+    const reasonBlock = reasonLine ? `${reasonLine.replace(/\n+$/g, "")}\n` : "";
     this.overlayBody.setText(
-      `${reasonLine}RUN  ${this.formatRecordSummary(currentRecord)}\nBEST ${this.formatRecordSummary(bestRecord)}${updateLine}`
+      `${reasonBlock}RUN  ${this.formatRecordSummary(currentRecord)}\nBEST ${this.formatRecordSummary(bestRecord)}${updateLine}`
     );
 
-    const nameLabel = this.add.text(-264, -158, this.pendingRankingSaved ? "PLAYER" : "PLAYER NAME", {
+    const nameLabel = this.add.text(-264, -176, this.pendingRankingSaved ? "PLAYER" : "PLAYER NAME", {
       fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
       fontSize: "15px",
       color: "#6fcfff",
       fontStyle: "bold"
     });
     const inputPanel = this.add
-      .rectangle(0, -122, 540, 48, this.pendingRankingSaved ? 0x102034 : 0x0d1b2c, 1)
+      .rectangle(0, -140, 540, 48, this.pendingRankingSaved ? 0x102034 : 0x0d1b2c, 1)
       .setStrokeStyle(2, this.pendingRankingSaved ? 0x5aa7d8 : 0x6fcfff, this.pendingRankingSaved ? 0.26 : 0.56);
-    this.rankingNameInputText = this.add.text(-248, -138, "", {
+    this.rankingNameInputText = this.add.text(-248, -156, "", {
       fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
       fontSize: "27px",
       color: "#ecf7ff",
       fontStyle: "bold",
       fixedWidth: 496
     });
-    const hint = this.add.text(0, -84, this.rankingSaveMessage, {
+    const hint = this.add.text(0, -102, this.rankingSaveMessage, {
       fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
       fontSize: "15px",
       color: this.pendingRankingSaved ? "#77f0b4" : "#9ab7cc",
       align: "center"
     }).setOrigin(0.5);
-    const rankingHeader = this.add.text(0, -44, "LOCAL KILL RANKING", {
+    this.createRankingModeButton(-124, -70, "kills");
+    this.createRankingModeButton(0, -70, "depth");
+    this.createRankingModeButton(124, -70, "geek");
+    const rankingHeader = this.add.text(0, -42, "LOCAL KILL RANKING", {
       fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
       fontSize: "19px",
       color: "#ecf7ff",
@@ -21859,15 +22227,15 @@ class SurvivalScene extends Phaser.Scene {
       color: this.remoteRankingStatus.includes("失敗") ? "#ffb3a8" : "#9ab7cc",
       align: "center"
     }).setOrigin(0.5);
-    const rankingText = this.add.text(-320, 10, this.formatKillRankingLines(
+    const rankingText = this.add.text(-360, 10, this.formatKillRankingLines(
       this.highlightRankingEntryId,
       this.getDisplayedKillRankingEntries()
     ), {
       fontFamily: "Consolas, Yu Gothic UI, monospace",
-      fontSize: "17px",
+      fontSize: "15px",
       color: "#b8d8ec",
       lineSpacing: 3,
-      fixedWidth: 640
+      fixedWidth: 720
     });
 
     this.overlayContainer.add([
@@ -21891,10 +22259,10 @@ class SurvivalScene extends Phaser.Scene {
     this.updateRankingNameInputText();
 
     if (!this.pendingRankingSaved) {
-      this.createGameOverRankingButton(-156, 248, 280, 64, "ENTRY", "ランキングへ登録する", () => {
+      this.createGameOverRankingButton(-156, 274, 280, 64, "ENTRY", "ランキングへ登録する", () => {
         this.submitPendingRankingEntry();
       });
-      this.createGameOverRankingButton(156, 248, 280, 64, isExtractionResult ? "Opening Shop" : "Restart", isExtractionResult ? "登録せずショップへ帰還" : "登録せず最初からプレイ", () => {
+      this.createGameOverRankingButton(156, 274, 280, 64, isExtractionResult ? "Opening Shop" : "Restart", isExtractionResult ? "登録せずショップへ帰還" : "登録せず最初からプレイ", () => {
         if (isExtractionResult) {
           this.continueToOpeningShopFromRanking();
           return;
@@ -21902,7 +22270,7 @@ class SurvivalScene extends Phaser.Scene {
         this.restartGame();
       });
     } else {
-      this.createGameOverRankingButton(0, 248, 320, 64, isExtractionResult ? "Opening Shop" : "Restart", isExtractionResult ? "ショップへ帰還する" : "最初からもう一度プレイする", () => {
+      this.createGameOverRankingButton(0, 274, 320, 64, isExtractionResult ? "Opening Shop" : "Restart", isExtractionResult ? "ショップへ帰還する" : "最初からもう一度プレイする", () => {
         if (isExtractionResult) {
           this.continueToOpeningShopFromRanking();
           return;
