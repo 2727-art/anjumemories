@@ -553,7 +553,11 @@ const DEFAULT_BGM_VOLUME = 0.52;
 const SUPPORT_ATTACK_BGM_DUCK_VOLUME = 0.34;
 const SUPPORT_ATTACK_BGM_DUCK_IN_MS = 260;
 const SUPPORT_ATTACK_BGM_DUCK_OUT_MS = 520;
-const GENSO_KNIGHTS_SUPPORT_CHANCE = 0.05;
+const SUPPORT_ITEM_DROP_CHANCE = 0.02;
+const SUPPORT_ITEM_ELITE_BONUS_CHANCE = 0.04;
+const SUPPORT_ATTACK_WEIGHT_NORMAL = 10;
+const SUPPORT_ATTACK_WEIGHT_RARE = 3;
+const SUPPORT_ATTACK_WEIGHT_SUPER_RARE = 1;
 const GENSO_KNIGHTS_INTRO_MS = 13000;
 const GENSO_KNIGHTS_ATTACK_END_MS = 75000;
 const GENSO_KNIGHTS_EVENT_END_MS = 77000;
@@ -1780,11 +1784,11 @@ const SPECIAL_ITEM_DEFINITIONS = {
   bomb: {
     id: "bomb",
     label: "Support",
-    textureKey: "pickup-bomb",
+    textureKey: "pickup-support-drop",
+    hudTextureKey: "hud-icon-support-attack",
     effectType: "bomb",
-    // Debug tuning: temporarily raised so support attacks can be tested often.
-    dropChance: 0.22,
-    eliteBonusChance: 0.48,
+    dropChance: SUPPORT_ITEM_DROP_CHANCE,
+    eliteBonusChance: SUPPORT_ITEM_ELITE_BONUS_CHANCE,
     tint: 0xff8f69,
     glowTint: 0xffd9c9,
     scale: 0.98,
@@ -2047,6 +2051,7 @@ const SUPPORT_ATTACK_DEFINITIONS = [
     label: "いしでん",
     noticeLabel: "出金戦争",
     type: "timingCoin",
+    supportWeight: SUPPORT_ATTACK_WEIGHT_RARE,
     tint: 0xffd85c,
     glowTint: 0xfff5a8,
     frameCount: 5,
@@ -2149,6 +2154,7 @@ const SUPPORT_ATTACK_DEFINITIONS = [
   }
 ].map((definition) => ({
   ...definition,
+  supportWeight: definition.supportWeight ?? SUPPORT_ATTACK_WEIGHT_NORMAL,
   cutinTextureKey: `support-${definition.id}-cutin`,
   cutinPath: `./画像/support/${definition.id}/cutin.png`,
   animationFrames: Array.from({ length: definition.frameCount }, (_, index) => ({
@@ -2175,6 +2181,7 @@ const GENSO_KNIGHTS_SUPPORT_DEFINITION = {
   label: "元素騎士",
   noticeLabel: "GENSO KNIGHTS",
   type: "gensoKnights",
+  supportWeight: SUPPORT_ATTACK_WEIGHT_SUPER_RARE,
   tint: 0x52d8ff,
   glowTint: 0xb8f5ff,
   cutinTextureKey: "support-genso-knights-cutin",
@@ -2756,7 +2763,8 @@ class SurvivalScene extends Phaser.Scene {
       this.textures.exists("data-cache") &&
       this.textures.exists("pickup-heal") &&
       this.textures.exists("pickup-magnet") &&
-      this.textures.exists("pickup-bomb") &&
+      this.textures.exists("pickup-support-drop") &&
+      this.textures.exists("hud-icon-support-attack") &&
       this.textures.exists("skill-hit-glow") &&
       this.textures.exists("skill-hit-ring") &&
       this.textures.exists("skill-hit-spark") &&
@@ -2870,14 +2878,49 @@ class SurvivalScene extends Phaser.Scene {
     graphics.generateTexture("pickup-magnet", 36, 36);
     graphics.clear();
 
-    graphics.fillStyle(0xffffff, 1);
-    graphics.fillCircle(18, 20, 10);
-    graphics.lineStyle(3, 0xffffff, 1);
-    graphics.strokeLineShape(new Phaser.Geom.Line(24, 11, 30, 6));
-    graphics.fillCircle(31, 5, 3);
-    graphics.fillStyle(0xffffff, 0.34);
-    graphics.fillCircle(14, 15, 4);
-    graphics.generateTexture("pickup-bomb", 36, 36);
+    graphics.fillStyle(0xffffff, 0.98);
+    graphics.fillRoundedRect(7, 12, 22, 17, 5);
+    graphics.fillStyle(0xffffff, 0.82);
+    graphics.fillTriangle(6, 13, 18, 5, 30, 13);
+    graphics.fillStyle(0xffffff, 0.54);
+    graphics.fillRoundedRect(11, 16, 14, 3, 2);
+    graphics.fillRoundedRect(11, 23, 9, 2, 1);
+    graphics.lineStyle(3, 0xffffff, 0.94);
+    graphics.strokeLineShape(new Phaser.Geom.Line(18, 10, 18, 23));
+    graphics.fillStyle(0xffffff, 0.98);
+    graphics.fillTriangle(18, 28, 12, 21, 24, 21);
+    graphics.lineStyle(2, 0xffffff, 0.66);
+    graphics.beginPath();
+    graphics.arc(18, 18, 14, Math.PI * 1.15, Math.PI * 1.85, false);
+    graphics.strokePath();
+    graphics.generateTexture("pickup-support-drop", 36, 36);
+    graphics.clear();
+
+    graphics.fillStyle(0x07131d, 0.96);
+    graphics.fillCircle(24, 24, 22);
+    graphics.lineStyle(3, 0x5cf3ff, 0.92);
+    graphics.strokeCircle(24, 24, 19);
+    graphics.lineStyle(2, 0xb7ffff, 0.64);
+    graphics.beginPath();
+    graphics.arc(24, 21, 13, Math.PI * 1.12, Math.PI * 1.88, false);
+    graphics.strokePath();
+    graphics.beginPath();
+    graphics.arc(24, 21, 17, Math.PI * 1.08, Math.PI * 1.92, false);
+    graphics.strokePath();
+    graphics.lineStyle(3, 0x86f7ff, 0.84);
+    graphics.strokeLineShape(new Phaser.Geom.Line(24, 18, 14, 30));
+    graphics.strokeLineShape(new Phaser.Geom.Line(24, 18, 34, 30));
+    graphics.fillStyle(0xeaffff, 0.96);
+    graphics.fillCircle(24, 15, 4);
+    graphics.fillRoundedRect(20, 20, 8, 12, 4);
+    graphics.fillStyle(0x85f7ff, 0.94);
+    graphics.fillCircle(13, 31, 4);
+    graphics.fillCircle(35, 31, 4);
+    graphics.fillStyle(0xffffff, 0.92);
+    graphics.fillTriangle(24, 39, 17, 30, 31, 30);
+    graphics.fillStyle(0x7af7ff, 0.28);
+    graphics.fillCircle(24, 24, 9);
+    graphics.generateTexture("hud-icon-support-attack", 48, 48);
     graphics.clear();
 
     graphics.fillStyle(0xd8efff, 0.92);
@@ -6901,10 +6944,16 @@ class SurvivalScene extends Phaser.Scene {
     if (definition?.effectType !== "bomb") {
       return true;
     }
-    if (this.isGensoKnightsEventActive()) {
+    if (this.isGensoKnightsEventActive() || this.isTimingCoinSupportAttackActive()) {
       return false;
     }
     return SUPPORT_ATTACK_DEFINITIONS.length > 0 || Boolean(GENSO_KNIGHTS_SUPPORT_DEFINITION);
+  }
+
+  isTimingCoinSupportAttackActive() {
+    return Boolean(this.activeSupportAttacks?.some((support) => {
+      return support?.definition?.type === "timingCoin";
+    }));
   }
 
   isSupportProgressionCapped() {
@@ -9447,10 +9496,11 @@ class SurvivalScene extends Phaser.Scene {
     this.createRobotHudPanel();
     this.createDashStaminaGauge();
 
+    const supportItemDefinition = SPECIAL_ITEM_DEFINITIONS.bomb;
     this.hudConsumableSlots = [
       this.createHudSlot(this.hudUsesFrameAsset ? 986 : GAME_WIDTH - 152, this.hudUsesFrameAsset ? 598 : GAME_HEIGHT - 68, this.hudUsesFrameAsset ? 64 : 46, { textureKey: "pickup-heal", label: "HEAL", effectType: "heal" }),
       this.createHudSlot(this.hudUsesFrameAsset ? 1084 : GAME_WIDTH - 100, this.hudUsesFrameAsset ? 598 : GAME_HEIGHT - 68, this.hudUsesFrameAsset ? 64 : 46, { textureKey: "pickup-magnet", label: "MAG", effectType: "magnet" }),
-      this.createHudSlot(this.hudUsesFrameAsset ? 1182 : GAME_WIDTH - 48, this.hudUsesFrameAsset ? 598 : GAME_HEIGHT - 68, this.hudUsesFrameAsset ? 64 : 46, { textureKey: "pickup-bomb", label: "SUP", effectType: "bomb" })
+      this.createHudSlot(this.hudUsesFrameAsset ? 1182 : GAME_WIDTH - 48, this.hudUsesFrameAsset ? 598 : GAME_HEIGHT - 68, this.hudUsesFrameAsset ? 64 : 46, { textureKey: supportItemDefinition.hudTextureKey || supportItemDefinition.textureKey, label: "SUP", effectType: "bomb" })
     ];
 
     if (this.stageDebugEnabled && this.stageDebugOptions.showCounts) {
@@ -18103,6 +18153,10 @@ class SurvivalScene extends Phaser.Scene {
       this.setLastPickupNotice("GENSO KNIGHTS ACTIVE");
       return;
     }
+    if (this.isTimingCoinSupportAttackActive()) {
+      this.setLastPickupNotice("ISHIDEN ACTIVE");
+      return;
+    }
     this.triggerSupportAttack(this.pickSupportAttackDefinition());
   }
 
@@ -18110,15 +18164,37 @@ class SurvivalScene extends Phaser.Scene {
     const canTriggerGensoKnights = !this.isGensoKnightsEventActive()
       && !(this.activeSupportAttacks?.length)
       && this.lastSupportAttackId !== GENSO_KNIGHTS_SUPPORT_DEFINITION.id;
-    if (canTriggerGensoKnights && Math.random() < GENSO_KNIGHTS_SUPPORT_CHANCE) {
-      return GENSO_KNIGHTS_SUPPORT_DEFINITION;
-    }
 
     const candidates = SUPPORT_ATTACK_DEFINITIONS.filter((candidate) => {
       return candidate.id !== this.lastSupportAttackId;
     });
-    const pool = candidates.length > 0 ? candidates : SUPPORT_ATTACK_DEFINITIONS;
-    return Phaser.Utils.Array.GetRandom(pool) || SUPPORT_ATTACK_DEFINITIONS[0];
+    const pool = [
+      ...(canTriggerGensoKnights ? [GENSO_KNIGHTS_SUPPORT_DEFINITION] : []),
+      ...(candidates.length > 0 ? candidates : SUPPORT_ATTACK_DEFINITIONS)
+    ];
+    return this.pickWeightedSupportAttackDefinition(pool) || SUPPORT_ATTACK_DEFINITIONS[0];
+  }
+
+  pickWeightedSupportAttackDefinition(pool) {
+    const weightedPool = (pool || [])
+      .map((definition) => ({
+        definition,
+        weight: Math.max(0, Number(definition?.supportWeight) || SUPPORT_ATTACK_WEIGHT_NORMAL)
+      }))
+      .filter((entry) => entry.definition && entry.weight > 0);
+    const totalWeight = weightedPool.reduce((sum, entry) => sum + entry.weight, 0);
+    if (totalWeight <= 0) {
+      return weightedPool[0]?.definition || null;
+    }
+
+    let roll = Math.random() * totalWeight;
+    for (const entry of weightedPool) {
+      roll -= entry.weight;
+      if (roll <= 0) {
+        return entry.definition;
+      }
+    }
+    return weightedPool[weightedPool.length - 1]?.definition || null;
   }
 
   triggerSupportAttack(definition) {
