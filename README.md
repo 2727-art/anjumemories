@@ -125,6 +125,19 @@ OVERDRIVE:
 - 発動中はダメージ x1.15、移動速度 x1.12、攻撃間隔 x0.88 になります。
 - HUD 中央に `OD` ゲージと残り秒数が表示されます。
 
+Depth 6 以降で OVERDRIVE が新規発動する場合、即時発動ではなく `OVERDRIVE MOD SELECT` の 3 択カードが開き、その OVERDRIVE 中だけ有効な MOD を 1 つ選びます。Depth 1〜5 は従来どおり自動発動します。すでに OVERDRIVE 中にゲージが 100% へ到達した場合は選択 UI を出さず、現在の MOD を維持したまま発動時間だけ延長します。レベルアップ、Gate、STABILIZE PROTOCOL、LOST ARMS RESONANCE など別 overlay が開いている場合、MOD 選択はキューされ、overlay が閉じてから表示されます。抽出、緊急抽出、ゲームオーバー、ショップ復帰、リスタート、シーン破棄で MOD 状態と未表示キューは破棄され、保存データには残りません。
+
+OVERDRIVE MOD:
+
+- `CHAIN VOLTAGE`: 0.9 秒ごとに最大 3 体へ連鎖雷撃を行います。範囲 280、威力は通常弾基準 x0.65 で、再分岐はしません。
+- `HUNTER MODE`: ボス/エリートへのプレイヤー側ダメージ x1.25、高 HP 通常敵へのダメージ x1.12。Support finisher 由来の広域ダメージは上限を抑えます。
+- `MAGNET STORM`: 発動時に半径 900 内の XP、価値ドロップ、DATA CACHE、Robot、Support、LOST ARMS / RESONANCE ECHO を引き寄せ、通常 MAGNET の範囲 x1.60、引き寄せ速度 x1.35。
+- `GOLD FEVER`: Bronze / Silver / Gold の未確定 GEEK x1.20、DATA CACHE の未確定 GEEK x1.15。確定 GEEK と保存済み通貨には影響しません。
+- `GUARD PULSE`: 発動直後 2.5 秒だけ被ダメージ x0.78、半径 220 の敵を押し戻します。
+- `COOLDOWN REACTOR`: OVERDRIVE 中の攻撃間隔をさらに x0.88、移動速度を x0.96 にします。
+
+検証用に `?debugOverdriveMod=1` を付けると、Depth 1 から MOD 選択条件を確認でき、console に選択ログが出ます。
+
 ## STABILIZE
 
 Robot 報酬や Support 報酬が上限または無効で通常効果を出せない場合、`STABILIZE` と未確定 GEEK に変換されます。
@@ -274,11 +287,30 @@ ANJU MEMORY ショップ報酬:
 - `NEXT STAGE` では仮強化を持ったまま次 Depth へ進みます。
 - 通常 `EXTRACT` では仮強化を永続 Lv に保存します。
 - ゲームオーバー、Gate 崩壊、`EMERGENCY EXTRACT` では、そのラン中の仮強化は失われます。
-- 両方 Lv.8、またはそのランで候補がない場合の抽選成功は Gold 相当の代替報酬に変換されます。
+- Depth 5 までで両方 Lv.8、またはそのランで候補がない場合の抽選成功は Gold 相当の代替報酬に変換されます。
+- Depth 6 以降で通常コア候補がなくても進化可能な武器がある場合は `RESONANCE ECHO` に変わり、進化可能な武器もない場合だけ Gold 相当の代替報酬になります。
 
 LOST ARMS コアは通常敵からは出ず、ボス、エリート、Gold Slime、Silver Slime の追加抽選でのみ出現します。ドロップ率は Depth と対象種別で変わり、対象抽選に失敗するたびに pity が最大 0.10 まで増えます。成功時は pity が 0 に戻ります。
 
-検証用に `?debugLostArms=1` を付けると、対象敵の LOST ARMS 抽選が成功扱いになり、console に抽選ログが出ます。
+### LOST ARMS RESONANCE
+
+Depth 6 以降では、通常の LOST ARMS コア取得が成功した武器に `RESONANCE` が +1 されます。通常コアを出せない抽選成功時に、そのランで進化可能な LOST ARMS がある場合は Gold 代替ではなく `RESONANCE ECHO` が出現し、拾うと対象武器の RESONANCE が +1 されます。Echo は LOST ARMS 強化取得数には数えません。
+
+RESONANCE は各武器 3/3 で 2 択の進化カードを開きます。進化は各武器 1 ラン 1 回だけ、ラン内だけ有効で、`lastmemoVansabaLostArmsState` には保存されません。通常抽出、緊急抽出、ゲームオーバー、ショップ復帰、リスタート、シーン破棄でリセットされます。HUD の LOST ARMS 枠には `RES 1/3` または `EVO EXEC` のように進捗と進化名が表示されます。
+
+ABYSS RAIL 進化:
+
+- `EXECUTION RAIL`: ボス/エリートへの ABYSS RAIL ダメージ x1.35、高 HP 標的へのダメージ x1.20、命中前 HP が 18% 未満の標的へレールダメージの 30% の追加バーストを発生させます。
+- `PRISM RAIL`: ABYSS RAIL 命中時、近くの敵へ最大 3 本の分岐レールを放ちます。範囲 260、分岐ダメージは元命中ダメージの 45%、分岐 cooldown は 700ms で、分岐から再分岐はしません。
+
+GRAVITY SEED 進化:
+
+- `EVENT HORIZON`: 崩壊範囲 x1.25、崩壊ダメージ x1.25。3 体以上巻き込むと、45% ダメージの二次崩壊を 1 回発生させます。
+- `SINGULARITY GARDEN`: 持続時間 x1.30、吸引力 x1.30、鈍化 +0.10、同時展開数 +1。
+
+RESONANCE がすでに進化済み、または進化候補がない状態でさらに RESONANCE 相当の報酬を得た場合は、RESONANCE overflow として未確定 GEEK、OVERDRIVE +20%、STABILIZE +15% に変換されます。
+
+検証用に `?debugLostArms=1` を付けると、対象敵の LOST ARMS 抽選が成功扱いになり、console に抽選ログが出ます。`?debugLostArmsResonance=1` を併用すると、Depth 1 から RESONANCE 条件を確認できます。
 
 ## サポート
 

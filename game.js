@@ -754,6 +754,7 @@ const LOST_ARMS_RUN_PICKUP_LIMIT = 2;
 const LOST_ARMS_PITY_STEP = 0.005;
 const LOST_ARMS_PITY_MAX = 0.10;
 const LOST_ARMS_DEBUG_QUERY_PARAM = "debugLostArms";
+const LOST_ARMS_RESONANCE_DEBUG_QUERY_PARAM = "debugLostArmsResonance";
 const LOST_ARMS_IDS = ["abyssRail", "gravitySeed"];
 const DEFAULT_LOST_ARMS_LEVELS = {
   abyssRail: 0,
@@ -783,6 +784,96 @@ const LOST_ARMS_DEFINITIONS = window.lostArmsDefinitions || {
     tint: 0xc06bff,
     glowTint: 0xf2d8ff,
     darkTint: 0x12081f
+  }
+};
+const LOST_ARMS_RESONANCE_CONFIG = {
+  unlockDepth: 6,
+  debugUnlockDepth: 1,
+  pointsRequired: 3,
+  maxEvolutionsPerWeapon: 1,
+  echoPickupType: "lostArmsResonanceEcho",
+  overflowGeekBase: 800,
+  overflowOverdriveGauge: 20,
+  overflowStabilizeGauge: 15,
+  echo: {
+    coreLabel: "RESONANCE ECHO",
+    tint: 0xff73f6,
+    glowTint: 0x9ff7ff,
+    darkTint: 0x190828
+  },
+  evolutions: {
+    abyssRail: [
+      {
+        id: "executionRail",
+        title: "EXECUTION RAIL",
+        shortLabel: "EXEC",
+        description: "ボス・エリートと高HP標的への直撃性能を引き上げ、瀕死標的へ追加バーストを放つ",
+        chips: ["BOSS/ELITE x1.35", "HIGH HP x1.20", "HP<18% BURST +30%"],
+        iconTone: "EXEC",
+        themeColor: 0xffd76b,
+        glowColor: 0xfff1b8,
+        modifiers: {
+          bossEliteDamageMultiplier: 1.35,
+          highHpDamageMultiplier: 1.20,
+          highHpThreshold: 220,
+          executeHpRatio: 0.18,
+          executeBurstDamageMultiplier: 0.30,
+          executeBurstCooldownMs: 800
+        }
+      },
+      {
+        id: "prismRail",
+        title: "PRISM RAIL",
+        shortLabel: "PRISM",
+        description: "ABYSS RAIL 命中時、近くの敵へ再帰しない分岐レールを最大3本放つ",
+        chips: ["BRANCH x3", "RANGE 260", "DMG 45%", "CD 0.7s"],
+        iconTone: "PRISM",
+        themeColor: 0x8ff8ff,
+        glowColor: 0xf1ffff,
+        modifiers: {
+          branchCount: 3,
+          branchRange: 260,
+          branchDamageMultiplier: 0.45,
+          branchCooldownMs: 700
+        }
+      }
+    ],
+    gravitySeed: [
+      {
+        id: "eventHorizon",
+        title: "EVENT HORIZON",
+        shortLabel: "HORIZON",
+        description: "GRAVITY SEED の崩壊範囲と崩壊ダメージを増幅し、十分な巻き込みで二次崩壊を起こす",
+        chips: ["COLLAPSE x1.25", "RADIUS x1.25", "SECONDARY 45%"],
+        iconTone: "EVENT",
+        themeColor: 0xff8fe8,
+        glowColor: 0xffd8fb,
+        modifiers: {
+          collapseRadiusMultiplier: 1.25,
+          collapseDamageMultiplier: 1.25,
+          secondaryDamageMultiplier: 0.45,
+          secondaryRadiusMultiplier: 0.72,
+          secondaryMinHits: 3,
+          secondaryCooldownMs: 1400
+        }
+      },
+      {
+        id: "singularityGarden",
+        title: "SINGULARITY GARDEN",
+        shortLabel: "GARDEN",
+        description: "GRAVITY SEED の持続、吸引、鈍化を強化し、同時展開数を1つ増やす",
+        chips: ["DURATION x1.30", "PULL x1.30", "SLOW +0.10", "FIELD +1"],
+        iconTone: "GARD",
+        themeColor: 0xc596ff,
+        glowColor: 0xf2d8ff,
+        modifiers: {
+          durationMultiplier: 1.30,
+          pullMultiplier: 1.30,
+          slowAdd: 0.10,
+          maxFieldsAdd: 1
+        }
+      }
+    ]
   }
 };
 const LOST_ARMS_DROP_RATES = [
@@ -885,6 +976,133 @@ const OVERFLOW_REWARD_CONFIG = {
     supportBase: 100,
     stabilizeOverflowBase: 150
   }
+};
+const OVERDRIVE_MOD_DEBUG_QUERY_PARAM = "debugOverdriveMod";
+const OVERDRIVE_MOD_CONFIG = {
+  unlockDepth: 6,
+  debugUnlockDepth: 1,
+  choicesPerActivation: 3,
+  avoidSameAsPrevious: true,
+  defaultFallbackModId: "rawSurge",
+  guardPulseDurationMs: 2500,
+  mods: [
+    {
+      id: "chainVoltage",
+      title: "CHAIN VOLTAGE",
+      subtitle: "連鎖雷撃",
+      description: "OVERDRIVE中、近くの敵へ自動で雷撃を連鎖させる",
+      shortLabel: "CHAIN",
+      chips: ["AUTO CHAIN", "3 TARGETS", "0.9s CD"],
+      themeColor: 0x91f6ff,
+      glowColor: 0xd9ffff,
+      accentColor: "#91f6ff",
+      iconTone: "CHAIN",
+      modifiers: {
+        chainIntervalMs: 900,
+        chainTargetCount: 3,
+        chainRange: 280,
+        chainDamageMultiplier: 0.65
+      }
+    },
+    {
+      id: "hunterMode",
+      title: "HUNTER MODE",
+      subtitle: "対強敵照準",
+      description: "ボス、エリート、高HPの敵へ与えるダメージを増やす",
+      shortLabel: "HUNT",
+      chips: ["BOSS DMG x1.25", "ELITE DMG x1.25", "HIGH HP x1.12"],
+      themeColor: 0xffd86b,
+      glowColor: 0xfff2ba,
+      accentColor: "#ffd86b",
+      iconTone: "HUNT",
+      modifiers: {
+        bossDamageMultiplier: 1.25,
+        eliteDamageMultiplier: 1.25,
+        highHpDamageMultiplier: 1.12
+      }
+    },
+    {
+      id: "magnetStorm",
+      title: "MAGNET STORM",
+      subtitle: "回収嵐",
+      description: "発動時に周囲のドロップを強く引き寄せ、MAGNETを強化する",
+      shortLabel: "MAG",
+      chips: ["PULL 900", "MAGNET x1.60", "PULL SPD x1.35"],
+      themeColor: 0x68ffc7,
+      glowColor: 0xb7ffe8,
+      accentColor: "#75ffcf",
+      iconTone: "MAG",
+      modifiers: {
+        activationPullRadius: 900,
+        pickupMagnetMultiplier: 1.6,
+        pickupAccelerationMultiplier: 1.35
+      }
+    },
+    {
+      id: "goldFever",
+      title: "GOLD FEVER",
+      subtitle: "未確定GEEK増幅",
+      description: "価値ドロップとDATA CACHEの未確定GEEKだけを増やす",
+      shortLabel: "GOLD",
+      chips: ["VALUE GEEK x1.20", "CACHE GEEK x1.15", "UNSECURED ONLY"],
+      themeColor: 0xf0c463,
+      glowColor: 0xfff2ba,
+      accentColor: "#f0c463",
+      iconTone: "GEEK",
+      modifiers: {
+        valueDropGeekMultiplier: 1.2,
+        dataCacheGeekMultiplier: 1.15
+      }
+    },
+    {
+      id: "guardPulse",
+      title: "GUARD PULSE",
+      subtitle: "防御波動",
+      description: "発動直後だけ被ダメージを軽減し、周囲の敵を押し戻す",
+      shortLabel: "GUARD",
+      chips: ["DMG TAKEN x0.78", "PULSE 220", "2.5s GUARD"],
+      themeColor: 0xa8c4ff,
+      glowColor: 0xe6eeff,
+      accentColor: "#a8c4ff",
+      iconTone: "GUARD",
+      modifiers: {
+        damageTakenMultiplier: 0.78,
+        pulseKnockbackRadius: 220,
+        pulseKnockbackPower: 340,
+        pulseDurationMs: 2500
+      }
+    },
+    {
+      id: "cooldownReactor",
+      title: "COOLDOWN REACTOR",
+      subtitle: "発射循環強化",
+      description: "攻撃間隔をさらに短縮するが、移動速度は少し落ちる",
+      shortLabel: "REACT",
+      chips: ["FIRE CD x0.88", "MOVE x0.96", "THIS OD ONLY"],
+      themeColor: 0xc596ff,
+      glowColor: 0xf2e6ff,
+      accentColor: "#d6b8ff",
+      iconTone: "REACT",
+      modifiers: {
+        cooldownMultiplier: 0.88,
+        moveSpeedMultiplierPenalty: 0.96
+      }
+    },
+    {
+      id: "rawSurge",
+      title: "RAW SURGE",
+      subtitle: "通常発動",
+      description: "MODなしで通常のOVERDRIVEを発動する",
+      shortLabel: "RAW",
+      hidden: true,
+      chips: ["DEFAULT OD"],
+      themeColor: 0x91f6ff,
+      glowColor: 0xd9ffff,
+      accentColor: "#91f6ff",
+      iconTone: "RAW",
+      modifiers: {}
+    }
+  ]
 };
 const STABILIZE_PROTOCOL_DEBUG_QUERY_PARAM = "debugStabilizeProtocol";
 const STABILIZE_PROTOCOL_CONFIG = {
@@ -1010,6 +1228,16 @@ const LEVEL_UP_CARD_TYPE_META = {
     label: "FINAL STAGE",
     color: 0xffd76b,
     textColor: "#fff3c8"
+  },
+  lostArmsEvolution: {
+    label: "RESONANCE EVO",
+    color: 0xff73f6,
+    textColor: "#fff0ff"
+  },
+  overdriveMod: {
+    label: "OVERDRIVE MOD",
+    color: 0x91f6ff,
+    textColor: "#e8fbff"
   },
   passiveChip: {
     label: "PASSIVE CHIP",
@@ -2687,8 +2915,12 @@ class SurvivalScene extends Phaser.Scene {
     this.createOverlay();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.resetAnomalyContractState("sceneShutdown"));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetAnomalyContractState("sceneDestroy"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.resetOverdriveModState("sceneShutdown"));
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetOverdriveModState("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.resetStabilizeProtocolState("sceneShutdown"));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetStabilizeProtocolState("sceneDestroy"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.resetLostArmsResonanceState("sceneShutdown"));
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetLostArmsResonanceState("sceneDestroy"));
     this.setupMobileControls();
     this.configureCameras();
     this.createColliders();
@@ -3114,6 +3346,7 @@ class SurvivalScene extends Phaser.Scene {
     this.initializeAnjuMemoryRunState();
     this.initializeAnomalyContractState();
     this.initializeOverflowRewardState();
+    this.initializeOverdriveModState();
     this.initializeStabilizeProtocolState();
     if (this.isStabilizeProtocolDebugEnabled()) {
       this.overflowRewardState.stabilizeCharges = OVERFLOW_REWARD_CONFIG.stabilize.maxCharges;
@@ -3121,6 +3354,7 @@ class SurvivalScene extends Phaser.Scene {
       this.stageDepthElapsedMs = Math.max(0, GATE_INTERVAL_MS - 2500);
     }
     this.lostArmsState = this.createLostArmsRunState();
+    this.initializeLostArmsResonanceState();
     this.abyssRailState = this.createAbyssRailRuntimeState();
     this.gravitySeedState = this.createGravitySeedRuntimeState();
     this.enemySpawnTimer = 0;
@@ -4706,6 +4940,334 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
+  isLostArmsResonanceDebugEnabled() {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    try {
+      const params = new URLSearchParams(window.location?.search || "");
+      return params.get(LOST_ARMS_RESONANCE_DEBUG_QUERY_PARAM) === "1";
+    } catch (error) {
+      return false;
+    }
+  }
+
+  getLostArmsResonanceUnlockDepth() {
+    return this.isLostArmsResonanceDebugEnabled()
+      ? LOST_ARMS_RESONANCE_CONFIG.debugUnlockDepth
+      : LOST_ARMS_RESONANCE_CONFIG.unlockDepth;
+  }
+
+  isLostArmsResonanceUnlocked(depth = this.stageDepth) {
+    return Math.max(1, Math.floor(Number(depth) || 1)) >= this.getLostArmsResonanceUnlockDepth();
+  }
+
+  initializeLostArmsResonanceState() {
+    this.lostArmsResonanceState = {
+      entries: LOST_ARMS_IDS.reduce((entries, armId) => {
+        entries[armId] = {
+          points: 0,
+          evolutionId: null,
+          evolutionCount: 0,
+          choicesOpen: false,
+          queued: false,
+          overflowCount: 0
+        };
+        return entries;
+      }, {}),
+      pendingEvolutionQueue: [],
+      selectionOpen: false,
+      selectionLocked: false,
+      currentArmId: null,
+      echoPickupsCollected: 0
+    };
+    this.lostArmsResonanceSelectionActive = false;
+    this.lostArmsEvolutionSelectionContext = null;
+  }
+
+  resetLostArmsResonanceState(reason = "reset") {
+    if (this.lostArmsResonanceSelectionActive || this.levelUpSelectionMode === "lostArmsEvolution") {
+      this.hideOverlay?.();
+      this.levelUpActive = false;
+      this.physics?.world?.resume?.();
+    }
+    this.initializeLostArmsResonanceState();
+    this.updateLostArmsResonanceHud();
+    if (this.isLostArmsResonanceDebugEnabled?.()) {
+      console.log("[LOST ARMS RESONANCE] reset", { reason });
+    }
+  }
+
+  getLostArmsResonanceEntry(armId) {
+    if (!LOST_ARMS_IDS.includes(armId)) {
+      return null;
+    }
+    if (!this.lostArmsResonanceState) {
+      this.initializeLostArmsResonanceState();
+    }
+    if (!this.lostArmsResonanceState.entries[armId]) {
+      this.lostArmsResonanceState.entries[armId] = {
+        points: 0,
+        evolutionId: null,
+        evolutionCount: 0,
+        choicesOpen: false,
+        queued: false,
+        overflowCount: 0
+      };
+    }
+    return this.lostArmsResonanceState.entries[armId];
+  }
+
+  canGainLostArmsResonance(armId) {
+    const entry = this.getLostArmsResonanceEntry(armId);
+    if (!entry || !this.isLostArmsResonanceUnlocked()) {
+      return false;
+    }
+    if (entry.evolutionId || entry.choicesOpen || entry.queued) {
+      return false;
+    }
+    if (entry.points >= LOST_ARMS_RESONANCE_CONFIG.pointsRequired) {
+      return false;
+    }
+    return this.getLostArmRuntimeLevel(armId) > 0;
+  }
+
+  getLostArmsEvolutionId(armId) {
+    return this.getLostArmsResonanceEntry(armId)?.evolutionId || null;
+  }
+
+  hasLostArmsEvolution(armId, evolutionId = null) {
+    const activeId = this.getLostArmsEvolutionId(armId);
+    return evolutionId ? activeId === evolutionId : Boolean(activeId);
+  }
+
+  getLostArmsEvolutionDefinition(armId, evolutionId = this.getLostArmsEvolutionId(armId)) {
+    if (!armId || !evolutionId) {
+      return null;
+    }
+    return (LOST_ARMS_RESONANCE_CONFIG.evolutions[armId] || []).find((evolution) => evolution.id === evolutionId) || null;
+  }
+
+  getLostArmsEvolutionModifier(armId, key, fallbackValue = 1) {
+    const evolution = this.getLostArmsEvolutionDefinition(armId);
+    if (!evolution?.modifiers || !(key in evolution.modifiers)) {
+      return fallbackValue;
+    }
+    return evolution.modifiers[key];
+  }
+
+  pickLostArmsResonanceTarget(preferredArmId = null) {
+    if (this.canGainLostArmsResonance(preferredArmId)) {
+      return preferredArmId;
+    }
+
+    const candidates = LOST_ARMS_IDS
+      .filter((armId) => this.canGainLostArmsResonance(armId))
+      .map((armId) => ({
+        armId,
+        points: this.getLostArmsResonanceEntry(armId)?.points || 0,
+        level: this.getLostArmRuntimeLevel(armId)
+      }))
+      .sort((left, right) => {
+        if (left.points !== right.points) {
+          return left.points - right.points;
+        }
+        return right.level - left.level;
+      });
+
+    return candidates[0]?.armId || null;
+  }
+
+  addLostArmsResonance(armId, amount = 1, reason = "core") {
+    if (!this.isLostArmsResonanceUnlocked()) {
+      return false;
+    }
+
+    const targetArmId = this.pickLostArmsResonanceTarget(armId);
+    if (!targetArmId) {
+      this.convertLostArmsResonanceOverflow(armId, reason);
+      return true;
+    }
+
+    const entry = this.getLostArmsResonanceEntry(targetArmId);
+    const required = LOST_ARMS_RESONANCE_CONFIG.pointsRequired;
+    const gain = Math.max(1, Math.floor(Number(amount) || 1));
+    entry.points = Phaser.Math.Clamp((entry.points || 0) + gain, 0, required);
+    const definition = this.getLostArmDefinition(targetArmId);
+    this.setLastPickupNotice(`${definition?.displayName || targetArmId} RESONANCE ${entry.points}/${required}`);
+    this.showOverflowRewardText(`RESONANCE ${entry.points}/${required}`, this.playerHitbox?.x, this.playerHitbox?.y - 42, "#ffb8fb");
+    this.handleLostArmsResonanceThreshold(targetArmId, reason);
+    this.updateLostArmsResonanceHud();
+    if (this.isLostArmsResonanceDebugEnabled()) {
+      console.log("[LOST ARMS RESONANCE] gain", { armId: targetArmId, points: entry.points, reason });
+    }
+    return true;
+  }
+
+  handleLostArmsResonanceThreshold(armId, reason = "threshold") {
+    const entry = this.getLostArmsResonanceEntry(armId);
+    if (!entry || entry.evolutionId || entry.choicesOpen || entry.queued) {
+      return false;
+    }
+    if ((entry.points || 0) < LOST_ARMS_RESONANCE_CONFIG.pointsRequired) {
+      return false;
+    }
+    return this.queueLostArmsEvolutionSelection(armId, reason);
+  }
+
+  queueLostArmsEvolutionSelection(armId, reason = "threshold") {
+    const entry = this.getLostArmsResonanceEntry(armId);
+    if (!entry || entry.evolutionId || entry.choicesOpen || entry.queued) {
+      return false;
+    }
+
+    entry.queued = true;
+    this.lostArmsResonanceState.pendingEvolutionQueue.push(armId);
+    this.setLastPickupNotice(`${this.getLostArmDefinition(armId)?.displayName || armId} RESONANCE READY`);
+    if (this.isLostArmsResonanceDebugEnabled()) {
+      console.log("[LOST ARMS RESONANCE] queued", { armId, reason });
+    }
+    this.tryOpenQueuedLostArmsEvolutionSelection();
+    return true;
+  }
+
+  canOpenLostArmsEvolutionSelection() {
+    return (
+      Boolean(this.lostArmsResonanceState?.pendingEvolutionQueue?.length) &&
+      !this.lostArmsResonanceSelectionActive &&
+      !this.gameOver &&
+      !this.shopActive &&
+      !this.levelUpActive &&
+      !this.gateChoiceActive &&
+      !this.extractionComplete &&
+      !this.overlayContainer?.visible &&
+      (this.pendingLevelUps || 0) <= 0
+    );
+  }
+
+  tryOpenQueuedLostArmsEvolutionSelection() {
+    if (!this.canOpenLostArmsEvolutionSelection()) {
+      return false;
+    }
+
+    const armId = this.lostArmsResonanceState.pendingEvolutionQueue.shift();
+    const entry = this.getLostArmsResonanceEntry(armId);
+    if (!entry || entry.evolutionId) {
+      return this.tryOpenQueuedLostArmsEvolutionSelection();
+    }
+    entry.queued = false;
+    return this.openLostArmsEvolutionSelection(armId);
+  }
+
+  buildLostArmsEvolutionChoices(armId) {
+    return (LOST_ARMS_RESONANCE_CONFIG.evolutions[armId] || []).map((evolution) => ({
+      type: "lostArmsEvolution",
+      armId,
+      evolution,
+      title: evolution.title,
+      description: evolution.description,
+      onSelect: () => this.selectLostArmsEvolution(armId, evolution.id)
+    }));
+  }
+
+  openLostArmsEvolutionSelection(armId) {
+    const entry = this.getLostArmsResonanceEntry(armId);
+    const definition = this.getLostArmDefinition(armId);
+    const choices = this.buildLostArmsEvolutionChoices(armId);
+    if (!entry || entry.evolutionId || !definition || choices.length <= 0) {
+      return false;
+    }
+
+    entry.choicesOpen = true;
+    this.lostArmsResonanceState.selectionOpen = true;
+    this.lostArmsResonanceState.selectionLocked = false;
+    this.lostArmsResonanceState.currentArmId = armId;
+    this.lostArmsResonanceSelectionActive = true;
+    this.lostArmsEvolutionSelectionContext = { armId };
+    this.levelUpActive = true;
+    this.cancelActiveEnemyBeamCharges();
+    this.physics.world.pause();
+    this.showLevelUpCardOverlay(
+      "Lost Arms Resonance",
+      `${definition.displayName} が共鳴進化可能。ラン中だけ有効な進化を1つ選択`,
+      choices,
+      "lostArmsEvolution"
+    );
+    return true;
+  }
+
+  selectLostArmsEvolution(armId, evolutionId) {
+    const state = this.lostArmsResonanceState;
+    const entry = this.getLostArmsResonanceEntry(armId);
+    const evolution = this.getLostArmsEvolutionDefinition(armId, evolutionId)
+      || (LOST_ARMS_RESONANCE_CONFIG.evolutions[armId] || []).find((candidate) => candidate.id === evolutionId);
+    if (!state || !entry || !evolution || state.selectionLocked || entry.evolutionId) {
+      return false;
+    }
+
+    state.selectionLocked = true;
+    state.selectionOpen = false;
+    state.currentArmId = null;
+    entry.choicesOpen = false;
+    entry.queued = false;
+    entry.evolutionId = evolution.id;
+    entry.evolutionCount = Math.min(
+      LOST_ARMS_RESONANCE_CONFIG.maxEvolutionsPerWeapon,
+      (entry.evolutionCount || 0) + 1
+    );
+    entry.points = LOST_ARMS_RESONANCE_CONFIG.pointsRequired;
+
+    const definition = this.getLostArmDefinition(armId);
+    this.setLastPickupNotice(`${definition?.displayName || armId} -> ${evolution.title}`);
+    this.showOverflowRewardText(evolution.title, this.playerHitbox?.x, this.playerHitbox?.y - 48, this.colorToCss(evolution.themeColor || 0xff73f6));
+    this.updateLostArmsResonanceHud();
+    if (this.isLostArmsResonanceDebugEnabled()) {
+      console.log("[LOST ARMS RESONANCE] evolved", { armId, evolutionId });
+    }
+    return true;
+  }
+
+  convertLostArmsResonanceOverflow(armId = null, reason = "overflow") {
+    const config = LOST_ARMS_RESONANCE_CONFIG;
+    const state = this.ensureOverflowRewardState();
+    const geek = this.addOverflowUnsecuredGeek(this.getOverflowGeekAmount(config.overflowGeekBase));
+    let overdriveTriggered = false;
+    if (config.overflowOverdriveGauge > 0) {
+      state.overdriveGauge = Math.max(0, Number(state.overdriveGauge) || 0) + config.overflowOverdriveGauge;
+      while (state.overdriveGauge >= OVERFLOW_REWARD_CONFIG.overdrive.gaugeMax) {
+        const overflowRemainder = state.overdriveGauge - OVERFLOW_REWARD_CONFIG.overdrive.gaugeMax;
+        const result = this.triggerOverdriveFromGauge("resonanceOverflow", this.playerHitbox?.x, this.playerHitbox?.y - 42);
+        state.overdriveGauge = Math.max(0, overflowRemainder);
+        overdriveTriggered = result.triggered;
+      }
+    }
+    const stabilizeResult = this.addStabilizeGauge(config.overflowStabilizeGauge, { silent: true });
+    const totalGeek = geek + (stabilizeResult.overflowGeek || 0);
+    const noticeParts = [
+      "RESONANCE OVERFLOW",
+      `OD +${config.overflowOverdriveGauge}%`,
+      `ST +${config.overflowStabilizeGauge}%`
+    ];
+    if (totalGeek > 0) {
+      noticeParts.push(`+${totalGeek.toLocaleString()} GEEK`);
+    }
+    if (overdriveTriggered) {
+      noticeParts.push("OVERDRIVE");
+    }
+    this.setLastPickupNotice(noticeParts.join(" / "));
+    this.showOverflowRewardText("RESONANCE OVERFLOW", this.playerHitbox?.x, this.playerHitbox?.y - 42, "#ffb8fb");
+    this.updateOverflowHud();
+    if (this.isLostArmsResonanceDebugEnabled()) {
+      console.log("[LOST ARMS RESONANCE] overflow", { armId, reason, totalGeek });
+    }
+    return { geek: totalGeek, stabilizeResult, overdriveTriggered };
+  }
+
+  updateLostArmsResonanceHud() {
+    this.updateHud?.();
+  }
+
   getLostArmsDropRatesForDepth(depth = this.stageDepth || 1) {
     const normalizedDepth = Math.max(1, Math.floor(Number(depth) || 1));
     const tableRate = LOST_ARMS_DROP_RATES.find((entry) => entry.depth === normalizedDepth);
@@ -4774,6 +5336,9 @@ class SurvivalScene extends Phaser.Scene {
     this.saveLostArmsState();
     const armId = this.pickLostArmDropCandidate();
     if (!armId) {
+      if (this.spawnLostArmResonanceEcho(enemy.x, enemy.y)) {
+        return true;
+      }
       this.spawnLostArmFallbackReward(enemy.x, enemy.y);
       return false;
     }
@@ -4850,6 +5415,9 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     if (!this.canApplyLostArmPickup(armId)) {
+      if (this.addLostArmsResonance(armId, 1, "blockedCore")) {
+        return true;
+      }
       this.spawnLostArmFallbackReward(this.playerHitbox.x, this.playerHitbox.y - 16);
       return false;
     }
@@ -4876,6 +5444,7 @@ class SurvivalScene extends Phaser.Scene {
       );
     }
 
+    this.addLostArmsResonance(armId, 1, "core");
     this.setLastPickupNotice(`LOST ARMS ${definition.displayName} Lv.${this.getLostArmRuntimeLevel(armId)} UNSECURED`);
     this.showLostArmsNotification(definition);
     this.updateHud();
@@ -4992,6 +5561,266 @@ class SurvivalScene extends Phaser.Scene {
     const currentFireInterval = Math.max(LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS, Number(this.stats?.fireInterval) || baseFireInterval);
     const cooldownReduction = Phaser.Math.Clamp(1 - currentFireInterval / baseFireInterval, 0, 0.74);
     return Math.max(200, Math.round(baseCooldown * (1 - cooldownReduction * 0.65)));
+  }
+
+  applyAbyssRailResonanceDamageModifiers(enemy, damage) {
+    if (!this.hasLostArmsEvolution("abyssRail", "executionRail")) {
+      return damage;
+    }
+
+    let modifiedDamage = Math.max(0, Number(damage) || 0);
+    if (enemy?.isBoss || enemy?.isElite) {
+      modifiedDamage *= Number(this.getLostArmsEvolutionModifier("abyssRail", "bossEliteDamageMultiplier", 1)) || 1;
+    }
+
+    const highHpThreshold = Number(this.getLostArmsEvolutionModifier("abyssRail", "highHpThreshold", 0)) || 0;
+    const maxHp = Math.max(0, Number(enemy?.maxHp) || Number(enemy?.hp) || 0);
+    if (highHpThreshold > 0 && maxHp >= highHpThreshold) {
+      modifiedDamage *= Number(this.getLostArmsEvolutionModifier("abyssRail", "highHpDamageMultiplier", 1)) || 1;
+    }
+
+    return modifiedDamage;
+  }
+
+  tryApplyExecutionRailBurst(enemy, hpBefore, maxHp, railDamage, sourceX, sourceY) {
+    if (!this.hasLostArmsEvolution("abyssRail", "executionRail") || !enemy?.active || enemy.isDying) {
+      return false;
+    }
+
+    const threshold = Number(this.getLostArmsEvolutionModifier("abyssRail", "executeHpRatio", 0)) || 0;
+    if (threshold <= 0 || maxHp <= 0 || hpBefore / maxHp >= threshold) {
+      return false;
+    }
+    if (this.time.now < (enemy.executionRailBurstUntil || 0)) {
+      return false;
+    }
+
+    const cooldownMs = Math.max(0, Number(this.getLostArmsEvolutionModifier("abyssRail", "executeBurstCooldownMs", 0)) || 0);
+    const burstMultiplier = Math.max(0, Number(this.getLostArmsEvolutionModifier("abyssRail", "executeBurstDamageMultiplier", 0)) || 0);
+    const burstDamage = Math.max(1, Math.round(Math.max(1, Number(railDamage) || 1) * burstMultiplier));
+    enemy.executionRailBurstUntil = this.time.now + cooldownMs;
+    this.applyDamageToEnemy(enemy, burstDamage, 0xfff2ba, {
+      sourceX,
+      sourceY,
+      force: 240,
+      recoverMs: 80,
+      damageAlreadyScaled: true
+    });
+    this.spawnExecutionRailBurstEffect(enemy.x, enemy.y);
+    return true;
+  }
+
+  spawnExecutionRailBurstEffect(x, y) {
+    const glow = this.add
+      .image(x, y, "skill-hit-glow")
+      .setDepth(24)
+      .setScale(0.82)
+      .setTint(0xffd76b)
+      .setAlpha(0.78)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const ring = this.add
+      .image(x, y, "skill-hit-ring")
+      .setDepth(24)
+      .setScale(0.52)
+      .setTint(0xfff2ba)
+      .setAlpha(0.9)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.skillEffectsLayer.add([glow, ring]);
+    this.tweens.add({
+      targets: [glow, ring],
+      scaleX: "+=0.8",
+      scaleY: "+=0.8",
+      alpha: 0,
+      duration: 220,
+      ease: "Cubic.Out",
+      onComplete: () => {
+        glow.destroy();
+        ring.destroy();
+      }
+    });
+  }
+
+  trySpawnPrismRailBranches(hitRecords, baseDamage) {
+    if (!this.hasLostArmsEvolution("abyssRail", "prismRail") || !hitRecords?.length || !this.abyssRailState) {
+      return false;
+    }
+    if (this.time.now < (this.abyssRailState.prismBranchCooldownUntil || 0)) {
+      return false;
+    }
+
+    const sourceRecord = hitRecords.find((record) => record.enemy?.active) || hitRecords[0];
+    const excluded = new Set(hitRecords.map((record) => record.enemy).filter(Boolean));
+    const branchRange = Math.max(1, Number(this.getLostArmsEvolutionModifier("abyssRail", "branchRange", 260)) || 260);
+    const branchCount = Math.max(1, Math.floor(Number(this.getLostArmsEvolutionModifier("abyssRail", "branchCount", 3)) || 3));
+    const damageMultiplier = Math.max(0, Number(this.getLostArmsEvolutionModifier("abyssRail", "branchDamageMultiplier", 0.45)) || 0.45);
+    const cooldownMs = Math.max(0, Number(this.getLostArmsEvolutionModifier("abyssRail", "branchCooldownMs", 700)) || 700);
+    const sourceX = sourceRecord.x;
+    const sourceY = sourceRecord.y;
+    const candidates = [];
+
+    this.enemies.children.each((enemy) => {
+      if (!enemy.active || enemy.isDying || excluded.has(enemy)) {
+        return;
+      }
+      const distance = Phaser.Math.Distance.Between(sourceX, sourceY, enemy.x, enemy.y);
+      if (distance <= branchRange) {
+        candidates.push({ enemy, distance });
+      }
+    });
+
+    candidates.sort((left, right) => left.distance - right.distance);
+    const targets = candidates.slice(0, branchCount);
+    if (!targets.length) {
+      return false;
+    }
+
+    this.abyssRailState.prismBranchCooldownUntil = this.time.now + cooldownMs;
+    const branchDamage = Math.max(1, Math.round(Math.max(1, Number(baseDamage) || 1) * damageMultiplier));
+    targets.forEach(({ enemy }) => {
+      this.drawPrismRailBranch(sourceX, sourceY, enemy.x, enemy.y);
+      this.applyDamageToEnemy(enemy, branchDamage, 0xd9ffff, {
+        sourceX,
+        sourceY,
+        force: 140,
+        recoverMs: 70,
+        damageAlreadyScaled: true
+      });
+    });
+    return true;
+  }
+
+  drawPrismRailBranch(startX, startY, endX, endY) {
+    const angle = Phaser.Math.Angle.Between(startX, startY, endX, endY);
+    const length = Phaser.Math.Distance.Between(startX, startY, endX, endY);
+    const branch = this.add
+      .rectangle((startX + endX) * 0.5, (startY + endY) * 0.5, length, 6, 0x9ff7ff, 0.58)
+      .setRotation(angle)
+      .setDepth(23)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const core = this.add
+      .rectangle((startX + endX) * 0.5, (startY + endY) * 0.5, length, 2, 0xffffff, 0.86)
+      .setRotation(angle)
+      .setDepth(24)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.skillEffectsLayer.add([branch, core]);
+    this.tweens.add({
+      targets: [branch, core],
+      alpha: 0,
+      duration: 180,
+      ease: "Quad.Out",
+      onComplete: () => {
+        branch.destroy();
+        core.destroy();
+      }
+    });
+  }
+
+  getGravitySeedResonanceConfig(config) {
+    const effectiveConfig = { ...(config || {}) };
+    if (!this.hasLostArmsEvolution("gravitySeed", "singularityGarden")) {
+      return effectiveConfig;
+    }
+
+    const durationMultiplier = Number(this.getLostArmsEvolutionModifier("gravitySeed", "durationMultiplier", 1)) || 1;
+    const pullMultiplier = Number(this.getLostArmsEvolutionModifier("gravitySeed", "pullMultiplier", 1)) || 1;
+    const slowAdd = Number(this.getLostArmsEvolutionModifier("gravitySeed", "slowAdd", 0)) || 0;
+    const maxFieldsAdd = Math.floor(Number(this.getLostArmsEvolutionModifier("gravitySeed", "maxFieldsAdd", 0)) || 0);
+    effectiveConfig.durationMs = Math.round(Math.max(1, effectiveConfig.durationMs || 3000) * durationMultiplier);
+    effectiveConfig.pull = Math.round(Math.max(0, effectiveConfig.pull || 0) * pullMultiplier);
+    effectiveConfig.slow = Phaser.Math.Clamp((effectiveConfig.slow || 0) + slowAdd, 0, 0.62);
+    effectiveConfig.maxFields = Math.max(1, Math.floor(Number(effectiveConfig.maxFields) || 1) + maxFieldsAdd);
+    return effectiveConfig;
+  }
+
+  getEventHorizonCollapseValues(radius, damage) {
+    if (!this.hasLostArmsEvolution("gravitySeed", "eventHorizon")) {
+      return { radius, damage };
+    }
+    return {
+      radius: radius * (Number(this.getLostArmsEvolutionModifier("gravitySeed", "collapseRadiusMultiplier", 1)) || 1),
+      damage: damage * (Number(this.getLostArmsEvolutionModifier("gravitySeed", "collapseDamageMultiplier", 1)) || 1)
+    };
+  }
+
+  trySpawnEventHorizonSecondaryCollapse(field, primaryRadius, primaryDamage, hitCount) {
+    if (!this.hasLostArmsEvolution("gravitySeed", "eventHorizon") || !field || field.eventHorizonSecondarySpawned) {
+      return false;
+    }
+
+    const minHits = Math.max(1, Math.floor(Number(this.getLostArmsEvolutionModifier("gravitySeed", "secondaryMinHits", 3)) || 3));
+    if (hitCount < minHits) {
+      return false;
+    }
+    const entry = this.getLostArmsResonanceEntry("gravitySeed");
+    if (this.time.now < (entry.eventHorizonCooldownUntil || 0)) {
+      return false;
+    }
+
+    field.eventHorizonSecondarySpawned = true;
+    const cooldownMs = Math.max(0, Number(this.getLostArmsEvolutionModifier("gravitySeed", "secondaryCooldownMs", 1400)) || 1400);
+    entry.eventHorizonCooldownUntil = this.time.now + cooldownMs;
+    const radiusMultiplier = Number(this.getLostArmsEvolutionModifier("gravitySeed", "secondaryRadiusMultiplier", 0.72)) || 0.72;
+    const damageMultiplier = Number(this.getLostArmsEvolutionModifier("gravitySeed", "secondaryDamageMultiplier", 0.45)) || 0.45;
+    const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+    const distance = Math.max(50, primaryRadius * 0.52);
+    const point = this.getSafeDropPoint(
+      field.x + Math.cos(angle) * distance,
+      field.y + Math.sin(angle) * distance,
+      Math.max(24, Math.round(primaryRadius * 0.18))
+    );
+    this.spawnEventHorizonSecondaryCollapse(
+      point.x,
+      point.y,
+      Math.max(40, primaryRadius * radiusMultiplier),
+      Math.max(1, Math.round(primaryDamage * damageMultiplier))
+    );
+    return true;
+  }
+
+  spawnEventHorizonSecondaryCollapse(x, y, radius, damage) {
+    this.enemies.children.each((enemy) => {
+      if (!enemy.active || enemy.isDying) {
+        return;
+      }
+      const distance = Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y);
+      if (distance <= radius) {
+        this.applyDamageToEnemy(enemy, damage, 0xffd8fb, {
+          sourceX: x,
+          sourceY: y,
+          force: 190,
+          recoverMs: 95,
+          damageAlreadyScaled: true
+        });
+      }
+    });
+
+    const ring = this.add
+      .image(x, y, "skill-hit-ring")
+      .setDepth(23)
+      .setScale(Math.max(0.7, radius / 100))
+      .setTint(0xff8fe8)
+      .setAlpha(0.68)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const glow = this.add
+      .image(x, y, "skill-hit-glow")
+      .setDepth(22)
+      .setScale(Math.max(0.8, radius / 120))
+      .setTint(0xff8fe8)
+      .setAlpha(0.32)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.skillEffectsLayer.add([glow, ring]);
+    this.tweens.add({
+      targets: [glow, ring],
+      scaleX: "+=0.95",
+      scaleY: "+=0.95",
+      alpha: 0,
+      duration: 260,
+      ease: "Cubic.Out",
+      onComplete: () => {
+        glow.destroy();
+        ring.destroy();
+      }
+    });
   }
 
   updateLostArmsCombat(delta) {
@@ -5175,6 +6004,7 @@ class SurvivalScene extends Phaser.Scene {
       .setBlendMode(Phaser.BlendModes.ADD);
     const hitDamage = this.scaleLostArmDamage(config.damage || 1);
     let hitCount = 0;
+    const hitRecords = [];
 
     this.skillEffectsLayer.add([glow, core, flash]);
     this.enemies.children.each((enemy) => {
@@ -5193,11 +6023,16 @@ class SurvivalScene extends Phaser.Scene {
       } else if (enemy.isElite) {
         damage *= config.eliteMult || 1;
       }
+      damage = this.applyAbyssRailResonanceDamageModifiers(enemy, damage);
       hitCount += 1;
       if (config.vulnerability) {
         enemy.lostArmsVulnerableUntil = Math.max(enemy.lostArmsVulnerableUntil || 0, this.time.now + 2500);
         enemy.lostArmsVulnerableMult = Math.max(enemy.lostArmsVulnerableMult || 1, 1.10);
       }
+      const hpBefore = Math.max(0, Number(enemy.hp) || 0);
+      const maxHp = Math.max(1, Number(enemy.maxHp) || hpBefore || 1);
+      const roundedDamage = Math.max(1, Math.round(damage));
+      hitRecords.push({ enemy, x: enemy.x, y: enemy.y, damage: roundedDamage });
       this.applyDamageToEnemy(enemy, Math.max(1, Math.round(damage)), 0xe8fdff, {
         sourceX: startX,
         sourceY: startY,
@@ -5205,7 +6040,12 @@ class SurvivalScene extends Phaser.Scene {
         recoverMs: 95,
         damageAlreadyScaled: true
       });
+      this.tryApplyExecutionRailBurst(enemy, hpBefore, maxHp, roundedDamage, startX, startY);
     });
+
+    if (!isCrossRail && hitRecords.length > 0) {
+      this.trySpawnPrismRailBranches(hitRecords, hitRecords[0].damage || hitDamage);
+    }
 
     if (config.residual) {
       this.spawnAbyssRailResidualField(startX, startY, endX, endY, width, hitDamage);
@@ -5280,7 +6120,7 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    const config = GRAVITY_SEED_LEVELS[level];
+    const config = this.getGravitySeedResonanceConfig(GRAVITY_SEED_LEVELS[level]);
     const cooldownMs = this.getLostArmCooldownMs(config.cooldownMs);
     const activeFields = this.gravitySeedState.fields.filter((field) => field?.active);
     this.gravitySeedState.fields = activeFields;
@@ -5534,18 +6374,24 @@ class SurvivalScene extends Phaser.Scene {
 
     field.active = false;
     const config = field.config;
-    const radius = config.collapseDamage > 0
+    let radius = config.collapseDamage > 0
       ? field.radius * (field.level >= LOST_ARMS_MAX_LEVEL ? 1.24 : 1.08)
       : field.radius * 0.72;
     if ((config.collapseDamage || 0) > 0) {
-      const damage = Math.max(1, Math.round(this.scaleLostArmDamage(config.collapseDamage)));
+      let damage = this.scaleLostArmDamage(config.collapseDamage);
+      const eventHorizonValues = this.getEventHorizonCollapseValues(radius, damage);
+      radius = eventHorizonValues.radius;
+      damage = eventHorizonValues.damage;
+      const roundedDamage = Math.max(1, Math.round(damage));
+      let hitCount = 0;
       this.enemies.children.each((enemy) => {
         if (!enemy.active || enemy.isDying) {
           return;
         }
         const distance = Phaser.Math.Distance.Between(field.x, field.y, enemy.x, enemy.y);
         if (distance <= radius) {
-          this.applyDamageToEnemy(enemy, damage, 0xf2d8ff, {
+          hitCount += 1;
+          this.applyDamageToEnemy(enemy, roundedDamage, 0xf2d8ff, {
             sourceX: field.x,
             sourceY: field.y,
             force: field.level >= LOST_ARMS_MAX_LEVEL ? 260 : 190,
@@ -5554,6 +6400,7 @@ class SurvivalScene extends Phaser.Scene {
           });
         }
       });
+      this.trySpawnEventHorizonSecondaryCollapse(field, radius, roundedDamage, hitCount);
     }
 
     const collapseRing = this.add
@@ -6400,6 +7247,512 @@ class SurvivalScene extends Phaser.Scene {
     this.updateOverflowHud?.();
   }
 
+  initializeOverdriveModState() {
+    this.overdriveModState = {
+      pendingSelection: false,
+      pendingReason: "",
+      pendingX: null,
+      pendingY: null,
+      selectionOpen: false,
+      selectionLocked: false,
+      activeModId: null,
+      activeUntil: 0,
+      activeStartedAt: 0,
+      currentChoices: [],
+      lastSelectedModId: null,
+      activationSerial: 0,
+      chainNextAt: 0,
+      guardPulseUntil: 0
+    };
+    this.overdriveModSelectionActive = false;
+  }
+
+  resetOverdriveModState(reason = "reset") {
+    if (this.overdriveModSelectionActive || this.levelUpSelectionMode === "overdriveMod") {
+      this.hideOverlay?.();
+      this.levelUpActive = false;
+      this.physics?.world?.resume?.();
+    }
+    this.initializeOverdriveModState();
+    this.updateOverdriveModHud();
+    if (this.isOverdriveModDebugEnabled?.()) {
+      console.log("[OVERDRIVE MOD] reset", { reason });
+    }
+  }
+
+  isOverdriveModDebugEnabled() {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    try {
+      const params = new URLSearchParams(window.location?.search || "");
+      return params.get(OVERDRIVE_MOD_DEBUG_QUERY_PARAM) === "1";
+    } catch (error) {
+      return false;
+    }
+  }
+
+  getOverdriveModUnlockDepth() {
+    return this.isOverdriveModDebugEnabled()
+      ? OVERDRIVE_MOD_CONFIG.debugUnlockDepth
+      : OVERDRIVE_MOD_CONFIG.unlockDepth;
+  }
+
+  isOverdriveModUnlocked(depth = this.stageDepth) {
+    return Math.max(1, Math.floor(Number(depth) || 1)) >= this.getOverdriveModUnlockDepth();
+  }
+
+  getOverdriveModDefinition(modId) {
+    return OVERDRIVE_MOD_CONFIG.mods.find((mod) => mod.id === modId) || null;
+  }
+
+  shouldOfferOverdriveMod() {
+    const state = this.overdriveModState;
+    if (!state || state.pendingSelection || state.selectionOpen || this.isOverdriveActive()) {
+      return false;
+    }
+    if (this.gameOver || this.shopActive || this.extractionComplete) {
+      return false;
+    }
+    return this.isOverdriveModUnlocked();
+  }
+
+  triggerOverdriveFromGauge(reason = "gauge", x = this.playerHitbox?.x, y = this.playerHitbox?.y - 34) {
+    const state = this.ensureOverflowRewardState();
+    state.overdriveGauge = 0;
+
+    if (this.isOverdriveActive()) {
+      const activeSeconds = this.activateOverdrive({ silent: true, source: reason });
+      return { triggered: true, queuedMod: false, extended: true, activeSeconds };
+    }
+
+    if (this.shouldOfferOverdriveMod()) {
+      this.queueOverdriveModSelection(reason, x, y);
+      return { triggered: true, queuedMod: true, extended: false, activeSeconds: 0 };
+    }
+
+    const activeSeconds = this.activateOverdrive({ silent: true, source: reason });
+    return { triggered: true, queuedMod: false, extended: false, activeSeconds };
+  }
+
+  queueOverdriveModSelection(reason = "activation", x = this.playerHitbox?.x, y = this.playerHitbox?.y - 42) {
+    if (!this.overdriveModState) {
+      this.initializeOverdriveModState();
+    }
+    const state = this.overdriveModState;
+    if (state.pendingSelection || state.selectionOpen) {
+      return false;
+    }
+
+    state.pendingSelection = true;
+    state.pendingReason = reason;
+    state.pendingX = x;
+    state.pendingY = y;
+    state.activationSerial += 1;
+    this.setLastPickupNotice("OVERDRIVE MOD READY");
+    this.showOverflowRewardText("OVERDRIVE MOD", x, y, "#91f6ff");
+    if (this.isOverdriveModDebugEnabled()) {
+      console.log("[OVERDRIVE MOD] queued", { reason, depth: this.stageDepth });
+    }
+    this.tryOpenPendingOverdriveModSelection();
+    return true;
+  }
+
+  canOpenOverdriveModSelection() {
+    return (
+      Boolean(this.overdriveModState?.pendingSelection) &&
+      !this.overdriveModState.selectionOpen &&
+      !this.overdriveModSelectionActive &&
+      !this.gameOver &&
+      !this.shopActive &&
+      !this.levelUpActive &&
+      !this.gateChoiceActive &&
+      !this.extractionComplete &&
+      !this.overlayContainer?.visible &&
+      (this.pendingLevelUps || 0) <= 0
+    );
+  }
+
+  tryOpenPendingOverdriveModSelection() {
+    if (!this.canOpenOverdriveModSelection()) {
+      return false;
+    }
+    return this.openOverdriveModSelection();
+  }
+
+  buildOverdriveModChoices() {
+    if (!this.overdriveModState) {
+      this.initializeOverdriveModState();
+    }
+    const visibleMods = OVERDRIVE_MOD_CONFIG.mods.filter((mod) => !mod.hidden);
+    const choiceCount = Math.max(1, Math.floor(Number(OVERDRIVE_MOD_CONFIG.choicesPerActivation) || 3));
+    let pool = visibleMods;
+    if (
+      OVERDRIVE_MOD_CONFIG.avoidSameAsPrevious &&
+      this.overdriveModState.lastSelectedModId &&
+      visibleMods.length > choiceCount
+    ) {
+      pool = visibleMods.filter((mod) => mod.id !== this.overdriveModState.lastSelectedModId);
+    }
+    const shuffled = Phaser.Utils.Array.Shuffle(pool.slice());
+    return shuffled.slice(0, choiceCount).map((mod) => ({
+      type: "overdriveMod",
+      modId: mod.id,
+      mod,
+      title: mod.title,
+      description: mod.description,
+      onSelect: () => this.selectOverdriveMod(mod.id)
+    }));
+  }
+
+  openOverdriveModSelection() {
+    if (!this.overdriveModState) {
+      this.initializeOverdriveModState();
+    }
+    const state = this.overdriveModState;
+    const choices = this.buildOverdriveModChoices();
+    if (!state.pendingSelection || choices.length <= 0) {
+      return false;
+    }
+
+    state.pendingSelection = false;
+    state.selectionOpen = true;
+    state.selectionLocked = false;
+    state.currentChoices = choices.map((choice) => choice.modId);
+    this.overdriveModSelectionActive = true;
+    this.levelUpActive = true;
+    this.cancelActiveEnemyBeamCharges();
+    this.physics.world.pause();
+    this.showLevelUpCardOverlay(
+      "OVERDRIVE MOD SELECT",
+      "Choose one temporary modifier / This OVERDRIVE only",
+      choices,
+      "overdriveMod"
+    );
+    if (this.isOverdriveModDebugEnabled()) {
+      console.log("[OVERDRIVE MOD] opened", { choices: state.currentChoices });
+    }
+    return true;
+  }
+
+  selectOverdriveMod(modId) {
+    if (!this.overdriveModState) {
+      this.initializeOverdriveModState();
+    }
+    const state = this.overdriveModState;
+    const mod = this.getOverdriveModDefinition(modId) || this.getOverdriveModDefinition(OVERDRIVE_MOD_CONFIG.defaultFallbackModId);
+    if (!mod || state.selectionLocked) {
+      return false;
+    }
+
+    state.selectionLocked = true;
+    state.selectionOpen = false;
+    state.activeModId = mod.hidden ? null : mod.id;
+    state.activeStartedAt = this.time?.now || 0;
+    state.activeUntil = 0;
+    state.chainNextAt = this.time?.now || 0;
+    state.guardPulseUntil = 0;
+    if (!mod.hidden) {
+      state.lastSelectedModId = mod.id;
+    }
+
+    const activeSeconds = this.activateOverdrive({ silent: true, source: "overdriveMod" });
+    if (!mod.hidden) {
+      if (mod.id === "magnetStorm") {
+        this.applyOverdriveModMagnetStormPull();
+      } else if (mod.id === "guardPulse") {
+        this.triggerOverdriveModGuardPulse();
+      }
+      this.showOverdriveModToast(mod, activeSeconds);
+    } else {
+      this.setLastPickupNotice(`OVERDRIVE ${activeSeconds}s`);
+      this.showOverflowRewardText(`OVERDRIVE ${activeSeconds}s`, this.playerHitbox?.x, this.playerHitbox?.y - 34, "#91f6ff");
+    }
+    this.updateOverdriveModHud();
+    if (this.isOverdriveModDebugEnabled()) {
+      console.log("[OVERDRIVE MOD] selected", { modId: mod.id, activeSeconds });
+    }
+    return true;
+  }
+
+  finishOverdriveModSelectionOverlay() {
+    this.levelUpActive = false;
+    this.overdriveModSelectionActive = false;
+    if (this.overdriveModState) {
+      this.overdriveModState.selectionOpen = false;
+      this.overdriveModState.selectionLocked = false;
+      this.overdriveModState.currentChoices = [];
+    }
+    this.hideOverlay();
+    this.restoreGameplayInputAfterOverlay();
+    this.physics.world.resume();
+    this.tryOpenQueuedLostArmsEvolutionSelection();
+    return true;
+  }
+
+  clearActiveOverdriveMod(reason = "clear", options = {}) {
+    if (!this.overdriveModState) {
+      this.initializeOverdriveModState();
+      return;
+    }
+    const activeModId = this.overdriveModState.activeModId;
+    this.overdriveModState.activeModId = null;
+    this.overdriveModState.activeUntil = 0;
+    this.overdriveModState.activeStartedAt = 0;
+    this.overdriveModState.chainNextAt = 0;
+    this.overdriveModState.guardPulseUntil = 0;
+    if (activeModId && !options.silent && this.isOverdriveModDebugEnabled()) {
+      console.log("[OVERDRIVE MOD] cleared", { reason, activeModId });
+    }
+    this.updateOverdriveModHud();
+  }
+
+  getActiveOverdriveMod() {
+    const state = this.overdriveModState;
+    if (!state?.activeModId || !this.isOverdriveActive()) {
+      return null;
+    }
+    return this.getOverdriveModDefinition(state.activeModId);
+  }
+
+  hasActiveOverdriveMod(modId) {
+    const active = this.getActiveOverdriveMod();
+    return modId ? active?.id === modId : Boolean(active);
+  }
+
+  getOverdriveModModifier(key, fallbackValue = 1) {
+    const mod = this.getActiveOverdriveMod();
+    if (!mod?.modifiers || !(key in mod.modifiers)) {
+      return fallbackValue;
+    }
+    return mod.modifiers[key];
+  }
+
+  updateOverdriveMod(delta, time = this.time?.now || 0) {
+    const mod = this.getActiveOverdriveMod();
+    if (!mod) {
+      if (this.overdriveModState?.activeModId && !this.isOverdriveActive()) {
+        this.clearActiveOverdriveMod("overdriveInactive", { silent: true });
+      }
+      return;
+    }
+
+    if (mod.id === "chainVoltage") {
+      const intervalMs = Math.max(120, Number(this.getOverdriveModModifier("chainIntervalMs", 900)) || 900);
+      if (time >= (this.overdriveModState.chainNextAt || 0)) {
+        this.overdriveModState.chainNextAt = time + intervalMs;
+        this.fireOverdriveModChainVoltage();
+      }
+    }
+
+    if (this.overdriveModState.guardPulseUntil > 0 && time >= this.overdriveModState.guardPulseUntil) {
+      this.overdriveModState.guardPulseUntil = 0;
+    }
+  }
+
+  fireOverdriveModChainVoltage() {
+    if (!this.playerHitbox?.active || !this.enemies) {
+      return 0;
+    }
+    const range = Math.max(80, Number(this.getOverdriveModModifier("chainRange", 280)) || 280);
+    const targetCount = Math.max(1, Math.floor(Number(this.getOverdriveModModifier("chainTargetCount", 3)) || 3));
+    const damageMultiplier = Math.max(0.1, Number(this.getOverdriveModModifier("chainDamageMultiplier", 0.65)) || 0.65);
+    const originX = this.playerHitbox.x;
+    const originY = this.playerHitbox.y;
+    const candidates = this.enemies.getChildren()
+      .filter((enemy) => enemy.active && !enemy.isDying)
+      .map((enemy) => ({
+        enemy,
+        distance: Phaser.Math.Distance.Between(originX, originY, enemy.x, enemy.y)
+      }))
+      .filter((entry) => entry.distance <= range)
+      .sort((left, right) => {
+        const leftPriority = left.enemy.isBoss ? -500 : (left.enemy.isElite ? -180 : 0);
+        const rightPriority = right.enemy.isBoss ? -500 : (right.enemy.isElite ? -180 : 0);
+        return (left.distance + leftPriority) - (right.distance + rightPriority);
+      })
+      .slice(0, targetCount);
+
+    candidates.forEach(({ enemy }, index) => {
+      if (!enemy.active || enemy.isDying) {
+        return;
+      }
+      const baseDamage = Math.max(1, (this.stats?.bulletDamage || 4) * damageMultiplier);
+      this.applyDamageToEnemy(enemy, baseDamage, 0xd9ffff, {
+        knockback: 0.05,
+        damageAlreadyScaled: false,
+        overdriveMod: "chainVoltage"
+      });
+      this.drawOverdriveModChainArc(
+        index === 0 ? originX : candidates[index - 1]?.enemy?.x || originX,
+        index === 0 ? originY : candidates[index - 1]?.enemy?.y || originY,
+        enemy.x,
+        enemy.y
+      );
+    });
+    return candidates.length;
+  }
+
+  drawOverdriveModChainArc(fromX, fromY, toX, toY) {
+    if (!this.add || !this.skillEffectsLayer) {
+      return;
+    }
+    const line = this.add.graphics()
+      .setDepth(18)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    line.lineStyle(3, 0x91f6ff, 0.82);
+    line.beginPath();
+    line.moveTo(fromX, fromY);
+    line.lineTo(toX, toY);
+    line.strokePath();
+    line.lineStyle(1, 0xd9ffff, 0.72);
+    line.beginPath();
+    line.moveTo(fromX, fromY);
+    line.lineTo(toX, toY);
+    line.strokePath();
+    this.skillEffectsLayer.add(line);
+    this.tweens.add({
+      targets: line,
+      alpha: 0,
+      duration: 160,
+      ease: "Quad.Out",
+      onComplete: () => line.destroy()
+    });
+  }
+
+  applyOverdriveModHunterDamageModifier(enemy, damage, impact = null) {
+    if (!this.hasActiveOverdriveMod("hunterMode") || !enemy) {
+      return damage;
+    }
+    let multiplier = 1;
+    if (enemy.isBoss) {
+      multiplier = Math.max(multiplier, Number(this.getOverdriveModModifier("bossDamageMultiplier", 1.25)) || 1.25);
+    }
+    if (enemy.isElite) {
+      multiplier = Math.max(multiplier, Number(this.getOverdriveModModifier("eliteDamageMultiplier", 1.25)) || 1.25);
+    }
+    const highHpThreshold = Math.max(45, (this.stats?.bulletDamage || 4) * 12);
+    if (!enemy.isBoss && !enemy.isElite && Math.max(0, Number(enemy.maxHp) || 0) >= highHpThreshold) {
+      multiplier = Math.max(multiplier, Number(this.getOverdriveModModifier("highHpDamageMultiplier", 1.12)) || 1.12);
+    }
+    if (impact?.supportFinisher) {
+      multiplier = Math.min(multiplier, 1.12);
+    }
+    return damage * multiplier;
+  }
+
+  getOverdriveModDamageTakenMultiplier() {
+    if (!this.hasActiveOverdriveMod("guardPulse")) {
+      return 1;
+    }
+    if ((this.time?.now || 0) > (this.overdriveModState?.guardPulseUntil || 0)) {
+      return 1;
+    }
+    return Math.max(0.1, Number(this.getOverdriveModModifier("damageTakenMultiplier", 0.78)) || 0.78);
+  }
+
+  applyOverdriveModGeekMultiplier(amount, source) {
+    const value = this.normalizeCoinAmount(amount);
+    if (value <= 0 || !this.hasActiveOverdriveMod("goldFever")) {
+      return value;
+    }
+    const key = source === "dataCache" ? "dataCacheGeekMultiplier" : "valueDropGeekMultiplier";
+    const multiplier = Math.max(0, Number(this.getOverdriveModModifier(key, 1)) || 1);
+    return this.normalizeCoinAmount(Math.floor(value * multiplier));
+  }
+
+  getOverdriveModMagnetRadius(baseRadius) {
+    const base = Math.max(0, Number(baseRadius) || 0);
+    if (!this.hasActiveOverdriveMod("magnetStorm")) {
+      return base;
+    }
+    return Math.max(base, Math.round(base * this.getOverdriveModModifier("pickupMagnetMultiplier", 1.6)));
+  }
+
+  applyOverdriveModMagnetStormPull() {
+    if (!this.hasActiveOverdriveMod("magnetStorm") || !this.playerHitbox) {
+      return 0;
+    }
+    const radius = Math.max(100, Number(this.getOverdriveModModifier("activationPullRadius", 900)) || 900);
+    let pulled = 0;
+    this.getActiveDropObjects().forEach((drop) => {
+      const distance = Phaser.Math.Distance.Between(drop.x, drop.y, this.playerHitbox.x, this.playerHitbox.y);
+      if (distance > radius) {
+        return;
+      }
+      this.setPickupPullToPlayer(drop, 2600, 980);
+      pulled += 1;
+    });
+    this.spawnOverdriveModPulse(0x68ffc7, radius, 0.28);
+    if (pulled > 0) {
+      this.setLastPickupNotice(`MAGNET STORM PULL ${pulled}`);
+    }
+    return pulled;
+  }
+
+  triggerOverdriveModGuardPulse() {
+    if (!this.overdriveModState) {
+      return 0;
+    }
+    const durationMs = Math.max(
+      250,
+      Number(this.getOverdriveModModifier("pulseDurationMs", OVERDRIVE_MOD_CONFIG.guardPulseDurationMs)) || OVERDRIVE_MOD_CONFIG.guardPulseDurationMs
+    );
+    const radius = Math.max(40, Number(this.getOverdriveModModifier("pulseKnockbackRadius", 220)) || 220);
+    const power = Math.max(0, Number(this.getOverdriveModModifier("pulseKnockbackPower", 340)) || 340);
+    this.overdriveModState.guardPulseUntil = (this.time?.now || 0) + durationMs;
+    let pushed = 0;
+    this.enemies?.getChildren?.().forEach((enemy) => {
+      if (!enemy.active || enemy.isDying) {
+        return;
+      }
+      const distance = Phaser.Math.Distance.Between(enemy.x, enemy.y, this.playerHitbox.x, this.playerHitbox.y);
+      if (distance > radius) {
+        return;
+      }
+      const angle = Phaser.Math.Angle.Between(this.playerHitbox.x, this.playerHitbox.y, enemy.x, enemy.y);
+      const strength = power * (1 - distance / radius);
+      this.physics.velocityFromRotation(angle, Math.max(80, strength), enemy.body.velocity);
+      pushed += 1;
+    });
+    this.spawnOverdriveModPulse(0xa8c4ff, radius, 0.34);
+    return pushed;
+  }
+
+  spawnOverdriveModPulse(color = 0x91f6ff, radius = 220, alpha = 0.3) {
+    if (!this.playerHitbox?.active || !this.add) {
+      return;
+    }
+    const ring = this.add
+      .image(this.playerHitbox.x, this.playerHitbox.y, "skill-hit-ring")
+      .setDepth(19)
+      .setScale(0.32)
+      .setTint(color)
+      .setAlpha(alpha)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.skillEffectsLayer?.add(ring);
+    const endScale = Math.max(1.1, radius / 110);
+    this.tweens.add({
+      targets: ring,
+      scale: endScale,
+      alpha: 0,
+      duration: 420,
+      ease: "Cubic.easeOut",
+      onComplete: () => ring.destroy()
+    });
+  }
+
+  showOverdriveModToast(mod, activeSeconds) {
+    const label = mod?.title || "OVERDRIVE MOD";
+    this.setLastPickupNotice(`${label} ${activeSeconds}s`);
+    this.showOverflowRewardText(label, this.playerHitbox?.x, this.playerHitbox?.y - 44, this.colorToCss(mod?.themeColor || 0x91f6ff));
+  }
+
+  updateOverdriveModHud() {
+    this.updateOverflowHud?.();
+  }
+
   initializeStabilizeProtocolState() {
     this.stabilizeProtocolState = {
       gateId: null,
@@ -6721,10 +8074,15 @@ class SurvivalScene extends Phaser.Scene {
     let notice = `XP MAX -> OVERDRIVE ${Math.floor(state.overdriveGauge)}%`;
     let triggered = false;
     if (state.overdriveGauge >= config.gaugeMax) {
-      state.overdriveGauge = 0;
-      const activeSeconds = this.activateOverdrive({ silent: true });
-      notice = `XP MAX -> OVERDRIVE ${activeSeconds}s`;
-      triggered = true;
+      const result = this.triggerOverdriveFromGauge("xpOverflow", x, y);
+      triggered = result.triggered;
+      if (result.queuedMod) {
+        notice = "XP MAX -> OVERDRIVE MOD READY";
+      } else if (result.extended) {
+        notice = `XP MAX -> OVERDRIVE EXTEND ${result.activeSeconds}s`;
+      } else {
+        notice = `XP MAX -> OVERDRIVE ${result.activeSeconds}s`;
+      }
     }
     if (geek > 0) {
       notice = `${notice} / +${geek.toLocaleString()} GEEK`;
@@ -6744,6 +8102,9 @@ class SurvivalScene extends Phaser.Scene {
       config.maxDurationMs,
       Math.max(0, state.overdriveRemainingMs || 0) + durationMs
     );
+    if (this.overdriveModState?.activeModId) {
+      this.overdriveModState.activeUntil = (this.time?.now || 0) + state.overdriveRemainingMs;
+    }
     const seconds = Math.ceil(state.overdriveRemainingMs / 1000);
     if (!options.silent) {
       this.setLastPickupNotice(`OVERDRIVE ${seconds}s`);
@@ -6763,6 +8124,7 @@ class SurvivalScene extends Phaser.Scene {
     if (previousMs > 0 && state.overdriveRemainingMs <= 0) {
       this.setLastPickupNotice("OVERDRIVE END");
       this.showOverflowRewardText("OVERDRIVE END", this.playerHitbox?.x, this.playerHitbox?.y - 34, "#b7c7cf");
+      this.clearActiveOverdriveMod("overdriveEnd", { silent: true });
     }
   }
 
@@ -6775,11 +8137,23 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getOverdriveMoveSpeedMultiplier() {
-    return this.isOverdriveActive() ? OVERFLOW_REWARD_CONFIG.overdrive.moveSpeedMultiplier : 1;
+    if (!this.isOverdriveActive()) {
+      return 1;
+    }
+    const modPenalty = this.hasActiveOverdriveMod("cooldownReactor")
+      ? this.getOverdriveModModifier("moveSpeedMultiplierPenalty", 1)
+      : 1;
+    return OVERFLOW_REWARD_CONFIG.overdrive.moveSpeedMultiplier * modPenalty;
   }
 
   getOverdriveFireIntervalMultiplier() {
-    return this.isOverdriveActive() ? OVERFLOW_REWARD_CONFIG.overdrive.fireIntervalMultiplier : 1;
+    if (!this.isOverdriveActive()) {
+      return 1;
+    }
+    const modMultiplier = this.hasActiveOverdriveMod("cooldownReactor")
+      ? this.getOverdriveModModifier("cooldownMultiplier", 1)
+      : 1;
+    return OVERFLOW_REWARD_CONFIG.overdrive.fireIntervalMultiplier * modMultiplier;
   }
 
   getCurrentPlayerFireInterval() {
@@ -6985,7 +8359,11 @@ class SurvivalScene extends Phaser.Scene {
     const overdriveGauge = Phaser.Math.Clamp((state.overdriveGauge || 0) / overdriveConfig.gaugeMax, 0, 1);
     const stabilizeGauge = Phaser.Math.Clamp((state.stabilizeGauge || 0) / stabilizeConfig.gaugeMax, 0, 1);
     const activeSeconds = Math.ceil(Math.max(0, state.overdriveRemainingMs || 0) / 1000);
-    const overdriveText = activeSeconds > 0 ? `OD ${activeSeconds}s` : `OD ${Math.floor(overdriveGauge * 100)}%`;
+    const activeMod = this.getActiveOverdriveMod();
+    const modLabel = activeMod?.shortLabel || "";
+    const overdriveText = activeSeconds > 0
+      ? `OD ${modLabel ? `${modLabel} ` : ""}${activeSeconds}s`
+      : (this.overdriveModState?.pendingSelection ? "OD MOD READY" : `OD ${Math.floor(overdriveGauge * 100)}%`);
     const stabilizeText = `ST ${Math.floor(stabilizeGauge * 100)}% x${Math.floor(state.stabilizeCharges || 0)}`;
 
     text
@@ -9900,25 +11278,38 @@ class SurvivalScene extends Phaser.Scene {
 
     const runtimeLevel = this.getLostArmRuntimeLevel(armId);
     const pending = this.isLostArmPending(armId);
+    const resonanceEntry = this.getLostArmsResonanceEntry(armId);
+    const evolution = this.getLostArmsEvolutionDefinition(armId);
+    const resonanceUnlocked = this.isLostArmsResonanceUnlocked() || (resonanceEntry?.points || 0) > 0 || Boolean(evolution);
+    const levelLine = runtimeLevel >= LOST_ARMS_MAX_LEVEL
+      ? "MAX"
+      : `Lv.${runtimeLevel}${pending ? "*" : ""}`;
+    const resonanceLine = evolution
+      ? `EVO ${evolution.shortLabel || evolution.title}`
+      : (resonanceUnlocked && runtimeLevel > 0
+        ? `RES ${resonanceEntry?.points || 0}/${LOST_ARMS_RESONANCE_CONFIG.pointsRequired}`
+        : (pending ? "UNSEC" : ""));
     const iconKey = this.textures.exists(definition.iconTextureKey) ? definition.iconTextureKey : "skill-hit-glow";
     const labelText = runtimeLevel <= 0
       ? "???\nLOCKED"
-      : `${definition.hudLabel}\n${runtimeLevel >= LOST_ARMS_MAX_LEVEL ? "MAX" : `Lv.${runtimeLevel}`}${pending ? "\nUNSECURED" : ""}`;
-    const activeColor = runtimeLevel >= LOST_ARMS_MAX_LEVEL
+      : [definition.hudLabel, levelLine, resonanceLine].filter(Boolean).join("\n");
+    const activeColor = evolution
+      ? "#ffb8fb"
+      : (runtimeLevel >= LOST_ARMS_MAX_LEVEL
       ? "#fff3c8"
-      : (pending ? "#f0c463" : "#9fe7ff");
+      : (pending ? "#f0c463" : "#9fe7ff"));
 
     slot.icon
       .setVisible(true)
       .setAlpha(runtimeLevel > 0 ? 0.95 : 0.28);
-    this.setHudIconToFit(slot.icon, iconKey, Math.max(24, slot.iconMaxSize - (pending ? 5 : 1)));
+    this.setHudIconToFit(slot.icon, iconKey, Math.max(24, slot.iconMaxSize - (pending || resonanceUnlocked ? 5 : 1)));
     slot.panel
       .setAlpha(runtimeLevel > 0 ? 0.9 : 0.5)
-      .setStrokeStyle?.(1, pending ? 0xf0c463 : (runtimeLevel > 0 ? definition.tint : HUD_STYLE.slotStroke), pending ? 0.7 : 0.36);
+      .setStrokeStyle?.(1, evolution ? 0xff73f6 : (pending ? 0xf0c463 : (runtimeLevel > 0 ? definition.tint : HUD_STYLE.slotStroke)), evolution ? 0.82 : (pending ? 0.7 : 0.36));
     slot.label
-      .setFontSize(pending ? "8px" : "9px")
-      .setLineSpacing(pending ? -1 : 0)
-      .setPosition(slot.x + slot.size / 2, slot.y + slot.size - (this.hudUsesFrameAsset ? (pending ? 40 : 33) : (pending ? 34 : 27)))
+      .setFontSize(resonanceUnlocked || pending ? "8px" : "9px")
+      .setLineSpacing(resonanceUnlocked || pending ? -1 : 0)
+      .setPosition(slot.x + slot.size / 2, slot.y + slot.size - (this.hudUsesFrameAsset ? (resonanceUnlocked || pending ? 40 : 33) : (resonanceUnlocked || pending ? 34 : 27)))
       .setText(labelText)
       .setColor(activeColor);
     this.setHudSkillStageDots(slot, runtimeLevel, LOST_ARMS_MAX_LEVEL, runtimeLevel > 0);
@@ -12615,6 +14006,8 @@ class SurvivalScene extends Phaser.Scene {
     this.levelUpActive = false;
     this.resetAnomalyContractState(emergency ? "emergencyExtract" : "extract");
     this.resetStabilizeProtocolState(emergency ? "emergencyExtract" : "extract");
+    this.resetLostArmsResonanceState(emergency ? "emergencyExtract" : "extract");
+    this.resetOverdriveModState(emergency ? "emergencyExtract" : "extract");
     this.resetOverflowRewardState();
     this.destroyStageGate();
     this.hideOverlay();
@@ -12766,6 +14159,8 @@ class SurvivalScene extends Phaser.Scene {
     this.updateGateVisuals(delta);
     this.updateHud();
     this.updateMobileControlsVisibility();
+    this.tryOpenQueuedLostArmsEvolutionSelection();
+    this.tryOpenPendingOverdriveModSelection();
 
     if (this.gameOver) {
       if (!this.rankingNameEntryActive && (
@@ -12793,6 +14188,7 @@ class SurvivalScene extends Phaser.Scene {
     this.enemySpawnTimer += delta;
     this.shootTimer += delta;
     this.updateOverdrive(delta);
+    this.updateOverdriveMod(delta, time);
     this.updateBossSpawns();
     this.updateGateTimer(delta);
 
@@ -14590,7 +15986,21 @@ class SurvivalScene extends Phaser.Scene {
       const pulseAmount = effectType === "bomb" ? 0.18 : 0.12;
       item.floatTimer += delta / 260;
       const pulse = (Math.sin(item.floatTimer * pulseSpeed) + 1) * 0.5;
-      const bob = Math.sin(item.floatTimer * 1.05) * 4;
+      const isForcedPull = this.time.now < (item.forcePullUntil || 0);
+
+      if (isForcedPull) {
+        const targetX = this.playerHitbox.x;
+        const targetY = this.playerHitbox.y - 8;
+        const deltaX = targetX - item.baseX;
+        const deltaY = targetY - item.baseY;
+        const distance = Math.hypot(deltaX, deltaY);
+        const maxStep = (item.forcePullSpeed || 820) * (delta / 1000);
+        const moveRatio = distance > 0 ? Math.min(1, maxStep / distance) : 1;
+        item.baseX += deltaX * moveRatio;
+        item.baseY += deltaY * moveRatio;
+      }
+
+      const bob = isForcedPull ? 0 : Math.sin(item.floatTimer * 1.05) * 4;
 
       item.setPosition(item.baseX, item.baseY + bob);
       item.setScale(item.baseScale * (0.92 + pulse * pulseAmount));
@@ -14616,8 +16026,11 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    item.forcePullUntil = Math.max(item.forcePullUntil || 0, this.time.now + durationMs);
-    item.forcePullSpeed = Math.max(item.forcePullSpeed || 0, speed);
+    const speedMultiplier = this.hasActiveOverdriveMod("magnetStorm")
+      ? this.getOverdriveModModifier("pickupAccelerationMultiplier", 1.35)
+      : 1;
+    item.forcePullUntil = Math.max(item.forcePullUntil || 0, this.time.now + Math.max(0, Number(durationMs) || 0));
+    item.forcePullSpeed = Math.max(item.forcePullSpeed || 0, Math.max(0, Number(speed) || 0) * speedMultiplier);
   }
 
   prepareDropObject(drop, category, groupName) {
@@ -15760,6 +17173,7 @@ class SurvivalScene extends Phaser.Scene {
     enemy.effectScale = (definition.effectScale || (isUsingFallbackTexture ? definition.scale : 1)) * (options.isElite ? 1.18 : 1);
     enemy.depthEnemyScaling = enemyScaling;
     enemy.hp = Math.round(definition.hp * wave.hpScale * eliteHpMultiplier * enemyScaling.enemyHp * (options.isBoss ? enemyScaling.bossHp : 1));
+    enemy.maxHp = enemy.hp;
     enemy.moveSpeed = definition.speed * wave.speedScale * eliteSpeedMultiplier * enemyScaling.enemySpeed;
     enemy.contactDamage = Math.round(definition.contactDamage * (wave.damageScale || 1) * (options.isElite ? 1.4 : 1) * enemyScaling.enemyDamage);
     enemy.anomalyBossDamageMultiplier = options.isBoss ? enemyScaling.bossDamage : 1;
@@ -16800,6 +18214,7 @@ class SurvivalScene extends Phaser.Scene {
     if (this.time.now < (enemy.lostArmsVulnerableUntil || 0)) {
       finalDamage *= Phaser.Math.Clamp(Number(enemy.lostArmsVulnerableMult) || 1, 1, 1.5);
     }
+    finalDamage = this.applyOverdriveModHunterDamageModifier(enemy, finalDamage, impact);
     enemy.hp -= finalDamage;
     this.spawnEnemyDamageNumber(enemy, finalDamage);
     this.applyEnemyImpact(enemy, impact);
@@ -16827,7 +18242,8 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     this.invincibleUntil = this.time.now + 900;
-    this.stats.hp = Math.max(0, this.stats.hp - amount);
+    const finalAmount = Math.max(0, Math.round((Number(amount) || 0) * this.getOverdriveModDamageTakenMultiplier()));
+    this.stats.hp = Math.max(0, this.stats.hp - finalAmount);
 
     this.tweens.add({
       targets: this.damageFlash,
@@ -17347,6 +18763,109 @@ class SurvivalScene extends Phaser.Scene {
     this.enforceDropLimits("spawnRobotItem");
   }
 
+  getLostArmsResonanceEchoDefinition(armId) {
+    const baseDefinition = this.getLostArmDefinition(armId);
+    if (!baseDefinition) {
+      return null;
+    }
+    const echo = LOST_ARMS_RESONANCE_CONFIG.echo;
+    return {
+      ...baseDefinition,
+      id: `${armId}ResonanceEcho`,
+      displayName: "RESONANCE ECHO",
+      jpName: "レゾナンスエコー",
+      hudLabel: "ECHO",
+      coreLabel: `${baseDefinition.displayName} ${echo.coreLabel}`,
+      tint: echo.tint,
+      glowTint: echo.glowTint,
+      darkTint: echo.darkTint,
+      itemTextureKey: baseDefinition.itemTextureKey
+    };
+  }
+
+  spawnLostArmResonanceEcho(x, y, preferredArmId = null) {
+    const armId = this.pickLostArmsResonanceTarget(preferredArmId);
+    const definition = this.getLostArmsResonanceEchoDefinition(armId);
+    if (!armId || !definition) {
+      return false;
+    }
+
+    const dropPoint = this.getSafeDropPoint(x, y, 34);
+    x = dropPoint.x;
+    y = dropPoint.y;
+    const textureKey = this.textures.exists(definition.itemTextureKey)
+      ? definition.itemTextureKey
+      : "rare-token";
+    const item = this.physics.add.image(x, y, textureKey).setDepth(14);
+    const frame = item.frame;
+    const pickupRadius = 34;
+    const sourceScale = 0.68;
+    const bodyRadius = pickupRadius / sourceScale;
+    const bodyOffsetX = Math.max(0, (frame?.width || 44) * 0.5 - bodyRadius);
+    const bodyOffsetY = Math.max(0, (frame?.height || 44) * 0.5 - bodyRadius);
+
+    item.body.setAllowGravity(false);
+    item.body.setVelocity(0, 0);
+    item.body.setCircle(bodyRadius, bodyOffsetX, bodyOffsetY);
+    item.itemDefinition = definition;
+    item.armId = armId;
+    item.isResonanceEcho = true;
+    item.resonancePickupType = LOST_ARMS_RESONANCE_CONFIG.echoPickupType;
+    item.baseX = x;
+    item.baseY = y;
+    item.baseScale = sourceScale;
+    item.floatTimer = Phaser.Math.FloatBetween(0, Math.PI * 2);
+    item.forcePullUntil = 0;
+    item.forcePullSpeed = 0;
+    item.setScale(sourceScale);
+    item.setTint(definition.tint);
+    item.setBlendMode(Phaser.BlendModes.SCREEN);
+    item.visualTint = definition.tint;
+    item.visualGlowTint = definition.glowTint;
+    this.prepareDropObject(item, "lostArm", "lostArmItems");
+
+    item.beam = this.add
+      .rectangle(x, y - 96, 30, 236, definition.tint, 0.2)
+      .setDepth(10)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    item.innerBeam = this.add
+      .rectangle(x, y - 96, 10, 260, definition.glowTint, 0.34)
+      .setDepth(11)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    item.glow = this.add
+      .image(x, y, "skill-hit-glow")
+      .setDepth(13)
+      .setScale(1.04)
+      .setTint(definition.tint)
+      .setAlpha(0.36)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    item.ring = this.add
+      .image(x, y, "skill-hit-ring")
+      .setDepth(13)
+      .setScale(0.68)
+      .setTint(definition.glowTint)
+      .setAlpha(0.38)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    item.scanLine = this.add
+      .rectangle(x, y - 48, 82, 3, definition.glowTint, 0.76)
+      .setDepth(14)
+      .setBlendMode(Phaser.BlendModes.ADD);
+
+    this.pickupEffectsLayer.add([item.beam, item.innerBeam, item.glow, item.ring, item.scanLine]);
+    this.lostArmItems.add(item);
+    this.enforceDropLimits("spawnLostArmResonanceEcho");
+    this.setLastPickupNotice(`${definition.coreLabel} DETECTED`);
+    return true;
+  }
+
+  pickupLostArmsResonanceEcho(armId) {
+    if (!this.lostArmsResonanceState) {
+      this.initializeLostArmsResonanceState();
+    }
+    this.lostArmsResonanceState.echoPickupsCollected = (this.lostArmsResonanceState.echoPickupsCollected || 0) + 1;
+    return this.addLostArmsResonance(armId, 1, "echo");
+  }
+
   spawnLostArmCore(x, y, armId) {
     const definition = this.getLostArmDefinition(armId);
     if (!definition) {
@@ -17815,7 +19334,8 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     const xpValue = Math.max(0, Math.floor(Number(item.xpValue ?? definition.xpValue) || 0));
-    const coinValue = this.normalizeCoinAmount(item.coinValue ?? this.scaleRunCoinReward(definition.coinValue));
+    const baseCoinValue = this.normalizeCoinAmount(item.coinValue ?? this.scaleRunCoinReward(definition.coinValue));
+    const coinValue = this.applyOverdriveModGeekMultiplier(baseCoinValue, "value");
     this.gainExperience(xpValue);
     this.setLastPickupNotice(`${definition.label.toUpperCase()} +${xpValue} XP / +${coinValue.toLocaleString()} GEEK UNSECURED`);
     this.addRunCoin(coinValue);
@@ -17826,15 +19346,16 @@ class SurvivalScene extends Phaser.Scene {
 
   handleDataCachePickup(playerHitbox, item) {
     const reward = this.getDropRewardEstimate(item);
+    const unsecuredGeek = this.applyOverdriveModGeekMultiplier(reward.unsecuredGeek, "dataCache");
     if (reward.xp > 0) {
       this.gainExperience(reward.xp);
       this.pulseXpBar();
     }
-    if (reward.unsecuredGeek > 0) {
-      this.addRunCoin(reward.unsecuredGeek);
+    if (unsecuredGeek > 0) {
+      this.addRunCoin(unsecuredGeek);
     }
 
-    this.setLastPickupNotice(`DATA CACHE +${reward.xp} XP / +${reward.unsecuredGeek.toLocaleString()} GEEK`);
+    this.setLastPickupNotice(`DATA CACHE +${reward.xp} XP / +${unsecuredGeek.toLocaleString()} GEEK`);
     this.spawnRareItemPickupEffect(playerHitbox.x, playerHitbox.y - 10, DATA_CACHE_ITEM_DEFINITION);
     this.destroyDataCacheItem(item);
   }
@@ -17856,7 +19377,7 @@ class SurvivalScene extends Phaser.Scene {
     if (definition.effectType === "heal") {
       this.applyHealItemEffect(definition);
     } else if (definition.effectType === "magnet") {
-      this.applyMagnetItemEffect(definition);
+      this.applyMagnetItemEffect(definition, item);
     } else if (definition.effectType === "bomb") {
       this.applyBombItemEffect(definition);
     }
@@ -17901,8 +19422,14 @@ class SurvivalScene extends Phaser.Scene {
       tint: item.visualTint,
       glowTint: item.visualGlowTint
     });
+    const armId = item.armId;
+    const isResonanceEcho = item.isResonanceEcho || item.resonancePickupType === LOST_ARMS_RESONANCE_CONFIG.echoPickupType;
     this.destroyLostArmItem(item);
-    this.pickupLostArmCore(definition.id);
+    if (isResonanceEcho) {
+      this.pickupLostArmsResonanceEcho(armId);
+      return;
+    }
+    this.pickupLostArmCore(armId || definition.id);
   }
 
   spawnRobotItemPickupEffect(x, y, definition) {
@@ -18084,12 +19611,14 @@ class SurvivalScene extends Phaser.Scene {
     this.setLastPickupNotice(healedAmount > 0 ? `HEAL +${healedAmount} HP` : "HEAL FULL");
   }
 
-  applyMagnetItemEffect(definition) {
+  applyMagnetItemEffect(definition, sourceItem = null) {
     let orbCount = 0;
     let rareCount = 0;
     let dataCacheCount = 0;
+    let specialCount = 0;
     let robotCount = 0;
     let lostArmCount = 0;
+    const magnetRadius = this.getOverdriveModMagnetRadius(definition.magnetRadius);
 
     this.xpOrbs.children.each((orb) => {
       if (!orb.active) {
@@ -18097,7 +19626,7 @@ class SurvivalScene extends Phaser.Scene {
       }
 
       const distance = Phaser.Math.Distance.Between(orb.x, orb.y, this.playerHitbox.x, this.playerHitbox.y);
-      if (distance <= definition.magnetRadius) {
+      if (distance <= magnetRadius) {
         this.setPickupPullToPlayer(orb, definition.magnetDurationMs, definition.magnetPullSpeed);
         orbCount += 1;
       }
@@ -18109,7 +19638,7 @@ class SurvivalScene extends Phaser.Scene {
       }
 
       const distance = Phaser.Math.Distance.Between(item.x, item.y, this.playerHitbox.x, this.playerHitbox.y);
-      if (distance <= definition.magnetRadius) {
+      if (distance <= magnetRadius) {
         this.setPickupPullToPlayer(item, definition.magnetDurationMs, definition.magnetPullSpeed);
         if (this.isDataCacheDrop(item)) {
           dataCacheCount += 1;
@@ -18119,13 +19648,25 @@ class SurvivalScene extends Phaser.Scene {
       }
     });
 
+    this.specialItems.children.each((item) => {
+      if (!item.active || item === sourceItem) {
+        return;
+      }
+
+      const distance = Phaser.Math.Distance.Between(item.x, item.y, this.playerHitbox.x, this.playerHitbox.y);
+      if (distance <= magnetRadius) {
+        this.setPickupPullToPlayer(item, definition.magnetDurationMs, definition.magnetPullSpeed);
+        specialCount += 1;
+      }
+    });
+
     this.robotItems.children.each((item) => {
       if (!item.active) {
         return;
       }
 
       const distance = Phaser.Math.Distance.Between(item.x, item.y, this.playerHitbox.x, this.playerHitbox.y);
-      if (distance <= definition.magnetRadius) {
+      if (distance <= magnetRadius) {
         this.setPickupPullToPlayer(item, definition.magnetDurationMs, definition.magnetPullSpeed);
         robotCount += 1;
       }
@@ -18137,14 +19678,14 @@ class SurvivalScene extends Phaser.Scene {
       }
 
       const distance = Phaser.Math.Distance.Between(item.x, item.y, this.playerHitbox.x, this.playerHitbox.y);
-      if (distance <= definition.magnetRadius) {
+      if (distance <= magnetRadius) {
         this.setPickupPullToPlayer(item, definition.magnetDurationMs, definition.magnetPullSpeed);
         lostArmCount += 1;
       }
     });
 
     this.spawnSpecialItemPickupEffect(this.playerHitbox.x, this.playerHitbox.y - 10, definition);
-    this.setLastPickupNotice(`MAGNET XP ${orbCount}${rareCount > 0 ? ` / GEEK ITEM ${rareCount}` : ""}${dataCacheCount > 0 ? ` / DATA CACHE ${dataCacheCount}` : ""}${robotCount > 0 ? ` / ROBOT ${robotCount}` : ""}${lostArmCount > 0 ? ` / LOST ARMS ${lostArmCount}` : ""}`);
+    this.setLastPickupNotice(`MAGNET XP ${orbCount}${rareCount > 0 ? ` / GEEK ITEM ${rareCount}` : ""}${dataCacheCount > 0 ? ` / DATA CACHE ${dataCacheCount}` : ""}${specialCount > 0 ? ` / SPECIAL ${specialCount}` : ""}${robotCount > 0 ? ` / ROBOT ${robotCount}` : ""}${lostArmCount > 0 ? ` / LOST ARMS ${lostArmCount}` : ""}`);
   }
 
   applyBombItemEffect(definition) {
@@ -21685,6 +23226,14 @@ class SurvivalScene extends Phaser.Scene {
       return this.buildRobotTuningCardModel(option, index);
     }
 
+    if (option?.type === "lostArmsEvolution") {
+      return this.buildLostArmsEvolutionCardModel(option, index);
+    }
+
+    if (option?.type === "overdriveMod") {
+      return this.buildOverdriveModCardModel(option, index);
+    }
+
     if (option?.type === "skill") {
       const meta = this.getSkillUiMeta(option.skillId);
       const maxStage = this.getSkillMaxStage(option.definition);
@@ -21741,6 +23290,63 @@ class SurvivalScene extends Phaser.Scene {
       glowColor: meta.themeColor,
       accentColor: meta.accentColor,
       iconTone: meta.iconTone
+    };
+  }
+
+  buildLostArmsEvolutionCardModel(option, index) {
+    const evolution = option.evolution || {};
+    const definition = this.getLostArmDefinition(option.armId);
+    const typeMeta = LEVEL_UP_CARD_TYPE_META.lostArmsEvolution;
+    return {
+      option,
+      index,
+      kind: "skill",
+      cardType: "lostArmsEvolution",
+      typeLabel: typeMeta.label,
+      typeColor: evolution.themeColor || typeMeta.color,
+      typeTextColor: typeMeta.textColor,
+      title: evolution.title || option.title || "RESONANCE",
+      stageLabel: `${definition?.displayName || option.armId || "LOST ARMS"} / RUN ONLY`,
+      description: evolution.description || option.description || "ラン中だけ有効な進化を選択",
+      stageProgress: Array.from({ length: LOST_ARMS_RESONANCE_CONFIG.pointsRequired }, () => "●").join(""),
+      chips: (evolution.chips || []).slice(0, 6).map((label, chipIndex) => ({
+        label,
+        priority: 120 - chipIndex
+      })),
+      newEffects: [evolution.shortLabel || evolution.title || "RESONANCE"],
+      themeColor: evolution.themeColor || typeMeta.color,
+      glowColor: evolution.glowColor || evolution.themeColor || typeMeta.color,
+      accentColor: this.colorToCss(evolution.themeColor || typeMeta.color),
+      iconTone: evolution.iconTone || "RESON",
+      iconTextureKey: definition?.iconTextureKey || null
+    };
+  }
+
+  buildOverdriveModCardModel(option, index) {
+    const mod = option.mod || this.getOverdriveModDefinition(option.modId) || {};
+    const typeMeta = LEVEL_UP_CARD_TYPE_META.overdriveMod;
+    return {
+      option,
+      index,
+      kind: "skill",
+      cardType: "overdriveMod",
+      typeLabel: typeMeta.label,
+      typeColor: mod.themeColor || typeMeta.color,
+      typeTextColor: typeMeta.textColor,
+      title: mod.title || option.title || "OVERDRIVE MOD",
+      stageLabel: mod.subtitle || "THIS OVERDRIVE ONLY",
+      description: mod.description || option.description || "一時MODを選択",
+      stageProgress: Array.from({ length: OVERDRIVE_MOD_CONFIG.choicesPerActivation }, () => "●").join(""),
+      chips: (mod.chips || []).slice(0, 6).map((label, chipIndex) => ({
+        label,
+        priority: 120 - chipIndex
+      })),
+      newEffects: [mod.shortLabel || mod.title || "MOD"],
+      themeColor: mod.themeColor || typeMeta.color,
+      glowColor: mod.glowColor || mod.themeColor || typeMeta.color,
+      accentColor: mod.accentColor || this.colorToCss(mod.themeColor || typeMeta.color),
+      iconTone: mod.iconTone || "MOD",
+      iconTextureKey: null
     };
   }
 
@@ -22025,6 +23631,8 @@ class SurvivalScene extends Phaser.Scene {
     this.clearPendingAnjuMemory(reason);
     this.resetAnomalyContractState(reason);
     this.resetStabilizeProtocolState(reason);
+    this.resetLostArmsResonanceState(reason);
+    this.resetOverdriveModState(reason);
     this.resetOverflowRewardState();
     this.lastGameOverReason = { reason, lostCoins, lostArmsMessage };
     this.setRunRankingExtractionStats("none", 0, false);
@@ -22159,6 +23767,8 @@ class SurvivalScene extends Phaser.Scene {
     this.clearPendingAnjuMemory("returnToOpeningShop");
     this.resetAnomalyContractState("returnToOpeningShop");
     this.resetStabilizeProtocolState("returnToOpeningShop");
+    this.resetLostArmsResonanceState("returnToOpeningShop");
+    this.resetOverdriveModState("returnToOpeningShop");
     this.resetOverflowRewardState();
     this.overlayActions = [];
     this.releaseMobileControlPointers?.();
@@ -22881,6 +24491,17 @@ class SurvivalScene extends Phaser.Scene {
         return;
       }
 
+      if (this.levelUpSelectionMode === "overdriveMod" && event.key === "Escape") {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+        this.levelUpSelectionLocked = true;
+        this.levelUpInputEnabled = false;
+        this.overlayActions = [];
+        this.selectOverdriveMod(OVERDRIVE_MOD_CONFIG.defaultFallbackModId);
+        this.finishOverdriveModSelectionOverlay();
+        return;
+      }
+
       const index = ["1", "2", "3"].indexOf(event.key);
       if (index < 0) {
         return;
@@ -22978,6 +24599,30 @@ class SurvivalScene extends Phaser.Scene {
 
   completeLevelUpCardSelection(option) {
     option?.onSelect?.();
+    if (this.levelUpSelectionMode === "overdriveMod") {
+      if (this.gameOver) {
+        return;
+      }
+
+      this.finishOverdriveModSelectionOverlay();
+      return;
+    }
+
+    if (this.levelUpSelectionMode === "lostArmsEvolution") {
+      if (this.gameOver) {
+        return;
+      }
+
+      this.levelUpActive = false;
+      this.lostArmsResonanceSelectionActive = false;
+      this.lostArmsEvolutionSelectionContext = null;
+      this.hideOverlay();
+      this.restoreGameplayInputAfterOverlay();
+      this.physics.world.resume();
+      this.tryOpenQueuedLostArmsEvolutionSelection();
+      return;
+    }
+
     if (this.levelUpSelectionMode === "robot") {
       if (this.gameOver) {
         return;
