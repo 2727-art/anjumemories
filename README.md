@@ -401,13 +401,35 @@ Support アイテムを拾うとサポート攻撃が発動します。Support �
 - Golden Tune Vase: ミサイル系チューニングを 2 択で選びます。
 - Silver Tune Vase: フィールド系チューニングを 2 択で選びます。
 
-ミサイルと回復フィールドの本体レベルは最大 Lv.10 です。チューニングは Rapid Launcher、Warhead Boost、Field Cycle、Care Output があり、それぞれ最大 Lv.20 です。
+ミサイルと回復フィールドの本体レベルは通常 Lv.10 が上限です。Opening Shop の `ROBOT CUSTOM` で確定 GEEK を使ってLv上限を段階解放すると、各系統ごとに Lv.12 / 14 / 16 / 18 / 20 まで伸ばせます。チューニングは Rapid Launcher、Warhead Boost、Field Cycle、Care Output があり、それぞれ最大 Lv.20 です。
 
-ミサイル命中、撃破、回復パルスでもロボット経験値が入り、ボス撃破時には Robot アイテムの追加ドロップ抽選があります。すでに上限に達した Robot 報酬を拾った場合は、STABILIZE と未確定 GEEK に変換されます。
+ミサイル命中、撃破、回復パルスでもロボット経験値が入り、Lv1-10までは既存テンポで本体レベルが上がります。Lv10以降は自動経験値では上がらず、Missile / Recovery Core を複数取得して `CORE x/y` を満たすと1レベル上がります。必要Core数は Lv10->11:2、Lv11->12:2、Lv12->13:3、Lv13->14:3、Lv14->15:4、Lv15->16:5、Lv16->17:6、Lv17->18:7、Lv18->19:8、Lv19->20:10 です。すでに現在の上限に達した Robot 報酬を拾った場合は、STABILIZE と未確定 GEEK に変換されます。
+
+Lv11+ ROBOT EX:
+
+- `Napalm Missile`: `ROBOT CUSTOM` で 180,000 GEEK、Missile Cap Tier 1 以上が必要です。購入後、Missile Lv11+でミサイル爆発時に燃焼を付与します。Lv15+では短時間の燃焼床を生成し、最大8個まで残ります。燃焼ダメージは既存の敵ダメージ処理を通るため、撃破・ドロップ・ランキング加算は通常処理に乗ります。
+- `Barrier Field`: `ROBOT CUSTOM` で 180,000 GEEK、Recovery Cap Tier 1 以上が必要です。購入後、Recovery Lv11+でHPとは別のシールドを生成します。Barrierは被弾時にHPより先に削られ、破壊後はクールダウンを経て回復フィールドのパルスで再構築されます。Recovery Lv20では90秒クールダウンのLast Standがあり、致死ダメージ時に一度だけHP1で踏みとどまります。
+- ロボット本体は Lv11-15 で `robot_lv11.png`、Lv16-19 で `robot_lv16.png`、Lv20 で `robot_lv20.png` を使います。ナパーム弾は Lv11-15 / 16-19 / 20 で `robot_bombslv11.png` / `robot_bombslv16.png` / `robot_bombslv20.png` を使います。燃焼は `missile_explosion_frame_01.png` から `missile_explosion_frame_08.png` のフレームアニメーションです。
+- Recovery Field の Lv11-20 専用画像は未使用です。Barrier Field 展開中はキャラクター本体に白い半透明シールドを重ねて表示し、Recovery Field画像は既存Lv10までの素材へフォールバックします。
+
+ROBOT SYNC DRIVE:
+
+- ミサイル命中・撃破、回復フィールドのパルス、Missile / Recovery Core 取得、Golden / Silver Tune Vase のチューニング選択で `SYNC` ゲージが蓄積します。
+- `SYNC` 100% で 18 秒間の `ROBOT SYNC DRIVE` が自動発動します。発動中に再度 100% へ到達した場合は最大 30 秒まで延長されます。
+- 発動中はミサイル発射間隔 x0.86、ミサイル威力 x1.16、回復フィールド範囲 x1.12、回復量 x1.18 になります。
+- 発動中の回復パルスは `SYNC PULSE` になり、周囲の敵へ小ダメージと押し戻しを与えます。
+- `SYNC` はラン内一時状態です。ショップ復帰、抽出、ゲームオーバー、リスタートでリセットされ、localStorage / sessionStorage には保存されません。
+- 検証用に `?debugRobotSync=1` を付けると、初期 `SYNC` ゲージが高い状態になり、ゲージ獲得量が増えて発動確認しやすくなります。
 
 ## ショップ
 
-Opening Shop では `GEEK SHOP` と `ANJU MEMORY` をタブで切り替えます。GEEK SHOP では確定 GEEK を使用します。CD は BGM 選択と永続ボーナスを兼ねており、購入済み CD の永続効果は選択中 BGM に関係なく常時発動します。
+Opening Shop では `GEEK SHOP`、`ROBOT CUSTOM`、`ANJU MEMORY` をタブで切り替えます。GEEK SHOP と ROBOT CUSTOM では確定 GEEK を使用します。ROBOT CUSTOM はラン中Lvを直接購入する画面ではなく、Missile / Recovery のLv上限と Lv11+ EX 機能を解放する画面です。CD は BGM 選択と永続ボーナスを兼ねており、購入済み CD の永続効果は選択中 BGM に関係なく常時発動します。
+
+ROBOT CUSTOM:
+
+- Missile / Recovery Cap Tier 1-5: 30,000 / 60,000 / 100,000 / 160,000 / 240,000 GEEK。各Tierで該当系統の上限が+2され、最大Lv20です。
+- Napalm Missile: 180,000 GEEK。Missile Cap Tier 1 以上が必要です。
+- Barrier Field: 180,000 GEEK。Recovery Cap Tier 1 以上が必要です。
 
 CD:
 
@@ -484,7 +506,7 @@ localStorage キー:
 - `lastmemoVansabaBestRecord`: ベスト記録。`bestDepth` と `bestExtractedGeek` も保存します。
 - `lastmemoVansabaKillRanking`: ローカルランキング。各 entry は `bestDepth`、`extractedGeek`、`extractMode`、`extractionSucceeded`、`submittedAt`、`version` を持ち、古い entry にフィールドがない場合は `bestDepth = 1`、`extractedGeek = 0`、`extractMode = none` に補完します。
 - `lastmemoVansabaCoins`: 確定 GEEK
-- `lastmemoVansabaShopState`: CD 所持、選択 BGM、永続強化状態
+- `lastmemoVansabaShopState`: CD 所持、選択 BGM、永続強化状態、`robotCustom`。`robotCustom` は `missileCapTier`、`recoveryCapTier`、`napalmUnlocked`、`barrierUnlocked` を持ち、古い保存データに無い場合は初期値へ補完します。
 - `lastmemoVansabaLostArmsState`: LOST ARMS 永続 Lv と pity
 - `lastmemoVansabaAnjuMemoryState`: ANJU MEMORY 残高、購入済み報酬、選択中スキン/称号/バッジ、チケット、到達済みマイルストーン
 - `collisionEditor:<stageId>`: 衝突判定編集モードの一時保存データ
@@ -534,6 +556,7 @@ http://127.0.0.1:4173/?debugDepthDirective=1
 http://127.0.0.1:4173/?debugDeepResult=1
 http://127.0.0.1:4173/?debugGeekMilestone=1
 http://127.0.0.1:4173/?debugRankingDepth=1
+http://127.0.0.1:4173/?debugRobotSync=1
 http://127.0.0.1:4173/?debug=stage
 ```
 
