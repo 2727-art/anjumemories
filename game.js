@@ -68,6 +68,54 @@ const DROP_LIMITS = {
   dataCache: 3,
   periodicCleanupMs: 1000
 };
+const GEEK_MILESTONE_DEBUG_QUERY_PARAM = "debugGeekMilestone";
+const GEEK_MILESTONE_BONUS_CONFIG = {
+  unlockDepth: 6,
+  maxMilestoneAdd: 1.10,
+  noticeMs: 2200,
+  milestones: [
+    {
+      depth: 6,
+      id: "deepSignal",
+      title: "DEEP SIGNAL",
+      shortLabel: "D6",
+      geekMultiplierAdd: 0.15,
+      description: "Depth6以降の深層GEEK反応を検出。"
+    },
+    {
+      depth: 8,
+      id: "voidResonance",
+      title: "VOID RESONANCE",
+      shortLabel: "D8",
+      geekMultiplierAdd: 0.30,
+      description: "Void帯域のGEEK係数が上昇。"
+    },
+    {
+      depth: 10,
+      id: "anjuMemoryField",
+      title: "ANJU MEMORY FIELD",
+      shortLabel: "D10",
+      geekMultiplierAdd: 0.50,
+      description: "アンジュの記憶場が未確定GEEKを増幅。"
+    },
+    {
+      depth: 12,
+      id: "singularityGate",
+      title: "SINGULARITY GATE",
+      shortLabel: "D12",
+      geekMultiplierAdd: 0.75,
+      description: "Gate特異点によりGEEK係数が大きく上昇。"
+    },
+    {
+      depth: 15,
+      id: "lastmemoDeepCore",
+      title: "LASTMEMO DEEP CORE",
+      shortLabel: "D15",
+      geekMultiplierAdd: 1.10,
+      description: "最深層GEEKコアを捕捉。"
+    }
+  ]
+};
 const GATE_TENSION_HUD_BAR = {
   x: GAME_WIDTH / 2 - 188,
   y: 147,
@@ -75,6 +123,24 @@ const GATE_TENSION_HUD_BAR = {
   height: 5
 };
 const EXTRACTION_MESSAGE_SESSION_KEY = "lastmemoVansabaExtractionMessage";
+const DEEP_EXTRACTION_RESULT_DEBUG_QUERY_PARAM = "debugDeepResult";
+const DEEP_EXTRACTION_RESULT_CONFIG = {
+  unlockDepth: 6,
+  panelWidth: 1040,
+  panelHeight: 660,
+  countUpMs: 900,
+  revealStaggerMs: 80,
+  continueDelayMs: 960,
+  maxRewardLines: 5,
+  maxHighlights: 5
+};
+const DEEP_EXTRACTION_GRADE_META = {
+  EX: { label: "EX", color: 0xfff2a8, css: "#fff2a8", glow: 0xffd66b },
+  S: { label: "S", color: 0xff73f6, css: "#ffb9fb", glow: 0xff73f6 },
+  A: { label: "A", color: 0x6ff7ff, css: "#9ff7ff", glow: 0x6ff7ff },
+  B: { label: "B", color: 0x7fb5ff, css: "#a9cfff", glow: 0x7fb5ff },
+  C: { label: "C", color: 0x9fb0bf, css: "#b7c3cf", glow: 0x6a7d91 }
+};
 const RANKING_DEBUG_QUERY_PARAM = "debugRankingDepth";
 const ANOMALY_CONTRACT_DEBUG_QUERY_PARAM = "debugAnomalyContract";
 const ANOMALY_CONTRACT_CONFIG = {
@@ -586,6 +652,100 @@ const GENSO_KNIGHTS_GUARD_KNOCKBACK_MS = 300;
 const GENSO_KNIGHTS_GUARD_RECOVER_MS = 360;
 const GENSO_KNIGHTS_GUARD_EFFECT_FRAME_MS = 46;
 const GENSO_KNIGHTS_GUARD_EFFECT_SIZE = 250;
+const NEMESIS_BOSS_DEBUG_QUERY_PARAM = "debugNemesis";
+const NEMESIS_BOSS_CONFIG = {
+  unlockDepth: 6,
+  debugUnlockDepth: 1,
+  maxPerDepth: 1,
+  spawnDelayMs: { min: 45000, max: 120000 },
+  debugSpawnDelayMs: 10000,
+  debugHpMultiplier: 0.16,
+  warningMs: 1800,
+  retryDelayMs: 10000,
+  maxRetries: 5,
+  minGateRemainingMs: 25000,
+  skipGateUrgentRemainingMs: 15000,
+  spawnMargin: 180,
+  baseLongestSide: 330,
+  spawnChanceByDepth: [
+    { depth: 6, chance: 0.25 },
+    { depth: 7, chance: 0.35 },
+    { depth: 8, chance: 0.45 },
+    { depth: 9, chance: 0.55 },
+    { depth: 10, chance: 0.65 }
+  ],
+  rewards: {
+    geekBase: 850,
+    geekPerDepth: 125,
+    stabilizeGauge: 50,
+    extraLostArmsRolls: 1,
+    extraRobotRolls: 1,
+    valueDropsByDepth: [
+      { minDepth: 10, gold: 3, silver: 3 },
+      { minDepth: 8, gold: 2, silver: 3 },
+      { minDepth: 6, gold: 1, silver: 2 }
+    ]
+  },
+  bosses: [
+    {
+      id: "nemesisBrute",
+      title: "NEMESIS BRUTE",
+      sourceLabel: "Genso Knights boss_01",
+      sourceAsset: "./画像/support/gensoKnights/boss_01.png",
+      textureKey: "support-genso-knights-boss-1",
+      baseBossTypeId: "boss_crack",
+      tint: 0xff5f6d,
+      accent: 0xff3245,
+      hpMultiplier: 2.65,
+      damageMultiplier: 1.2,
+      moveSpeedMultiplier: 0.82,
+      attackIntervalMultiplier: 1.04,
+      chargeMultiplier: 1.22,
+      attackRangeMultiplier: 1.46,
+      areaMultiplier: 1.38,
+      bossPreferredRangeMultiplier: 1.06,
+      displayScaleMultiplier: 1.08
+    },
+    {
+      id: "nemesisCaster",
+      title: "NEMESIS CASTER",
+      sourceLabel: "Genso Knights boss_02",
+      sourceAsset: "./画像/support/gensoKnights/boss_02.png",
+      textureKey: "support-genso-knights-boss-2",
+      baseBossTypeId: "boss_random_blast",
+      tint: 0xb070ff,
+      accent: 0xff5be8,
+      hpMultiplier: 2.35,
+      damageMultiplier: 1.16,
+      moveSpeedMultiplier: 0.9,
+      attackIntervalMultiplier: 1.02,
+      chargeMultiplier: 1.24,
+      attackRangeMultiplier: 1.5,
+      areaMultiplier: 1.34,
+      bossPreferredRangeMultiplier: 1.18,
+      displayScaleMultiplier: 1.02
+    },
+    {
+      id: "nemesisWraith",
+      title: "NEMESIS WRAITH",
+      sourceLabel: "Genso Knights boss_03",
+      sourceAsset: "./画像/support/gensoKnights/boss_03.png",
+      textureKey: "support-genso-knights-boss-3",
+      baseBossTypeId: "boss_lightning_dash",
+      tint: 0x68f8ff,
+      accent: 0x4f8cff,
+      hpMultiplier: 2.2,
+      damageMultiplier: 1.14,
+      moveSpeedMultiplier: 1.0,
+      attackIntervalMultiplier: 1.08,
+      chargeMultiplier: 1.18,
+      attackRangeMultiplier: 1.42,
+      areaMultiplier: 1.3,
+      bossPreferredRangeMultiplier: 1.1,
+      displayScaleMultiplier: 0.98
+    }
+  ]
+};
 const DAMAGE_TEXT_FONT_SIZE_MULTIPLIER = 2;
 const CD_SHOP_SLOT_COUNT = 10;
 const CD_PURCHASE_PRICE = 100000;
@@ -1140,6 +1300,162 @@ const STABILIZE_PROTOCOL_CONFIG = {
     maxEmergencyProtection: 0.85
   }
 };
+const DEPTH_DIRECTIVE_DEBUG_QUERY_PARAM = "debugDepthDirective";
+const DEPTH_DIRECTIVE_CONFIG = {
+  unlockDepth: 6,
+  debugUnlockDepth: 1,
+  choicesPerDepth: 3,
+  avoidSameAsPrevious: true,
+  hudNameMaxLength: 18,
+  completionNoticeMs: 4200,
+  failedNoticeMs: 3200,
+  maxActiveBeacons: 3,
+  beaconSpawnRadius: 520,
+  beaconPickupRadius: 30,
+  directiveSlimeSpawnDelayMs: [10000, 30000],
+  debugSlimeSpawnDelayMs: [900, 1400],
+  directiveSlimeHpBase: 180,
+  directiveSlimeHpPerDepth: 38,
+  directives: [
+    {
+      id: "bossHunter",
+      title: "BOSS HUNTER",
+      subtitle: "強敵撃破指令",
+      objective: "Boss / Eliteを撃破する",
+      rewardLabel: "LOST ARMS SIGNAL + GEEK",
+      shortLabel: "BOSS",
+      chips: ["Boss/Elite撃破", "LOST ARMS SIGNAL", "未確定GEEK"],
+      themeColor: 0xff73f6,
+      glowColor: 0xffd9fb,
+      accentColor: "#ff9cf8",
+      iconTone: "BOSS",
+      targetDepth6: 1,
+      targetBase: 2,
+      targetScalePerDepth: 0,
+      reward: {
+        type: "lostArmsSignal",
+        geekBase: 900
+      }
+    },
+    {
+      id: "dataRecovery",
+      title: "DATA RECOVERY",
+      subtitle: "Beacon回収",
+      objective: "Directive Beaconを3個回収する",
+      rewardLabel: "DATA CACHE",
+      shortLabel: "DATA",
+      chips: ["Beacon x3", "DATA CACHE", "XP + GEEK"],
+      themeColor: 0x55eaff,
+      glowColor: 0xc8ffff,
+      accentColor: "#8ff9ff",
+      iconTone: "DATA",
+      targetBase: 3,
+      reward: {
+        type: "dataCache",
+        xpBase: 90,
+        xpPerDepth: 12,
+        geekBase: 700
+      }
+    },
+    {
+      id: "noRetreat",
+      title: "NO RETREAT",
+      subtitle: "耐久維持",
+      objective: "Gate開放時にHP 50%以上を維持する",
+      rewardLabel: "STABILIZE + GEEK",
+      shortLabel: "HOLD",
+      chips: ["Gate時 HP 50%+", "STABILIZE +100%", "未確定GEEK"],
+      themeColor: 0xb8fbff,
+      glowColor: 0xecffff,
+      accentColor: "#b8fbff",
+      iconTone: "HOLD",
+      minHpRatio: 0.5,
+      reward: {
+        type: "stabilize",
+        gauge: 100,
+        geekBase: 650
+      }
+    },
+    {
+      id: "slimeSignal",
+      title: "SLIME SIGNAL",
+      subtitle: "特異スライム追跡",
+      objective: "Directive Slimeを撃破する",
+      rewardLabel: "Gold cache + GEEK",
+      shortLabel: "SLIME",
+      chips: ["Slime撃破", "Gold cache", "未確定GEEK"],
+      themeColor: 0xffd76b,
+      glowColor: 0xfff0ba,
+      accentColor: "#ffd76b",
+      iconTone: "SLIME",
+      targetBase: 1,
+      reward: {
+        type: "valueBurst",
+        goldDrops: 1,
+        geekBase: 900
+      }
+    },
+    {
+      id: "cleanSweep",
+      title: "CLEAN SWEEP",
+      subtitle: "掃討指令",
+      objective: "指定数の敵を撃破する",
+      rewardLabel: "OVERDRIVE + GEEK",
+      shortLabel: "SWEEP",
+      chips: ["敵撃破", "OVERDRIVE +50%", "未確定GEEK"],
+      themeColor: 0x91f6ff,
+      glowColor: 0xd9ffff,
+      accentColor: "#91f6ff",
+      iconTone: "KILL",
+      targetBase: 160,
+      targetScalePerDepth: 12,
+      reward: {
+        type: "overdrive",
+        gauge: 50,
+        geekBase: 800
+      }
+    },
+    {
+      id: "gateAnchor",
+      title: "GATE ANCHOR",
+      subtitle: "Gate固定",
+      objective: "Elite 1体撃破 + Bronze/Silver/Goldを8個回収する",
+      rewardLabel: "Gate stable +8s",
+      shortLabel: "ANCHOR",
+      chips: ["Elite x1", "Value x8", "Gate +8s"],
+      themeColor: 0xc596ff,
+      glowColor: 0xf2e6ff,
+      accentColor: "#d6b8ff",
+      iconTone: "GATE",
+      eliteTarget: 1,
+      valueDropTarget: 8,
+      reward: {
+        type: "gateStableTime",
+        seconds: 8,
+        geekBase: 500
+      }
+    },
+    {
+      id: "resonanceHunt",
+      title: "RESONANCE HUNT",
+      subtitle: "LOST ARMS追跡",
+      objective: "LOST ARMS Core / Echoを1個回収する",
+      rewardLabel: "RESONANCE +1",
+      shortLabel: "RESON",
+      chips: ["Core/Echo x1", "RESONANCE +1", "Overflow fallback"],
+      themeColor: 0xff73f6,
+      glowColor: 0xf2d8ff,
+      accentColor: "#ffb6fb",
+      iconTone: "RESON",
+      targetBase: 1,
+      reward: {
+        type: "lostArmsResonanceOrGeek",
+        resonance: 1,
+        geekBase: 1000
+      }
+    }
+  ]
+};
 const LEVEL_UP_SKILL_UI_META = {
   basicSkill: {
     displayName: "Orbit Core",
@@ -1237,6 +1553,11 @@ const LEVEL_UP_CARD_TYPE_META = {
   overdriveMod: {
     label: "OVERDRIVE MOD",
     color: 0x91f6ff,
+    textColor: "#e8fbff"
+  },
+  depthDirective: {
+    label: "DEPTH DIRECTIVE",
+    color: 0x55eaff,
     textColor: "#e8fbff"
   },
   passiveChip: {
@@ -2921,6 +3242,14 @@ class SurvivalScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetStabilizeProtocolState("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.resetLostArmsResonanceState("sceneShutdown"));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetLostArmsResonanceState("sceneDestroy"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.resetDepthDirectiveState("sceneShutdown"));
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetDepthDirectiveState("sceneDestroy"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.resetNemesisBossState("sceneShutdown"));
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetNemesisBossState("sceneDestroy"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cleanupDeepExtractionResultOverlay("sceneShutdown"));
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.cleanupDeepExtractionResultOverlay("sceneDestroy"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cleanupGeekMilestoneNotice("sceneShutdown"));
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.cleanupGeekMilestoneNotice("sceneDestroy"));
     this.setupMobileControls();
     this.configureCameras();
     this.createColliders();
@@ -2930,6 +3259,9 @@ class SurvivalScene extends Phaser.Scene {
     this.updateSkills(0);
     this.updateHud();
     this.showPreGameShop(this.consumePendingExtractionShopMessage());
+    if (this.isDeepExtractionResultDebugEnabled() && !this.isRankingDebugEnabled()) {
+      this.time.delayedCall(180, () => this.showDebugDeepExtractionResultOverlay());
+    }
     if (this.isRankingDebugEnabled()) {
       this.time.delayedCall(120, () => this.showDebugRankingOverlay());
     }
@@ -3348,6 +3680,8 @@ class SurvivalScene extends Phaser.Scene {
     this.initializeOverflowRewardState();
     this.initializeOverdriveModState();
     this.initializeStabilizeProtocolState();
+    this.initializeDepthDirectiveState();
+    this.initializeNemesisBossState();
     if (this.isStabilizeProtocolDebugEnabled()) {
       this.overflowRewardState.stabilizeCharges = OVERFLOW_REWARD_CONFIG.stabilize.maxCharges;
       this.overflowRewardState.stabilizeGauge = 0;
@@ -3398,7 +3732,12 @@ class SurvivalScene extends Phaser.Scene {
     this.stageCollisionEditorMessageText = null;
     this.runStats = {
       kills: 0,
-      eliteKills: 0
+      eliteKills: 0,
+      bossKills: 0,
+      nemesisKills: 0,
+      depthDirectiveCompletions: 0,
+      depthDirectiveCompletedTitles: [],
+      peakGeekMultiplier: 1
     };
     this.rankingDisplayMode = DEFAULT_RANKING_MODE;
     this.remoteRankingMode = DEFAULT_RANKING_MODE;
@@ -3416,6 +3755,9 @@ class SurvivalScene extends Phaser.Scene {
     this.remoteRankingRequestId = 0;
     this.gameOverRecordState = null;
     this.pendingShopReturnMessage = "";
+    this.pendingDeepExtractionResultPayload = null;
+    this.deepExtractionResultDebugShown = false;
+    this.deepExtractionResultState = this.createDeepExtractionResultState();
     this.coins = this.loadCoinWallet();
     this.uiObjects = [];
     this.worldCamera = this.cameras.main;
@@ -3451,6 +3793,13 @@ class SurvivalScene extends Phaser.Scene {
     this.gateChoiceLocked = false;
     this.gateChoiceKeyHandler = null;
     this.gateChoiceRecords = [];
+    this.geekMilestoneState = {
+      shownDepthsThisRun: {},
+      lastActiveMilestoneId: null,
+      noticeContainer: null,
+      noticeTweens: [],
+      noticeTimer: null
+    };
     this.gateSignalVisual = null;
     this.gateWarningFlashUntil = 0;
     this.gateInstabilityFlashUntil = 0;
@@ -3780,6 +4129,1714 @@ class SurvivalScene extends Phaser.Scene {
     if (this.playerHitbox?.active) {
       this.showOverflowRewardText(text, this.playerHitbox.x, this.playerHitbox.y - 58, "#9ff7ff");
     }
+  }
+
+  initializeDepthDirectiveState() {
+    this.depthDirectiveState = {
+      pendingSelection: false,
+      pendingDepth: 0,
+      selectionOpen: false,
+      selectionLocked: false,
+      active: null,
+      activeDepth: 0,
+      choices: [],
+      currentChoices: [],
+      history: [],
+      completed: false,
+      failed: false,
+      rewardClaimed: false,
+      noticeUntil: 0,
+      failedUntil: 0,
+      progress: {},
+      runtime: {},
+      spawnedObjects: []
+    };
+    this.depthDirectiveSelectionActive = false;
+  }
+
+  resetDepthDirectiveState(reason = "reset") {
+    if (this.depthDirectiveSelectionActive || this.levelUpSelectionMode === "depthDirective") {
+      this.hideOverlay?.();
+      this.levelUpActive = false;
+      this.physics?.world?.resume?.();
+    }
+    this.cleanupDepthDirectiveObjects?.();
+    this.initializeDepthDirectiveState();
+    this.updateDepthDirectiveHud?.();
+    if (this.isDepthDirectiveDebugEnabled?.()) {
+      console.log("[DEPTH DIRECTIVE] reset", { reason });
+    }
+  }
+
+  isDepthDirectiveDebugEnabled() {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    try {
+      const params = new URLSearchParams(window.location?.search || "");
+      return params.get(DEPTH_DIRECTIVE_DEBUG_QUERY_PARAM) === "1";
+    } catch (error) {
+      return false;
+    }
+  }
+
+  getDepthDirectiveUnlockDepth() {
+    return this.isDepthDirectiveDebugEnabled()
+      ? DEPTH_DIRECTIVE_CONFIG.debugUnlockDepth
+      : DEPTH_DIRECTIVE_CONFIG.unlockDepth;
+  }
+
+  getDepthDirectiveDefinition(directiveId) {
+    return DEPTH_DIRECTIVE_CONFIG.directives.find((directive) => directive.id === directiveId) || null;
+  }
+
+  cloneDepthDirectiveDefinition(directive) {
+    if (!directive) {
+      return null;
+    }
+    return {
+      ...directive,
+      chips: [...(directive.chips || [])],
+      reward: { ...(directive.reward || {}) }
+    };
+  }
+
+  shouldOfferDepthDirective(depth = this.stageDepth) {
+    const normalizedDepth = Math.max(1, Math.floor(Number(depth) || 1));
+    if (this.gameOver || this.shopActive || this.extractionComplete) {
+      return false;
+    }
+    if (normalizedDepth < this.getDepthDirectiveUnlockDepth()) {
+      return false;
+    }
+    return !this.depthDirectiveState?.history?.some((entry) => entry.depth === normalizedDepth);
+  }
+
+  queueDepthDirectiveSelection(depth = this.stageDepth, reason = "depthStart") {
+    if (!this.depthDirectiveState) {
+      this.initializeDepthDirectiveState();
+    }
+    const normalizedDepth = Math.max(1, Math.floor(Number(depth) || 1));
+    if (!this.shouldOfferDepthDirective(normalizedDepth)) {
+      return false;
+    }
+    const choices = this.buildDepthDirectiveChoices(normalizedDepth);
+    if (choices.length <= 0) {
+      return false;
+    }
+
+    const state = this.depthDirectiveState;
+    state.pendingSelection = true;
+    state.pendingDepth = normalizedDepth;
+    state.choices = choices;
+    state.currentChoices = choices.map((choice) => choice.directiveId);
+    this.setLastPickupNotice(`DEPTH DIRECTIVE READY D${normalizedDepth}`);
+    if (this.isDepthDirectiveDebugEnabled()) {
+      console.log("[DEPTH DIRECTIVE] queued", { reason, depth: normalizedDepth, choices: state.currentChoices });
+    }
+    this.tryOpenPendingDepthDirectiveSelection();
+    this.updateDepthDirectiveHud();
+    return true;
+  }
+
+  isDepthDirectiveAvailable(directive) {
+    if (!directive?.id) {
+      return false;
+    }
+    if (directive.id === "resonanceHunt") {
+      return Boolean(this.lostArmsState && LOST_ARMS_IDS?.length);
+    }
+    return true;
+  }
+
+  buildDepthDirectiveChoices(depth = this.stageDepth) {
+    if (!this.depthDirectiveState) {
+      this.initializeDepthDirectiveState();
+    }
+    const choiceCount = Math.max(1, Math.floor(Number(DEPTH_DIRECTIVE_CONFIG.choicesPerDepth) || 3));
+    const previousId = this.depthDirectiveState.history?.slice(-1)?.[0]?.id || null;
+    let pool = DEPTH_DIRECTIVE_CONFIG.directives
+      .filter((directive) => this.isDepthDirectiveAvailable(directive))
+      .map((directive) => this.cloneDepthDirectiveDefinition(directive));
+
+    if (DEPTH_DIRECTIVE_CONFIG.avoidSameAsPrevious && previousId && pool.length > choiceCount) {
+      const filtered = pool.filter((directive) => directive.id !== previousId);
+      if (filtered.length >= choiceCount) {
+        pool = filtered;
+      }
+    }
+
+    const shuffled = Phaser.Utils.Array.Shuffle(pool.slice());
+    const choices = shuffled.slice(0, choiceCount).map((directive) => ({
+      type: "depthDirective",
+      directiveId: directive.id,
+      directive,
+      title: directive.title,
+      description: directive.objective,
+      targetDepth: depth,
+      onSelect: () => this.selectDepthDirective(directive.id)
+    }));
+    if (this.isDepthDirectiveDebugEnabled()) {
+      console.log("[DEPTH DIRECTIVE] choices", { depth, previousId, choices: choices.map((choice) => choice.directiveId) });
+    }
+    return choices;
+  }
+
+  canOpenDepthDirectiveSelection() {
+    return (
+      Boolean(this.depthDirectiveState?.pendingSelection) &&
+      !this.depthDirectiveState.selectionOpen &&
+      !this.depthDirectiveSelectionActive &&
+      !this.gameOver &&
+      !this.shopActive &&
+      !this.levelUpActive &&
+      !this.gateChoiceActive &&
+      !this.extractionComplete &&
+      !this.overlayContainer?.visible &&
+      !this.lostArmsResonanceSelectionActive &&
+      !this.overdriveModSelectionActive &&
+      (this.pendingLevelUps || 0) <= 0
+    );
+  }
+
+  tryOpenPendingDepthDirectiveSelection() {
+    if (!this.canOpenDepthDirectiveSelection()) {
+      return false;
+    }
+    return this.openDepthDirectiveSelection();
+  }
+
+  openDepthDirectiveSelection() {
+    if (!this.depthDirectiveState) {
+      this.initializeDepthDirectiveState();
+    }
+    const state = this.depthDirectiveState;
+    const depth = Math.max(1, Math.floor(Number(state.pendingDepth) || this.stageDepth || 1));
+    const choices = state.choices?.length ? state.choices : this.buildDepthDirectiveChoices(depth);
+    if (!state.pendingSelection || choices.length <= 0) {
+      return false;
+    }
+
+    state.pendingSelection = false;
+    state.selectionOpen = true;
+    state.selectionLocked = false;
+    state.choices = choices;
+    state.currentChoices = choices.map((choice) => choice.directiveId);
+    this.depthDirectiveSelectionActive = true;
+    this.levelUpActive = true;
+    this.cancelActiveEnemyBeamCharges();
+    this.physics.world.pause();
+    this.showLevelUpCardOverlay(
+      "DEPTH DIRECTIVE",
+      `Depth ${depth} short mission / Clear before Gate opens`,
+      choices,
+      "depthDirective"
+    );
+    if (this.isDepthDirectiveDebugEnabled()) {
+      console.log("[DEPTH DIRECTIVE] opened", { depth, choices: state.currentChoices });
+    }
+    return true;
+  }
+
+  selectDepthDirective(directiveId) {
+    if (!this.depthDirectiveState) {
+      this.initializeDepthDirectiveState();
+    }
+    const state = this.depthDirectiveState;
+    if (state.selectionLocked) {
+      return false;
+    }
+    const definition = this.cloneDepthDirectiveDefinition(this.getDepthDirectiveDefinition(directiveId));
+    if (!definition) {
+      return false;
+    }
+
+    state.selectionLocked = true;
+    state.selectionOpen = false;
+    this.activateDepthDirective(definition, Math.max(1, Math.floor(Number(state.pendingDepth) || this.stageDepth || 1)));
+    return true;
+  }
+
+  activateDepthDirective(directive, depth = this.stageDepth) {
+    const state = this.depthDirectiveState;
+    if (!state || !directive) {
+      return false;
+    }
+
+    this.cleanupDepthDirectiveObjects();
+    state.active = directive;
+    state.activeDepth = Math.max(1, Math.floor(Number(depth) || this.stageDepth || 1));
+    state.completed = false;
+    state.failed = false;
+    state.rewardClaimed = false;
+    state.noticeUntil = 0;
+    state.failedUntil = 0;
+    state.progress = this.createDepthDirectiveProgress(directive);
+    state.runtime = {
+      startedAt: this.time?.now || 0,
+      pendingGateStableSeconds: 0,
+      slimeSpawned: false,
+      lastLostArmId: null
+    };
+    state.history.push({
+      id: directive.id,
+      depth: state.activeDepth,
+      selectedAt: this.time?.now || 0
+    });
+    state.history = state.history.slice(-12);
+
+    if (directive.id === "dataRecovery") {
+      this.spawnDepthDirectiveBeacons(this.getDepthDirectiveTarget(directive, state.activeDepth));
+    } else if (directive.id === "slimeSignal") {
+      this.scheduleDepthDirectiveSlime(directive, state.activeDepth);
+    }
+
+    this.setLastPickupNotice(`DIRECTIVE ACTIVE: ${directive.title}`);
+    this.showOverflowRewardText(directive.title, this.playerHitbox?.x, this.playerHitbox?.y - 60, directive.accentColor || "#8ff9ff");
+    this.updateDepthDirectiveHud();
+    if (this.isDepthDirectiveDebugEnabled()) {
+      console.log("[DEPTH DIRECTIVE] active", { depth: state.activeDepth, id: directive.id });
+    }
+    return true;
+  }
+
+  finishDepthDirectiveSelectionOverlay() {
+    this.levelUpActive = false;
+    this.depthDirectiveSelectionActive = false;
+    if (this.depthDirectiveState) {
+      this.depthDirectiveState.selectionOpen = false;
+      this.depthDirectiveState.selectionLocked = false;
+      this.depthDirectiveState.currentChoices = [];
+    }
+    this.hideOverlay();
+    this.restoreGameplayInputAfterOverlay();
+    this.physics.world.resume();
+    this.tryOpenQueuedLostArmsEvolutionSelection();
+    this.tryOpenPendingOverdriveModSelection();
+    return true;
+  }
+
+  createDepthDirectiveProgress(directive) {
+    return {
+      kills: 0,
+      bossEliteKills: 0,
+      eliteKills: 0,
+      valueDropsCollected: 0,
+      beaconsCollected: 0,
+      directiveSlimeKilled: false,
+      lostArmPickups: 0,
+      overdriveActivations: 0,
+      damageTaken: 0
+    };
+  }
+
+  getActiveDepthDirective() {
+    const state = this.depthDirectiveState;
+    if (
+      !state?.active ||
+      state.selectionOpen ||
+      this.gameOver ||
+      this.extractionComplete ||
+      this.shopActive ||
+      state.activeDepth !== (this.stageDepth || 1)
+    ) {
+      return null;
+    }
+    return state.active;
+  }
+
+  getDepthDirectiveTarget(directive = this.getActiveDepthDirective(), depth = this.stageDepth) {
+    if (!directive) {
+      return 0;
+    }
+    const normalizedDepth = Math.max(1, Math.floor(Number(depth) || 1));
+    if (normalizedDepth <= 6 && Number.isFinite(directive.targetDepth6)) {
+      return Math.max(1, Math.floor(Number(directive.targetDepth6) || 1));
+    }
+    const base = Math.max(0, Math.floor(Number(directive.targetBase) || 0));
+    const scale = Math.floor(Number(directive.targetScalePerDepth) || 0);
+    return Math.max(1, base + Math.max(0, normalizedDepth - 6) * scale);
+  }
+
+  getDepthDirectivePrimaryProgress(directive = this.getActiveDepthDirective()) {
+    const state = this.depthDirectiveState;
+    const progress = state?.progress || {};
+    if (!directive) {
+      return { current: 0, target: 0 };
+    }
+    const target = this.getDepthDirectiveTarget(directive, state?.activeDepth || this.stageDepth);
+    if (directive.id === "bossHunter") {
+      return { current: progress.bossEliteKills || 0, target };
+    }
+    if (directive.id === "dataRecovery") {
+      return { current: progress.beaconsCollected || 0, target };
+    }
+    if (directive.id === "noRetreat") {
+      const hpRatio = this.getPlayerHpRatio();
+      return { current: Math.floor(hpRatio * 100), target: Math.round((directive.minHpRatio || 0.5) * 100), percentMode: true };
+    }
+    if (directive.id === "slimeSignal") {
+      return { current: progress.directiveSlimeKilled ? 1 : 0, target };
+    }
+    if (directive.id === "cleanSweep") {
+      return { current: progress.kills || 0, target };
+    }
+    if (directive.id === "gateAnchor") {
+      return { current: progress.valueDropsCollected || 0, target: directive.valueDropTarget || 8 };
+    }
+    if (directive.id === "resonanceHunt") {
+      return { current: progress.lostArmPickups || 0, target };
+    }
+    return { current: 0, target };
+  }
+
+  getPlayerHpRatio() {
+    return Phaser.Math.Clamp((Number(this.stats?.hp) || 0) / Math.max(1, Number(this.stats?.maxHp) || 1), 0, 1);
+  }
+
+  isDepthDirectiveObjectiveComplete(directive = this.getActiveDepthDirective()) {
+    const state = this.depthDirectiveState;
+    const progress = state?.progress || {};
+    if (!directive || state?.completed || state?.failed) {
+      return false;
+    }
+    if (directive.id === "noRetreat") {
+      return false;
+    }
+    if (directive.id === "gateAnchor") {
+      return (
+        (progress.eliteKills || 0) >= (directive.eliteTarget || 1) &&
+        (progress.valueDropsCollected || 0) >= (directive.valueDropTarget || 8)
+      );
+    }
+    const { current, target } = this.getDepthDirectivePrimaryProgress(directive);
+    return current >= target;
+  }
+
+  updateDepthDirectiveCompletion(reason = "progress", options = {}) {
+    const directive = this.getActiveDepthDirective();
+    if (!directive || this.depthDirectiveState?.completed || this.depthDirectiveState?.failed) {
+      return false;
+    }
+    if (!this.isDepthDirectiveObjectiveComplete(directive)) {
+      this.updateDepthDirectiveHud();
+      return false;
+    }
+    return this.completeDepthDirective(reason, options);
+  }
+
+  completeDepthDirective(reason = "complete", options = {}) {
+    const state = this.depthDirectiveState;
+    const directive = this.getActiveDepthDirective();
+    if (!state || !directive || state.completed || state.failed) {
+      return false;
+    }
+
+    state.completed = true;
+    state.noticeUntil = (this.time?.now || 0) + DEPTH_DIRECTIVE_CONFIG.completionNoticeMs;
+    this.recordDepthDirectiveCompletion(directive);
+    this.claimDepthDirectiveReward(directive);
+    this.cleanupDepthDirectiveObjects({ preserveEnemy: options.preserveEnemy });
+    this.setLastPickupNotice(`DIRECTIVE COMPLETE: ${directive.title}`);
+    this.showOverflowRewardText("DIRECTIVE COMPLETE", this.playerHitbox?.x, this.playerHitbox?.y - 64, directive.accentColor || "#8ff9ff");
+    this.updateDepthDirectiveHud();
+    if (this.isDepthDirectiveDebugEnabled()) {
+      console.log("[DEPTH DIRECTIVE] complete", { reason, id: directive.id });
+    }
+    return true;
+  }
+
+  recordDepthDirectiveCompletion(directive) {
+    if (!this.runStats || !directive) {
+      return;
+    }
+
+    this.runStats.depthDirectiveCompletions = Math.max(0, Math.floor(Number(this.runStats.depthDirectiveCompletions) || 0)) + 1;
+    const title = String(directive.title || directive.id || "").trim();
+    if (title) {
+      const titles = Array.isArray(this.runStats.depthDirectiveCompletedTitles)
+        ? this.runStats.depthDirectiveCompletedTitles
+        : [];
+      if (!titles.includes(title)) {
+        titles.push(title);
+      }
+      this.runStats.depthDirectiveCompletedTitles = titles.slice(-4);
+    }
+  }
+
+  failDepthDirective(reason = "failed") {
+    const state = this.depthDirectiveState;
+    const directive = this.getActiveDepthDirective();
+    if (!state || !directive || state.completed || state.failed) {
+      return false;
+    }
+
+    state.failed = true;
+    state.failedUntil = (this.time?.now || 0) + DEPTH_DIRECTIVE_CONFIG.failedNoticeMs;
+    this.cleanupDepthDirectiveObjects();
+    this.setLastPickupNotice(`DIRECTIVE FAILED: ${directive.title}`);
+    this.updateDepthDirectiveHud();
+    if (this.isDepthDirectiveDebugEnabled()) {
+      console.log("[DEPTH DIRECTIVE] failed", { reason, id: directive.id });
+    }
+    return true;
+  }
+
+  clearActiveDepthDirective(reason = "clear", options = {}) {
+    const state = this.depthDirectiveState;
+    if (!state) {
+      return;
+    }
+    const previous = state.active;
+    this.cleanupDepthDirectiveObjects();
+    state.active = null;
+    state.activeDepth = 0;
+    if (!options.keepPending) {
+      state.pendingSelection = false;
+      state.pendingDepth = 0;
+      state.choices = [];
+      state.currentChoices = [];
+    }
+    state.selectionOpen = false;
+    state.selectionLocked = false;
+    state.completed = false;
+    state.failed = false;
+    state.rewardClaimed = false;
+    state.noticeUntil = 0;
+    state.failedUntil = 0;
+    state.progress = {};
+    state.runtime = {};
+    this.updateDepthDirectiveHud?.();
+    if (previous && this.isDepthDirectiveDebugEnabled()) {
+      console.log("[DEPTH DIRECTIVE] cleared", { reason, id: previous.id });
+    }
+  }
+
+  registerDepthDirectiveObject(entry) {
+    if (!this.depthDirectiveState || !entry) {
+      return entry;
+    }
+    this.depthDirectiveState.spawnedObjects.push(entry);
+    return entry;
+  }
+
+  cleanupDepthDirectiveObjects(options = {}) {
+    const state = this.depthDirectiveState;
+    if (!state?.spawnedObjects) {
+      return;
+    }
+    const preserveEnemy = options.preserveEnemy || null;
+    state.spawnedObjects.forEach((entry) => {
+      const object = entry?.object || entry?.enemy || entry?.event || null;
+      if (!object) {
+        return;
+      }
+      if (entry.type === "timer") {
+        object.remove?.(false);
+        return;
+      }
+      if (entry.type === "beacon") {
+        this.destroyDepthDirectiveBeacon(object);
+        return;
+      }
+      if (entry.type === "slime" && object !== preserveEnemy) {
+        this.destroyDepthDirectiveSlime(object);
+      }
+    });
+    state.spawnedObjects = state.spawnedObjects.filter((entry) => entry?.enemy === preserveEnemy);
+  }
+
+  destroyDepthDirectiveSlime(enemy) {
+    if (!enemy) {
+      return;
+    }
+    this.destroyDepthDirectiveSlimeMarker(enemy);
+    this.tweens?.killTweensOf(enemy);
+    this.enemies?.remove?.(enemy, false, false);
+    if (enemy.active) {
+      enemy.destroy();
+    }
+  }
+
+  destroyDepthDirectiveSlimeMarker(enemy) {
+    if (!enemy) {
+      return;
+    }
+    this.tweens?.killTweensOf([enemy.directiveMarker, enemy.directiveRing, enemy.directiveGlow].filter(Boolean));
+    enemy.directiveMarker?.destroy?.();
+    enemy.directiveRing?.destroy?.();
+    enemy.directiveGlow?.destroy?.();
+    enemy.directiveMarker = null;
+    enemy.directiveRing = null;
+    enemy.directiveGlow = null;
+  }
+
+  scheduleDepthDirectiveSlime(directive, depth = this.stageDepth) {
+    const range = this.isDepthDirectiveDebugEnabled()
+      ? DEPTH_DIRECTIVE_CONFIG.debugSlimeSpawnDelayMs
+      : DEPTH_DIRECTIVE_CONFIG.directiveSlimeSpawnDelayMs;
+    const delay = Phaser.Math.Between(range[0], range[1]);
+    const event = this.time.delayedCall(delay, () => this.spawnDepthDirectiveSlime(directive, depth));
+    this.registerDepthDirectiveObject({ type: "timer", event });
+  }
+
+  spawnDepthDirectiveSlime(directive, depth = this.stageDepth) {
+    const active = this.getActiveDepthDirective();
+    if (!active || active.id !== "slimeSignal" || this.depthDirectiveState?.completed || this.depthDirectiveState?.failed) {
+      return null;
+    }
+    const typeId = ENEMY_DEFINITIONS.gold_slime ? "gold_slime" : "chaser";
+    const enemy = this.spawnEnemy(typeId, { waveDefinition: this.getCurrentWaveDefinition() });
+    if (!enemy) {
+      return null;
+    }
+
+    const hp = DEPTH_DIRECTIVE_CONFIG.directiveSlimeHpBase + Math.max(0, depth - 6) * DEPTH_DIRECTIVE_CONFIG.directiveSlimeHpPerDepth;
+    enemy.isDirectiveSlime = true;
+    enemy.suppressGuaranteedDrops = true;
+    enemy.maxHp = Math.max(enemy.maxHp || 1, Math.round(hp * this.getCurrentEnemyScaling().enemyHp));
+    enemy.hp = enemy.maxHp;
+    enemy.xpValue = Math.max(enemy.xpValue || 0, 24 + Math.max(0, depth - 6) * 3);
+    enemy.baseTint = 0x55eaff;
+    enemy.setTint(enemy.baseTint);
+    enemy.setScale((enemy.scaleX || enemy.baseScale || 1) * 1.18);
+    this.configureEnemyBody(enemy, enemy.enemyDefinition || ENEMY_DEFINITIONS[typeId], Boolean(enemy.isElite));
+
+    enemy.directiveGlow = this.add
+      .image(enemy.x, enemy.y, "skill-hit-glow")
+      .setDepth(17.5)
+      .setScale((enemy.effectScale || 1) * 1.1)
+      .setTint(0x55eaff)
+      .setAlpha(0.28)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    enemy.directiveRing = this.add
+      .image(enemy.x, enemy.y, "skill-hit-ring")
+      .setDepth(17.6)
+      .setScale((enemy.effectScale || 1) * 0.7)
+      .setTint(0xffd76b)
+      .setAlpha(0.44)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    enemy.directiveMarker = this.add
+      .text(enemy.x, enemy.y - 58, "DIRECTIVE", {
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "13px",
+        color: "#fff1a8",
+        fontStyle: "bold",
+        align: "center",
+        stroke: "#06141d",
+        strokeThickness: 3
+      })
+      .setOrigin(0.5)
+      .setDepth(24);
+    this.skillEffectsLayer?.add([enemy.directiveGlow, enemy.directiveRing, enemy.directiveMarker]);
+    this.depthDirectiveState.runtime.slimeSpawned = true;
+    this.registerDepthDirectiveObject({ type: "slime", enemy });
+    this.setLastPickupNotice("DIRECTIVE SLIME DETECTED");
+    this.showOverflowRewardText("DIRECTIVE SLIME", enemy.x, enemy.y - 70, "#ffd76b");
+    return enemy;
+  }
+
+  spawnDepthDirectiveBeacons(count = DEPTH_DIRECTIVE_CONFIG.maxActiveBeacons) {
+    const targetCount = Phaser.Math.Clamp(
+      Math.floor(Number(count) || DEPTH_DIRECTIVE_CONFIG.maxActiveBeacons),
+      1,
+      DEPTH_DIRECTIVE_CONFIG.maxActiveBeacons
+    );
+    const worldBounds = this.getStageWorldBounds(this.currentStage);
+    const originX = this.playerHitbox?.x ?? worldBounds.centerX;
+    const originY = this.playerHitbox?.y ?? worldBounds.centerY;
+    const radius = DEPTH_DIRECTIVE_CONFIG.beaconSpawnRadius;
+    for (let index = 0; index < targetCount; index += 1) {
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2) + (index * Math.PI * 2) / targetCount;
+      const distance = Phaser.Math.Between(Math.round(radius * 0.45), radius);
+      const point = this.getSafeDropPoint(
+        originX + Math.cos(angle) * distance,
+        originY + Math.sin(angle) * distance,
+        DEPTH_DIRECTIVE_CONFIG.beaconPickupRadius
+      );
+      this.spawnDepthDirectiveBeacon(point.x, point.y, index + 1);
+    }
+  }
+
+  spawnDepthDirectiveBeacon(x, y, index = 1) {
+    const textureKey = this.textures.exists("data-cache") ? "data-cache" : "rare-token";
+    const beacon = this.physics.add.image(x, y, textureKey).setDepth(14);
+    const frame = beacon.frame;
+    const pickupRadius = DEPTH_DIRECTIVE_CONFIG.beaconPickupRadius;
+    const sourceScale = 0.82;
+    const bodyRadius = pickupRadius / sourceScale;
+    const bodyOffsetX = Math.max(0, (frame?.width || 38) * 0.5 - bodyRadius);
+    const bodyOffsetY = Math.max(0, (frame?.height || 34) * 0.5 - bodyRadius);
+
+    beacon.body.setAllowGravity(false);
+    beacon.body.setVelocity(0, 0);
+    beacon.body.setCircle(bodyRadius, bodyOffsetX, bodyOffsetY);
+    beacon.baseX = x;
+    beacon.baseY = y;
+    beacon.floatTimer = Phaser.Math.FloatBetween(0, Math.PI * 2);
+    beacon.setScale(sourceScale);
+    beacon.setTint(0x55eaff);
+    beacon.setBlendMode(Phaser.BlendModes.SCREEN);
+    beacon.directiveBeaconIndex = index;
+    beacon.glow = this.add
+      .image(x, y, "skill-hit-glow")
+      .setDepth(12)
+      .setScale(0.75)
+      .setTint(0x55eaff)
+      .setAlpha(0.28)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    beacon.ring = this.add
+      .image(x, y, "skill-hit-ring")
+      .setDepth(13)
+      .setScale(0.55)
+      .setTint(0xc8ffff)
+      .setAlpha(0.34)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    beacon.label = this.add
+      .text(x, y - 38, `D-BEACON ${index}`, {
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "12px",
+        color: "#c8ffff",
+        fontStyle: "bold",
+        align: "center",
+        stroke: "#06141d",
+        strokeThickness: 3
+      })
+      .setOrigin(0.5)
+      .setDepth(24);
+    this.pickupEffectsLayer?.add([beacon.glow, beacon.ring, beacon.label]);
+    this.depthDirectiveBeacons.add(beacon);
+    this.registerDepthDirectiveObject({ type: "beacon", object: beacon });
+    return beacon;
+  }
+
+  destroyDepthDirectiveBeacon(beacon) {
+    if (!beacon) {
+      return;
+    }
+    this.depthDirectiveBeacons?.remove?.(beacon, false, false);
+    this.tweens?.killTweensOf([beacon, beacon.glow, beacon.ring, beacon.label].filter(Boolean));
+    beacon.glow?.destroy?.();
+    beacon.ring?.destroy?.();
+    beacon.label?.destroy?.();
+    if (beacon.active) {
+      beacon.destroy();
+    }
+  }
+
+  updateDepthDirective(delta, time = this.time?.now || 0) {
+    const directive = this.getActiveDepthDirective();
+    if (!directive) {
+      return;
+    }
+    this.depthDirectiveBeacons?.getChildren?.().forEach((beacon) => {
+      if (!beacon?.active) {
+        return;
+      }
+      beacon.floatTimer = (beacon.floatTimer || 0) + delta / 260;
+      const pulse = (Math.sin(beacon.floatTimer * 1.55) + 1) * 0.5;
+      const bob = Math.sin(beacon.floatTimer) * 7;
+      beacon.setPosition(beacon.baseX, beacon.baseY + bob);
+      beacon.setScale(0.74 + pulse * 0.14);
+      beacon.glow?.setPosition(beacon.x, beacon.y).setScale(0.62 + pulse * 0.28).setAlpha(0.22 + pulse * 0.22);
+      beacon.ring?.setPosition(beacon.x, beacon.y).setScale(0.46 + pulse * 0.22).setAlpha(0.18 + pulse * 0.28);
+      beacon.label?.setPosition(beacon.x, beacon.y - 38 - pulse * 3);
+    });
+
+    this.enemies?.getChildren?.().forEach((enemy) => {
+      if (!enemy?.active || !enemy.isDirectiveSlime) {
+        return;
+      }
+      const pulse = (Math.sin(time / 170) + 1) * 0.5;
+      enemy.directiveGlow?.setPosition(enemy.x, enemy.y).setScale((enemy.effectScale || 1) * (0.95 + pulse * 0.28));
+      enemy.directiveRing?.setPosition(enemy.x, enemy.y).setScale((enemy.effectScale || 1) * (0.6 + pulse * 0.18));
+      enemy.directiveMarker?.setPosition(enemy.x, enemy.y - Math.max(48, enemy.displayHeight * 0.48));
+    });
+  }
+
+  handleDepthDirectiveBeaconPickup(playerHitbox, beacon) {
+    const directive = this.getActiveDepthDirective();
+    if (!directive || directive.id !== "dataRecovery" || !beacon?.active || this.depthDirectiveState.completed || this.depthDirectiveState.failed) {
+      return;
+    }
+    this.depthDirectiveState.progress.beaconsCollected = (this.depthDirectiveState.progress.beaconsCollected || 0) + 1;
+    this.spawnRareItemPickupEffect(playerHitbox.x, playerHitbox.y - 10, DATA_CACHE_ITEM_DEFINITION);
+    this.setLastPickupNotice(`DIRECTIVE BEACON ${this.depthDirectiveState.progress.beaconsCollected}/${this.getDepthDirectiveTarget(directive)}`);
+    this.destroyDepthDirectiveBeacon(beacon);
+    this.updateDepthDirectiveCompletion("beaconPickup");
+  }
+
+  handleDepthDirectiveEnemyKilled(enemy) {
+    const directive = this.getActiveDepthDirective();
+    if (!directive || this.depthDirectiveState.completed || this.depthDirectiveState.failed) {
+      return false;
+    }
+    const progress = this.depthDirectiveState.progress;
+    const isNemesis = this.isNemesisBoss?.(enemy);
+    if (!isNemesis) {
+      progress.kills = (progress.kills || 0) + 1;
+    }
+    if (enemy?.isBoss || enemy?.isElite || isNemesis) {
+      progress.bossEliteKills = (progress.bossEliteKills || 0) + 1;
+    }
+    if (enemy?.isElite && !isNemesis) {
+      progress.eliteKills = (progress.eliteKills || 0) + 1;
+    }
+    if (enemy?.isDirectiveSlime) {
+      progress.directiveSlimeKilled = true;
+      this.destroyDepthDirectiveSlimeMarker(enemy);
+    }
+    return this.updateDepthDirectiveCompletion("enemyKilled", { preserveEnemy: enemy });
+  }
+
+  handleDepthDirectiveValueDropCollected(definition, item) {
+    const directive = this.getActiveDepthDirective();
+    if (!directive || this.depthDirectiveState.completed || this.depthDirectiveState.failed || !definition?.id) {
+      return false;
+    }
+    if (!["bronze", "silver", "gold"].includes(definition.id)) {
+      return false;
+    }
+    this.depthDirectiveState.progress.valueDropsCollected = (this.depthDirectiveState.progress.valueDropsCollected || 0) + 1;
+    return this.updateDepthDirectiveCompletion("valuePickup");
+  }
+
+  handleDepthDirectiveLostArmPickup(armId, isResonanceEcho = false) {
+    const directive = this.getActiveDepthDirective();
+    if (!directive || this.depthDirectiveState.completed || this.depthDirectiveState.failed || !armId) {
+      return false;
+    }
+    this.depthDirectiveState.progress.lostArmPickups = (this.depthDirectiveState.progress.lostArmPickups || 0) + 1;
+    this.depthDirectiveState.runtime.lastLostArmId = armId;
+    this.depthDirectiveState.runtime.lastLostArmWasEcho = Boolean(isResonanceEcho);
+    return this.updateDepthDirectiveCompletion("lostArmPickup");
+  }
+
+  handleDepthDirectiveOverdriveActivation(options = {}) {
+    const directive = this.getActiveDepthDirective();
+    if (!directive || this.depthDirectiveState.completed || this.depthDirectiveState.failed) {
+      return false;
+    }
+    this.depthDirectiveState.progress.overdriveActivations = (this.depthDirectiveState.progress.overdriveActivations || 0) + 1;
+    this.updateDepthDirectiveHud();
+    return true;
+  }
+
+  handleDepthDirectivePlayerDamage(amount) {
+    const directive = this.getActiveDepthDirective();
+    if (!directive || this.depthDirectiveState.completed || this.depthDirectiveState.failed) {
+      return false;
+    }
+    this.depthDirectiveState.progress.damageTaken = (this.depthDirectiveState.progress.damageTaken || 0) + Math.max(0, Math.round(Number(amount) || 0));
+    this.updateDepthDirectiveHud();
+    return true;
+  }
+
+  initializeNemesisBossState() {
+    this.nemesisBossState = {
+      currentDepth: 0,
+      scheduledDepth: 0,
+      spawnedThisDepth: false,
+      defeatedThisDepth: false,
+      skippedThisDepth: false,
+      pendingWarning: false,
+      retryCount: 0,
+      spawnTimer: null,
+      warningTimer: null,
+      nextSpawnAt: 0,
+      activeBoss: null,
+      activeDefinition: null,
+      pendingDefinition: null,
+      pendingPoint: null,
+      warningObjects: [],
+      totalSpawned: 0,
+      totalDefeated: 0,
+      lastDefinitionId: null,
+      lastSkipReason: ""
+    };
+  }
+
+  resetNemesisBossState(reason = "reset") {
+    this.cleanupNemesisBoss(reason);
+    this.initializeNemesisBossState();
+    this.updateNemesisBossHud?.();
+  }
+
+  isNemesisBossDebugEnabled() {
+    if (typeof window === "undefined") {
+      return false;
+    }
+    try {
+      const params = new URLSearchParams(window.location?.search || "");
+      return params.get(NEMESIS_BOSS_DEBUG_QUERY_PARAM) === "1";
+    } catch (error) {
+      return false;
+    }
+  }
+
+  getNemesisBossUnlockDepth() {
+    return this.isNemesisBossDebugEnabled()
+      ? NEMESIS_BOSS_CONFIG.debugUnlockDepth
+      : NEMESIS_BOSS_CONFIG.unlockDepth;
+  }
+
+  getNemesisBossSpawnChance(depth = this.stageDepth || 1) {
+    const normalizedDepth = Math.max(1, Math.floor(Number(depth) || 1));
+    const entries = NEMESIS_BOSS_CONFIG.spawnChanceByDepth || [];
+    const exact = entries.find((entry) => normalizedDepth === entry.depth);
+    if (exact) {
+      return exact.chance;
+    }
+    const fallback = entries
+      .slice()
+      .sort((left, right) => right.depth - left.depth)
+      .find((entry) => normalizedDepth >= entry.depth);
+    return fallback?.chance || 0;
+  }
+
+  getNemesisGateRemainingMs() {
+    if (this.gateState && this.gateState.status !== "closed") {
+      return 0;
+    }
+    return Math.max(0, GATE_INTERVAL_MS - (this.stageDepthElapsedMs || 0));
+  }
+
+  getActiveNemesisBoss() {
+    const boss = this.nemesisBossState?.activeBoss;
+    if (boss?.active && !boss.isDying) {
+      return boss;
+    }
+    if (this.nemesisBossState) {
+      this.nemesisBossState.activeBoss = null;
+      this.nemesisBossState.activeDefinition = null;
+    }
+    return null;
+  }
+
+  isNemesisBoss(enemy) {
+    return Boolean(enemy?.isNemesisBoss);
+  }
+
+  onDepthStartedForNemesis(depth = this.stageDepth, reason = "depthStart") {
+    if (!this.nemesisBossState) {
+      this.initializeNemesisBossState();
+    }
+    const normalizedDepth = Math.max(1, Math.floor(Number(depth) || 1));
+    const state = this.nemesisBossState;
+    this.cancelNemesisBossTimers();
+    this.clearNemesisBossWarningVisuals();
+    state.currentDepth = normalizedDepth;
+    state.scheduledDepth = normalizedDepth;
+    state.spawnedThisDepth = false;
+    state.defeatedThisDepth = false;
+    state.skippedThisDepth = false;
+    state.pendingWarning = false;
+    state.retryCount = 0;
+    state.nextSpawnAt = 0;
+    state.activeBoss = null;
+    state.activeDefinition = null;
+    state.pendingDefinition = null;
+    state.pendingPoint = null;
+    state.lastSkipReason = "";
+
+    if (!this.shouldScheduleNemesisBossForDepth(normalizedDepth)) {
+      this.updateNemesisBossHud?.();
+      return false;
+    }
+    this.scheduleNemesisBossSpawn(normalizedDepth, undefined, reason);
+    return true;
+  }
+
+  shouldScheduleNemesisBossForDepth(depth = this.stageDepth || 1) {
+    const normalizedDepth = Math.max(1, Math.floor(Number(depth) || 1));
+    if (this.gameOver || this.shopActive || this.extractionComplete) {
+      return false;
+    }
+    if (normalizedDepth < this.getNemesisBossUnlockDepth()) {
+      return false;
+    }
+    if (this.isNemesisBossDebugEnabled()) {
+      return true;
+    }
+    return Math.random() < this.getNemesisBossSpawnChance(normalizedDepth);
+  }
+
+  scheduleNemesisBossSpawn(depth = this.stageDepth || 1, delayMs = undefined, reason = "schedule") {
+    if (!this.nemesisBossState) {
+      this.initializeNemesisBossState();
+    }
+    const state = this.nemesisBossState;
+    const normalizedDepth = Math.max(1, Math.floor(Number(depth) || 1));
+    this.cancelNemesisBossTimers();
+    const delay = Number.isFinite(delayMs)
+      ? Math.max(250, Math.floor(delayMs))
+      : (this.isNemesisBossDebugEnabled()
+        ? NEMESIS_BOSS_CONFIG.debugSpawnDelayMs
+        : Phaser.Math.Between(NEMESIS_BOSS_CONFIG.spawnDelayMs.min, NEMESIS_BOSS_CONFIG.spawnDelayMs.max));
+    state.scheduledDepth = normalizedDepth;
+    state.nextSpawnAt = (this.time?.now || 0) + delay;
+    state.spawnTimer = this.time.delayedCall(delay, () => {
+      if (this.nemesisBossState) {
+        this.nemesisBossState.spawnTimer = null;
+      }
+      this.trySpawnNemesisBoss(normalizedDepth, reason);
+    });
+    if (this.isNemesisBossDebugEnabled()) {
+      console.log("[NEMESIS] scheduled", { depth: normalizedDepth, delay, reason });
+    }
+    this.updateNemesisBossHud?.();
+    return state.spawnTimer;
+  }
+
+  cancelNemesisBossTimers() {
+    const state = this.nemesisBossState;
+    if (!state) {
+      return;
+    }
+    state.spawnTimer?.remove?.(false);
+    state.warningTimer?.remove?.(false);
+    state.spawnTimer = null;
+    state.warningTimer = null;
+  }
+
+  canSpawnNemesisBossNow(depth = this.stageDepth || 1) {
+    const normalizedDepth = Math.max(1, Math.floor(Number(depth) || 1));
+    const gateRemainingMs = this.getNemesisGateRemainingMs();
+    const retryWithTime = gateRemainingMs > NEMESIS_BOSS_CONFIG.minGateRemainingMs + NEMESIS_BOSS_CONFIG.retryDelayMs;
+
+    if (this.gameOver || this.shopActive || this.extractionComplete) {
+      return { ok: false, retry: false, reason: "runEnded", gateRemainingMs };
+    }
+    if (normalizedDepth !== (this.stageDepth || 1)) {
+      return { ok: false, retry: false, reason: "depthChanged", gateRemainingMs };
+    }
+    if (normalizedDepth < this.getNemesisBossUnlockDepth()) {
+      return { ok: false, retry: false, reason: "depthLocked", gateRemainingMs };
+    }
+    if (this.nemesisBossState?.spawnedThisDepth || this.nemesisBossState?.skippedThisDepth) {
+      return { ok: false, retry: false, reason: "alreadyResolved", gateRemainingMs };
+    }
+    if (this.getActiveNemesisBoss()) {
+      return { ok: false, retry: false, reason: "activeNemesis", gateRemainingMs };
+    }
+    if (this.levelUpActive || this.gateChoiceActive || this.overlayContainer?.visible) {
+      return { ok: false, retry: retryWithTime, reason: "overlayActive", gateRemainingMs };
+    }
+    if (this.isGensoKnightsEventActive()) {
+      return { ok: false, retry: retryWithTime, reason: "gensoKnightsActive", gateRemainingMs };
+    }
+    if (this.getActiveWaveBoss()) {
+      return { ok: false, retry: retryWithTime, reason: "waveBossActive", gateRemainingMs };
+    }
+    if (this.stageGate?.container?.active || this.gateState?.status !== "closed") {
+      return { ok: false, retry: false, reason: "gateActive", gateRemainingMs };
+    }
+    if (gateRemainingMs < NEMESIS_BOSS_CONFIG.skipGateUrgentRemainingMs) {
+      return { ok: false, retry: false, reason: "gateUrgent", gateRemainingMs };
+    }
+    if (gateRemainingMs < NEMESIS_BOSS_CONFIG.minGateRemainingMs) {
+      return { ok: false, retry: false, reason: "gateTooClose", gateRemainingMs };
+    }
+    return { ok: true, retry: false, reason: "ready", gateRemainingMs };
+  }
+
+  trySpawnNemesisBoss(depth = this.stageDepth || 1, reason = "timer") {
+    const state = this.nemesisBossState;
+    if (!state) {
+      return false;
+    }
+    const check = this.canSpawnNemesisBossNow(depth);
+    if (!check.ok) {
+      state.lastSkipReason = check.reason;
+      if (check.retry && state.retryCount < NEMESIS_BOSS_CONFIG.maxRetries) {
+        state.retryCount += 1;
+        this.scheduleNemesisBossSpawn(depth, NEMESIS_BOSS_CONFIG.retryDelayMs, `retry:${check.reason}`);
+      } else {
+        state.skippedThisDepth = true;
+        this.updateNemesisBossHud?.();
+      }
+      if (this.isNemesisBossDebugEnabled()) {
+        console.log("[NEMESIS] spawn skipped", { depth, reason, check, retryCount: state.retryCount });
+      }
+      return false;
+    }
+
+    this.showNemesisBossWarning(depth, reason);
+    return true;
+  }
+
+  chooseNemesisBossDefinition() {
+    const state = this.nemesisBossState;
+    const pool = (NEMESIS_BOSS_CONFIG.bosses || []).filter((definition) => {
+      return definition?.id && ENEMY_DEFINITIONS[definition.baseBossTypeId];
+    });
+    if (!pool.length) {
+      return null;
+    }
+    const freshPool = state?.lastDefinitionId && pool.length > 1
+      ? pool.filter((definition) => definition.id !== state.lastDefinitionId)
+      : pool;
+    return Phaser.Utils.Array.GetRandom(freshPool.length ? freshPool : pool);
+  }
+
+  getNemesisBossSpawnPoint() {
+    const point = this.getEnemySpawnPoint(NEMESIS_BOSS_CONFIG.spawnMargin);
+    const bounds = this.getStageMovementBounds(this.currentStage, NEMESIS_BOSS_CONFIG.spawnMargin * 0.5);
+    return bounds ? this.clampPointToBounds(point.x, point.y, bounds) : point;
+  }
+
+  showNemesisBossWarning(depth = this.stageDepth || 1, reason = "timer") {
+    const state = this.nemesisBossState;
+    const definition = this.chooseNemesisBossDefinition();
+    if (!state || !definition) {
+      return false;
+    }
+    const point = this.getNemesisBossSpawnPoint();
+    state.pendingWarning = true;
+    state.pendingDefinition = definition;
+    state.pendingPoint = point;
+    this.clearNemesisBossWarningVisuals();
+
+    const tint = definition.accent || definition.tint || 0xff4b5e;
+    const glow = this.add
+      .image(point.x, point.y, "skill-hit-glow")
+      .setDepth(19.1)
+      .setScale(2.2)
+      .setTint(tint)
+      .setAlpha(0.35)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const ring = this.add
+      .image(point.x, point.y, "skill-hit-ring")
+      .setDepth(19.2)
+      .setScale(1.6)
+      .setTint(tint)
+      .setAlpha(0.82)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const marker = this.add
+      .text(point.x, point.y - 92, "NEMESIS SIGNAL", {
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "18px",
+        color: "#ffd1d8",
+        fontStyle: "bold",
+        align: "center",
+        stroke: "#12040a",
+        strokeThickness: 4
+      })
+      .setOrigin(0.5)
+      .setDepth(24.4);
+    state.warningObjects = [glow, ring, marker];
+    this.skillEffectsLayer?.add(state.warningObjects);
+    this.tweens.add({
+      targets: [glow, ring],
+      scaleX: "*=1.45",
+      scaleY: "*=1.45",
+      alpha: { from: 0.84, to: 0.22 },
+      duration: NEMESIS_BOSS_CONFIG.warningMs,
+      ease: "Sine.InOut"
+    });
+    this.cameras.main.shake(180, 0.0022);
+    this.cameras.main.flash(130, 255, 64, 92, false, null, null, this);
+    this.setLastPickupNotice(`NEMESIS SIGNAL D${depth}`);
+
+    state.warningTimer = this.time.delayedCall(NEMESIS_BOSS_CONFIG.warningMs, () => {
+      if (this.nemesisBossState) {
+        this.nemesisBossState.warningTimer = null;
+      }
+      const recheck = this.canSpawnNemesisBossNow(depth);
+      if (!recheck.ok) {
+        this.clearNemesisBossWarningVisuals();
+        state.pendingWarning = false;
+        state.lastSkipReason = recheck.reason;
+        if (recheck.retry && state.retryCount < NEMESIS_BOSS_CONFIG.maxRetries) {
+          state.retryCount += 1;
+          this.scheduleNemesisBossSpawn(depth, NEMESIS_BOSS_CONFIG.retryDelayMs, `warningRetry:${recheck.reason}`);
+        } else {
+          state.skippedThisDepth = true;
+          this.updateNemesisBossHud?.();
+        }
+        if (this.isNemesisBossDebugEnabled()) {
+          console.log("[NEMESIS] warning cancelled", { depth, reason, recheck });
+        }
+        return;
+      }
+      this.spawnNemesisBoss(depth, definition, point);
+    });
+
+    if (this.isNemesisBossDebugEnabled()) {
+      console.log("[NEMESIS] warning", { depth, reason, definition: definition.id, point });
+    }
+    return true;
+  }
+
+  clearNemesisBossWarningVisuals() {
+    const state = this.nemesisBossState;
+    if (!state) {
+      return;
+    }
+    state.warningTimer?.remove?.(false);
+    state.warningTimer = null;
+    this.tweens?.killTweensOf(state.warningObjects || []);
+    (state.warningObjects || []).forEach((object) => object?.destroy?.());
+    state.warningObjects = [];
+  }
+
+  spawnNemesisBoss(depth, definition, point) {
+    const state = this.nemesisBossState;
+    if (!state || !definition || !point) {
+      return null;
+    }
+    this.clearNemesisBossWarningVisuals();
+    state.pendingWarning = false;
+    state.pendingDefinition = null;
+    state.pendingPoint = null;
+    state.spawnedThisDepth = true;
+    state.totalSpawned += 1;
+
+    const baseDefinition = ENEMY_DEFINITIONS[definition.baseBossTypeId] || ENEMY_DEFINITIONS.boss_crack;
+    const enemy = this.spawnEnemy(baseDefinition.id, {
+      waveDefinition: this.getCurrentWaveDefinition(),
+      isElite: true,
+      isBoss: true
+    });
+    if (!enemy) {
+      state.spawnedThisDepth = false;
+      return null;
+    }
+
+    const textureKey = this.textures.exists(definition.textureKey)
+      ? definition.textureKey
+      : this.getEnemyTextureKey(baseDefinition);
+    enemy.stop?.();
+    enemy.setTexture(textureKey);
+    enemy.setPosition(point.x, point.y);
+    enemy.setDepth(18.8);
+    enemy.enemyTypeId = definition.id;
+    enemy.enemyDefinition = {
+      ...baseDefinition,
+      id: definition.id,
+      label: definition.title,
+      textureKey,
+      tint: definition.tint,
+      hitRadius: Math.max(baseDefinition.hitRadius || 72, 96) * 1.24,
+      hitboxCenterY: baseDefinition.hitboxCenterY || 0.58
+    };
+    enemy.isNemesisBoss = true;
+    enemy.isBoss = true;
+    enemy.isElite = false;
+    enemy.nemesisDepth = depth;
+    enemy.nemesisDefinition = definition;
+    enemy.nemesisRewardClaimed = false;
+    enemy.baseTint = definition.tint;
+    enemy.setTint(definition.tint);
+    this.scaleWorldImageToFit(enemy, NEMESIS_BOSS_CONFIG.baseLongestSide * (definition.displayScaleMultiplier || 1));
+    enemy.baseScale = enemy.scaleX;
+    enemy.effectScale = Math.max(enemy.effectScale || 1, Math.max(enemy.displayWidth || 0, enemy.displayHeight || 0) / 130);
+    this.configureEnemyBody(enemy, enemy.enemyDefinition, false);
+
+    const debugHpMultiplier = this.isNemesisBossDebugEnabled() ? NEMESIS_BOSS_CONFIG.debugHpMultiplier : 1;
+    enemy.maxHp = Math.max(1, Math.round((enemy.maxHp || 1) * (definition.hpMultiplier || 1) * debugHpMultiplier));
+    enemy.hp = enemy.maxHp;
+    enemy.moveSpeed = Math.max(24, (enemy.moveSpeed || baseDefinition.speed || 60) * (definition.moveSpeedMultiplier || 1));
+    enemy.contactDamage = Math.max(1, Math.round((enemy.contactDamage || baseDefinition.contactDamage || 16) * (definition.damageMultiplier || 1)));
+    enemy.attackDamage = Math.max(1, Math.round((enemy.attackDamage || enemy.contactDamage || 16) * (definition.damageMultiplier || 1)));
+    enemy.attackIntervalMs = Math.max(900, Math.round((enemy.attackIntervalMs || baseDefinition.attackIntervalMs || 3600) * (definition.attackIntervalMultiplier || 1)));
+    enemy.attackChargeMs = Math.max(550, Math.round((enemy.attackChargeMs || baseDefinition.attackChargeMs || 1000) * (definition.chargeMultiplier || 1)));
+    enemy.bossPreferredRange = Math.round((enemy.bossPreferredRange || baseDefinition.bossPreferredRange || 320) * (definition.bossPreferredRangeMultiplier || 1));
+    enemy.attackRadius = this.scaleNullableNumber(enemy.attackRadius, definition.areaMultiplier);
+    enemy.beamRange = this.scaleNullableNumber(enemy.beamRange, definition.attackRangeMultiplier);
+    enemy.beamWidth = this.scaleNullableNumber(enemy.beamWidth, definition.areaMultiplier);
+    enemy.fanRange = this.scaleNullableNumber(enemy.fanRange, definition.attackRangeMultiplier);
+    enemy.blastRadius = this.scaleNullableNumber(enemy.blastRadius, definition.areaMultiplier);
+    enemy.blastSpacing = this.scaleNullableNumber(enemy.blastSpacing, definition.attackRangeMultiplier);
+    enemy.blastStartOffset = this.scaleNullableNumber(enemy.blastStartOffset, definition.attackRangeMultiplier);
+    enemy.randomBlastRange = this.scaleNullableNumber(enemy.randomBlastRange, definition.attackRangeMultiplier);
+    enemy.dashRange = this.scaleNullableNumber(enemy.dashRange, definition.attackRangeMultiplier);
+    enemy.dashSpeed = this.scaleNullableNumber(enemy.dashSpeed, 1.04);
+    enemy.lightningRadius = this.scaleNullableNumber(enemy.lightningRadius, definition.areaMultiplier);
+    enemy.xpValue = Math.max(enemy.xpValue || 0, Math.round((enemy.xpValue || baseDefinition.xpValue || 12) * 2.4));
+    enemy.knockbackResist = Math.max(enemy.knockbackResist || 0, 0.92);
+    enemy.nextBossAttackAt = this.time.now + Phaser.Math.Between(1900, 2600);
+    enemy.body?.updateFromGameObject?.();
+
+    this.createNemesisBossVisuals(enemy, definition);
+    state.activeBoss = enemy;
+    state.activeDefinition = definition;
+    this.setLastPickupNotice(`${definition.title} DEPTH ${depth}`);
+    this.showOverflowRewardText("NEMESIS BOSS", enemy.x, enemy.y - Math.max(110, enemy.displayHeight * 0.52), "#ffd1d8");
+    this.updateNemesisBossHud?.();
+    if (this.isNemesisBossDebugEnabled()) {
+      console.log("[NEMESIS] spawned", {
+        depth,
+        definition: definition.id,
+        sourceAsset: definition.sourceAsset,
+        hp: enemy.maxHp,
+        attackPattern: enemy.bossAttackPattern
+      });
+    }
+    return enemy;
+  }
+
+  scaleNullableNumber(value, multiplier = 1) {
+    return Number.isFinite(value) ? Math.round(value * (multiplier || 1)) : value;
+  }
+
+  createNemesisBossVisuals(enemy, definition) {
+    const tint = definition.accent || definition.tint || 0xff4b5e;
+    enemy.nemesisGlow = this.add
+      .image(enemy.x, enemy.y, "skill-hit-glow")
+      .setDepth(17.2)
+      .setScale((enemy.effectScale || 2) * 1.22)
+      .setTint(tint)
+      .setAlpha(0.22)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    enemy.nemesisRing = this.add
+      .image(enemy.x, enemy.y, "skill-hit-ring")
+      .setDepth(17.4)
+      .setScale((enemy.effectScale || 2) * 0.86)
+      .setTint(tint)
+      .setAlpha(0.28)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    enemy.nemesisMarker = this.add
+      .text(enemy.x, enemy.y - Math.max(70, enemy.displayHeight * 0.52), "NEMESIS", {
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "14px",
+        color: "#ffd1d8",
+        fontStyle: "bold",
+        align: "center",
+        stroke: "#12040a",
+        strokeThickness: 4
+      })
+      .setOrigin(0.5)
+      .setDepth(24.2);
+    this.skillEffectsLayer?.add([enemy.nemesisGlow, enemy.nemesisRing, enemy.nemesisMarker]);
+    this.tweens.add({
+      targets: [enemy.nemesisGlow, enemy.nemesisRing],
+      alpha: { from: 0.18, to: 0.44 },
+      scaleX: "*=1.08",
+      scaleY: "*=1.08",
+      duration: 720,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.InOut"
+    });
+  }
+
+  updateNemesisBoss(time = this.time?.now || 0) {
+    const boss = this.getActiveNemesisBoss();
+    if (!boss) {
+      this.updateNemesisBossHud?.();
+      return;
+    }
+    const pulse = (Math.sin(time / 160) + 1) * 0.5;
+    const effectScale = boss.effectScale || 2;
+    boss.nemesisGlow?.setPosition(boss.x, boss.y).setScale(effectScale * (1.08 + pulse * 0.2));
+    boss.nemesisRing?.setPosition(boss.x, boss.y).setScale(effectScale * (0.78 + pulse * 0.12));
+    boss.nemesisMarker?.setPosition(boss.x, boss.y - Math.max(70, boss.displayHeight * 0.52) - pulse * 4);
+    this.updateNemesisBossHud?.();
+  }
+
+  cleanupNemesisBossVisuals(enemy) {
+    if (!enemy) {
+      return;
+    }
+    const objects = [enemy.nemesisGlow, enemy.nemesisRing, enemy.nemesisMarker].filter(Boolean);
+    this.tweens?.killTweensOf(objects);
+    objects.forEach((object) => object?.destroy?.());
+    enemy.nemesisGlow = null;
+    enemy.nemesisRing = null;
+    enemy.nemesisMarker = null;
+  }
+
+  cleanupNemesisBoss(reason = "cleanup") {
+    const state = this.nemesisBossState;
+    if (!state) {
+      return;
+    }
+    this.cancelNemesisBossTimers();
+    this.clearNemesisBossWarningVisuals();
+    const boss = state.activeBoss;
+    if (boss?.active && !boss.isDying) {
+      this.destroyEnemyBeamTelegraph(boss);
+      this.cancelBossAttack(boss);
+      this.tweens?.killTweensOf(boss);
+      this.cleanupNemesisBossVisuals(boss);
+      this.enemies?.remove?.(boss, false, false);
+      if (boss.body) {
+        boss.body.enable = false;
+        boss.body.setVelocity(0, 0);
+      }
+      boss.destroy();
+    } else {
+      this.cleanupNemesisBossVisuals(boss);
+    }
+    state.activeBoss = null;
+    state.activeDefinition = null;
+    state.pendingWarning = false;
+    state.pendingDefinition = null;
+    state.pendingPoint = null;
+    state.lastSkipReason = reason;
+    this.updateNemesisBossHud?.();
+  }
+
+  handleNemesisBossDefeated(enemy) {
+    if (!this.isNemesisBoss(enemy) || enemy.nemesisRewardClaimed) {
+      return false;
+    }
+    const state = this.nemesisBossState;
+    enemy.nemesisRewardClaimed = true;
+    if (state) {
+      state.activeBoss = null;
+      state.activeDefinition = null;
+      state.defeatedThisDepth = true;
+      state.totalDefeated += 1;
+      state.lastDefinitionId = enemy.nemesisDefinition?.id || state.lastDefinitionId;
+    }
+    this.runStats.nemesisKills = (this.runStats.nemesisKills || 0) + 1;
+    this.cleanupNemesisBossVisuals(enemy);
+    this.grantNemesisBossRewards(enemy);
+    this.updateNemesisBossHud?.();
+    if (this.isNemesisBossDebugEnabled()) {
+      console.log("[NEMESIS] defeated", {
+        depth: enemy.nemesisDepth,
+        definition: enemy.nemesisDefinition?.id,
+        nemesisKills: this.runStats.nemesisKills
+      });
+    }
+    return true;
+  }
+
+  getNemesisBossValueDropReward(depth = this.stageDepth || 1) {
+    const normalizedDepth = Math.max(1, Math.floor(Number(depth) || 1));
+    const matched = (NEMESIS_BOSS_CONFIG.rewards.valueDropsByDepth || [])
+      .find((entry) => normalizedDepth >= entry.minDepth);
+    return matched || { gold: 1, silver: 2 };
+  }
+
+  getNemesisRewardDropPoint(originX, originY, index, total) {
+    const angle = (Math.PI * 2 * index) / Math.max(1, total) + 0.28;
+    const radius = 72 + (index % 3) * 22;
+    const bounds = this.getStageMovementBounds(this.currentStage, 48);
+    const point = {
+      x: originX + Math.cos(angle) * radius,
+      y: originY + Math.sin(angle) * radius * 0.72
+    };
+    return bounds ? this.clampPointToBounds(point.x, point.y, bounds) : point;
+  }
+
+  grantNemesisBossRewards(enemy) {
+    const depth = Math.max(1, Math.floor(Number(enemy?.nemesisDepth || this.stageDepth) || 1));
+    const reward = NEMESIS_BOSS_CONFIG.rewards;
+    const valueDrops = this.getNemesisBossValueDropReward(depth);
+    const dropList = [
+      ...Array.from({ length: Math.max(0, valueDrops.gold || 0) }, () => RARE_ITEM_DEFINITIONS.gold),
+      ...Array.from({ length: Math.max(0, valueDrops.silver || 0) }, () => RARE_ITEM_DEFINITIONS.silver)
+    ].filter(Boolean);
+    dropList.forEach((definition, index) => {
+      const point = this.getNemesisRewardDropPoint(enemy.x, enemy.y, index, dropList.length);
+      this.spawnRareItem(point.x, point.y, definition);
+    });
+
+    const geekBase = (reward.geekBase || 0) + Math.max(0, depth - NEMESIS_BOSS_CONFIG.unlockDepth) * (reward.geekPerDepth || 0);
+    const geek = this.addRunCoin(this.scaleRunCoinReward(geekBase));
+    let stabilizeText = "";
+    if (reward.stabilizeGauge > 0) {
+      const stabilizeResult = this.addStabilizeGauge(reward.stabilizeGauge, { silent: true });
+      stabilizeText = stabilizeResult.gaugeAdded > 0 ? ` / ST +${Math.round(stabilizeResult.gaugeAdded)}%` : "";
+    }
+
+    for (let index = 0; index < (reward.extraLostArmsRolls || 0); index += 1) {
+      this.trySpawnLostArmDrop(enemy);
+    }
+    for (let index = 0; index < (reward.extraRobotRolls || 0); index += 1) {
+      this.trySpawnRobotBossDrop(enemy);
+    }
+
+    const dropText = `${valueDrops.gold || 0}G ${valueDrops.silver || 0}S`;
+    this.setLastPickupNotice(`NEMESIS DOWN / ${dropText}${geek > 0 ? ` / +${geek.toLocaleString()} GEEK` : ""}${stabilizeText}`);
+    this.showOverflowRewardText("NEMESIS DOWN", enemy.x, enemy.y - Math.max(92, enemy.displayHeight * 0.48), "#ffd1d8");
+    this.updateOverflowHud?.();
+  }
+
+  updateNemesisBossHud() {
+    if (!this.hudNemesisPanel || !this.hudNemesisText || !this.hudNemesisBarGraphics) {
+      return;
+    }
+    const boss = this.getActiveNemesisBoss();
+    const state = this.nemesisBossState;
+    const visible = Boolean(boss);
+    this.hudNemesisPanel.setVisible(visible);
+    this.hudNemesisText.setVisible(visible);
+    this.hudNemesisBarGraphics.setVisible(visible);
+    this.hudNemesisBarGraphics.clear();
+    if (!boss) {
+      if (this.isNemesisBossDebugEnabled() && state?.spawnTimer && !this.shopActive) {
+        this.hudNemesisPanel.setVisible(true);
+        this.hudNemesisText.setVisible(true);
+        const remainingMs = Math.max(0, (state.nextSpawnAt || 0) - (this.time?.now || 0));
+        this.hudNemesisText.setText(`NEMESIS DEBUG / ETA ${this.formatTimeMs(remainingMs)}`);
+      }
+      return;
+    }
+    const definition = boss.nemesisDefinition || state?.activeDefinition || {};
+    const ratio = Phaser.Math.Clamp((Number(boss.hp) || 0) / Math.max(1, Number(boss.maxHp) || 1), 0, 1);
+    const x = GAME_WIDTH / 2 - 220;
+    const y = 334;
+    const width = 440;
+    const height = 8;
+    const fillTint = definition.accent || definition.tint || 0xff5f6d;
+    this.hudNemesisText
+      .setColor("#ffd1d8")
+      .setText(`${definition.title || "NEMESIS"}  D${boss.nemesisDepth || this.stageDepth}  HP ${Math.ceil(ratio * 100)}%`);
+    this.hudNemesisBarGraphics.fillStyle(0x03070d, 0.9);
+    this.hudNemesisBarGraphics.fillRoundedRect(x, y, width, height, 2);
+    this.hudNemesisBarGraphics.lineStyle(1, 0xff9baa, 0.54);
+    this.hudNemesisBarGraphics.strokeRoundedRect(x - 1, y - 1, width + 2, height + 2, 3);
+    this.hudNemesisBarGraphics.fillStyle(fillTint, 0.92);
+    this.hudNemesisBarGraphics.fillRoundedRect(x, y, Math.max(0, width * ratio), height, 2);
+  }
+
+  evaluateDepthDirectiveOnGateOpen() {
+    const directive = this.getActiveDepthDirective();
+    const state = this.depthDirectiveState;
+    if (!directive || !state || state.activeDepth !== (this.stageDepth || 1)) {
+      return false;
+    }
+    if (state.completed) {
+      this.applyDepthDirectivePendingGateBonus();
+      return true;
+    }
+    if (directive.id === "noRetreat") {
+      const hpRatio = this.getPlayerHpRatio();
+      if (hpRatio >= (directive.minHpRatio || 0.5)) {
+        this.completeDepthDirective("gateOpen");
+        this.applyDepthDirectivePendingGateBonus();
+        return true;
+      }
+    }
+    this.failDepthDirective("gateOpen");
+    return false;
+  }
+
+  applyDepthDirectivePendingGateBonus() {
+    const state = this.depthDirectiveState;
+    const seconds = Math.max(0, Number(state?.runtime?.pendingGateStableSeconds) || 0);
+    if (seconds <= 0 || !this.stageGate?.container?.active || !this.gateState || this.gateState.status === "closed") {
+      return 0;
+    }
+    this.addGateStableTime(seconds, "depthDirective");
+    state.runtime.pendingGateStableSeconds = 0;
+    return seconds;
+  }
+
+  claimDepthDirectiveReward(directive) {
+    const state = this.depthDirectiveState;
+    if (!state || !directive || state.rewardClaimed) {
+      return false;
+    }
+    state.rewardClaimed = true;
+    const reward = directive.reward || {};
+    let geek = 0;
+    if (reward.geekBase) {
+      geek += this.addDepthDirectiveUnsecuredGeek(reward.geekBase);
+    }
+
+    if (reward.type === "lostArmsSignal") {
+      this.grantDepthDirectiveLostArmsSignal(directive);
+    } else if (reward.type === "dataCache") {
+      this.grantDepthDirectiveDataCacheReward(reward);
+    } else if (reward.type === "stabilize") {
+      const result = this.addStabilizeGauge(reward.gauge || 0, { silent: true });
+      this.showOverflowRewardText(`STABILIZE +${Math.round(result.gaugeAdded)}%`, this.playerHitbox?.x, this.playerHitbox?.y - 46, "#b8fbff");
+    } else if (reward.type === "valueBurst") {
+      this.grantDepthDirectiveValueBurst(reward);
+    } else if (reward.type === "overdrive") {
+      this.addDepthDirectiveOverdriveGauge(reward.gauge || 0);
+    } else if (reward.type === "gateStableTime") {
+      this.depthDirectiveState.runtime.pendingGateStableSeconds = Math.max(
+        this.depthDirectiveState.runtime.pendingGateStableSeconds || 0,
+        Number(reward.seconds) || 0
+      );
+      this.applyDepthDirectivePendingGateBonus();
+    } else if (reward.type === "lostArmsResonanceOrGeek") {
+      this.grantDepthDirectiveLostArmsResonance(reward);
+    }
+
+    if (geek > 0) {
+      this.showOverflowRewardText(`+${geek.toLocaleString()} GEEK`, this.playerHitbox?.x, this.playerHitbox?.y - 34, "#f0c463");
+    }
+    return true;
+  }
+
+  addDepthDirectiveUnsecuredGeek(baseAmount = 0) {
+    const amount = this.normalizeCoinAmount(this.scaleRunCoinReward(baseAmount));
+    if (amount > 0) {
+      this.addRunCoin(amount);
+    }
+    return amount;
+  }
+
+  getActiveDataCacheDrops() {
+    return this.rareItems?.getChildren?.().filter((drop) => this.isDropActive(drop) && this.isDataCacheDrop(drop)) || [];
+  }
+
+  grantDepthDirectiveDataCacheReward(reward = {}) {
+    const payload = this.normalizeDataCachePayload({
+      xp: (reward.xpBase || 0) + Math.max(0, (this.stageDepth || 1) - 6) * (reward.xpPerDepth || 0),
+      unsecuredGeek: this.scaleRunCoinReward(reward.geekBase || 0),
+      sourceCount: 1
+    });
+    const caches = this.getActiveDataCacheDrops();
+    if (caches.length >= DROP_LIMITS.dataCache && caches[0]) {
+      const current = this.getDropRewardEstimate(caches[0]);
+      caches[0].dataCachePayload = {
+        xp: current.xp + payload.xp,
+        unsecuredGeek: this.normalizeCoinAmount(current.unsecuredGeek + payload.unsecuredGeek)
+      };
+      caches[0].xpValue = caches[0].dataCachePayload.xp;
+      caches[0].coinValue = caches[0].dataCachePayload.unsecuredGeek;
+      this.setLastPickupNotice("DIRECTIVE DATA CACHE MERGED");
+      return caches[0];
+    }
+
+    const point = this.getDataCacheSpawnPoint(caches.length, Math.min(DROP_LIMITS.dataCache, caches.length + 1));
+    this.setLastPickupNotice("DIRECTIVE DATA CACHE DEPLOYED");
+    return this.spawnDataCacheDrop(point.x, point.y, payload);
+  }
+
+  grantDepthDirectiveLostArmsSignal(directive) {
+    const x = this.playerHitbox?.x ?? this.worldCamera?.midPoint?.x ?? GAME_WIDTH / 2;
+    const y = (this.playerHitbox?.y ?? this.worldCamera?.midPoint?.y ?? GAME_HEIGHT / 2) - 16;
+    const resonanceTarget = this.pickLostArmsResonanceTarget?.();
+    if (resonanceTarget && this.spawnLostArmResonanceEcho(x, y, resonanceTarget)) {
+      return true;
+    }
+    const coreTarget = this.pickLostArmDropCandidate?.();
+    if (coreTarget) {
+      this.spawnLostArmCore(x, y, coreTarget);
+      return true;
+    }
+    this.spawnLostArmFallbackReward(x, y);
+    return false;
+  }
+
+  grantDepthDirectiveValueBurst(reward = {}) {
+    const definition = RARE_ITEM_DEFINITIONS.gold || RARE_ITEM_DEFINITIONS.silver || RARE_ITEM_DEFINITIONS.bronze;
+    if (!definition) {
+      return 0;
+    }
+    const count = Math.max(1, Math.floor(Number(reward.goldDrops) || 1));
+    const originX = this.playerHitbox?.x ?? this.worldCamera?.midPoint?.x ?? GAME_WIDTH / 2;
+    const originY = this.playerHitbox?.y ?? this.worldCamera?.midPoint?.y ?? GAME_HEIGHT / 2;
+    for (let index = 0; index < count; index += 1) {
+      const angle = -Math.PI / 2 + (index - (count - 1) / 2) * 0.58;
+      const point = this.getSafeDropPoint(originX + Math.cos(angle) * 74, originY + Math.sin(angle) * 74, definition.pickupRadius || 28);
+      this.spawnRareItem(point.x, point.y, definition);
+    }
+    return count;
+  }
+
+  addDepthDirectiveOverdriveGauge(amount = 0) {
+    const gaugeAmount = Math.max(0, Number(amount) || 0);
+    if (gaugeAmount <= 0) {
+      return { triggered: false, gaugeAdded: 0 };
+    }
+    const state = this.ensureOverflowRewardState();
+    state.overdriveGauge = Math.max(0, Number(state.overdriveGauge) || 0) + gaugeAmount;
+    let result = { triggered: false, queuedMod: false, extended: false, activeSeconds: 0 };
+    while (state.overdriveGauge >= OVERFLOW_REWARD_CONFIG.overdrive.gaugeMax) {
+      state.overdriveGauge -= OVERFLOW_REWARD_CONFIG.overdrive.gaugeMax;
+      result = this.triggerOverdriveFromGauge("depthDirective", this.playerHitbox?.x, this.playerHitbox?.y - 44);
+    }
+    this.setLastPickupNotice(result.triggered ? "DIRECTIVE -> OVERDRIVE" : `DIRECTIVE OD +${Math.round(gaugeAmount)}%`);
+    this.showOverflowRewardText(`OVERDRIVE +${Math.round(gaugeAmount)}%`, this.playerHitbox?.x, this.playerHitbox?.y - 44, "#91f6ff");
+    this.updateOverflowHud();
+    return { ...result, gaugeAdded: gaugeAmount };
+  }
+
+  grantDepthDirectiveLostArmsResonance(reward = {}) {
+    const target = this.depthDirectiveState?.runtime?.lastLostArmId || this.pickLostArmsResonanceTarget?.();
+    const points = Math.max(1, Math.floor(Number(reward.resonance) || 1));
+    if (target && this.addLostArmsResonance(target, points, "depthDirective")) {
+      const definition = this.getLostArmDefinition(target);
+      this.setLastPickupNotice(`DIRECTIVE RESONANCE +${points}: ${definition?.displayName || target}`);
+      return true;
+    }
+    const geek = this.addDepthDirectiveUnsecuredGeek(reward.geekBase || 0);
+    this.setLastPickupNotice(`RESONANCE OVERFLOW -> +${geek.toLocaleString()} GEEK`);
+    return false;
+  }
+
+  getDepthDirectiveHudTitle(directive = this.getActiveDepthDirective()) {
+    if (!directive?.title) {
+      return "";
+    }
+    const maxLength = DEPTH_DIRECTIVE_CONFIG.hudNameMaxLength || 18;
+    return directive.title.length > maxLength
+      ? `${directive.title.slice(0, Math.max(0, maxLength - 1))}...`
+      : directive.title;
+  }
+
+  getDepthDirectiveProgressText(directive = this.getActiveDepthDirective()) {
+    const state = this.depthDirectiveState;
+    const progress = state?.progress || {};
+    if (!directive) {
+      return "";
+    }
+    if (directive.id === "gateAnchor") {
+      return `EL ${progress.eliteKills || 0}/${directive.eliteTarget || 1}  VALUE ${progress.valueDropsCollected || 0}/${directive.valueDropTarget || 8}`;
+    }
+    if (directive.id === "noRetreat") {
+      return `HP ${Math.floor(this.getPlayerHpRatio() * 100)}% / KEEP ${Math.round((directive.minHpRatio || 0.5) * 100)}% UNTIL GATE`;
+    }
+    const primary = this.getDepthDirectivePrimaryProgress(directive);
+    const suffix = primary.percentMode ? "%" : "";
+    return `${primary.current}${suffix}/${primary.target}${suffix}`;
+  }
+
+  updateDepthDirectiveHud() {
+    const text = this.hudDepthDirectiveText;
+    if (!text) {
+      return;
+    }
+    const state = this.depthDirectiveState;
+    const directive = this.getActiveDepthDirective();
+    const now = this.time?.now || 0;
+    if (directive) {
+      this.hudDepthDirectivePanel?.setVisible(true);
+      text.setVisible(true);
+      if (state.completed) {
+        text
+          .setColor("#b8fbff")
+          .setText(`DIRECTIVE COMPLETE: ${this.getDepthDirectiveHudTitle(directive)}\n${directive.rewardLabel || "REWARD CLAIMED"}`);
+        return;
+      }
+      if (state.failed) {
+        const showFailed = now <= (state.failedUntil || 0);
+        this.hudDepthDirectivePanel?.setVisible(showFailed);
+        text
+          .setVisible(showFailed)
+          .setColor("#ff9aa8")
+          .setText(`DIRECTIVE FAILED: ${this.getDepthDirectiveHudTitle(directive)}\nNext Depthで再選択`);
+        return;
+      }
+      text
+        .setColor("#c8ffff")
+        .setText(`DIRECTIVE: ${this.getDepthDirectiveHudTitle(directive)}\n${this.getDepthDirectiveProgressText(directive)} / ${directive.rewardLabel || "REWARD"}`);
+      return;
+    }
+
+    if (state?.pendingSelection) {
+      this.hudDepthDirectivePanel?.setVisible(true);
+      text
+        .setVisible(true)
+        .setColor("#fff1a8")
+        .setText(`DIRECTIVE READY\nDepth ${state.pendingDepth || this.stageDepth} selection queued`);
+      return;
+    }
+
+    this.hudDepthDirectivePanel?.setVisible(false);
+    text.setVisible(false);
   }
 
   createBasePlayerStats() {
@@ -6732,6 +8789,7 @@ class SurvivalScene extends Phaser.Scene {
     return {
       currentRecord,
       bestRecord: nextBest,
+      previousBest,
       improved
     };
   }
@@ -7888,10 +9946,18 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     this.gateState.stableDurationMs = this.getCurrentGateStableDurationMs() + addMs;
-    this.gateState.stabilizeBonusMs = Math.max(0, Math.floor(Number(this.gateState.stabilizeBonusMs) || 0)) + addMs;
+    if (reason === "depthDirective") {
+      this.gateState.depthDirectiveBonusMs = Math.max(0, Math.floor(Number(this.gateState.depthDirectiveBonusMs) || 0)) + addMs;
+    } else {
+      this.gateState.stabilizeBonusMs = Math.max(0, Math.floor(Number(this.gateState.stabilizeBonusMs) || 0)) + addMs;
+    }
     this.drawStageGateGraphics();
     this.updateGateVisuals(0);
     this.updateDepthHud();
+    if (reason === "depthDirective") {
+      this.setLastPickupNotice(`GATE ANCHOR +${Math.round(addMs / 1000)}s`);
+      this.showOverflowRewardText(`GATE +${Math.round(addMs / 1000)}s`, this.stageGate?.container?.x, this.stageGate?.container?.y - 132, "#d6b8ff");
+    }
     if (this.isStabilizeProtocolDebugEnabled()) {
       console.log("[STABILIZE PROTOCOL] gate extended", { reason, seconds, stableDurationMs: this.gateState.stableDurationMs });
     }
@@ -8110,6 +10176,7 @@ class SurvivalScene extends Phaser.Scene {
       this.setLastPickupNotice(`OVERDRIVE ${seconds}s`);
       this.showOverflowRewardText(`OVERDRIVE ${seconds}s`, this.playerHitbox?.x, this.playerHitbox?.y - 34, "#91f6ff");
     }
+    this.handleDepthDirectiveOverdriveActivation(options);
     this.updateOverflowHud();
     return seconds;
   }
@@ -9889,6 +11956,7 @@ class SurvivalScene extends Phaser.Scene {
     this.specialItems = this.physics.add.group();
     this.robotItems = this.physics.add.group();
     this.lostArmItems = this.physics.add.group();
+    this.depthDirectiveBeacons = this.physics.add.group();
     this.pickupEffectsLayer = this.add.layer().setDepth(11);
     this.skillEffectsLayer = this.add.layer().setDepth(21);
     this.robotEffectsLayer = this.add.layer().setDepth(22);
@@ -10781,6 +12849,46 @@ class SurvivalScene extends Phaser.Scene {
     }).setOrigin(0.5, 0);
     this.hudAnomalyContractPanel.setVisible(false);
     this.hudAnomalyContractText.setVisible(false);
+    this.hudDepthDirectivePanel = this.createHudPanel(GAME_WIDTH / 2 - 214, 236, 428, 50, {
+      forceShape: true,
+      depth: 203,
+      alpha: this.hudUsesFrameAsset ? 0.48 : 0.64,
+      strokeAlpha: 0.26
+    });
+    this.hudDepthDirectiveText = this.createHudText(GAME_WIDTH / 2, 244, "", {
+      fontSize: "11px",
+      color: "#c8ffff",
+      fontStyle: "bold",
+      align: "center",
+      depth: 204,
+      wordWrap: { width: 392 }
+    }).setOrigin(0.5, 0);
+    this.hudDepthDirectivePanel.setVisible(false);
+    this.hudDepthDirectiveText.setVisible(false);
+    this.hudNemesisPanel = this.createHudPanel(GAME_WIDTH / 2 - 250, 292, 500, 58, {
+      forceShape: true,
+      depth: 203,
+      alpha: this.hudUsesFrameAsset ? 0.5 : 0.68,
+      stroke: 0xff6f7f,
+      strokeAlpha: 0.34
+    });
+    this.hudNemesisText = this.createHudText(GAME_WIDTH / 2, 304, "", {
+      fontSize: "13px",
+      color: "#ffd1d8",
+      fontStyle: "bold",
+      align: "center",
+      depth: 204,
+      wordWrap: { width: 468 }
+    }).setOrigin(0.5, 0);
+    this.hudNemesisBarGraphics = this.registerUiObject(
+      this.add
+        .graphics()
+        .setScrollFactor(0)
+        .setDepth(204)
+    );
+    this.hudNemesisPanel.setVisible(false);
+    this.hudNemesisText.setVisible(false);
+    this.hudNemesisBarGraphics.setVisible(false);
 
     this.createHudPanel(GAME_WIDTH - 304, 12, 132, 58);
     this.createHudPanel(GAME_WIDTH - 164, 12, 152, 58);
@@ -12183,6 +14291,9 @@ class SurvivalScene extends Phaser.Scene {
     this.hideOverlay();
     this.playSelectedBgm();
     this.beginStartingUpgradeDraft();
+    this.queueDepthDirectiveSelection(this.stageDepth, "gameStart");
+    this.notifyGeekMilestoneForDepth(this.stageDepth, "gameStart");
+    this.onDepthStartedForNemesis(this.stageDepth, "gameStart");
     if (!this.levelUpActive) {
       this.physics.world.resume();
     }
@@ -12219,6 +14330,7 @@ class SurvivalScene extends Phaser.Scene {
     this.physics.add.overlap(this.playerHitbox, this.specialItems, this.handleSpecialItemPickup, null, this);
     this.physics.add.overlap(this.playerHitbox, this.robotItems, this.handleRobotItemPickup, null, this);
     this.physics.add.overlap(this.playerHitbox, this.lostArmItems, this.handleLostArmCorePickup, null, this);
+    this.physics.add.overlap(this.playerHitbox, this.depthDirectiveBeacons, this.handleDepthDirectiveBeaconPickup, null, this);
 
     if (this.stageObstacleBodies) {
       this.physics.add.collider(this.playerHitbox, this.stageObstacleBodies);
@@ -12577,6 +14689,7 @@ class SurvivalScene extends Phaser.Scene {
   spawnStageGate() {
     this.destroyStageGate();
     this.destroyGateSignalVisual();
+    this.cleanupNemesisBoss("gateOpen");
     const center = this.getStageGateCenter();
     const stabilizeBonusMs = this.consumeStabilizeChargesForGate();
     const anomalyStableBonusMs = this.getAnomalyGateStableSecondsAdd() * 1000;
@@ -12641,6 +14754,7 @@ class SurvivalScene extends Phaser.Scene {
     };
     this.ensureStabilizeProtocolGateState();
     this.drawStageGateGraphics();
+    this.evaluateDepthDirectiveOnGateOpen();
     this.tweens.add({
       targets: container,
       angle: 360,
@@ -12660,7 +14774,7 @@ class SurvivalScene extends Phaser.Scene {
     });
     this.knockbackEnemiesFromGate(center.x, center.y);
     this.spawnGateWorldPulse(center.x, center.y, gatePalette.primary || 0x65e6ff, { startScale: 0.9, endScale: 3.3, duration: 760, depth: 19.2 });
-    const totalGateBonusMs = stabilizeBonusMs + anomalyStableBonusMs + anjuStableBonusMs;
+    const totalGateBonusMs = stabilizeBonusMs + anomalyStableBonusMs + anjuStableBonusMs + (this.gateState?.depthDirectiveBonusMs || 0);
     if (totalGateBonusMs > 0) {
       this.setLastPickupNotice(`GATE STABILIZED +${Math.round(totalGateBonusMs / 1000)}s`);
       this.showOverflowRewardText(`GATE +${Math.round(totalGateBonusMs / 1000)}s`, center.x, center.y - 132, "#b8fbff");
@@ -12864,6 +14978,9 @@ class SurvivalScene extends Phaser.Scene {
     const unstable = this.gateState?.status === "unstable";
     const coinScaling = this.getCurrentCoinScaling();
     const nextDepth = (this.stageDepth || 1) + 1;
+    const milestoneGateHint = this.getGateGeekMilestoneHint(nextDepth);
+    const milestoneBodyLine = this.getCurrentGeekMilestoneGateLine(coinScaling) + (milestoneGateHint.bodyLine || "");
+    const milestoneButtonLine = milestoneGateHint.buttonLine ? `\n${milestoneGateHint.buttonLine}` : "";
     const activeContract = this.getActiveAnomalyContract();
     const activeContractLine = activeContract
       ? `\nACTIVE CONTRACT: ${activeContract.title}`
@@ -12875,16 +14992,16 @@ class SurvivalScene extends Phaser.Scene {
       : "";
     const title = unstable ? "UNSTABLE GATE" : "STAGE GATE";
     const body = unstable
-      ? `未確定GEEK ${this.runUnsecuredCoins.toLocaleString()} / 帰還確定率 ${Math.round(coinScaling.emergencyExtractRate * 100)}%${activeContractLine}${protocolBodyLine}`
-      : `未確定GEEK ${this.runUnsecuredCoins.toLocaleString()} / Depth ${this.stageDepth}${activeContractLine}${protocolBodyLine}`;
+      ? `未確定GEEK ${this.runUnsecuredCoins.toLocaleString()} / 帰還確定率 ${Math.round(coinScaling.emergencyExtractRate * 100)}%${milestoneBodyLine}${activeContractLine}${protocolBodyLine}`
+      : `未確定GEEK ${this.runUnsecuredCoins.toLocaleString()} / Depth ${this.stageDepth}${milestoneBodyLine}${activeContractLine}${protocolBodyLine}`;
     const options = unstable
       ? [
         {
           key: "1",
           title: "FORCE BREAKTHROUGH",
           subtitle: "強行突破する",
-          detail: `Depth ${nextDepth}へ進む / 不安定度 ${this.gateInstabilityStacks} 継続${nextContractHint}`,
-          accent: 0xff5b73,
+          detail: `Depth ${nextDepth}へ進む / 不安定度 ${this.gateInstabilityStacks} 継続${nextContractHint}${milestoneButtonLine}`,
+          accent: milestoneGateHint.exact ? milestoneGateHint.accent : 0xff5b73,
           onSelect: () => this.chooseForceBreakthrough()
         },
         {
@@ -12901,8 +15018,8 @@ class SurvivalScene extends Phaser.Scene {
           key: "1",
           title: "NEXT STAGE",
           subtitle: "次のステージへ進む",
-          detail: `Depth ${nextDepth} / 敵強化 / GEEK倍率上昇${nextContractHint}`,
-          accent: 0x65e6ff,
+          detail: `Depth ${nextDepth} / 敵強化 / GEEK倍率上昇${nextContractHint}${milestoneButtonLine}`,
+          accent: milestoneGateHint.exact ? milestoneGateHint.accent : 0x65e6ff,
           onSelect: () => this.chooseNextStage()
         },
         {
@@ -13963,6 +16080,8 @@ class SurvivalScene extends Phaser.Scene {
     const targetDepth = Math.max(1, Math.floor(Number(transition?.targetDepth) || ((this.stageDepth || 1) + 1)));
     const mode = transition?.mode === "force" ? "force" : "next";
     this.clearActiveAnomalyContract("depthTransition", { silent: true, keepPending: true });
+    this.clearActiveDepthDirective("depthTransition", { silent: true });
+    this.cleanupNemesisBoss("depthTransition");
     this.stageDepth = targetDepth;
     this.updateRunRankingDepthProgress(this.stageDepth);
     this.gateInstabilityStacks = Math.max(0, Math.floor(Number(transition?.nextInstabilityStacks) || 0));
@@ -13980,7 +16099,10 @@ class SurvivalScene extends Phaser.Scene {
     this.clearGateStabilizeProtocolState("depthTransition", { preserveAnchor: true });
     const prefix = mode === "force" ? "FORCE BREAKTHROUGH DEPTH" : "DEPTH";
     this.setLastPickupNotice(dataCacheCount > 0 ? `${prefix} ${this.stageDepth} / DATA CACHE ${dataCacheCount}` : `${prefix} ${this.stageDepth}`);
+    this.notifyGeekMilestoneForDepth(this.stageDepth, "depthTransition");
     this.activatePendingAnomalyContract(targetDepth);
+    this.queueDepthDirectiveSelection(targetDepth, "depthTransition");
+    this.onDepthStartedForNemesis(targetDepth, "depthTransition");
   }
 
   chooseEmergencyExtract() {
@@ -13999,6 +16121,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   completeExtraction(result, emergency, lostArmsMessage = "") {
+    const deepExtractionContext = this.captureDeepExtractionResultContext(result, emergency, lostArmsMessage);
     const anjuMemoryAward = this.awardAnjuMemoryOnExtraction(emergency ? "emergency" : "normal");
     this.setRunRankingExtractionStats(emergency ? "emergency" : "normal", result?.secured, true);
     this.extractionComplete = true;
@@ -14008,6 +16131,8 @@ class SurvivalScene extends Phaser.Scene {
     this.resetStabilizeProtocolState(emergency ? "emergencyExtract" : "extract");
     this.resetLostArmsResonanceState(emergency ? "emergencyExtract" : "extract");
     this.resetOverdriveModState(emergency ? "emergencyExtract" : "extract");
+    this.resetDepthDirectiveState(emergency ? "emergencyExtract" : "extract");
+    this.resetNemesisBossState(emergency ? "emergencyExtract" : "extract");
     this.resetOverflowRewardState();
     this.destroyStageGate();
     this.hideOverlay();
@@ -14026,6 +16151,20 @@ class SurvivalScene extends Phaser.Scene {
       anjuMemoryText,
       returnMessage
     });
+    const deepResultPayload = this.storeDeepExtractionResultPayload(this.buildDeepExtractionResultPayload({
+      result,
+      emergency,
+      lostArmsMessage,
+      anjuMemoryAward,
+      recordState,
+      context: deepExtractionContext,
+      returnMessage
+    }));
+    if (this.shouldShowDeepExtractionResult(deepResultPayload)) {
+      this.createDeepExtractionResultOverlay(this.consumeDeepExtractionResultPayload());
+      return;
+    }
+    this.consumeDeepExtractionResultPayload();
     this.showExtractionCompleteOverlay(result, emergency, lostArmsMessage, anjuMemoryAward);
     this.time.delayedCall(1800, () => {
       this.showExtractionRankingOverlayOrReturn();
@@ -14068,6 +16207,747 @@ class SurvivalScene extends Phaser.Scene {
 
     this.showGameOverRankingOverlay();
     this.loadRemoteKillRanking();
+  }
+
+  createDeepExtractionResultState(overrides = {}) {
+    return {
+      active: false,
+      closing: false,
+      continueEnabled: false,
+      payload: null,
+      keyHandler: null,
+      tweens: [],
+      timers: [],
+      countUpTargets: [],
+      revealTargets: [],
+      ...overrides
+    };
+  }
+
+  isDeepExtractionResultDebugEnabled() {
+    const value = this.getUrlStageParam(DEEP_EXTRACTION_RESULT_DEBUG_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  showDebugDeepExtractionResultOverlay() {
+    if (!this.isDeepExtractionResultDebugEnabled() || this.deepExtractionResultDebugShown || this.gameOver || this.extractionComplete) {
+      return;
+    }
+
+    this.deepExtractionResultDebugShown = true;
+    this.createDeepExtractionResultOverlay({
+      debugPreview: true,
+      version: 1,
+      mode: "normal",
+      extractionSucceeded: true,
+      maxDepthReached: 8,
+      bestDepth: 8,
+      currentDepth: 8,
+      extractedGeek: 32400,
+      lostGeek: 0,
+      protectionRate: 1,
+      survivalTimeMs: 482000,
+      kills: 1860,
+      eliteKills: 18,
+      bossKills: 5,
+      nemesisKills: 2,
+      directivesCompleted: 3,
+      directiveTitles: ["BOSS HUNTER", "DATA RECOVERY", "RESONANCE HUNT"],
+      lostArmsSavedLines: ["ABYSS RAIL Lv.4 -> Lv.5", "GRAVITY SEED Lv.2 -> Lv.3"],
+      anjuMemoryEarned: 6,
+      anjuMemoryText: "ANJU MEMORY +6",
+      instabilityStacks: 2,
+      peakGeekMultiplier: 2.78,
+      geekMilestoneTitle: "VOID RESONANCE",
+      geekMilestoneAdd: 0.30,
+      bestDepthUpdated: true,
+      bestGeekUpdated: true,
+      bestRecordUpdated: true
+    });
+  }
+
+  getExtractedGeekThisRun(result = {}) {
+    return this.normalizeCoinAmount(result?.secured ?? this.runRankingStats?.extractedGeek);
+  }
+
+  getRunMaxDepthReachedForResult(stats = this.runRankingStats, context = {}) {
+    const rankingStats = this.normalizeRunRankingStats(stats);
+    const anjuDepth = Math.max(1, Math.floor(Number(this.runAnjuMemoryState?.maxDepthReached) || 1));
+    const contextDepth = Math.max(1, Math.floor(Number(context.maxDepthReached) || 1));
+    const debugDepth = this.isDeepExtractionResultDebugEnabled() ? DEEP_EXTRACTION_RESULT_CONFIG.unlockDepth : 1;
+    return Math.max(
+      this.normalizeDepthValue(rankingStats.maxDepthReached, this.stageDepth || 1),
+      this.normalizeDepthValue(this.stageDepth || 1, 1),
+      anjuDepth,
+      contextDepth,
+      debugDepth
+    );
+  }
+
+  getDeepExtractionLostArmsLines(message = "", mode = "normal") {
+    const headerPattern = mode === "emergency"
+      ? /^(LOST ARMS LOST|ANCHOR PROTECTION)/i
+      : /^LOST ARMS SECURED$/i;
+    return String(message || "")
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .filter((line) => !headerPattern.test(line))
+      .slice(0, DEEP_EXTRACTION_RESULT_CONFIG.maxRewardLines);
+  }
+
+  captureDeepExtractionResultContext(result = {}, emergency = false, lostArmsMessage = "") {
+    const coinScaling = this.getCurrentCoinScaling();
+    const mode = emergency ? "emergency" : "normal";
+    return {
+      mode,
+      maxDepthReached: this.getRunMaxDepthReachedForResult(this.runRankingStats),
+      lostArmsSavedLines: mode === "normal" ? this.getDeepExtractionLostArmsLines(lostArmsMessage, mode) : [],
+      lostArmsLostLines: mode === "emergency" ? this.getDeepExtractionLostArmsLines(lostArmsMessage, mode) : [],
+      directivesCompleted: Math.max(0, Math.floor(Number(this.runStats?.depthDirectiveCompletions) || 0)),
+      directiveTitles: Array.isArray(this.runStats?.depthDirectiveCompletedTitles)
+        ? this.runStats.depthDirectiveCompletedTitles.slice(-4)
+        : [],
+      nemesisKills: Math.max(0, Math.floor(Number(this.runStats?.nemesisKills) || 0)),
+      bossKills: Math.max(0, Math.floor(Number(this.runStats?.bossKills) || 0)),
+      peakGeekMultiplier: Math.max(
+        Number(this.runStats?.peakGeekMultiplier) || 1,
+        Number(coinScaling.amount) || 1
+      ),
+      instabilityStacks: Math.max(0, Math.floor(Number(this.gateInstabilityStacks) || 0)),
+      protectionRate: Phaser.Math.Clamp(Number(result?.rate ?? coinScaling.emergencyExtractRate ?? 1) || 0, 0, 1)
+    };
+  }
+
+  buildDeepExtractionResultPayload(options = {}) {
+    const context = options.context || {};
+    const result = options.result || {};
+    const emergency = Boolean(options.emergency);
+    const recordState = options.recordState || {};
+    const currentRecord = recordState.currentRecord || this.buildCurrentRunRecord();
+    const previousBest = recordState.previousBest || null;
+    const rankingStats = this.normalizeRunRankingStats(this.runRankingStats);
+    const maxDepthReached = this.getRunMaxDepthReachedForResult(rankingStats, context);
+    const milestone = this.getGeekMilestoneForDepth(maxDepthReached);
+    const extractedGeek = this.getExtractedGeekThisRun(result);
+    const previousBestDepth = previousBest ? this.getRecordBestDepth(previousBest) : 1;
+    const previousBestGeek = previousBest
+      ? this.normalizeCoinAmount(previousBest.bestExtractedGeek ?? previousBest.extractedGeek)
+      : 0;
+
+    return this.normalizeDeepExtractionResultPayload({
+      version: 1,
+      mode: emergency ? "emergency" : "normal",
+      extractionSucceeded: true,
+      maxDepthReached,
+      bestDepth: Math.max(maxDepthReached, this.getRecordBestDepth(recordState.bestRecord || currentRecord)),
+      currentDepth: this.normalizeDepthValue(this.stageDepth || maxDepthReached, maxDepthReached),
+      extractedGeek,
+      lostGeek: this.normalizeCoinAmount(result?.lost),
+      protectionRate: context.protectionRate,
+      survivalTimeMs: Math.max(0, Math.floor(Number(currentRecord.survivalTimeMs ?? this.survivalTime) || 0)),
+      kills: Math.max(0, Math.floor(Number(currentRecord.kills ?? this.runStats?.kills) || 0)),
+      eliteKills: Math.max(0, Math.floor(Number(currentRecord.eliteKills ?? this.runStats?.eliteKills) || 0)),
+      bossKills: context.bossKills,
+      nemesisKills: context.nemesisKills,
+      directivesCompleted: context.directivesCompleted,
+      directiveTitles: context.directiveTitles,
+      lostArmsSavedLines: context.lostArmsSavedLines,
+      lostArmsLostLines: context.lostArmsLostLines,
+      anjuMemoryEarned: this.normalizeAnjuMemoryAmount(options.anjuMemoryAward?.amount),
+      anjuMemoryText: this.formatAnjuMemoryAwardLine(options.anjuMemoryAward),
+      instabilityStacks: context.instabilityStacks,
+      peakGeekMultiplier: context.peakGeekMultiplier,
+      geekMilestoneTitle: milestone?.title || "",
+      geekMilestoneAdd: milestone?.geekMultiplierAdd || 0,
+      bestDepthUpdated: maxDepthReached > previousBestDepth,
+      bestGeekUpdated: extractedGeek > previousBestGeek,
+      bestRecordUpdated: Boolean(recordState.improved),
+      returnMessage: options.returnMessage || ""
+    });
+  }
+
+  normalizeDeepExtractionResultPayload(raw = {}) {
+    const mode = raw.mode === "emergency" ? "emergency" : "normal";
+    const payload = {
+      version: Math.max(1, Math.floor(Number(raw.version) || 1)),
+      mode,
+      debugPreview: Boolean(raw.debugPreview),
+      extractionSucceeded: raw.extractionSucceeded !== false,
+      title: mode === "emergency" ? "EMERGENCY DEEP EXTRACTION" : "DEEP EXTRACTION RESULT",
+      subtitle: mode === "emergency" ? "Partial data secured" : "Deep layer data secured",
+      maxDepthReached: this.normalizeDepthValue(raw.maxDepthReached, this.stageDepth || 1),
+      bestDepth: this.normalizeDepthValue(raw.bestDepth ?? raw.maxDepthReached, this.stageDepth || 1),
+      currentDepth: this.normalizeDepthValue(raw.currentDepth ?? raw.maxDepthReached, this.stageDepth || 1),
+      extractedGeek: this.normalizeCoinAmount(raw.extractedGeek),
+      lostGeek: this.normalizeCoinAmount(raw.lostGeek),
+      protectionRate: Phaser.Math.Clamp(Number(raw.protectionRate ?? (mode === "normal" ? 1 : 0)) || 0, 0, 1),
+      survivalTimeMs: Math.max(0, Math.floor(Number(raw.survivalTimeMs) || 0)),
+      kills: Math.max(0, Math.floor(Number(raw.kills) || 0)),
+      eliteKills: Math.max(0, Math.floor(Number(raw.eliteKills) || 0)),
+      bossKills: Math.max(0, Math.floor(Number(raw.bossKills) || 0)),
+      nemesisKills: Math.max(0, Math.floor(Number(raw.nemesisKills) || 0)),
+      directivesCompleted: Math.max(0, Math.floor(Number(raw.directivesCompleted) || 0)),
+      directiveTitles: Array.isArray(raw.directiveTitles) ? raw.directiveTitles.filter(Boolean).slice(-4) : [],
+      lostArmsSavedLines: Array.isArray(raw.lostArmsSavedLines) ? raw.lostArmsSavedLines.filter(Boolean).slice(0, DEEP_EXTRACTION_RESULT_CONFIG.maxRewardLines) : [],
+      lostArmsLostLines: Array.isArray(raw.lostArmsLostLines) ? raw.lostArmsLostLines.filter(Boolean).slice(0, DEEP_EXTRACTION_RESULT_CONFIG.maxRewardLines) : [],
+      anjuMemoryEarned: this.normalizeAnjuMemoryAmount(raw.anjuMemoryEarned),
+      anjuMemoryText: String(raw.anjuMemoryText || ""),
+      instabilityStacks: Math.max(0, Math.floor(Number(raw.instabilityStacks) || 0)),
+      peakGeekMultiplier: Math.max(1, Number(raw.peakGeekMultiplier) || 1),
+      geekMilestoneTitle: String(raw.geekMilestoneTitle || ""),
+      geekMilestoneAdd: Math.max(0, Number(raw.geekMilestoneAdd) || 0),
+      bestDepthUpdated: Boolean(raw.bestDepthUpdated),
+      bestGeekUpdated: Boolean(raw.bestGeekUpdated),
+      bestRecordUpdated: Boolean(raw.bestRecordUpdated),
+      returnMessage: String(raw.returnMessage || "")
+    };
+    const grade = this.calculateDeepExtractionGrade(payload);
+    payload.grade = grade.grade;
+    payload.gradeScore = grade.score;
+    payload.highlights = this.getDeepExtractionHighlights(payload);
+    return payload;
+  }
+
+  calculateDeepExtractionGrade(payload = {}) {
+    let score = 0;
+    score += Math.max(0, (payload.maxDepthReached || 1) - 5) * 16;
+    score += Math.min(42, Math.floor((payload.extractedGeek || 0) / 1200));
+    score += Math.min(22, Math.floor((payload.kills || 0) / 120));
+    score += (payload.eliteKills || 0) * 2;
+    score += (payload.bossKills || 0) * 4;
+    score += (payload.nemesisKills || 0) * 12;
+    score += (payload.directivesCompleted || 0) * 7;
+    score += (payload.lostArmsSavedLines?.length || 0) * 6;
+    score += Math.min(24, (payload.anjuMemoryEarned || 0) * 3);
+    if (payload.bestDepthUpdated) {
+      score += 10;
+    }
+    if (payload.bestGeekUpdated) {
+      score += 8;
+    }
+    if (payload.mode === "emergency") {
+      score -= 18;
+      score += Math.round((payload.protectionRate || 0) * 8);
+    }
+    score = Math.max(0, Math.round(score));
+
+    if (score >= 115 || (payload.maxDepthReached >= 10 && payload.mode === "normal")) {
+      return { grade: "EX", score };
+    }
+    if (score >= 82) {
+      return { grade: "S", score };
+    }
+    if (score >= 56) {
+      return { grade: "A", score };
+    }
+    if (score >= 32) {
+      return { grade: "B", score };
+    }
+    return { grade: "C", score };
+  }
+
+  getDeepExtractionHighlights(payload = {}) {
+    const highlights = [];
+    if (payload.bestDepthUpdated) {
+      highlights.push("BEST DEPTH UPDATED");
+    }
+    if (payload.bestGeekUpdated) {
+      highlights.push("BEST GEEK UPDATED");
+    }
+    if (payload.anjuMemoryEarned > 0) {
+      highlights.push(`ANJU MEMORY +${payload.anjuMemoryEarned}`);
+    }
+    if (payload.geekMilestoneTitle) {
+      highlights.push(`GEEK MILESTONE: ${payload.geekMilestoneTitle}`);
+    }
+    if (payload.lostArmsSavedLines?.length > 0) {
+      highlights.push(`LOST ARMS x${payload.lostArmsSavedLines.length} SAVED`);
+    }
+    if (payload.nemesisKills > 0) {
+      highlights.push(`NEMESIS x${payload.nemesisKills}`);
+    }
+    if (payload.directivesCompleted > 0) {
+      highlights.push(`DIRECTIVE x${payload.directivesCompleted}`);
+    }
+    if (payload.mode === "emergency") {
+      highlights.push(`PROTECTION ${Math.round((payload.protectionRate || 0) * 100)}%`);
+    }
+    highlights.push(`DEPTH ${payload.maxDepthReached} SECURED`);
+    return highlights.slice(0, DEEP_EXTRACTION_RESULT_CONFIG.maxHighlights);
+  }
+
+  shouldShowDeepExtractionResult(payload = {}) {
+    if (!payload?.extractionSucceeded) {
+      return false;
+    }
+    if (payload.mode !== "normal" && payload.mode !== "emergency") {
+      return false;
+    }
+    if (!Number.isFinite(Number(payload.extractedGeek))) {
+      return false;
+    }
+    return payload.maxDepthReached >= DEEP_EXTRACTION_RESULT_CONFIG.unlockDepth || this.isDeepExtractionResultDebugEnabled();
+  }
+
+  storeDeepExtractionResultPayload(payload = null) {
+    this.pendingDeepExtractionResultPayload = payload ? this.normalizeDeepExtractionResultPayload(payload) : null;
+    return this.pendingDeepExtractionResultPayload;
+  }
+
+  consumeDeepExtractionResultPayload() {
+    const payload = this.pendingDeepExtractionResultPayload;
+    this.pendingDeepExtractionResultPayload = null;
+    return payload;
+  }
+
+  getDeepExtractionRewardRows(payload = {}) {
+    const rows = [];
+    if (payload.mode === "emergency") {
+      rows.push({
+        label: "EMERGENCY DATA",
+        value: `${payload.extractedGeek.toLocaleString()} secured / ${payload.lostGeek.toLocaleString()} lost`
+      });
+    }
+    if (payload.lostArmsSavedLines?.length > 0) {
+      rows.push({ label: "LOST ARMS SAVED", value: payload.lostArmsSavedLines.join(" / ") });
+    }
+    if (payload.lostArmsLostLines?.length > 0) {
+      rows.push({ label: "LOST ARMS LOST", value: payload.lostArmsLostLines.join(" / ") });
+    }
+    if (payload.anjuMemoryEarned > 0) {
+      rows.push({ label: "ANJU MEMORY", value: `+${payload.anjuMemoryEarned}` });
+    }
+    if (payload.nemesisKills > 0) {
+      rows.push({ label: "NEMESIS KILLS", value: `${payload.nemesisKills}` });
+    }
+    if (payload.directivesCompleted > 0) {
+      const titles = payload.directiveTitles?.length > 0 ? ` / ${payload.directiveTitles.join(", ")}` : "";
+      rows.push({ label: "DIRECTIVE COMPLETE", value: `${payload.directivesCompleted}${titles}` });
+    }
+    if (payload.bestDepthUpdated || payload.bestGeekUpdated || payload.bestRecordUpdated) {
+      const updates = [
+        payload.bestDepthUpdated ? "Depth" : "",
+        payload.bestGeekUpdated ? "GEEK" : "",
+        payload.bestRecordUpdated ? "Record" : ""
+      ].filter(Boolean);
+      rows.push({ label: "BEST UPDATE", value: updates.join(" / ") || "Updated" });
+    }
+    return rows.slice(0, DEEP_EXTRACTION_RESULT_CONFIG.maxRewardLines);
+  }
+
+  createDeepExtractionResultOverlay(payload) {
+    const resultPayload = this.normalizeDeepExtractionResultPayload(payload);
+    this.clearOverlayButtons();
+    this.deepExtractionResultState = this.createDeepExtractionResultState({
+      active: true,
+      payload: resultPayload
+    });
+    this.levelUpActive = true;
+    this.configureOverlayPanel(DEEP_EXTRACTION_RESULT_CONFIG.panelWidth, DEEP_EXTRACTION_RESULT_CONFIG.panelHeight);
+    const gradeMeta = DEEP_EXTRACTION_GRADE_META[resultPayload.grade] || DEEP_EXTRACTION_GRADE_META.C;
+    const framePalette = resultPayload.anjuMemoryEarned > 0 ? this.getAnjuResultFramePalette() : {};
+    const strokeColor = framePalette.stroke || gradeMeta.color;
+    const fillColor = framePalette.fill || 0x041019;
+    this.overlayPanel
+      .setFillStyle(fillColor, 0.97)
+      .setStrokeStyle(3, strokeColor, 0.64);
+    this.overlayTitle.setText("").setVisible(true);
+    this.overlayBody.setText("").setVisible(true);
+    this.overlayBackdrop.setFillStyle(0x01040a, resultPayload.mode === "emergency" ? 0.86 : 0.82);
+    this.createDeepExtractionResultBackground(resultPayload);
+    this.createDeepExtractionResultHeader(resultPayload);
+    this.createDeepExtractionGradeBadge(resultPayload);
+    this.createDeepExtractionStatRows(resultPayload);
+    this.createDeepExtractionRewardRows(resultPayload);
+    this.createDeepExtractionHighlights(resultPayload);
+    this.createDeepExtractionContinueButton(resultPayload);
+    this.registerDeepExtractionResultKeyboard();
+    this.overlayBackdrop.setAlpha(1).setVisible(true);
+    this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
+    this.animateDeepExtractionResult(resultPayload);
+  }
+
+  createDeepExtractionResultBackground(payload) {
+    const state = this.deepExtractionResultState;
+    const gradeMeta = DEEP_EXTRACTION_GRADE_META[payload.grade] || DEEP_EXTRACTION_GRADE_META.C;
+    const graphics = this.add.graphics();
+    const width = DEEP_EXTRACTION_RESULT_CONFIG.panelWidth;
+    const height = DEEP_EXTRACTION_RESULT_CONFIG.panelHeight;
+    const left = -width / 2;
+    const top = -height / 2;
+    graphics.fillStyle(0x071624, 0.34);
+    graphics.fillRect(left + 18, top + 18, width - 36, height - 36);
+    graphics.lineStyle(1, 0x6fcfff, 0.12);
+    for (let y = top + 58; y < top + height - 42; y += 28) {
+      graphics.lineBetween(left + 34, y, left + width - 34, y);
+    }
+    graphics.lineStyle(2, gradeMeta.glow, 0.22);
+    graphics.lineBetween(left + 36, top + height - 98, left + width - 190, top + 46);
+    graphics.lineBetween(left + 210, top + height - 36, left + width - 34, top + 120);
+    graphics.fillStyle(gradeMeta.color, 0.12);
+    graphics.fillTriangle(left + 24, top + 24, left + 212, top + 24, left + 24, top + 82);
+    graphics.fillTriangle(left + width - 24, top + height - 24, left + width - 232, top + height - 24, left + width - 24, top + height - 88);
+    this.overlayContainer.add(graphics);
+    this.overlayButtons.push(graphics);
+
+    const glow = this.add
+      .image(0, -108, "skill-hit-glow")
+      .setScale(4.6)
+      .setTint(gradeMeta.glow)
+      .setAlpha(payload.mode === "emergency" ? 0.22 : 0.28)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.overlayContainer.add(glow);
+    this.overlayButtons.push(glow);
+    state.revealTargets.push(glow);
+  }
+
+  createDeepExtractionResultHeader(payload) {
+    const modeColor = payload.mode === "emergency" ? "#ff9bd8" : "#9ff7ff";
+    const title = this.add.text(-462, -290, payload.title, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "37px",
+      color: "#f2fbff",
+      fontStyle: "bold"
+    });
+    const subtitle = this.add.text(-458, -246, payload.subtitle, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "16px",
+      color: modeColor,
+      fontStyle: "bold"
+    });
+    const depthChip = this.add.text(250, -284, `DEPTH ${payload.maxDepthReached}`, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "19px",
+      color: "#07131d",
+      fontStyle: "bold",
+      backgroundColor: modeColor,
+      padding: { left: 14, right: 14, top: 5, bottom: 6 }
+    });
+    this.overlayContainer.add([title, subtitle, depthChip]);
+    this.overlayButtons.push(title, subtitle, depthChip);
+    this.deepExtractionResultState.revealTargets.push(title, subtitle, depthChip);
+  }
+
+  createDeepExtractionGradeBadge(payload) {
+    const gradeMeta = DEEP_EXTRACTION_GRADE_META[payload.grade] || DEEP_EXTRACTION_GRADE_META.C;
+    const group = this.add.container(415, -214);
+    const ring = this.add.graphics();
+    ring.fillStyle(0x02070d, 0.96);
+    ring.fillCircle(0, 0, 62);
+    ring.lineStyle(5, gradeMeta.color, 0.88);
+    ring.strokeCircle(0, 0, 62);
+    ring.lineStyle(1, 0xf6fdff, 0.5);
+    ring.strokeCircle(0, 0, 46);
+    const label = this.add.text(0, -17, payload.grade, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: payload.grade === "EX" ? "45px" : "52px",
+      color: gradeMeta.css,
+      fontStyle: "bold"
+    }).setOrigin(0.5);
+    const score = this.add.text(0, 33, `${payload.gradeScore} pts`, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "13px",
+      color: "#d7f8ff",
+      fontStyle: "bold"
+    }).setOrigin(0.5);
+    group.add([ring, label, score]);
+    this.overlayContainer.add(group);
+    this.overlayButtons.push(group);
+    this.deepExtractionResultState.revealTargets.push(group);
+    const tween = this.tweens.add({
+      targets: group,
+      scale: { from: 0.96, to: 1.04 },
+      yoyo: true,
+      repeat: -1,
+      duration: 820,
+      ease: "Sine.easeInOut"
+    });
+    this.deepExtractionResultState.tweens.push(tween);
+  }
+
+  createDeepExtractionSectionFrame(x, y, width, height, title, color = 0x6fcfff) {
+    const frame = this.add.graphics();
+    frame.fillStyle(0x06111b, 0.74);
+    frame.fillRoundedRect(x, y, width, height, 8);
+    frame.lineStyle(2, color, 0.34);
+    frame.strokeRoundedRect(x, y, width, height, 8);
+    frame.fillStyle(color, 0.14);
+    frame.fillRect(x + 12, y + 12, width - 24, 24);
+    const heading = this.add.text(x + 20, y + 16, title, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "13px",
+      color: this.colorToCss(color),
+      fontStyle: "bold"
+    });
+    this.overlayContainer.add([frame, heading]);
+    this.overlayButtons.push(frame, heading);
+    this.deepExtractionResultState.revealTargets.push(frame, heading);
+  }
+
+  createDeepExtractionMetricRow(x, y, width, label, value, options = {}) {
+    const state = this.deepExtractionResultState;
+    const height = options.height || 42;
+    const bg = this.add
+      .rectangle(x, y, width, height, options.fillColor || 0x0b1d2c, options.fillAlpha ?? 0.82)
+      .setOrigin(0, 0)
+      .setStrokeStyle(1, options.strokeColor || 0x427c9a, options.strokeAlpha ?? 0.22);
+    const labelText = this.add.text(x + 14, y + 11, label, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: options.labelSize || "12px",
+      color: options.labelColor || "#79b9d0",
+      fontStyle: "bold"
+    });
+    const valueAlignLeft = options.valueAlign === "left";
+    const valueText = this.add.text(valueAlignLeft ? x + 14 : x + width - 14, y + (options.valueY ?? 7), value, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: options.valueSize || "18px",
+      color: options.valueColor || "#ecfaff",
+      fontStyle: "bold",
+      align: valueAlignLeft ? "left" : "right",
+      wordWrap: options.valueWrapWidth ? { width: options.valueWrapWidth } : undefined
+    }).setOrigin(valueAlignLeft ? 0 : 1, 0);
+    this.overlayContainer.add([bg, labelText, valueText]);
+    this.overlayButtons.push(bg, labelText, valueText);
+    state.revealTargets.push(bg, labelText, valueText);
+    if (Number.isFinite(Number(options.countValue))) {
+      state.countUpTargets.push({
+        text: valueText,
+        value: Math.max(0, Number(options.countValue) || 0),
+        formatter: options.formatter || ((amount) => Math.round(amount).toLocaleString()),
+        duration: options.duration || DEEP_EXTRACTION_RESULT_CONFIG.countUpMs
+      });
+    }
+    return valueText;
+  }
+
+  createDeepExtractionStatRows(payload) {
+    const x = -462;
+    const y = -180;
+    const width = 560;
+    const rowWidth = 264;
+    const gap = 16;
+    this.createDeepExtractionSectionFrame(x - 10, y - 48, width + 20, 362, "RUN TELEMETRY", payload.mode === "emergency" ? 0xff5bba : 0x6fcfff);
+    const rows = [
+      { label: "REACHED / BEST", value: `D${payload.maxDepthReached} / D${payload.bestDepth}` },
+      { label: "EXTRACTED GEEK", value: payload.extractedGeek.toLocaleString(), countValue: payload.extractedGeek },
+      { label: "SURVIVAL TIME", value: this.formatTimeMs(payload.survivalTimeMs), countValue: payload.survivalTimeMs, formatter: (value) => this.formatTimeMs(value) },
+      { label: "KILLS", value: payload.kills.toLocaleString(), countValue: payload.kills },
+      { label: "ELITE / BOSS", value: `${payload.eliteKills} / ${payload.bossKills}` },
+      { label: "INSTABILITY", value: payload.instabilityStacks > 0 ? `STACK ${payload.instabilityStacks}` : "STABLE" },
+      { label: "PEAK GEEK MULT", value: `x${payload.peakGeekMultiplier.toFixed(2)}` },
+      payload.mode === "emergency"
+        ? { label: "PROTECTION RATE", value: `${Math.round(payload.protectionRate * 100)}%` }
+        : { label: "EXTRACT MODE", value: "FULL SECURE" }
+    ];
+    rows.forEach((row, index) => {
+      const col = index % 2;
+      const rowIndex = Math.floor(index / 2);
+      this.createDeepExtractionMetricRow(
+        x + col * (rowWidth + gap),
+        y + rowIndex * 64,
+        rowWidth,
+        row.label,
+        row.value,
+        {
+          countValue: row.countValue,
+          formatter: row.formatter,
+          valueColor: index === 1 ? "#fff2a8" : "#ecfaff"
+        }
+      );
+    });
+  }
+
+  createDeepExtractionRewardRows(payload) {
+    const rows = this.getDeepExtractionRewardRows(payload);
+    const x = 124;
+    const y = -116;
+    const width = 396;
+    this.createDeepExtractionSectionFrame(x - 10, y - 112, width + 20, 424, "SECURED PAYLOAD", payload.mode === "emergency" ? 0xff73f6 : 0xf0c463);
+    if (rows.length <= 0) {
+      this.createDeepExtractionMetricRow(x, y - 58, width, "DEEP DATA", "ARCHIVED", {
+        valueColor: "#9ff7ff"
+      });
+      return;
+    }
+    rows.forEach((row, index) => {
+      this.createDeepExtractionMetricRow(x, y - 58 + index * 62, width, row.label, row.value, {
+        height: 54,
+        valueAlign: "left",
+        valueY: 25,
+        valueWrapWidth: width - 28,
+        valueSize: row.value.length > 34 ? "13px" : "15px",
+        valueColor: index === 0 ? "#fff2a8" : "#ecfaff"
+      });
+    });
+  }
+
+  createDeepExtractionHighlights(payload) {
+    const x = -454;
+    const y = 230;
+    const chipHeight = 30;
+    let cursorX = x;
+    payload.highlights.forEach((highlight, index) => {
+      const width = Phaser.Math.Clamp(92 + highlight.length * 8, 150, 260);
+      const bg = this.add
+        .rectangle(cursorX, y + Math.floor(index / 3) * 38, width, chipHeight, 0x0f2b3e, 0.92)
+        .setOrigin(0, 0)
+        .setStrokeStyle(1, index === 0 ? 0xfff2a8 : 0x6fcfff, index === 0 ? 0.62 : 0.34);
+      const text = this.add.text(cursorX + width / 2, y + 7 + Math.floor(index / 3) * 38, highlight, {
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "12px",
+        color: index === 0 ? "#fff2a8" : "#d8fbff",
+        fontStyle: "bold"
+      }).setOrigin(0.5, 0);
+      this.overlayContainer.add([bg, text]);
+      this.overlayButtons.push(bg, text);
+      this.deepExtractionResultState.revealTargets.push(bg, text);
+      cursorX += width + 12;
+      if (index === 2) {
+        cursorX = x;
+      }
+    });
+  }
+
+  createDeepExtractionContinueButton(payload) {
+    const state = this.deepExtractionResultState;
+    const color = payload.mode === "emergency" ? 0xff73f6 : 0x6fcfff;
+    const panel = this.add
+      .rectangle(358, 280, 250, 50, 0x10283d, 0.78)
+      .setStrokeStyle(2, color, 0.32)
+      .setInteractive({ useHandCursor: true });
+    const label = this.add.text(358, 281, "CONTINUE", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "20px",
+      color: "#ecfaff",
+      fontStyle: "bold"
+    }).setOrigin(0.5);
+    const hint = this.add.text(358, 313, "Enter / Space / Tap", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "11px",
+      color: "#81b6c7",
+      fontStyle: "bold"
+    }).setOrigin(0.5);
+    panel.on("pointerover", () => {
+      if (state.continueEnabled) {
+        panel.setFillStyle(0x1b3e5a, 0.94).setStrokeStyle(2, color, 0.76);
+      }
+    });
+    panel.on("pointerout", () => {
+      panel.setFillStyle(0x10283d, 0.78).setStrokeStyle(2, color, state.continueEnabled ? 0.52 : 0.26);
+    });
+    this.overlayContainer.add([panel, label, hint]);
+    this.overlayButtons.push(panel, label, hint);
+    state.revealTargets.push(panel, label, hint);
+    this.addOverlayAction(panel, () => this.closeDeepExtractionResultOverlay(), true, 6);
+    state.continuePanel = panel;
+    state.continueLabel = label;
+  }
+
+  registerDeepExtractionResultKeyboard() {
+    const state = this.deepExtractionResultState;
+    if (!state) {
+      return;
+    }
+    if (state.keyHandler) {
+      this.input?.keyboard?.off("keydown", state.keyHandler);
+    }
+    state.keyHandler = (event) => {
+      if (!state.active || !state.continueEnabled || state.closing) {
+        return;
+      }
+      if (event.key !== "Enter" && event.key !== " " && event.code !== "Space") {
+        return;
+      }
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      this.closeDeepExtractionResultOverlay();
+    };
+    this.input?.keyboard?.on("keydown", state.keyHandler);
+  }
+
+  animateDeepExtractionResult(payload) {
+    const state = this.deepExtractionResultState;
+    if (!state) {
+      return;
+    }
+    state.revealTargets.forEach((target, index) => {
+      if (!target?.setAlpha) {
+        return;
+      }
+      target.setAlpha(0);
+      const tween = this.tweens.add({
+        targets: target,
+        alpha: 1,
+        delay: Math.min(720, index * DEEP_EXTRACTION_RESULT_CONFIG.revealStaggerMs),
+        duration: 180,
+        ease: "Sine.easeOut"
+      });
+      state.tweens.push(tween);
+    });
+    state.countUpTargets.forEach((entry, index) => {
+      const tweenState = { value: 0 };
+      const tween = this.tweens.add({
+        targets: tweenState,
+        value: entry.value,
+        delay: 160 + index * 90,
+        duration: entry.duration,
+        ease: "Cubic.easeOut",
+        onUpdate: () => entry.text?.setText(entry.formatter(tweenState.value)),
+        onComplete: () => entry.text?.setText(entry.formatter(entry.value))
+      });
+      state.tweens.push(tween);
+    });
+    const enableTimer = this.time.delayedCall(DEEP_EXTRACTION_RESULT_CONFIG.continueDelayMs, () => {
+      if (!this.deepExtractionResultState?.active) {
+        return;
+      }
+      this.deepExtractionResultState.continueEnabled = true;
+      this.deepExtractionResultState.continuePanel?.setStrokeStyle(2, (DEEP_EXTRACTION_GRADE_META[payload.grade] || DEEP_EXTRACTION_GRADE_META.C).color, 0.62);
+      this.deepExtractionResultState.continueLabel?.setColor("#ffffff");
+    });
+    state.timers.push(enableTimer);
+  }
+
+  closeDeepExtractionResultOverlay() {
+    const state = this.deepExtractionResultState;
+    if (!state?.active || state.closing || !state.continueEnabled) {
+      return;
+    }
+    state.closing = true;
+    const debugPreview = Boolean(state.payload?.debugPreview);
+    this.levelUpActive = false;
+    const tween = this.tweens.add({
+      targets: [this.overlayContainer, this.overlayBackdrop],
+      alpha: 0,
+      duration: 180,
+      ease: "Sine.easeIn",
+      onComplete: () => {
+        this.hideOverlay();
+        if (debugPreview) {
+          this.showPreGameShop(this.shopStatusMessage || "");
+          return;
+        }
+        this.showExtractionRankingOverlayOrReturn();
+      }
+    });
+    state.tweens.push(tween);
+  }
+
+  cleanupDeepExtractionResultOverlay(reason = "cleanup") {
+    const state = this.deepExtractionResultState;
+    if (!state) {
+      return;
+    }
+    if (state.keyHandler) {
+      this.input?.keyboard?.off("keydown", state.keyHandler);
+    }
+    (state.timers || []).forEach((timer) => timer?.remove?.(false));
+    (state.tweens || []).forEach((tween) => tween?.remove?.());
+    this.deepExtractionResultState = this.createDeepExtractionResultState();
+    if (this.isDeepExtractionResultDebugEnabled()) {
+      console.log("[DEEP RESULT] cleanup", { reason });
+    }
   }
 
   showExtractionCompleteOverlay(result, emergency, lostArmsMessage = "", anjuMemoryAward = null) {
@@ -14161,6 +17041,7 @@ class SurvivalScene extends Phaser.Scene {
     this.updateMobileControlsVisibility();
     this.tryOpenQueuedLostArmsEvolutionSelection();
     this.tryOpenPendingOverdriveModSelection();
+    this.tryOpenPendingDepthDirectiveSelection();
 
     if (this.gameOver) {
       if (!this.rankingNameEntryActive && (
@@ -14189,6 +17070,8 @@ class SurvivalScene extends Phaser.Scene {
     this.shootTimer += delta;
     this.updateOverdrive(delta);
     this.updateOverdriveMod(delta, time);
+    this.updateDepthDirective(delta, time);
+    this.updateNemesisBoss(time, delta);
     this.updateBossSpawns();
     this.updateGateTimer(delta);
 
@@ -16672,6 +19555,9 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   updateBossSpawns() {
+    if (this.getActiveNemesisBoss() || this.nemesisBossState?.pendingWarning) {
+      return;
+    }
     if (this.waveBossSpawned || this.getActiveWaveBoss()) {
       return;
     }
@@ -16742,6 +19628,283 @@ class SurvivalScene extends Phaser.Scene {
     };
   }
 
+  isGeekMilestoneDebugEnabled() {
+    const value = this.getUrlStageParam(GEEK_MILESTONE_DEBUG_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  getGeekMilestoneForDepth(depth = this.stageDepth || 1) {
+    const normalizedDepth = Math.max(1, Math.floor(Number(depth) || 1));
+    if (normalizedDepth < GEEK_MILESTONE_BONUS_CONFIG.unlockDepth) {
+      return null;
+    }
+
+    const milestones = GEEK_MILESTONE_BONUS_CONFIG.milestones || [];
+    let active = null;
+    milestones.forEach((milestone) => {
+      const milestoneDepth = Math.max(1, Math.floor(Number(milestone.depth) || 1));
+      if (milestoneDepth <= normalizedDepth && (!active || milestoneDepth > active.depth)) {
+        active = { ...milestone, depth: milestoneDepth };
+      }
+    });
+    return active;
+  }
+
+  getGeekMilestoneAtDepth(depth = this.stageDepth || 1) {
+    const normalizedDepth = Math.max(1, Math.floor(Number(depth) || 1));
+    const milestone = (GEEK_MILESTONE_BONUS_CONFIG.milestones || [])
+      .find((entry) => Math.max(1, Math.floor(Number(entry.depth) || 1)) === normalizedDepth);
+    return milestone ? { ...milestone, depth: normalizedDepth } : null;
+  }
+
+  getGeekMilestoneBonusAdd(depth = this.stageDepth || 1) {
+    const milestone = this.getGeekMilestoneForDepth(depth);
+    if (!milestone) {
+      return 0;
+    }
+    return Phaser.Math.Clamp(
+      Number(milestone.geekMultiplierAdd) || 0,
+      0,
+      GEEK_MILESTONE_BONUS_CONFIG.maxMilestoneAdd
+    );
+  }
+
+  getNextGeekMilestone(depth = this.stageDepth || 1) {
+    const normalizedDepth = Math.max(1, Math.floor(Number(depth) || 1));
+    const milestone = (GEEK_MILESTONE_BONUS_CONFIG.milestones || [])
+      .map((entry) => ({ ...entry, depth: Math.max(1, Math.floor(Number(entry.depth) || 1)) }))
+      .filter((entry) => entry.depth > normalizedDepth)
+      .sort((left, right) => left.depth - right.depth)[0];
+    return milestone || null;
+  }
+
+  formatGeekMilestoneAdd(value = 0) {
+    const normalized = Math.max(0, Number(value) || 0);
+    return `+${normalized.toFixed(2)}`;
+  }
+
+  getGeekMultiplierBreakdown(source = "run", options = {}) {
+    const depth = Math.max(1, Math.floor(Number(options.depth ?? this.stageDepth) || 1));
+    const instabilityStacks = Math.max(0, Math.floor(Number(options.instabilityStacks ?? this.gateInstabilityStacks) || 0));
+    const depthScaling = this.getDepthScaling(depth);
+    const instabilityScaling = this.getInstabilityScaling(instabilityStacks);
+    const milestone = this.getGeekMilestoneForDepth(depth);
+    const baseMultiplier = Math.max(0, Number(depthScaling.coinAmount) || 0);
+    const instabilityAdd = Math.max(0, Number(instabilityScaling.coinBonus) || 0);
+    const milestoneAdd = this.getGeekMilestoneBonusAdd(depth);
+    const contractAdd = options.includeContract === false ? 0 : Math.max(0, Number(this.getAnomalyGeekMultiplierAdd()) || 0);
+    const sourceMultiplier = Math.max(0, Number(options.sourceMultiplier ?? 1) || 0);
+    const finalAdditiveMultiplier = Math.max(0, baseMultiplier + instabilityAdd + milestoneAdd + contractAdd);
+    const finalMultiplier = Math.max(0, finalAdditiveMultiplier * (sourceMultiplier || 1));
+
+    return {
+      source,
+      depth,
+      baseMultiplier,
+      depthAdd: Math.max(0, baseMultiplier - 1),
+      instabilityAdd,
+      milestoneAdd,
+      contractAdd,
+      sourceMultiplier: sourceMultiplier || 1,
+      finalAdditiveMultiplier,
+      finalMultiplier,
+      milestone,
+      nextMilestone: this.getNextGeekMilestone(depth)
+    };
+  }
+
+  formatGeekMultiplierBreakdown(breakdown = this.getGeekMultiplierBreakdown()) {
+    const parts = [
+      `base x${(Number(breakdown.baseMultiplier) || 0).toFixed(2)}`,
+      `instability ${this.formatGeekMilestoneAdd(breakdown.instabilityAdd)}`,
+      `milestone ${this.formatGeekMilestoneAdd(breakdown.milestoneAdd)}`,
+      `contract ${this.formatGeekMilestoneAdd(breakdown.contractAdd)}`
+    ];
+    if ((Number(breakdown.sourceMultiplier) || 1) !== 1) {
+      parts.push(`source x${(Number(breakdown.sourceMultiplier) || 1).toFixed(2)}`);
+    }
+    parts.push(`final x${(Number(breakdown.finalMultiplier) || 0).toFixed(2)}`);
+    return parts.join(" / ");
+  }
+
+  getGeekMilestoneHudStrings(coinScaling = this.getCurrentCoinScaling()) {
+    const amount = Math.max(0, Number(coinScaling?.amount) || 0);
+    const milestone = coinScaling?.milestone || this.getGeekMilestoneForDepth();
+    const nextMilestone = coinScaling?.nextMilestone || this.getNextGeekMilestone();
+    if (!milestone) {
+      return {
+        multiplierText: `GEEK x${amount.toFixed(2)}${coinScaling?.contractBonus > 0 ? " + CONTRACT" : ""}`,
+        gateSuffix: ""
+      };
+    }
+
+    const contractText = coinScaling?.contractBonus > 0 ? " +C" : "";
+    const currentText = `${milestone.shortLabel}${this.formatGeekMilestoneAdd(milestone.geekMultiplierAdd)}`;
+    const nextText = nextMilestone ? ` / NEXT ${nextMilestone.shortLabel}` : " / MAX";
+    return {
+      multiplierText: `GEEK x${amount.toFixed(2)} ${currentText}${contractText}`,
+      gateSuffix: nextText
+    };
+  }
+
+  getCurrentGeekMilestoneGateLine(coinScaling = this.getCurrentCoinScaling()) {
+    const milestone = coinScaling?.milestone || this.getGeekMilestoneForDepth();
+    if (!milestone) {
+      return "";
+    }
+    return `\nGEEK MILESTONE: ${milestone.title} ${this.formatGeekMilestoneAdd(milestone.geekMultiplierAdd)}`;
+  }
+
+  getGateGeekMilestoneHint(targetDepth = (this.stageDepth || 1) + 1) {
+    const currentDepth = Math.max(1, Math.floor(Number(this.stageDepth) || 1));
+    const exactMilestone = this.getGeekMilestoneAtDepth(targetDepth);
+    if (exactMilestone) {
+      return {
+        exact: true,
+        buttonLine: `NEXT DEPTH ${targetDepth} BONUS\n${exactMilestone.title}: GEEK ${this.formatGeekMilestoneAdd(exactMilestone.geekMultiplierAdd)}`,
+        bodyLine: `\nNEXT BONUS: ${exactMilestone.shortLabel} ${exactMilestone.title}`,
+        accent: 0xf0c463
+      };
+    }
+
+    if (currentDepth < GEEK_MILESTONE_BONUS_CONFIG.unlockDepth) {
+      return { exact: false, buttonLine: "", bodyLine: "", accent: 0x6fcfff };
+    }
+
+    const nextMilestone = this.getNextGeekMilestone(currentDepth);
+    if (nextMilestone) {
+      return {
+        exact: false,
+        buttonLine: `NEXT GEEK MILESTONE: ${nextMilestone.shortLabel} ${this.formatGeekMilestoneAdd(nextMilestone.geekMultiplierAdd)}`,
+        bodyLine: `\nNEXT GEEK MILESTONE: ${nextMilestone.shortLabel}`,
+        accent: 0x6fcfff
+      };
+    }
+
+    const activeMilestone = this.getGeekMilestoneForDepth(targetDepth);
+    return activeMilestone
+      ? {
+        exact: false,
+        buttonLine: `MAX MILESTONE: ${activeMilestone.shortLabel} CORE`,
+        bodyLine: `\nMAX GEEK MILESTONE: ${activeMilestone.title}`,
+        accent: 0xf0c463
+      }
+      : { exact: false, buttonLine: "", bodyLine: "", accent: 0x6fcfff };
+  }
+
+  notifyGeekMilestoneForDepth(depth = this.stageDepth || 1, reason = "depthStart") {
+    const milestone = this.getGeekMilestoneAtDepth(depth);
+    if (!milestone) {
+      return false;
+    }
+    if (!this.geekMilestoneState) {
+      this.geekMilestoneState = { shownDepthsThisRun: {} };
+    }
+    const key = String(milestone.depth);
+    if (this.geekMilestoneState.shownDepthsThisRun?.[key]) {
+      return false;
+    }
+
+    this.geekMilestoneState.shownDepthsThisRun[key] = true;
+    this.geekMilestoneState.lastActiveMilestoneId = milestone.id;
+    this.showGeekMilestoneNotice(milestone);
+    this.updateDepthHud?.();
+    if (this.isGeekMilestoneDebugEnabled()) {
+      console.log("[GEEK MILESTONE] unlocked", {
+        reason,
+        depth: milestone.depth,
+        id: milestone.id,
+        add: milestone.geekMultiplierAdd
+      });
+    }
+    return true;
+  }
+
+  showGeekMilestoneNotice(milestone) {
+    if (!milestone || !this.add) {
+      return;
+    }
+
+    this.cleanupGeekMilestoneNotice("replace");
+    const container = this.add
+      .container(GAME_WIDTH / 2, 210)
+      .setScrollFactor(0)
+      .setDepth(895)
+      .setAlpha(0);
+    const panel = this.add.graphics();
+    panel.fillStyle(0x04101a, 0.86);
+    panel.fillRoundedRect(-262, -54, 524, 108, 8);
+    panel.lineStyle(2, 0x6fcfff, 0.48);
+    panel.strokeRoundedRect(-262, -54, 524, 108, 8);
+    panel.lineStyle(1, 0xf0c463, 0.26);
+    panel.lineBetween(-236, 20, 236, 20);
+    panel.fillStyle(0x6fcfff, 0.10);
+    panel.fillTriangle(-248, -42, -104, -42, -248, -8);
+    panel.fillTriangle(248, 42, 104, 42, 248, 8);
+    const ring = this.add.graphics();
+    ring.lineStyle(3, 0xf0c463, 0.56);
+    ring.strokeCircle(-206, 0, 30);
+    ring.lineStyle(2, 0x6fcfff, 0.42);
+    ring.strokeCircle(-206, 0, 18);
+    const title = this.add.text(-160, -35, `${milestone.title} ONLINE`, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "24px",
+      color: "#ecfaff",
+      fontStyle: "bold"
+    });
+    const bonus = this.add.text(-160, -5, `GEEK MILESTONE ${this.formatGeekMilestoneAdd(milestone.geekMultiplierAdd)}`, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "17px",
+      color: "#f0c463",
+      fontStyle: "bold"
+    });
+    const description = this.add.text(-160, 24, milestone.description || "Deep layer GEEK multiplier increased.", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "12px",
+      color: "#9fc9df",
+      fontStyle: "bold"
+    });
+    container.add([panel, ring, title, bonus, description]);
+    this.geekMilestoneState.noticeContainer = container;
+    this.geekMilestoneState.noticeTweens = [
+      this.tweens.add({
+        targets: container,
+        alpha: 1,
+        y: 190,
+        duration: 220,
+        ease: "Cubic.Out"
+      }),
+      this.tweens.add({
+        targets: ring,
+        rotation: Math.PI * 2,
+        duration: 1400,
+        repeat: -1,
+        ease: "Linear"
+      })
+    ];
+    this.geekMilestoneState.noticeTimer = this.time.delayedCall(
+      GEEK_MILESTONE_BONUS_CONFIG.noticeMs,
+      () => this.cleanupGeekMilestoneNotice("timeout")
+    );
+    this.setLastPickupNotice(`GEEK MILESTONE ${milestone.title} ${this.formatGeekMilestoneAdd(milestone.geekMultiplierAdd)}`);
+  }
+
+  cleanupGeekMilestoneNotice(reason = "cleanup") {
+    const state = this.geekMilestoneState;
+    if (!state) {
+      return;
+    }
+    state.noticeTimer?.remove?.(false);
+    state.noticeTimer = null;
+    (state.noticeTweens || []).forEach((tween) => tween?.remove?.());
+    state.noticeTweens = [];
+    state.noticeContainer?.destroy?.();
+    state.noticeContainer = null;
+    if (this.isGeekMilestoneDebugEnabled?.() && reason !== "timeout") {
+      console.log("[GEEK MILESTONE] notice cleanup", { reason });
+    }
+  }
+
   getInstabilityScaling(stack = this.gateInstabilityStacks || 0) {
     const normalizedStack = Math.max(0, Math.floor(Number(stack) || 0));
     const matched = GATE_INSTABILITY_SCALING_TABLE.find((entry) => normalizedStack >= entry.minStack);
@@ -16770,9 +19933,8 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getCurrentCoinScaling() {
-    const depthScaling = this.getDepthScaling(this.stageDepth);
+    const breakdown = this.getGeekMultiplierBreakdown("run");
     const instabilityScaling = this.getInstabilityScaling(this.gateInstabilityStacks);
-    const contractBonus = this.getAnomalyGeekMultiplierAdd();
     const baseEmergencyExtractRate = Phaser.Math.Clamp(
       instabilityScaling.extractRate + this.getAnomalyEmergencyExtractProtectionAdd(),
       0,
@@ -16788,28 +19950,67 @@ class SurvivalScene extends Phaser.Scene {
       : baseEmergencyExtractRate;
     const emergencyExtractRate = Math.max(baseEmergencyExtractRate, anchoredRate);
     return {
-      amount: depthScaling.coinAmount + instabilityScaling.coinBonus + contractBonus,
-      contractBonus,
+      amount: breakdown.finalAdditiveMultiplier,
+      baseMultiplier: breakdown.baseMultiplier,
+      instabilityBonus: breakdown.instabilityAdd,
+      milestoneBonus: breakdown.milestoneAdd,
+      contractBonus: breakdown.contractAdd,
+      milestone: breakdown.milestone,
+      nextMilestone: breakdown.nextMilestone,
+      breakdown,
       emergencyExtractRate,
       stabilizeProtectionBonus
     };
   }
 
-  scaleRunCoinReward(baseAmount) {
+  recordRunPeakGeekMultiplier(multiplier = 1) {
+    if (!this.runStats) {
+      return 1;
+    }
+
+    const normalized = Math.max(0, Number(multiplier) || 0);
+    this.runStats.peakGeekMultiplier = Math.max(
+      Number(this.runStats.peakGeekMultiplier) || 1,
+      normalized || 1
+    );
+    return this.runStats.peakGeekMultiplier;
+  }
+
+  calculateUnsecuredGeekReward(baseAmount, source = "run", options = {}) {
     const amount = this.normalizeCoinAmount(baseAmount);
     if (amount <= 0) {
       return 0;
     }
 
-    return Math.max(1, Math.round(amount * this.getCurrentCoinScaling().amount));
+    const breakdown = this.getGeekMultiplierBreakdown(source, options);
+    const finalGeek = this.normalizeCoinAmount(Math.max(1, Math.round(amount * breakdown.finalMultiplier)));
+    this.recordRunPeakGeekMultiplier(breakdown.finalMultiplier);
+    if (this.isGeekMilestoneDebugEnabled()) {
+      console.log("[GEEK MILESTONE]", {
+        source,
+        baseGeek: amount,
+        depth: breakdown.depth,
+        baseMultiplier: breakdown.baseMultiplier,
+        instabilityAdd: breakdown.instabilityAdd,
+        milestoneAdd: breakdown.milestoneAdd,
+        contractAdd: breakdown.contractAdd,
+        sourceMultiplier: breakdown.sourceMultiplier,
+        finalMultiplier: breakdown.finalMultiplier,
+        finalGeek,
+        milestone: breakdown.milestone?.title || null
+      });
+    }
+    return finalGeek;
+  }
+
+  scaleRunCoinReward(baseAmount, options = {}) {
+    return this.calculateUnsecuredGeekReward(baseAmount, options.source || "run", options);
   }
 
   scaleValueDropCoinReward(baseAmount) {
-    const amount = this.scaleRunCoinReward(baseAmount);
-    if (amount <= 0) {
-      return 0;
-    }
-    return Math.max(1, Math.round(amount * this.getAnomalyValueDropGeekMultiplier()));
+    return this.calculateUnsecuredGeekReward(baseAmount, "valueDrop", {
+      sourceMultiplier: this.getAnomalyValueDropGeekMultiplier()
+    });
   }
 
   getActiveEnemyCount() {
@@ -18244,6 +21445,7 @@ class SurvivalScene extends Phaser.Scene {
     this.invincibleUntil = this.time.now + 900;
     const finalAmount = Math.max(0, Math.round((Number(amount) || 0) * this.getOverdriveModDamageTakenMultiplier()));
     this.stats.hp = Math.max(0, this.stats.hp - finalAmount);
+    this.handleDepthDirectivePlayerDamage(finalAmount);
 
     this.tweens.add({
       targets: this.damageFlash,
@@ -18296,22 +21498,30 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     enemy.isDying = true;
+    const isNemesis = this.isNemesisBoss(enemy);
     this.runStats.kills += 1;
     if (enemy.isElite) {
       this.runStats.eliteKills += 1;
     }
-    if (enemy.isBoss) {
+    if (enemy.isBoss && !isNemesis) {
+      this.runStats.bossKills = (this.runStats.bossKills || 0) + 1;
       this.advanceWaveAfterBossKill(enemy);
     }
+    this.handleDepthDirectiveEnemyKilled(enemy);
     this.spawnXpOrb(enemy.x, enemy.y, enemy.xpValue);
     this.spawnEnemyDefeatEffect(enemy.x, enemy.y);
-    const guaranteedDropsSpawned = this.spawnGuaranteedEnemyDrops(enemy);
+    const guaranteedDropsSpawned = enemy.suppressGuaranteedDrops ? true : this.spawnGuaranteedEnemyDrops(enemy);
     if (!guaranteedDropsSpawned) {
       this.trySpawnRareItem(enemy);
     }
     this.trySpawnSpecialItem(enemy);
     this.trySpawnRobotBossDrop(enemy);
-    this.trySpawnLostArmDrop(enemy);
+    if (!enemy.suppressGuaranteedDrops) {
+      this.trySpawnLostArmDrop(enemy);
+    }
+    if (isNemesis) {
+      this.handleNemesisBossDefeated(enemy);
+    }
     enemy.clearTint();
     this.tweens.killTweensOf(enemy);
     this.tweens.killTweensOf(enemy.eliteAura);
@@ -19337,6 +22547,7 @@ class SurvivalScene extends Phaser.Scene {
     const baseCoinValue = this.normalizeCoinAmount(item.coinValue ?? this.scaleRunCoinReward(definition.coinValue));
     const coinValue = this.applyOverdriveModGeekMultiplier(baseCoinValue, "value");
     this.gainExperience(xpValue);
+    this.handleDepthDirectiveValueDropCollected(definition, item);
     this.setLastPickupNotice(`${definition.label.toUpperCase()} +${xpValue} XP / +${coinValue.toLocaleString()} GEEK UNSECURED`);
     this.addRunCoin(coinValue);
     this.spawnRareItemPickupEffect(playerHitbox.x, playerHitbox.y - 10, definition);
@@ -19424,6 +22635,7 @@ class SurvivalScene extends Phaser.Scene {
     });
     const armId = item.armId;
     const isResonanceEcho = item.isResonanceEcho || item.resonancePickupType === LOST_ARMS_RESONANCE_CONFIG.echoPickupType;
+    this.handleDepthDirectiveLostArmPickup(armId, isResonanceEcho);
     this.destroyLostArmItem(item);
     if (isResonanceEcho) {
       this.pickupLostArmsResonanceEcho(armId);
@@ -19703,6 +22915,7 @@ class SurvivalScene extends Phaser.Scene {
 
   pickSupportAttackDefinition() {
     const canTriggerGensoKnights = !this.isGensoKnightsEventActive()
+      && !this.getActiveNemesisBoss()
       && !(this.activeSupportAttacks?.length)
       && this.lastSupportAttackId !== GENSO_KNIGHTS_SUPPORT_DEFINITION.id;
 
@@ -23234,6 +26447,10 @@ class SurvivalScene extends Phaser.Scene {
       return this.buildOverdriveModCardModel(option, index);
     }
 
+    if (option?.type === "depthDirective") {
+      return this.buildDepthDirectiveCardModel(option, index);
+    }
+
     if (option?.type === "skill") {
       const meta = this.getSkillUiMeta(option.skillId);
       const maxStage = this.getSkillMaxStage(option.definition);
@@ -23346,6 +26563,45 @@ class SurvivalScene extends Phaser.Scene {
       glowColor: mod.glowColor || mod.themeColor || typeMeta.color,
       accentColor: mod.accentColor || this.colorToCss(mod.themeColor || typeMeta.color),
       iconTone: mod.iconTone || "MOD",
+      iconTextureKey: null
+    };
+  }
+
+  buildDepthDirectiveCardModel(option, index) {
+    const directive = option.directive || this.getDepthDirectiveDefinition(option.directiveId) || {};
+    const typeMeta = LEVEL_UP_CARD_TYPE_META.depthDirective;
+    const targetDepth = Math.max(1, Math.floor(Number(option.targetDepth) || this.stageDepth || 1));
+    const target = this.getDepthDirectiveTarget(directive, targetDepth);
+    const chips = (directive.chips || []).slice(0, 5).map((label, chipIndex) => ({
+      label,
+      priority: 120 - chipIndex
+    }));
+    if (directive.id === "cleanSweep") {
+      chips.unshift({ label: `TARGET ${target} KILLS`, priority: 130 });
+    } else if (directive.id === "bossHunter") {
+      chips.unshift({ label: `TARGET ${target} STRONG FOES`, priority: 130 });
+    } else if (directive.id === "dataRecovery") {
+      chips.unshift({ label: `BEACON x${target}`, priority: 130 });
+    }
+
+    return {
+      option,
+      index,
+      kind: "skill",
+      cardType: "depthDirective",
+      typeLabel: typeMeta.label,
+      typeColor: directive.themeColor || typeMeta.color,
+      typeTextColor: typeMeta.textColor,
+      title: directive.title || option.title || "DEPTH DIRECTIVE",
+      stageLabel: directive.subtitle || `Depth ${targetDepth} only`,
+      description: directive.objective || option.description || "Depth内の短期指令を選択",
+      stageProgress: Array.from({ length: DEPTH_DIRECTIVE_CONFIG.choicesPerDepth }, () => "●").join(""),
+      chips,
+      newEffects: [directive.rewardLabel || "REWARD"],
+      themeColor: directive.themeColor || typeMeta.color,
+      glowColor: directive.glowColor || directive.themeColor || typeMeta.color,
+      accentColor: directive.accentColor || this.colorToCss(directive.themeColor || typeMeta.color),
+      iconTone: directive.iconTone || "TASK",
       iconTextureKey: null
     };
   }
@@ -23633,6 +26889,9 @@ class SurvivalScene extends Phaser.Scene {
     this.resetStabilizeProtocolState(reason);
     this.resetLostArmsResonanceState(reason);
     this.resetOverdriveModState(reason);
+    this.resetDepthDirectiveState(reason);
+    this.resetNemesisBossState(reason);
+    this.cleanupGeekMilestoneNotice(reason);
     this.resetOverflowRewardState();
     this.lastGameOverReason = { reason, lostCoins, lostArmsMessage };
     this.setRunRankingExtractionStats("none", 0, false);
@@ -23769,6 +27028,9 @@ class SurvivalScene extends Phaser.Scene {
     this.resetStabilizeProtocolState("returnToOpeningShop");
     this.resetLostArmsResonanceState("returnToOpeningShop");
     this.resetOverdriveModState("returnToOpeningShop");
+    this.resetDepthDirectiveState("returnToOpeningShop");
+    this.resetNemesisBossState("returnToOpeningShop");
+    this.cleanupGeekMilestoneNotice("returnToOpeningShop");
     this.resetOverflowRewardState();
     this.overlayActions = [];
     this.releaseMobileControlPointers?.();
@@ -24608,6 +27870,15 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
+    if (this.levelUpSelectionMode === "depthDirective") {
+      if (this.gameOver) {
+        return;
+      }
+
+      this.finishDepthDirectiveSelectionOverlay();
+      return;
+    }
+
     if (this.levelUpSelectionMode === "lostArmsEvolution") {
       if (this.gameOver) {
         return;
@@ -24767,6 +28038,7 @@ class SurvivalScene extends Phaser.Scene {
     this.teardownGateChoiceOverlay();
     this.teardownAnomalyContractOverlay();
     this.teardownStabilizeProtocolOverlay();
+    this.cleanupDeepExtractionResultOverlay("clearOverlay");
     this.overlayButtons.forEach((item) => item.destroy());
     this.overlayButtons = [];
     this.overlayActions = [];
@@ -24923,10 +28195,11 @@ class SurvivalScene extends Phaser.Scene {
       tensionColor = stabilizeProtocolLine.startsWith("ANCHOR") ? "#d6c2ff" : "#b8fbff";
     }
 
+    const milestoneHud = this.getGeekMilestoneHudStrings(coinScaling);
     this.hudDepthText.setText(`DEPTH ${this.stageDepth || 1}`);
     this.hudUnsecuredCoinText?.setText(`UNSECURED GEEK ${this.normalizeCoinAmount(this.runUnsecuredCoins).toLocaleString()}`);
-    this.hudCoinMultiplierText?.setText(`GEEK x${coinScaling.amount.toFixed(2)}${coinScaling.contractBonus > 0 ? " + CONTRACT" : ""}`);
-    this.hudGateText?.setText(gateText);
+    this.hudCoinMultiplierText?.setText(milestoneHud.multiplierText);
+    this.hudGateText?.setText(`${gateText}${milestoneHud.gateSuffix}`);
     this.hudGateText?.setColor(gateColor);
     this.hudInstabilityText?.setText(tensionText);
     this.hudInstabilityText?.setColor(tensionColor);
@@ -24958,6 +28231,8 @@ class SurvivalScene extends Phaser.Scene {
     this.updateDepthHud();
     this.updateOverflowHud();
     this.updateAnomalyContractHud();
+    this.updateDepthDirectiveHud();
+    this.updateNemesisBossHud();
 
     const specialCounts = {
       heal: this.countActiveSpecialItems("heal"),

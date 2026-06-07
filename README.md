@@ -64,6 +64,20 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - 通常ゲームオーバー、Depth 5 までの Gate 崩壊では未確定 GEEK を失います。
 - Depth 6 以降の不安定 Gate では、緊急脱出時に未確定 GEEK の一部だけを確定できます。
 
+Depth 6 以降では `GEEK MILESTONE BONUS` が解禁され、Depth / 不安定度 / ANOMALY CONTRACT の既存 GEEK 係数に加算されます。これはラン中に獲得する未確定 GEEK の補正であり、確定 GEEK、ショップ通貨、`lastmemoVansabaCoins` を直接増やすものではありません。
+
+GEEK MILESTONE BONUS:
+
+- Depth6 `DEEP SIGNAL`: GEEK 係数 +0.15
+- Depth8 `VOID RESONANCE`: GEEK 係数 +0.30
+- Depth10 `ANJU MEMORY FIELD`: GEEK 係数 +0.50
+- Depth12 `SINGULARITY GATE`: GEEK 係数 +0.75
+- Depth15 `LASTMEMO DEEP CORE`: GEEK 係数 +1.10
+
+節目ボーナスは到達済み最大節目だけが有効です。Depth10 では +0.50 が適用され、Depth6 / Depth8 の値をさらに足しません。`ANJU MEMORY FIELD` は名称上の演出で、ANJU MEMORY 通貨を直接増やす効果ではありません。
+
+適用対象は Bronze / Silver / Gold の未確定 GEEK 成分に加え、OVERDRIVE / STABILIZE overflow、DEPTH DIRECTIVE、NEMESIS BOSS、LOST ARMS RESONANCE overflow など `scaleRunCoinReward()` 経由で計算されるラン内未確定 GEEK 報酬です。DATA CACHE は生成時点で milestone 込みの絶対値 payload を持つ場合のみ反映され、回収時には再計算しません。
+
 互換性維持のため、確定 GEEK の localStorage キー名は `lastmemoVansabaCoins` のままです。
 
 ## アイテムと報酬
@@ -81,7 +95,7 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - Robot: 随伴ロボットの本体レベルやチューニングを強化します。
 - LOST ARMS コア: レア武器のラン内仮強化です。
 
-Bronze / Silver / Gold の獲得 GEEK 量は Depth と Gate 不安定度で増加します。旧仕様の単独 GEEK オーブや、GEEK だけを直接付与する通常ピックアップは使っていません。
+Bronze / Silver / Gold の獲得 GEEK 量は Depth、Gate 不安定度、GEEK MILESTONE BONUS、ANOMALY CONTRACT で増加します。XP 成分には GEEK MILESTONE BONUS は影響しません。旧仕様の単独 GEEK オーブや、GEEK だけを直接付与する通常ピックアップは使っていません。
 
 Gold Slime は Gold と Golden Tune Vase、Silver Slime は Silver と Silver Tune Vase を確定ドロップします。
 
@@ -102,7 +116,7 @@ Gold Slime は Gold と Golden Tune Vase、Silver Slime は Silver と Silver Tu
 
 上限を超えた場合、同カテゴリの報酬は可能な範囲で近いドロップへ統合され、優先度と報酬価値が低いものから整理されます。整理チェックはドロップ生成時と 1 秒ごとの安全クリーンアップで走ります。
 
-Depth 遷移時には、地面に残っている XP / Bronze / Silver / Gold / DATA CACHE の報酬量を集計し、XP と未確定 GEEK の 25% を DATA CACHE として再配置します。報酬量や元ドロップ数に応じて 1 から 3 個に分割されます。
+Depth 遷移時には、地面に残っている XP / Bronze / Silver / Gold / DATA CACHE の報酬量を集計し、XP と未確定 GEEK の 25% を DATA CACHE として再配置します。報酬量や元ドロップ数に応じて 1 から 3 個に分割されます。DATA CACHE は生成時点の絶対値 payload を保持するため、回収時に GEEK MILESTONE BONUS を再適用しません。
 
 ## XP、レベルアップ、Overflow 報酬
 
@@ -186,6 +200,16 @@ Gate 接近演出:
 
 Depth 5 までに Gate を放置すると崩壊してゲームオーバーになります。Depth 6 以降では崩壊の代わりに不安定度が蓄積し、敵 HP、敵攻撃力、GEEK 係数、緊急脱出率に影響します。
 
+Depth6、8、10、12、15 に入ると `GEEK MILESTONE` 通知が短く表示されます。HUD の GEEK 係数には現在の節目が `D8+0.30` のように併記され、Gate 表示では次の節目がある場合に `NEXT D10`、節目到達直前の NEXT / FORCE カードでは `NEXT DEPTH 10 BONUS` のように表示されます。Depth15 以降は `MAX` / `D15 CORE` 表示になります。
+
+### DEEP EXTRACTION RESULT
+
+Depth 6 以降に通常 `EXTRACT` または `EMERGENCY EXTRACT` が成功すると、ランキング入力やショップ復帰の前に `DEEP EXTRACTION RESULT` が表示されます。通常抽出では `DEEP EXTRACTION RESULT`、緊急抽出では `EMERGENCY DEEP EXTRACTION / Partial data secured` として、到達 Depth、確定 GEEK、生存時間、撃破数、Elite / Boss、Instability、GEEK 最大倍率、ANJU MEMORY、LOST ARMS、NEMESIS、DEPTH DIRECTIVE、ベスト更新、Grade を表示します。
+
+この画面は演出と集計表示だけです。`secureRunCoins()` の確定額、緊急脱出の保護率、`lastmemoVansabaCoins`、`lastmemoVansabaExtractionMessage`、ランキング、Firebase 送信値は変更しません。Continue、Enter、Space、タップで既存のランキング入力または Opening Shop 復帰へ進みます。
+
+検証用に `?debugDeepResult=1` を付けると、Opening Shop 起動直後に保存なしのプレビュー結果画面を表示し、Depth 6 未満の抽出でも結果画面の発生条件を確認できます。デバッグ指定は表示条件だけを緩和し、GEEK / ANJU MEMORY / ランキング保存値は増やしません。
+
 ## ANOMALY CONTRACT
 
 Depth 6 以降へ `NEXT STAGE` または `FORCE BREAKTHROUGH` で進むと、次 Depth だけ有効な `ANOMALY CONTRACT` を 3 択から選びます。契約には `DANGER` と `REWARD` があり、契約状態はラン内だけの一時状態です。ショップ永続強化、確定 GEEK、localStorage には保存されません。
@@ -198,6 +222,40 @@ Depth 6 以降へ `NEXT STAGE` または `FORCE BREAKTHROUGH` で進むと、次
 - `OVERDRIVE CIRCUIT`: 敵移動速度 +8%、敵攻撃力 +6% / OVERDRIVE 獲得量 +40%、発動時間 +5 秒
 - `CACHE BLOOM`: 敵 HP +10%、敵攻撃力 +6% / DATA CACHE 圧縮率 +10%、DATA CACHE 内の未確定 GEEK +15%
 - `GOLD STORM`: 敵 HP +15%、ボス攻撃力 +10% / Gold Slime・Silver Slime 抽選重み x1.25、Bronze / Silver / Gold の未確定 GEEK +20%
+
+## DEPTH DIRECTIVE
+
+Depth 6 以降の各 Depth 開始時に、短期ミッション `DEPTH DIRECTIVE` を 3 択カードから 1 つ選びます。Depth 遷移と ANOMALY CONTRACT の有効化が完了したあとにキューされ、レベルアップ、Gate、STABILIZE PROTOCOL、OVERDRIVE MOD、LOST ARMS RESONANCE など別 overlay が開いている場合は、その overlay が閉じてから表示されます。
+
+DIRECTIVE はその Depth 中だけ有効なラン内一時状態です。localStorage / sessionStorage / Firebase には保存されず、抽出、緊急抽出、ゲームオーバー、ショップ復帰、リスタート、シーン破棄で未表示キュー、進捗、Beacon、Directive Slime、タイマーを破棄します。Gate 開放時点で未達成の DIRECTIVE は失敗します。
+
+DIRECTIVE 一覧:
+
+- `BOSS HUNTER`: Boss / Elite を撃破。Depth 6 は 1 体、Depth 7 以降は 2 体。報酬は LOST ARMS SIGNAL と未確定 GEEK。
+- `DATA RECOVERY`: Directive Beacon を 3 個回収。報酬は DATA CACHE。DATA CACHE が上限 3 個に達している場合は既存 CACHE へ payload を統合します。
+- `NO RETREAT`: Gate 開放時に HP 50% 以上を維持。報酬は STABILIZE +100% と未確定 GEEK。
+- `SLIME SIGNAL`: Depth 中に出現する Directive Slime を撃破。報酬は Gold cache と未確定 GEEK。Directive Slime の通常 Gold Slime 確定報酬と LOST ARMS 抽選は抑制します。
+- `CLEAN SWEEP`: 敵を `160 + (Depth - 6) x 12` 体撃破。報酬は OVERDRIVE +50% と未確定 GEEK。
+- `GATE ANCHOR`: Elite 1 体撃破、かつ Bronze / Silver / Gold を 8 個回収。報酬は次に開く Gate の安定時間 +8 秒と未確定 GEEK。
+- `RESONANCE HUNT`: LOST ARMS Core / RESONANCE ECHO を 1 個回収。報酬は対象 LOST ARMS の RESONANCE +1。候補がない場合は未確定 GEEK へ変換します。
+
+HUD 中央には active DIRECTIVE の名称、進捗、報酬が小さく表示されます。`?debugDepthDirective=1` を付けると Depth 1 から選択条件を確認でき、console に選択・完了・失敗ログが出ます。
+
+## NEMESIS BOSS
+
+Depth 6 以降では、各 Depth に最大 1 体だけ高 Depth 専用ボス `NEMESIS BOSS` が出現する可能性があります。出現抽選率は D6=25%、D7=35%、D8=45%、D9=55%、D10+=65% です。抽選に通った場合、Depth 開始から 45〜120 秒後に出現を試みます。
+
+NEMESIS は Gate が近すぎる場合、Gate が開いている場合、Gate 選択中、通常 wave boss が生存中、元素騎士イベント中、別 overlay 表示中には出現しません。overlay / 元素騎士 / 通常 boss で一時的に塞がれている場合は Gate まで余裕がある間だけ retry します。NEMESIS が warning / active の間は通常 wave boss の出現も遅延します。Gate が開いた時点で生存中の NEMESIS は cleanup され、Depth 遷移、抽出、緊急抽出、ゲームオーバー、ショップ復帰、リスタート、シーン破棄でも timers / tweens / marker / HP HUD を破棄します。
+
+使用素材は元素騎士イベントのモンスター boss 素材 3 体です。サポートキャラクター素材は使いません。
+
+- `NEMESIS BRUTE`: `画像/support/gensoKnights/boss_01.png`、既存 `boss_crack` の拡大型 shockwave。
+- `NEMESIS CASTER`: `画像/support/gensoKnights/boss_02.png`、既存 `boss_random_blast` の広域 rune blast。
+- `NEMESIS WRAITH`: `画像/support/gensoKnights/boss_03.png`、既存 `boss_lightning_dash` の広域 dash / lightning。
+
+撃破報酬は未確定 GEEK、Gold / Silver、STABILIZE +50%、Robot 追加抽選、LOST ARMS 追加抽選です。通常 boss と同じ `isBoss` 扱いで LOST ARMS / Robot の既存抽選にも乗りますが、wave boss 進行は進めません。DEPTH DIRECTIVE では `BOSS HUNTER` にカウントし、`CLEAN SWEEP` の通常敵撃破数には入りません。NEMESIS 状態はラン内一時状態で、localStorage / sessionStorage / Firebase には保存されません。
+
+検証用に `?debugNemesis=1` を付けると Depth 1 から出現抽選を通し、約 10 秒後に低 HP の NEMESIS を出現させ、console に schedule / spawn / defeat ログを出します。
 
 ## ANJU MEMORY
 
@@ -472,6 +530,9 @@ python -m http.server 4173 --bind 127.0.0.1
 http://127.0.0.1:4173/?mobileGate=0&mobileControls=0
 http://127.0.0.1:4173/?debugLostArms=1
 http://127.0.0.1:4173/?debugAnjuMemory=1
+http://127.0.0.1:4173/?debugDepthDirective=1
+http://127.0.0.1:4173/?debugDeepResult=1
+http://127.0.0.1:4173/?debugGeekMilestone=1
 http://127.0.0.1:4173/?debugRankingDepth=1
 http://127.0.0.1:4173/?debug=stage
 ```
