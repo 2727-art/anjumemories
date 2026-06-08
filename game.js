@@ -1176,6 +1176,13 @@ const HUD_STYLE = {
 };
 const LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS = 160;
 const LEVEL_UP_PASSIVE_MAX_LEVEL = 10;
+const PLAYER_LEVEL_CAP = 99;
+const PLAYER_DEEP_LEVEL_START = 25;
+const PLAYER_DEEP_LEVEL_UNLOCK_DEPTH = 6;
+const PLAYER_DEEP_LEVEL_BASE_XP = 420;
+const PLAYER_DEEP_LEVEL_XP_STEP = 32;
+const PLAYER_DEEP_LEVEL_MAX_XP = 2400;
+const PLAYER_DEEP_LEVEL_HP_RATE = 0.01;
 const OVERFLOW_REWARD_CONFIG = {
   overdrive: {
     gaugeMax: 100,
@@ -6058,6 +6065,9 @@ class SurvivalScene extends Phaser.Scene {
   rebuildStartingStats() {
     this.stats = this.createBasePlayerStats();
     this.applyPermanentUpgradesToStats();
+    this.deepLevelBaseMaxHp = 0;
+    this.deepLevelHpBonus = 0;
+    this.syncPlayerLevelXpRequirement();
   }
 
   normalizeShopState(record) {
@@ -10402,6 +10412,101 @@ class SurvivalScene extends Phaser.Scene {
 
   isXpProgressionCapped() {
     return !this.hasAvailableLevelUpUpgrade();
+  }
+
+  getDeepLevelXpRequirement(level = this.stats?.level || 1) {
+    const currentLevel = Math.max(PLAYER_DEEP_LEVEL_START, Math.floor(Number(level) || PLAYER_DEEP_LEVEL_START));
+    const extraLevels = Math.max(0, currentLevel - PLAYER_DEEP_LEVEL_START);
+    return Math.min(
+      PLAYER_DEEP_LEVEL_MAX_XP,
+      PLAYER_DEEP_LEVEL_BASE_XP + extraLevels * PLAYER_DEEP_LEVEL_XP_STEP
+    );
+  }
+
+  isDeepLevelUnlocked() {
+    return Math.max(1, Math.floor(Number(this.stageDepth) || 1)) >= PLAYER_DEEP_LEVEL_UNLOCK_DEPTH;
+  }
+
+  isDeepLevelProgressionActive() {
+    const level = Math.max(1, Math.floor(Number(this.stats?.level) || 1));
+    return this.isDeepLevelUnlocked() && level >= PLAYER_DEEP_LEVEL_START && level < PLAYER_LEVEL_CAP;
+  }
+
+  isPlayerLevelCapped() {
+    return Math.max(1, Math.floor(Number(this.stats?.level) || 1)) >= PLAYER_LEVEL_CAP;
+  }
+
+  syncPlayerLevelXpRequirement() {
+    if (!this.stats) {
+      return;
+    }
+    if (this.isPlayerLevelCapped()) {
+      this.stats.level = PLAYER_LEVEL_CAP;
+      this.stats.xp = 0;
+      this.stats.nextLevelXp = 0;
+      return;
+    }
+    if (this.isDeepLevelProgressionActive()) {
+      this.stats.nextLevelXp = this.getDeepLevelXpRequirement(this.stats.level);
+    }
+  }
+
+  applyDeepLevelHpGain() {
+    if (!this.stats) {
+      return 0;
+    }
+    if (!Number.isFinite(this.deepLevelBaseMaxHp) || this.deepLevelBaseMaxHp <= 0) {
+      this.deepLevelBaseMaxHp = Math.max(1, Math.round((this.stats.maxHp || 100) - (this.deepLevelHpBonus || 0)));
+    }
+    const hpGain = Math.max(1, Math.round(this.deepLevelBaseMaxHp * PLAYER_DEEP_LEVEL_HP_RATE));
+    this.deepLevelHpBonus = Math.max(0, Math.floor(Number(this.deepLevelHpBonus) || 0)) + hpGain;
+    this.stats.maxHp += hpGain;
+    this.stats.hp = Math.min(this.stats.maxHp, (this.stats.hp || 0) + hpGain);
+    return hpGain;
+  }
+
+  gainDeepLevelExperience(xpAmount) {
+    if (!this.isDeepLevelProgressionActive()) {
+      return { levels: 0, hpGain: 0 };
+    }
+
+    const amount = Math.max(0, Math.floor(Number(xpAmount) || 0));
+    if (amount <= 0) {
+      return { levels: 0, hpGain: 0 };
+    }
+
+    this.syncPlayerLevelXpRequirement();
+    this.stats.xp += amount;
+
+    let levelsGained = 0;
+    let totalHpGain = 0;
+    while (
+      this.stats.level < PLAYER_LEVEL_CAP &&
+      this.stats.nextLevelXp > 0 &&
+      this.stats.xp >= this.stats.nextLevelXp
+    ) {
+      this.stats.xp -= this.stats.nextLevelXp;
+      this.stats.level += 1;
+      levelsGained += 1;
+      totalHpGain += this.applyDeepLevelHpGain();
+
+      if (this.stats.level >= PLAYER_LEVEL_CAP) {
+        this.stats.level = PLAYER_LEVEL_CAP;
+        this.stats.xp = 0;
+        this.stats.nextLevelXp = 0;
+        break;
+      }
+      this.stats.nextLevelXp = this.getDeepLevelXpRequirement(this.stats.level);
+    }
+
+    if (levelsGained > 0) {
+      const cappedText = this.isPlayerLevelCapped() ? " / MAX" : "";
+      this.setLastPickupNotice(`DEEP LEVEL ${this.stats.level}${cappedText} / MAX HP +${totalHpGain}`);
+      this.spawnPlayerHealNumber(totalHpGain);
+      this.showOverflowRewardText(`DEEP LV ${this.stats.level}${cappedText} / HP +${totalHpGain}`, this.playerHitbox?.x, this.playerHitbox?.y - 52, "#9fffe0");
+    }
+
+    return { levels: levelsGained, hpGain: totalHpGain };
   }
 
   getOverflowGeekAmount(baseAmount) {
@@ -17039,6 +17144,7 @@ class SurvivalScene extends Phaser.Scene {
     this.updateRunRankingDepthProgress(this.stageDepth);
     this.gateInstabilityStacks = Math.max(0, Math.floor(Number(transition?.nextInstabilityStacks) || 0));
     this.updateAnjuMemoryDepthProgress(this.stageDepth);
+    this.syncPlayerLevelXpRequirement();
     this.resetGateCycleForNextDepth();
     const dataCacheCount = this.spawnDataCacheDrops(transition?.dataCachePayload);
     this.gateChoiceActive = false;
@@ -27733,6 +27839,17 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
+    if (this.isPlayerLevelCapped()) {
+      this.addOverdriveFromXp(xpValue);
+      return;
+    }
+
+    if (this.isDeepLevelProgressionActive()) {
+      this.addOverdriveFromXp(xpValue);
+      this.gainDeepLevelExperience(xpValue);
+      return;
+    }
+
     if (this.isXpProgressionCapped()) {
       this.addOverdriveFromXp(xpValue);
       return;
@@ -27740,11 +27857,19 @@ class SurvivalScene extends Phaser.Scene {
 
     this.stats.xp += xpValue;
 
-    while (this.stats.xp >= this.stats.nextLevelXp) {
+    while (
+      this.stats.level < PLAYER_LEVEL_CAP &&
+      this.stats.nextLevelXp > 0 &&
+      this.stats.xp >= this.stats.nextLevelXp
+    ) {
       this.stats.xp -= this.stats.nextLevelXp;
       this.stats.level += 1;
-      this.stats.nextLevelXp = Math.floor(this.stats.nextLevelXp * 1.45);
       this.pendingLevelUps += 1;
+      if (this.isDeepLevelProgressionActive()) {
+        this.stats.nextLevelXp = this.getDeepLevelXpRequirement(this.stats.level);
+        break;
+      }
+      this.stats.nextLevelXp = Math.floor(this.stats.nextLevelXp * 1.45);
     }
 
     if (this.pendingLevelUps > 0 && !this.levelUpActive) {
@@ -29837,12 +29962,14 @@ class SurvivalScene extends Phaser.Scene {
       ? "ACTIVE"
       : this.formatTimeMs(Math.max(0, this.nextBossSpawnAt - this.survivalTime));
     const hpRatio = Phaser.Math.Clamp(this.stats.hp / this.stats.maxHp, 0, 1);
-    const xpRatio = Phaser.Math.Clamp(this.stats.xp / this.stats.nextLevelXp, 0, 1);
+    const levelCapped = this.isPlayerLevelCapped();
+    const nextLevelXp = Math.max(1, Math.floor(Number(this.stats.nextLevelXp) || 1));
+    const xpRatio = levelCapped ? 1 : Phaser.Math.Clamp(this.stats.xp / nextLevelXp, 0, 1);
     const pickupText = this.time.now < this.lastPickupNoticeUntil ? `ITEM ${this.lastPickupNotice}` : "";
 
     this.hudLevelText.setText(`Lv. ${this.stats.level}`);
     this.hudHpText.setText(`${this.stats.hp} / ${this.stats.maxHp}`);
-    this.hudXpText.setText(`${this.stats.xp} / ${this.stats.nextLevelXp}`);
+    this.hudXpText.setText(levelCapped ? "MAX / OD" : `${this.stats.xp} / ${this.stats.nextLevelXp}`);
     this.hudPickupText.setText(pickupText);
     this.hudTimerText.setText(timeLabel);
     this.hudWaveText.setText(String(wave.id).padStart(2, "0"));
