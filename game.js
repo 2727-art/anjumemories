@@ -68,6 +68,16 @@ const DROP_LIMITS = {
   dataCache: 3,
   periodicCleanupMs: 1000
 };
+const DEPTH_DROP_COMPRESSION_CONFIG = {
+  unlockDepth: 6,
+  stackLabelThreshold: 2,
+  maxStackLabelCount: 999,
+  tiers: [
+    { minDepth: 8, total: 180, value: 34, effectAlphaMultiplier: 0.52, effectScaleMultiplier: 0.84 },
+    { minDepth: 7, total: 200, value: 42, effectAlphaMultiplier: 0.60, effectScaleMultiplier: 0.88 },
+    { minDepth: 6, total: 220, value: 56, effectAlphaMultiplier: 0.70, effectScaleMultiplier: 0.92 }
+  ]
+};
 const GEEK_MILESTONE_DEBUG_QUERY_PARAM = "debugGeekMilestone";
 const GEEK_MILESTONE_BONUS_CONFIG = {
   unlockDepth: 6,
@@ -5057,7 +5067,8 @@ class SurvivalScene extends Phaser.Scene {
     if (!["bronze", "silver", "gold"].includes(definition.id)) {
       return false;
     }
-    this.depthDirectiveState.progress.valueDropsCollected = (this.depthDirectiveState.progress.valueDropsCollected || 0) + 1;
+    const collectedCount = this.getMergedDropSourceCount(item);
+    this.depthDirectiveState.progress.valueDropsCollected = (this.depthDirectiveState.progress.valueDropsCollected || 0) + collectedCount;
     return this.updateDepthDirectiveCompletion("valuePickup");
   }
 
@@ -19695,6 +19706,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   updateRareItems(delta) {
+    const valueDropVisualCompression = this.getValueDropVisualCompression();
     this.rareItems.children.each((item) => {
       if (!item.active) {
         return;
@@ -19717,7 +19729,10 @@ class SurvivalScene extends Phaser.Scene {
       }
 
       const bob = isForcedPull ? 0 : Math.sin(item.floatTimer) * 5;
-      const effectScale = item.effectScale || 1;
+      const isValueDrop = this.getDropCategory(item) === "value";
+      const visualAlphaMultiplier = isValueDrop ? valueDropVisualCompression.effectAlphaMultiplier : 1;
+      const visualScaleMultiplier = isValueDrop ? valueDropVisualCompression.effectScaleMultiplier : 1;
+      const effectScale = (item.effectScale || 1) * visualScaleMultiplier;
       const mergedScale = Math.min(1.36, 1 + Math.log2(Math.max(1, item.mergedSourceCount || 1)) * 0.045);
 
       item.setPosition(item.baseX, item.baseY + bob);
@@ -19730,28 +19745,28 @@ class SurvivalScene extends Phaser.Scene {
       if (item.pillarEffect?.active) {
         item.pillarEffect.setPosition(item.x, item.y + 58);
         item.pillarEffect.setDisplaySize(
-          (item.pillarEffectBaseWidth || 218 * effectScale) * (0.98 + pulse * 0.06),
-          (item.pillarEffectBaseHeight || 436 * effectScale) * (0.98 + pulse * 0.05)
+          (item.pillarEffectBaseWidth || 218 * (item.effectScale || 1)) * visualScaleMultiplier * (0.98 + pulse * 0.06),
+          (item.pillarEffectBaseHeight || 436 * (item.effectScale || 1)) * visualScaleMultiplier * (0.98 + pulse * 0.05)
         );
-        item.pillarEffect.setAlpha((isForcedPull ? 0.56 : 0.34) + pulse * 0.12);
+        item.pillarEffect.setAlpha(((isForcedPull ? 0.56 : 0.34) + pulse * 0.12) * visualAlphaMultiplier);
       }
 
       if (item.outerBeam?.active) {
         item.outerBeam.setPosition(item.x, item.y - 132);
         item.outerBeam.setDisplaySize((86 + pulse * 28) * effectScale, (410 + pulse * 58) * effectScale);
-        item.outerBeam.setAlpha(0.14 + pulse * 0.16);
+        item.outerBeam.setAlpha((0.14 + pulse * 0.16) * visualAlphaMultiplier);
       }
 
       if (item.innerBeam?.active) {
         item.innerBeam.setPosition(item.x, item.y - 132);
         item.innerBeam.setDisplaySize((38 + pulse * 18) * effectScale, (392 + pulse * 54) * effectScale);
-        item.innerBeam.setAlpha(0.32 + pulse * 0.26);
+        item.innerBeam.setAlpha((0.32 + pulse * 0.26) * visualAlphaMultiplier);
       }
 
       if (item.beamCore?.active) {
         item.beamCore.setPosition(item.x, item.y - 132);
         item.beamCore.setDisplaySize((12 + pulse * 8) * effectScale, (410 + pulse * 62) * effectScale);
-        item.beamCore.setAlpha(0.62 + pulse * 0.26);
+        item.beamCore.setAlpha((0.62 + pulse * 0.26) * visualAlphaMultiplier);
       }
 
       item.beamLines?.forEach((line, index) => {
@@ -19767,33 +19782,33 @@ class SurvivalScene extends Phaser.Scene {
           ((line.baseWidth || 3) + pulse * 1.8) * effectScale,
           ((line.baseHeight || 360) + pulse * 58) * effectScale
         );
-        line.setAlpha((line.baseAlpha || 0.34) + pulse * 0.2);
+        line.setAlpha(((line.baseAlpha || 0.34) + pulse * 0.2) * visualAlphaMultiplier);
       });
 
       if (item.baseGlow?.active) {
         item.baseGlow.setPosition(item.x, item.y + 25);
         item.baseGlow.setScale(effectScale * (1 + pulse * 0.2), effectScale * (0.88 + pulse * 0.18));
-        item.baseGlow.setAlpha(0.18 + pulse * 0.12);
+        item.baseGlow.setAlpha((0.18 + pulse * 0.12) * visualAlphaMultiplier);
       }
 
       if (item.floorFlare?.active) {
         item.floorFlare.setPosition(item.x, item.y + 24);
         item.floorFlare.setScale(effectScale * (1.18 + pulse * 0.28), effectScale * (0.38 + pulse * 0.1));
         item.floorFlare.rotation -= 0.008 * (delta / 16.6667);
-        item.floorFlare.setAlpha(0.14 + pulse * 0.12);
+        item.floorFlare.setAlpha((0.14 + pulse * 0.12) * visualAlphaMultiplier);
       }
 
       if (item.glow?.active) {
         item.glow.setPosition(item.x, item.y);
         item.glow.setScale(effectScale * (0.94 + pulse * 0.24));
-        item.glow.setAlpha((isForcedPull ? 0.26 : 0.14) + pulse * 0.12);
+        item.glow.setAlpha(((isForcedPull ? 0.26 : 0.14) + pulse * 0.12) * visualAlphaMultiplier);
       }
 
       if (item.ring?.active) {
         item.ring.setPosition(item.x, item.y);
         item.ring.rotation += 0.018 * (delta / 16.6667);
         item.ring.setScale(effectScale * (0.52 + pulse * 0.24));
-        item.ring.setAlpha(0.08 + pulse * 0.1);
+        item.ring.setAlpha((0.08 + pulse * 0.1) * visualAlphaMultiplier);
       }
 
       item.pillarSparkles?.forEach((sparkle, index) => {
@@ -19806,8 +19821,9 @@ class SurvivalScene extends Phaser.Scene {
         const sideDrift = Math.sin(item.floatTimer * sparkle.swaySpeed + sparkle.floatPhase * Math.PI * 2) * sparkle.swayAmount * effectScale;
         sparkle.setPosition(item.x + sparkle.offsetX * effectScale + sideDrift, item.y + 34 - progress * columnHeight);
         sparkle.setScale(sparkle.baseScale * (0.76 + pulse * 0.42));
-        sparkle.setAlpha((0.36 + pulse * 0.32) * (1 - progress * 0.28));
+        sparkle.setAlpha((0.36 + pulse * 0.32) * (1 - progress * 0.28) * visualAlphaMultiplier);
       });
+      this.updateDropStackLabel(item);
     });
   }
 
@@ -19881,6 +19897,7 @@ class SurvivalScene extends Phaser.Scene {
     drop.createdAt = this.time?.now || 0;
     drop.dropSerial = this.dropSpawnSerial;
     drop.dropCleanupInProgress = false;
+    drop.mergedSourceCount = Math.max(1, Math.floor(Number(drop.mergedSourceCount) || 1));
     return drop;
   }
 
@@ -19919,6 +19936,53 @@ class SurvivalScene extends Phaser.Scene {
     });
 
     return drops;
+  }
+
+  getDeepDropCompressionTier(depth = this.stageDepth || 1) {
+    const normalizedDepth = Math.max(1, Math.floor(Number(depth) || 1));
+    if (normalizedDepth < DEPTH_DROP_COMPRESSION_CONFIG.unlockDepth) {
+      return null;
+    }
+
+    let activeTier = null;
+    (DEPTH_DROP_COMPRESSION_CONFIG.tiers || []).forEach((tier) => {
+      const minDepth = Math.max(1, Math.floor(Number(tier.minDepth) || 1));
+      if (normalizedDepth >= minDepth && (!activeTier || minDepth > activeTier.minDepth)) {
+        activeTier = { ...tier, minDepth };
+      }
+    });
+    return activeTier;
+  }
+
+  getEffectiveDropLimits(depth = this.stageDepth || 1) {
+    const limits = { ...DROP_LIMITS };
+    const tier = this.getDeepDropCompressionTier(depth);
+    if (!tier) {
+      return limits;
+    }
+
+    ["total", "value"].forEach((key) => {
+      const tierLimit = Math.max(0, Math.floor(Number(tier[key]) || 0));
+      if (tierLimit > 0) {
+        limits[key] = Math.min(limits[key], tierLimit);
+      }
+    });
+    return limits;
+  }
+
+  getValueDropVisualCompression(depth = this.stageDepth || 1) {
+    const tier = this.getDeepDropCompressionTier(depth);
+    if (!tier) {
+      return { effectAlphaMultiplier: 1, effectScaleMultiplier: 1 };
+    }
+    return {
+      effectAlphaMultiplier: Phaser.Math.Clamp(Number(tier.effectAlphaMultiplier) || 1, 0.25, 1),
+      effectScaleMultiplier: Phaser.Math.Clamp(Number(tier.effectScaleMultiplier) || 1, 0.5, 1)
+    };
+  }
+
+  isDeepDropCompressionActive(depth = this.stageDepth || 1) {
+    return Boolean(this.getDeepDropCompressionTier(depth));
   }
 
   getDropCategory(drop) {
@@ -20029,7 +20093,7 @@ class SurvivalScene extends Phaser.Scene {
 
       rawXp += reward.xp;
       rawUnsecuredGeek += reward.unsecuredGeek;
-      sourceCount += 1;
+      sourceCount += this.getMergedDropSourceCount(drop);
     });
 
     const xp = rawXp > 0
@@ -20099,6 +20163,7 @@ class SurvivalScene extends Phaser.Scene {
       drop.floorFlare,
       drop.glow,
       drop.ring,
+      drop.stackLabel,
       ...(drop.pillarSparkles || []),
       drop.beam,
       drop.scanLine
@@ -20250,6 +20315,7 @@ class SurvivalScene extends Phaser.Scene {
     if (targetCategory === "xp") {
       target.value = targetReward.xp + sourceReward.xp;
       target.mergedSourceCount = (target.mergedSourceCount || 1) + (source.mergedSourceCount || 1);
+      this.updateDropStackLabel(target);
       return true;
     }
 
@@ -20262,13 +20328,75 @@ class SurvivalScene extends Phaser.Scene {
       target.xpValue = payload.xp;
       target.coinValue = payload.unsecuredGeek;
       target.mergedSourceCount = (target.mergedSourceCount || 1) + (source.mergedSourceCount || 1);
+      this.updateDropStackLabel(target);
       return true;
     }
 
     target.xpValue = targetReward.xp + sourceReward.xp;
     target.coinValue = this.normalizeCoinAmount(targetReward.unsecuredGeek + sourceReward.unsecuredGeek);
     target.mergedSourceCount = (target.mergedSourceCount || 1) + (source.mergedSourceCount || 1);
+    this.updateDropStackLabel(target);
     return true;
+  }
+
+  getMergedDropSourceCount(drop) {
+    return Math.max(1, Math.floor(Number(drop?.mergedSourceCount) || 1));
+  }
+
+  getDropStackLabelText(count) {
+    const normalized = this.getMergedDropSourceCount({ mergedSourceCount: count });
+    const max = Math.max(1, Math.floor(Number(DEPTH_DROP_COMPRESSION_CONFIG.maxStackLabelCount) || 999));
+    return `x${normalized > max ? `${max}+` : normalized}`;
+  }
+
+  destroyDropStackLabel(drop) {
+    if (drop?.stackLabel) {
+      drop.stackLabel.destroy();
+      drop.stackLabel = null;
+      drop.stackLabelText = "";
+    }
+  }
+
+  updateDropStackLabel(drop) {
+    if (!drop || !drop.active || this.getDropCategory(drop) !== "value") {
+      this.destroyDropStackLabel(drop);
+      return;
+    }
+
+    const count = this.getMergedDropSourceCount(drop);
+    if (count < DEPTH_DROP_COMPRESSION_CONFIG.stackLabelThreshold) {
+      this.destroyDropStackLabel(drop);
+      return;
+    }
+
+    if (!drop.stackLabel?.active) {
+      drop.stackLabel = this.add
+        .text(drop.x, drop.y, "", {
+          fontFamily: "Arial, sans-serif",
+          fontSize: "13px",
+          fontStyle: "700",
+          color: "#f8ffff",
+          stroke: "#04111c",
+          strokeThickness: 4,
+          padding: { x: 5, y: 1 }
+        })
+        .setOrigin(0.5)
+        .setDepth((drop.depth || 13) + 1)
+        .setAlpha(0.94);
+      drop.stackLabel.setBackgroundColor?.("rgba(2, 12, 20, 0.72)");
+    }
+
+    const labelText = this.getDropStackLabelText(count);
+    if (drop.stackLabelText !== labelText) {
+      drop.stackLabel.setText(labelText);
+      drop.stackLabelText = labelText;
+    }
+
+    const scaleBasis = Math.max(0.75, Math.min(1.35, Number(drop.scaleX || drop.baseScale) || 1));
+    drop.stackLabel
+      .setPosition(drop.x + 20 * scaleBasis, drop.y - 22 * scaleBasis)
+      .setScale(Math.min(1.18, 0.9 + Math.log2(count) * 0.035))
+      .setAlpha(0.88 + Math.min(0.08, Math.log2(count) * 0.01));
   }
 
   enforceCategoryDropLimit(drops, category, limit) {
@@ -20295,11 +20423,12 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
-  enforceTotalDropLimit() {
+  enforceTotalDropLimit(limit = this.getEffectiveDropLimits().total) {
     let guard = 0;
     let drops = this.getActiveDropObjects();
+    const effectiveLimit = Math.max(0, Math.floor(Number(limit) || 0));
 
-    while (drops.length > DROP_LIMITS.total && guard < DROP_LIMITS.total * 2) {
+    while (drops.length > effectiveLimit && guard < Math.max(1, effectiveLimit * 2)) {
       guard += 1;
       const sorted = drops
         .filter((drop) => this.isDropActive(drop))
@@ -20320,17 +20449,18 @@ class SurvivalScene extends Phaser.Scene {
 
   enforceDropLimits(reason = "spawn") {
     const drops = this.getActiveDropObjects();
-    this.enforceCategoryDropLimit(drops, "xp", DROP_LIMITS.xp);
-    this.enforceCategoryDropLimit(drops, "value", DROP_LIMITS.value);
-    this.enforceCategoryDropLimit(drops, "robot", DROP_LIMITS.robot);
-    this.enforceCategoryDropLimit(drops, "support", DROP_LIMITS.support);
-    this.enforceCategoryDropLimit(drops, "recovery", DROP_LIMITS.recovery);
-    this.enforceCategoryDropLimit(drops, "magnet", DROP_LIMITS.magnet);
-    this.enforceCategoryDropLimit(drops, "dataCache", DROP_LIMITS.dataCache);
-    this.enforceTotalDropLimit();
+    const limits = this.getEffectiveDropLimits();
+    this.enforceCategoryDropLimit(drops, "xp", limits.xp);
+    this.enforceCategoryDropLimit(drops, "value", limits.value);
+    this.enforceCategoryDropLimit(drops, "robot", limits.robot);
+    this.enforceCategoryDropLimit(drops, "support", limits.support);
+    this.enforceCategoryDropLimit(drops, "recovery", limits.recovery);
+    this.enforceCategoryDropLimit(drops, "magnet", limits.magnet);
+    this.enforceCategoryDropLimit(drops, "dataCache", limits.dataCache);
+    this.enforceTotalDropLimit(limits.total);
 
     if (reason === "periodic") {
-      this.nextDropLimitCleanupAt = (this.time?.now || 0) + DROP_LIMITS.periodicCleanupMs;
+      this.nextDropLimitCleanupAt = (this.time?.now || 0) + limits.periodicCleanupMs;
     }
   }
 
@@ -23048,7 +23178,54 @@ class SurvivalScene extends Phaser.Scene {
     return didSpawn;
   }
 
+  createIncomingValueDropMergeSource(x, y, definition) {
+    return {
+      active: true,
+      dropCleanupInProgress: false,
+      dropCategory: "value",
+      dropGroupName: "rareItems",
+      itemDefinition: definition,
+      xpValue: Math.max(0, Math.floor(Number(definition?.xpValue) || 0)),
+      coinValue: this.scaleValueDropCoinReward(definition?.coinValue || 0),
+      mergedSourceCount: 1,
+      x,
+      y
+    };
+  }
+
+  tryMergeIncomingValueDrop(x, y, definition) {
+    if (!this.isDeepDropCompressionActive() || !definition) {
+      return null;
+    }
+
+    const valueLimit = this.getEffectiveDropLimits().value;
+    if (!Number.isFinite(valueLimit) || valueLimit <= 0) {
+      return null;
+    }
+
+    const candidates = this.rareItems?.getChildren?.()
+      .filter((drop) => this.isDropActive(drop) && this.getDropCategory(drop) === "value") || [];
+    if (candidates.length < valueLimit) {
+      return null;
+    }
+
+    const source = this.createIncomingValueDropMergeSource(x, y, definition);
+    const target = this.findMergeTarget(source, candidates);
+    if (!target || !this.mergeDropReward(target, source)) {
+      return null;
+    }
+
+    target.lastIncomingMergeAt = this.time?.now || 0;
+    this.updateDropStackLabel(target);
+    return target;
+  }
+
   spawnRareItem(x, y, definition) {
+    const mergedTarget = this.tryMergeIncomingValueDrop(x, y, definition);
+    if (mergedTarget) {
+      return mergedTarget;
+    }
+
     const dropPoint = this.getSafeDropPoint(x, y, definition.pickupRadius || 24);
     x = dropPoint.x;
     y = dropPoint.y;
@@ -23147,6 +23324,7 @@ class SurvivalScene extends Phaser.Scene {
     this.prepareDropObject(item, "value", "rareItems");
     this.rareItems.add(item);
     this.enforceDropLimits("spawnRareItem");
+    return item;
   }
 
   getActiveSpecialItemCount() {
@@ -23737,6 +23915,7 @@ class SurvivalScene extends Phaser.Scene {
     if (item.ring) {
       item.ring.destroy();
     }
+    this.destroyDropStackLabel(item);
     item.pillarSparkles?.forEach((sparkle) => {
       sparkle.destroy();
     });
@@ -23906,9 +24085,11 @@ class SurvivalScene extends Phaser.Scene {
     const xpValue = Math.max(0, Math.floor(Number(item.xpValue ?? definition.xpValue) || 0));
     const baseCoinValue = this.normalizeCoinAmount(item.coinValue ?? this.scaleRunCoinReward(definition.coinValue));
     const coinValue = this.applyOverdriveModGeekMultiplier(baseCoinValue, "value");
+    const stackCount = this.getMergedDropSourceCount(item);
+    const stackLabel = stackCount > 1 ? ` ${this.getDropStackLabelText(stackCount)}` : "";
     this.gainExperience(xpValue);
     this.handleDepthDirectiveValueDropCollected(definition, item);
-    this.setLastPickupNotice(`${definition.label.toUpperCase()} +${xpValue} XP / +${coinValue.toLocaleString()} GEEK UNSECURED`);
+    this.setLastPickupNotice(`${definition.label.toUpperCase()}${stackLabel} +${xpValue} XP / +${coinValue.toLocaleString()} GEEK UNSECURED`);
     this.addRunCoin(coinValue);
     this.spawnRareItemPickupEffect(playerHitbox.x, playerHitbox.y - 10, definition);
     this.pulseXpBar();

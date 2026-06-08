@@ -105,9 +105,9 @@ Gold Slime は Gold と Golden Tune Vase、Silver Slime は Silver と Silver Tu
 
 アクティブドロップ上限:
 
-- 全体: 260
+- 全体: 260（Depth 6 以降は実効上限 220、Depth 7 は 200、Depth 8 以降は 180）
 - XP: 170
-- Bronze / Silver / Gold: 90
+- Bronze / Silver / Gold: 90（Depth 6 以降は実効上限 56、Depth 7 は 42、Depth 8 以降は 34）
 - Robot: 28
 - Support: 16
 - Heal: 4
@@ -115,6 +115,8 @@ Gold Slime は Gold と Golden Tune Vase、Silver Slime は Silver と Silver Tu
 - DATA CACHE: 3
 
 上限を超えた場合、同カテゴリの報酬は可能な範囲で近いドロップへ統合され、優先度と報酬価値が低いものから整理されます。整理チェックはドロップ生成時と 1 秒ごとの安全クリーンアップで走ります。
+
+Depth 6 以降では、Bronze / Silver / Gold の表示数が実効上限に達している場合、新しい価値ドロップは新規オブジェクトを作らず、近い既存ドロップへ XP と未確定 GEEK を 100% 保持したまま統合されます。統合されたドロップは `x2` 以上のスタック表示を持ち、拾ったときは合算済みの XP / 未確定 GEEK として処理されます。この戦闘中のスタック統合は、Depth 遷移時に残ドロップを 25% で DATA CACHE 化する報酬圧縮とは別処理です。
 
 Depth 遷移時には、地面に残っている XP / Bronze / Silver / Gold / DATA CACHE の報酬量を集計し、XP と未確定 GEEK の 25% を DATA CACHE として再配置します。報酬量や元ドロップ数に応じて 1 から 3 個に分割されます。DATA CACHE は生成時点の絶対値 payload を保持するため、回収時に GEEK MILESTONE BONUS を再適用しません。
 
