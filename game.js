@@ -29,6 +29,7 @@ const DASH_HUD_CONFIG = {
 const MOBILE_CONTROL_QUERY_PARAM = "mobileControls";
 const MOBILE_GATE_SKIP_SESSION_KEY = "lastmemoVansabaSkipMobileGateOnce";
 const MOBILE_GATE_SKIP_QUERY_PARAM = "skipMobileGateOnce";
+const MOBILE_USER_AGENT_PATTERN = /Android|iPhone|iPad|iPod|Windows Phone/i;
 const MOBILE_TOUCH_LEFT_BOUNDARY = GAME_WIDTH * 0.58;
 const MOBILE_JOYSTICK_DEFAULT_X = 150;
 const MOBILE_JOYSTICK_DEFAULT_Y = 370;
@@ -13257,7 +13258,7 @@ class SurvivalScene extends Phaser.Scene {
     const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
     const touchPoints = navigator.maxTouchPoints || navigator.msMaxTouchPoints || 0;
     const smallViewport = Math.min(window.innerWidth || GAME_WIDTH, window.innerHeight || GAME_HEIGHT) <= 920;
-    const mobileUserAgent = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent || "");
+    const mobileUserAgent = MOBILE_USER_AGENT_PATTERN.test(navigator.userAgent || "");
     return (touchPoints > 0 && (coarsePointer || smallViewport)) || mobileUserAgent;
   }
 
@@ -28758,6 +28759,12 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
+    const useMobileInPageReset = shouldUseMobileInPageShopReset();
+    if (useMobileInPageReset) {
+      prepareMobileViewport();
+      requestLandscapeFullscreen();
+    }
+
     showShopLoadingScreen(message ? "GEEK 確定中" : "ショップへ戻っています");
     this.restartInProgress = true;
     this.remoteRankingRequestId += 1;
@@ -28791,6 +28798,9 @@ class SurvivalScene extends Phaser.Scene {
     this.sound?.stopAll();
 
     window.setTimeout(() => {
+      if (useMobileInPageReset && resetSurvivalSceneToShop(this, message, options)) {
+        return;
+      }
       resetSurvivalGameToShop(message, options);
     }, 0);
   }
@@ -30035,6 +30045,99 @@ const config = {
   }
 };
 
+function getUrlSearchParam(name) {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    return new URLSearchParams(window.location?.search || "").get(name);
+  } catch (error) {
+    return null;
+  }
+}
+
+function isMobilePlayEnvironment() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  if (getUrlSearchParam("mobileGate") === "1" || getUrlSearchParam(MOBILE_CONTROL_QUERY_PARAM) === "1") {
+    return true;
+  }
+
+  const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
+  const touchPoints = navigator.maxTouchPoints || navigator.msMaxTouchPoints || 0;
+  const currentScreen = window.screen || {};
+  const screenWidth = currentScreen.width || window.innerWidth || GAME_WIDTH;
+  const screenHeight = currentScreen.height || window.innerHeight || GAME_HEIGHT;
+  const viewportWidth = window.visualViewport?.width || window.innerWidth || screenWidth;
+  const viewportHeight = window.visualViewport?.height || window.innerHeight || screenHeight;
+  const smallScreen = Math.min(screenWidth, screenHeight, viewportWidth, viewportHeight) <= 920;
+  const mobileUserAgent = MOBILE_USER_AGENT_PATTERN.test(navigator.userAgent || "");
+  return mobileUserAgent || (touchPoints > 0 && coarsePointer && smallScreen);
+}
+
+function getMobileVisualViewportFrame() {
+  if (typeof window === "undefined") {
+    return {
+      left: 0,
+      top: 0,
+      width: GAME_WIDTH,
+      height: GAME_HEIGHT
+    };
+  }
+
+  const viewport = window.visualViewport;
+  const documentElement = document.documentElement;
+  const width = Math.max(1, Math.round(viewport?.width || window.innerWidth || documentElement?.clientWidth || GAME_WIDTH));
+  const height = Math.max(1, Math.round(viewport?.height || window.innerHeight || documentElement?.clientHeight || GAME_HEIGHT));
+  const left = Math.round(viewport?.offsetLeft || 0);
+  const top = Math.round(viewport?.offsetTop || 0);
+  return { left, top, width, height };
+}
+
+function syncMobileViewportFrame() {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  const frame = getMobileVisualViewportFrame();
+  const root = document.documentElement;
+  root.style.setProperty("--survival-visual-left", `${frame.left}px`);
+  root.style.setProperty("--survival-visual-top", `${frame.top}px`);
+  root.style.setProperty("--survival-visual-width", `${frame.width}px`);
+  root.style.setProperty("--survival-visual-height", `${frame.height}px`);
+
+  if (document.body?.classList.contains("mobile-session")) {
+    window.scrollTo?.(0, 0);
+    window.__SURVIVAL_GAME__?.scale?.refresh?.();
+  }
+}
+
+function startMobileViewportSync() {
+  if (typeof window === "undefined" || window.__SURVIVAL_MOBILE_VIEWPORT_SYNC_ACTIVE__) {
+    return;
+  }
+
+  window.__SURVIVAL_MOBILE_VIEWPORT_SYNC_ACTIVE__ = true;
+  const sync = () => {
+    syncMobileViewportFrame();
+    window.requestAnimationFrame?.(() => {
+      syncMobileViewportFrame();
+      window.__SURVIVAL_GAME__?.scale?.refresh?.();
+    });
+  };
+
+  window.addEventListener("resize", sync, { passive: true });
+  window.addEventListener("orientationchange", sync, { passive: true });
+  window.addEventListener("fullscreenchange", sync, { passive: true });
+  window.addEventListener("pageshow", sync, { passive: true });
+  window.visualViewport?.addEventListener("resize", sync, { passive: true });
+  window.visualViewport?.addEventListener("scroll", sync, { passive: true });
+  sync();
+}
+
 function shouldShowMobileLaunchGate() {
   if (typeof window === "undefined") {
     return false;
@@ -30045,22 +30148,17 @@ function shouldShowMobileLaunchGate() {
   }
 
   try {
-    const params = new URLSearchParams(window.location?.search || "");
-    if (params.get("mobileGate") === "1") {
+    if (getUrlSearchParam("mobileGate") === "1") {
       return true;
     }
-    if (params.get("mobileGate") === "0") {
+    if (getUrlSearchParam("mobileGate") === "0") {
       return false;
     }
   } catch (error) {
     // Ignore malformed URLs and fall back to capability detection.
   }
 
-  const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
-  const touchPoints = navigator.maxTouchPoints || navigator.msMaxTouchPoints || 0;
-  const mobileUserAgent = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent || "");
-  const smallScreen = Math.min(screen.width || window.innerWidth, screen.height || window.innerHeight) <= 920;
-  return mobileUserAgent || (touchPoints > 0 && coarsePointer && smallScreen);
+  return isMobilePlayEnvironment();
 }
 
 function consumeMobileLaunchGateSkip() {
@@ -30138,12 +30236,19 @@ function buildOpeningShopReloadUrl(options = {}) {
 }
 
 function prepareMobileViewport() {
+  startMobileViewportSync();
   document.body.classList.add("mobile-session");
   window.scrollTo?.(0, 0);
+  syncMobileViewportFrame();
+  window.requestAnimationFrame?.(() => {
+    syncMobileViewportFrame();
+    window.__SURVIVAL_GAME__?.scale?.refresh?.();
+  });
 }
 
 async function requestLandscapeFullscreen() {
   const target = document.documentElement;
+  prepareMobileViewport();
 
   try {
     if (!document.fullscreenElement && target.requestFullscreen) {
@@ -30160,6 +30265,13 @@ async function requestLandscapeFullscreen() {
   } catch (error) {
     // Orientation lock is only available on some browsers after entering fullscreen.
   }
+
+  syncMobileViewportFrame();
+  window.setTimeout(() => syncMobileViewportFrame(), 120);
+  window.setTimeout(() => {
+    syncMobileViewportFrame();
+    window.__SURVIVAL_GAME__?.scale?.refresh?.();
+  }, 360);
 }
 
 function setPendingOpeningShopMessage(message = "") {
@@ -30210,6 +30322,8 @@ function assignShopLoadingStyles(element, styles) {
 }
 
 function applyShopLoadingInlineStyles(screen) {
+  syncMobileViewportFrame();
+  const frame = getMobileVisualViewportFrame();
   const panel = screen?.querySelector(".shop-loading-panel");
   const emblem = screen?.querySelector(".shop-loading-emblem");
   const kicker = screen?.querySelector(".shop-loading-kicker");
@@ -30219,11 +30333,11 @@ function applyShopLoadingInlineStyles(screen) {
 
   assignShopLoadingStyles(screen, {
     position: "fixed",
-    top: "0",
-    left: "0",
-    width: "100vw",
-    height: "100dvh",
-    minHeight: "100vh",
+    top: `${frame.top}px`,
+    left: `${frame.left}px`,
+    width: `${frame.width}px`,
+    height: `${frame.height}px`,
+    minHeight: `${frame.height}px`,
     zIndex: "9500",
     display: "flex",
     alignItems: "center",
@@ -30235,7 +30349,9 @@ function applyShopLoadingInlineStyles(screen) {
     touchAction: "none"
   });
   assignShopLoadingStyles(panel, {
-    width: "min(420px, calc(100vw - 36px))",
+    width: `min(420px, ${Math.max(1, frame.width - 36)}px)`,
+    maxHeight: `${Math.max(1, frame.height - 36)}px`,
+    overflow: "auto",
     padding: "26px 24px 24px",
     border: "1px solid rgba(111, 207, 255, 0.36)",
     borderRadius: "8px",
@@ -30288,6 +30404,10 @@ function applyShopLoadingInlineStyles(screen) {
 function showShopLoadingScreen(title = "ショップ準備中") {
   if (typeof document === "undefined") {
     return;
+  }
+
+  if (isMobilePlayEnvironment() || document.body?.classList.contains("mobile-session")) {
+    prepareMobileViewport();
   }
 
   const screen = document.getElementById("shop-loading-screen");
@@ -30375,11 +30495,57 @@ function startSurvivalGame(loadingTitle = "ショップ準備中") {
     return;
   }
 
+  if (isMobilePlayEnvironment()) {
+    prepareMobileViewport();
+  }
   showShopLoadingScreen(loadingTitle);
   window.__SURVIVAL_GAME__ = new Phaser.Game(config);
   window.setTimeout(() => {
     window.__SURVIVAL_GAME__?.scale?.refresh?.();
   }, 80);
+}
+
+function shouldUseMobileInPageShopReset() {
+  if (typeof document === "undefined") {
+    return false;
+  }
+
+  return document.body?.classList.contains("mobile-session") || isMobilePlayEnvironment();
+}
+
+function resetSurvivalSceneToShop(scene, message = "", options = {}) {
+  if (typeof window === "undefined" || !scene?.scene) {
+    return false;
+  }
+
+  if (!shouldUseMobileInPageShopReset()) {
+    return false;
+  }
+
+  setPendingOpeningShopMessage(message);
+  clearMobileLaunchGateSkip();
+  prepareMobileViewport();
+
+  if (window.__SURVIVAL_MOBILE_SCENE_RESETTING__) {
+    return true;
+  }
+
+  window.__SURVIVAL_MOBILE_SCENE_RESETTING__ = true;
+  window.setTimeout(() => {
+    try {
+      window.__SURVIVAL_MOBILE_SCENE_RESETTING__ = false;
+      scene.scene.restart();
+      window.setTimeout(() => {
+        syncMobileViewportFrame();
+        window.__SURVIVAL_GAME__?.scale?.refresh?.();
+      }, 120);
+    } catch (error) {
+      window.__SURVIVAL_MOBILE_SCENE_RESETTING__ = false;
+      console.error("Failed to restart mobile scene for opening shop.", error);
+      resetSurvivalGameToShop(message, options);
+    }
+  }, SHOP_RETURN_RELOAD_DELAY_MS);
+  return true;
 }
 
 function resetSurvivalGameToShop(message = "", options = {}) {
@@ -30388,6 +30554,9 @@ function resetSurvivalGameToShop(message = "", options = {}) {
   }
 
   setPendingOpeningShopMessage(message);
+  if (isMobilePlayEnvironment() || document.body?.classList.contains("mobile-session")) {
+    prepareMobileViewport();
+  }
   const skipMobileGate = options?.showMobileLaunchGate !== true;
   if (skipMobileGate) {
     skipMobileLaunchGateOnce();
@@ -30416,6 +30585,10 @@ function resetSurvivalGameToShop(message = "", options = {}) {
 
 function setupMobileLaunchGate() {
   const gate = document.getElementById("mobile-start-gate");
+  if (isMobilePlayEnvironment()) {
+    prepareMobileViewport();
+  }
+
   if (!gate || !shouldShowMobileLaunchGate()) {
     startSurvivalGame(getShopLoadingTitleForMessage(peekPendingOpeningShopMessage()));
     return;
@@ -30424,6 +30597,7 @@ function setupMobileLaunchGate() {
   const fullscreenButton = document.getElementById("mobile-start-fullscreen");
   const windowedButton = document.getElementById("mobile-start-windowed");
   const finish = () => {
+    prepareMobileViewport();
     gate.hidden = true;
     startSurvivalGame(getShopLoadingTitleForMessage(peekPendingOpeningShopMessage()));
   };

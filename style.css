@@ -8,6 +8,10 @@
   --text-main: #ecf7ff;
   --text-muted: #9ab7cc;
   --shadow: rgba(0, 0, 0, 0.45);
+  --survival-visual-left: 0px;
+  --survival-visual-top: 0px;
+  --survival-visual-width: 100vw;
+  --survival-visual-height: 100dvh;
 }
 
 * {
@@ -72,12 +76,16 @@ body {
 
 .mobile-start-gate {
   position: fixed;
-  inset: 0;
+  top: var(--survival-visual-top, 0px);
+  left: var(--survival-visual-left, 0px);
+  width: var(--survival-visual-width, 100vw);
+  height: var(--survival-visual-height, 100dvh);
   z-index: 10000;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: max(18px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+  overflow: hidden;
+  padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
   background:
     linear-gradient(180deg, rgba(3, 8, 14, 0.96), rgba(2, 6, 11, 0.98));
   touch-action: none;
@@ -88,7 +96,10 @@ body {
 }
 
 .mobile-start-panel {
-  width: min(520px, 100%);
+  width: min(520px, calc(var(--survival-visual-width, 100vw) - 28px));
+  max-height: calc(var(--survival-visual-height, 100dvh) - 28px);
+  overflow: auto;
+  overscroll-behavior: contain;
   padding: 24px;
   border: 1px solid rgba(111, 207, 255, 0.36);
   border-radius: 8px;
@@ -153,11 +164,11 @@ body {
 
 .shop-loading-screen {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100dvh;
-  min-height: 100vh;
+  top: var(--survival-visual-top, 0px);
+  left: var(--survival-visual-left, 0px);
+  width: var(--survival-visual-width, 100vw);
+  height: var(--survival-visual-height, 100dvh);
+  min-height: var(--survival-visual-height, 100dvh);
   z-index: 9500;
   display: flex;
   align-items: center;
@@ -259,8 +270,11 @@ body.mobile-session {
 }
 
 body.mobile-session .app-shell {
-  width: 100vw;
-  height: 100dvh;
+  position: fixed;
+  top: var(--survival-visual-top, 0px);
+  left: var(--survival-visual-left, 0px);
+  width: var(--survival-visual-width, 100vw);
+  height: var(--survival-visual-height, 100dvh);
   margin: 0;
   padding: 0;
 }
