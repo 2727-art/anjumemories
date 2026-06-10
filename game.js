@@ -70,7 +70,7 @@ function installPhaserRestartSafetyGuards() {
 
 installPhaserRestartSafetyGuards();
 
-const GATE_INTERVAL_MS = 180000;
+const GATE_INTERVAL_MS = 120000;
 const GATE_WARNING_LEAD_MS = 30000;
 const GATE_STABLE_MS = 30000;
 const GATE_INSTABILITY_DEPTH = 6;
@@ -697,7 +697,7 @@ const NEMESIS_BOSS_CONFIG = {
   unlockDepth: 6,
   debugUnlockDepth: 1,
   maxPerDepth: 1,
-  spawnDelayMs: { min: 45000, max: 120000 },
+  spawnDelayMs: { min: 45000, max: Math.max(45000, GATE_INTERVAL_MS - GATE_WARNING_LEAD_MS) },
   debugSpawnDelayMs: 10000,
   debugHpMultiplier: 0.16,
   warningMs: 1800,
@@ -2114,6 +2114,18 @@ const BOSS_TYPE_SEQUENCE = [
   "boss_random_blast",
   "boss_lightning_dash"
 ];
+const ENEMY_ATTACK_WARNING_CONFIG = {
+  dashWindupMs: 650,
+  rangedBeamChargeMs: 2400,
+  bossChargeMs: {
+    radialCrack: 1700,
+    beam: 1800,
+    fanBlast: 1800,
+    tripleBlast: 1400,
+    randomBlast: 1500,
+    lightningDash: 1350
+  }
+};
 const ENEMY_DEFINITIONS = {
   chaser: {
     id: "chaser",
@@ -2156,6 +2168,7 @@ const ENEMY_DEFINITIONS = {
     aiBehavior: "dash",
     dashSpeed: 220,
     dashDurationMs: 320,
+    dashWindupMs: ENEMY_ATTACK_WARNING_CONFIG.dashWindupMs,
     dashCooldownMs: 1450,
     knockbackResist: 0.12
   },
@@ -2249,7 +2262,7 @@ const ENEMY_DEFINITIONS = {
     strafeSpeed: 58,
     attackIntervalMs: 2300,
     beamRange: 920,
-    beamChargeMs: 1800,
+    beamChargeMs: ENEMY_ATTACK_WARNING_CONFIG.rangedBeamChargeMs,
     beamDamage: 14,
     beamWidth: 34,
     beamTint: 0xff2f38,
@@ -2277,7 +2290,7 @@ const ENEMY_DEFINITIONS = {
     bossAttackPattern: "radialCrack",
     bossPreferredRange: 250,
     attackIntervalMs: 4200,
-    attackChargeMs: 1150,
+    attackChargeMs: ENEMY_ATTACK_WARNING_CONFIG.bossChargeMs.radialCrack,
     attackDamage: 18,
     attackRadius: 540,
     knockbackResist: 0.9
@@ -2303,7 +2316,7 @@ const ENEMY_DEFINITIONS = {
     bossAttackPattern: "beam",
     bossPreferredRange: 520,
     attackIntervalMs: 3600,
-    attackChargeMs: 1200,
+    attackChargeMs: ENEMY_ATTACK_WARNING_CONFIG.bossChargeMs.beam,
     attackDamage: 17,
     beamRange: 1350,
     beamWidth: 126,
@@ -2330,7 +2343,7 @@ const ENEMY_DEFINITIONS = {
     bossAttackPattern: "fanBlast",
     bossPreferredRange: 410,
     attackIntervalMs: 3900,
-    attackChargeMs: 1200,
+    attackChargeMs: ENEMY_ATTACK_WARNING_CONFIG.bossChargeMs.fanBlast,
     attackDamage: 17,
     fanRange: 780,
     fanAngle: Math.PI * 0.62,
@@ -2357,7 +2370,7 @@ const ENEMY_DEFINITIONS = {
     bossAttackPattern: "tripleBlast",
     bossPreferredRange: 360,
     attackIntervalMs: 4000,
-    attackChargeMs: 850,
+    attackChargeMs: ENEMY_ATTACK_WARNING_CONFIG.bossChargeMs.tripleBlast,
     attackDamage: 13,
     blastRadius: 123,
     blastSpacing: 225,
@@ -2385,7 +2398,7 @@ const ENEMY_DEFINITIONS = {
     bossAttackPattern: "randomBlast",
     bossPreferredRange: 330,
     attackIntervalMs: 3600,
-    attackChargeMs: 900,
+    attackChargeMs: ENEMY_ATTACK_WARNING_CONFIG.bossChargeMs.randomBlast,
     attackDamage: 14,
     blastRadius: 195,
     randomBlastRange: 630,
@@ -2412,7 +2425,7 @@ const ENEMY_DEFINITIONS = {
     bossAttackPattern: "lightningDash",
     bossPreferredRange: 430,
     attackIntervalMs: 3300,
-    attackChargeMs: 750,
+    attackChargeMs: ENEMY_ATTACK_WARNING_CONFIG.bossChargeMs.lightningDash,
     attackDamage: 15,
     dashRange: 780,
     dashSpeed: 360,
@@ -18850,6 +18863,9 @@ class SurvivalScene extends Phaser.Scene {
     if (enemy.isChargingBeam) {
       this.destroyEnemyBeamTelegraph(enemy);
     }
+    if (enemy.isChargingDashAttack) {
+      this.clearDashEnemyWarning(enemy);
+    }
     if (enemy.isChargingBossAttack || enemy.isBossDashing) {
       this.cancelBossAttack(enemy);
     }
@@ -18858,24 +18874,119 @@ class SurvivalScene extends Phaser.Scene {
 
   updateDashEnemy(enemy, angleToPlayer) {
     const now = this.time.now;
+    let startedBurstFromCharge = false;
 
-    if (now >= (enemy.nextDashAt || 0)) {
+    if (enemy.dashFlashUntil && now >= enemy.dashFlashUntil) {
+      enemy.dashFlashUntil = 0;
+      if (enemy.active && !enemy.isDying && !enemy.isChargingDashAttack) {
+        enemy.clearTint();
+        enemy.setTint(enemy.baseTint);
+      }
+    }
+
+    if (enemy.isChargingDashAttack) {
+      enemy.body.setVelocity(0, 0);
+      if (now < (enemy.dashChargeUntil || 0)) {
+        return;
+      }
+
+      const burstAngle = Number.isFinite(enemy.dashChargeAngle)
+        ? enemy.dashChargeAngle
+        : angleToPlayer + Phaser.Math.FloatBetween(-0.12, 0.12);
+      this.clearDashEnemyWarning(enemy);
       enemy.burstUntil = now + (enemy.dashDurationMs || 320);
-      enemy.nextDashAt = now + (enemy.dashCooldownMs || 1750);
-      enemy.burstAngle = angleToPlayer + Phaser.Math.FloatBetween(-0.12, 0.12);
+      enemy.burstAngle = burstAngle;
+      enemy.dashFlashUntil = now + 140;
       enemy.setTintFill(0xffedcf);
-      this.time.delayedCall(100, () => {
-        if (enemy.active && !enemy.isDying) {
-          enemy.clearTint();
-          enemy.setTint(enemy.baseTint);
-        }
-      });
+      startedBurstFromCharge = true;
+    }
+
+    if (!startedBurstFromCharge && now >= (enemy.nextDashAt || 0)) {
+      const windupMs = Math.max(0, enemy.dashWindupMs || 0);
+      const dashCooldownMs = enemy.dashCooldownMs || 1750;
+      const burstAngle = angleToPlayer + Phaser.Math.FloatBetween(-0.12, 0.12);
+
+      enemy.nextDashAt = now + windupMs + dashCooldownMs;
+      if (windupMs > 0) {
+        enemy.isChargingDashAttack = true;
+        enemy.dashChargeUntil = now + windupMs;
+        enemy.dashChargeAngle = burstAngle;
+        enemy.body.setVelocity(0, 0);
+        enemy.setTintFill(0xffd6a0);
+        this.createDashEnemyTelegraph(enemy, burstAngle, windupMs);
+        return;
+      }
+
+      enemy.burstUntil = now + (enemy.dashDurationMs || 320);
+      enemy.burstAngle = burstAngle;
+      enemy.dashFlashUntil = now + 140;
+      enemy.setTintFill(0xffedcf);
     }
 
     const isBursting = now < (enemy.burstUntil || 0);
     const speed = isBursting ? enemy.burstSpeed : enemy.moveSpeed;
     const angle = isBursting ? enemy.burstAngle : angleToPlayer;
     this.physics.velocityFromRotation(angle, speed, enemy.body.velocity);
+  }
+
+  createDashEnemyTelegraph(enemy, angle, durationMs) {
+    this.clearDashEnemyTelegraph(enemy);
+
+    const dashLength = Math.max(
+      140,
+      (enemy.burstSpeed || enemy.moveSpeed || 180) * ((enemy.dashDurationMs || 320) / 1000) + (enemy.hitRadius || 18) * 4
+    );
+    const dashWidth = Math.max(28, (enemy.hitRadius || 16) * 2.2);
+    const centerX = enemy.x + Math.cos(angle) * dashLength * 0.5;
+    const centerY = enemy.y + Math.sin(angle) * dashLength * 0.5;
+    const warning = this.add
+      .rectangle(centerX, centerY, dashLength, dashWidth, 0xff9b2f, 0.12)
+      .setRotation(angle)
+      .setStrokeStyle(2, 0xffe0a6, 0.72)
+      .setDepth(17)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const core = this.add
+      .rectangle(centerX, centerY, dashLength, Math.max(4, dashWidth * 0.16), 0xffffdd, 0.34)
+      .setRotation(angle)
+      .setDepth(18)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const chargeGlow = this.add
+      .image(enemy.x, enemy.y, "skill-hit-glow")
+      .setDepth(18)
+      .setScale((enemy.effectScale || 1) * 0.54)
+      .setTint(0xffcf7b)
+      .setAlpha(0.36)
+      .setBlendMode(Phaser.BlendModes.ADD);
+
+    enemy.dashTelegraphObjects = [warning, core, chargeGlow];
+    this.skillEffectsLayer.add(enemy.dashTelegraphObjects);
+    this.tweens.add({
+      targets: enemy.dashTelegraphObjects,
+      alpha: { from: 0.2, to: 0.78 },
+      duration: durationMs,
+      ease: "Sine.In"
+    });
+  }
+
+  clearDashEnemyTelegraph(enemy) {
+    this.tweens.killTweensOf(enemy.dashTelegraphObjects || []);
+    enemy.dashTelegraphObjects?.forEach((object) => {
+      if (object?.active) {
+        object.destroy();
+      }
+    });
+    enemy.dashTelegraphObjects = null;
+  }
+
+  clearDashEnemyWarning(enemy) {
+    this.clearDashEnemyTelegraph(enemy);
+    enemy.isChargingDashAttack = false;
+    enemy.dashChargeUntil = 0;
+    enemy.dashChargeAngle = null;
+    if (enemy.active && !enemy.isDying) {
+      enemy.clearTint();
+      enemy.setTint(enemy.baseTint);
+    }
   }
 
   updateRangedEnemy(enemy, angleToPlayer, distanceToPlayer) {
@@ -19003,6 +19114,9 @@ class SurvivalScene extends Phaser.Scene {
     this.enemies?.children.each((enemy) => {
       if (enemy?.active && enemy.isChargingBeam) {
         this.destroyEnemyBeamTelegraph(enemy);
+      }
+      if (enemy?.active && enemy.isChargingDashAttack) {
+        this.clearDashEnemyWarning(enemy);
       }
       if (enemy?.active && (enemy.isChargingBossAttack || enemy.isBossDashing)) {
         this.cancelBossAttack(enemy);
@@ -21633,10 +21747,16 @@ class SurvivalScene extends Phaser.Scene {
     if (definition.aiBehavior === "dash") {
       enemy.burstSpeed = definition.dashSpeed * wave.speedScale * eliteSpeedMultiplier * enemyScaling.enemySpeed;
       enemy.dashDurationMs = definition.dashDurationMs;
+      enemy.dashWindupMs = definition.dashWindupMs || 0;
       enemy.dashCooldownMs = definition.dashCooldownMs;
       enemy.nextDashAt = this.time.now + Phaser.Math.Between(500, 1200);
       enemy.burstUntil = 0;
       enemy.burstAngle = 0;
+      enemy.isChargingDashAttack = false;
+      enemy.dashChargeUntil = 0;
+      enemy.dashChargeAngle = null;
+      enemy.dashFlashUntil = 0;
+      enemy.dashTelegraphObjects = null;
     }
 
     if (definition.aiBehavior === "ranged") {
@@ -23161,6 +23281,7 @@ class SurvivalScene extends Phaser.Scene {
     this.tweens.killTweensOf(enemy);
     this.tweens.killTweensOf(enemy.eliteAura);
     this.tweens.killTweensOf(enemy.eliteRing);
+    this.clearDashEnemyWarning(enemy);
     this.destroyEnemyBeamTelegraph(enemy);
     this.cancelBossAttack(enemy);
 

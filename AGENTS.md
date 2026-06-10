@@ -205,7 +205,7 @@ Depth6+ 追加機能で新しい保存データを足す場合は、既存キー
 
 ## 5. Depth と Stage Gate のルール
 
-Depth は 1 から開始します。各 Depth の開始から 180 秒で Stage Gate が開きます。
+Depth は 1 から開始します。各 Depth の開始から 120 秒で Stage Gate が開きます。
 
 通常 Gate:
 
