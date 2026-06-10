@@ -46,7 +46,7 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 
 ## ゲーム進行
 
-1. Opening Shop で CD、BGM、永続強化を購入または選択します。
+1. Opening Shop の `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY` で CD、BGM、永続強化、ロボット系解放を購入または選択します。
 2. `GAME START` で出撃し、Opening Boost として開始前に 3 回ぶんの強化を選択します。ANJU MEMORY の +1 チケットを持っている場合、最初の Opening Boost だけ 4 択になります。
 3. 敵を倒して XP、未確定 GEEK、Support、Robot、LOST ARMS アイテムを集めます。
 4. レベルアップ時はスキル解放、スキル強化、パッシブ強化から 3 択で 1 つ選びます。
@@ -409,6 +409,8 @@ Support アイテムを拾うとサポート攻撃が発動します。Support �
 - Golden Tune Vase: ミサイル系チューニングを 2 択で選びます。
 - Silver Tune Vase: フィールド系チューニングを 2 択で選びます。
 
+GEEKSHOP の `回収ロボ` は、確定 GEEK で Lv.1-10 まで永続強化する別系統の非ダメージサポートです。出撃中はキャラクター周辺のドロップを探してロボット自身が拾いに行き、回収後はプレイヤー付近へ戻ります。Lv が上がるとサーチ範囲、移動速度、回収対象が広がり、Lv2 以降は周囲の敵を押し戻す掃除パルス、Lv4 以降は短い鈍足補助も発生します。対象は Lv1 で XP / Bronze / Silver / Gold、Lv2 で DATA CACHE、Lv3 で Heal / Magnet、Lv5 で Robot / Support / LOST ARMS まで広がります。画像は `./画像/robot/cleaning_robot_lv1.png` から `cleaning_robot_lv10.png` を使用し、未読み込み時は既存ロボット画像へフォールバックします。
+
 ミサイルと回復フィールドの本体レベルは通常 Lv.10 が上限です。Opening Shop の `ROBOT CUSTOM` で確定 GEEK を使ってLv上限を段階解放すると、各系統ごとに Lv.12 / 14 / 16 / 18 / 20 まで伸ばせます。チューニングは Rapid Launcher、Warhead Boost、Field Cycle、Care Output があり、それぞれ最大 Lv.20 です。
 
 ミサイル命中、撃破、回復パルスでもロボット経験値が入り、Lv1-10までは既存テンポで本体レベルが上がります。Lv10以降は自動経験値では上がらず、Missile / Recovery Core を複数取得して `CORE x/y` を満たすと1レベル上がります。必要Core数は Lv10->11:2、Lv11->12:2、Lv12->13:3、Lv13->14:3、Lv14->15:4、Lv15->16:5、Lv16->17:6、Lv17->18:7、Lv18->19:8、Lv19->20:10 です。すでに現在の上限に達した Robot 報酬を拾った場合は、STABILIZE と未確定 GEEK に変換されます。
@@ -431,7 +433,14 @@ ROBOT SYNC DRIVE:
 
 ## ショップ
 
-Opening Shop では `GEEK SHOP`、`ROBOT CUSTOM`、`ANJU MEMORY` をタブで切り替えます。GEEK SHOP と ROBOT CUSTOM では確定 GEEK を使用します。ROBOT CUSTOM はラン中Lvを直接購入する画面ではなく、Missile / Recovery のLv上限と Lv11+ EX 機能を解放する画面です。CD は BGM 選択と永続ボーナスを兼ねており、購入済み CD の永続効果は選択中 BGM に関係なく常時発動します。
+Opening Shop では `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY` をタブで切り替えます。CDSHOP は CD 購入と BGM 選択専用です。GEEKSHOP と ROBOT CUSTOM では確定 GEEK を使用します。GEEKSHOP は Weapon / Armor / Shoes と回収ロボの永続強化、ROBOT CUSTOM はラン中Lvを直接購入する画面ではなく、Missile / Recovery のLv上限と Lv11+ EX 機能を解放する画面です。CD は BGM 選択と永続ボーナスを兼ねており、購入済み CD の永続効果は選択中 BGM に関係なく常時発動します。
+
+GEEKSHOP:
+
+- Weapon: 最大 Lv.10、攻撃力 +6% / Lv
+- Armor: 最大 Lv.10、最大 HP +10 / Lv
+- Shoes: 最大 Lv.10、移動速度 +8 / Lv
+- 回収ロボ: 最大 Lv.10。必要 GEEK は 100,000 / 150,000 / 230,000 / 350,000 / 520,000 / 780,000 / 1,150,000 / 1,700,000 / 2,500,000 / 3,600,000。
 
 ROBOT CUSTOM:
 
@@ -447,12 +456,6 @@ CD:
 - 未来を生きてる: 100,000 GEEK / 移動速度 +20、連射 +5%
 - コトコト: 100,000 GEEK / 攻撃力 +6%、最大スタミナ +15
 - いっちゃいな: 100,000 GEEK / 弾速 +8%、移動速度 +12
-
-永続強化:
-
-- Weapon: 最大 Lv.10、攻撃力 +6% / Lv
-- Armor: 最大 Lv.10、最大 HP +10 / Lv
-- Shoes: 最大 Lv.10、移動速度 +8 / Lv
 
 永続強化の価格は基礎 1,000 GEEK からレベルに応じて増加し、100 GEEK 単位に丸められます。ショップ表示前、帰還後、ゲーム再生成時には `shop-loading-screen` が表示されます。
 
@@ -514,7 +517,7 @@ localStorage キー:
 - `lastmemoVansabaBestRecord`: ベスト記録。`bestDepth` と `bestExtractedGeek` も保存します。
 - `lastmemoVansabaKillRanking`: ローカルランキング。各 entry は `bestDepth`、`extractedGeek`、`extractMode`、`extractionSucceeded`、`submittedAt`、`version` を持ち、古い entry にフィールドがない場合は `bestDepth = 1`、`extractedGeek = 0`、`extractMode = none` に補完します。
 - `lastmemoVansabaCoins`: 確定 GEEK
-- `lastmemoVansabaShopState`: CD 所持、選択 BGM、永続強化状態、`robotCustom`。`robotCustom` は `missileCapTier`、`recoveryCapTier`、`napalmUnlocked`、`barrierUnlocked` を持ち、古い保存データに無い場合は初期値へ補完します。
+- `lastmemoVansabaShopState`: CD 所持、選択 BGM、永続強化状態、回収ロボ `cleaningRobotLevel`、`robotCustom`。`cleaningRobotLevel` は古い保存データに無い場合 Lv0 へ補完します。`robotCustom` は `missileCapTier`、`recoveryCapTier`、`napalmUnlocked`、`barrierUnlocked` を持ち、古い保存データに無い場合は初期値へ補完します。
 - `lastmemoVansabaLostArmsState`: LOST ARMS 永続 Lv と pity
 - `lastmemoVansabaAnjuMemoryState`: ANJU MEMORY 残高、購入済み報酬、選択中スキン/称号/バッジ、チケット、到達済みマイルストーン
 - `collisionEditor:<stageId>`: 衝突判定編集モードの一時保存データ

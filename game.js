@@ -996,6 +996,43 @@ const ROBOT_CUSTOM_SHOP_ITEMS = {
     accent: 0x7efcff
   }
 };
+const CLEANING_ROBOT_MAX_LEVEL = 10;
+const CLEANING_ROBOT_UPGRADE_COSTS = [
+  100000,
+  150000,
+  230000,
+  350000,
+  520000,
+  780000,
+  1150000,
+  1700000,
+  2500000,
+  3600000
+];
+const CLEANING_ROBOT_LEVEL_CONFIGS = [
+  { level: 1, searchRadius: 180, moveSpeed: 500, returnSpeed: 560, pickupRadius: 34, pulseRadius: 0, knockbackForce: 0, pulseCooldownMs: 0, slowMultiplier: 1, slowDurationMs: 0 },
+  { level: 2, searchRadius: 220, moveSpeed: 530, returnSpeed: 590, pickupRadius: 34, pulseRadius: 88, knockbackForce: 120, pulseCooldownMs: 3000, slowMultiplier: 1, slowDurationMs: 0 },
+  { level: 3, searchRadius: 260, moveSpeed: 560, returnSpeed: 620, pickupRadius: 35, pulseRadius: 104, knockbackForce: 150, pulseCooldownMs: 2900, slowMultiplier: 1, slowDurationMs: 0 },
+  { level: 4, searchRadius: 310, moveSpeed: 590, returnSpeed: 660, pickupRadius: 35, pulseRadius: 122, knockbackForce: 190, pulseCooldownMs: 2800, slowMultiplier: 0.92, slowDurationMs: 240 },
+  { level: 5, searchRadius: 360, moveSpeed: 620, returnSpeed: 700, pickupRadius: 36, pulseRadius: 140, knockbackForce: 230, pulseCooldownMs: 2700, slowMultiplier: 0.9, slowDurationMs: 320 },
+  { level: 6, searchRadius: 420, moveSpeed: 655, returnSpeed: 735, pickupRadius: 36, pulseRadius: 155, knockbackForce: 250, pulseCooldownMs: 2550, slowMultiplier: 0.88, slowDurationMs: 380 },
+  { level: 7, searchRadius: 500, moveSpeed: 690, returnSpeed: 780, pickupRadius: 37, pulseRadius: 172, knockbackForce: 280, pulseCooldownMs: 2400, slowMultiplier: 0.84, slowDurationMs: 460 },
+  { level: 8, searchRadius: 580, moveSpeed: 725, returnSpeed: 825, pickupRadius: 38, pulseRadius: 190, knockbackForce: 310, pulseCooldownMs: 2250, slowMultiplier: 0.8, slowDurationMs: 560 },
+  { level: 9, searchRadius: 680, moveSpeed: 760, returnSpeed: 870, pickupRadius: 39, pulseRadius: 210, knockbackForce: 340, pulseCooldownMs: 2100, slowMultiplier: 0.76, slowDurationMs: 680 },
+  { level: 10, searchRadius: 800, moveSpeed: 800, returnSpeed: 930, pickupRadius: 40, pulseRadius: 235, knockbackForce: 380, pulseCooldownMs: 1950, slowMultiplier: 0.72, slowDurationMs: 800 }
+];
+const CLEANING_ROBOT_DROP_PRIORITY = {
+  lostArm: 110,
+  dataCache: 100,
+  robot: 88,
+  support: 78,
+  value: 68,
+  magnet: 58,
+  recovery: 48,
+  xp: 30,
+  other: 0
+};
+const CLEANING_ROBOT_TARGET_SCAN_MS = 160;
 const DEFAULT_SHOP_STATE = {
   ownedCdIds: [DEFAULT_CD_ID],
   selectedCdId: DEFAULT_CD_ID,
@@ -1004,6 +1041,7 @@ const DEFAULT_SHOP_STATE = {
     armor: 0,
     shoes: 0
   },
+  cleaningRobotLevel: 0,
   robotCustom: { ...DEFAULT_ROBOT_CUSTOM_STATE }
 };
 const LOST_ARMS_MAX_LEVEL = 8;
@@ -1863,6 +1901,13 @@ const ROBOT_IMAGE_ASSETS = {
     return {
       textureKey: `robot-level-${level}`,
       imagePath: rangeAsset?.imagePath || `./画像/robot/robot_lv${String(level).padStart(2, "0")}.png`
+    };
+  }),
+  cleaningRobotLevels: Array.from({ length: CLEANING_ROBOT_MAX_LEVEL }, (_, index) => {
+    const level = index + 1;
+    return {
+      textureKey: `cleaning-robot-level-${level}`,
+      imagePath: `./画像/robot/cleaning_robot_lv${level}.png`
     };
   }),
   missileFrames: Array.from({ length: 8 }, (_, index) => {
@@ -3101,6 +3146,7 @@ class SurvivalScene extends Phaser.Scene {
   preloadRobotAssets() {
     [
       ...ROBOT_IMAGE_ASSETS.robotLevels,
+      ...ROBOT_IMAGE_ASSETS.cleaningRobotLevels,
       ...ROBOT_IMAGE_ASSETS.missileFrames,
       ...ROBOT_IMAGE_ASSETS.explosionFrames,
       ...ROBOT_IMAGE_ASSETS.recoveryFields,
@@ -3446,6 +3492,7 @@ class SurvivalScene extends Phaser.Scene {
     this.createGroups();
     this.createPlayer();
     this.createRobotCompanion();
+    this.createCleaningRobotCompanion();
     this.createPlayerSkills();
     this.createInput();
     this.createHud();
@@ -3889,7 +3936,7 @@ class SurvivalScene extends Phaser.Scene {
   createState() {
     this.shopState = this.loadShopState();
     this.anjuMemoryState = this.loadAnjuMemoryState();
-    this.shopViewMode = "geek";
+    this.shopViewMode = "cd";
     this.anjuMemoryShopTab = "deepCd";
     this.anjuMemoryReadLogId = null;
     this.rebuildStartingStats();
@@ -3941,6 +3988,7 @@ class SurvivalScene extends Phaser.Scene {
     this.activeWaveBoss = null;
     this.playerSkills = this.buildInitialSkillStates();
     this.robotState = this.createRobotState();
+    this.cleaningRobotState = this.createCleaningRobotState();
     if (this.isRobotSyncDebugEnabled()) {
       this.robotState.syncGauge = ROBOT_SYNC_CONFIG.debugInitialGauge;
     }
@@ -6111,6 +6159,118 @@ class SurvivalScene extends Phaser.Scene {
     };
   }
 
+  createCleaningRobotState() {
+    return {
+      level: this.getCleaningRobotLevel(),
+      x: 0,
+      y: 0,
+      bobTimer: 0,
+      target: null,
+      nextTargetScanAt: 0,
+      pulseTimerMs: 0,
+      lastPulseAt: 0,
+      lastTrailAt: 0
+    };
+  }
+
+  getCleaningRobotLevel() {
+    return Phaser.Math.Clamp(
+      Math.floor(Number(this.shopState?.cleaningRobotLevel) || 0),
+      0,
+      CLEANING_ROBOT_MAX_LEVEL
+    );
+  }
+
+  getCleaningRobotConfig(level = this.getCleaningRobotLevel()) {
+    const normalizedLevel = Phaser.Math.Clamp(Math.floor(Number(level) || 0), 1, CLEANING_ROBOT_MAX_LEVEL);
+    return CLEANING_ROBOT_LEVEL_CONFIGS[normalizedLevel - 1] || CLEANING_ROBOT_LEVEL_CONFIGS[0];
+  }
+
+  getCleaningRobotUpgradeCost(level = this.getCleaningRobotLevel()) {
+    const normalizedLevel = Phaser.Math.Clamp(Math.floor(Number(level) || 0), 0, CLEANING_ROBOT_MAX_LEVEL);
+    if (normalizedLevel >= CLEANING_ROBOT_MAX_LEVEL) {
+      return null;
+    }
+    return this.normalizeCoinAmount(CLEANING_ROBOT_UPGRADE_COSTS[normalizedLevel]);
+  }
+
+  getCleaningRobotAllowedDropCategories(level = this.getCleaningRobotLevel()) {
+    const normalizedLevel = Phaser.Math.Clamp(Math.floor(Number(level) || 0), 0, CLEANING_ROBOT_MAX_LEVEL);
+    const categories = new Set(["xp", "value"]);
+    if (normalizedLevel >= 2) {
+      categories.add("dataCache");
+    }
+    if (normalizedLevel >= 3) {
+      categories.add("recovery");
+      categories.add("magnet");
+    }
+    if (normalizedLevel >= 5) {
+      categories.add("robot");
+      categories.add("support");
+      categories.add("lostArm");
+    }
+    return categories;
+  }
+
+  getCleaningRobotTextureKey(level = this.getCleaningRobotLevel()) {
+    const normalizedLevel = Phaser.Math.Clamp(Math.floor(Number(level) || 1), 1, CLEANING_ROBOT_MAX_LEVEL);
+    for (let candidateLevel = normalizedLevel; candidateLevel >= 1; candidateLevel -= 1) {
+      const key = `cleaning-robot-level-${candidateLevel}`;
+      if (this.textures.exists(key)) {
+        return key;
+      }
+    }
+    return this.textures.exists("robot-level-1") ? "robot-level-1" : "hud-icon-basic-skill";
+  }
+
+  getCleaningRobotShopEffectLine(level = this.getCleaningRobotLevel()) {
+    const normalizedLevel = Phaser.Math.Clamp(Math.floor(Number(level) || 0), 0, CLEANING_ROBOT_MAX_LEVEL);
+    if (normalizedLevel <= 0) {
+      return "未所有 / 出撃中は表示されません";
+    }
+    const config = this.getCleaningRobotConfig(normalizedLevel);
+    const categories = [...this.getCleaningRobotAllowedDropCategories(normalizedLevel)].map((category) => {
+      if (category === "xp") return "XP";
+      if (category === "value") return "GEEK ITEM";
+      if (category === "dataCache") return "DATA CACHE";
+      if (category === "recovery") return "HEAL";
+      if (category === "magnet") return "MAGNET";
+      if (category === "support") return "SUPPORT";
+      if (category === "robot") return "ROBOT";
+      if (category === "lostArm") return "LOST ARMS";
+      return category.toUpperCase();
+    });
+    const pulseText = config.knockbackForce > 0
+      ? ` / PULSE ${config.pulseRadius} KB${config.slowMultiplier < 1 ? " + SLOW" : ""}`
+      : "";
+    return `SEARCH ${config.searchRadius} / SPEED ${config.moveSpeed} / ${categories.join(", ")}${pulseText}`;
+  }
+
+  refreshCleaningRobotFromShopState() {
+    if (!this.cleaningRobotState) {
+      this.cleaningRobotState = this.createCleaningRobotState();
+    }
+    const level = this.getCleaningRobotLevel();
+    this.cleaningRobotState.level = level;
+    this.cleaningRobotState.target = null;
+    this.cleaningRobotState.nextTargetScanAt = 0;
+
+    if (level <= 0) {
+      this.destroyCleaningRobotVisuals();
+      return;
+    }
+
+    if (!this.cleaningRobotSprite) {
+      this.createCleaningRobotCompanion();
+      return;
+    }
+
+    this.cleaningRobotSprite.setTexture(this.getCleaningRobotTextureKey(level)).setVisible(true);
+    this.cleaningRobotShadow?.setVisible(true);
+    this.cleaningRobotGlow?.setVisible(true);
+    this.scaleWorldImageToFit(this.cleaningRobotSprite, this.getCleaningRobotVisualSize(level));
+  }
+
   rebuildStartingStats() {
     this.stats = this.createBasePlayerStats();
     this.applyPermanentUpgradesToStats();
@@ -6125,6 +6285,7 @@ class SurvivalScene extends Phaser.Scene {
       ownedCdIds: [...DEFAULT_SHOP_STATE.ownedCdIds],
       selectedCdId: DEFAULT_SHOP_STATE.selectedCdId,
       upgrades: { ...DEFAULT_SHOP_STATE.upgrades },
+      cleaningRobotLevel: DEFAULT_SHOP_STATE.cleaningRobotLevel,
       robotCustom: { ...DEFAULT_ROBOT_CUSTOM_STATE }
     };
     const addOwnedCd = (id) => {
@@ -6147,6 +6308,11 @@ class SurvivalScene extends Phaser.Scene {
       const value = Math.floor(Number(record?.upgrades?.[id]) || 0);
       state.upgrades[id] = Phaser.Math.Clamp(value, 0, definition.maxLevel);
     });
+    state.cleaningRobotLevel = Phaser.Math.Clamp(
+      Math.floor(Number(record?.cleaningRobotLevel) || 0),
+      0,
+      CLEANING_ROBOT_MAX_LEVEL
+    );
     state.robotCustom.missileCapTier = Phaser.Math.Clamp(
       Math.floor(Number(record?.robotCustom?.missileCapTier) || 0),
       0,
@@ -6785,6 +6951,24 @@ class SurvivalScene extends Phaser.Scene {
     state[item.stateKey] = true;
     this.saveShopState();
     this.showPreGameShop(`${item.jpTitle} を解放しました`);
+  }
+
+  purchaseCleaningRobotUpgrade() {
+    const level = this.getCleaningRobotLevel();
+    const cost = this.getCleaningRobotUpgradeCost(level);
+    if (cost === null) {
+      this.showPreGameShop("回収ロボは最大Lvです");
+      return;
+    }
+    if (!this.spendCoins(cost)) {
+      this.showPreGameShop("回収ロボ: GEEK不足");
+      return;
+    }
+
+    this.shopState.cleaningRobotLevel = Phaser.Math.Clamp(level + 1, 0, CLEANING_ROBOT_MAX_LEVEL);
+    this.saveShopState();
+    this.refreshCleaningRobotFromShopState();
+    this.showPreGameShop(`回収ロボ Lv.${this.shopState.cleaningRobotLevel} に強化`);
   }
 
   getPermanentUpgradeLevel(upgradeId) {
@@ -12489,6 +12673,70 @@ class SurvivalScene extends Phaser.Scene {
     this.updateRobotBarrierVisual(0);
   }
 
+  createCleaningRobotCompanion() {
+    if (!this.cleaningRobotState || this.getCleaningRobotLevel() <= 0 || !this.playerHitbox) {
+      return;
+    }
+
+    const followPoint = this.getCleaningRobotFollowPoint();
+    this.cleaningRobotState.x = followPoint.x;
+    this.cleaningRobotState.y = followPoint.y;
+
+    this.cleaningRobotShadow = this.add
+      .ellipse(followPoint.x, followPoint.y + 36, 46, 13, 0x000000, 0.24)
+      .setDepth(15.6);
+
+    this.cleaningRobotGlow = this.add
+      .image(followPoint.x, followPoint.y + 2, "skill-hit-glow")
+      .setDepth(20.35)
+      .setScale(0.42)
+      .setTint(0x9ffcff)
+      .setAlpha(0.18)
+      .setBlendMode(Phaser.BlendModes.ADD);
+
+    this.cleaningRobotSprite = this.add
+      .image(followPoint.x, followPoint.y, this.getCleaningRobotTextureKey())
+      .setDepth(20.6)
+      .setAlpha(0.96);
+
+    this.robotEffectsLayer?.add(this.cleaningRobotGlow);
+    this.updateCleaningRobotVisualScale();
+  }
+
+  destroyCleaningRobotVisuals() {
+    const objects = [this.cleaningRobotSprite, this.cleaningRobotShadow, this.cleaningRobotGlow].filter(Boolean);
+    if (objects.length > 0) {
+      this.tweens?.killTweensOf(objects);
+      objects.forEach((object) => object.destroy?.());
+    }
+    this.cleaningRobotSprite = null;
+    this.cleaningRobotShadow = null;
+    this.cleaningRobotGlow = null;
+  }
+
+  getCleaningRobotVisualSize(level = this.getCleaningRobotLevel()) {
+    const normalizedLevel = Phaser.Math.Clamp(Math.floor(Number(level) || 1), 1, CLEANING_ROBOT_MAX_LEVEL);
+    return Math.min(108, 58 + normalizedLevel * 5);
+  }
+
+  updateCleaningRobotVisualScale() {
+    if (!this.cleaningRobotSprite) {
+      return;
+    }
+    this.cleaningRobotSprite.setTexture(this.getCleaningRobotTextureKey());
+    this.scaleWorldImageToFit(this.cleaningRobotSprite, this.getCleaningRobotVisualSize());
+  }
+
+  getCleaningRobotFollowPoint() {
+    const aimAngle = this.playerAimAngle || 0;
+    const backAngle = aimAngle + Math.PI;
+    const sideAngle = aimAngle + Math.PI * 0.5;
+    return {
+      x: this.playerHitbox.x + Math.cos(backAngle) * 54 + Math.cos(sideAngle) * 44,
+      y: this.playerHitbox.y - 36 + Math.sin(backAngle) * 28 + Math.sin(sideAngle) * 18
+    };
+  }
+
   getRobotTextureKey(level = this.getRobotVisualLevel()) {
     const asset = this.getRobotImageAssetForLevel(ROBOT_IMAGE_ASSETS.robotLevels, level);
     return this.textures.exists(asset?.textureKey) ? asset.textureKey : "hud-icon-basic-skill";
@@ -14787,9 +15035,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   renderShopModeTabs() {
-    this.createShopModeTab(-292, -286, 126, "GEEK SHOP", "geek");
-    this.createShopModeTab(-138, -286, 166, "ROBOT CUSTOM", "robotCustom");
-    this.createShopModeTab(60, -286, 164, "ANJU MEMORY", "anjuMemory");
+    this.createShopModeTab(-334, -286, 126, "CDSHOP", "cd");
+    this.createShopModeTab(-190, -286, 134, "GEEKSHOP", "geek");
+    this.createShopModeTab(-24, -286, 166, "ROBOT CUSTOM", "robotCustom");
+    this.createShopModeTab(176, -286, 164, "ANJU MEMORY", "anjuMemory");
   }
 
   createShopModeTab(centerX, centerY, width, label, mode) {
@@ -14813,6 +15062,139 @@ class SurvivalScene extends Phaser.Scene {
       align: "center",
       origin: { x: 0.5, y: 0 }
       });
+  }
+
+  renderGeekShopContent() {
+    this.createOverlayText(-530, -210, "GEEKSHOP", {
+      fontSize: "15px",
+      color: "#f0c463",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(-530, -188, "確定GEEKで永続強化と回収ロボを強化します。ラン中の未確定GEEKは直接消費しません。", {
+      fontSize: "12px",
+      color: "#9ab7cc",
+      wordWrap: { width: 760 }
+    });
+
+    this.renderPermanentUpgradeCards(-530, -150);
+    this.renderCleaningRobotShopPanel(-116, -150, 622, 362);
+  }
+
+  renderCdShopContent() {
+    this.createOverlayText(-530, -210, "CDSHOP", {
+      fontSize: "15px",
+      color: "#f0c463",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(-530, -188, "CD購入とBGM選択専用。購入済みCDの永続ボーナスは選択中BGMに関係なく常時発動します。", {
+      fontSize: "12px",
+      color: "#9ab7cc",
+      wordWrap: { width: 760 }
+    });
+
+    this.renderCdShopGrid(-530, -154);
+
+    const selectedCd = this.getSelectedCdDefinition();
+    this.createOverlayText(-530, 258, `BGM  ${selectedCd?.title || "NONE"}`, {
+      fontSize: "18px",
+      color: "#ecf7ff",
+      fontStyle: "bold"
+    });
+  }
+
+  renderCleaningRobotShopPanel(x, y, width, height) {
+    const level = this.getCleaningRobotLevel();
+    const nextLevel = Math.min(CLEANING_ROBOT_MAX_LEVEL, level + 1);
+    const cost = this.getCleaningRobotUpgradeCost(level);
+    const maxed = cost === null;
+    const affordable = maxed || this.normalizeCoinAmount(this.coins) >= cost;
+    const fill = maxed ? 0x102332 : 0x101b2a;
+    const stroke = maxed ? 0x77f0b4 : 0x9ffcff;
+    const panel = this.addOverlayChild(
+      this.add
+        .rectangle(x, y, width, height, fill, 0.94)
+        .setOrigin(0, 0)
+        .setStrokeStyle(maxed ? 2 : 1, stroke, maxed ? 0.68 : 0.38)
+    );
+
+    panel.setInteractive({ useHandCursor: !maxed });
+    panel.on("pointerover", () => panel.setFillStyle(maxed ? fill : 0x182940, 0.98));
+    panel.on("pointerout", () => panel.setFillStyle(fill, 0.94));
+    this.addOverlayAction(panel, () => this.purchaseCleaningRobotUpgrade(), true, 8);
+
+    this.createOverlayText(x + 22, y + 16, "回収ロボ", {
+      fontSize: "22px",
+      color: "#ecf7ff",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(x + width - 22, y + 18, `Lv.${level}/${CLEANING_ROBOT_MAX_LEVEL}`, {
+      fontSize: "18px",
+      color: maxed ? "#77f0b4" : "#f0c463",
+      fontStyle: "bold",
+      align: "right",
+      origin: { x: 1, y: 0 }
+    });
+    this.createOverlayText(x + 22, y + 48, "キャラクター周辺のドロップへ移動して拾い、プレイヤーへ戻る非ダメージ系サポート。", {
+      fontSize: "13px",
+      color: "#b8d4e8",
+      wordWrap: { width: width - 44 }
+    });
+
+    const imageLevel = Math.max(1, nextLevel);
+    const image = this.addOverlayChild(
+      this.add
+        .image(x + 104, y + 162, this.getCleaningRobotTextureKey(imageLevel))
+        .setDisplaySize(150, 150)
+        .setAlpha(level > 0 ? 0.98 : 0.72)
+    );
+    if (level <= 0) {
+      image.setTint(0x8aa8bb);
+    }
+
+    const currentLine = this.getCleaningRobotShopEffectLine(level);
+    const nextLine = maxed ? "MAX / すべての機能が解放済み" : this.getCleaningRobotShopEffectLine(nextLevel);
+    this.createOverlayText(x + 208, y + 96, "CURRENT", {
+      fontSize: "12px",
+      color: "#9ffcff",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(x + 208, y + 116, currentLine, {
+      fontSize: "12px",
+      color: "#b8d4e8",
+      wordWrap: { width: width - 240 },
+      lineSpacing: 2
+    });
+    this.createOverlayText(x + 208, y + 178, maxed ? "STATUS" : `NEXT Lv.${nextLevel}`, {
+      fontSize: "12px",
+      color: maxed ? "#77f0b4" : "#f0c463",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(x + 208, y + 198, nextLine, {
+      fontSize: "12px",
+      color: "#ecf7ff",
+      wordWrap: { width: width - 240 },
+      lineSpacing: 2
+    });
+
+    const actionLabel = maxed ? "MAX" : (level <= 0 ? "BUY ROBOT" : "UPGRADE");
+    const costLabel = maxed ? "解放済み" : `${cost.toLocaleString()} GEEK`;
+    this.createOverlayText(x + 22, y + height - 78, "対象: Lv1 XP/GEEK ITEM、Lv2 DATA CACHE、Lv3 HEAL/MAGNET、Lv5 ROBOT/SUPPORT/LOST ARMS", {
+      fontSize: "11px",
+      color: "#8daec1",
+      wordWrap: { width: width - 44 }
+    });
+    this.createOverlayText(x + 22, y + height - 38, costLabel, {
+      fontSize: "20px",
+      color: maxed ? "#77f0b4" : (affordable ? "#ecf7ff" : "#ff8a8a"),
+      fontStyle: "bold"
+    });
+    this.createOverlayText(x + width - 22, y + height - 38, actionLabel, {
+      fontSize: "18px",
+      color: maxed ? "#77f0b4" : "#9ffcff",
+      fontStyle: "bold",
+      align: "right",
+      origin: { x: 1, y: 0 }
+    });
   }
 
   renderRobotCustomShopContent() {
@@ -15173,26 +15555,12 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    this.createOverlayText(-530, -210, "CD SHOP", {
-      fontSize: "15px",
-      color: "#f0c463",
-      fontStyle: "bold"
-    });
-    this.createOverlayText(210, -210, "UPGRADES", {
-      fontSize: "15px",
-      color: "#f0c463",
-      fontStyle: "bold"
-    });
-
-    this.renderCdShopGrid(-530, -182);
-    this.renderPermanentUpgradeCards(210, -182);
-
-    const selectedCd = this.getSelectedCdDefinition();
-    this.createOverlayText(-530, 258, `BGM  ${selectedCd?.title || "NONE"}`, {
-      fontSize: "18px",
-      color: "#ecf7ff",
-      fontStyle: "bold"
-    });
+    if (this.shopViewMode === "geek") {
+      this.renderGeekShopContent();
+    } else {
+      this.shopViewMode = "cd";
+      this.renderCdShopContent();
+    }
 
     this.createShopButton(392, 280, 318, 62, "GAME START", "開始前強化へ", () => {
       this.startGameFromShop();
@@ -18147,6 +18515,7 @@ class SurvivalScene extends Phaser.Scene {
     this.syncPlayerVisuals();
     this.updateSkills(delta);
     this.updateRobotCompanion(delta);
+    this.updateCleaningRobotCompanion(delta);
     this.updateGateVisuals(delta);
     this.updateHud();
     this.updateMobileControlsVisibility();
@@ -18353,6 +18722,310 @@ class SurvivalScene extends Phaser.Scene {
     this.robotShadow?.setPosition(this.robotState.x, this.robotState.y + 44);
     this.robotMuzzleGlow?.setPosition(this.robotState.x, this.robotState.y + bob + 4);
     this.updateRobotRecoveryFieldVisual(delta);
+  }
+
+  canCleaningRobotCollectDrops() {
+    return Boolean(
+      this.cleaningRobotState &&
+      this.cleaningRobotSprite?.active &&
+      this.getCleaningRobotLevel() > 0 &&
+      !this.gameOver &&
+      !this.shopActive &&
+      !this.levelUpActive &&
+      !this.gateChoiceActive &&
+      !this.extractionComplete
+    );
+  }
+
+  updateCleaningRobotCompanion(delta) {
+    if (!this.cleaningRobotState || !this.playerHitbox) {
+      return;
+    }
+
+    const level = this.getCleaningRobotLevel();
+    if (level <= 0) {
+      this.destroyCleaningRobotVisuals();
+      return;
+    }
+
+    if (!this.cleaningRobotSprite) {
+      this.createCleaningRobotCompanion();
+      return;
+    }
+
+    if (this.cleaningRobotState.level !== level) {
+      this.cleaningRobotState.level = level;
+      this.updateCleaningRobotVisualScale();
+    }
+
+    const config = this.getCleaningRobotConfig(level);
+    const canCollect = this.canCleaningRobotCollectDrops();
+    if (!canCollect) {
+      this.cleaningRobotState.target = null;
+    } else {
+      this.refreshCleaningRobotTarget(config);
+    }
+
+    const target = canCollect && this.isCleaningRobotTargetValid(this.cleaningRobotState.target, config)
+      ? this.cleaningRobotState.target
+      : null;
+    if (!target) {
+      this.cleaningRobotState.target = null;
+    }
+
+    this.cleaningRobotState.bobTimer += delta / 330;
+    const followPoint = this.getCleaningRobotFollowPoint();
+    const desiredX = target?.x ?? followPoint.x;
+    const desiredY = target ? target.y - 4 : followPoint.y;
+    const deltaX = desiredX - this.cleaningRobotState.x;
+    const deltaY = desiredY - this.cleaningRobotState.y;
+    const distance = Math.hypot(deltaX, deltaY);
+    const speed = target ? config.moveSpeed : config.returnSpeed;
+    const maxStep = speed * (delta / 1000);
+    const moveRatio = distance > 0 ? Math.min(1, maxStep / distance) : 1;
+    const bob = Math.sin(this.cleaningRobotState.bobTimer) * 4;
+
+    this.cleaningRobotState.x += deltaX * moveRatio;
+    this.cleaningRobotState.y += deltaY * moveRatio;
+    this.cleaningRobotSprite
+      .setPosition(this.cleaningRobotState.x, this.cleaningRobotState.y + bob)
+      .setFlipX(target ? target.x < this.cleaningRobotState.x : this.cleaningRobotState.x < this.playerHitbox.x)
+      .setAngle(Math.sin(this.cleaningRobotState.bobTimer * 0.8) * (target ? 4.2 : 2.2))
+      .setTint(target ? 0x9ffcff : 0xffffff);
+    this.cleaningRobotShadow?.setPosition(this.cleaningRobotState.x, this.cleaningRobotState.y + 37);
+    this.cleaningRobotGlow
+      ?.setPosition(this.cleaningRobotState.x, this.cleaningRobotState.y + bob + 2)
+      .setScale(target ? 0.58 : 0.42)
+      .setAlpha(target ? 0.32 : 0.18);
+
+    if (target && Phaser.Math.Distance.Between(this.cleaningRobotState.x, this.cleaningRobotState.y, target.x, target.y) <= config.pickupRadius) {
+      this.collectDropWithCleaningRobot(target, config);
+    }
+
+    if (canCollect) {
+      this.updateCleaningRobotDisruption(delta, config);
+    }
+  }
+
+  refreshCleaningRobotTarget(config) {
+    const state = this.cleaningRobotState;
+    if (!state) {
+      return;
+    }
+    const now = this.time?.now || 0;
+    if (this.isCleaningRobotTargetValid(state.target, config) && now < (state.nextTargetScanAt || 0)) {
+      return;
+    }
+
+    state.nextTargetScanAt = now + CLEANING_ROBOT_TARGET_SCAN_MS;
+    state.target = this.findCleaningRobotTarget(config);
+  }
+
+  isCleaningRobotTargetValid(drop, config = this.getCleaningRobotConfig()) {
+    if (!this.isDropActive(drop) || !this.playerHitbox || !config) {
+      return false;
+    }
+
+    const category = this.getDropCategory(drop);
+    if (!this.getCleaningRobotAllowedDropCategories(this.getCleaningRobotLevel()).has(category)) {
+      return false;
+    }
+    if (category === "recovery" && this.stats && this.stats.hp >= this.stats.maxHp) {
+      return false;
+    }
+
+    const distanceFromPlayer = Phaser.Math.Distance.Between(drop.x, drop.y, this.playerHitbox.x, this.playerHitbox.y);
+    return distanceFromPlayer <= config.searchRadius;
+  }
+
+  findCleaningRobotTarget(config) {
+    const drops = this.getActiveDropObjects();
+    let bestDrop = null;
+    let bestScore = -Infinity;
+
+    drops.forEach((drop) => {
+      if (!this.isCleaningRobotTargetValid(drop, config)) {
+        return;
+      }
+
+      const category = this.getDropCategory(drop);
+      const distanceFromRobot = Phaser.Math.Distance.Between(drop.x, drop.y, this.cleaningRobotState.x, this.cleaningRobotState.y);
+      const distanceFromPlayer = Phaser.Math.Distance.Between(drop.x, drop.y, this.playerHitbox.x, this.playerHitbox.y);
+      const priority = CLEANING_ROBOT_DROP_PRIORITY[category] ?? CLEANING_ROBOT_DROP_PRIORITY.other;
+      const stackBonus = Math.min(240, Math.max(0, (drop.mergedSourceCount || 1) - 1) * 24);
+      const score = priority * 10000 + stackBonus - distanceFromRobot - distanceFromPlayer * 0.35;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestDrop = drop;
+      }
+    });
+
+    return bestDrop;
+  }
+
+  collectDropWithCleaningRobot(drop, config) {
+    if (!this.isDropActive(drop)) {
+      this.cleaningRobotState.target = null;
+      return false;
+    }
+
+    const proxy = {
+      x: this.cleaningRobotState.x,
+      y: this.cleaningRobotState.y
+    };
+    const category = this.getDropCategory(drop);
+    this.spawnCleaningRobotCollectEffect(proxy.x, proxy.y);
+
+    if (category === "xp") {
+      this.handleXpPickup(proxy, drop);
+    } else if (category === "value" || category === "dataCache") {
+      this.handleRareItemPickup(proxy, drop);
+    } else if (category === "recovery" || category === "magnet" || category === "support") {
+      this.handleSpecialItemPickup(proxy, drop);
+    } else if (category === "robot") {
+      this.handleRobotItemPickup(proxy, drop);
+    } else if (category === "lostArm") {
+      this.handleLostArmCorePickup(proxy, drop);
+    }
+
+    this.cleaningRobotState.target = null;
+    this.cleaningRobotState.nextTargetScanAt = 0;
+    this.tryTriggerCleaningRobotPulse(config, proxy.x, proxy.y, true);
+    return true;
+  }
+
+  updateCleaningRobotDisruption(delta, config) {
+    if (!config?.knockbackForce || config.knockbackForce <= 0) {
+      return;
+    }
+
+    this.cleaningRobotState.pulseTimerMs = Math.max(0, (this.cleaningRobotState.pulseTimerMs || 0) + delta);
+    if (this.cleaningRobotState.pulseTimerMs < config.pulseCooldownMs) {
+      return;
+    }
+
+    const affected = this.tryTriggerCleaningRobotPulse(config, this.cleaningRobotState.x, this.cleaningRobotState.y, false);
+    if (affected <= 0) {
+      this.cleaningRobotState.pulseTimerMs = 0;
+    }
+  }
+
+  tryTriggerCleaningRobotPulse(config, x, y, forceVisual = false) {
+    if (!config?.knockbackForce || config.knockbackForce <= 0) {
+      return 0;
+    }
+
+    const now = this.time?.now || 0;
+    if (!forceVisual && now - (this.cleaningRobotState.lastPulseAt || 0) < config.pulseCooldownMs) {
+      return 0;
+    }
+
+    let affected = 0;
+    this.enemies?.children?.each((enemy) => {
+      if (!enemy.active || enemy.isDying || !enemy.body) {
+        return;
+      }
+
+      const distance = Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y);
+      if (distance > config.pulseRadius) {
+        return;
+      }
+
+      const falloff = Phaser.Math.Clamp(1 - distance / Math.max(1, config.pulseRadius), 0, 1);
+      this.applyEnemyImpact(enemy, {
+        sourceX: x,
+        sourceY: y,
+        force: config.knockbackForce * (0.48 + falloff * 0.52),
+        recoverMs: 110 + falloff * 80
+      });
+      if (config.slowMultiplier < 1 && config.slowDurationMs > 0) {
+        enemy.cleaningRobotSlowUntil = Math.max(enemy.cleaningRobotSlowUntil || 0, now + config.slowDurationMs);
+        enemy.cleaningRobotSlowMultiplier = Math.min(enemy.cleaningRobotSlowMultiplier || 1, config.slowMultiplier);
+      }
+      enemy.suctionVisualUntil = Math.max(enemy.suctionVisualUntil || 0, now + 180);
+      enemy.suctionVisualStrength = Math.max(enemy.suctionVisualStrength || 0, 0.45 + falloff * 0.3);
+      affected += 1;
+    });
+
+    if (affected > 0 || forceVisual) {
+      this.cleaningRobotState.lastPulseAt = now;
+      this.cleaningRobotState.pulseTimerMs = 0;
+      this.spawnCleaningRobotPulseEffect(x, y, config.pulseRadius, affected);
+    }
+
+    return affected;
+  }
+
+  spawnCleaningRobotCollectEffect(x, y) {
+    const glow = this.add
+      .image(x, y, "skill-hit-glow")
+      .setDepth(22)
+      .setScale(0.38)
+      .setTint(0x9ffcff)
+      .setAlpha(0.62)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const ring = this.add
+      .image(x, y, "skill-hit-ring")
+      .setDepth(22)
+      .setScale(0.28)
+      .setTint(0xe8fdff)
+      .setAlpha(0.76)
+      .setBlendMode(Phaser.BlendModes.ADD);
+
+    this.robotEffectsLayer?.add([glow, ring]);
+    this.tweens.add({
+      targets: glow,
+      scaleX: 0.9,
+      scaleY: 0.9,
+      alpha: 0,
+      duration: 180,
+      ease: "Quad.Out",
+      onComplete: () => glow.destroy()
+    });
+    this.tweens.add({
+      targets: ring,
+      scaleX: 0.78,
+      scaleY: 0.78,
+      alpha: 0,
+      duration: 190,
+      ease: "Cubic.Out",
+      onComplete: () => ring.destroy()
+    });
+  }
+
+  spawnCleaningRobotPulseEffect(x, y, radius, affectedCount = 0) {
+    const ring = this.add
+      .image(x, y, "skill-hit-ring")
+      .setDepth(21)
+      .setScale(Math.max(0.24, radius / 190))
+      .setTint(affectedCount > 0 ? 0x9ffcff : 0x5e8ea4)
+      .setAlpha(affectedCount > 0 ? 0.42 : 0.22)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const sweep = this.add
+      .ellipse(x, y + 10, radius * 1.55, radius * 0.52, 0x9ffcff, affectedCount > 0 ? 0.09 : 0.045)
+      .setDepth(20.5)
+      .setBlendMode(Phaser.BlendModes.ADD);
+
+    this.robotEffectsLayer?.add([ring, sweep]);
+    this.tweens.add({
+      targets: ring,
+      scaleX: ring.scaleX + 0.68,
+      scaleY: ring.scaleY + 0.68,
+      alpha: 0,
+      duration: 280,
+      ease: "Cubic.Out",
+      onComplete: () => ring.destroy()
+    });
+    this.tweens.add({
+      targets: sweep,
+      scaleX: 1.18,
+      scaleY: 1.18,
+      alpha: 0,
+      duration: 300,
+      ease: "Quad.Out",
+      onComplete: () => sweep.destroy()
+    });
   }
 
   updateRobotRecoveryFieldVisual(delta) {
@@ -18843,9 +19516,23 @@ class SurvivalScene extends Phaser.Scene {
       if (lostArmsSlowMultiplier < 1 && enemy.body?.velocity) {
         enemy.body.velocity.scale(lostArmsSlowMultiplier);
       }
+      const cleaningRobotSlowMultiplier = this.getEnemyCleaningRobotSlowMultiplier(enemy);
+      if (cleaningRobotSlowMultiplier < 1 && enemy.body?.velocity) {
+        enemy.body.velocity.scale(cleaningRobotSlowMultiplier);
+      }
 
       this.constrainEnemyToMovementBounds(enemy);
     });
+  }
+
+  getEnemyCleaningRobotSlowMultiplier(enemy) {
+    if (!enemy || (this.time?.now || 0) >= (enemy.cleaningRobotSlowUntil || 0)) {
+      if (enemy) {
+        enemy.cleaningRobotSlowMultiplier = 1;
+      }
+      return 1;
+    }
+    return Phaser.Math.Clamp(Number(enemy.cleaningRobotSlowMultiplier) || 1, 0.45, 1);
   }
 
   updateEnemySupportStatusLock(enemy) {
