@@ -29,6 +29,7 @@ const DASH_HUD_CONFIG = {
 const MOBILE_CONTROL_QUERY_PARAM = "mobileControls";
 const MOBILE_GATE_SKIP_SESSION_KEY = "lastmemoVansabaSkipMobileGateOnce";
 const MOBILE_GATE_SKIP_QUERY_PARAM = "skipMobileGateOnce";
+const MOBILE_FULLSCREEN_REQUESTED_SESSION_KEY = "lastmemoVansabaFullscreenRequested";
 const MOBILE_USER_AGENT_PATTERN = /Android|iPhone|iPad|iPod|Windows Phone/i;
 const MOBILE_TOUCH_LEFT_BOUNDARY = GAME_WIDTH * 0.58;
 const MOBILE_JOYSTICK_DEFAULT_X = 150;
@@ -42,6 +43,7 @@ const MOBILE_DASH_BUTTON_RADIUS = 58;
 const SHOP_LOADING_MIN_VISIBLE_MS = 650;
 const SHOP_RETURN_RELOAD_DELAY_MS = 720;
 const SHOP_RETURN_WATCHDOG_MS = 6500;
+const MOBILE_FULLSCREEN_RESUME_PROMPT_DELAY_MS = 260;
 
 function installPhaserRestartSafetyGuards() {
   const gameObjectPrototype = window.Phaser?.GameObjects?.GameObject?.prototype;
@@ -15139,6 +15141,7 @@ class SurvivalScene extends Phaser.Scene {
       this.overlayBackdrop.setAlpha(1).setVisible(true);
       this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
       window.requestAnimationFrame?.(() => hideShopLoadingScreen());
+      scheduleMobileFullscreenResumeGate();
       return;
     }
 
@@ -15151,6 +15154,7 @@ class SurvivalScene extends Phaser.Scene {
       this.overlayBackdrop.setAlpha(1).setVisible(true);
       this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
       window.requestAnimationFrame?.(() => hideShopLoadingScreen());
+      scheduleMobileFullscreenResumeGate();
       return;
     }
 
@@ -15182,6 +15186,7 @@ class SurvivalScene extends Phaser.Scene {
     this.overlayBackdrop.setAlpha(1).setVisible(true);
     this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
     window.requestAnimationFrame?.(() => hideShopLoadingScreen());
+    scheduleMobileFullscreenResumeGate();
   }
 
   renderCdShopGrid(originX, originY) {
@@ -28793,6 +28798,9 @@ class SurvivalScene extends Phaser.Scene {
     const useMobileInPageReset = shouldUseMobileInPageShopReset();
     if (useMobileInPageReset) {
       prepareMobileViewport();
+      if (wantsMobileLandscapeFullscreen()) {
+        markMobileShopFullscreenResumeNeeded();
+      }
       requestLandscapeFullscreen();
     }
 
@@ -30297,6 +30305,182 @@ function clearMobileLaunchGateSkip() {
   }
 }
 
+function setMobileFullscreenRequested(requested) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.__SURVIVAL_MOBILE_FULLSCREEN_REQUESTED__ = Boolean(requested);
+  try {
+    if (requested) {
+      window.sessionStorage?.setItem(MOBILE_FULLSCREEN_REQUESTED_SESSION_KEY, "1");
+    } else {
+      window.sessionStorage?.removeItem(MOBILE_FULLSCREEN_REQUESTED_SESSION_KEY);
+    }
+  } catch (error) {
+    // The in-memory flag still covers the current page session.
+  }
+}
+
+function wantsMobileLandscapeFullscreen() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  if (window.__SURVIVAL_MOBILE_FULLSCREEN_REQUESTED__) {
+    return true;
+  }
+
+  try {
+    return window.sessionStorage?.getItem(MOBILE_FULLSCREEN_REQUESTED_SESSION_KEY) === "1";
+  } catch (error) {
+    return false;
+  }
+}
+
+function markMobileShopFullscreenResumeNeeded() {
+  if (typeof window !== "undefined") {
+    window.__SURVIVAL_MOBILE_SHOP_FULLSCREEN_RESUME_NEEDED__ = true;
+  }
+}
+
+function clearMobileShopFullscreenResumeNeeded() {
+  if (typeof window !== "undefined") {
+    window.__SURVIVAL_MOBILE_SHOP_FULLSCREEN_RESUME_NEEDED__ = false;
+  }
+}
+
+function replaceMobileGateButton(buttonId, label) {
+  const currentButton = document.getElementById(buttonId);
+  if (!currentButton) {
+    return null;
+  }
+
+  const nextButton = currentButton.cloneNode(true);
+  nextButton.textContent = label;
+  nextButton.disabled = false;
+  currentButton.replaceWith(nextButton);
+  return nextButton;
+}
+
+function configureMobileGateContent(content = {}) {
+  const kicker = document.querySelector(".mobile-start-kicker");
+  const title = document.getElementById("mobile-start-title");
+  const copy = document.querySelector(".mobile-start-copy");
+  const note = document.querySelector(".mobile-start-note");
+
+  if (kicker) {
+    kicker.textContent = content.kicker || "スマートフォンで接続中";
+  }
+  if (title) {
+    title.textContent = content.title || "横向きフルスクリーンで開始しますか？";
+  }
+  if (copy) {
+    copy.textContent = content.copy || "横向きにすると画面全体を使ってプレイできます。対応端末ではフルスクリーンと画面回転をリクエストします。";
+  }
+  if (note) {
+    note.textContent = content.note || "端末やブラウザの制限で自動回転できない場合は、端末を横向きにして開始してください。";
+  }
+}
+
+function isMobileLandscapeFullscreenActive() {
+  if (typeof document === "undefined") {
+    return true;
+  }
+  return Boolean(document.fullscreenElement) && isLandscapeViewport();
+}
+
+function shouldShowMobileFullscreenResumeGate() {
+  if (typeof document === "undefined" || typeof window === "undefined") {
+    return false;
+  }
+  if (!window.__SURVIVAL_MOBILE_SHOP_FULLSCREEN_RESUME_NEEDED__) {
+    return false;
+  }
+  if (!wantsMobileLandscapeFullscreen()) {
+    return false;
+  }
+  if (!(document.body?.classList.contains("mobile-session") || isMobilePlayEnvironment())) {
+    return false;
+  }
+  return !isMobileLandscapeFullscreenActive();
+}
+
+function showMobileFullscreenResumeGate() {
+  if (!shouldShowMobileFullscreenResumeGate()) {
+    clearMobileShopFullscreenResumeNeeded();
+    return false;
+  }
+
+  const gate = document.getElementById("mobile-start-gate");
+  if (!gate) {
+    return false;
+  }
+
+  prepareMobileViewport();
+  configureMobileGateContent({
+    kicker: "ショップへ帰還しました",
+    title: "横向きフルスクリーンに戻りますか？",
+    copy: "ブラウザ側で全画面表示が解除されました。横向き全画面で続けるには、もう一度ボタンをタップしてください。",
+    note: "Chrome の制限により、解除後のフルスクリーン復帰にはタップ操作が必要です。"
+  });
+  const fullscreenButton = replaceMobileGateButton("mobile-start-fullscreen", "横向きフルスクリーンに戻る");
+  const windowedButton = replaceMobileGateButton("mobile-start-windowed", "このまま表示");
+  const closeGate = () => {
+    gate.hidden = true;
+    configureMobileGateContent();
+    clearMobileShopFullscreenResumeNeeded();
+    scheduleMobileLayoutRefresh();
+  };
+
+  gate.hidden = false;
+
+  fullscreenButton?.addEventListener("click", async () => {
+    fullscreenButton.disabled = true;
+    if (windowedButton) {
+      windowedButton.disabled = true;
+    }
+    setMobileFullscreenRequested(true);
+    const restored = await requestLandscapeFullscreen();
+    if (restored || isMobileLandscapeFullscreenActive()) {
+      closeGate();
+      return;
+    }
+
+    configureMobileGateContent({
+      kicker: "フルスクリーン復帰待機中",
+      title: "横向きフルスクリーンに戻れませんでした",
+      copy: "端末を横向きにした状態でもう一度タップしてください。ブラウザが拒否する場合は、このまま表示を選べます。",
+      note: "Android Chrome では、フルスクリーン復帰にユーザーのタップ操作が必要です。"
+    });
+    fullscreenButton.disabled = false;
+    if (windowedButton) {
+      windowedButton.disabled = false;
+    }
+  });
+
+  windowedButton?.addEventListener("click", () => {
+    if (fullscreenButton) {
+      fullscreenButton.disabled = true;
+    }
+    windowedButton.disabled = true;
+    setMobileFullscreenRequested(false);
+    closeGate();
+  }, { once: true });
+
+  return true;
+}
+
+function scheduleMobileFullscreenResumeGate() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.setTimeout(() => {
+    showMobileFullscreenResumeGate();
+  }, MOBILE_FULLSCREEN_RESUME_PROMPT_DELAY_MS);
+}
+
 function buildOpeningShopReloadUrl(options = {}) {
   try {
     const url = new URL(window.location.href);
@@ -30699,8 +30883,9 @@ function setupMobileLaunchGate() {
     return;
   }
 
-  const fullscreenButton = document.getElementById("mobile-start-fullscreen");
-  const windowedButton = document.getElementById("mobile-start-windowed");
+  configureMobileGateContent();
+  const fullscreenButton = replaceMobileGateButton("mobile-start-fullscreen", "横向きフルスクリーン");
+  const windowedButton = replaceMobileGateButton("mobile-start-windowed", "通常表示で開始");
   const finish = () => {
     prepareMobileViewport();
     gate.hidden = true;
@@ -30715,6 +30900,7 @@ function setupMobileLaunchGate() {
     if (windowedButton) {
       windowedButton.disabled = true;
     }
+    setMobileFullscreenRequested(true);
     await requestLandscapeFullscreen();
     finish();
   }, { once: true });
@@ -30724,6 +30910,7 @@ function setupMobileLaunchGate() {
       fullscreenButton.disabled = true;
     }
     windowedButton.disabled = true;
+    setMobileFullscreenRequested(false);
     finish();
   }, { once: true });
 }
