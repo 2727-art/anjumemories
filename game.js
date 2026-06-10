@@ -28798,9 +28798,14 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     const useMobileInPageReset = shouldUseMobileInPageShopReset();
+    const wantsFullscreenOnReturn = wantsMobileLandscapeFullscreen();
+    const shopReturnOptions = { ...options };
+    if (wantsFullscreenOnReturn) {
+      shopReturnOptions.showMobileLaunchGate = true;
+    }
     if (useMobileInPageReset) {
       prepareMobileViewport();
-      if (wantsMobileLandscapeFullscreen()) {
+      if (wantsFullscreenOnReturn) {
         markMobileShopFullscreenResumeNeeded();
       }
       requestLandscapeFullscreen();
@@ -28840,10 +28845,10 @@ class SurvivalScene extends Phaser.Scene {
     this.sound?.stopAll();
 
     window.setTimeout(() => {
-      if (useMobileInPageReset && restartSurvivalSceneToShop(this, message, options)) {
+      if (useMobileInPageReset && restartSurvivalSceneToShop(this, message, shopReturnOptions)) {
         return;
       }
-      resetSurvivalGameToShop(message, options);
+      resetSurvivalGameToShop(message, shopReturnOptions);
     }, 0);
   }
 
@@ -30931,7 +30936,7 @@ function resetSurvivalGameToShop(message = "", options = {}) {
   if (isMobilePlayEnvironment() || document.body?.classList.contains("mobile-session")) {
     prepareMobileViewport();
   }
-  const skipMobileGate = options?.showMobileLaunchGate !== true;
+  const skipMobileGate = options?.showMobileLaunchGate !== true && !wantsMobileLandscapeFullscreen();
   if (skipMobileGate) {
     skipMobileLaunchGateOnce();
   } else {
