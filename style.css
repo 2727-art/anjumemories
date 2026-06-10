@@ -76,10 +76,7 @@ body {
 
 .mobile-start-gate {
   position: fixed;
-  top: var(--survival-visual-top, 0px);
-  left: var(--survival-visual-left, 0px);
-  width: var(--survival-visual-width, 100vw);
-  height: var(--survival-visual-height, 100dvh);
+  inset: 0;
   z-index: 10000;
   display: flex;
   align-items: center;
@@ -96,8 +93,8 @@ body {
 }
 
 .mobile-start-panel {
-  width: min(520px, calc(var(--survival-visual-width, 100vw) - 28px));
-  max-height: calc(var(--survival-visual-height, 100dvh) - 28px);
+  width: min(520px, calc(100vw - 28px));
+  max-height: calc(100dvh - 28px);
   overflow: auto;
   overscroll-behavior: contain;
   padding: 24px;
@@ -164,11 +161,7 @@ body {
 
 .shop-loading-screen {
   position: fixed;
-  top: var(--survival-visual-top, 0px);
-  left: var(--survival-visual-left, 0px);
-  width: var(--survival-visual-width, 100vw);
-  height: var(--survival-visual-height, 100dvh);
-  min-height: var(--survival-visual-height, 100dvh);
+  inset: 0;
   z-index: 9500;
   display: flex;
   align-items: center;
@@ -262,19 +255,27 @@ body.shop-loading-active {
   }
 }
 
+html.mobile-session,
 body.mobile-session {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
   overflow: hidden;
   min-height: 100dvh;
+  overscroll-behavior: none;
+}
+
+body.mobile-session {
   background: #02060b;
   touch-action: none;
 }
 
 body.mobile-session .app-shell {
   position: fixed;
-  top: var(--survival-visual-top, 0px);
-  left: var(--survival-visual-left, 0px);
-  width: var(--survival-visual-width, 100vw);
-  height: var(--survival-visual-height, 100dvh);
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
   margin: 0;
   padding: 0;
 }

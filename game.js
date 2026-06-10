@@ -41,6 +41,31 @@ const MOBILE_DASH_BUTTON_Y = 350;
 const MOBILE_DASH_BUTTON_RADIUS = 58;
 const SHOP_LOADING_MIN_VISIBLE_MS = 650;
 const SHOP_RETURN_RELOAD_DELAY_MS = 720;
+const SHOP_RETURN_WATCHDOG_MS = 6500;
+
+function installPhaserRestartSafetyGuards() {
+  const gameObjectPrototype = window.Phaser?.GameObjects?.GameObject?.prototype;
+  if (!gameObjectPrototype || gameObjectPrototype.__survivalSafeRemoveFromDisplayList) {
+    return;
+  }
+
+  const originalRemoveFromDisplayList = gameObjectPrototype.removeFromDisplayList;
+  if (typeof originalRemoveFromDisplayList !== "function") {
+    return;
+  }
+
+  gameObjectPrototype.removeFromDisplayList = function safeRemoveFromDisplayList(...args) {
+    if (!this.scene?.sys) {
+      this.displayList = null;
+      return this;
+    }
+    return originalRemoveFromDisplayList.apply(this, args);
+  };
+  gameObjectPrototype.__survivalSafeRemoveFromDisplayList = true;
+}
+
+installPhaserRestartSafetyGuards();
+
 const GATE_INTERVAL_MS = 180000;
 const GATE_WARNING_LEAD_MS = 30000;
 const GATE_STABLE_MS = 30000;
@@ -3408,21 +3433,26 @@ class SurvivalScene extends Phaser.Scene {
     this.createInput();
     this.createHud();
     this.createOverlay();
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.resetAnomalyContractState("sceneShutdown"));
+    const runShutdownCleanup = (cleanup) => {
+      if (!this.skipShopReturnSceneShutdownCleanup) {
+        cleanup();
+      }
+    };
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetAnomalyContractState("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetAnomalyContractState("sceneDestroy"));
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.resetOverdriveModState("sceneShutdown"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetOverdriveModState("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetOverdriveModState("sceneDestroy"));
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.resetStabilizeProtocolState("sceneShutdown"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetStabilizeProtocolState("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetStabilizeProtocolState("sceneDestroy"));
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.resetLostArmsResonanceState("sceneShutdown"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetLostArmsResonanceState("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetLostArmsResonanceState("sceneDestroy"));
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.resetDepthDirectiveState("sceneShutdown"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetDepthDirectiveState("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetDepthDirectiveState("sceneDestroy"));
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.resetNemesisBossState("sceneShutdown"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetNemesisBossState("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetNemesisBossState("sceneDestroy"));
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cleanupDeepExtractionResultOverlay("sceneShutdown"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.cleanupDeepExtractionResultOverlay("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.cleanupDeepExtractionResultOverlay("sceneDestroy"));
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cleanupGeekMilestoneNotice("sceneShutdown"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.cleanupGeekMilestoneNotice("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.cleanupGeekMilestoneNotice("sceneDestroy"));
     this.setupMobileControls();
     this.configureCameras();
@@ -3983,6 +4013,7 @@ class SurvivalScene extends Phaser.Scene {
     this.lastRunCoinLoss = null;
     this.lastGameOverReason = null;
     this.extractionComplete = false;
+    this.skipShopReturnSceneShutdownCleanup = false;
   }
 
   initializeAnomalyContractState() {
@@ -28786,6 +28817,7 @@ class SurvivalScene extends Phaser.Scene {
     this.resetRobotNapalmState("returnToOpeningShop");
     this.cleanupGeekMilestoneNotice("returnToOpeningShop");
     this.resetOverflowRewardState();
+    this.skipShopReturnSceneShutdownCleanup = true;
     this.overlayActions = [];
     this.releaseMobileControlPointers?.();
     const overlayTweenTargets = [this.overlayContainer, this.overlayBackdrop].filter(Boolean);
@@ -28798,7 +28830,7 @@ class SurvivalScene extends Phaser.Scene {
     this.sound?.stopAll();
 
     window.setTimeout(() => {
-      if (useMobileInPageReset && resetSurvivalSceneToShop(this, message, options)) {
+      if (useMobileInPageReset && restartSurvivalSceneToShop(this, message, options)) {
         return;
       }
       resetSurvivalGameToShop(message, options);
@@ -30078,41 +30110,39 @@ function isMobilePlayEnvironment() {
   return mobileUserAgent || (touchPoints > 0 && coarsePointer && smallScreen);
 }
 
-function getMobileVisualViewportFrame() {
-  if (typeof window === "undefined") {
-    return {
-      left: 0,
-      top: 0,
-      width: GAME_WIDTH,
-      height: GAME_HEIGHT
-    };
-  }
-
-  const viewport = window.visualViewport;
-  const documentElement = document.documentElement;
-  const width = Math.max(1, Math.round(viewport?.width || window.innerWidth || documentElement?.clientWidth || GAME_WIDTH));
-  const height = Math.max(1, Math.round(viewport?.height || window.innerHeight || documentElement?.clientHeight || GAME_HEIGHT));
-  const left = Math.round(viewport?.offsetLeft || 0);
-  const top = Math.round(viewport?.offsetTop || 0);
-  return { left, top, width, height };
-}
-
 function syncMobileViewportFrame() {
   if (typeof document === "undefined") {
     return;
   }
 
-  const frame = getMobileVisualViewportFrame();
   const root = document.documentElement;
-  root.style.setProperty("--survival-visual-left", `${frame.left}px`);
-  root.style.setProperty("--survival-visual-top", `${frame.top}px`);
-  root.style.setProperty("--survival-visual-width", `${frame.width}px`);
-  root.style.setProperty("--survival-visual-height", `${frame.height}px`);
+  root.style.setProperty("--survival-visual-left", "0px");
+  root.style.setProperty("--survival-visual-top", "0px");
+  root.style.setProperty("--survival-visual-width", "100vw");
+  root.style.setProperty("--survival-visual-height", "100dvh");
 
   if (document.body?.classList.contains("mobile-session")) {
     window.scrollTo?.(0, 0);
     window.__SURVIVAL_GAME__?.scale?.refresh?.();
   }
+}
+
+function scheduleMobileLayoutRefresh() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  [0, 80, 180, 360, 720, 1200].forEach((delayMs) => {
+    window.setTimeout(() => {
+      syncMobileViewportFrame();
+      try {
+        window.dispatchEvent?.(new Event("resize"));
+      } catch (error) {
+        // Some embedded browsers can reject synthetic events during fullscreen transitions.
+      }
+      window.__SURVIVAL_GAME__?.scale?.refresh?.();
+    }, delayMs);
+  });
 }
 
 function startMobileViewportSync() {
@@ -30133,9 +30163,55 @@ function startMobileViewportSync() {
   window.addEventListener("orientationchange", sync, { passive: true });
   window.addEventListener("fullscreenchange", sync, { passive: true });
   window.addEventListener("pageshow", sync, { passive: true });
+  document.addEventListener?.("fullscreenchange", sync, { passive: true });
+  window.screen?.orientation?.addEventListener?.("change", sync, { passive: true });
   window.visualViewport?.addEventListener("resize", sync, { passive: true });
   window.visualViewport?.addEventListener("scroll", sync, { passive: true });
   sync();
+}
+
+function isLandscapeViewport() {
+  if (typeof window === "undefined") {
+    return true;
+  }
+
+  const orientationType = String(window.screen?.orientation?.type || "").toLowerCase();
+  return orientationType.startsWith("landscape") || (window.innerWidth || 0) >= (window.innerHeight || 0);
+}
+
+function waitForLandscapeViewport(timeoutMs = 900) {
+  if (typeof window === "undefined" || typeof document === "undefined" || isLandscapeViewport()) {
+    return Promise.resolve(isLandscapeViewport());
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const orientation = window.screen?.orientation;
+    const finish = (result) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      window.removeEventListener("resize", check);
+      window.removeEventListener("orientationchange", check);
+      document.removeEventListener("fullscreenchange", check);
+      orientation?.removeEventListener?.("change", check);
+      resolve(result);
+    };
+    const check = () => {
+      syncMobileViewportFrame();
+      if (isLandscapeViewport()) {
+        finish(true);
+      }
+    };
+
+    window.addEventListener("resize", check, { passive: true });
+    window.addEventListener("orientationchange", check, { passive: true });
+    document.addEventListener("fullscreenchange", check, { passive: true });
+    orientation?.addEventListener?.("change", check, { passive: true });
+    window.setTimeout(() => finish(isLandscapeViewport()), timeoutMs);
+    window.requestAnimationFrame?.(check);
+  });
 }
 
 function shouldShowMobileLaunchGate() {
@@ -30237,6 +30313,7 @@ function buildOpeningShopReloadUrl(options = {}) {
 
 function prepareMobileViewport() {
   startMobileViewportSync();
+  document.documentElement.classList.add("mobile-session");
   document.body.classList.add("mobile-session");
   window.scrollTo?.(0, 0);
   syncMobileViewportFrame();
@@ -30247,31 +30324,38 @@ function prepareMobileViewport() {
 }
 
 async function requestLandscapeFullscreen() {
+  if (typeof document === "undefined") {
+    return false;
+  }
+
   const target = document.documentElement;
   prepareMobileViewport();
+  let fullscreenSucceeded = Boolean(document.fullscreenElement);
 
   try {
-    if (!document.fullscreenElement && target.requestFullscreen) {
+    if (!fullscreenSucceeded && target.requestFullscreen) {
       await target.requestFullscreen({ navigationUI: "hide" });
+      fullscreenSucceeded = true;
     }
   } catch (error) {
     // Fullscreen is best-effort because iOS Safari and embedded browsers may reject it.
   }
 
+  let orientationSucceeded = isLandscapeViewport();
   try {
-    if (screen.orientation?.lock) {
-      await screen.orientation.lock("landscape");
+    const orientation = window.screen?.orientation;
+    if (orientation?.lock) {
+      await orientation.lock("landscape");
+      orientationSucceeded = true;
     }
   } catch (error) {
     // Orientation lock is only available on some browsers after entering fullscreen.
   }
 
   syncMobileViewportFrame();
-  window.setTimeout(() => syncMobileViewportFrame(), 120);
-  window.setTimeout(() => {
-    syncMobileViewportFrame();
-    window.__SURVIVAL_GAME__?.scale?.refresh?.();
-  }, 360);
+  await waitForLandscapeViewport(900);
+  scheduleMobileLayoutRefresh();
+  return fullscreenSucceeded && (orientationSucceeded || isLandscapeViewport());
 }
 
 function setPendingOpeningShopMessage(message = "") {
@@ -30323,7 +30407,6 @@ function assignShopLoadingStyles(element, styles) {
 
 function applyShopLoadingInlineStyles(screen) {
   syncMobileViewportFrame();
-  const frame = getMobileVisualViewportFrame();
   const panel = screen?.querySelector(".shop-loading-panel");
   const emblem = screen?.querySelector(".shop-loading-emblem");
   const kicker = screen?.querySelector(".shop-loading-kicker");
@@ -30333,11 +30416,10 @@ function applyShopLoadingInlineStyles(screen) {
 
   assignShopLoadingStyles(screen, {
     position: "fixed",
-    top: `${frame.top}px`,
-    left: `${frame.left}px`,
-    width: `${frame.width}px`,
-    height: `${frame.height}px`,
-    minHeight: `${frame.height}px`,
+    inset: "0",
+    width: "auto",
+    height: "auto",
+    minHeight: "0",
     zIndex: "9500",
     display: "flex",
     alignItems: "center",
@@ -30349,8 +30431,8 @@ function applyShopLoadingInlineStyles(screen) {
     touchAction: "none"
   });
   assignShopLoadingStyles(panel, {
-    width: `min(420px, ${Math.max(1, frame.width - 36)}px)`,
-    maxHeight: `${Math.max(1, frame.height - 36)}px`,
+    width: "min(420px, calc(100vw - 36px))",
+    maxHeight: "calc(100dvh - 36px)",
     overflow: "auto",
     padding: "26px 24px 24px",
     border: "1px solid rgba(111, 207, 255, 0.36)",
@@ -30500,9 +30582,7 @@ function startSurvivalGame(loadingTitle = "ショップ準備中") {
   }
   showShopLoadingScreen(loadingTitle);
   window.__SURVIVAL_GAME__ = new Phaser.Game(config);
-  window.setTimeout(() => {
-    window.__SURVIVAL_GAME__?.scale?.refresh?.();
-  }, 80);
+  scheduleMobileLayoutRefresh();
 }
 
 function shouldUseMobileInPageShopReset() {
@@ -30513,7 +30593,33 @@ function shouldUseMobileInPageShopReset() {
   return document.body?.classList.contains("mobile-session") || isMobilePlayEnvironment();
 }
 
-function resetSurvivalSceneToShop(scene, message = "", options = {}) {
+function scheduleMobileShopReturnWatchdog(token, message = "", options = {}) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const checkpoints = [1200, 2400, 4200, SHOP_RETURN_WATCHDOG_MS];
+  checkpoints.forEach((delayMs, index) => {
+    window.setTimeout(() => {
+      if (window.__SURVIVAL_MOBILE_SHOP_RESET_TOKEN__ !== token) {
+        return;
+      }
+
+      const loadingScreen = document.getElementById("shop-loading-screen");
+      if (!loadingScreen || loadingScreen.hidden) {
+        window.__SURVIVAL_MOBILE_SCENE_RESETTING__ = false;
+        return;
+      }
+
+      if (index === checkpoints.length - 1) {
+        window.__SURVIVAL_MOBILE_SCENE_RESETTING__ = false;
+        resetSurvivalGameToShop(message, options);
+      }
+    }, delayMs);
+  });
+}
+
+function restartSurvivalSceneToShop(scene, message = "", options = {}) {
   if (typeof window === "undefined" || !scene?.scene) {
     return false;
   }
@@ -30531,14 +30637,13 @@ function resetSurvivalSceneToShop(scene, message = "", options = {}) {
   }
 
   window.__SURVIVAL_MOBILE_SCENE_RESETTING__ = true;
+  const resetToken = (window.__SURVIVAL_MOBILE_SHOP_RESET_TOKEN__ || 0) + 1;
+  window.__SURVIVAL_MOBILE_SHOP_RESET_TOKEN__ = resetToken;
   window.setTimeout(() => {
     try {
-      window.__SURVIVAL_MOBILE_SCENE_RESETTING__ = false;
       scene.scene.restart();
-      window.setTimeout(() => {
-        syncMobileViewportFrame();
-        window.__SURVIVAL_GAME__?.scale?.refresh?.();
-      }, 120);
+      scheduleMobileLayoutRefresh();
+      scheduleMobileShopReturnWatchdog(resetToken, message, options);
     } catch (error) {
       window.__SURVIVAL_MOBILE_SCENE_RESETTING__ = false;
       console.error("Failed to restart mobile scene for opening shop.", error);
