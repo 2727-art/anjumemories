@@ -44,6 +44,8 @@ const SHOP_LOADING_MIN_VISIBLE_MS = 650;
 const SHOP_RETURN_RELOAD_DELAY_MS = 720;
 const SHOP_RETURN_WATCHDOG_MS = 6500;
 const MOBILE_FULLSCREEN_RESUME_PROMPT_DELAY_MS = 260;
+const MOBILE_FULLSCREEN_RESUME_MONITOR_MS = 30000;
+const MOBILE_FULLSCREEN_RESUME_MONITOR_INTERVAL_MS = 300;
 
 function installPhaserRestartSafetyGuards() {
   const gameObjectPrototype = window.Phaser?.GameObjects?.GameObject?.prototype;
@@ -30341,12 +30343,18 @@ function wantsMobileLandscapeFullscreen() {
 function markMobileShopFullscreenResumeNeeded() {
   if (typeof window !== "undefined") {
     window.__SURVIVAL_MOBILE_SHOP_FULLSCREEN_RESUME_NEEDED__ = true;
+    window.__SURVIVAL_MOBILE_SHOP_FULLSCREEN_RESUME_TOKEN__ = (window.__SURVIVAL_MOBILE_SHOP_FULLSCREEN_RESUME_TOKEN__ || 0) + 1;
+    window.__SURVIVAL_MOBILE_SHOP_FULLSCREEN_RESUME_UNTIL__ = Date.now() + MOBILE_FULLSCREEN_RESUME_MONITOR_MS;
+    startMobileFullscreenResumeMonitor(window.__SURVIVAL_MOBILE_SHOP_FULLSCREEN_RESUME_TOKEN__);
   }
 }
 
 function clearMobileShopFullscreenResumeNeeded() {
   if (typeof window !== "undefined") {
     window.__SURVIVAL_MOBILE_SHOP_FULLSCREEN_RESUME_NEEDED__ = false;
+    window.__SURVIVAL_MOBILE_SHOP_FULLSCREEN_RESUME_TOKEN__ = (window.__SURVIVAL_MOBILE_SHOP_FULLSCREEN_RESUME_TOKEN__ || 0) + 1;
+    window.__SURVIVAL_MOBILE_SHOP_FULLSCREEN_RESUME_UNTIL__ = 0;
+    window.__SURVIVAL_MOBILE_SHOP_FULLSCREEN_GATE_OPEN__ = false;
   }
 }
 
@@ -30408,13 +30416,15 @@ function shouldShowMobileFullscreenResumeGate() {
 
 function showMobileFullscreenResumeGate() {
   if (!shouldShowMobileFullscreenResumeGate()) {
-    clearMobileShopFullscreenResumeNeeded();
     return false;
   }
 
   const gate = document.getElementById("mobile-start-gate");
   if (!gate) {
     return false;
+  }
+  if (window.__SURVIVAL_MOBILE_SHOP_FULLSCREEN_GATE_OPEN__) {
+    return true;
   }
 
   prepareMobileViewport();
@@ -30434,6 +30444,7 @@ function showMobileFullscreenResumeGate() {
   };
 
   gate.hidden = false;
+  window.__SURVIVAL_MOBILE_SHOP_FULLSCREEN_GATE_OPEN__ = true;
 
   fullscreenButton?.addEventListener("click", async () => {
     fullscreenButton.disabled = true;
@@ -30476,9 +30487,83 @@ function scheduleMobileFullscreenResumeGate() {
     return;
   }
 
+  startMobileFullscreenResumeMonitor();
   window.setTimeout(() => {
     showMobileFullscreenResumeGate();
   }, MOBILE_FULLSCREEN_RESUME_PROMPT_DELAY_MS);
+}
+
+function startMobileFullscreenResumeMonitor(token) {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return;
+  }
+  if (!window.__SURVIVAL_MOBILE_SHOP_FULLSCREEN_RESUME_NEEDED__) {
+    return;
+  }
+
+  const monitorToken = token || window.__SURVIVAL_MOBILE_SHOP_FULLSCREEN_RESUME_TOKEN__ || 0;
+  if (window.__SURVIVAL_MOBILE_SHOP_FULLSCREEN_MONITOR_TOKEN__ === monitorToken) {
+    return;
+  }
+  window.__SURVIVAL_MOBILE_SHOP_FULLSCREEN_MONITOR_TOKEN__ = monitorToken;
+  const deadline = window.__SURVIVAL_MOBILE_SHOP_FULLSCREEN_RESUME_UNTIL__ || (Date.now() + MOBILE_FULLSCREEN_RESUME_MONITOR_MS);
+  let stopped = false;
+  let timerId = 0;
+  const stop = () => {
+    if (stopped) {
+      return;
+    }
+    stopped = true;
+    if (timerId) {
+      window.clearTimeout(timerId);
+    }
+    window.removeEventListener("resize", check);
+    window.removeEventListener("orientationchange", check);
+    document.removeEventListener("fullscreenchange", check);
+    window.screen?.orientation?.removeEventListener?.("change", check);
+    window.visualViewport?.removeEventListener?.("resize", check);
+    if (window.__SURVIVAL_MOBILE_SHOP_FULLSCREEN_MONITOR_TOKEN__ === monitorToken) {
+      window.__SURVIVAL_MOBILE_SHOP_FULLSCREEN_MONITOR_TOKEN__ = 0;
+    }
+  };
+  const scheduleNext = () => {
+    if (!stopped) {
+      timerId = window.setTimeout(check, MOBILE_FULLSCREEN_RESUME_MONITOR_INTERVAL_MS);
+    }
+  };
+  const check = () => {
+    if (stopped) {
+      return;
+    }
+    if (window.__SURVIVAL_MOBILE_SHOP_FULLSCREEN_RESUME_TOKEN__ !== monitorToken) {
+      stop();
+      return;
+    }
+    if (!window.__SURVIVAL_MOBILE_SHOP_FULLSCREEN_RESUME_NEEDED__ || !wantsMobileLandscapeFullscreen()) {
+      clearMobileShopFullscreenResumeNeeded();
+      stop();
+      return;
+    }
+    if (showMobileFullscreenResumeGate()) {
+      stop();
+      return;
+    }
+    if (Date.now() >= deadline) {
+      if (isMobileLandscapeFullscreenActive() || !(document.body?.classList.contains("mobile-session") || isMobilePlayEnvironment())) {
+        clearMobileShopFullscreenResumeNeeded();
+      }
+      stop();
+      return;
+    }
+    scheduleNext();
+  };
+
+  window.addEventListener("resize", check, { passive: true });
+  window.addEventListener("orientationchange", check, { passive: true });
+  document.addEventListener("fullscreenchange", check, { passive: true });
+  window.screen?.orientation?.addEventListener?.("change", check, { passive: true });
+  window.visualViewport?.addEventListener?.("resize", check, { passive: true });
+  window.setTimeout(check, MOBILE_FULLSCREEN_RESUME_PROMPT_DELAY_MS);
 }
 
 function buildOpeningShopReloadUrl(options = {}) {
