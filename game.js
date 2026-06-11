@@ -66,6 +66,65 @@ const PLAYER_ROBOT_DIRECTION_ASSETS = {
 };
 const DEFAULT_SKILL_ID = "basicSkill";
 const SKILL_DEFINITIONS = window.skillDefinitions || {};
+const SKILL_MUTATION_DEFINITIONS = window.skillMutationDefinitions || { cores: {}, finals: {}, skills: {} };
+const SKILL_MUTATION_SKILL_IDS = ["basicSkill", "tornadoSkill", "rabbitThunderSkill"];
+const SKILL_MUTATION_CORE_IDS = ["assault", "control", "reactor"];
+const SKILL_MUTATION_FINAL_IDS = ["execution", "prism", "singularity"];
+const SKILL_MUTATION_DEBUG_QUERY_PARAM = "debugSkillMutation";
+const SKILL_MUTATION_CONFIG = {
+  stage4: 4,
+  stage8: 8,
+  coreChoices: 3,
+  finalChoices: 3,
+  branchRange: 280,
+  prismBranchTargets: 3,
+  maxMutationTargets: 8,
+  basicFinalIntervalMs: 1350,
+  basicNovaHitsRequired: 8,
+  basicAegisHitsRequired: 7,
+  tornadoFinalTickMs: 520,
+  tornadoDataPullRadius: 190,
+  rabbitGeneratorIntervalMs: 1050,
+  rabbitCapacitorCooldownMs: 420,
+  debugForcedStage: 8
+};
+const SKILL_MUTATION_CORE_VISUALS = {
+  assault: {
+    primaryTint: 0xff4f45,
+    secondaryTint: 0xffd76b,
+    damageTint: 0xfff0ba,
+    auraTint: 0xff7b52,
+    textColor: "#ffd76b"
+  },
+  control: {
+    primaryTint: 0x63c9ff,
+    secondaryTint: 0xb98cff,
+    damageTint: 0xd9f8ff,
+    auraTint: 0x7ad8ff,
+    textColor: "#9eefff"
+  },
+  reactor: {
+    primaryTint: 0x91f6ff,
+    secondaryTint: 0xffffff,
+    damageTint: 0xecffff,
+    auraTint: 0xb8fbff,
+    textColor: "#b8fbff"
+  }
+};
+const SKILL_MUTATION_FINAL_VISUALS = {
+  execution: {
+    shortLabel: "EXEC",
+    shape: "line"
+  },
+  prism: {
+    shortLabel: "PRSM",
+    shape: "branch"
+  },
+  singularity: {
+    shortLabel: "SING",
+    shape: "field"
+  }
+};
 const STAGE_DEFINITIONS = window.stageDefinitions || {};
 const ACTIVE_STAGE_ID = "shibuyaStage1";
 const DEBUG_STAGE_ID = null;
@@ -218,6 +277,11 @@ const GATE_TENSION_HUD_BAR = {
 };
 const EXTRACTION_MESSAGE_SESSION_KEY = "lastmemoVansabaExtractionMessage";
 const DEEP_EXTRACTION_RESULT_DEBUG_QUERY_PARAM = "debugDeepResult";
+const RUN_ARCHIVE_STORAGE_KEY = "lastmemoVansabaRunArchive";
+const RUN_ARCHIVE_DEBUG_QUERY_PARAM = "debugRunArchive";
+const RUN_ARCHIVE_VERSION = 1;
+const RUN_ARCHIVE_MAX_ENTRIES = 20;
+const RUN_ARCHIVE_ENTRIES_PER_PAGE = 7;
 const DEEP_EXTRACTION_RESULT_CONFIG = {
   unlockDepth: 6,
   panelWidth: 1040,
@@ -790,7 +854,7 @@ const NEMESIS_BOSS_CONFIG = {
       baseBossTypeId: "boss_crack",
       tint: 0xff5f6d,
       accent: 0xff3245,
-      hpMultiplier: 2.65,
+      hpMultiplier: 4.2,
       damageMultiplier: 1.2,
       moveSpeedMultiplier: 0.82,
       attackIntervalMultiplier: 1.04,
@@ -809,7 +873,7 @@ const NEMESIS_BOSS_CONFIG = {
       baseBossTypeId: "boss_random_blast",
       tint: 0xb070ff,
       accent: 0xff5be8,
-      hpMultiplier: 2.35,
+      hpMultiplier: 3.95,
       damageMultiplier: 1.16,
       moveSpeedMultiplier: 0.9,
       attackIntervalMultiplier: 1.02,
@@ -828,7 +892,7 @@ const NEMESIS_BOSS_CONFIG = {
       baseBossTypeId: "boss_lightning_dash",
       tint: 0x68f8ff,
       accent: 0x4f8cff,
-      hpMultiplier: 2.2,
+      hpMultiplier: 3.8,
       damageMultiplier: 1.14,
       moveSpeedMultiplier: 1.0,
       attackIntervalMultiplier: 1.08,
@@ -1756,6 +1820,11 @@ const LEVEL_UP_CARD_TYPE_META = {
     color: 0x55eaff,
     textColor: "#e8fbff"
   },
+  skillMutation: {
+    label: "SKILL MUTATION",
+    color: 0xffd76b,
+    textColor: "#fff3c8"
+  },
   passiveChip: {
     label: "PASSIVE CHIP",
     color: 0x8eb4ff,
@@ -2553,6 +2622,17 @@ const STAGE_DEPTH_SCALING_TABLE = {
   3: { enemyHp: 1.4, enemyDamage: 1.18, enemySpeed: 1.04, coinAmount: 1.45 },
   4: { enemyHp: 1.68, enemyDamage: 1.3, enemySpeed: 1.06, coinAmount: 1.75 },
   5: { enemyHp: 2, enemyDamage: 1.45, enemySpeed: 1.08, coinAmount: 2.15 }
+};
+const ENEMY_DURABILITY_TUNING = {
+  baseHpMultiplier: 1.25,
+  deepStartDepth: 6,
+  deepHpMultiplier: 1.25,
+  deepHpPerDepth: 1.1,
+  deepHpMaxMultiplier: 3.25,
+  bossHpMultiplier: 2,
+  bossDeepHpMultiplier: 1.25,
+  bossHpPerDepth: 1.12,
+  bossDeepHpMaxMultiplier: 4.5
 };
 const GATE_INSTABILITY_SCALING_TABLE = [
   { minStack: 5, enemyHp: 1.7, enemyDamage: 1.35, coinBonus: 1.5, extractRate: 0.5 },
@@ -3574,6 +3654,8 @@ class SurvivalScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetLostArmsResonanceState("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetDepthDirectiveState("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetDepthDirectiveState("sceneDestroy"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetSkillMutationState("sceneShutdown")));
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetSkillMutationState("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetNemesisBossState("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetNemesisBossState("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.cleanupDeepExtractionResultOverlay("sceneShutdown")));
@@ -4001,6 +4083,8 @@ class SurvivalScene extends Phaser.Scene {
     this.shopViewMode = "cd";
     this.anjuMemoryShopTab = "deepCd";
     this.anjuMemoryReadLogId = null;
+    this.runArchiveSelectedEntryId = null;
+    this.runArchivePage = 0;
     this.rebuildStartingStats();
 
     this.survivalTime = 0;
@@ -4011,6 +4095,7 @@ class SurvivalScene extends Phaser.Scene {
     this.initializeOverdriveModState();
     this.initializeStabilizeProtocolState();
     this.initializeDepthDirectiveState();
+    this.initializeSkillMutationState();
     this.initializeNemesisBossState();
     if (this.isStabilizeProtocolDebugEnabled()) {
       this.overflowRewardState.stabilizeCharges = OVERFLOW_REWARD_CONFIG.stabilize.maxCharges;
@@ -4150,6 +4235,10 @@ class SurvivalScene extends Phaser.Scene {
     this.lastRunCoinLoss = null;
     this.lastGameOverReason = null;
     this.extractionComplete = false;
+    this.runArchiveStarted = false;
+    this.runArchiveSaved = false;
+    this.runArchiveSessionId = `run-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+    this.runArchiveStats = this.createRunArchiveRunStats();
     this.skipShopReturnSceneShutdownCleanup = false;
   }
 
@@ -4757,8 +4846,7 @@ class SurvivalScene extends Phaser.Scene {
     this.hideOverlay();
     this.restoreGameplayInputAfterOverlay();
     this.physics.world.resume();
-    this.tryOpenQueuedLostArmsEvolutionSelection();
-    this.tryOpenPendingOverdriveModSelection();
+    this.tryOpenPendingPostOverlaySelections();
     return true;
   }
 
@@ -5839,6 +5927,13 @@ class SurvivalScene extends Phaser.Scene {
       state.lastDefinitionId = enemy.nemesisDefinition?.id || state.lastDefinitionId;
     }
     this.runStats.nemesisKills = (this.runStats.nemesisKills || 0) + 1;
+    if (this.runArchiveStats) {
+      const defeatedType = enemy.nemesisDefinition?.title || enemy.nemesisDefinition?.id || "";
+      if (defeatedType && !this.runArchiveStats.nemesisTypesDefeated.includes(defeatedType)) {
+        this.runArchiveStats.nemesisTypesDefeated.push(defeatedType);
+        this.runArchiveStats.nemesisTypesDefeated = this.runArchiveStats.nemesisTypesDefeated.slice(-8);
+      }
+    }
     this.cleanupNemesisBossVisuals(enemy);
     this.grantNemesisBossRewards(enemy);
     this.updateNemesisBossHud?.();
@@ -9525,6 +9620,495 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
+  createRunArchiveRunStats() {
+    return {
+      overdriveActivations: 0,
+      overdriveModsSelected: [],
+      stabilizeChargesUsed: 0,
+      stabilizeProtocolsUsed: [],
+      robotSyncActivations: 0,
+      nemesisTypesDefeated: []
+    };
+  }
+
+  isRunArchiveDebugEnabled() {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    try {
+      const params = new URLSearchParams(window.location?.search || "");
+      return params.get(RUN_ARCHIVE_DEBUG_QUERY_PARAM) === "1";
+    } catch (error) {
+      return false;
+    }
+  }
+
+  normalizeRunArchiveShortText(value, maxLength = 64) {
+    return String(value ?? "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, Math.max(0, Math.floor(Number(maxLength) || 0)));
+  }
+
+  normalizeRunArchiveStringList(values, maxEntries = 8, maxLength = 48) {
+    if (!Array.isArray(values)) {
+      return [];
+    }
+
+    return values
+      .map((value) => this.normalizeRunArchiveShortText(value, maxLength))
+      .filter(Boolean)
+      .slice(0, Math.max(0, Math.floor(Number(maxEntries) || 0)));
+  }
+
+  normalizeRunArchiveSkillMutations(record = {}) {
+    return SKILL_MUTATION_SKILL_IDS.reduce((normalized, skillId) => {
+      const entry = record?.[skillId] || {};
+      const core = SKILL_MUTATION_CORE_IDS.includes(entry.core) ? entry.core : "";
+      const final = SKILL_MUTATION_FINAL_IDS.includes(entry.final) ? entry.final : "";
+      const finalFormId = core && final && entry.finalFormId === `${core}_${final}`
+        ? entry.finalFormId
+        : (core && final ? `${core}_${final}` : "");
+      const label = this.normalizeRunArchiveShortText(
+        entry.label || this.getSkillMutationFinalFormLabel(skillId, finalFormId) || this.getSkillMutationCoreLabel(skillId, core),
+        48
+      );
+      normalized[skillId] = {
+        core,
+        final,
+        finalFormId,
+        label
+      };
+      return normalized;
+    }, {});
+  }
+
+  normalizeRunArchiveOutcome(value) {
+    const outcome = String(value || "unknown");
+    return ["normal_extract", "emergency_extract", "game_over", "gate_collapse", "unknown"].includes(outcome)
+      ? outcome
+      : "unknown";
+  }
+
+  normalizeRunArchiveDeathReason(value) {
+    const reason = String(value || "unknown");
+    return ["enemy", "gate_collapse", "unknown", "none"].includes(reason) ? reason : "unknown";
+  }
+
+  normalizeRunArchiveSubmittedAt(value) {
+    const date = new Date(value || Date.now());
+    return Number.isFinite(date.getTime()) ? date.toISOString() : new Date().toISOString();
+  }
+
+  normalizeRunArchiveEntry(entry = {}) {
+    const submittedAt = this.normalizeRunArchiveSubmittedAt(entry.submittedAt);
+    const id = this.normalizeRunArchiveShortText(entry.id, 80) || `run-${submittedAt}`;
+    const extractMode = this.normalizeRankingExtractMode(entry.extractMode);
+    const outcome = this.normalizeRunArchiveOutcome(entry.outcome);
+    const skills = entry.skills || {};
+    const skillMutations = entry.skillMutations || {};
+    const passives = entry.passives || {};
+    const lostArms = entry.lostArms || {};
+    const robot = entry.robot || {};
+    const overdrive = entry.overdrive || {};
+    const stabilize = entry.stabilize || {};
+    const nemesis = entry.nemesis || {};
+
+    const contracts = Array.isArray(entry.contracts) ? entry.contracts : [];
+    const directives = Array.isArray(entry.directives) ? entry.directives : [];
+
+    return {
+      id,
+      version: RUN_ARCHIVE_VERSION,
+      submittedAt,
+      outcome,
+      extractionSucceeded: Boolean(entry.extractionSucceeded) || extractMode !== "none",
+      extractMode,
+      deathReason: this.normalizeRunArchiveDeathReason(entry.deathReason),
+
+      bestDepth: this.normalizeDepthValue(entry.bestDepth, 1),
+      maxDepthReached: this.normalizeDepthValue(entry.maxDepthReached ?? entry.bestDepth, 1),
+      survivalMs: Math.max(0, Math.floor(Number(entry.survivalMs ?? entry.survivalTimeMs) || 0)),
+      level: Math.max(1, Math.floor(Number(entry.level) || 1)),
+      kills: Math.max(0, Math.floor(Number(entry.kills) || 0)),
+      eliteKills: Math.max(0, Math.floor(Number(entry.eliteKills) || 0)),
+      bossKills: Math.max(0, Math.floor(Number(entry.bossKills) || 0)),
+
+      unconfirmedGeekFinal: this.normalizeCoinAmount(entry.unconfirmedGeekFinal),
+      extractedGeek: this.normalizeCoinAmount(entry.extractedGeek),
+      geekMultiplierMax: Math.max(1, Number(entry.geekMultiplierMax) || 1),
+      instability: Math.max(0, Math.floor(Number(entry.instability) || 0)),
+
+      anjuMemoryEarned: this.normalizeAnjuMemoryAmount(entry.anjuMemoryEarned),
+      grade: this.normalizeRunArchiveShortText(entry.grade, 4),
+      stageId: this.normalizeRunArchiveShortText(entry.stageId, 80),
+      stageName: this.normalizeRunArchiveShortText(entry.stageName, 80),
+
+      skills: {
+        basicSkill: Math.max(0, Math.floor(Number(skills.basicSkill) || 0)),
+        tornadoSkill: Math.max(0, Math.floor(Number(skills.tornadoSkill) || 0)),
+        rabbitThunderSkill: Math.max(0, Math.floor(Number(skills.rabbitThunderSkill) || 0))
+      },
+      skillMutations: this.normalizeRunArchiveSkillMutations(skillMutations),
+      passives: {
+        overchargeBolt: Math.max(0, Math.floor(Number(passives.overchargeBolt) || 0)),
+        rapidSigil: Math.max(0, Math.floor(Number(passives.rapidSigil) || 0)),
+        swiftStep: Math.max(0, Math.floor(Number(passives.swiftStep) || 0)),
+        staminaCore: Math.max(0, Math.floor(Number(passives.staminaCore) || 0)),
+        vitalBloom: Math.max(0, Math.floor(Number(passives.vitalBloom) || 0))
+      },
+
+      lostArms: {
+        abyssRailLevel: Math.max(0, Math.floor(Number(lostArms.abyssRailLevel) || 0)),
+        gravitySeedLevel: Math.max(0, Math.floor(Number(lostArms.gravitySeedLevel) || 0)),
+        abyssRailResonance: Math.max(0, Math.floor(Number(lostArms.abyssRailResonance) || 0)),
+        gravitySeedResonance: Math.max(0, Math.floor(Number(lostArms.gravitySeedResonance) || 0)),
+        abyssRailEvolution: this.normalizeRunArchiveShortText(lostArms.abyssRailEvolution, 48),
+        gravitySeedEvolution: this.normalizeRunArchiveShortText(lostArms.gravitySeedEvolution, 48)
+      },
+
+      robot: {
+        missileLevel: Math.max(0, Math.floor(Number(robot.missileLevel) || 0)),
+        recoveryLevel: Math.max(0, Math.floor(Number(robot.recoveryLevel) || 0)),
+        rapidLauncherLevel: Math.max(0, Math.floor(Number(robot.rapidLauncherLevel) || 0)),
+        warheadBoostLevel: Math.max(0, Math.floor(Number(robot.warheadBoostLevel) || 0)),
+        fieldCycleLevel: Math.max(0, Math.floor(Number(robot.fieldCycleLevel) || 0)),
+        careOutputLevel: Math.max(0, Math.floor(Number(robot.careOutputLevel) || 0)),
+        syncActivations: Math.max(0, Math.floor(Number(robot.syncActivations) || 0))
+      },
+
+      overdrive: {
+        activations: Math.max(0, Math.floor(Number(overdrive.activations) || 0)),
+        modsSelected: this.normalizeRunArchiveStringList(overdrive.modsSelected, 8, 32)
+      },
+
+      stabilize: {
+        chargesUsed: Math.max(0, Math.floor(Number(stabilize.chargesUsed) || 0)),
+        protocolsUsed: this.normalizeRunArchiveStringList(stabilize.protocolsUsed, 8, 32)
+      },
+
+      contracts: contracts
+        .map((contract) => ({
+          depth: this.normalizeDepthValue(contract?.depth ?? contract?.targetDepth, 1),
+          id: this.normalizeRunArchiveShortText(contract?.id, 48),
+          label: this.normalizeRunArchiveShortText(contract?.label ?? contract?.title ?? contract?.id, 48)
+        }))
+        .filter((contract) => contract.id || contract.label)
+        .slice(-8),
+
+      directives: directives
+        .map((directive) => ({
+          depth: this.normalizeDepthValue(directive?.depth, 1),
+          id: this.normalizeRunArchiveShortText(directive?.id, 48),
+          label: this.normalizeRunArchiveShortText(directive?.label ?? directive?.title ?? directive?.id, 48),
+          completed: Boolean(directive?.completed)
+        }))
+        .filter((directive) => directive.id || directive.label)
+        .slice(-8),
+
+      nemesis: {
+        spawned: Math.max(0, Math.floor(Number(nemesis.spawned) || 0)),
+        defeated: Math.max(0, Math.floor(Number(nemesis.defeated) || 0)),
+        typesDefeated: this.normalizeRunArchiveStringList(nemesis.typesDefeated, 8, 32)
+      }
+    };
+  }
+
+  normalizeRunArchive(raw) {
+    let parsed = raw;
+    if (typeof raw === "string") {
+      try {
+        parsed = JSON.parse(raw);
+      } catch (error) {
+        parsed = null;
+      }
+    }
+
+    const sourceEntries = Array.isArray(parsed)
+      ? parsed
+      : (Array.isArray(parsed?.entries) ? parsed.entries : []);
+    return {
+      version: RUN_ARCHIVE_VERSION,
+      entries: sourceEntries
+        .map((entry) => this.normalizeRunArchiveEntry(entry))
+        .slice(0, RUN_ARCHIVE_MAX_ENTRIES)
+    };
+  }
+
+  loadRunArchive() {
+    try {
+      return this.normalizeRunArchive(window.localStorage?.getItem(RUN_ARCHIVE_STORAGE_KEY) || null);
+    } catch (error) {
+      return this.normalizeRunArchive(null);
+    }
+  }
+
+  saveRunArchive(archive) {
+    const normalized = this.normalizeRunArchive(archive);
+    try {
+      window.localStorage?.setItem(RUN_ARCHIVE_STORAGE_KEY, JSON.stringify(normalized));
+    } catch (error) {
+      // RUN ARCHIVE is a local convenience log; storage failure must not block the run flow.
+    }
+    return normalized;
+  }
+
+  appendRunArchiveEntry(entry) {
+    const normalizedEntry = this.normalizeRunArchiveEntry(entry);
+    const archive = this.loadRunArchive();
+    archive.entries = [
+      normalizedEntry,
+      ...archive.entries.filter((archiveEntry) => archiveEntry.id !== normalizedEntry.id)
+    ].slice(0, RUN_ARCHIVE_MAX_ENTRIES);
+    this.saveRunArchive(archive);
+
+    if (this.isRunArchiveDebugEnabled()) {
+      console.log("[RUN ARCHIVE] saved", {
+        outcome: normalizedEntry.outcome,
+        depth: normalizedEntry.maxDepthReached,
+        kills: normalizedEntry.kills,
+        extractedGeek: normalizedEntry.extractedGeek
+      });
+    }
+    return normalizedEntry;
+  }
+
+  getRunArchiveSkillLevels() {
+    const getSkillLevel = (skillId) => {
+      const skillState = this.playerSkills?.[skillId];
+      if (!skillState) {
+        return 0;
+      }
+      return Math.max(0, Math.floor(Number(skillState.stageIndex) || 0) + 1);
+    };
+
+    return {
+      basicSkill: getSkillLevel("basicSkill"),
+      tornadoSkill: getSkillLevel("tornadoSkill"),
+      rabbitThunderSkill: getSkillLevel("rabbitThunderSkill")
+    };
+  }
+
+  getRunArchivePassiveLevels() {
+    return {
+      overchargeBolt: this.getPassiveLevel("overchargeBolt"),
+      rapidSigil: this.getPassiveLevel("rapidSigil"),
+      swiftStep: this.getPassiveLevel("swiftStep"),
+      staminaCore: this.getPassiveLevel("staminaCore"),
+      vitalBloom: this.getPassiveLevel("vitalBloom")
+    };
+  }
+
+  getRunArchiveSkillMutationSnapshot() {
+    const snapshot = {};
+    SKILL_MUTATION_SKILL_IDS.forEach((skillId) => {
+      const entry = this.getSkillMutationState(skillId);
+      if (!entry?.core && !entry?.final) {
+        return;
+      }
+      snapshot[skillId] = {
+        core: entry.core || "",
+        final: entry.final || "",
+        finalFormId: entry.finalFormId || "",
+        label: this.getSkillMutationFinalFormLabel(skillId, entry.finalFormId) || this.getSkillMutationCoreLabel(skillId, entry.core)
+      };
+    });
+    return snapshot;
+  }
+
+  getRunArchiveLostArmsSnapshot() {
+    this.refreshLostArmsRuntimeLevels?.();
+    const resonanceEntries = this.lostArmsResonanceState?.entries || {};
+    const abyssEvolution = this.getLostArmsEvolutionDefinition?.("abyssRail", resonanceEntries.abyssRail?.evolutionId);
+    const gravityEvolution = this.getLostArmsEvolutionDefinition?.("gravitySeed", resonanceEntries.gravitySeed?.evolutionId);
+    return {
+      abyssRailLevel: this.getLostArmRuntimeLevel?.("abyssRail") || 0,
+      gravitySeedLevel: this.getLostArmRuntimeLevel?.("gravitySeed") || 0,
+      abyssRailResonance: Math.max(0, Math.floor(Number(resonanceEntries.abyssRail?.points) || 0)),
+      gravitySeedResonance: Math.max(0, Math.floor(Number(resonanceEntries.gravitySeed?.points) || 0)),
+      abyssRailEvolution: abyssEvolution?.title || resonanceEntries.abyssRail?.evolutionId || "",
+      gravitySeedEvolution: gravityEvolution?.title || resonanceEntries.gravitySeed?.evolutionId || ""
+    };
+  }
+
+  getRunArchiveRobotSnapshot() {
+    const robot = this.robotState || {};
+    return {
+      missileLevel: Math.max(0, Math.floor(Number(robot.missileLevel) || 0)),
+      recoveryLevel: Math.max(0, Math.floor(Number(robot.healLevel) || 0)),
+      rapidLauncherLevel: Math.max(0, Math.floor(Number(robot.fireRateLevel) || 0)),
+      warheadBoostLevel: Math.max(0, Math.floor(Number(robot.damageLevel) || 0)),
+      fieldCycleLevel: Math.max(0, Math.floor(Number(robot.healIntervalLevel) || 0)),
+      careOutputLevel: Math.max(0, Math.floor(Number(robot.healAmountLevel) || 0)),
+      syncActivations: Math.max(0, Math.floor(Number(this.runArchiveStats?.robotSyncActivations) || 0))
+    };
+  }
+
+  getRunArchiveContractsSnapshot() {
+    const history = Array.isArray(this.anomalyContractState?.history) ? this.anomalyContractState.history : [];
+    return history.map((contract) => {
+      const definition = this.getAnomalyContractDefinition(contract.id);
+      return {
+        depth: contract.targetDepth ?? contract.depth,
+        id: contract.id,
+        label: definition?.title || contract.title || contract.id
+      };
+    });
+  }
+
+  getRunArchiveDirectivesSnapshot() {
+    const history = Array.isArray(this.depthDirectiveState?.history) ? this.depthDirectiveState.history : [];
+    const completedTitles = new Set(
+      Array.isArray(this.runStats?.depthDirectiveCompletedTitles)
+        ? this.runStats.depthDirectiveCompletedTitles
+        : []
+    );
+    return history.map((directive) => {
+      const definition = this.getDepthDirectiveDefinition(directive.id);
+      const label = definition?.title || directive.title || directive.id;
+      return {
+        depth: directive.depth,
+        id: directive.id,
+        label,
+        completed: completedTitles.has(label)
+      };
+    });
+  }
+
+  calculateRunArchiveGrade(entry) {
+    if (!entry?.extractionSucceeded && (entry?.maxDepthReached || 1) < DEEP_EXTRACTION_RESULT_CONFIG.unlockDepth) {
+      return "";
+    }
+    const result = this.calculateDeepExtractionGrade?.({
+      mode: entry.extractMode === "emergency" ? "emergency" : "normal",
+      maxDepthReached: entry.maxDepthReached,
+      extractedGeek: entry.extractedGeek,
+      kills: entry.kills,
+      eliteKills: entry.eliteKills,
+      bossKills: entry.bossKills,
+      nemesisKills: entry.nemesis?.defeated || 0,
+      directivesCompleted: (entry.directives || []).filter((directive) => directive.completed).length,
+      lostArmsSavedLines: [],
+      anjuMemoryEarned: entry.anjuMemoryEarned,
+      protectionRate: entry.extractMode === "emergency" && entry.unconfirmedGeekFinal > 0
+        ? entry.extractedGeek / Math.max(1, entry.unconfirmedGeekFinal)
+        : 1,
+      bestDepthUpdated: false,
+      bestGeekUpdated: false
+    });
+    return result?.grade || "";
+  }
+
+  createRunArchiveEntry(outcomeOptions = {}) {
+    const rankingStats = this.normalizeRunRankingStats(this.runRankingStats);
+    const currentRecord = outcomeOptions.recordState?.currentRecord || this.buildCurrentRunRecord();
+    const contextDepth = this.normalizeDepthValue(outcomeOptions.context?.maxDepthReached, 1);
+    const anjuDepth = this.normalizeDepthValue(this.runAnjuMemoryState?.maxDepthReached, 1);
+    const maxDepthReached = Math.max(
+      this.normalizeDepthValue(rankingStats.maxDepthReached, this.stageDepth || 1),
+      this.normalizeDepthValue(this.stageDepth || 1, 1),
+      contextDepth,
+      anjuDepth
+    );
+    const extractMode = this.normalizeRankingExtractMode(outcomeOptions.extractMode ?? rankingStats.extractMode);
+    const extractionSucceeded = Boolean(outcomeOptions.extractionSucceeded ?? rankingStats.extractionSucceeded);
+    const unconfirmedGeekFinal = this.normalizeCoinAmount(
+      outcomeOptions.unconfirmedGeekFinal
+        ?? ((outcomeOptions.result?.secured || 0) + (outcomeOptions.result?.lost || 0))
+        ?? this.runUnsecuredCoins
+    );
+    const stage = this.currentStage || {};
+    const runArchiveStats = this.runArchiveStats || this.createRunArchiveRunStats();
+    const entry = this.normalizeRunArchiveEntry({
+      id: `${this.runArchiveSessionId || "run"}-${outcomeOptions.outcome || "unknown"}`,
+      submittedAt: new Date().toISOString(),
+      outcome: outcomeOptions.outcome || "unknown",
+      extractionSucceeded,
+      extractMode,
+      deathReason: outcomeOptions.deathReason || (extractionSucceeded ? "none" : "unknown"),
+      bestDepth: maxDepthReached,
+      maxDepthReached,
+      survivalMs: currentRecord.survivalTimeMs ?? this.survivalTime,
+      level: currentRecord.level ?? this.stats?.level,
+      kills: currentRecord.kills ?? this.runStats?.kills,
+      eliteKills: currentRecord.eliteKills ?? this.runStats?.eliteKills,
+      bossKills: this.runStats?.bossKills || outcomeOptions.context?.bossKills || 0,
+      unconfirmedGeekFinal,
+      extractedGeek: outcomeOptions.extractedGeek ?? rankingStats.extractedGeek,
+      geekMultiplierMax: Math.max(
+        1,
+        Number(this.runStats?.peakGeekMultiplier) || 1,
+        Number(outcomeOptions.context?.peakGeekMultiplier) || 1
+      ),
+      instability: outcomeOptions.context?.instabilityStacks ?? this.gateInstabilityStacks,
+      anjuMemoryEarned: outcomeOptions.anjuMemoryAward?.amount ?? currentRecord.anjuMemoryEarned,
+      grade: outcomeOptions.grade || "",
+      stageId: stage.id || "",
+      stageName: stage.name || stage.areaLabel || "",
+      skills: this.getRunArchiveSkillLevels(),
+      skillMutations: this.getRunArchiveSkillMutationSnapshot(),
+      passives: this.getRunArchivePassiveLevels(),
+      lostArms: this.getRunArchiveLostArmsSnapshot(),
+      robot: this.getRunArchiveRobotSnapshot(),
+      overdrive: {
+        activations: runArchiveStats.overdriveActivations,
+        modsSelected: runArchiveStats.overdriveModsSelected
+      },
+      stabilize: {
+        chargesUsed: runArchiveStats.stabilizeChargesUsed,
+        protocolsUsed: runArchiveStats.stabilizeProtocolsUsed
+      },
+      contracts: this.getRunArchiveContractsSnapshot(),
+      directives: this.getRunArchiveDirectivesSnapshot(),
+      nemesis: {
+        spawned: this.nemesisBossState?.totalSpawned || 0,
+        defeated: Math.max(this.nemesisBossState?.totalDefeated || 0, this.runStats?.nemesisKills || 0),
+        typesDefeated: runArchiveStats.nemesisTypesDefeated
+      }
+    });
+    if (!entry.grade) {
+      entry.grade = this.calculateRunArchiveGrade(entry);
+    }
+    return this.normalizeRunArchiveEntry(entry);
+  }
+
+  saveRunArchiveEntryOnce(outcomeOptions = {}) {
+    if (this.runArchiveSaved || !this.runArchiveStarted || outcomeOptions.debugPreview) {
+      return null;
+    }
+
+    const entry = this.createRunArchiveEntry(outcomeOptions);
+    this.runArchiveSaved = true;
+    return this.appendRunArchiveEntry(entry);
+  }
+
+  formatRunArchiveDate(isoString) {
+    const date = new Date(isoString);
+    if (!Number.isFinite(date.getTime())) {
+      return "--/-- --:--";
+    }
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hour = String(date.getHours()).padStart(2, "0");
+    const minute = String(date.getMinutes()).padStart(2, "0");
+    return `${month}/${day} ${hour}:${minute}`;
+  }
+
+  formatRunArchiveDuration(ms) {
+    const totalSeconds = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return hours > 0
+      ? `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+      : `${minutes}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  formatRunArchiveGeek(value) {
+    return this.normalizeCoinAmount(value).toLocaleString();
+  }
+
   addKillRankingEntry(name, record) {
     const submittedAt = Date.now();
     const entry = this.normalizeRankingEntry({
@@ -9916,6 +10500,946 @@ class SurvivalScene extends Phaser.Scene {
     this.updateOverflowHud?.();
   }
 
+  createSkillMutationEntry() {
+    return {
+      core: null,
+      final: null,
+      finalFormId: null,
+      stage4Selected: false,
+      stage8Selected: false,
+      stage4Queued: false,
+      stage8Queued: false,
+      runtime: {
+        hitCounter: 0,
+        nextFinalAt: 0,
+        nextFieldPulseAt: 0,
+        capacitorNextAt: 0,
+        enemyCooldowns: new WeakMap()
+      }
+    };
+  }
+
+  initializeSkillMutationState() {
+    const entries = {};
+    SKILL_MUTATION_SKILL_IDS.forEach((skillId) => {
+      entries[skillId] = this.createSkillMutationEntry();
+    });
+
+    this.skillMutationState = {
+      entries,
+      pendingQueue: [],
+      selectionOpen: false,
+      selectionLocked: false,
+      currentSelection: null,
+      currentChoices: [],
+      debugPresetApplied: false
+    };
+    this.skillMutationSelectionActive = false;
+  }
+
+  resetSkillMutationState(reason = "reset") {
+    if (this.skillMutationSelectionActive || this.levelUpSelectionMode === "skillMutation") {
+      this.hideOverlay?.();
+      this.levelUpActive = false;
+      this.physics?.world?.resume?.();
+    }
+    this.initializeSkillMutationState();
+    this.updateHud?.();
+    if (this.isSkillMutationDebugEnabled?.()) {
+      console.log("[SKILL MUTATION] reset", { reason });
+    }
+  }
+
+  isSkillMutationDebugEnabled() {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    try {
+      const params = new URLSearchParams(window.location?.search || "");
+      return params.get(SKILL_MUTATION_DEBUG_QUERY_PARAM) === "1";
+    } catch (error) {
+      return false;
+    }
+  }
+
+  getSkillMutationDebugParam(name) {
+    if (typeof window === "undefined") {
+      return "";
+    }
+
+    try {
+      const params = new URLSearchParams(window.location?.search || "");
+      return String(params.get(name) || "").trim();
+    } catch (error) {
+      return "";
+    }
+  }
+
+  isSkillMutationTargetSkill(skillId) {
+    return SKILL_MUTATION_SKILL_IDS.includes(skillId) && Boolean(SKILL_DEFINITIONS[skillId]);
+  }
+
+  getSkillMutationState(skillId) {
+    if (!this.skillMutationState) {
+      this.initializeSkillMutationState();
+    }
+    if (!this.isSkillMutationTargetSkill(skillId)) {
+      return null;
+    }
+    if (!this.skillMutationState.entries[skillId]) {
+      this.skillMutationState.entries[skillId] = this.createSkillMutationEntry();
+    }
+    return this.skillMutationState.entries[skillId];
+  }
+
+  getSkillMutationCore(skillId) {
+    return this.getSkillMutationState(skillId)?.core || null;
+  }
+
+  getSkillMutationFinal(skillId) {
+    return this.getSkillMutationState(skillId)?.final || null;
+  }
+
+  getSkillFinalFormId(skillId) {
+    return this.getSkillMutationState(skillId)?.finalFormId || null;
+  }
+
+  hasSkillMutationCore(skillId) {
+    return Boolean(this.getSkillMutationCore(skillId));
+  }
+
+  hasSkillFinalMutation(skillId) {
+    return Boolean(this.getSkillFinalFormId(skillId));
+  }
+
+  getSkillMutationCoreDefinition(coreId) {
+    return SKILL_MUTATION_DEFINITIONS.cores?.[coreId] || null;
+  }
+
+  getSkillMutationFinalDefinition(finalId) {
+    return SKILL_MUTATION_DEFINITIONS.finals?.[finalId] || null;
+  }
+
+  getSkillMutationSkillDefinition(skillId) {
+    return SKILL_MUTATION_DEFINITIONS.skills?.[skillId] || {};
+  }
+
+  getSkillMutationFinalFormLabel(skillId, finalFormId = this.getSkillFinalFormId(skillId)) {
+    const skillDefinition = this.getSkillMutationSkillDefinition(skillId);
+    return skillDefinition.finalForms?.[finalFormId] || finalFormId || "";
+  }
+
+  getSkillMutationHudSkillLabel(skillId) {
+    const definition = SKILL_DEFINITIONS[skillId] || {};
+    return String(definition.hudLabel || definition.name || skillId || "SKILL").toUpperCase();
+  }
+
+  getSkillMutationHudLine(skillId) {
+    const entry = this.getSkillMutationState(skillId);
+    if (!entry?.core) {
+      return "";
+    }
+    const coreLabel = this.getSkillMutationCoreDefinition(entry.core)?.shortLabel || entry.core.toUpperCase().slice(0, 4);
+    if (!entry.final) {
+      return coreLabel;
+    }
+    const finalLabel = this.getSkillMutationFinalDefinition(entry.final)?.shortLabel || entry.final.toUpperCase().slice(0, 4);
+    return `${coreLabel}+${finalLabel}`;
+  }
+
+  getSkillMutationCoreLabel(skillId, coreId = this.getSkillMutationCore(skillId)) {
+    const skillDefinition = this.getSkillMutationSkillDefinition(skillId);
+    const core = this.getSkillMutationCoreDefinition(coreId);
+    return skillDefinition.coreLabels?.[coreId] || core?.label || coreId || "";
+  }
+
+  setSkillMutationCore(skillId, coreId) {
+    const entry = this.getSkillMutationState(skillId);
+    if (!entry || !SKILL_MUTATION_CORE_IDS.includes(coreId)) {
+      return false;
+    }
+    entry.core = coreId;
+    entry.stage4Selected = true;
+    entry.stage4Queued = false;
+    return true;
+  }
+
+  setSkillMutationFinal(skillId, finalId) {
+    const entry = this.getSkillMutationState(skillId);
+    if (!entry || !entry.core || !SKILL_MUTATION_FINAL_IDS.includes(finalId)) {
+      return false;
+    }
+    entry.final = finalId;
+    entry.finalFormId = `${entry.core}_${finalId}`;
+    entry.stage8Selected = true;
+    entry.stage8Queued = false;
+    return true;
+  }
+
+  getSkillMutationVisualStyle(skillId) {
+    const coreId = this.getSkillMutationCore(skillId);
+    const finalId = this.getSkillMutationFinal(skillId);
+    const coreStyle = SKILL_MUTATION_CORE_VISUALS[coreId] || null;
+    const finalStyle = SKILL_MUTATION_FINAL_VISUALS[finalId] || null;
+    if (!coreStyle && !finalStyle) {
+      return null;
+    }
+    return {
+      coreId,
+      finalId,
+      finalFormId: this.getSkillFinalFormId(skillId),
+      ...(coreStyle || {}),
+      ...(finalStyle || {})
+    };
+  }
+
+  getEnemyHpRatio(enemy) {
+    return Phaser.Math.Clamp((Number(enemy?.hp) || 0) / Math.max(1, Number(enemy?.maxHp) || 1), 0, 1);
+  }
+
+  isHighValueMutationTarget(enemy) {
+    return Boolean(
+      enemy?.isBoss ||
+      enemy?.isElite ||
+      this.isNemesisBoss?.(enemy) ||
+      this.getEnemyHpRatio(enemy) >= 0.62 ||
+      (Number(enemy?.maxHp) || 0) >= 36
+    );
+  }
+
+  getSkillMutationDamageMultiplier(skillId, context = {}) {
+    const coreId = this.getSkillMutationCore(skillId);
+    const finalId = this.getSkillMutationFinal(skillId);
+    if (!coreId && !finalId) {
+      return 1;
+    }
+
+    let multiplier = 1;
+    const enemy = context.enemy || null;
+    const highValue = this.isHighValueMutationTarget(enemy);
+    if (coreId === "assault") {
+      multiplier *= highValue ? 1.16 : 1.12;
+    } else if (coreId === "control") {
+      multiplier *= highValue ? 0.98 : 0.94;
+    } else if (coreId === "reactor") {
+      multiplier *= (this.isDashing || this.isOverdriveActive?.() || this.isRobotSyncActive?.()) ? 1.14 : 1.04;
+    }
+
+    if (finalId === "execution" && highValue) {
+      multiplier *= enemy?.isBoss || enemy?.isElite || this.isNemesisBoss?.(enemy) ? 1.22 : 1.14;
+    } else if (finalId === "prism") {
+      multiplier *= 0.96;
+    } else if (finalId === "singularity") {
+      multiplier *= 1.04;
+    }
+
+    return Phaser.Math.Clamp(multiplier, 0.72, 1.55);
+  }
+
+  getSkillMutationCooldownMultiplier(skillId, context = {}) {
+    const coreId = this.getSkillMutationCore(skillId);
+    const finalId = this.getSkillMutationFinal(skillId);
+    let multiplier = 1;
+    if (coreId === "assault") {
+      multiplier *= skillId === "tornadoSkill" ? 0.92 : 0.96;
+    } else if (coreId === "control") {
+      multiplier *= 1.04;
+    } else if (coreId === "reactor") {
+      multiplier *= (this.isDashing || this.isOverdriveActive?.() || this.isRobotSyncActive?.()) ? 0.88 : 0.96;
+    }
+    if (finalId === "prism") {
+      multiplier *= 0.94;
+    } else if (finalId === "singularity" && context.source === "contact") {
+      multiplier *= 1.04;
+    }
+    return Phaser.Math.Clamp(multiplier, 0.72, 1.18);
+  }
+
+  getMutatedSkillDamage(skillId, baseDamage, context = {}) {
+    return Math.max(1, Math.round((Number(baseDamage) || 1) * this.getSkillMutationDamageMultiplier(skillId, context)));
+  }
+
+  getMutatedSkillContactTickMs(skillId, baseTickMs, context = {}) {
+    return Math.max(70, Math.round((Number(baseTickMs) || 160) * this.getSkillMutationCooldownMultiplier(skillId, context)));
+  }
+
+  applySkillMutationSlow(enemy, multiplier = 0.84, durationMs = 520) {
+    if (!enemy?.active || enemy.isDying) {
+      return;
+    }
+    const now = this.time?.now || 0;
+    enemy.skillMutationSlowUntil = Math.max(enemy.skillMutationSlowUntil || 0, now + Math.max(80, durationMs));
+    enemy.skillMutationSlowMultiplier = Math.min(
+      Number(enemy.skillMutationSlowMultiplier) || 1,
+      Phaser.Math.Clamp(Number(multiplier) || 0.84, 0.48, 1)
+    );
+    enemy.suctionVisualUntil = Math.max(enemy.suctionVisualUntil || 0, now + 140);
+    enemy.suctionVisualStrength = Math.max(enemy.suctionVisualStrength || 0, 0.42);
+  }
+
+  getEnemySkillMutationSlowMultiplier(enemy) {
+    if (!enemy || (this.time?.now || 0) >= (enemy.skillMutationSlowUntil || 0)) {
+      if (enemy) {
+        enemy.skillMutationSlowMultiplier = 1;
+      }
+      return 1;
+    }
+    return Phaser.Math.Clamp(Number(enemy.skillMutationSlowMultiplier) || 1, 0.48, 1);
+  }
+
+  applySkillMutationPush(enemy, sourceX, sourceY, force = 120, recoverMs = 90) {
+    if (!enemy?.body || enemy.isDying) {
+      return;
+    }
+    this.applyEnemyImpact(enemy, {
+      sourceX,
+      sourceY,
+      force,
+      recoverMs
+    });
+  }
+
+  getSkillMutationRuntime(skillId) {
+    const entry = this.getSkillMutationState(skillId);
+    if (!entry) {
+      return null;
+    }
+    if (!entry.runtime) {
+      entry.runtime = this.createSkillMutationEntry().runtime;
+    }
+    if (!entry.runtime.enemyCooldowns) {
+      entry.runtime.enemyCooldowns = new WeakMap();
+    }
+    return entry.runtime;
+  }
+
+  findSkillMutationTargets(originX, originY, range, maxCount, excludeEnemy = null, options = {}) {
+    const maxDistanceSq = Math.max(0, range || 0) ** 2;
+    const entries = [];
+    this.enemies?.children?.each((enemy) => {
+      if (!enemy.active || enemy.isDying || enemy === excludeEnemy) {
+        return;
+      }
+      if (options.highValueOnly && !this.isHighValueMutationTarget(enemy)) {
+        return;
+      }
+      const distanceSq = Phaser.Math.Distance.Squared(originX, originY, enemy.x, enemy.y);
+      if (distanceSq > maxDistanceSq) {
+        return;
+      }
+      const priority = (enemy.isBoss || this.isNemesisBoss?.(enemy) ? -900 : (enemy.isElite ? -420 : 0));
+      entries.push({ enemy, distanceSq: distanceSq + priority });
+    });
+    entries.sort((left, right) => left.distanceSq - right.distanceSq);
+    return entries.slice(0, Math.max(0, Math.floor(Number(maxCount) || 0))).map((entry) => entry.enemy);
+  }
+
+  drawSkillMutationLine(fromX, fromY, toX, toY, tint = 0x91f6ff, options = {}) {
+    if (!this.add || !this.skillEffectsLayer) {
+      return;
+    }
+    const line = this.add.graphics()
+      .setDepth(options.depth ?? 22)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    line.lineStyle(options.width ?? 3, tint, options.alpha ?? 0.82);
+    line.beginPath();
+    line.moveTo(fromX, fromY);
+    const midX = (fromX + toX) * 0.5 + Phaser.Math.Between(-10, 10);
+    const midY = (fromY + toY) * 0.5 + Phaser.Math.Between(-10, 10);
+    line.lineTo(midX, midY);
+    line.lineTo(toX, toY);
+    line.strokePath();
+    this.skillEffectsLayer.add(line);
+    this.tweens.add({
+      targets: line,
+      alpha: 0,
+      duration: options.duration ?? 180,
+      ease: "Quad.Out",
+      onComplete: () => line.destroy()
+    });
+  }
+
+  spawnSkillMutationRing(x, y, radius, tint = 0x91f6ff, options = {}) {
+    if (!this.add || !this.skillEffectsLayer) {
+      return;
+    }
+    const scale = Math.max(0.28, radius / 64);
+    const ring = this.add
+      .image(x, y, "skill-hit-ring")
+      .setDepth(options.depth ?? 22)
+      .setScale(scale)
+      .setTint(tint)
+      .setAlpha(options.alpha ?? 0.68)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setAngle(options.angle ?? Phaser.Math.Between(-30, 30));
+    const glow = this.add
+      .image(x, y, "skill-hit-glow")
+      .setDepth((options.depth ?? 22) - 1)
+      .setScale(scale * 0.9)
+      .setTint(options.glowTint || tint)
+      .setAlpha((options.alpha ?? 0.68) * 0.48)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.skillEffectsLayer.add([glow, ring]);
+    const endScale = options.endScale ?? 1.7;
+    this.tweens.add({
+      targets: glow,
+      scaleX: glow.scaleX * endScale,
+      scaleY: glow.scaleY * endScale,
+      alpha: 0,
+      duration: options.duration ?? 260,
+      ease: "Cubic.Out",
+      onComplete: () => glow.destroy()
+    });
+    this.tweens.add({
+      targets: ring,
+      scaleX: ring.scaleX * endScale,
+      scaleY: ring.scaleY * endScale,
+      alpha: 0,
+      angle: ring.angle + (options.spin ?? 38),
+      duration: options.duration ?? 260,
+      ease: "Cubic.Out",
+      onComplete: () => ring.destroy()
+    });
+  }
+
+  applySkillMutationAreaPulse(skillId, x, y, radius, baseDamage, options = {}) {
+    const style = this.getSkillMutationVisualStyle(skillId) || {};
+    const targets = this.findSkillMutationTargets(
+      x,
+      y,
+      radius,
+      options.maxTargets ?? SKILL_MUTATION_CONFIG.maxMutationTargets,
+      options.excludeEnemy || null,
+      { highValueOnly: options.highValueOnly }
+    );
+    targets.forEach((target) => {
+      const distance = Phaser.Math.Distance.Between(x, y, target.x, target.y);
+      const falloff = Phaser.Math.Clamp(1 - distance / Math.max(1, radius), 0, 1);
+      const damage = Math.max(1, Math.round((Number(baseDamage) || 1) * (0.72 + falloff * 0.34)));
+      this.applyDamageToEnemy(target, damage, style.damageTint || 0xecffff, {
+        sourceX: x,
+        sourceY: y,
+        force: options.force ?? 95,
+        recoverMs: options.recoverMs ?? 95
+      });
+      if (options.slowMultiplier) {
+        this.applySkillMutationSlow(target, options.slowMultiplier, options.slowMs || 520);
+      }
+    });
+    this.spawnSkillMutationRing(x, y, radius, style.primaryTint || 0x91f6ff, {
+      alpha: options.alpha ?? 0.58,
+      endScale: options.endScale ?? 1.45,
+      duration: options.duration ?? 280,
+      glowTint: style.secondaryTint || style.primaryTint
+    });
+    return targets.length;
+  }
+
+  fireSkillMutationBolt(skillId, fromX, fromY, target, baseDamage, options = {}) {
+    if (!target?.active || target.isDying) {
+      return false;
+    }
+    const style = this.getSkillMutationVisualStyle(skillId) || {};
+    const damage = this.getMutatedSkillDamage(skillId, baseDamage, {
+      source: "mutationBolt",
+      enemy: target
+    }) * (options.damageMultiplier || 1);
+    this.applyDamageToEnemy(target, Math.max(1, Math.round(damage)), style.damageTint || 0xecffff, {
+      sourceX: fromX,
+      sourceY: fromY,
+      force: options.force ?? 150,
+      recoverMs: options.recoverMs ?? 90
+    });
+    this.drawSkillMutationLine(fromX, fromY, target.x, target.y, style.secondaryTint || style.primaryTint || 0x91f6ff, {
+      width: options.width ?? 4,
+      alpha: options.alpha ?? 0.86,
+      duration: options.duration ?? 190
+    });
+    if (options.mark) {
+      this.spawnSkillMutationRing(target.x, target.y, options.markRadius || 42, style.primaryTint || 0x91f6ff, {
+        alpha: 0.54,
+        endScale: 1.35,
+        duration: 240
+      });
+    }
+    return true;
+  }
+
+  triggerSkillMutationPrism(skillId, enemy, hitbox, baseDamage) {
+    const style = this.getSkillMutationVisualStyle(skillId) || {};
+    const originX = enemy.x;
+    const originY = enemy.y;
+    const targets = this.findSkillMutationTargets(
+      originX,
+      originY,
+      SKILL_MUTATION_CONFIG.branchRange,
+      SKILL_MUTATION_CONFIG.prismBranchTargets,
+      enemy
+    );
+    const branchDamage = Math.max(1, Math.round((Number(baseDamage) || 1) * (skillId === "rabbitThunderSkill" ? 0.46 : 0.42)));
+    targets.forEach((target) => {
+      this.applyDamageToEnemy(target, branchDamage, style.damageTint || 0xd9ffff, {
+        sourceX: originX,
+        sourceY: originY,
+        force: 82,
+        recoverMs: 70
+      });
+      this.drawSkillMutationLine(originX, originY, target.x, target.y, style.secondaryTint || style.primaryTint || 0x91f6ff, {
+        width: 2,
+        alpha: 0.68,
+        duration: 150
+      });
+      if (this.getSkillMutationCore(skillId) === "control") {
+        this.applySkillMutationSlow(target, 0.78, 620);
+      }
+    });
+
+    if (targets.length > 0 && this.getSkillFinalFormId(skillId) === "reactor_prism") {
+      this.spawnSkillMutationRing(hitbox.x, hitbox.y, 42, style.secondaryTint || 0xffffff, {
+        alpha: 0.48,
+        endScale: 1.55,
+        duration: 190
+      });
+    }
+    return targets.length;
+  }
+
+  triggerSkillMutationExecution(skillId, enemy, hitbox, baseDamage) {
+    const runtime = this.getSkillMutationRuntime(skillId);
+    if (!runtime) {
+      return false;
+    }
+    const now = this.time?.now || 0;
+    if (now < (runtime.nextFinalAt || 0)) {
+      return false;
+    }
+    const lastHitAt = runtime.enemyCooldowns.get(enemy) || 0;
+    const cooldownMs = skillId === "tornadoSkill" ? SKILL_MUTATION_CONFIG.tornadoFinalTickMs : SKILL_MUTATION_CONFIG.basicFinalIntervalMs;
+    if (now - lastHitAt < cooldownMs) {
+      return false;
+    }
+    if (!this.isHighValueMutationTarget(enemy) && this.getSkillMutationCore(skillId) !== "assault") {
+      return false;
+    }
+    runtime.enemyCooldowns.set(enemy, now);
+    runtime.nextFinalAt = now + Math.max(260, Math.round(cooldownMs * (skillId === "tornadoSkill" ? 0.74 : 0.58)));
+    const fromX = skillId === "basicSkill" ? this.playerHitbox.x : hitbox.x;
+    const fromY = skillId === "basicSkill" ? this.playerHitbox.y - 36 : hitbox.y;
+    return this.fireSkillMutationBolt(skillId, fromX, fromY, enemy, Math.max(1, baseDamage * 0.72), {
+      damageMultiplier: this.getSkillMutationCore(skillId) === "assault" ? 1.22 : 1.04,
+      force: enemy.isBoss || this.isNemesisBoss?.(enemy) ? 80 : 132,
+      mark: true,
+      width: 5
+    });
+  }
+
+  triggerSkillMutationSingularity(skillId, enemy, hitbox, baseDamage) {
+    const runtime = this.getSkillMutationRuntime(skillId);
+    if (!runtime) {
+      return false;
+    }
+    const now = this.time?.now || 0;
+    runtime.hitCounter = Math.max(0, Math.floor(Number(runtime.hitCounter) || 0)) + 1;
+    const intervalMs = skillId === "rabbitThunderSkill"
+      ? SKILL_MUTATION_CONFIG.rabbitGeneratorIntervalMs
+      : (skillId === "tornadoSkill" ? SKILL_MUTATION_CONFIG.tornadoFinalTickMs : 0);
+    if (intervalMs > 0 && now < (runtime.nextFieldPulseAt || 0)) {
+      return false;
+    }
+    if (skillId === "basicSkill" && runtime.hitCounter < SKILL_MUTATION_CONFIG.basicNovaHitsRequired) {
+      return false;
+    }
+    runtime.hitCounter = 0;
+    runtime.nextFieldPulseAt = now + Math.max(260, intervalMs);
+    const originX = skillId === "basicSkill" ? this.playerHitbox.x : hitbox.x;
+    const originY = skillId === "basicSkill" ? this.playerHitbox.y : hitbox.y;
+    const radius = skillId === "tornadoSkill" ? 210 : (skillId === "rabbitThunderSkill" ? 178 : 164);
+    const targets = this.applySkillMutationAreaPulse(skillId, originX, originY, radius, Math.max(1, baseDamage * 0.58), {
+      maxTargets: skillId === "tornadoSkill" ? 9 : 7,
+      slowMultiplier: this.getSkillMutationCore(skillId) === "control" ? 0.72 : 0.84,
+      force: this.getSkillMutationCore(skillId) === "control" ? 62 : 118,
+      alpha: this.getSkillMutationCore(skillId) === "assault" ? 0.68 : 0.54,
+      endScale: this.getSkillMutationCore(skillId) === "reactor" ? 1.28 : 1.55
+    });
+    return targets > 0;
+  }
+
+  pullSkillMutationNearbyDrops(x, y, radius = SKILL_MUTATION_CONFIG.tornadoDataPullRadius, maxCount = 8) {
+    const drops = this.getActiveDropObjects?.() || [];
+    const targets = drops
+      .map((drop) => ({
+        drop,
+        distance: Phaser.Math.Distance.Between(drop.x, drop.y, x, y)
+      }))
+      .filter((entry) => entry.distance <= radius)
+      .sort((left, right) => left.distance - right.distance)
+      .slice(0, Math.max(0, maxCount));
+    targets.forEach(({ drop }) => this.setPickupPullToPlayer(drop, 820, 420));
+    if (targets.length > 0) {
+      this.spawnSkillMutationRing(x, y, radius, 0x91f6ff, {
+        alpha: 0.28,
+        endScale: 1.18,
+        duration: 180
+      });
+    }
+    return targets.length;
+  }
+
+  triggerSkillMutationRobotSpark(skillId, baseDamage) {
+    const runtime = this.getSkillMutationRuntime(skillId);
+    const now = this.time?.now || 0;
+    if (!runtime || now < (runtime.capacitorNextAt || 0)) {
+      return 0;
+    }
+    runtime.capacitorNextAt = now + 560;
+    const originX = this.robotState?.x || this.playerHitbox?.x || 0;
+    const originY = this.robotState?.y || this.playerHitbox?.y || 0;
+    const style = this.getSkillMutationVisualStyle(skillId) || {};
+    const targets = this.findSkillMutationTargets(originX, originY, 235, 3);
+    targets.forEach((target) => {
+      this.applyDamageToEnemy(target, Math.max(1, Math.round((Number(baseDamage) || 1) * 0.48)), style.damageTint || 0xecffff, {
+        sourceX: originX,
+        sourceY: originY,
+        force: 76,
+        recoverMs: 64
+      });
+      this.drawSkillMutationLine(originX, originY, target.x, target.y, style.secondaryTint || 0xffffff, {
+        width: 2,
+        alpha: 0.6,
+        duration: 140
+      });
+    });
+    if (targets.length > 0) {
+      this.spawnSkillMutationRing(originX, originY, 52, style.secondaryTint || 0xffffff, {
+        alpha: 0.42,
+        endScale: 1.35,
+        duration: 190
+      });
+    }
+    return targets.length;
+  }
+
+  applySkillMutationCoreOnHit(skillId, enemy, hitbox) {
+    const coreId = this.getSkillMutationCore(skillId);
+    if (!coreId) {
+      return;
+    }
+    if (coreId === "control") {
+      const slow = enemy.isBoss || this.isNemesisBoss?.(enemy) ? 0.9 : 0.78;
+      this.applySkillMutationSlow(enemy, slow, skillId === "tornadoSkill" ? 760 : 520);
+      if (skillId === "basicSkill" || skillId === "rabbitThunderSkill") {
+        this.applySkillMutationPush(enemy, hitbox.x, hitbox.y, enemy.isBoss ? 55 : 105, 65);
+      }
+    } else if (coreId === "reactor" && (this.isDashing || this.isOverdriveActive?.() || this.isRobotSyncActive?.())) {
+      this.spawnSkillMutationRing(hitbox.x, hitbox.y, 34, SKILL_MUTATION_CORE_VISUALS.reactor.secondaryTint, {
+        alpha: 0.36,
+        endScale: 1.34,
+        duration: 150
+      });
+    }
+  }
+
+  applySkillMutationOnHit(skillId, enemy, hitbox, baseDamage) {
+    if (!this.isSkillMutationTargetSkill(skillId) || !enemy?.active || enemy.isDying) {
+      return;
+    }
+    this.applySkillMutationCoreOnHit(skillId, enemy, hitbox);
+    const finalId = this.getSkillMutationFinal(skillId);
+    if (!finalId) {
+      return;
+    }
+
+    if (finalId === "execution") {
+      this.triggerSkillMutationExecution(skillId, enemy, hitbox, baseDamage);
+    } else if (finalId === "prism") {
+      this.triggerSkillMutationPrism(skillId, enemy, hitbox, baseDamage);
+      if (skillId === "basicSkill" && this.getSkillFinalFormId(skillId) === "reactor_prism") {
+        this.triggerSkillMutationRobotSpark(skillId, baseDamage);
+      }
+      if (skillId === "rabbitThunderSkill" && this.getSkillMutationCore(skillId) === "reactor") {
+        const runtime = this.getSkillMutationRuntime(skillId);
+        const now = this.time?.now || 0;
+        if (runtime && now >= (runtime.capacitorNextAt || 0)) {
+          runtime.capacitorNextAt = now + SKILL_MUTATION_CONFIG.rabbitCapacitorCooldownMs;
+          this.triggerSkillMutationPrism(skillId, enemy, hitbox, Math.max(1, baseDamage * 0.55));
+        }
+      }
+      if (skillId === "tornadoSkill" && this.getSkillMutationCore(skillId) === "reactor") {
+        this.pullSkillMutationNearbyDrops(hitbox.x, hitbox.y);
+      }
+    } else if (finalId === "singularity") {
+      this.triggerSkillMutationSingularity(skillId, enemy, hitbox, baseDamage);
+    }
+  }
+
+  queueSkillMutationSelect(skillId, phase = "stage4") {
+    if (!this.isSkillMutationTargetSkill(skillId) || !["stage4", "stage8"].includes(phase)) {
+      return false;
+    }
+    const entry = this.getSkillMutationState(skillId);
+    if (!entry) {
+      return false;
+    }
+    if (phase === "stage4") {
+      if (entry.stage4Selected || entry.stage4Queued) {
+        return false;
+      }
+      entry.stage4Queued = true;
+    } else {
+      if (entry.stage8Selected || entry.stage8Queued) {
+        return false;
+      }
+      if (!entry.stage4Selected && !entry.stage4Queued) {
+        this.queueSkillMutationSelect(skillId, "stage4");
+      }
+      entry.stage8Queued = true;
+    }
+
+    this.skillMutationState.pendingQueue.push({ skillId, phase });
+    this.setLastPickupNotice(`${this.getSkillMutationHudSkillLabel(skillId)} MUTATION READY`);
+    if (this.isSkillMutationDebugEnabled()) {
+      console.log("[SKILL MUTATION] queued", { skillId, phase });
+    }
+    this.tryOpenPendingSkillMutationSelection();
+    return true;
+  }
+
+  handleSkillStageMutationUnlock(skillId, stageNumber) {
+    if (!this.isSkillMutationTargetSkill(skillId)) {
+      return;
+    }
+    const stage = Math.max(0, Math.floor(Number(stageNumber) || 0));
+    if (stage >= SKILL_MUTATION_CONFIG.stage4) {
+      this.queueSkillMutationSelect(skillId, "stage4");
+    }
+    if (stage >= SKILL_MUTATION_CONFIG.stage8) {
+      this.queueSkillMutationSelect(skillId, "stage8");
+    }
+  }
+
+  canOpenSkillMutationSelection() {
+    return (
+      Boolean(this.skillMutationState?.pendingQueue?.length) &&
+      !this.skillMutationState.selectionOpen &&
+      !this.skillMutationSelectionActive &&
+      !this.gameOver &&
+      !this.shopActive &&
+      !this.levelUpActive &&
+      !this.gateChoiceActive &&
+      !this.extractionComplete &&
+      !this.overlayContainer?.visible &&
+      (this.pendingLevelUps || 0) <= 0
+    );
+  }
+
+  tryOpenPendingSkillMutationSelection() {
+    if (!this.canOpenSkillMutationSelection()) {
+      return false;
+    }
+
+    const queue = this.skillMutationState.pendingQueue;
+    while (queue.length > 0) {
+      const request = queue.shift();
+      const entry = this.getSkillMutationState(request.skillId);
+      if (!entry) {
+        continue;
+      }
+      if (request.phase === "stage4") {
+        if (entry.stage4Selected) {
+          entry.stage4Queued = false;
+          continue;
+        }
+      } else {
+        if (entry.stage8Selected) {
+          entry.stage8Queued = false;
+          continue;
+        }
+        if (!entry.stage4Selected) {
+          queue.unshift(request);
+          return false;
+        }
+      }
+      return this.showSkillMutationSelect(request.skillId, request.phase);
+    }
+    return false;
+  }
+
+  buildSkillMutationChoices(skillId, phase = "stage4") {
+    const choices = phase === "stage4"
+      ? SKILL_MUTATION_CORE_IDS.map((coreId) => {
+        const core = this.getSkillMutationCoreDefinition(coreId) || {};
+        return {
+          type: "skillMutation",
+          phase,
+          skillId,
+          choiceId: coreId,
+          title: this.getSkillMutationCoreLabel(skillId, coreId),
+          description: core.description || core.summary || coreId,
+          mutationDefinition: core,
+          onSelect: () => this.applySkillMutationChoice(skillId, phase, coreId)
+        };
+      })
+      : SKILL_MUTATION_FINAL_IDS.map((finalId) => {
+        const final = this.getSkillMutationFinalDefinition(finalId) || {};
+        const finalFormId = `${this.getSkillMutationCore(skillId)}_${finalId}`;
+        return {
+          type: "skillMutation",
+          phase,
+          skillId,
+          choiceId: finalId,
+          finalFormId,
+          title: this.getSkillMutationFinalFormLabel(skillId, finalFormId) || final.label || finalId,
+          description: final.description || final.summary || finalId,
+          mutationDefinition: final,
+          onSelect: () => this.applySkillMutationChoice(skillId, phase, finalId)
+        };
+      });
+    return choices.filter((choice) => Boolean(choice.mutationDefinition?.id));
+  }
+
+  showSkillMutationSelect(skillId, phase = "stage4") {
+    const entry = this.getSkillMutationState(skillId);
+    const choices = this.buildSkillMutationChoices(skillId, phase);
+    if (!entry || choices.length <= 0) {
+      return false;
+    }
+    if (phase === "stage8" && !entry.core) {
+      return false;
+    }
+
+    this.skillMutationState.selectionOpen = true;
+    this.skillMutationState.selectionLocked = false;
+    this.skillMutationState.currentSelection = { skillId, phase };
+    this.skillMutationState.currentChoices = choices.map((choice) => choice.choiceId);
+    this.skillMutationSelectionActive = true;
+    this.levelUpActive = true;
+    this.cancelActiveEnemyBeamCharges();
+    this.physics.world.pause();
+    this.showLevelUpCardOverlay(
+      phase === "stage4" ? "MUTATION CORE SELECT" : "FINAL MUTATION SELECT",
+      phase === "stage4"
+        ? "Choose Stage4 branch"
+        : "Stage8 final form",
+      choices,
+      "skillMutation"
+    );
+    return true;
+  }
+
+  applySkillMutationChoice(skillId, phase = "stage4", choiceId) {
+    const state = this.skillMutationState;
+    const entry = this.getSkillMutationState(skillId);
+    if (!state || !entry || state.selectionLocked) {
+      return false;
+    }
+
+    state.selectionLocked = true;
+    state.selectionOpen = false;
+    if (phase === "stage4") {
+      if (!this.setSkillMutationCore(skillId, choiceId)) {
+        state.selectionLocked = false;
+        return false;
+      }
+      const label = this.getSkillMutationCoreLabel(skillId, choiceId);
+      this.setLastPickupNotice(`${label} SELECTED`);
+      this.showOverflowRewardText(label, this.playerHitbox?.x, this.playerHitbox?.y - 52, this.getSkillMutationVisualStyle(skillId)?.textColor || "#ffd76b");
+      if (this.isSkillMutationDebugEnabled()) {
+        console.log(`[SKILL MUTATION] ${skillId} stage4 core=${choiceId}`);
+      }
+    } else {
+      if (!this.setSkillMutationFinal(skillId, choiceId)) {
+        state.selectionLocked = false;
+        return false;
+      }
+      const label = this.getSkillMutationFinalFormLabel(skillId);
+      this.setLastPickupNotice(`${label} ONLINE`);
+      this.showOverflowRewardText(label, this.playerHitbox?.x, this.playerHitbox?.y - 58, this.getSkillMutationVisualStyle(skillId)?.textColor || "#b8fbff");
+      if (this.isSkillMutationDebugEnabled()) {
+        console.log(`[SKILL MUTATION] ${skillId} stage8 final=${choiceId} finalForm=${entry.finalFormId}`);
+      }
+    }
+
+    this.applySkillStage(this.playerSkills?.[skillId], false);
+    this.updateHud();
+    return true;
+  }
+
+  finishSkillMutationSelectionOverlay() {
+    this.levelUpActive = false;
+    this.skillMutationSelectionActive = false;
+    if (this.skillMutationState) {
+      this.skillMutationState.selectionOpen = false;
+      this.skillMutationState.selectionLocked = false;
+      this.skillMutationState.currentSelection = null;
+      this.skillMutationState.currentChoices = [];
+    }
+    this.hideOverlay();
+    this.restoreGameplayInputAfterOverlay();
+    this.physics.world.resume();
+    this.tryOpenPendingPostOverlaySelections();
+    return true;
+  }
+
+  tryOpenPendingPostOverlaySelections() {
+    return (
+      this.tryOpenPendingSkillMutationSelection?.() ||
+      this.tryOpenQueuedLostArmsEvolutionSelection?.() ||
+      this.tryOpenPendingOverdriveModSelection?.() ||
+      this.tryOpenPendingDepthDirectiveSelection?.() ||
+      false
+    );
+  }
+
+  applySkillMutationDebugPreset(options = {}) {
+    if (!this.isSkillMutationDebugEnabled() || this.skillMutationState?.debugPresetApplied) {
+      return false;
+    }
+
+    const skillId = this.getSkillMutationDebugParam("debugSkillMutationSkill");
+    const coreId = this.getSkillMutationDebugParam("debugSkillMutationCore");
+    const finalId = this.getSkillMutationDebugParam("debugSkillMutationFinal");
+    if (!this.isSkillMutationTargetSkill(skillId)) {
+      return false;
+    }
+
+    const definition = SKILL_DEFINITIONS[skillId];
+    if (!this.playerSkills[skillId] && definition?.stages?.length) {
+      this.playerSkills[skillId] = this.createSkillState(definition);
+    }
+    const skillState = this.playerSkills[skillId];
+    if (!skillState) {
+      return false;
+    }
+
+    const targetStage = finalId ? SKILL_MUTATION_CONFIG.stage8 : SKILL_MUTATION_CONFIG.stage4;
+    skillState.stageIndex = Phaser.Math.Clamp(targetStage - 1, 0, skillState.definition.stages.length - 1);
+    this.applySkillStage(skillState, true);
+    if (!coreId && !finalId) {
+      if (options.prepareOnly) {
+        return true;
+      }
+      this.queueSkillMutationSelect(skillId, "stage4");
+      this.skillMutationState.debugPresetApplied = true;
+      console.log("[SKILL MUTATION] debug stage4 queued", { skillId });
+      return true;
+    }
+    const selectedCore = SKILL_MUTATION_CORE_IDS.includes(coreId) ? coreId : "assault";
+    this.setSkillMutationCore(skillId, selectedCore);
+    if (finalId && SKILL_MUTATION_FINAL_IDS.includes(finalId)) {
+      this.setSkillMutationFinal(skillId, finalId);
+    }
+    this.skillMutationState.debugPresetApplied = true;
+    this.updateHud();
+    console.log("[SKILL MUTATION] debug preset", {
+      skillId,
+      core: this.getSkillMutationCore(skillId),
+      final: this.getSkillMutationFinal(skillId),
+      finalForm: this.getSkillFinalFormId(skillId)
+    });
+    return true;
+  }
+
   initializeOverdriveModState() {
     this.overdriveModState = {
       pendingSelection: false,
@@ -10124,6 +11648,13 @@ class SurvivalScene extends Phaser.Scene {
     state.guardPulseUntil = 0;
     if (!mod.hidden) {
       state.lastSelectedModId = mod.id;
+      if (this.runArchiveStats) {
+        const title = mod.title || mod.id;
+        if (!this.runArchiveStats.overdriveModsSelected.includes(title)) {
+          this.runArchiveStats.overdriveModsSelected.push(title);
+          this.runArchiveStats.overdriveModsSelected = this.runArchiveStats.overdriveModsSelected.slice(-8);
+        }
+      }
     }
 
     const activeSeconds = this.activateOverdrive({ silent: true, source: "overdriveMod" });
@@ -10156,7 +11687,7 @@ class SurvivalScene extends Phaser.Scene {
     this.hideOverlay();
     this.restoreGameplayInputAfterOverlay();
     this.physics.world.resume();
-    this.tryOpenQueuedLostArmsEvolutionSelection();
+    this.tryOpenPendingPostOverlaySelections();
     return true;
   }
 
@@ -10882,6 +12413,9 @@ class SurvivalScene extends Phaser.Scene {
       this.setLastPickupNotice(`OVERDRIVE ${seconds}s`);
       this.showOverflowRewardText(`OVERDRIVE ${seconds}s`, this.playerHitbox?.x, this.playerHitbox?.y - 34, "#91f6ff");
     }
+    if (this.runArchiveStats) {
+      this.runArchiveStats.overdriveActivations = Math.max(0, Math.floor(Number(this.runArchiveStats.overdriveActivations) || 0)) + 1;
+    }
     this.handleDepthDirectiveOverdriveActivation(options);
     this.updateOverflowHud();
     return seconds;
@@ -10936,7 +12470,7 @@ class SurvivalScene extends Phaser.Scene {
     );
     return Math.max(
       LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS,
-      Math.round(baseInterval * this.getOverdriveFireIntervalMultiplier())
+      Math.round(baseInterval * this.getOverdriveFireIntervalMultiplier() * this.getSkillMutationCooldownMultiplier("basicSkill", { source: "autoLightning" }))
     );
   }
 
@@ -13218,6 +14752,9 @@ class SurvivalScene extends Phaser.Scene {
     const seconds = Math.ceil(this.robotState.syncActiveMs / 1000);
     this.setLastPickupNotice(wasActive ? `ROBOT SYNC EXTEND ${seconds}s` : `ROBOT SYNC DRIVE ${seconds}s`);
     this.showOverflowRewardText(wasActive ? `SYNC +${Math.round(ROBOT_SYNC_CONFIG.activeExtensionMs / 1000)}s` : "ROBOT SYNC DRIVE", this.robotState.x, this.robotState.y - 58, "#9ffcff");
+    if (this.runArchiveStats) {
+      this.runArchiveStats.robotSyncActivations = Math.max(0, Math.floor(Number(this.runArchiveStats.robotSyncActivations) || 0)) + 1;
+    }
     this.spawnRobotSyncActivationEffect();
     this.updateHudRobotPanel();
   }
@@ -13570,7 +15107,13 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   applySkillStage(skillState, resetMotion = false) {
+    if (!skillState?.definition?.stages?.length) {
+      return;
+    }
     const stageData = skillState.definition.stages[skillState.stageIndex];
+    if (!stageData) {
+      return;
+    }
     const instanceCount = this.getSkillInstanceCount(skillState.definition, stageData);
     skillState.currentStage = stageData;
 
@@ -13589,21 +15132,29 @@ class SurvivalScene extends Phaser.Scene {
 
     // Stage data remains the single source of truth for orbital visuals and contact behavior.
     skillState.orbitals.forEach((orbital, index) => {
+      const mutationStyle = this.getSkillMutationVisualStyle(skillState.id);
       orbital.angleOffset = (Math.PI * 2 * index) / Math.max(instanceCount, 1);
       orbital.pulseOffset = (Math.PI * 2 * index) / Math.max(instanceCount, 1);
       orbital.frameTimer = 0;
       orbital.sprite.setTexture(this.getSkillStageTextureKey(stageData));
       orbital.sprite.setScale(stageData.displayScale);
+      if (mutationStyle?.primaryTint) {
+        orbital.sprite.setTint(mutationStyle.primaryTint);
+      } else {
+        orbital.sprite.clearTint();
+      }
       orbital.sprite.setVisible(true);
-      orbital.hitbox.damage = stageData.damage;
-      orbital.hitbox.contactTickMs = stageData.contactTickMs;
+      orbital.hitbox.damage = this.getMutatedSkillDamage(skillState.id, stageData.damage, { source: "contact" });
+      orbital.hitbox.baseDamage = stageData.damage;
+      orbital.hitbox.contactTickMs = this.getMutatedSkillContactTickMs(skillState.id, stageData.contactTickMs, { source: "contact" });
+      orbital.hitbox.baseContactTickMs = stageData.contactTickMs;
       orbital.hitbox.skillId = skillState.id;
       orbital.hitbox.skillStage = stageData.stage;
       orbital.hitbox.skillHitRadius = stageData.hitRadius;
       orbital.hitbox.skillVisualScale = stageData.displayScale;
-      orbital.hitbox.damageTint = stageData.damageTint || 0xf4c8ff;
-      orbital.hitbox.effectTint = stageData.effectTint || 0xe0efff;
-      orbital.aura.setTint(stageData.auraTint || (stageData.stage >= 7 ? 0x82e7ff : 0xcdf3ff));
+      orbital.hitbox.damageTint = mutationStyle?.damageTint || stageData.damageTint || 0xf4c8ff;
+      orbital.hitbox.effectTint = mutationStyle?.secondaryTint || stageData.effectTint || 0xe0efff;
+      orbital.aura.setTint(mutationStyle?.auraTint || stageData.auraTint || (stageData.stage >= 7 ? 0x82e7ff : 0xcdf3ff));
       orbital.aura.setVisible(Boolean(stageData.pulseSpeed) || skillState.definition.behavior === "screenHoming");
       orbital.aura.setAlpha(0);
       orbital.sprite.setAlpha(stageData.pulseSpeed ? 0.82 : 0.94);
@@ -14802,12 +16353,16 @@ class SurvivalScene extends Phaser.Scene {
         this.setHudIconToFit(slot.icon, iconKey, slot.iconMaxSize);
       }
       slot.panel.setAlpha(skillState ? 0.88 : 0.46);
+      const mutationLine = skillState ? this.getSkillMutationHudLine(skillId) : "";
+      const labelText = skillState
+        ? (mutationLine ? `S${currentStage}\n${mutationLine}` : `Lv.${currentStage}`)
+        : "LOCK";
       slot.label
-        .setFontSize("10px")
-        .setLineSpacing(0)
-        .setPosition(slot.x + slot.size / 2, slot.y + slot.size - (this.hudUsesFrameAsset ? 17 : 14))
-        .setText(skillState ? `Lv.${currentStage}` : "LOCK")
-        .setColor(skillState ? "#f0c463" : HUD_STYLE.muted);
+        .setFontSize(mutationLine ? "8px" : "10px")
+        .setLineSpacing(mutationLine ? -1 : 0)
+        .setPosition(slot.x + slot.size / 2, slot.y + slot.size - (this.hudUsesFrameAsset ? (mutationLine ? 31 : 17) : (mutationLine ? 27 : 14)))
+        .setText(labelText)
+        .setColor(skillState ? (mutationLine ? (this.getSkillMutationVisualStyle(skillId)?.textColor || "#f0c463") : "#f0c463") : HUD_STYLE.muted);
       this.setHudSkillStageDots(slot, currentStage, maxStage, Boolean(skillState));
     });
   }
@@ -15282,10 +16837,11 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   renderShopModeTabs() {
-    this.createShopModeTab(-334, -286, 126, "CDSHOP", "cd");
-    this.createShopModeTab(-190, -286, 134, "GEEKSHOP", "geek");
-    this.createShopModeTab(-24, -286, 166, "ROBOT CUSTOM", "robotCustom");
-    this.createShopModeTab(176, -286, 164, "ANJU MEMORY", "anjuMemory");
+    this.createShopModeTab(-272, -286, 92, "CDSHOP", "cd");
+    this.createShopModeTab(-168, -286, 104, "GEEKSHOP", "geek");
+    this.createShopModeTab(-45, -286, 130, "ROBOT CUSTOM", "robotCustom");
+    this.createShopModeTab(85, -286, 122, "ANJU MEMORY", "anjuMemory");
+    this.createShopModeTab(208, -286, 112, "ARCHIVE", "runArchive");
   }
 
   createShopModeTab(centerX, centerY, width, label, mode) {
@@ -15740,6 +17296,351 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
+  getRunArchiveOutcomeLabel(outcome) {
+    const labels = {
+      normal_extract: "NORMAL EXTRACT",
+      emergency_extract: "EMERGENCY EXTRACT",
+      game_over: "GAME OVER",
+      gate_collapse: "GATE COLLAPSE",
+      unknown: "UNKNOWN"
+    };
+    return labels[this.normalizeRunArchiveOutcome(outcome)] || labels.unknown;
+  }
+
+  getRunArchiveOutcomeColor(outcome) {
+    const colors = {
+      normal_extract: 0x77f0b4,
+      emergency_extract: 0xff8bdc,
+      game_over: 0xff8a8a,
+      gate_collapse: 0xffc857,
+      unknown: 0x9ab7cc
+    };
+    return colors[this.normalizeRunArchiveOutcome(outcome)] || colors.unknown;
+  }
+
+  createDebugRunArchiveEntries() {
+    const now = Date.now();
+    return [
+      this.normalizeRunArchiveEntry({
+        id: `debug-run-archive-${now}`,
+        submittedAt: new Date(now).toISOString(),
+        outcome: "normal_extract",
+        extractionSucceeded: true,
+        extractMode: "normal",
+        deathReason: "none",
+        bestDepth: 8,
+        maxDepthReached: 8,
+        survivalMs: 482000,
+        level: 31,
+        kills: 1860,
+        eliteKills: 18,
+        bossKills: 5,
+        unconfirmedGeekFinal: 32400,
+        extractedGeek: 32400,
+        geekMultiplierMax: 2.78,
+        instability: 2,
+        anjuMemoryEarned: 6,
+        grade: "S",
+        stageId: "tokyo_stage_03_electric_town",
+        stageName: "Tokyo 03 Electric Town",
+        skills: { basicSkill: 8, tornadoSkill: 6, rabbitThunderSkill: 4 },
+        skillMutations: {
+          basicSkill: { core: "assault", final: "prism", finalFormId: "assault_prism", label: "PRISM HALO" },
+          tornadoSkill: { core: "control", final: "singularity", finalFormId: "control_singularity", label: "EVENT HORIZON" },
+          rabbitThunderSkill: { core: "reactor", final: "execution", finalFormId: "reactor_execution", label: "BOOST SPEAR" }
+        },
+        passives: { overchargeBolt: 6, rapidSigil: 5, swiftStep: 4, staminaCore: 3, vitalBloom: 7 },
+        lostArms: {
+          abyssRailLevel: 5,
+          gravitySeedLevel: 3,
+          abyssRailResonance: 3,
+          gravitySeedResonance: 2,
+          abyssRailEvolution: "EXECUTION RAIL",
+          gravitySeedEvolution: ""
+        },
+        robot: {
+          missileLevel: 12,
+          recoveryLevel: 11,
+          rapidLauncherLevel: 4,
+          warheadBoostLevel: 3,
+          fieldCycleLevel: 2,
+          careOutputLevel: 4,
+          syncActivations: 2
+        },
+        overdrive: { activations: 4, modsSelected: ["GOLD FEVER", "HUNTER MODE"] },
+        stabilize: { chargesUsed: 3, protocolsUsed: ["EXTEND GATE", "SECURE CACHE"] },
+        contracts: [{ depth: 6, id: "greedProtocol", label: "GREED PROTOCOL" }],
+        directives: [{ depth: 6, id: "bossHunter", label: "BOSS HUNTER", completed: true }],
+        nemesis: { spawned: 2, defeated: 2, typesDefeated: ["NEMESIS BRUTE", "NEMESIS CASTER"] }
+      })
+    ];
+  }
+
+  getRunArchiveDisplayEntries() {
+    const archive = this.loadRunArchive();
+    if (archive.entries.length <= 0 && this.isRunArchiveDebugEnabled()) {
+      return this.createDebugRunArchiveEntries();
+    }
+    return archive.entries;
+  }
+
+  getRunArchiveSelectedEntry(entries) {
+    if (!Array.isArray(entries) || entries.length <= 0) {
+      this.runArchiveSelectedEntryId = null;
+      return null;
+    }
+    const selected = entries.find((entry) => entry.id === this.runArchiveSelectedEntryId) || entries[0];
+    this.runArchiveSelectedEntryId = selected.id;
+    return selected;
+  }
+
+  getRunArchiveSkillSummary(entry) {
+    const skills = entry?.skills || {};
+    return [
+      `BASIC ${skills.basicSkill || 0}`,
+      `TORNADO ${skills.tornadoSkill || 0}`,
+      `RABBIT ${skills.rabbitThunderSkill || 0}`
+    ].join(" / ");
+  }
+
+  getRunArchiveSkillMutationSummary(entry) {
+    const mutations = entry?.skillMutations || {};
+    const lines = SKILL_MUTATION_SKILL_IDS.map((skillId) => {
+      const mutation = mutations[skillId] || {};
+      if (!mutation.core && !mutation.finalFormId) {
+        return "";
+      }
+      const skillLabel = this.getSkillMutationHudSkillLabel(skillId);
+      const core = this.getSkillMutationCoreDefinition(mutation.core)?.shortLabel || mutation.core;
+      const final = this.getSkillMutationFinalDefinition(mutation.final)?.shortLabel || mutation.final;
+      const label = mutation.label || this.getSkillMutationFinalFormLabel(skillId, mutation.finalFormId);
+      return `${skillLabel} ${mutation.finalFormId ? `${core}+${final}` : core}${label ? ` ${label}` : ""}`;
+    }).filter(Boolean);
+    return lines.join(" / ") || "-";
+  }
+
+  getRunArchiveLostArmsSummary(entry) {
+    const arms = entry?.lostArms || {};
+    const abyss = arms.abyssRailEvolution
+      ? `ABYSS ${arms.abyssRailEvolution}`
+      : `ABYSS Lv.${arms.abyssRailLevel || 0}${arms.abyssRailResonance > 0 ? ` RES ${arms.abyssRailResonance}` : ""}`;
+    const gravity = arms.gravitySeedEvolution
+      ? `GRAVITY ${arms.gravitySeedEvolution}`
+      : `GRAVITY Lv.${arms.gravitySeedLevel || 0}${arms.gravitySeedResonance > 0 ? ` RES ${arms.gravitySeedResonance}` : ""}`;
+    return `${abyss} / ${gravity}`;
+  }
+
+  getRunArchiveBuildSummary(entry) {
+    const odMods = entry?.overdrive?.modsSelected || [];
+    return [
+      this.getRunArchiveSkillSummary(entry),
+      this.getRunArchiveSkillMutationSummary(entry) !== "-" ? `MUT: ${this.getRunArchiveSkillMutationSummary(entry)}` : "",
+      this.getRunArchiveLostArmsSummary(entry),
+      odMods.length > 0 ? `OD: ${odMods.slice(0, 2).join(", ")}` : ""
+    ].filter(Boolean).join("  |  ");
+  }
+
+  createRunArchiveSmallButton(centerX, centerY, width, label, enabled, onSelect) {
+    const panel = this.addOverlayChild(
+      this.add
+        .rectangle(centerX, centerY, width, 32, enabled ? 0x142337 : 0x0a121d, enabled ? 0.94 : 0.62)
+        .setStrokeStyle(1, 0x6fcfff, enabled ? 0.42 : 0.16)
+        .setInteractive({ useHandCursor: enabled })
+    );
+    panel.on("pointerover", () => panel.setFillStyle(enabled ? 0x1b3049 : 0x0a121d, enabled ? 0.98 : 0.62));
+    panel.on("pointerout", () => panel.setFillStyle(enabled ? 0x142337 : 0x0a121d, enabled ? 0.94 : 0.62));
+    this.addOverlayAction(panel, () => {
+      if (enabled) {
+        onSelect?.();
+      }
+    }, true, 4);
+    this.createOverlayText(centerX, centerY - 8, label, {
+      fontSize: "13px",
+      color: enabled ? "#ecfaff" : "#617484",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+  }
+
+  createRunArchiveEntryCard(entry, index, x, y, width, height) {
+    const selected = entry.id === this.runArchiveSelectedEntryId;
+    const accent = this.getRunArchiveOutcomeColor(entry.outcome);
+    const fill = selected ? 0x17314a : 0x0d1b2c;
+    const panel = this.addOverlayChild(
+      this.add
+        .rectangle(x, y, width, height, fill, selected ? 0.98 : 0.88)
+        .setOrigin(0, 0)
+        .setStrokeStyle(selected ? 2 : 1, accent, selected ? 0.7 : 0.34)
+        .setInteractive({ useHandCursor: true })
+    );
+    panel.on("pointerover", () => panel.setFillStyle(selected ? 0x21445f : 0x142a42, 0.98));
+    panel.on("pointerout", () => panel.setFillStyle(fill, selected ? 0.98 : 0.88));
+    this.addOverlayAction(panel, () => {
+      this.runArchiveSelectedEntryId = entry.id;
+      this.showPreGameShop(this.shopStatusMessage);
+    }, true, 5);
+
+    const label = this.getRunArchiveOutcomeLabel(entry.outcome);
+    const gradeText = entry.grade ? ` / ${entry.grade}` : "";
+    const metrics = `D${entry.maxDepthReached}  K${entry.kills.toLocaleString()}  EX ${this.formatRunArchiveGeek(entry.extractedGeek)}`;
+    const stage = entry.stageName || entry.stageId || "UNKNOWN STAGE";
+    this.createOverlayText(x + 12, y + 8, `${this.formatRunArchiveDate(entry.submittedAt)}  ${label}${gradeText}`, {
+      fontSize: "12px",
+      color: "#ecf7ff",
+      fontStyle: "bold",
+      wordWrap: { width: width - 190 }
+    });
+    this.createOverlayText(x + width - 12, y + 8, metrics, {
+      fontSize: "11px",
+      color: "#9ffcff",
+      fontStyle: "bold",
+      align: "right",
+      origin: { x: 1, y: 0 }
+    });
+    this.createOverlayText(x + 12, y + 28, `${stage} / AM ${entry.anjuMemoryEarned} / ${this.getRunArchiveBuildSummary(entry)}`, {
+      fontSize: "10px",
+      color: "#9ab7cc",
+      wordWrap: { width: width - 24 }
+    });
+  }
+
+  renderRunArchiveDetailPanel(entry, x, y, width, height) {
+    this.addOverlayChild(
+      this.add
+        .rectangle(x, y, width, height, 0x0a1422, 0.92)
+        .setOrigin(0, 0)
+        .setStrokeStyle(1, 0x6fcfff, 0.3)
+    );
+    if (!entry) {
+      return;
+    }
+
+    const completedDirectives = (entry.directives || []).filter((directive) => directive.completed).length;
+    const contractText = (entry.contracts || []).map((contract) => `D${contract.depth} ${contract.label || contract.id}`).join(", ") || "-";
+    const directiveText = (entry.directives || []).map((directive) => `D${directive.depth} ${directive.label || directive.id}${directive.completed ? " OK" : ""}`).join(", ") || "-";
+    const passives = entry.passives || {};
+    const robot = entry.robot || {};
+    const odMods = entry.overdrive?.modsSelected?.join(", ") || "-";
+    const stProtocols = entry.stabilize?.protocolsUsed?.join(", ") || "-";
+    const nemesisTypes = entry.nemesis?.typesDefeated?.join(", ") || "-";
+    const lines = [
+      `RESULT: ${this.getRunArchiveOutcomeLabel(entry.outcome)} / ${entry.extractionSucceeded ? "SUCCESS" : "FAILED"} / MODE ${entry.extractMode} / DEATH ${entry.deathReason}`,
+      `RUN: Depth ${entry.maxDepthReached} / TIME ${this.formatRunArchiveDuration(entry.survivalMs)} / Lv.${entry.level} / KILLS ${entry.kills.toLocaleString()} / ELITE ${entry.eliteKills} / BOSS ${entry.bossKills}`,
+      `GEEK: EXTRACTED ${this.formatRunArchiveGeek(entry.extractedGeek)} / FINAL UNCONFIRMED ${this.formatRunArchiveGeek(entry.unconfirmedGeekFinal)} / MAX x${entry.geekMultiplierMax.toFixed(2)} / INSTABILITY ${entry.instability}`,
+      `BUILD: ${this.getRunArchiveSkillSummary(entry)}`,
+      `MUTATION: ${this.getRunArchiveSkillMutationSummary(entry)}`,
+      `PASSIVE: BOLT ${passives.overchargeBolt} / RAPID ${passives.rapidSigil} / STEP ${passives.swiftStep} / STAMINA ${passives.staminaCore} / VITAL ${passives.vitalBloom}`,
+      `LOST ARMS: ${this.getRunArchiveLostArmsSummary(entry)}`,
+      `ROBOT: M${robot.missileLevel} / F${robot.recoveryLevel} / RAPID ${robot.rapidLauncherLevel} / WARHEAD ${robot.warheadBoostLevel} / FIELD ${robot.fieldCycleLevel} / CARE ${robot.careOutputLevel} / SYNC ${robot.syncActivations}`,
+      `DEEP: CONTRACT ${contractText}`,
+      `DIRECTIVE: ${completedDirectives}/${(entry.directives || []).length} COMPLETE / ${directiveText}`,
+      `NEMESIS: ${entry.nemesis?.defeated || 0}/${entry.nemesis?.spawned || 0} / ${nemesisTypes}`,
+      `OD/ST: OD ${entry.overdrive?.activations || 0} (${odMods}) / ST CHARGE ${entry.stabilize?.chargesUsed || 0} (${stProtocols})`,
+      `STAGE: ${entry.stageName || "-"} / ${entry.stageId || "-"}`
+    ];
+
+    this.createOverlayText(x + 18, y + 14, "DETAIL", {
+      fontSize: "14px",
+      color: "#9ffcff",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(x + width - 18, y + 14, entry.grade ? `GRADE ${entry.grade}` : "", {
+      fontSize: "14px",
+      color: "#f0c463",
+      fontStyle: "bold",
+      align: "right",
+      origin: { x: 1, y: 0 }
+    });
+    this.createOverlayText(x + 18, y + 42, lines.join("\n"), {
+      fontSize: "11px",
+      color: "#c7ddea",
+      lineSpacing: 1,
+      wordWrap: { width: width - 36 }
+    });
+  }
+
+  renderRunArchiveShopContent() {
+    this.createOverlayText(-530, -210, "RUN ARCHIVE", {
+      fontSize: "15px",
+      color: "#9ffcff",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(-530, -188, "直近20件の戦闘ログをローカル保存で閲覧します。GEEK、ANJU MEMORY、ランキング、Firebase送信値は変更しません。", {
+      fontSize: "12px",
+      color: "#9ab7cc",
+      wordWrap: { width: 900 }
+    });
+
+    const entries = this.getRunArchiveDisplayEntries();
+    if (entries.length <= 0) {
+      this.addOverlayChild(
+        this.add
+          .rectangle(0, 32, 820, 300, 0x0a1422, 0.9)
+          .setStrokeStyle(1, 0x6fcfff, 0.28)
+      );
+      this.createOverlayText(0, -20, "NO RUN ARCHIVE", {
+        fontSize: "28px",
+        color: "#ecfaff",
+        fontStyle: "bold",
+        align: "center",
+        origin: { x: 0.5, y: 0.5 }
+      });
+      this.createOverlayText(0, 28, "Complete a run to record combat data.", {
+        fontSize: "16px",
+        color: "#9ab7cc",
+        align: "center",
+        origin: { x: 0.5, y: 0.5 }
+      });
+      return;
+    }
+
+    const selectedEntry = this.getRunArchiveSelectedEntry(entries);
+    const maxPage = Math.max(0, Math.ceil(entries.length / RUN_ARCHIVE_ENTRIES_PER_PAGE) - 1);
+    this.runArchivePage = Phaser.Math.Clamp(Math.floor(Number(this.runArchivePage) || 0), 0, maxPage);
+    const startIndex = this.runArchivePage * RUN_ARCHIVE_ENTRIES_PER_PAGE;
+    const pageEntries = entries.slice(startIndex, startIndex + RUN_ARCHIVE_ENTRIES_PER_PAGE);
+    const listX = -530;
+    const listY = -154;
+    const listWidth = 520;
+    const rowHeight = 50;
+
+    this.addOverlayChild(
+      this.add
+        .rectangle(listX, listY, listWidth, 398, 0x07111d, 0.86)
+        .setOrigin(0, 0)
+        .setStrokeStyle(1, 0x6fcfff, 0.24)
+    );
+    pageEntries.forEach((entry, index) => {
+      this.createRunArchiveEntryCard(entry, startIndex + index, listX + 10, listY + 10 + index * (rowHeight + 4), listWidth - 20, rowHeight);
+    });
+
+    const pageLabel = `PAGE ${this.runArchivePage + 1}/${maxPage + 1} / ${entries.length} RUNS`;
+    this.createOverlayText(listX + listWidth / 2, 256, pageLabel, {
+      fontSize: "12px",
+      color: "#9ab7cc",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+    this.createRunArchiveSmallButton(listX + 82, 270, 118, "PREV", this.runArchivePage > 0, () => {
+      this.runArchivePage = Math.max(0, this.runArchivePage - 1);
+      this.showPreGameShop(this.shopStatusMessage);
+    });
+    this.createRunArchiveSmallButton(listX + listWidth - 82, 270, 118, "NEXT", this.runArchivePage < maxPage, () => {
+      this.runArchivePage = Math.min(maxPage, this.runArchivePage + 1);
+      this.showPreGameShop(this.shopStatusMessage);
+    });
+
+    this.renderRunArchiveDetailPanel(selectedEntry, 10, -154, 520, 398);
+    if (this.isRunArchiveDebugEnabled() && this.loadRunArchive().entries.length <= 0) {
+      this.createOverlayText(10, 292, "DEBUG SAMPLE / not saved to localStorage", {
+        fontSize: "11px",
+        color: "#f0c463"
+      });
+    }
+  }
+
   showPreGameShop(message = "") {
     this.shopActive = true;
     this.shopStatusMessage = message || "";
@@ -15775,6 +17676,19 @@ class SurvivalScene extends Phaser.Scene {
 
     this.renderShopHeaderBalances();
     this.renderShopModeTabs();
+
+    if (this.shopViewMode === "runArchive") {
+      this.renderRunArchiveShopContent();
+      this.createShopButton(392, 280, 318, 62, "GAME START", "開始前強化へ", () => {
+        this.startGameFromShop();
+      }, 0x174766, 0x236b92);
+
+      this.overlayBackdrop.setAlpha(1).setVisible(true);
+      this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
+      window.requestAnimationFrame?.(() => hideShopLoadingScreen());
+      scheduleMobileFullscreenResumeGate();
+      return;
+    }
 
     if (this.shopViewMode === "anjuMemory") {
       this.renderAnjuMemoryShopContent();
@@ -16012,10 +17926,30 @@ class SurvivalScene extends Phaser.Scene {
   startGameFromShop() {
     this.shopActive = false;
     this.shopStatusMessage = "";
+    this.runArchiveStarted = true;
+    this.runArchiveSaved = false;
     this.restoreGameplayInputAfterOverlay();
     this.hideOverlay();
     this.playSelectedBgm();
+    const forceSkillMutationDebugPreset = this.isSkillMutationDebugEnabled()
+      && Boolean(this.getSkillMutationDebugParam("debugSkillMutationCore") || this.getSkillMutationDebugParam("debugSkillMutationFinal"));
+    const queueSkillMutationDebugPreset = this.isSkillMutationDebugEnabled()
+      && !forceSkillMutationDebugPreset
+      && this.isSkillMutationTargetSkill(this.getSkillMutationDebugParam("debugSkillMutationSkill"));
+    if (forceSkillMutationDebugPreset) {
+      this.applySkillMutationDebugPreset();
+    } else if (queueSkillMutationDebugPreset) {
+      this.applySkillMutationDebugPreset({ prepareOnly: true });
+    }
     this.beginStartingUpgradeDraft();
+    if (queueSkillMutationDebugPreset) {
+      const debugSkillId = this.getSkillMutationDebugParam("debugSkillMutationSkill");
+      this.queueSkillMutationSelect(debugSkillId, "stage4");
+      this.skillMutationState.debugPresetApplied = true;
+      console.log("[SKILL MUTATION] debug stage4 queued", { skillId: debugSkillId });
+    } else if (!forceSkillMutationDebugPreset) {
+      this.applySkillMutationDebugPreset();
+    }
     this.queueDepthDirectiveSelection(this.stageDepth, "gameStart");
     this.notifyGeekMilestoneForDepth(this.stageDepth, "gameStart");
     this.onDepthStartedForNemesis(this.stageDepth, "gameStart");
@@ -17278,6 +19212,7 @@ class SurvivalScene extends Phaser.Scene {
     const state = this.ensureStabilizeProtocolGateState();
     let notice = "";
     let success = false;
+    let chargesSpent = 0;
 
     if (actionId === "extendGate") {
       const charges = this.getStabilizeCharges();
@@ -17287,6 +19222,7 @@ class SurvivalScene extends Phaser.Scene {
       );
       success = this.spendStabilizeCharges(charges, actionId);
       if (success) {
+        chargesSpent = charges;
         const appliedSeconds = this.addGateStableTime(seconds, actionId);
         notice = `GATE EXTENDED +${appliedSeconds}s`;
       }
@@ -17294,6 +19230,7 @@ class SurvivalScene extends Phaser.Scene {
       const config = STABILIZE_PROTOCOL_CONFIG.sealInstability;
       success = this.spendStabilizeCharges(config.cost, actionId);
       if (success) {
+        chargesSpent = config.cost;
         const reduced = this.reduceGateInstability(config.stacksReduced, actionId);
         notice = `INSTABILITY SEALED -${reduced}`;
       }
@@ -17301,6 +19238,7 @@ class SurvivalScene extends Phaser.Scene {
       const config = STABILIZE_PROTOCOL_CONFIG.secureCache;
       success = this.spendStabilizeCharges(config.cost, actionId);
       if (success) {
+        chargesSpent = config.cost;
         const payload = this.reserveSecureDataCacheFromStabilize();
         notice = `SECURE CACHE READY +${payload.xp} XP`;
       }
@@ -17308,6 +19246,7 @@ class SurvivalScene extends Phaser.Scene {
       const config = STABILIZE_PROTOCOL_CONFIG.anchorExtract;
       success = this.spendStabilizeCharges(config.cost, actionId);
       if (success) {
+        chargesSpent = config.cost;
         const bonus = this.applyAnchorExtractProtection(config.emergencyProtectionAdd);
         notice = `ANCHOR EXTRACT READY +${Math.round(bonus * 100)}%`;
       }
@@ -17319,6 +19258,14 @@ class SurvivalScene extends Phaser.Scene {
 
     state.actionUsedThisGate = true;
     state.lastActionId = actionId;
+    if (this.runArchiveStats) {
+      this.runArchiveStats.stabilizeChargesUsed = Math.max(0, Math.floor(Number(this.runArchiveStats.stabilizeChargesUsed) || 0)) + chargesSpent;
+      const title = this.getStabilizeActionTitle(actionId);
+      if (title && !this.runArchiveStats.stabilizeProtocolsUsed.includes(title)) {
+        this.runArchiveStats.stabilizeProtocolsUsed.push(title);
+        this.runArchiveStats.stabilizeProtocolsUsed = this.runArchiveStats.stabilizeProtocolsUsed.slice(-8);
+      }
+    }
     this.setLastPickupNotice(notice);
     if (this.stageGate?.container?.active) {
       this.showOverflowRewardText(notice, this.stageGate.container.x, this.stageGate.container.y - 148, "#b8fbff");
@@ -17850,6 +19797,20 @@ class SurvivalScene extends Phaser.Scene {
     const deepExtractionContext = this.captureDeepExtractionResultContext(result, emergency, lostArmsMessage);
     const anjuMemoryAward = this.awardAnjuMemoryOnExtraction(emergency ? "emergency" : "normal");
     this.setRunRankingExtractionStats(emergency ? "emergency" : "normal", result?.secured, true);
+    const recordState = this.saveBestRecordIfNeeded();
+    this.saveRunArchiveEntryOnce({
+      outcome: emergency ? "emergency_extract" : "normal_extract",
+      extractionSucceeded: true,
+      extractMode: emergency ? "emergency" : "normal",
+      deathReason: "none",
+      result,
+      extractedGeek: result?.secured,
+      unconfirmedGeekFinal: (result?.secured || 0) + (result?.lost || 0),
+      anjuMemoryAward,
+      lostArmsMessage,
+      recordState,
+      context: deepExtractionContext
+    });
     this.extractionComplete = true;
     this.gateChoiceActive = false;
     this.levelUpActive = false;
@@ -17858,13 +19819,13 @@ class SurvivalScene extends Phaser.Scene {
     this.resetLostArmsResonanceState(emergency ? "emergencyExtract" : "extract");
     this.resetOverdriveModState(emergency ? "emergencyExtract" : "extract");
     this.resetDepthDirectiveState(emergency ? "emergencyExtract" : "extract");
+    this.resetSkillMutationState(emergency ? "emergencyExtract" : "extract");
     this.resetNemesisBossState(emergency ? "emergencyExtract" : "extract");
     this.resetOverflowRewardState();
     this.destroyStageGate();
     this.hideOverlay();
     this.clearActiveLostArmEffects();
     this.physics.world.pause();
-    const recordState = this.saveBestRecordIfNeeded();
     const securedText = `${result.secured.toLocaleString()} GEEK SECURED`;
     const lostText = result.lost > 0 ? ` / LOST ${result.lost.toLocaleString()}` : "";
     const anjuMemoryText = this.formatAnjuMemoryAwardLine(anjuMemoryAward);
@@ -18766,6 +20727,7 @@ class SurvivalScene extends Phaser.Scene {
     this.updateGateVisuals(delta);
     this.updateHud();
     this.updateMobileControlsVisibility();
+    this.tryOpenPendingSkillMutationSelection();
     this.tryOpenQueuedLostArmsEvolutionSelection();
     this.tryOpenPendingOverdriveModSelection();
     this.tryOpenPendingDepthDirectiveSelection();
@@ -19340,7 +21302,13 @@ class SurvivalScene extends Phaser.Scene {
 
   updateScreenHomingSkill(skillState, stageData, delta) {
     const bounds = this.getSkillViewportBounds(stageData.screenPadding || 84);
-    const targets = this.findClosestEnemies(Math.max(skillState.orbitals.length, 1));
+    const wantsHighValue = this.getSkillMutationFinal(skillState.id) === "execution";
+    const highValueTargets = wantsHighValue
+      ? this.findSkillMutationTargets(this.playerHitbox.x, this.playerHitbox.y, 1200, Math.max(skillState.orbitals.length, 1), null, { highValueOnly: true })
+      : [];
+    const targets = highValueTargets.length > 0
+      ? highValueTargets
+      : this.findClosestEnemies(Math.max(skillState.orbitals.length, 1));
 
     skillState.orbitals.forEach((orbital, index) => {
       const target = targets[index % Math.max(targets.length, 1)] || null;
@@ -19360,19 +21328,23 @@ class SurvivalScene extends Phaser.Scene {
       const deltaX = clampedPoint.x - orbital.hitbox.x;
       const deltaY = clampedPoint.y - orbital.hitbox.y;
       const distance = Math.hypot(deltaX, deltaY);
-      const maxStep = stageData.moveSpeed * (delta / 1000);
+      const coreId = this.getSkillMutationCore(skillState.id);
+      const finalId = this.getSkillMutationFinal(skillState.id);
+      const movementMultiplier = (coreId === "reactor" ? 1.08 : 1) * (finalId === "singularity" ? 0.92 : 1);
+      const moveSpeed = Math.max(80, (stageData.moveSpeed || 220) * movementMultiplier);
+      const maxStep = moveSpeed * (delta / 1000);
       const moveRatio = distance > 0 ? Math.min(1, maxStep / distance) : 1;
       const x = orbital.hitbox.x + deltaX * moveRatio;
       const y = orbital.hitbox.y + deltaY * moveRatio;
       const pulseProgress = this.getOrbitalPulseProgress(skillState, stageData, orbital);
       const travelDistance = Math.hypot(x - orbital.hitbox.x, y - orbital.hitbox.y);
       const movementAngle = travelDistance > 0 ? Math.atan2(y - orbital.hitbox.y, x - orbital.hitbox.x) : 0;
-      const speedRatio = stageData.moveSpeed > 0 ? Phaser.Math.Clamp((travelDistance / Math.max(delta / 1000, 0.001)) / stageData.moveSpeed, 0, 1) : 0;
+      const speedRatio = moveSpeed > 0 ? Phaser.Math.Clamp((travelDistance / Math.max(delta / 1000, 0.001)) / moveSpeed, 0, 1) : 0;
 
       orbital.trailTimer += delta;
       if (stageData.trailIntervalMs && orbital.trailTimer >= stageData.trailIntervalMs) {
         orbital.trailTimer = 0;
-        this.spawnTornadoTrailEffect(x, y, stageData, pulseProgress, movementAngle, speedRatio);
+        this.spawnTornadoTrailEffect(x, y, stageData, pulseProgress, movementAngle, speedRatio, skillState.id);
       }
 
       this.syncSkillOrbitalVisuals(skillState, stageData, orbital, x, y, delta, pulseProgress);
@@ -19387,7 +21359,8 @@ class SurvivalScene extends Phaser.Scene {
         orbital.sprite.setVisible(false);
         orbital.aura.setVisible(false);
 
-        if (orbital.dashCooldownTimer >= (stageData.cooldownMs || 1000)) {
+        const cooldownMs = Math.max(180, Math.round((stageData.cooldownMs || 1000) * this.getSkillMutationCooldownMultiplier(skillState.id, { source: "skillCooldown" })));
+        if (orbital.dashCooldownTimer >= cooldownMs) {
           this.startDirectionalDash(orbital, stageData);
         }
         return;
@@ -19408,7 +21381,7 @@ class SurvivalScene extends Phaser.Scene {
       orbital.trailTimer += delta;
       if (stageData.trailIntervalMs && orbital.trailTimer >= stageData.trailIntervalMs) {
         orbital.trailTimer = 0;
-        this.spawnTornadoTrailEffect(x, y, stageData, pulseProgress, orbital.dashAngle, 0.95);
+        this.spawnTornadoTrailEffect(x, y, stageData, pulseProgress, orbital.dashAngle, 0.95, skillState.id);
       }
 
       orbital.hitbox.body.enable = true;
@@ -19422,7 +21395,12 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   startDirectionalDash(orbital, stageData) {
-    const target = this.findClosestEnemy();
+    const skillId = orbital.hitbox?.skillId || "rabbitThunderSkill";
+    const executionRoute = this.getSkillMutationFinal(skillId) === "execution" || this.getSkillMutationCore(skillId) === "reactor";
+    const highValueTargets = executionRoute
+      ? this.findSkillMutationTargets(this.playerHitbox.x, this.playerHitbox.y, 880, 1, null, { highValueOnly: true })
+      : [];
+    const target = highValueTargets[0] || this.findClosestEnemy();
     const startX = this.playerHitbox.x;
     const startY = this.playerHitbox.y - 18;
     const angle = target
@@ -19488,11 +21466,12 @@ class SurvivalScene extends Phaser.Scene {
       .setAlpha(0.94)
       .setBlendMode(Phaser.BlendModes.ADD);
 
-    this.applyDirectionalDashImpact(x, y, stageData);
+    const skillId = orbital.hitbox?.skillId || "rabbitThunderSkill";
+    this.applyDirectionalDashImpact(x, y, stageData, skillId);
     const impactRepeatCount = Math.max(1, stageData.impactRepeatCount || 1);
     for (let repeatIndex = 1; repeatIndex < impactRepeatCount; repeatIndex += 1) {
       this.time.delayedCall((stageData.impactRepeatDelayMs || 120) * repeatIndex, () => {
-        this.applyDirectionalDashImpact(x, y, stageData);
+        this.applyDirectionalDashImpact(x, y, stageData, skillId);
       });
     }
     this.skillEffectsLayer.add([impactGlow, impactSpark]);
@@ -19508,13 +21487,15 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
-  applyDirectionalDashImpact(x, y, stageData) {
+  applyDirectionalDashImpact(x, y, stageData, skillId = "rabbitThunderSkill") {
     const radius = stageData.impactRadius || 0;
     if (radius <= 0) {
       return;
     }
 
-    const damage = stageData.impactDamage || Math.max(1, Math.ceil((stageData.damage || 1) * 0.5));
+    const damage = this.getMutatedSkillDamage(skillId, stageData.impactDamage || Math.max(1, Math.ceil((stageData.damage || 1) * 0.5)), {
+      source: "impact"
+    });
     let hitCount = 0;
 
     this.enemies.children.each((enemy) => {
@@ -19534,13 +21515,15 @@ class SurvivalScene extends Phaser.Scene {
         force: stageData.impactForce || 240,
         recoverMs: 135
       });
+      this.applySkillMutationOnHit(skillId, enemy, { x, y, skillId, skillStage: stageData.stage }, damage);
     });
 
+    const style = this.getSkillMutationVisualStyle(skillId);
     const ring = this.add
       .image(x, y, "skill-hit-ring")
       .setDepth(20)
       .setScale(Math.max(0.7, radius / 58))
-      .setTint(stageData.effectTint || 0x92eaff)
+      .setTint(style?.secondaryTint || stageData.effectTint || 0x92eaff)
       .setAlpha(0.64)
       .setBlendMode(Phaser.BlendModes.ADD);
 
@@ -19563,7 +21546,15 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   syncSkillOrbitalVisuals(skillState, stageData, orbital, x, y, delta, pulseProgress) {
-    const displayScale = this.getOrbitalDisplayScale(stageData, pulseProgress);
+    const mutationStyle = this.getSkillMutationVisualStyle(skillState.id);
+    let displayScale = this.getOrbitalDisplayScale(stageData, pulseProgress);
+    if (mutationStyle?.finalId === "singularity") {
+      displayScale *= skillState.definition.behavior === "screenHoming" ? 1.16 : 1.1;
+    } else if (mutationStyle?.finalId === "execution") {
+      displayScale *= 1.06;
+    } else if (mutationStyle?.finalId === "prism") {
+      displayScale *= 0.96 + pulseProgress * 0.08;
+    }
     const spinMultiplier = stageData.pulseSpeed ? 0.94 + pulseProgress * 0.28 : 1;
     const keepHorizontal = skillState.definition.behavior === "screenHoming";
     const alignToDash = skillState.definition.behavior === "directionalDash" && Number.isFinite(orbital.dashAngle);
@@ -19584,12 +21575,18 @@ class SurvivalScene extends Phaser.Scene {
     }
     orbital.sprite.setScale(displayScale);
     orbital.sprite.setAlpha(stageData.pulseSpeed ? 0.76 + pulseProgress * 0.24 : 0.94);
+    if (mutationStyle?.primaryTint) {
+      orbital.sprite.setTint(mutationStyle.primaryTint);
+    } else {
+      orbital.sprite.clearTint();
+    }
 
     if (stageData.pulseSpeed || skillState.definition.behavior === "screenHoming") {
       orbital.aura.setVisible(true);
       orbital.aura.setScale(displayScale * (1.6 + pulseProgress * 0.38));
-      orbital.aura.setAlpha((stageData.pulseSpeed ? 0.12 : 0.08) + pulseProgress * 0.24);
-      orbital.aura.rotation = -orbital.spinAngle * 0.32;
+      orbital.aura.setAlpha((stageData.pulseSpeed ? 0.12 : 0.08) + pulseProgress * (mutationStyle ? 0.32 : 0.24));
+      orbital.aura.rotation = -orbital.spinAngle * (mutationStyle?.finalId === "singularity" ? 0.58 : 0.32);
+      orbital.aura.setTint(mutationStyle?.secondaryTint || stageData.auraTint || 0xcdf3ff);
     } else {
       orbital.aura.setVisible(false);
       orbital.aura.setAlpha(0);
@@ -19663,13 +21660,14 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
-  spawnTornadoTrailEffect(x, y, stageData, pulseProgress = 0, movementAngle = 0, speedRatio = 0) {
+  spawnTornadoTrailEffect(x, y, stageData, pulseProgress = 0, movementAngle = 0, speedRatio = 0, skillId = null) {
+    const mutationStyle = this.getSkillMutationVisualStyle(skillId);
     const trail = this.add
       .image(x, y, "skill-hit-glow")
       .setDepth(17)
-      .setScale(stageData.displayScale * (1.08 + pulseProgress * 0.28))
-      .setTint(stageData.effectTint || 0x9af6cf)
-      .setAlpha(0.14 + pulseProgress * 0.12)
+      .setScale(stageData.displayScale * (1.08 + pulseProgress * (mutationStyle?.finalId === "singularity" ? 0.48 : 0.28)))
+      .setTint(mutationStyle?.primaryTint || stageData.effectTint || 0x9af6cf)
+      .setAlpha((mutationStyle ? 0.2 : 0.14) + pulseProgress * 0.12)
       .setBlendMode(Phaser.BlendModes.ADD);
 
     this.skillEffectsLayer.add(trail);
@@ -19697,7 +21695,7 @@ class SurvivalScene extends Phaser.Scene {
         .setDepth(18)
         .setRotation(movementAngle + Math.PI)
         .setScale(0.34 + stageData.displayScale * (1.18 + speedRatio * 0.55))
-        .setTint(stageData.effectTint || 0x9af6cf)
+        .setTint(mutationStyle?.secondaryTint || stageData.effectTint || 0x9af6cf)
         .setAlpha(0.24 + speedRatio * 0.18)
         .setBlendMode(Phaser.BlendModes.ADD);
 
@@ -19769,6 +21767,10 @@ class SurvivalScene extends Phaser.Scene {
       const cleaningRobotSlowMultiplier = this.getEnemyCleaningRobotSlowMultiplier(enemy);
       if (cleaningRobotSlowMultiplier < 1 && enemy.body?.velocity) {
         enemy.body.velocity.scale(cleaningRobotSlowMultiplier);
+      }
+      const mutationSlowMultiplier = this.getEnemySkillMutationSlowMultiplier(enemy);
+      if (mutationSlowMultiplier < 1 && enemy.body?.velocity) {
+        enemy.body.velocity.scale(mutationSlowMultiplier);
       }
 
       this.constrainEnemyToMovementBounds(enemy);
@@ -20710,11 +22712,27 @@ class SurvivalScene extends Phaser.Scene {
   applySkillEnemyForces() {
     Object.values(this.playerSkills).forEach((skillState) => {
       const stageData = skillState.currentStage;
-      if (
-        skillState.definition.behavior !== "screenHoming" ||
-        !stageData.suctionForce ||
-        !stageData.suctionRadius
-      ) {
+      if (skillState.definition.behavior !== "screenHoming") {
+        return;
+      }
+      const coreId = this.getSkillMutationCore(skillState.id);
+      const finalId = this.getSkillMutationFinal(skillState.id);
+      let suctionRadius = stageData.suctionRadius || 0;
+      let suctionForce = stageData.suctionForce || 0;
+      if (coreId === "control") {
+        suctionRadius = Math.max(suctionRadius, 180);
+        suctionForce = Math.max(120, suctionForce * 1.32);
+      } else if (coreId === "assault" && suctionForce > 0) {
+        suctionForce *= 0.82;
+      } else if (coreId === "reactor" && this.isOverdriveActive?.()) {
+        suctionRadius = Math.max(suctionRadius, 132);
+        suctionForce = Math.max(suctionForce, 88);
+      }
+      if (finalId === "singularity") {
+        suctionRadius = Math.max(suctionRadius, coreId === "control" ? 320 : 245);
+        suctionForce = Math.max(suctionForce, coreId === "control" ? 330 : 205);
+      }
+      if (!suctionForce || !suctionRadius) {
         return;
       }
 
@@ -20731,14 +22749,14 @@ class SurvivalScene extends Phaser.Scene {
             orbital.hitbox.y
           );
 
-          if (distance <= 0 || distance > stageData.suctionRadius) {
+          if (distance <= 0 || distance > suctionRadius) {
             return;
           }
 
           const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, orbital.hitbox.x, orbital.hitbox.y);
-          const pullRatio = 1 - distance / stageData.suctionRadius;
-          const pullStrength = stageData.suctionForce * pullRatio;
-          const slowMultiplier = 1 - pullRatio * 0.24;
+          const pullRatio = 1 - distance / suctionRadius;
+          const pullStrength = suctionForce * pullRatio;
+          const slowMultiplier = 1 - pullRatio * (coreId === "control" ? 0.34 : 0.24);
           enemy.body.velocity.x *= slowMultiplier;
           enemy.body.velocity.y *= slowMultiplier;
           enemy.body.velocity.x += Math.cos(angle) * pullStrength;
@@ -22200,14 +24218,52 @@ class SurvivalScene extends Phaser.Scene {
     };
   }
 
+  getDeepDurabilityMultiplier(depth, baseMultiplier, perDepthMultiplier, maxMultiplier) {
+    const normalizedDepth = Math.max(1, Math.floor(Number(depth) || 1));
+    const startDepth = Math.max(1, Math.floor(Number(ENEMY_DURABILITY_TUNING.deepStartDepth) || 6));
+    if (normalizedDepth < startDepth) {
+      return 1;
+    }
+
+    const depthSteps = normalizedDepth - startDepth;
+    const multiplier = (Number(baseMultiplier) || 1) * Math.pow(Number(perDepthMultiplier) || 1, depthSteps);
+    return Phaser.Math.Clamp(multiplier, 1, Number(maxMultiplier) || multiplier);
+  }
+
+  getEnemyDurabilityHpMultiplier(depth = this.stageDepth || 1) {
+    const baseMultiplier = Math.max(0.1, Number(ENEMY_DURABILITY_TUNING.baseHpMultiplier) || 1);
+    const deepMultiplier = this.getDeepDurabilityMultiplier(
+      depth,
+      ENEMY_DURABILITY_TUNING.deepHpMultiplier,
+      ENEMY_DURABILITY_TUNING.deepHpPerDepth,
+      ENEMY_DURABILITY_TUNING.deepHpMaxMultiplier
+    );
+    return baseMultiplier * deepMultiplier;
+  }
+
+  getBossDurabilityHpMultiplier(depth = this.stageDepth || 1) {
+    const baseMultiplier = Math.max(0.1, Number(ENEMY_DURABILITY_TUNING.bossHpMultiplier) || 1);
+    const deepMultiplier = this.getDeepDurabilityMultiplier(
+      depth,
+      ENEMY_DURABILITY_TUNING.bossDeepHpMultiplier,
+      ENEMY_DURABILITY_TUNING.bossHpPerDepth,
+      ENEMY_DURABILITY_TUNING.bossDeepHpMaxMultiplier
+    );
+    return baseMultiplier * deepMultiplier;
+  }
+
   getCurrentEnemyScaling() {
     const depthScaling = this.getDepthScaling(this.stageDepth);
     const instabilityScaling = this.getInstabilityScaling(this.gateInstabilityStacks);
     return {
-      enemyHp: depthScaling.enemyHp * instabilityScaling.enemyHp * this.getAnomalyEnemyHpMultiplier(),
+      enemyHp:
+        depthScaling.enemyHp *
+        instabilityScaling.enemyHp *
+        this.getAnomalyEnemyHpMultiplier() *
+        this.getEnemyDurabilityHpMultiplier(this.stageDepth),
       enemyDamage: depthScaling.enemyDamage * instabilityScaling.enemyDamage * this.getAnomalyEnemyDamageMultiplier(),
       enemySpeed: depthScaling.enemySpeed * this.getAnomalyEnemySpeedMultiplier(),
-      bossHp: this.getAnomalyBossHpMultiplier(),
+      bossHp: this.getAnomalyBossHpMultiplier() * this.getBossDurabilityHpMultiplier(this.stageDepth),
       bossDamage: this.getAnomalyBossDamageMultiplier()
     };
   }
@@ -22758,12 +24814,23 @@ class SurvivalScene extends Phaser.Scene {
       }
 
       this.spawnBasicLightningStrike(target, shotIndex, shotCount);
-      this.applyDamageToEnemy(target, this.stats.bulletDamage, 0xe4f6ff, {
+      const damage = this.getMutatedSkillDamage("basicSkill", this.stats.bulletDamage, {
+        source: "autoLightning",
+        enemy: target
+      });
+      const style = this.getSkillMutationVisualStyle("basicSkill");
+      this.applyDamageToEnemy(target, damage, style?.damageTint || 0xe4f6ff, {
         sourceX: this.playerHitbox.x,
         sourceY: this.playerHitbox.y - 18,
         force: 150 + shotIndex * 12,
         recoverMs: 100
       });
+      this.applySkillMutationOnHit("basicSkill", target, {
+        x: this.playerHitbox.x,
+        y: this.playerHitbox.y - 18,
+        skillId: "basicSkill",
+        skillStage: this.getPrimarySkillState()?.currentStage?.stage || 1
+      }, damage);
     }
   }
 
@@ -23617,6 +25684,9 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   spawnBasicLightningStrike(target, shotIndex, shotCount) {
+    const style = this.getSkillMutationVisualStyle("basicSkill");
+    const glowTint = style?.primaryTint || 0x73d7ff;
+    const coreTint = style?.secondaryTint || 0xffffff;
     const startX = this.playerHitbox.x + Phaser.Math.Between(-5, 5);
     const startY = this.playerHitbox.y - 18 + Phaser.Math.Between(-6, 2);
     const endX = target.x + Phaser.Math.Between(-5, 5);
@@ -23649,13 +25719,13 @@ class SurvivalScene extends Phaser.Scene {
       const angle = Phaser.Math.Angle.Between(from.x, from.y, to.x, to.y);
 
       const glow = this.add
-        .rectangle(centerX, centerY, length, 10, 0x73d7ff, 0.2)
+        .rectangle(centerX, centerY, length, style?.finalId === "execution" ? 13 : 10, glowTint, style ? 0.28 : 0.2)
         .setRotation(angle)
         .setDepth(18)
         .setBlendMode(Phaser.BlendModes.ADD);
 
       const core = this.add
-        .rectangle(centerX, centerY, length, 3.2, 0xffffff, 0.94)
+        .rectangle(centerX, centerY, length, style?.finalId === "execution" ? 4.8 : 3.2, coreTint, 0.94)
         .setRotation(angle)
         .setDepth(19)
         .setBlendMode(Phaser.BlendModes.ADD);
@@ -23667,7 +25737,7 @@ class SurvivalScene extends Phaser.Scene {
       .image(startX, startY, "skill-hit-glow")
       .setDepth(19)
       .setScale(0.34 + shotCount * 0.03)
-      .setTint(0xbcefff)
+      .setTint(style?.auraTint || 0xbcefff)
       .setAlpha(0.55)
       .setBlendMode(Phaser.BlendModes.ADD);
 
@@ -23675,7 +25745,7 @@ class SurvivalScene extends Phaser.Scene {
       .image(endX, endY, "skill-hit-glow")
       .setDepth(20)
       .setScale(0.44 + shotCount * 0.05)
-      .setTint(0xe8fcff)
+      .setTint(style?.damageTint || 0xe8fcff)
       .setAlpha(0.82)
       .setBlendMode(Phaser.BlendModes.ADD);
 
@@ -23724,18 +25794,29 @@ class SurvivalScene extends Phaser.Scene {
 
     const now = this.time.now;
     const lastHitAt = hitbox.damageCooldowns.get(enemy) || 0;
-    if (now - lastHitAt < hitbox.contactTickMs) {
+    const contactTickMs = this.getMutatedSkillContactTickMs(hitbox.skillId, hitbox.baseContactTickMs || hitbox.contactTickMs, {
+      source: "contact",
+      enemy,
+      hitbox
+    });
+    if (now - lastHitAt < contactTickMs) {
       return;
     }
 
     hitbox.damageCooldowns.set(enemy, now);
     this.spawnSkillHitEffect(hitbox, enemy);
-    this.applyDamageToEnemy(enemy, hitbox.damage, hitbox.damageTint || 0xf4c8ff, {
+    const damage = this.getMutatedSkillDamage(hitbox.skillId, hitbox.baseDamage || hitbox.damage, {
+      source: "contact",
+      enemy,
+      hitbox
+    });
+    this.applyDamageToEnemy(enemy, damage, hitbox.damageTint || 0xf4c8ff, {
       sourceX: hitbox.x,
       sourceY: hitbox.y,
       force: 120 + (hitbox.skillStage || 1) * 14,
       recoverMs: 80
     });
+    this.applySkillMutationOnHit(hitbox.skillId, enemy, hitbox, damage);
   }
 
   spawnSkillHitEffect(hitbox, enemy) {
@@ -29289,6 +31370,10 @@ class SurvivalScene extends Phaser.Scene {
       return this.buildDepthDirectiveCardModel(option, index);
     }
 
+    if (option?.type === "skillMutation") {
+      return this.buildSkillMutationCardModel(option, index);
+    }
+
     if (option?.type === "skill") {
       const meta = this.getSkillUiMeta(option.skillId);
       const maxStage = this.getSkillMaxStage(option.definition);
@@ -29441,6 +31526,52 @@ class SurvivalScene extends Phaser.Scene {
       accentColor: directive.accentColor || this.colorToCss(directive.themeColor || typeMeta.color),
       iconTone: directive.iconTone || "TASK",
       iconTextureKey: null
+    };
+  }
+
+  buildSkillMutationCardModel(option, index) {
+    const typeMeta = LEVEL_UP_CARD_TYPE_META.skillMutation;
+    const phase = option.phase === "stage8" ? "stage8" : "stage4";
+    const mutation = option.mutationDefinition || {};
+    const skillDefinition = SKILL_DEFINITIONS[option.skillId] || {};
+    const coreId = phase === "stage4" ? option.choiceId : this.getSkillMutationCore(option.skillId);
+    const finalId = phase === "stage8" ? option.choiceId : null;
+    const coreStyle = SKILL_MUTATION_CORE_VISUALS[coreId] || SKILL_MUTATION_CORE_VISUALS.assault;
+    const finalDefinition = finalId ? this.getSkillMutationFinalDefinition(finalId) : null;
+    const chips = phase === "stage4"
+      ? [
+        { label: mutation.summary || "Branch route", priority: 120 },
+        { label: "RUN ONLY", priority: 100 },
+        { label: "Stage4 Core", priority: 90 }
+      ]
+      : [
+        { label: `${this.getSkillMutationCoreDefinition(coreId)?.shortLabel || coreId}+${finalDefinition?.shortLabel || finalId}`, priority: 130 },
+        { label: mutation.summary || "Final form", priority: 110 },
+        { label: "Stage8 Final", priority: 100 },
+        { label: "RUN ONLY", priority: 80 }
+      ];
+
+    return {
+      option,
+      index,
+      kind: "skill",
+      cardType: "skillMutation",
+      typeLabel: phase === "stage4" ? "MUTATION CORE" : "FINAL CATALYST",
+      typeColor: coreStyle.primaryTint || typeMeta.color,
+      typeTextColor: typeMeta.textColor,
+      title: option.title || mutation.label || option.choiceId || "MUTATION",
+      stageLabel: phase === "stage4"
+        ? `${skillDefinition.name || option.skillId} / Stage4 branch`
+        : `${skillDefinition.name || option.skillId} / Stage8 final`,
+      description: mutation.description || option.description || "ラン内だけ有効な変異を選択",
+      stageProgress: Array.from({ length: phase === "stage4" ? SKILL_MUTATION_CONFIG.coreChoices : SKILL_MUTATION_CONFIG.finalChoices }, () => "●").join(""),
+      chips,
+      newEffects: [mutation.shortLabel || option.choiceId || "MUT"],
+      themeColor: coreStyle.primaryTint || typeMeta.color,
+      glowColor: coreStyle.secondaryTint || typeMeta.color,
+      accentColor: coreStyle.textColor || this.colorToCss(coreStyle.primaryTint || typeMeta.color),
+      iconTone: mutation.shortLabel || "MUT",
+      iconTextureKey: skillDefinition.hudIconTextureKey || skillDefinition.stages?.[0]?.textureKey || null
     };
   }
 
@@ -29692,6 +31823,7 @@ class SurvivalScene extends Phaser.Scene {
     const skillState = this.createSkillState(definition);
     this.playerSkills[skillId] = skillState;
     this.applySkillStage(skillState, true);
+    this.handleSkillStageMutationUnlock(skillId, skillState.currentStage?.stage || 1);
     this.updateHud();
   }
 
@@ -29703,6 +31835,7 @@ class SurvivalScene extends Phaser.Scene {
 
     skillState.stageIndex += 1;
     this.applySkillStage(skillState);
+    this.handleSkillStageMutationUnlock(skillId, skillState.currentStage?.stage || (skillState.stageIndex + 1));
     this.updateHud();
   }
 
@@ -29717,6 +31850,26 @@ class SurvivalScene extends Phaser.Scene {
       ? this.normalizeCoinAmount(gameOverOptions.lostCoins)
       : this.loseRunCoins(reason);
     const lostArmsMessage = this.discardPendingLostArms();
+    this.setRunRankingExtractionStats("none", 0, false);
+    const archiveOutcome = reason === "gateCollapse" ? "gate_collapse" : "game_over";
+    const archiveDeathReason = reason === "gateCollapse"
+      ? "gate_collapse"
+      : (reason === "playerDeath" || reason === "enemy" ? "enemy" : "unknown");
+    const recordState = this.saveBestRecordIfNeeded();
+    this.saveRunArchiveEntryOnce({
+      outcome: archiveOutcome,
+      extractionSucceeded: false,
+      extractMode: "none",
+      deathReason: archiveDeathReason,
+      unconfirmedGeekFinal: lostCoins,
+      extractedGeek: 0,
+      recordState,
+      context: {
+        maxDepthReached: this.normalizeRunRankingStats(this.runRankingStats).maxDepthReached,
+        peakGeekMultiplier: this.runStats?.peakGeekMultiplier || 1,
+        instabilityStacks: this.gateInstabilityStacks || 0
+      }
+    });
 
     this.gameOver = true;
     this.levelUpActive = false;
@@ -29728,6 +31881,7 @@ class SurvivalScene extends Phaser.Scene {
     this.resetLostArmsResonanceState(reason);
     this.resetOverdriveModState(reason);
     this.resetDepthDirectiveState(reason);
+    this.resetSkillMutationState(reason);
     this.resetNemesisBossState(reason);
     this.resetRobotSyncState(reason);
     this.resetRobotBarrierState(reason);
@@ -29735,7 +31889,6 @@ class SurvivalScene extends Phaser.Scene {
     this.cleanupGeekMilestoneNotice(reason);
     this.resetOverflowRewardState();
     this.lastGameOverReason = { reason, lostCoins, lostArmsMessage };
-    this.setRunRankingExtractionStats("none", 0, false);
     this.supportAttackBgmDuckingCount = 0;
     this.destroyStageGate(true);
     this.hideOverlay();
@@ -29745,7 +31898,7 @@ class SurvivalScene extends Phaser.Scene {
     this.fadeBgmToVolume(DEFAULT_BGM_VOLUME, SUPPORT_ATTACK_BGM_DUCK_OUT_MS);
     this.cancelActiveEnemyBeamCharges();
     this.physics.world.pause();
-    this.gameOverRecordState = this.saveBestRecordIfNeeded();
+    this.gameOverRecordState = recordState;
     this.pendingRankingRecord = this.gameOverRecordState.currentRecord;
     this.pendingRankingSaved = false;
     this.rankingPlayerName = DEFAULT_PLAYER_NAME;
@@ -29884,6 +32037,7 @@ class SurvivalScene extends Phaser.Scene {
     this.resetLostArmsResonanceState("returnToOpeningShop");
     this.resetOverdriveModState("returnToOpeningShop");
     this.resetDepthDirectiveState("returnToOpeningShop");
+    this.resetSkillMutationState("returnToOpeningShop");
     this.resetNemesisBossState("returnToOpeningShop");
     this.resetRobotSyncState("returnToOpeningShop");
     this.resetRobotBarrierState("returnToOpeningShop");
@@ -30741,6 +32895,15 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
+    if (this.levelUpSelectionMode === "skillMutation") {
+      if (this.gameOver) {
+        return;
+      }
+
+      this.finishSkillMutationSelectionOverlay();
+      return;
+    }
+
     if (this.levelUpSelectionMode === "lostArmsEvolution") {
       if (this.gameOver) {
         return;
@@ -30752,7 +32915,7 @@ class SurvivalScene extends Phaser.Scene {
       this.hideOverlay();
       this.restoreGameplayInputAfterOverlay();
       this.physics.world.resume();
-      this.tryOpenQueuedLostArmsEvolutionSelection();
+      this.tryOpenPendingPostOverlaySelections();
       return;
     }
 
@@ -30770,6 +32933,7 @@ class SurvivalScene extends Phaser.Scene {
       this.hideOverlay();
       this.restoreGameplayInputAfterOverlay();
       this.physics.world.resume();
+      this.tryOpenPendingPostOverlaySelections();
       return;
     }
 
@@ -30795,6 +32959,7 @@ class SurvivalScene extends Phaser.Scene {
     this.hideOverlay();
     this.restoreGameplayInputAfterOverlay();
     this.physics.world.resume();
+    this.tryOpenPendingPostOverlaySelections();
   }
 
   teardownLevelUpOverlay() {

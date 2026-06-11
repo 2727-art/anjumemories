@@ -516,4 +516,130 @@
       ]
     }
   };
+
+  window.skillMutationDefinitions = {
+    cores: {
+      assault: {
+        id: "assault",
+        shortLabel: "ASLT",
+        label: "ASSAULT CORE",
+        summary: "火力特化",
+        description: "DMG / Boss pressure / kill speed",
+        colorRole: "assault",
+        themeColor: 0xff4f45,
+        glowColor: 0xffd76b,
+        accentColor: "#ffd76b"
+      },
+      control: {
+        id: "control",
+        shortLabel: "CTRL",
+        label: "CONTROL CORE",
+        summary: "制圧特化",
+        description: "Slow / Pull / Knockback / survival",
+        colorRole: "control",
+        themeColor: 0x63c9ff,
+        glowColor: 0xb98cff,
+        accentColor: "#9eefff"
+      },
+      reactor: {
+        id: "reactor",
+        shortLabel: "RCT",
+        label: "REACTOR CORE",
+        summary: "連動特化",
+        description: "DASH / OD / cooldown / sync",
+        colorRole: "reactor",
+        themeColor: 0x91f6ff,
+        glowColor: 0xffffff,
+        accentColor: "#b8fbff"
+      }
+    },
+    finals: {
+      execution: {
+        id: "execution",
+        shortLabel: "EXEC",
+        label: "EXECUTION FORM",
+        summary: "高HP処理",
+        description: "High HP / Elite / Boss finisher",
+        shapeRole: "execution"
+      },
+      prism: {
+        id: "prism",
+        shortLabel: "PRSM",
+        label: "PRISM FORM",
+        summary: "分裂連鎖",
+        description: "Split / Chain / Multi-hit",
+        shapeRole: "prism"
+      },
+      singularity: {
+        id: "singularity",
+        shortLabel: "SING",
+        label: "SINGULARITY FORM",
+        summary: "広域制圧",
+        description: "Large field / Pull / Persistent area",
+        shapeRole: "singularity"
+      }
+    },
+    skills: {
+      basicSkill: {
+        stage4Title: "BASIC MUTATION CORE",
+        stage8Title: "BASIC FINAL MUTATION",
+        coreLabels: {
+          assault: "TESLA ASSAULT CORE",
+          control: "ANCHOR ORBIT CORE",
+          reactor: "BOOST REACTOR CORE"
+        },
+        finalForms: {
+          assault_execution: "JUDGEMENT HALO",
+          assault_prism: "PRISM HALO",
+          assault_singularity: "NOVA HALO",
+          control_execution: "ANCHOR JUDGEMENT",
+          control_prism: "STATIC WEB",
+          control_singularity: "GRAVITY HALO",
+          reactor_execution: "OVERLOAD JUDGEMENT",
+          reactor_prism: "SYNC SPARK HALO",
+          reactor_singularity: "AEGIS REACTOR"
+        }
+      },
+      tornadoSkill: {
+        stage4Title: "TORNADO MUTATION CORE",
+        stage8Title: "TORNADO FINAL MUTATION",
+        coreLabels: {
+          assault: "RAZOR CYCLONE CORE",
+          control: "VACUUM CYCLONE CORE",
+          reactor: "DRIFT CYCLONE CORE"
+        },
+        finalForms: {
+          assault_execution: "RAZOR EYE",
+          assault_prism: "BLADE SWARM",
+          assault_singularity: "TEMPEST NOVA",
+          control_execution: "LOCKDOWN EYE",
+          control_prism: "TETHER STORM",
+          control_singularity: "EVENT HORIZON",
+          reactor_execution: "PRESSURE ENGINE",
+          reactor_prism: "DATA SQUALL",
+          reactor_singularity: "CYCLONE GARDEN"
+        }
+      },
+      rabbitThunderSkill: {
+        stage4Title: "RABBIT MUTATION CORE",
+        stage8Title: "RABBIT FINAL MUTATION",
+        coreLabels: {
+          assault: "BREAK RABBIT CORE",
+          control: "SNARE RABBIT CORE",
+          reactor: "BOOST RABBIT CORE"
+        },
+        finalForms: {
+          assault_execution: "MOON BREAKER",
+          assault_prism: "TRIPLE HARE",
+          assault_singularity: "THUNDER METEOR",
+          control_execution: "PARALYSIS PIKE",
+          control_prism: "CHAIN SNARE",
+          control_singularity: "THUNDER ROAD",
+          reactor_execution: "BOOST SPEAR",
+          reactor_prism: "CAPACITOR HARE",
+          reactor_singularity: "RABBIT GENERATOR"
+        }
+      }
+    }
+  };
 }());

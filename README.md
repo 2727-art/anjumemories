@@ -48,7 +48,7 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 
 ## ゲーム進行
 
-1. Opening Shop の `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY` で CD、BGM、永続強化、ロボット系解放を購入または選択します。
+1. Opening Shop の `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY`、`ARCHIVE` で CD、BGM、永続強化、ロボット系解放、戦闘ログ閲覧を行います。
 2. `GAME START` で出撃し、Opening Boost として開始前に 3 回ぶんの強化を選択します。ANJU MEMORY の +1 チケットを持っている場合、最初の Opening Boost だけ 4 択になります。
 3. 敵を倒して XP、未確定 GEEK、Support、Robot、LOST ARMS アイテムを集めます。
 4. レベルアップ時はスキル解放、スキル強化、パッシブ強化から 3 択で 1 つ選びます。
@@ -133,6 +133,26 @@ XP を獲得してレベルアップすると、3 択カード UI が表示さ�
 - 未所持スキルは `NEW SKILL`、所持済みスキルは `SKILL UPGRADE` として表示されます。
 - 上限到達済み、または選んでも効果が出ない候補は表示されません。
 - パッシブはラン内 Lv.10 が上限です。
+
+### SKILL MUTATION / スキル変異
+
+`basicSkill`、`tornadoSkill`、`rabbitThunderSkill` はラン内限定の `SKILL MUTATION` を持ちます。対象スキルが Stage4 に到達すると `MUTATION CORE SELECT` が開き、次の 3 種から方向性を選びます。
+
+- `ASSAULT CORE`: 火力、撃破速度、Boss / Elite 処理寄り。
+- `CONTROL CORE`: 鈍足、吸引、押し戻し、生存寄り。
+- `REACTOR CORE`: DASH、OVERDRIVE、ROBOT SYNC、攻撃回転率との連動寄り。
+
+対象スキルが Stage8 に到達すると `FINAL MUTATION SELECT` が開き、次の 3 種から最終形態を選びます。
+
+- `EXECUTION FORM`: 高 HP 敵、Elite、Boss への一点突破。
+- `PRISM FORM`: 分裂、連鎖、複製、多段ヒット。
+- `SINGULARITY FORM`: 広範囲、持続フィールド、吸引・制圧。
+
+Stage4 Core 3 種と Stage8 Final 3 種の組み合わせで、各スキルは `assault_execution`、`assault_prism`、`assault_singularity`、`control_execution`、`control_prism`、`control_singularity`、`reactor_execution`、`reactor_prism`、`reactor_singularity` の 9 種類の最終形態になります。HUD のスキル枠には `ASLT+PRSM` のような短い mutation チップが表示されます。
+
+mutation は抽出、緊急抽出、ゲームオーバー、Gate 崩壊、ショップ復帰、リスタートでリセットされ、localStorage / sessionStorage には保存されません。GEEK、ANJU MEMORY、確定 GEEK、未確定 GEEK 倍率、ランキング値、Firebase 送信値も直接変更しません。見た目は既存スプライトの tint / scale / alpha / 残像と Phaser Graphics のライン・リング・パルスを組み合わせるため、新規画像が無い場合でも Graphics 等の既存フォールバックで動作します。
+
+検証用に `?debugSkillMutation=1` を付けると選択ログが console に出ます。`?debugSkillMutationSkill=basicSkill` のように対象スキルを指定すると Stage4 選択を早期確認できます。`?debugSkillMutationCore=assault&debugSkillMutationFinal=prism` を併用すると指定 finalForm をラン内だけでプレビューできます。
 
 通常のレベルアップ強化は Lv.25 までを基準にし、Depth 6 以降で Lv.25 に到達している場合は `DEEP LEVEL` 成長に切り替わります。`DEEP LEVEL` は Lv.99 まで上昇し、カード選択を出さずに 1 レベルごとに Lv.25 時点の最大 HP 基準で約 1% の最大 HP と同量の現在 HP を加算します。Depth 6 未満では `DEEP LEVEL` は解禁されません。
 
@@ -319,7 +339,7 @@ ANJU MEMORY ショップ報酬:
 - Ranged: 距離を取りながらビーム攻撃を行います。
 - Gold Slime / Silver Slime: レア GEEK アイテムと Robot 花瓶を確定ドロップします。
 
-ボスは各 Wave 開始から 15 秒後に出現します。撃破すると次の Wave へ進み、次のボスも 15 秒後に出現します。ボス攻撃は出現後すぐに予兆付きで始まり、亀裂、ビーム、扇状弾、三連弾、ランダム爆撃、雷ダッシュの 6 種類が Wave ごとにローテーションします。
+ボスは各 Wave 開始から 15 秒後に出現します。撃破すると次の Wave へ進み、次のボスも 15 秒後に出現します。ボス攻撃は出現後すぐに予兆付きで始まり、亀裂、ビーム、扇状弾、三連弾、ランダム爆撃、雷ダッシュの 6 種類が Wave ごとにローテーションします。敵 HP は全体的に底上げされ、Depth 6 以降は追加の耐久スケールが乗ります。ボスと NEMESIS は通常敵より強い耐久補正を持つため、2 分間を逃げ切って帰還するか、立ち回りを組み立てて撃破報酬を狙うかの判断が重要になります。
 
 ## スキル
 
@@ -512,6 +532,21 @@ Firebase SDK は `12.13.0` を dynamic import し、匿名認証で Firestore �
 
 Best Depth はそのランで実際に到達した最大 Depth です。Extracted GEEK はそのランの抽出で実際に確定できた未確定 GEEK 量で、通常抽出では 100%、緊急抽出では最終保護率ぶん、ゲームオーバーや Gate 崩壊では 0 になります。これは確定 GEEK ウォレット `lastmemoVansabaCoins` の総額ではありません。
 
+## RUN ARCHIVE / 戦闘ログ
+
+Opening Shop の `ARCHIVE` タブから、直近 20 件のラン結果を新しい順に閲覧できます。各ログはローカル保存専用で、GEEK 残高、ANJU MEMORY 残高、ランキング、Firebase 送信値、ゲームバランスには影響しません。
+
+保存対象は通常 `EXTRACT`、`EMERGENCY EXTRACT`、通常ゲームオーバー、Depth 5 までの Gate Collapse です。`?debugDeepResult=1` のプレビュー、ゲーム開始前、手動でページを閉じただけの中断は保存されません。1 ランにつき保存は 1 件だけで、21 件目以降は古いログから削除されます。
+
+主な保存項目:
+
+- 到達 Depth、抽出結果、Extracted GEEK、生存時間、撃破数、Elite / Boss
+- ANJU MEMORY 獲得量、Grade、Stage
+- スキル、パッシブ、LOST ARMS、RESONANCE / Evolution、Robot Lv / SYNC
+- ANOMALY CONTRACT、DEPTH DIRECTIVE、OVERDRIVE MOD、STABILIZE PROTOCOL、NEMESIS
+
+保存済みログがない場合は `NO RUN ARCHIVE` を表示します。`?debugRunArchive=1` を付けると、保存は行わず Opening Shop 上でサンプルログを表示でき、実保存時には console に `[RUN ARCHIVE] saved` を出します。
+
 ## 保存データ
 
 localStorage キー:
@@ -522,6 +557,7 @@ localStorage キー:
 - `lastmemoVansabaShopState`: CD 所持、選択 BGM、永続強化状態、回収ロボ `cleaningRobotLevel`、`robotCustom`。`cleaningRobotLevel` は古い保存データに無い場合 Lv0 へ補完します。`robotCustom` は `missileCapTier`、`recoveryCapTier`、`napalmUnlocked`、`barrierUnlocked` を持ち、古い保存データに無い場合は初期値へ補完します。
 - `lastmemoVansabaLostArmsState`: LOST ARMS 永続 Lv と pity
 - `lastmemoVansabaAnjuMemoryState`: ANJU MEMORY 残高、購入済み報酬、選択中スキン/称号/バッジ、チケット、到達済みマイルストーン
+- `lastmemoVansabaRunArchive`: 直近 20 件の RUN ARCHIVE / 戦闘ログ。ローカル閲覧専用でランキングや Firebase には送信しません。
 - `collisionEditor:<stageId>`: 衝突判定編集モードの一時保存データ
 
 sessionStorage キー:
@@ -569,7 +605,12 @@ http://127.0.0.1:4173/?debugDepthDirective=1
 http://127.0.0.1:4173/?debugDeepResult=1
 http://127.0.0.1:4173/?debugGeekMilestone=1
 http://127.0.0.1:4173/?debugRankingDepth=1
+http://127.0.0.1:4173/?debugRunArchive=1
 http://127.0.0.1:4173/?debugRobotSync=1
+http://127.0.0.1:4173/?debugSkillMutation=1
+http://127.0.0.1:4173/?debugSkillMutation=1&debugSkillMutationSkill=basicSkill
+http://127.0.0.1:4173/?debugSkillMutation=1&debugSkillMutationSkill=tornadoSkill
+http://127.0.0.1:4173/?debugSkillMutation=1&debugSkillMutationSkill=rabbitThunderSkill
 http://127.0.0.1:4173/?debug=stage
 ```
 
