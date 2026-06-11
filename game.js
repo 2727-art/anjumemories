@@ -5,11 +5,65 @@ const WORLD_HEIGHT = 6000;
 const WORLD_VIEW_SCALE = 1.2;
 const WORLD_CAMERA_ZOOM = 1 / WORLD_VIEW_SCALE;
 const PLAYER_SCALE = 0.192;
+const PLAYER_FALLBACK_DISPLAY_HEIGHT = 540 * PLAYER_SCALE;
+const PLAYER_ROBOT_DISPLAY_HEIGHT = 168;
+const PLAYER_ROBOT_HUD_DISPLAY_HEIGHT = 78;
 const PLAYER_HITBOX_RADIUS = 22;
-const PLAYER_SPRITE_OFFSET_Y = -19;
-const PLAYER_SHADOW_OFFSET_Y = 32;
-const PLAYER_SHADOW_WIDTH = 56;
-const PLAYER_SHADOW_HEIGHT = 16;
+const PLAYER_SPRITE_OFFSET_Y = -26;
+const PLAYER_SHADOW_OFFSET_Y = 44;
+const PLAYER_SHADOW_WIDTH = 108;
+const PLAYER_SHADOW_HEIGHT = 28;
+const PLAYER_ROBOT_ASSET_BASE_PATH = "./画像/player/boarding_robot";
+const PLAYER_ROBOT_DIRECTION_ASSETS = {
+  up: {
+    idleKey: "player-robot-up-idle",
+    boostKey: "player-robot-up-boost",
+    idlePath: `${PLAYER_ROBOT_ASSET_BASE_PATH}/bear_robot_up_idle.png`,
+    boostPath: `${PLAYER_ROBOT_ASSET_BASE_PATH}/bear_robot_up_boost.png`
+  },
+  upRight: {
+    idleKey: "player-robot-up-right-idle",
+    boostKey: "player-robot-up-right-boost",
+    idlePath: `${PLAYER_ROBOT_ASSET_BASE_PATH}/bear_robot_up_right_idle.png`,
+    boostPath: `${PLAYER_ROBOT_ASSET_BASE_PATH}/bear_robot_up_right_boost.png`
+  },
+  right: {
+    idleKey: "player-robot-right-idle",
+    boostKey: "player-robot-right-boost",
+    idlePath: `${PLAYER_ROBOT_ASSET_BASE_PATH}/bear_robot_right_idle.png`,
+    boostPath: `${PLAYER_ROBOT_ASSET_BASE_PATH}/bear_robot_right_boost.png`
+  },
+  downRight: {
+    idleKey: "player-robot-down-right-idle",
+    boostKey: "player-robot-down-right-boost",
+    idlePath: `${PLAYER_ROBOT_ASSET_BASE_PATH}/bear_robot_down_right_idle.png`,
+    boostPath: `${PLAYER_ROBOT_ASSET_BASE_PATH}/bear_robot_down_right_boost.png`
+  },
+  down: {
+    idleKey: "player-robot-down-idle",
+    boostKey: "player-robot-down-boost",
+    idlePath: `${PLAYER_ROBOT_ASSET_BASE_PATH}/bear_robot_down_idle.png`,
+    boostPath: `${PLAYER_ROBOT_ASSET_BASE_PATH}/bear_robot_down_boost.png`
+  },
+  downLeft: {
+    idleKey: "player-robot-down-left-idle",
+    boostKey: "player-robot-down-left-boost",
+    idlePath: `${PLAYER_ROBOT_ASSET_BASE_PATH}/bear_robot_down_left_idle.png`,
+    boostPath: `${PLAYER_ROBOT_ASSET_BASE_PATH}/bear_robot_down_left_boost.png`
+  },
+  left: {
+    idleKey: "player-robot-left-idle",
+    boostKey: "player-robot-left-boost",
+    idlePath: `${PLAYER_ROBOT_ASSET_BASE_PATH}/bear_robot_left_idle.png`,
+    boostPath: `${PLAYER_ROBOT_ASSET_BASE_PATH}/bear_robot_left_boost.png`
+  },
+  upLeft: {
+    idleKey: "player-robot-up-left-idle",
+    boostKey: "player-robot-up-left-boost",
+    idlePath: `${PLAYER_ROBOT_ASSET_BASE_PATH}/bear_robot_up_left_idle.png`,
+    boostPath: `${PLAYER_ROBOT_ASSET_BASE_PATH}/bear_robot_up_left_boost.png`
+  }
+};
 const DEFAULT_SKILL_ID = "basicSkill";
 const SKILL_DEFINITIONS = window.skillDefinitions || {};
 const STAGE_DEFINITIONS = window.stageDefinitions || {};
@@ -3079,9 +3133,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   preload() {
-    this.loadImageIfNeeded("player-idle", "./画像/maincharactor/sprite_0.png");
-    this.loadImageIfNeeded("player-walk-a", "./画像/maincharactor/sprite_3.png");
-    this.loadImageIfNeeded("player-walk-b", "./画像/maincharactor/sprite_4.png");
+    this.preloadPlayerAssets();
     this.preloadHudAssets();
     this.preloadItemAssets();
     this.preloadRobotAssets();
@@ -3092,6 +3144,16 @@ class SurvivalScene extends Phaser.Scene {
     this.preloadSupportAttackAssets();
     this.preloadGensoKnightsSupportAssets();
     this.preloadSkillAssets();
+  }
+
+  preloadPlayerAssets() {
+    this.loadImageIfNeeded("player-idle", "./画像/maincharactor/sprite_0.png");
+    this.loadImageIfNeeded("player-walk-a", "./画像/maincharactor/sprite_3.png");
+    this.loadImageIfNeeded("player-walk-b", "./画像/maincharactor/sprite_4.png");
+    Object.values(PLAYER_ROBOT_DIRECTION_ASSETS).forEach((asset) => {
+      this.loadImageIfNeeded(asset.idleKey, asset.idlePath);
+      this.loadImageIfNeeded(asset.boostKey, asset.boostPath);
+    });
   }
 
   loadImageIfNeeded(key, path) {
@@ -3963,6 +4025,16 @@ class SurvivalScene extends Phaser.Scene {
     this.shootTimer = 0;
     this.walkFrameTimer = 0;
     this.playerAimAngle = 0;
+    this.playerRobotMotion = {
+      directionKey: "down",
+      isMoving: false,
+      isDashing: false,
+      angle: Math.PI * 0.5,
+      hoverMs: 0,
+      lift: -2,
+      tiltAngle: 0,
+      shadowScale: 1
+    };
     this.isDashing = false;
     this.dashLockedUntilRelease = false;
     this.dashRegenBlockedUntil = 0;
@@ -12622,10 +12694,32 @@ class SurvivalScene extends Phaser.Scene {
       )
       .setDepth(15);
 
+    const initialTextureKey = this.getPlayerRobotTextureKey(this.playerRobotMotion?.directionKey || "down", false);
     this.playerSprite = this.add
-      .image(startX, startY + PLAYER_SPRITE_OFFSET_Y, "player-idle")
-      .setScale(PLAYER_SCALE)
+      .image(startX, startY + PLAYER_SPRITE_OFFSET_Y, initialTextureKey)
       .setDepth(20);
+    this.scalePlayerRobotSprite();
+
+    this.playerBoosterGlow = this.add
+      .image(startX, startY, "skill-hit-glow")
+      .setDepth(19.38)
+      .setTint(0xb66dff)
+      .setAlpha(0)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.playerBoosterCore = this.add
+      .image(startX, startY, "skill-hit-glow")
+      .setDepth(19.42)
+      .setTint(0xf6f0ff)
+      .setAlpha(0)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.playerBoosterStreaks = [0, 1, 2].map((index) => this.add
+      .image(startX, startY, "skill-hit-glow")
+      .setOrigin(0.12, 0.5)
+      .setDepth(19.32 + index * 0.02)
+      .setTint(index === 1 ? 0xffffff : 0x9be8ff)
+      .setAlpha(0)
+      .setBlendMode(Phaser.BlendModes.ADD));
+    this.updatePlayerRobotBoostVisuals(0);
 
     this.damageFlash = this.registerUiObject(
       this.add
@@ -12636,6 +12730,159 @@ class SurvivalScene extends Phaser.Scene {
 
     this.worldCamera.startFollow(this.playerHitbox, true, 0.12, 0.12);
     this.worldCamera.setZoom(WORLD_CAMERA_ZOOM);
+  }
+
+  getPlayerRobotTextureKey(directionKey = "down", moving = false) {
+    const asset = PLAYER_ROBOT_DIRECTION_ASSETS[directionKey] || PLAYER_ROBOT_DIRECTION_ASSETS.down;
+    const preferredKey = moving ? asset.boostKey : asset.idleKey;
+    const fallbackKey = moving ? asset.idleKey : asset.boostKey;
+    if (preferredKey && this.textures.exists(preferredKey)) {
+      return preferredKey;
+    }
+    if (fallbackKey && this.textures.exists(fallbackKey)) {
+      return fallbackKey;
+    }
+    if (moving && this.textures.exists("player-walk-a")) {
+      return "player-walk-a";
+    }
+    return this.textures.exists("player-idle") ? "player-idle" : preferredKey;
+  }
+
+  getPlayerRobotDirectionKeyForAngle(angle) {
+    if (!Number.isFinite(angle)) {
+      return this.playerRobotMotion?.directionKey || "down";
+    }
+
+    const degrees = (Phaser.Math.RadToDeg(angle) + 360) % 360;
+    if (degrees >= 337.5 || degrees < 22.5) return "right";
+    if (degrees < 67.5) return "downRight";
+    if (degrees < 112.5) return "down";
+    if (degrees < 157.5) return "downLeft";
+    if (degrees < 202.5) return "left";
+    if (degrees < 247.5) return "upLeft";
+    if (degrees < 292.5) return "up";
+    return "upRight";
+  }
+
+  scalePlayerRobotSprite() {
+    if (!this.playerSprite) {
+      return;
+    }
+
+    const textureKey = this.playerSprite.texture?.key || "";
+    const frameHeight = Math.max(this.playerSprite.frame?.height || 1, 1);
+    const targetHeight = textureKey.startsWith("player-robot-")
+      ? PLAYER_ROBOT_DISPLAY_HEIGHT
+      : PLAYER_FALLBACK_DISPLAY_HEIGHT;
+    this.playerSprite.setScale(targetHeight / frameHeight);
+  }
+
+  scalePlayerRobotHudIcon(icon) {
+    if (!icon) {
+      return;
+    }
+
+    const frameHeight = Math.max(icon.frame?.height || 1, 1);
+    icon.setScale(PLAYER_ROBOT_HUD_DISPLAY_HEIGHT / frameHeight);
+  }
+
+  getSupportReferenceDisplayHeight() {
+    return PLAYER_FALLBACK_DISPLAY_HEIGHT;
+  }
+
+  setPlayerRobotPose(directionKey, moving) {
+    if (!this.playerSprite) {
+      return;
+    }
+
+    const textureKey = this.getPlayerRobotTextureKey(directionKey, moving);
+    if (this.playerSprite.texture?.key !== textureKey) {
+      this.playerSprite.setTexture(textureKey);
+      this.scalePlayerRobotSprite();
+    }
+    this.playerSprite.setFlipX(false);
+  }
+
+  updatePlayerRobotMotion(delta, direction, isMoving, isDashing) {
+    if (!this.playerRobotMotion) {
+      this.playerRobotMotion = {
+        directionKey: "down",
+        isMoving: false,
+        isDashing: false,
+        angle: Math.PI * 0.5,
+        hoverMs: 0,
+        lift: -2,
+        tiltAngle: 0,
+        shadowScale: 1
+      };
+    }
+
+    const motion = this.playerRobotMotion;
+    motion.hoverMs += delta;
+    motion.isMoving = isMoving;
+    motion.isDashing = isDashing;
+
+    if (isMoving && Number.isFinite(direction?.x) && Number.isFinite(direction?.y)) {
+      const angle = Math.atan2(direction.y, direction.x);
+      motion.angle = angle;
+      motion.directionKey = this.getPlayerRobotDirectionKeyForAngle(angle);
+    }
+
+    const horizontalLean = isMoving
+      ? Phaser.Math.Clamp(direction.x / Math.max(Math.abs(direction.x) + Math.abs(direction.y), 1), -1, 1)
+      : 0;
+    const targetTilt = horizontalLean * (isDashing ? 6.5 : 4.2);
+    const targetLift = isDashing ? -10 : (isMoving ? -6 : -2);
+    const targetShadowScale = isDashing ? 0.82 : (isMoving ? 0.9 : 1);
+    motion.tiltAngle = Phaser.Math.Linear(motion.tiltAngle || 0, targetTilt, 0.22);
+    motion.lift = Phaser.Math.Linear(motion.lift || 0, targetLift, 0.18);
+    motion.shadowScale = Phaser.Math.Linear(motion.shadowScale || 1, targetShadowScale, 0.16);
+
+    this.setPlayerRobotPose(motion.directionKey, isMoving);
+  }
+
+  updatePlayerRobotBoostVisuals(delta = 0) {
+    if (!this.playerHitbox) {
+      return;
+    }
+
+    const motion = this.playerRobotMotion || {};
+    const moving = Boolean(motion.isMoving);
+    const dashing = Boolean(motion.isDashing);
+    const angle = Number.isFinite(motion.angle) ? motion.angle : (this.playerAimAngle || Math.PI * 0.5);
+    const backAngle = angle + Math.PI;
+    const sideAngle = backAngle + Math.PI * 0.5;
+    const now = this.time?.now || 0;
+    const pulse = (Math.sin(now / (dashing ? 42 : 68)) + 1) * 0.5;
+    const intensity = moving ? (dashing ? 1 : 0.72) : 0.18;
+    const backDistance = moving ? (dashing ? 78 : 64) : 48;
+    const baseX = this.playerHitbox.x + Math.cos(backAngle) * backDistance;
+    const baseY = (this.playerSprite?.y ?? this.playerHitbox.y + PLAYER_SPRITE_OFFSET_Y) + Math.sin(backAngle) * backDistance * 0.72 + 8;
+    const glowAlpha = moving ? 0.26 + intensity * 0.34 + pulse * 0.08 : 0.1 + pulse * 0.04;
+
+    this.playerBoosterGlow
+      ?.setPosition(baseX, baseY)
+      .setRotation(backAngle)
+      .setScale(0.52 + intensity * 0.36, 0.34 + intensity * 0.18)
+      .setTint(dashing ? 0xd8f7ff : 0xb66dff)
+      .setAlpha(glowAlpha);
+    this.playerBoosterCore
+      ?.setPosition(baseX + Math.cos(backAngle) * 10, baseY + Math.sin(backAngle) * 8)
+      .setRotation(backAngle)
+      .setScale(0.28 + intensity * 0.18, 0.16 + intensity * 0.08)
+      .setAlpha(moving ? 0.22 + intensity * 0.24 : 0.06);
+
+    (this.playerBoosterStreaks || []).forEach((streak, index) => {
+      const spread = (index - 1) * (dashing ? 18 : 14);
+      const travel = index * 12 + pulse * (dashing ? 16 : 9);
+      const x = baseX + Math.cos(sideAngle) * spread + Math.cos(backAngle) * travel;
+      const y = baseY + Math.sin(sideAngle) * spread + Math.sin(backAngle) * travel;
+      streak
+        .setPosition(x, y)
+        .setRotation(backAngle)
+        .setScale((0.38 + index * 0.08) * (0.9 + intensity * 0.7), 0.045 + intensity * 0.055)
+        .setAlpha(moving ? (0.18 + intensity * 0.34) * (1 - index * 0.12) : 0.03);
+    });
   }
 
   createRobotCompanion() {
@@ -13856,13 +14103,13 @@ class SurvivalScene extends Phaser.Scene {
       );
     }
 
-    this.registerUiObject(
+    const hudPlayerIcon = this.registerUiObject(
       this.add
-        .image(62, 70, "player-idle")
-        .setScale(0.118)
+        .image(62, 70, this.getPlayerRobotTextureKey("down", false))
         .setScrollFactor(0)
         .setDepth(202)
     );
+    this.scalePlayerRobotHudIcon(hudPlayerIcon);
 
     this.hudLevelText = this.createHudText(this.hudUsesFrameAsset ? 134 : 114, this.hudUsesFrameAsset ? 23 : 25, "Lv. 1", {
       fontSize: "28px",
@@ -18659,32 +18906,35 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     this.playerHitbox.body.setVelocity(direction.x, direction.y);
-
-    if (direction.x < 0) {
-      this.playerSprite.setFlipX(true);
-    } else if (direction.x > 0) {
-      this.playerSprite.setFlipX(false);
-    }
-
-    if (isMoving) {
-      this.walkFrameTimer += delta;
-      const frameIndex = Math.floor(this.walkFrameTimer / (isDashing ? 82 : 120)) % 2;
-      this.playerSprite.setTexture(frameIndex === 0 ? "player-walk-a" : "player-walk-b");
-    } else {
-      this.walkFrameTimer = 0;
-      this.playerSprite.setTexture("player-idle");
-    }
+    this.updatePlayerRobotMotion(delta, direction, isMoving, isDashing);
 
     if (this.time.now < this.invincibleUntil) {
       this.playerSprite.alpha = Math.floor(this.time.now / 70) % 2 === 0 ? 0.42 : 1;
     } else {
       this.playerSprite.alpha = 1;
     }
+
+    this.syncPlayerVisuals();
+    this.updatePlayerRobotBoostVisuals(delta);
   }
 
   syncPlayerVisuals() {
-    this.playerSprite.setPosition(this.playerHitbox.x, this.playerHitbox.y + PLAYER_SPRITE_OFFSET_Y);
-    this.playerShadow.setPosition(this.playerHitbox.x, this.playerHitbox.y + PLAYER_SHADOW_OFFSET_Y);
+    if (!this.playerHitbox || !this.playerSprite) {
+      return;
+    }
+
+    const motion = this.playerRobotMotion || {};
+    const moving = Boolean(motion.isMoving);
+    const hoverSpeed = moving ? 0.012 : 0.0065;
+    const hoverAmount = moving ? 3.6 : 2.2;
+    const hover = Math.sin((motion.hoverMs || 0) * hoverSpeed) * hoverAmount;
+    this.playerSprite
+      .setPosition(this.playerHitbox.x, this.playerHitbox.y + PLAYER_SPRITE_OFFSET_Y + hover + (motion.lift || 0))
+      .setAngle(motion.tiltAngle || 0);
+    this.playerShadow
+      ?.setPosition(this.playerHitbox.x, this.playerHitbox.y + PLAYER_SHADOW_OFFSET_Y)
+      .setScale(motion.shadowScale || 1, 1)
+      .setAlpha(moving ? 0.22 : 0.28);
   }
 
   updateRobotCompanion(delta) {
@@ -25902,7 +26152,7 @@ class SurvivalScene extends Phaser.Scene {
       top: 180,
       bottom: WORLD_HEIGHT - 180
     };
-    const targetHeight = (this.playerSprite?.displayHeight || 104) * GENSO_KNIGHTS_CHARACTER_HEIGHT_MULTIPLIER;
+    const targetHeight = this.getSupportReferenceDisplayHeight() * GENSO_KNIGHTS_CHARACTER_HEIGHT_MULTIPLIER;
 
     event.characters = definition.characters.map((characterDefinition) => {
       const firstFrame = characterDefinition.animationFrames[0];
@@ -27243,7 +27493,7 @@ class SurvivalScene extends Phaser.Scene {
   scaleSupportCharacterSprite(sprite, definition, frameIndex = 0) {
     if (definition.matchPlayerDisplayHeight && (frameIndex <= 0 || definition.scaleAllFramesToPlayerHeight)) {
       const frameHeight = Math.max(definition.supportScaleReferenceHeight || sprite?.frame?.height || 1, 1);
-      const playerHeight = this.playerSprite?.displayHeight || 104;
+      const playerHeight = this.getSupportReferenceDisplayHeight();
       sprite.setScale((playerHeight * (definition.supportDisplayHeightMultiplier || 1)) / frameHeight);
       return;
     }
@@ -27277,7 +27527,7 @@ class SurvivalScene extends Phaser.Scene {
     const definition = support.definition;
     const offsetX = definition.fieldVisualOffsetX || 0;
     if (definition.fieldVisualAnchor === "feet") {
-      const spriteHeight = Math.max(support.sprite?.displayHeight || this.playerSprite?.displayHeight || 104, 1);
+      const spriteHeight = Math.max(support.sprite?.displayHeight || this.getSupportReferenceDisplayHeight(), 1);
       return {
         x: support.centerX + offsetX,
         y: support.y + spriteHeight * (definition.fieldVisualFootRatio ?? 0.46) + (definition.fieldVisualOffsetY || 0)
@@ -27433,7 +27683,7 @@ class SurvivalScene extends Phaser.Scene {
       frameIndex <= (definition.attackEffectMatchPlayerUntilFrameIndex ?? -1)
     ) {
       const frameHeight = Math.max(effect?.frame?.height || 1, 1);
-      const playerHeight = this.playerSprite?.displayHeight || 104;
+      const playerHeight = this.getSupportReferenceDisplayHeight();
       effect.setScale(playerHeight / frameHeight);
       return;
     }
