@@ -1074,6 +1074,7 @@ const FIREBASE_CONFIG = {
 const DEFAULT_CD_ID = "anju";
 const DEFAULT_BGM_VOLUME = 0.52;
 const SUPPORT_ATTACK_BGM_DUCK_VOLUME = 0.34;
+const SUPPORT_ATTACK_BGM_MUTE_VOLUME = 0;
 const SUPPORT_ATTACK_BGM_DUCK_IN_MS = 260;
 const SUPPORT_ATTACK_BGM_DUCK_OUT_MS = 520;
 const SUPPORT_ITEM_DROP_CHANCE = 0.02;
@@ -3393,6 +3394,7 @@ const SUPPORT_ATTACK_DEFINITIONS = [
     supportBgmVolume: 0.58,
     supportBgmFadeInMs: 520,
     supportBgmFadeOutMs: 560,
+    normalBgmVolume: SUPPORT_ATTACK_BGM_DUCK_VOLUME,
     cutinVoiceKey: "support-kapipi-cutin-voice",
     cutinVoicePath: "./音声/support/kapipi/voice.wav",
     cutinVoiceVolume: 0.9,
@@ -3500,6 +3502,7 @@ const SUPPORT_ATTACK_DEFINITIONS = [
     countdownBgmLoop: false,
     countdownBgmFadeInMs: 520,
     countdownBgmFadeOutMs: 560,
+    normalBgmVolume: SUPPORT_ATTACK_BGM_MUTE_VOLUME,
     hasPushButton: true,
     pushButtonDisplayWidth: 262,
     resultTextY: GAME_HEIGHT / 2 + 196,
@@ -4794,6 +4797,7 @@ class SurvivalScene extends Phaser.Scene {
     this.activeFinalBossRaidBgmPhaseId = null;
     this.finalBossRaidBgmTween = null;
     this.supportAttackBgmDuckingCount = 0;
+    this.supportAttackBgmDuckingVolume = SUPPORT_ATTACK_BGM_DUCK_VOLUME;
     this.activeSupportAttackBgm = null;
     this.activeSupportAttackBgmDefinitionId = null;
     this.supportAttackBgmOverrideTween = null;
@@ -11594,7 +11598,11 @@ class SurvivalScene extends Phaser.Scene {
 
     if (this.activeBgm && this.activeBgmCdId === cd.id) {
       if (!this.activeBgm.isPlaying) {
-        this.activeBgm.play();
+        if (this.activeBgm.isPaused && typeof this.activeBgm.resume === "function") {
+          this.activeBgm.resume();
+        } else {
+          this.activeBgm.play();
+        }
       }
       this.fadeBgmToVolume(this.getBgmTargetVolume(), 0);
       return;
@@ -11628,7 +11636,9 @@ class SurvivalScene extends Phaser.Scene {
 
   getBgmTargetVolume() {
     return (this.supportAttackBgmDuckingCount || 0) > 0
-      ? SUPPORT_ATTACK_BGM_DUCK_VOLUME
+      ? (Number.isFinite(this.supportAttackBgmDuckingVolume)
+        ? this.supportAttackBgmDuckingVolume
+        : SUPPORT_ATTACK_BGM_DUCK_VOLUME)
       : DEFAULT_BGM_VOLUME;
   }
 
@@ -11637,6 +11647,7 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
+    const bgm = this.activeBgm;
     const targetVolume = Phaser.Math.Clamp(volume, 0, 1);
     if (this.bgmVolumeTween) {
       this.bgmVolumeTween.stop();
@@ -11644,12 +11655,12 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     if (durationMs <= 0) {
-      this.activeBgm.setVolume(targetVolume);
+      bgm.setVolume(targetVolume);
       return;
     }
 
     const volumeState = {
-      volume: Number.isFinite(this.activeBgm.volume) ? this.activeBgm.volume : DEFAULT_BGM_VOLUME
+      volume: Number.isFinite(bgm.volume) ? bgm.volume : DEFAULT_BGM_VOLUME
     };
     this.bgmVolumeTween = this.tweens.add({
       targets: volumeState,
@@ -11657,30 +11668,75 @@ class SurvivalScene extends Phaser.Scene {
       duration: durationMs,
       ease: "Sine.InOut",
       onUpdate: () => {
-        if (this.activeBgm) {
-          this.activeBgm.setVolume(volumeState.volume);
+        if (this.activeBgm === bgm) {
+          bgm.setVolume(volumeState.volume);
         }
       },
       onComplete: () => {
-        if (this.activeBgm) {
-          this.activeBgm.setVolume(targetVolume);
+        if (this.activeBgm === bgm) {
+          bgm.setVolume(targetVolume);
         }
         this.bgmVolumeTween = null;
       }
     });
   }
 
-  startSupportAttackBgmDucking() {
+  restoreNormalBgmVolume(durationMs = SUPPORT_ATTACK_BGM_DUCK_OUT_MS) {
+    if (this.gameOver || this.extractionComplete || this.shopActive) {
+      return;
+    }
+
+    const cd = this.getSelectedCdDefinition();
+    if (!cd?.audioKey || !this.cache.audio.exists(cd.audioKey)) {
+      return;
+    }
+
+    if (!this.activeBgm || this.activeBgmCdId !== cd.id) {
+      this.playSelectedBgm();
+      return;
+    }
+
+    if (!this.activeBgm.isPlaying) {
+      if (this.activeBgm.isPaused && typeof this.activeBgm.resume === "function") {
+        this.activeBgm.resume();
+      } else {
+        this.activeBgm.play();
+      }
+    }
+    this.fadeBgmToVolume(this.getBgmTargetVolume(), durationMs);
+  }
+
+  getSupportAttackNormalBgmVolume(definition, fallbackValue = null) {
+    const rawVolume = Number(definition?.normalBgmVolume);
+    if (Number.isFinite(rawVolume)) {
+      return Phaser.Math.Clamp(rawVolume, 0, 1);
+    }
+
+    if (Number.isFinite(fallbackValue)) {
+      return Phaser.Math.Clamp(fallbackValue, 0, 1);
+    }
+
+    return null;
+  }
+
+  startSupportAttackBgmDucking(targetVolume = SUPPORT_ATTACK_BGM_DUCK_VOLUME) {
+    const duckVolume = Phaser.Math.Clamp(Number(targetVolume), 0, 1);
     this.supportAttackBgmDuckingCount = Math.max(0, (this.supportAttackBgmDuckingCount || 0) + 1);
-    if (this.supportAttackBgmDuckingCount === 1) {
-      this.fadeBgmToVolume(SUPPORT_ATTACK_BGM_DUCK_VOLUME, SUPPORT_ATTACK_BGM_DUCK_IN_MS);
+    this.supportAttackBgmDuckingVolume = this.supportAttackBgmDuckingCount === 1
+      ? duckVolume
+      : Math.min(this.getBgmTargetVolume(), duckVolume);
+    if (this.supportAttackBgmDuckingCount >= 1) {
+      this.fadeBgmToVolume(this.supportAttackBgmDuckingVolume, SUPPORT_ATTACK_BGM_DUCK_IN_MS);
     }
   }
 
   stopSupportAttackBgmDucking() {
     this.supportAttackBgmDuckingCount = Math.max(0, (this.supportAttackBgmDuckingCount || 0) - 1);
     if (this.supportAttackBgmDuckingCount === 0) {
+      this.supportAttackBgmDuckingVolume = SUPPORT_ATTACK_BGM_DUCK_VOLUME;
       this.fadeBgmToVolume(DEFAULT_BGM_VOLUME, SUPPORT_ATTACK_BGM_DUCK_OUT_MS);
+    } else {
+      this.fadeBgmToVolume(this.getBgmTargetVolume(), SUPPORT_ATTACK_BGM_DUCK_OUT_MS);
     }
   }
 
@@ -11690,7 +11746,10 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    this.startSupportAttackBgmDucking();
+    const duckVolume = this.getSupportAttackNormalBgmVolume(definition, null);
+    if (duckVolume !== null) {
+      this.startSupportAttackBgmDucking(duckVolume);
+    }
   }
 
   stopSupportAttackAudio(definition, restoreNormalBgm = true) {
@@ -11701,53 +11760,28 @@ class SurvivalScene extends Phaser.Scene {
 
     if (definition?.countdownBgmKey) {
       this.stopSupportAttackBgmOverride(definition, restoreNormalBgm, true);
-      this.stopSupportAttackBgmDucking();
+      if (this.getSupportAttackNormalBgmVolume(definition, null) !== null) {
+        this.stopSupportAttackBgmDucking();
+      }
       return;
     }
 
-    this.stopSupportAttackBgmDucking();
+    if (this.getSupportAttackNormalBgmVolume(definition, null) !== null) {
+      this.stopSupportAttackBgmDucking();
+    }
   }
 
   playSupportAttackBgmOverride(definition) {
     this.stopSupportAttackBgmOverride(null, false, false);
 
     if (!definition?.supportBgmKey || !this.cache.audio.exists(definition.supportBgmKey)) {
-      this.startSupportAttackBgmDucking();
+      const fallbackVolume = this.getSupportAttackNormalBgmVolume(definition, SUPPORT_ATTACK_BGM_DUCK_VOLUME);
+      this.fadeBgmToVolume(fallbackVolume, SUPPORT_ATTACK_BGM_DUCK_IN_MS);
       return;
     }
 
-    const normalBgm = this.activeBgm;
-    if (this.bgmVolumeTween) {
-      this.bgmVolumeTween.stop();
-      this.bgmVolumeTween = null;
-    }
-
-    if (normalBgm) {
-      const fadeOutMs = definition.supportBgmFadeOutMs ?? SUPPORT_ATTACK_BGM_DUCK_OUT_MS;
-      const volumeState = {
-        volume: Number.isFinite(normalBgm.volume) ? normalBgm.volume : DEFAULT_BGM_VOLUME
-      };
-      this.bgmVolumeTween = this.tweens.add({
-        targets: volumeState,
-        volume: 0,
-        duration: fadeOutMs,
-        ease: "Sine.InOut",
-        onUpdate: () => {
-          if (this.activeBgm === normalBgm) {
-            normalBgm.setVolume(volumeState.volume);
-          }
-        },
-        onComplete: () => {
-          if (this.activeBgm === normalBgm) {
-            normalBgm.stop();
-            normalBgm.destroy();
-            this.activeBgm = null;
-            this.activeBgmCdId = null;
-          }
-          this.bgmVolumeTween = null;
-        }
-      });
-    }
+    const normalBgmVolume = this.getSupportAttackNormalBgmVolume(definition, SUPPORT_ATTACK_BGM_MUTE_VOLUME);
+    this.fadeBgmToVolume(normalBgmVolume, definition.supportBgmFadeOutMs ?? SUPPORT_ATTACK_BGM_DUCK_OUT_MS);
 
     const bgm = this.sound.add(definition.supportBgmKey, {
       loop: definition.supportBgmLoop ?? true,
@@ -11801,7 +11835,7 @@ class SurvivalScene extends Phaser.Scene {
 
     const restore = () => {
       if (restoreNormalBgm && !this.gameOver) {
-        this.playSelectedBgm();
+        this.restoreNormalBgmVolume(definition?.supportBgmFadeOutMs ?? SUPPORT_ATTACK_BGM_DUCK_OUT_MS);
       }
     };
 
@@ -32572,7 +32606,7 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     this.lastSupportAttackId = definition.id;
-    this.startSupportAttackBgmDucking();
+    this.startSupportAttackBgmDucking(this.getSupportAttackNormalBgmVolume(definition, SUPPORT_ATTACK_BGM_MUTE_VOLUME));
     const support = this.createSupportAttackInstance(definition);
     support.timingCoinState = {
       titleLetterIndex: 0,
@@ -32696,7 +32730,7 @@ class SurvivalScene extends Phaser.Scene {
 
     this.lastSupportAttackId = definition.id;
     this.supportAttackBgmDuckingCount = 0;
-    this.fadeBgmToVolume(DEFAULT_BGM_VOLUME, 0);
+    this.supportAttackBgmDuckingVolume = SUPPORT_ATTACK_BGM_DUCK_VOLUME;
     this.playGensoKnightsBgm(definition);
 
     const event = {
@@ -32718,7 +32752,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   playGensoKnightsBgm(definition) {
-    this.stopBgm();
+    this.fadeBgmToVolume(SUPPORT_ATTACK_BGM_MUTE_VOLUME, 650);
     this.stopGensoKnightsBgm(false, false);
 
     if (!definition?.bgmKey || !this.cache.audio.exists(definition.bgmKey)) {
@@ -32763,7 +32797,7 @@ class SurvivalScene extends Phaser.Scene {
     this.activeGensoKnightsBgm = null;
     const restore = () => {
       if (restoreNormalBgm && !this.gameOver) {
-        this.playSelectedBgm();
+        this.restoreNormalBgmVolume(650);
       }
     };
 
@@ -36889,6 +36923,7 @@ class SurvivalScene extends Phaser.Scene {
     this.resetOverflowRewardState();
     this.lastGameOverReason = { reason, lostCoins, lostArmsMessage };
     this.supportAttackBgmDuckingCount = 0;
+    this.supportAttackBgmDuckingVolume = SUPPORT_ATTACK_BGM_DUCK_VOLUME;
     this.destroyStageGate(true);
     this.hideOverlay();
     this.clearActiveLostArmEffects();
