@@ -8,11 +8,16 @@ const PLAYER_SCALE = 0.192;
 const PLAYER_FALLBACK_DISPLAY_HEIGHT = 540 * PLAYER_SCALE;
 const PLAYER_ROBOT_DISPLAY_HEIGHT = 168;
 const PLAYER_ROBOT_HUD_DISPLAY_HEIGHT = 78;
+const PLAYER_HUMAN_HUD_DISPLAY_HEIGHT = 72;
 const PLAYER_HITBOX_RADIUS = 22;
+const POST_SELECTION_DAMAGE_GRACE_MS = 1200;
 const PLAYER_SPRITE_OFFSET_Y = -26;
 const PLAYER_SHADOW_OFFSET_Y = 44;
 const PLAYER_SHADOW_WIDTH = 108;
 const PLAYER_SHADOW_HEIGHT = 28;
+const PLAYER_HUMAN_VISUAL_DEPTH = 10;
+const PLAYER_HUMAN_IDLE_TEXTURE_KEY = "player-idle";
+const PLAYER_HUMAN_WALK_TEXTURE_KEYS = ["player-walk-a", "player-walk-b"];
 const PLAYER_ROBOT_ASSET_BASE_PATH = "./画像/player/boarding_robot";
 const PLAYER_ROBOT_DIRECTION_ASSETS = {
   up: {
@@ -299,6 +304,18 @@ const DEEP_EXTRACTION_GRADE_META = {
   B: { label: "B", color: 0x7fb5ff, css: "#a9cfff", glow: 0x7fb5ff },
   C: { label: "C", color: 0x9fb0bf, css: "#b7c3cf", glow: 0x6a7d91 }
 };
+const DEBUG_START_DEPTH_QUERY_PARAM = "debugStartDepth";
+const DEBUG_START_DEPTH_ALIAS_QUERY_PARAM = "startDepth";
+const DEBUG_START_DEPTH_SHORT_QUERY_PARAM = "debugDepth";
+const DEBUG_START_DEPTH_MAX = 99;
+const DEBUG_MAX_BUILD_QUERY_PARAM = "debugMaxBuild";
+const DEBUG_MAX_BUILD_ALIAS_QUERY_PARAM = "debugPowerBuild";
+const DEBUG_MAX_BUILD_CONFIG = {
+  maxHp: 300,
+  moveSpeedAdd: 100
+};
+const DEBUG_SKIP_OPENING_BOOST_QUERY_PARAM = "debugSkipOpeningBoost";
+const DEBUG_SKIP_OPENING_BOOST_ALIAS_QUERY_PARAM = "skipOpeningBoost";
 const RANKING_DEBUG_QUERY_PARAM = "debugRankingDepth";
 const ANOMALY_CONTRACT_DEBUG_QUERY_PARAM = "debugAnomalyContract";
 const ANOMALY_CONTRACT_CONFIG = {
@@ -747,6 +764,166 @@ const KILL_RANKING_STORAGE_KEY = "lastmemoVansabaKillRanking";
 const COIN_WALLET_STORAGE_KEY = "lastmemoVansabaCoins";
 const SHOP_STATE_STORAGE_KEY = "lastmemoVansabaShopState";
 const LOST_ARMS_STORAGE_KEY = "lastmemoVansabaLostArmsState";
+const FINAL_BOSS_STATE_STORAGE_KEY = "lastmemoVansabaFinalBossState";
+const FINAL_BOSS_DEBUG_QUERY_PARAM = "debugFinalBossRaid";
+const FINAL_BOSS_DEBUG_ALIAS_QUERY_PARAM = "debugFinalRaid";
+const FINAL_BOSS_DEBUG_TIME_SCALE_QUERY_PARAM = "debugFinalBossRaidScale";
+const FINAL_BOSS_DEBUG_TIME_SCALE_ALIAS_QUERY_PARAM = "debugFinalRaidScale";
+const FINAL_BOSS_DEBUG_PHASE_QUERY_PARAM = "debugFinalBossRaidPhase";
+const FINAL_BOSS_DEBUG_PHASE_ALIAS_QUERY_PARAM = "debugFinalRaidPhase";
+const FINAL_BOSS_DEBUG_THIRD_PHASE_QUERY_PARAM = "debugFinalRaidThird";
+const FINAL_BOSS_RAID_GUILD_NAMES = {
+  "001": "乙女の牙",
+  "002": "SilentAngel",
+  "003": "アースクリエイター",
+  "004": "Dream_Happy",
+  "005": "千の風",
+  "006": "JGGLegends",
+  "007": "Doll'sHouse",
+  "008": "シルバニアファミリー",
+  "009": "アークエンジェルズ",
+  "010": "REDWOLF",
+  "011": "Coven",
+  "012": "ひとりぼっちの",
+  "013": "エクスカリオン"
+};
+const FINAL_BOSS_RAID_CONFIG = {
+  targetDepth: 10,
+  totalDurationMs: 600000,
+  resolutionStartMs: 558000,
+  debugTimeScale: 0.1,
+  title: "Depth10 Final Raid",
+  field: {
+    textureKey: "finalboss-bossfield",
+    imagePath: "./画像/finalboss/bossfield.png",
+    depth: -2.75,
+    baseColor: 0x040913,
+    shadeColor: 0x02070d,
+    shadeAlpha: 0.32,
+    resolutionShadeAlpha: 0.42,
+    fieldImageAlpha: 0.86,
+    resolutionFieldImageAlpha: 0.8,
+    phaseWashAlpha: 0.032,
+    resolutionPhaseWashAlpha: 0.07
+  },
+  phases: [
+    {
+      id: "first",
+      label: "FIRST FORM",
+      startMs: 0,
+      endMs: 144000,
+      textureKey: "finalboss-first-form",
+      imagePath: "./画像/finalboss/finalboss_first Form.png",
+      audioKey: "finalboss-first-form-bgm",
+      audioPath: "./音声/finalboss/finalboss_first Form.mp3",
+      tint: 0x65e6ff,
+      accent: "#9ffcff"
+    },
+    {
+      id: "second",
+      label: "SECOND FORM",
+      startMs: 144000,
+      endMs: 281000,
+      textureKey: "finalboss-second-form",
+      imagePath: "./画像/finalboss/finalboss_second Form.png",
+      audioKey: "finalboss-second-form-bgm",
+      audioPath: "./音声/finalboss/finalboss_second Form.mp3",
+      tint: 0xc06bff,
+      accent: "#d89cff"
+    },
+    {
+      id: "third",
+      label: "ULTIMATE FORM",
+      startMs: 281000,
+      endMs: 558000,
+      textureKey: "finalboss-ultimate-form",
+      imagePath: "./画像/finalboss/finalboss_Ultimate Form.png",
+      audioKey: "finalboss-ultimate-form-bgm",
+      audioPath: "./音声/finalboss/finalboss_Ultimate Form.mp3",
+      tint: 0xff5f8f,
+      accent: "#ff9dba"
+    }
+  ],
+  resolution: {
+    id: "resolution",
+    label: "DEFEAT SEQUENCE",
+    startMs: 558000,
+    endMs: 600000,
+    tint: 0xf0c463,
+    accent: "#f7d98a"
+  },
+  bossHpBars: 999,
+  playerBossHpDamageRatio: 0.00072,
+  playerMinimumBossHpBars: 420,
+  raidBossHpPreFinalFloorBars: 128,
+  debugFinalPushMinLeadMs: 6500,
+  debugFinalPushMinAfterPreviousMs: 650,
+  attackAssets: {
+    fireFrames: Array.from({ length: 8 }, (_, index) => {
+      const frameNumber = String(index + 1).padStart(2, "0");
+      return {
+        textureKey: `finalboss-attack-fire-${frameNumber}`,
+        imagePath: `./画像/finalboss/finalboss_atack_fire_${frameNumber}.png`
+      };
+    }),
+    iceFrames: Array.from({ length: 8 }, (_, index) => {
+      const frameNumber = String(index + 1).padStart(2, "0");
+      return {
+        textureKey: `finalboss-attack-ice-${frameNumber}`,
+        imagePath: `./画像/finalboss/finalboss_atack_ice_${frameNumber}.png`
+      };
+    }),
+    fireEffect: {
+      textureKey: "finalboss-attack-fire-effect",
+      imagePath: "./画像/finalboss/finalboss_atack_fire_effect.png"
+    },
+    iceEffect: {
+      textureKey: "finalboss-attack-ice-effect",
+      imagePath: "./画像/finalboss/finalboss_atack_ice_effect.png"
+    }
+  },
+  thirdPhaseCombat: {
+    initialSpellDelayMs: 4200,
+    spellIntervalMs: 7400,
+    spellWarningMs: 1200,
+    fireRadius: 245,
+    fireDamage: 18,
+    iceRadius: 175,
+    iceDamage: 8,
+    iceSlowMs: 3600,
+    iceSlowMultiplier: 0.54,
+    minionInitialDelayMs: 5200,
+    minionIntervalMs: 9000,
+    minionBatch: 2,
+    minionMaxActive: 6,
+    minionTypeIds: [
+      "finalboss_bossfield_01",
+      "finalboss_bossfield_02",
+      "finalboss_bossfield_03",
+      "finalboss_bossfield_04"
+    ]
+  },
+  rankingGuilds: Array.from({ length: 13 }, (_, index) => {
+    const guildNumber = index + 1;
+    const guildCode = String(guildNumber).padStart(3, "0");
+    const isFinalGuild = guildNumber === 13;
+    return {
+      id: `guild-${guildCode}`,
+      code: guildCode,
+      label: FINAL_BOSS_RAID_GUILD_NAMES[guildCode] || `GUILD ${guildCode}`,
+      joinMs: isFinalGuild ? 555000 : 26000 + index * 40000,
+      baseDamage: isFinalGuild ? 1800000 : 900000 + index * 240000,
+      damagePerSecond: isFinalGuild ? 62000 : 4300 + index * 920,
+      burstDamagePerSecond: isFinalGuild ? 350000 : 0,
+      burstExponent: isFinalGuild ? 2.08 : 1,
+      finalPush: isFinalGuild,
+      bannerTextureKey: `finalboss-support-banner-${guildCode}`,
+      bannerImagePath: `./画像/finalboss/finalboss_supportatack_bunner${guildCode}.png`,
+      voiceKey: `finalboss-support-voice-${guildCode}`,
+      voicePath: `./音声/finalboss/finalboss_supportatack_bunner${guildCode}.mp3`
+    };
+  })
+};
 const DEFAULT_PLAYER_NAME = "anju";
 const PLAYER_NAME_MAX_LENGTH = 16;
 const MAX_KILL_RANKING_ENTRIES = 50;
@@ -907,6 +1084,8 @@ const NEMESIS_BOSS_CONFIG = {
 const DAMAGE_TEXT_FONT_SIZE_MULTIPLIER = 2;
 const CD_SHOP_SLOT_COUNT = 10;
 const CD_PURCHASE_PRICE = 100000;
+const FINAL_BOSS_CD_ID = "finalBossLiberator";
+const FINAL_BOSS_SUPPORT_ID = "finalBossLiberatorSupport";
 const DEFAULT_BEST_RECORD = {
   survivalTimeMs: 0,
   level: 0,
@@ -1024,6 +1203,23 @@ const CD_CATALOG = [
       bulletSpeedMultiplier: 1.08,
       moveSpeedAdd: 12
     }
+  },
+  {
+    id: FINAL_BOSS_CD_ID,
+    title: "ドールを解放せし者",
+    subtitle: "Final Raid Liberator",
+    price: 0,
+    startsUnlocked: false,
+    rewardUnlock: "finalBossRaidClear",
+    jacketTextureKey: "cd-jacket-finalboss-liberator",
+    lockedJacketTextureKey: "cd-jacket-finalboss-liberator-locked",
+    fallbackJacketTextureKey: "cd-finalboss-unlocked-fallback",
+    fallbackLockedJacketTextureKey: "cd-finalboss-locked-fallback",
+    jacketPath: "./画像/cd/bosscd_unlock.png",
+    lockedJacketPath: "./画像/cd/bosscd_lock.png",
+    audioKey: "bgm-finalboss-liberator",
+    audioPath: "./音声/bgm/ドールを解放せし者.mp3",
+    bonusLabel: "DEPTH10 FINAL RAID CLEAR"
   }
 ];
 const SHOP_UPGRADE_DEFINITIONS = {
@@ -2272,6 +2468,26 @@ const MONSTER_IMAGE_ASSETS = {
       imagePath: `./画像/monster/boss_lightning_dash/sprite_${index}.png`,
       sourceFile: `sprite_${index}.png`
     }))
+  },
+  finalBossfieldMonster01: {
+    textureKey: "finalboss-bossfield-monster-01",
+    imagePath: "./画像/finalboss/bossfield_monster01.png",
+    sourceFile: "bossfield_monster01.png"
+  },
+  finalBossfieldMonster02: {
+    textureKey: "finalboss-bossfield-monster-02",
+    imagePath: "./画像/finalboss/bossfield_monster02.png",
+    sourceFile: "bossfield_monster02.png"
+  },
+  finalBossfieldMonster03: {
+    textureKey: "finalboss-bossfield-monster-03",
+    imagePath: "./画像/finalboss/bossfield_monster03.png",
+    sourceFile: "bossfield_monster03.png"
+  },
+  finalBossfieldMonster04: {
+    textureKey: "finalboss-bossfield-monster-04",
+    imagePath: "./画像/finalboss/bossfield_monster04.png",
+    sourceFile: "bossfield_monster04.png"
   }
 };
 const BOSS_TYPE_SEQUENCE = [
@@ -2436,6 +2652,93 @@ const ENEMY_DEFINITIONS = {
     beamTint: 0xff2f38,
     beamCoreTint: 0xffb8ba,
     knockbackResist: 0.16
+  },
+  finalboss_bossfield_01: {
+    id: "finalboss_bossfield_01",
+    label: "Raid Wisp",
+    textureKey: MONSTER_IMAGE_ASSETS.finalBossfieldMonster01.textureKey,
+    fallbackTextureKey: "enemy-core",
+    tint: 0xffffff,
+    hp: 4.8,
+    speed: 92,
+    contactDamage: 10,
+    xpValue: 0,
+    scale: 0.9,
+    spriteScale: 0.24,
+    effectScale: 1.04,
+    hitRadius: 24,
+    hitboxCenterY: 0.56,
+    aiBehavior: "chase",
+    knockbackResist: 0.12
+  },
+  finalboss_bossfield_02: {
+    id: "finalboss_bossfield_02",
+    label: "Raid Lancer",
+    textureKey: MONSTER_IMAGE_ASSETS.finalBossfieldMonster02.textureKey,
+    fallbackTextureKey: "enemy-core",
+    tint: 0xffffff,
+    hp: 4.2,
+    speed: 104,
+    contactDamage: 11,
+    xpValue: 0,
+    scale: 0.9,
+    spriteScale: 0.25,
+    effectScale: 1.08,
+    hitRadius: 24,
+    hitboxCenterY: 0.56,
+    aiBehavior: "dash",
+    dashSpeed: 210,
+    dashDurationMs: 280,
+    dashWindupMs: Math.round(ENEMY_ATTACK_WARNING_CONFIG.dashWindupMs * 0.82),
+    dashCooldownMs: 1850,
+    knockbackResist: 0.16
+  },
+  finalboss_bossfield_03: {
+    id: "finalboss_bossfield_03",
+    label: "Raid Bulwark",
+    textureKey: MONSTER_IMAGE_ASSETS.finalBossfieldMonster03.textureKey,
+    fallbackTextureKey: "enemy-core",
+    tint: 0xffffff,
+    hp: 7.2,
+    speed: 64,
+    contactDamage: 14,
+    xpValue: 0,
+    scale: 1.1,
+    spriteScale: 0.3,
+    effectScale: 1.3,
+    hitRadius: 34,
+    hitboxCenterY: 0.58,
+    aiBehavior: "chase",
+    knockbackResist: 0.48
+  },
+  finalboss_bossfield_04: {
+    id: "finalboss_bossfield_04",
+    label: "Raid Caster",
+    textureKey: MONSTER_IMAGE_ASSETS.finalBossfieldMonster04.textureKey,
+    fallbackTextureKey: "enemy-ranged-core",
+    tint: 0xffffff,
+    hp: 4.6,
+    speed: 76,
+    contactDamage: 9,
+    xpValue: 0,
+    scale: 0.96,
+    spriteScale: 0.24,
+    effectScale: 1.12,
+    hitRadius: 26,
+    hitboxCenterY: 0.56,
+    aiBehavior: "ranged",
+    preferredRange: 580,
+    keepAwayRange: 380,
+    rangeTolerance: 90,
+    strafeSpeed: 54,
+    attackIntervalMs: 2700,
+    beamRange: 820,
+    beamChargeMs: ENEMY_ATTACK_WARNING_CONFIG.rangedBeamChargeMs,
+    beamDamage: 10,
+    beamWidth: 28,
+    beamTint: 0x82dfff,
+    beamCoreTint: 0xe8fcff,
+    knockbackResist: 0.14
   },
   boss_crack: {
     id: "boss_crack",
@@ -3094,17 +3397,55 @@ const SUPPORT_ATTACK_DEFINITIONS = [
     damageAmount: 14,
     slashRadius: 126,
     knockbackForce: 320
+  },
+  {
+    id: FINAL_BOSS_SUPPORT_ID,
+    label: "ドールを解放せし者",
+    noticeLabel: "LIBERATOR SPELL",
+    type: "finalBossSupport",
+    requiresFinalBossSupportUnlock: true,
+    supportWeight: SUPPORT_ATTACK_WEIGHT_SUPER_RARE,
+    tint: 0xf0c463,
+    glowTint: 0x9ffcff,
+    frameCount: 1,
+    frameMs: 160,
+    cutinTextureKey: "support-finalboss-liberator-cutin",
+    cutinPath: "./画像/finalboss/finalboss_supportatack_finalboss.png",
+    animationFrames: [
+      {
+        textureKey: "support-finalboss-liberator-frame-1",
+        imagePath: "./画像/finalboss/finalboss_supportatack_finalboss.png"
+      }
+    ],
+    showFieldVisual: false,
+    supportOffsetX: 150,
+    supportOffsetY: -34,
+    supportShadowOffsetY: 76,
+    spriteLongestSide: 250,
+    durationMs: 20000,
+    attackInitialDelayMs: 2500,
+    attackIntervalMs: 2500,
+    attackCount: 8,
+    targetRadius: 980,
+    targetPadding: 160,
+    fireRadius: 420,
+    fireDamageAmount: 46,
+    fireKnockbackForce: 520,
+    iceRadius: 330,
+    iceDamageAmount: 30,
+    iceFreezeHoldMs: 820,
+    iceKnockbackForce: 240
   }
 ].map((definition) => ({
   ...definition,
   supportWeight: definition.supportWeight ?? SUPPORT_ATTACK_WEIGHT_NORMAL,
-  cutinTextureKey: `support-${definition.id}-cutin`,
-  cutinPath: `./画像/support/${definition.id}/cutin.png`,
-  animationFrames: Array.from({ length: definition.frameCount }, (_, index) => ({
+  cutinTextureKey: definition.cutinTextureKey || `support-${definition.id}-cutin`,
+  cutinPath: definition.cutinPath || `./画像/support/${definition.id}/cutin.png`,
+  animationFrames: definition.animationFrames || Array.from({ length: definition.frameCount }, (_, index) => ({
     textureKey: `support-${definition.id}-frame-${index + 1}`,
     imagePath: `./画像/support/${definition.id}/frame_${String(index + 1).padStart(2, "0")}.png`
   })),
-  fieldEffectFrames: Array.from({ length: definition.fieldEffectFrameCount || 0 }, (_, index) => ({
+  fieldEffectFrames: definition.fieldEffectFrames || Array.from({ length: definition.fieldEffectFrameCount || 0 }, (_, index) => ({
     textureKey: `support-${definition.id}-field-effect-${index + 1}`,
     imagePath: `./画像/support/${definition.id}/field_effect_${String(index + 1).padStart(2, "0")}.png`
   })),
@@ -3221,6 +3562,7 @@ class SurvivalScene extends Phaser.Scene {
     this.preloadStageAssets();
     this.preloadEnemyAssets();
     this.preloadBossAttackEffectAssets();
+    this.preloadFinalBossRaidAssets();
     this.preloadSupportAttackAssets();
     this.preloadGensoKnightsSupportAssets();
     this.preloadSkillAssets();
@@ -3345,6 +3687,26 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
+  preloadFinalBossRaidAssets() {
+    this.loadImageIfNeeded(FINAL_BOSS_RAID_CONFIG.field?.textureKey, FINAL_BOSS_RAID_CONFIG.field?.imagePath);
+    FINAL_BOSS_RAID_CONFIG.phases.forEach((phase) => {
+      this.loadImageIfNeeded(phase.textureKey, phase.imagePath);
+      this.loadAudioIfNeeded(phase.audioKey, phase.audioPath);
+    });
+    [
+      ...(FINAL_BOSS_RAID_CONFIG.attackAssets.fireFrames || []),
+      ...(FINAL_BOSS_RAID_CONFIG.attackAssets.iceFrames || []),
+      FINAL_BOSS_RAID_CONFIG.attackAssets.fireEffect,
+      FINAL_BOSS_RAID_CONFIG.attackAssets.iceEffect
+    ].forEach((asset) => {
+      this.loadImageIfNeeded(asset?.textureKey, asset?.imagePath);
+    });
+    FINAL_BOSS_RAID_CONFIG.rankingGuilds.forEach((guild) => {
+      this.loadImageIfNeeded(guild.bannerTextureKey, guild.bannerImagePath);
+      this.loadAudioIfNeeded(guild.voiceKey, guild.voicePath);
+    });
+  }
+
   preloadSupportAttackAssets() {
     SUPPORT_ATTACK_DEFINITIONS.forEach((definition) => {
       this.loadImageIfNeeded(definition.cutinTextureKey, definition.cutinPath);
@@ -3404,6 +3766,33 @@ class SurvivalScene extends Phaser.Scene {
     } catch (error) {
       return null;
     }
+  }
+
+  getDebugStartDepthOverride() {
+    const rawDepth = this.getUrlStageParam(DEBUG_START_DEPTH_QUERY_PARAM)
+      || this.getUrlStageParam(DEBUG_START_DEPTH_ALIAS_QUERY_PARAM)
+      || this.getUrlStageParam(DEBUG_START_DEPTH_SHORT_QUERY_PARAM);
+    const depth = Math.floor(Number(rawDepth));
+    if (!Number.isFinite(depth) || depth <= 1) {
+      return null;
+    }
+    return Phaser.Math.Clamp(depth, 1, DEBUG_START_DEPTH_MAX);
+  }
+
+  isDebugMaxBuildEnabled() {
+    const enabledValues = ["1", "true", "yes", "on"];
+    return [
+      this.getUrlStageParam(DEBUG_MAX_BUILD_QUERY_PARAM),
+      this.getUrlStageParam(DEBUG_MAX_BUILD_ALIAS_QUERY_PARAM)
+    ].some((value) => enabledValues.includes(String(value || "").toLowerCase()));
+  }
+
+  isDebugSkipOpeningBoostEnabled() {
+    const enabledValues = ["1", "true", "yes", "on"];
+    return [
+      this.getUrlStageParam(DEBUG_SKIP_OPENING_BOOST_QUERY_PARAM),
+      this.getUrlStageParam(DEBUG_SKIP_OPENING_BOOST_ALIAS_QUERY_PARAM)
+    ].some((value) => enabledValues.includes(String(value || "").toLowerCase()));
   }
 
   isRankingDebugEnabled() {
@@ -3658,6 +4047,8 @@ class SurvivalScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetSkillMutationState("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetNemesisBossState("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetNemesisBossState("sceneDestroy"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetFinalBossRaidState("sceneShutdown")));
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetFinalBossRaidState("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.cleanupDeepExtractionResultOverlay("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.cleanupDeepExtractionResultOverlay("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.cleanupGeekMilestoneNotice("sceneShutdown")));
@@ -4073,6 +4464,49 @@ class SurvivalScene extends Phaser.Scene {
     graphics.fillStyle(0x0a111a, 1);
     graphics.fillCircle(64, 64, 8);
     graphics.generateTexture("cd-placeholder-slot", 128, 128);
+    graphics.clear();
+
+    graphics.fillStyle(0x08050d, 1);
+    graphics.fillRoundedRect(0, 0, 128, 128, 10);
+    graphics.lineStyle(3, 0x51426a, 0.86);
+    graphics.strokeRoundedRect(3, 3, 122, 122, 10);
+    graphics.fillStyle(0x130d1e, 1);
+    graphics.fillCircle(64, 64, 42);
+    graphics.lineStyle(6, 0x3b324f, 0.72);
+    graphics.strokeCircle(64, 64, 35);
+    graphics.lineStyle(2, 0x8c78b8, 0.42);
+    graphics.strokeCircle(64, 64, 18);
+    graphics.fillStyle(0x05030a, 1);
+    graphics.fillCircle(64, 64, 9);
+    graphics.lineStyle(4, 0xd6c0ff, 0.74);
+    graphics.beginPath();
+    graphics.moveTo(42, 64);
+    graphics.lineTo(86, 64);
+    graphics.moveTo(64, 42);
+    graphics.lineTo(64, 86);
+    graphics.strokePath();
+    graphics.generateTexture("cd-finalboss-locked-fallback", 128, 128);
+    graphics.clear();
+
+    graphics.fillStyle(0x07121c, 1);
+    graphics.fillRoundedRect(0, 0, 128, 128, 10);
+    graphics.lineStyle(3, 0xf0c463, 0.92);
+    graphics.strokeRoundedRect(3, 3, 122, 122, 10);
+    graphics.fillStyle(0x10263a, 1);
+    graphics.fillCircle(64, 64, 42);
+    graphics.lineStyle(6, 0x65e6ff, 0.82);
+    graphics.strokeCircle(64, 64, 35);
+    graphics.lineStyle(2, 0xf7d98a, 0.74);
+    graphics.strokeCircle(64, 64, 18);
+    graphics.fillStyle(0xf0c463, 0.92);
+    graphics.fillCircle(64, 64, 7);
+    graphics.lineStyle(3, 0xecfaff, 0.7);
+    graphics.beginPath();
+    graphics.moveTo(36, 78);
+    graphics.lineTo(54, 92);
+    graphics.lineTo(92, 42);
+    graphics.strokePath();
+    graphics.generateTexture("cd-finalboss-unlocked-fallback", 128, 128);
 
     graphics.destroy();
   }
@@ -4080,6 +4514,8 @@ class SurvivalScene extends Phaser.Scene {
   createState() {
     this.shopState = this.loadShopState();
     this.anjuMemoryState = this.loadAnjuMemoryState();
+    this.finalBossState = this.loadFinalBossState();
+    this.syncFinalBossUnlocksToShopState("createState", { save: false });
     this.shopViewMode = "cd";
     this.anjuMemoryShopTab = "deepCd";
     this.anjuMemoryReadLogId = null;
@@ -4089,7 +4525,9 @@ class SurvivalScene extends Phaser.Scene {
 
     this.survivalTime = 0;
     this.initializeDepthRunState();
+    this.initializeFinalBossRaidState();
     this.initializeAnjuMemoryRunState();
+    this.applyDebugStartDepthRunProgress("createState");
     this.initializeAnomalyContractState();
     this.initializeOverflowRewardState();
     this.initializeOverdriveModState();
@@ -4146,9 +4584,11 @@ class SurvivalScene extends Phaser.Scene {
     this.playerSkills = this.buildInitialSkillStates();
     this.robotState = this.createRobotState();
     this.cleaningRobotState = this.createCleaningRobotState();
+    this.debugMaxBuildApplied = false;
     if (this.isRobotSyncDebugEnabled()) {
       this.robotState.syncGauge = ROBOT_SYNC_CONFIG.debugInitialGauge;
     }
+    this.applyDebugMaxBuildPreset("createState");
     this.activeSupportAttacks = [];
     this.lastSupportAttackId = null;
     this.gensoKnightsEvent = null;
@@ -4198,6 +4638,9 @@ class SurvivalScene extends Phaser.Scene {
     this.activeBgm = null;
     this.activeBgmCdId = null;
     this.bgmVolumeTween = null;
+    this.activeFinalBossRaidBgm = null;
+    this.activeFinalBossRaidBgmPhaseId = null;
+    this.finalBossRaidBgmTween = null;
     this.supportAttackBgmDuckingCount = 0;
     this.activeSupportAttackBgm = null;
     this.activeSupportAttackBgmDefinitionId = null;
@@ -4205,7 +4648,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   initializeDepthRunState() {
-    this.stageDepth = 1;
+    const debugStartDepth = this.getDebugStartDepthOverride();
+    this.stageDepth = debugStartDepth || 1;
+    this.debugStartDepth = debugStartDepth || 0;
+    this.debugStartFinalBossRaidStarted = false;
     this.runRankingStats = this.createRunRankingStats(this.stageDepth);
     this.stageDepthElapsedMs = 0;
     this.runUnsecuredCoins = 0;
@@ -4240,6 +4686,111 @@ class SurvivalScene extends Phaser.Scene {
     this.runArchiveSessionId = `run-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
     this.runArchiveStats = this.createRunArchiveRunStats();
     this.skipShopReturnSceneShutdownCleanup = false;
+  }
+
+  initializeFinalBossRaidState() {
+    this.finalBossRaidState = {
+      active: false,
+      targetDepth: 0,
+      mode: "next",
+      startedAt: 0,
+      elapsedMs: 0,
+      durationMs: FINAL_BOSS_RAID_CONFIG.totalDurationMs,
+      resolutionStartMs: FINAL_BOSS_RAID_CONFIG.resolutionStartMs,
+      timeScale: 1,
+      dataCacheCount: 0,
+      normalDepthSystemsStarted: false,
+      blockingPlaceholderActive: false,
+      currentPhaseId: null,
+      currentPhase: null,
+      phaseTimings: [],
+      timerComplete: false,
+      clearRewardSaved: false,
+      debug: false,
+      bossHpMaxBars: FINAL_BOSS_RAID_CONFIG.bossHpBars,
+      bossHpBars: FINAL_BOSS_RAID_CONFIG.bossHpBars,
+      bossHpDisplayBars: FINAL_BOSS_RAID_CONFIG.bossHpBars,
+      playerContribution: 0,
+      playerBossHpBarsDamage: 0,
+      raidBossHpDamageTarget: 1,
+      supportSchedule: [],
+      rankingEntries: [],
+      latestSupportGuildId: null,
+      nextSupportGuildId: null,
+      paceWarningActive: false,
+      paceWarningNotified: false,
+      supportCutinShade: null,
+      supportCutinStreak: null,
+      supportCutinContainer: null,
+      supportCutinTween: null,
+      supportCutinShadeTween: null,
+      supportCutinExitTween: null,
+      supportCutinHoldTimer: null,
+      supportCutinStartTimers: [],
+      supportVoiceSound: null,
+      thirdPhaseCombatStarted: false,
+      nextThirdSpellAt: 0,
+      nextThirdMinionSpawnAt: 0,
+      thirdSpellIndex: 0,
+      activeSpellObjects: [],
+      spellTimers: [],
+      attackMotionTimers: [],
+      playerSlowUntil: 0,
+      playerSlowMultiplier: 1,
+      fieldContainer: null,
+      fieldImage: null,
+      fieldFallbackGraphics: null,
+      fieldFallbackText: null,
+      fieldShade: null,
+      fieldPhaseWash: null,
+      hudContainer: null,
+      hudGraphics: null,
+      titleText: null,
+      timerText: null,
+      phaseText: null,
+      detailText: null,
+      bossHpText: null,
+      contributionText: null,
+      rankingText: null,
+      incomingSupportText: null,
+      barBack: null,
+      barFill: null,
+      bossContainer: null,
+      bossSprite: null,
+      bossFallbackGraphics: null,
+      bossNameText: null,
+      bossHitTarget: null
+    };
+    this.finalBossRaidKeyHandler = null;
+  }
+
+  isFinalBossRaidActive() {
+    return Boolean(this.finalBossRaidState?.active);
+  }
+
+  teardownFinalBossRaidPlaceholder(reason = "cleanup") {
+    const hadPlaceholder = Boolean(this.finalBossRaidState?.blockingPlaceholderActive || this.finalBossRaidKeyHandler);
+    if (this.finalBossRaidKeyHandler && this.input?.keyboard) {
+      this.input.keyboard.off("keydown", this.finalBossRaidKeyHandler);
+    }
+    this.finalBossRaidKeyHandler = null;
+
+    if (this.finalBossRaidState?.blockingPlaceholderActive) {
+      this.finalBossRaidState.active = false;
+      this.finalBossRaidState.targetDepth = 0;
+      this.finalBossRaidState.blockingPlaceholderActive = false;
+    }
+
+    if (hadPlaceholder && (this.finalBossRaidState?.debug || this.isFinalBossRaidDebugEnabled?.())) {
+      console.log("[FINAL BOSS RAID] placeholder cleared", { reason });
+    }
+  }
+
+  resetFinalBossRaidState(reason = "reset") {
+    this.destroyFinalBossRaidObjects?.(reason);
+    this.stopFinalBossRaidBgm?.(false, true);
+    this.teardownFinalBossRaidPlaceholder(reason);
+    this.initializeFinalBossRaidState();
   }
 
   initializeAnomalyContractState() {
@@ -4727,6 +5278,7 @@ class SurvivalScene extends Phaser.Scene {
       !this.levelUpActive &&
       !this.gateChoiceActive &&
       !this.extractionComplete &&
+      !this.isFinalBossRaidActive() &&
       !this.overlayContainer?.visible &&
       !this.lostArmsResonanceSelectionActive &&
       !this.overdriveModSelectionActive &&
@@ -4844,8 +5396,7 @@ class SurvivalScene extends Phaser.Scene {
       this.depthDirectiveState.currentChoices = [];
     }
     this.hideOverlay();
-    this.restoreGameplayInputAfterOverlay();
-    this.physics.world.resume();
+    this.resumeGameplayAfterBlockingOverlay("depthDirectiveSelection");
     this.tryOpenPendingPostOverlaySelections();
     return true;
   }
@@ -6326,6 +6877,92 @@ class SurvivalScene extends Phaser.Scene {
     };
   }
 
+  applyDebugMaxBuildPreset(reason = "debugMaxBuild") {
+    if (!this.isDebugMaxBuildEnabled() || this.debugMaxBuildApplied) {
+      return false;
+    }
+
+    this.debugMaxBuildApplied = true;
+    this.applyDebugMaxBuildPlayerStats();
+    this.applyDebugMaxBuildSkills();
+    this.applyDebugMaxBuildRobot();
+
+    if (this.isFinalBossRaidDebugEnabled?.() || this.isDebugMaxBuildEnabled()) {
+      console.log("[DEBUG MAX BUILD] applied", {
+        reason,
+        hp: this.stats?.maxHp,
+        moveSpeed: this.stats?.moveSpeed,
+        skills: Object.keys(this.playerSkills || {}),
+        robot: {
+          missileLevel: this.robotState?.missileLevel,
+          healLevel: this.robotState?.healLevel,
+          fireRateLevel: this.robotState?.fireRateLevel,
+          damageLevel: this.robotState?.damageLevel,
+          healIntervalLevel: this.robotState?.healIntervalLevel,
+          healAmountLevel: this.robotState?.healAmountLevel
+        }
+      });
+    }
+    return true;
+  }
+
+  applyDebugMaxBuildPlayerStats() {
+    if (!this.stats) {
+      return;
+    }
+
+    const maxHp = Math.max(1, Math.round(Number(DEBUG_MAX_BUILD_CONFIG.maxHp) || 300));
+    const moveSpeedAdd = Math.round(Number(DEBUG_MAX_BUILD_CONFIG.moveSpeedAdd) || 0);
+    this.stats.maxHp = maxHp;
+    this.stats.hp = maxHp;
+    this.stats.moveSpeed = Math.max(0, Math.round((Number(this.stats.moveSpeed) || 0) + moveSpeedAdd));
+  }
+
+  applyDebugMaxBuildSkills() {
+    if (!this.playerSkills) {
+      this.playerSkills = {};
+    }
+
+    Object.values(SKILL_DEFINITIONS).forEach((definition) => {
+      if (!definition?.id || !Array.isArray(definition.stages) || definition.stages.length <= 0) {
+        return;
+      }
+      const skillState = this.playerSkills[definition.id] || this.createSkillState(definition);
+      skillState.definition = definition;
+      skillState.stageIndex = definition.stages.length - 1;
+      skillState.currentStage = definition.stages[skillState.stageIndex];
+      skillState.orbitAngle = 0;
+      skillState.pulseTimer = 0;
+      skillState.dashCycleTimer = 0;
+      this.playerSkills[definition.id] = skillState;
+    });
+  }
+
+  applyDebugMaxBuildRobot() {
+    if (!this.robotState) {
+      this.robotState = this.createRobotState();
+    }
+
+    this.robotState.missileLevel = ROBOT_MAX_LEVEL;
+    this.robotState.healLevel = ROBOT_MAX_LEVEL;
+    this.robotState.missileXp = 0;
+    this.robotState.healXp = 0;
+    this.robotState.missileCoreExp = 0;
+    this.robotState.healCoreExp = 0;
+    this.robotState.fireRateLevel = ROBOT_ABILITY_MAX_LEVEL;
+    this.robotState.damageLevel = ROBOT_ABILITY_MAX_LEVEL;
+    this.robotState.healIntervalLevel = ROBOT_ABILITY_MAX_LEVEL;
+    this.robotState.healAmountLevel = ROBOT_ABILITY_MAX_LEVEL;
+    this.robotState.visualLevel = ROBOT_MAX_LEVEL;
+    this.robotState.syncGauge = ROBOT_SYNC_CONFIG.gaugeMax;
+    this.robotState.syncActiveMs = 0;
+    this.robotState.missileTimer = 0;
+    this.robotState.healTimer = 0;
+    this.robotState.barrierHp = this.getRobotBarrierMaxHp(ROBOT_MAX_LEVEL);
+    this.robotState.barrierCooldownMs = 0;
+    this.robotState.barrierLastStandCooldownMs = 0;
+  }
+
   createCleaningRobotState() {
     return {
       level: this.getCleaningRobotLevel(),
@@ -6530,6 +7167,2127 @@ class SurvivalScene extends Phaser.Scene {
       window.localStorage?.setItem(SHOP_STATE_STORAGE_KEY, JSON.stringify(this.shopState));
     } catch (error) {
       // Ignore storage failures so the shop can still be used during this session.
+    }
+  }
+
+  isFinalBossBossCdUnlocked() {
+    return Boolean(this.finalBossState?.cleared || this.finalBossState?.unlockedBossCd);
+  }
+
+  isFinalBossSupportUnlocked() {
+    return Boolean(this.finalBossState?.cleared || this.finalBossState?.unlockedFinalBossSupport);
+  }
+
+  isRewardLockedCd(cd) {
+    if (!cd || cd.rewardUnlock !== "finalBossRaidClear") {
+      return false;
+    }
+    return !this.isFinalBossBossCdUnlocked();
+  }
+
+  syncFinalBossUnlocksToShopState(reason = "sync", options = {}) {
+    if (!this.shopState) {
+      return false;
+    }
+
+    const ownedIds = Array.isArray(this.shopState.ownedCdIds)
+      ? this.shopState.ownedCdIds
+      : [];
+    if (!this.isFinalBossBossCdUnlocked()) {
+      if (!ownedIds.includes(FINAL_BOSS_CD_ID)) {
+        return false;
+      }
+      this.shopState.ownedCdIds = ownedIds.filter((id) => id !== FINAL_BOSS_CD_ID);
+      if (this.shopState.selectedCdId === FINAL_BOSS_CD_ID) {
+        this.shopState.selectedCdId = DEFAULT_CD_ID;
+      }
+      this.shopState = this.normalizeShopState(this.shopState);
+      if (options.save !== false) {
+        this.saveShopState();
+      }
+      return true;
+    }
+
+    if (ownedIds.includes(FINAL_BOSS_CD_ID)) {
+      return false;
+    }
+
+    this.shopState.ownedCdIds = [...ownedIds, FINAL_BOSS_CD_ID];
+    this.shopState = this.normalizeShopState(this.shopState);
+    if (options.save !== false) {
+      this.saveShopState();
+    }
+    if (this.isFinalBossRaidDebugEnabled?.()) {
+      console.log("[FINAL BOSS RAID] shop unlock synced", { reason, cdId: FINAL_BOSS_CD_ID });
+    }
+    return true;
+  }
+
+  createDefaultFinalBossState() {
+    return {
+      version: 1,
+      cleared: false,
+      clearedAt: 0,
+      unlockedBossCd: false,
+      unlockedFinalBossSupport: false
+    };
+  }
+
+  normalizeFinalBossState(record) {
+    const defaults = this.createDefaultFinalBossState();
+    const cleared = record?.cleared === true || record?.depth10RaidCleared === true;
+    const clearedAt = Math.max(0, Math.floor(Number(record?.clearedAt ?? record?.firstClearedAt) || 0));
+    return {
+      version: Math.max(1, Math.floor(Number(record?.version) || defaults.version)),
+      cleared,
+      clearedAt: cleared ? clearedAt : 0,
+      unlockedBossCd: cleared || record?.unlockedBossCd === true || record?.cdUnlocked === true,
+      unlockedFinalBossSupport: cleared || record?.unlockedFinalBossSupport === true || record?.supportAttackUnlocked === true
+    };
+  }
+
+  loadFinalBossState() {
+    let rawState = null;
+
+    try {
+      rawState = window.localStorage?.getItem(FINAL_BOSS_STATE_STORAGE_KEY) || null;
+    } catch (error) {
+      rawState = null;
+    }
+
+    if (!rawState) {
+      return this.normalizeFinalBossState(this.createDefaultFinalBossState());
+    }
+
+    try {
+      return this.normalizeFinalBossState(JSON.parse(rawState));
+    } catch (error) {
+      return this.normalizeFinalBossState(this.createDefaultFinalBossState());
+    }
+  }
+
+  saveFinalBossState() {
+    this.finalBossState = this.normalizeFinalBossState(this.finalBossState);
+
+    try {
+      window.localStorage?.setItem(FINAL_BOSS_STATE_STORAGE_KEY, JSON.stringify(this.finalBossState));
+    } catch (error) {
+      // Ignore storage failures so the run can continue even if this unlock state cannot be persisted.
+    }
+  }
+
+  isFinalBossRaidCleared() {
+    return this.finalBossState?.cleared === true;
+  }
+
+  markFinalBossRaidCleared(options = {}) {
+    const clearedAt = Math.max(
+      0,
+      Math.floor(Number(this.finalBossState?.clearedAt) || Number(options.clearedAt) || Date.now())
+    );
+    this.finalBossState = this.normalizeFinalBossState({
+      ...this.finalBossState,
+      cleared: true,
+      clearedAt,
+      unlockedBossCd: options.unlockedBossCd !== false,
+      unlockedFinalBossSupport: options.unlockedFinalBossSupport !== false
+    });
+    this.saveFinalBossState();
+    this.syncFinalBossUnlocksToShopState("finalBossRaidClear", { save: true });
+    return this.finalBossState;
+  }
+
+  isFinalBossRaidDebugEnabled() {
+    const enabledValues = ["1", "true", "yes", "on"];
+    return [
+      this.getUrlStageParam(FINAL_BOSS_DEBUG_QUERY_PARAM),
+      this.getUrlStageParam(FINAL_BOSS_DEBUG_ALIAS_QUERY_PARAM)
+    ].some((value) => enabledValues.includes(String(value || "").toLowerCase()));
+  }
+
+  getFinalBossRaidTimeScale() {
+    if (!this.isFinalBossRaidDebugEnabled()) {
+      return 1;
+    }
+
+    const requestedScaleValues = [
+      this.getUrlStageParam(FINAL_BOSS_DEBUG_TIME_SCALE_QUERY_PARAM),
+      this.getUrlStageParam(FINAL_BOSS_DEBUG_TIME_SCALE_ALIAS_QUERY_PARAM)
+    ];
+    for (const value of requestedScaleValues) {
+      const requestedScale = Number(value);
+      if (Number.isFinite(requestedScale) && requestedScale > 0) {
+        return Phaser.Math.Clamp(requestedScale, 0.02, 1);
+      }
+    }
+
+    return Phaser.Math.Clamp(FINAL_BOSS_RAID_CONFIG.debugTimeScale || 0.1, 0.02, 1);
+  }
+
+  getFinalBossRaidDebugPhaseTarget() {
+    if (!this.isFinalBossRaidDebugEnabled()) {
+      return "";
+    }
+
+    const rawPhase = this.getUrlStageParam(FINAL_BOSS_DEBUG_PHASE_QUERY_PARAM)
+      || this.getUrlStageParam(FINAL_BOSS_DEBUG_PHASE_ALIAS_QUERY_PARAM);
+    const normalizedPhase = String(rawPhase || "").trim().toLowerCase();
+    if (["third", "phase3", "3", "ultimate"].includes(normalizedPhase)) {
+      return "third";
+    }
+
+    const thirdFlag = this.getUrlStageParam(FINAL_BOSS_DEBUG_THIRD_PHASE_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(thirdFlag || "").toLowerCase()) ? "third" : "";
+  }
+
+  buildFinalBossRaidTiming() {
+    const timeScale = this.getFinalBossRaidTimeScale();
+    const scaleMs = (value) => Math.max(0, Math.round((Number(value) || 0) * timeScale));
+    const totalDurationMs = Math.max(1000, scaleMs(FINAL_BOSS_RAID_CONFIG.totalDurationMs));
+    const resolutionStartMs = Math.min(totalDurationMs, scaleMs(FINAL_BOSS_RAID_CONFIG.resolutionStartMs));
+    const phaseTimings = FINAL_BOSS_RAID_CONFIG.phases.map((phase) => {
+      const startMs = Math.min(totalDurationMs, scaleMs(phase.startMs));
+      const endMs = Math.min(totalDurationMs, Math.max(startMs + 1, scaleMs(phase.endMs)));
+      return { ...phase, startMs, endMs, resolution: false };
+    });
+    phaseTimings.push({
+      ...FINAL_BOSS_RAID_CONFIG.resolution,
+      startMs: resolutionStartMs,
+      endMs: totalDurationMs,
+      resolution: true
+    });
+
+    return {
+      timeScale,
+      totalDurationMs,
+      resolutionStartMs,
+      phaseTimings
+    };
+  }
+
+  getFinalBossRaidDebugStartElapsedMs(timing) {
+    if (this.getFinalBossRaidDebugPhaseTarget() !== "third") {
+      return 0;
+    }
+
+    const thirdPhase = (timing?.phaseTimings || []).find((phase) => phase.id === "third");
+    if (!thirdPhase) {
+      return 0;
+    }
+    return Math.max(0, Math.min(Math.max(0, (timing?.totalDurationMs || 0) - 1000), thirdPhase.startMs + 300));
+  }
+
+  buildFinalBossRaidSupportSchedule(timeScale = 1, timing = null) {
+    const scale = Phaser.Math.Clamp(Number(timeScale) || 1, 0.02, 1);
+    const schedule = FINAL_BOSS_RAID_CONFIG.rankingGuilds.map((guild) => ({
+      ...guild,
+      joinMs: Math.max(0, Math.round((Number(guild.joinMs) || 0) * scale)),
+      joined: false
+    }));
+
+    const totalDurationMs = Math.max(0, Math.round(Number(timing?.totalDurationMs) || 0));
+    if (scale < 1 && totalDurationMs > 0) {
+      const finalGuild = schedule.find((guild) => guild.finalPush);
+      if (finalGuild) {
+        const previousJoinMs = Math.max(0, ...schedule
+          .filter((guild) => !guild.finalPush)
+          .map((guild) => Math.max(0, Number(guild.joinMs) || 0)));
+        const minLeadMs = Math.min(
+          Math.max(2200, totalDurationMs * 0.24),
+          Math.max(2400, Number(FINAL_BOSS_RAID_CONFIG.debugFinalPushMinLeadMs) || 6500)
+        );
+        const minAfterPreviousMs = Math.max(0, Number(FINAL_BOSS_RAID_CONFIG.debugFinalPushMinAfterPreviousMs) || 0);
+        const desiredJoinMs = Math.max(previousJoinMs + minAfterPreviousMs, totalDurationMs - minLeadMs);
+        finalGuild.joinMs = Math.min(finalGuild.joinMs, Math.max(0, Math.round(desiredJoinMs)));
+      }
+    }
+
+    return schedule;
+  }
+
+  createFinalBossRaidRankingEntries(schedule = []) {
+    const guildEntries = schedule.map((guild) => ({
+      id: guild.id,
+      code: guild.code,
+      label: guild.label,
+      type: "guild",
+      damage: 0,
+      joined: false,
+      announced: false,
+      joinMs: guild.joinMs,
+      baseDamage: guild.baseDamage,
+      damagePerSecond: guild.damagePerSecond,
+      burstDamagePerSecond: guild.burstDamagePerSecond,
+      burstExponent: guild.burstExponent,
+      finalPush: guild.finalPush === true,
+      bannerTextureKey: guild.bannerTextureKey,
+      voiceKey: guild.voiceKey
+    }));
+    return [
+      ...guildEntries,
+      {
+        id: "player",
+        label: "YOU",
+        type: "player",
+        damage: 0,
+        joined: true,
+        joinMs: 0
+      }
+    ];
+  }
+
+  shouldEnterFinalBossRaid(targetDepth, mode = "next") {
+    const normalizedDepth = Math.max(1, Math.floor(Number(targetDepth) || 1));
+    if (!["next", "force"].includes(mode)) {
+      return false;
+    }
+    return normalizedDepth === FINAL_BOSS_RAID_CONFIG.targetDepth
+      && (!this.isFinalBossRaidCleared() || this.isFinalBossRaidDebugEnabled());
+  }
+
+  applyDebugStartDepthRunProgress(reason = "debugStartDepth") {
+    const depth = Math.max(1, Math.floor(Number(this.debugStartDepth) || 1));
+    if (depth <= 1) {
+      return false;
+    }
+
+    this.updateRunRankingDepthProgress(depth);
+    this.updateAnjuMemoryDepthProgress(depth);
+    if (this.isFinalBossRaidDebugEnabled()) {
+      console.log("[DEBUG START DEPTH] applied", { depth, reason });
+    }
+    return true;
+  }
+
+  isFinalBossRaidDebugStartDepthTarget() {
+    const depth = Math.max(1, Math.floor(Number(this.debugStartDepth) || 1));
+    if (depth !== FINAL_BOSS_RAID_CONFIG.targetDepth || (this.stageDepth || 1) !== FINAL_BOSS_RAID_CONFIG.targetDepth) {
+      return false;
+    }
+    return !this.debugStartFinalBossRaidStarted && this.shouldEnterFinalBossRaid(depth, "next");
+  }
+
+  shouldStartFinalBossRaidFromDebugStart() {
+    if (!this.isFinalBossRaidDebugStartDepthTarget() || this.isFinalBossRaidActive()) {
+      return false;
+    }
+    if (
+      this.shopActive ||
+      this.gameOver ||
+      this.extractionComplete ||
+      this.levelUpActive ||
+      this.gateChoiceActive ||
+      this.overlayContainer?.visible ||
+      (this.pendingLevelUps || 0) > 0
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  tryStartFinalBossRaidFromDebugStart(reason = "debugStartDepth") {
+    if (!this.shouldStartFinalBossRaidFromDebugStart()) {
+      return false;
+    }
+
+    this.debugStartFinalBossRaidStarted = true;
+    this.clearActiveDepthDirective("debugStartFinalBossRaid", { silent: true });
+    this.cleanupNemesisBoss("debugStartFinalBossRaid");
+    this.setLastPickupNotice("DEBUG DEPTH 10 FINAL RAID");
+    this.beginFinalBossRaid({
+      targetDepth: FINAL_BOSS_RAID_CONFIG.targetDepth,
+      mode: "next",
+      debugStart: true
+    }, { dataCacheCount: 0 });
+    if (this.isFinalBossRaidDebugEnabled()) {
+      console.log("[FINAL BOSS RAID] debug start depth entry", { reason });
+    }
+    return true;
+  }
+
+  beginFinalBossRaid(transition = {}, options = {}) {
+    const targetDepth = Math.max(1, Math.floor(Number(transition?.targetDepth) || this.stageDepth || 1));
+    const mode = transition?.mode === "force" ? "force" : "next";
+    const dataCacheCount = Math.max(0, Math.floor(Number(options.dataCacheCount) || 0));
+    const timing = this.buildFinalBossRaidTiming();
+
+    this.clearOverlayButtons();
+    this.stopBgm();
+    this.destroyGateSignalVisual();
+    this.destroyStageGate();
+    this.clearNonFinalBossRaidEnemies("finalBossRaidStart");
+    const supportSchedule = this.buildFinalBossRaidSupportSchedule(timing.timeScale, timing);
+    const startElapsedMs = this.getFinalBossRaidDebugStartElapsedMs(timing);
+    const rankingEntries = this.createFinalBossRaidRankingEntries(supportSchedule);
+    if (startElapsedMs > 0) {
+      rankingEntries.forEach((entry) => {
+        if (entry.type === "guild" && (entry.joinMs || 0) < startElapsedMs) {
+          entry.joined = true;
+          entry.announced = true;
+        }
+      });
+    }
+    this.finalBossRaidState = {
+      active: true,
+      targetDepth,
+      mode,
+      startedAt: Math.max(0, Number(this.time?.now) || 0),
+      elapsedMs: startElapsedMs,
+      durationMs: timing.totalDurationMs,
+      resolutionStartMs: timing.resolutionStartMs,
+      timeScale: timing.timeScale,
+      dataCacheCount,
+      normalDepthSystemsStarted: false,
+      blockingPlaceholderActive: false,
+      currentPhaseId: null,
+      currentPhase: null,
+      phaseTimings: timing.phaseTimings,
+      timerComplete: false,
+      clearRewardSaved: false,
+      debug: this.isFinalBossRaidDebugEnabled(),
+      bossHpMaxBars: FINAL_BOSS_RAID_CONFIG.bossHpBars,
+      bossHpBars: FINAL_BOSS_RAID_CONFIG.bossHpBars,
+      bossHpDisplayBars: FINAL_BOSS_RAID_CONFIG.bossHpBars,
+      playerContribution: 0,
+      playerBossHpBarsDamage: 0,
+      raidBossHpDamageTarget: this.calculateFinalBossRaidGuildDamageTarget(rankingEntries, timing.resolutionStartMs),
+      supportSchedule,
+      rankingEntries,
+      latestSupportGuildId: null,
+      nextSupportGuildId: supportSchedule.find((entry) => (entry.joinMs || 0) > startElapsedMs)?.id || null,
+      paceWarningActive: false,
+      paceWarningNotified: false,
+      supportCutinShade: null,
+      supportCutinStreak: null,
+      supportCutinContainer: null,
+      supportCutinTween: null,
+      supportCutinShadeTween: null,
+      supportCutinExitTween: null,
+      supportCutinHoldTimer: null,
+      supportCutinStartTimers: [],
+      supportVoiceSound: null,
+      thirdPhaseCombatStarted: false,
+      nextThirdSpellAt: 0,
+      nextThirdMinionSpawnAt: 0,
+      thirdSpellIndex: 0,
+      activeSpellObjects: [],
+      spellTimers: [],
+      attackMotionTimers: [],
+      playerSlowUntil: 0,
+      playerSlowMultiplier: 1,
+      fieldContainer: null,
+      fieldImage: null,
+      fieldFallbackGraphics: null,
+      fieldFallbackText: null,
+      fieldShade: null,
+      fieldPhaseWash: null,
+      hudContainer: null,
+      hudGraphics: null,
+      titleText: null,
+      timerText: null,
+      phaseText: null,
+      detailText: null,
+      bossHpText: null,
+      contributionText: null,
+      rankingText: null,
+      incomingSupportText: null,
+      bossContainer: null,
+      bossSprite: null,
+      bossFallbackGraphics: null,
+      bossNameText: null,
+      bossHitTarget: null
+    };
+    this.gateChoiceActive = false;
+    this.gateChoiceLocked = false;
+    this.levelUpActive = false;
+    this.releaseMobileControlPointers?.();
+    this.resumeGameplayAfterBlockingOverlay("finalBossRaidStart");
+    this.setLastPickupNotice("DEPTH 10 FINAL RAID START");
+    this.createFinalBossRaidObjects();
+    this.setFinalBossRaidPhase(this.getFinalBossRaidPhaseForElapsed(startElapsedMs), "start");
+    this.updateFinalBossRaidRankingEntries();
+    this.updateFinalBossRaidBossHpFromRaidProgress();
+    this.updateFinalBossRaidHud();
+    this.updateFinalBossRaidVisuals(this.time?.now || 0);
+
+    if (this.isFinalBossRaidDebugEnabled()) {
+      console.log("[FINAL BOSS RAID] start", {
+        targetDepth,
+        mode,
+        dataCacheCount,
+        durationMs: timing.totalDurationMs,
+        startElapsedMs,
+        debugPhase: this.getFinalBossRaidDebugPhaseTarget(),
+        timeScale: timing.timeScale,
+        state: { ...this.finalBossState }
+      });
+    }
+  }
+
+  createFinalBossRaidObjects() {
+    this.createFinalBossRaidFieldVisual();
+    this.createFinalBossRaidHud();
+    this.createFinalBossRaidBossTarget();
+  }
+
+  getFinalBossRaidFieldBounds() {
+    if (typeof this.getStageWorldBounds === "function") {
+      return this.getStageWorldBounds(this.currentStage);
+    }
+    return {
+      left: 0,
+      top: 0,
+      right: WORLD_WIDTH,
+      bottom: WORLD_HEIGHT,
+      width: WORLD_WIDTH,
+      height: WORLD_HEIGHT,
+      centerX: WORLD_WIDTH * 0.5,
+      centerY: WORLD_HEIGHT * 0.5
+    };
+  }
+
+  createFinalBossRaidFieldVisual() {
+    const state = this.finalBossRaidState;
+    if (!state?.active) {
+      return;
+    }
+
+    state.fieldContainer?.destroy();
+    const config = FINAL_BOSS_RAID_CONFIG.field || {};
+    const bounds = this.getFinalBossRaidFieldBounds();
+    const fieldDepth = Number.isFinite(config.depth) ? config.depth : -2.75;
+    const container = this.add.container(0, 0).setDepth(fieldDepth);
+    const base = this.add.rectangle(
+      bounds.centerX,
+      bounds.centerY,
+      bounds.width,
+      bounds.height,
+      config.baseColor ?? 0x040913,
+      1
+    );
+
+    container.add(base);
+    let fieldImage = null;
+    let fallbackGraphics = null;
+    let fallbackText = null;
+
+    if (config.textureKey && this.textures.exists(config.textureKey)) {
+      const imageAlpha = Number.isFinite(config.fieldImageAlpha) ? config.fieldImageAlpha : 0.86;
+      fieldImage = this.add.image(bounds.centerX, bounds.centerY, config.textureKey).setAlpha(imageAlpha);
+      this.fitFinalBossRaidFieldImageToBounds(fieldImage, bounds);
+      container.add(fieldImage);
+    } else {
+      fallbackGraphics = this.createFinalBossRaidFieldFallbackGraphics(bounds, config);
+      fallbackText = this.add.text(bounds.centerX, bounds.centerY - 280, "DEPTH 10\nFINAL RAID FIELD", {
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "96px",
+        color: "#9ffcff",
+        fontStyle: "bold",
+        align: "center",
+        stroke: "#02070a",
+        strokeThickness: 12
+      }).setOrigin(0.5, 0.5).setAlpha(0.16);
+      container.add([fallbackGraphics, fallbackText]);
+    }
+
+    const shade = this.add.rectangle(
+      bounds.centerX,
+      bounds.centerY,
+      bounds.width,
+      bounds.height,
+      config.shadeColor ?? 0x02070d,
+      Number.isFinite(config.shadeAlpha) ? config.shadeAlpha : 0.32
+    );
+    const phaseWash = this.add.rectangle(
+      bounds.centerX,
+      bounds.centerY,
+      bounds.width,
+      bounds.height,
+      0x65e6ff,
+      Number.isFinite(config.phaseWashAlpha) ? config.phaseWashAlpha : 0.032
+    );
+
+    container.add([shade, phaseWash]);
+    state.fieldContainer = container;
+    state.fieldImage = fieldImage;
+    state.fieldFallbackGraphics = fallbackGraphics;
+    state.fieldFallbackText = fallbackText;
+    state.fieldShade = shade;
+    state.fieldPhaseWash = phaseWash;
+    this.updateFinalBossRaidFieldVisuals();
+  }
+
+  fitFinalBossRaidFieldImageToBounds(image, bounds) {
+    if (!image || !bounds) {
+      return;
+    }
+
+    const source = image.texture?.getSourceImage?.();
+    const sourceWidth = Math.max(1, source?.width || image.width || bounds.width || WORLD_WIDTH);
+    const sourceHeight = Math.max(1, source?.height || image.height || bounds.height || WORLD_HEIGHT);
+    const scale = Math.max(bounds.width / sourceWidth, bounds.height / sourceHeight);
+    image.setScale(scale);
+  }
+
+  createFinalBossRaidFieldFallbackGraphics(bounds, config = {}) {
+    const graphics = this.add.graphics();
+    const lineColor = config.lineColor || 0x65e6ff;
+    graphics.fillStyle(config.baseColor ?? 0x040913, 1);
+    graphics.fillRect(bounds.left, bounds.top, bounds.width, bounds.height);
+    graphics.fillStyle(0x0b1424, 0.72);
+    graphics.fillCircle(bounds.centerX, bounds.centerY, Math.min(bounds.width, bounds.height) * 0.34);
+    graphics.lineStyle(3, lineColor, 0.18);
+    graphics.strokeCircle(bounds.centerX, bounds.centerY, 920);
+    graphics.lineStyle(2, 0xf0c463, 0.12);
+    graphics.strokeCircle(bounds.centerX, bounds.centerY, 1320);
+    graphics.lineStyle(2, lineColor, 0.08);
+    for (let x = bounds.left; x <= bounds.right; x += 420) {
+      graphics.lineBetween(x, bounds.top, x, bounds.bottom);
+    }
+    for (let y = bounds.top; y <= bounds.bottom; y += 420) {
+      graphics.lineBetween(bounds.left, y, bounds.right, y);
+    }
+    graphics.lineStyle(4, 0xf0c463, 0.18);
+    graphics.lineBetween(bounds.left, bounds.centerY, bounds.right, bounds.centerY);
+    graphics.lineBetween(bounds.centerX, bounds.top, bounds.centerX, bounds.bottom);
+    return graphics;
+  }
+
+  updateFinalBossRaidFieldVisuals(phase = null) {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !state.fieldContainer?.active) {
+      return;
+    }
+
+    const activePhase = phase || state.currentPhase || this.getFinalBossRaidPhaseForElapsed(state.elapsedMs);
+    const phaseColor = activePhase?.tint || 0x65e6ff;
+    const isResolution = Boolean(activePhase?.resolution);
+    const fieldConfig = FINAL_BOSS_RAID_CONFIG.field || {};
+    state.fieldPhaseWash?.setFillStyle(phaseColor, isResolution
+      ? (Number.isFinite(fieldConfig.resolutionPhaseWashAlpha) ? fieldConfig.resolutionPhaseWashAlpha : 0.07)
+      : (Number.isFinite(fieldConfig.phaseWashAlpha) ? fieldConfig.phaseWashAlpha : 0.032));
+    state.fieldShade?.setFillStyle(fieldConfig.shadeColor ?? 0x02070d, isResolution
+      ? (Number.isFinite(fieldConfig.resolutionShadeAlpha) ? fieldConfig.resolutionShadeAlpha : 0.42)
+      : (Number.isFinite(fieldConfig.shadeAlpha) ? fieldConfig.shadeAlpha : 0.32));
+    state.fieldImage?.setAlpha(isResolution
+      ? (Number.isFinite(fieldConfig.resolutionFieldImageAlpha) ? fieldConfig.resolutionFieldImageAlpha : 0.8)
+      : (Number.isFinite(fieldConfig.fieldImageAlpha) ? fieldConfig.fieldImageAlpha : 0.86));
+    state.fieldFallbackText?.setColor(activePhase?.accent || "#9ffcff");
+  }
+
+  createFinalBossRaidHud() {
+    const state = this.finalBossRaidState;
+    if (!state?.active) {
+      return;
+    }
+
+    state.hudContainer?.destroy();
+    const container = this.add
+      .container(0, 0)
+      .setScrollFactor(0)
+      .setDepth(760);
+    const graphics = this.add.graphics();
+    const titleText = this.add.text(GAME_WIDTH / 2 - 280, 20, "FINAL RAID TIMER", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "13px",
+      color: "#ecfaff",
+      fontStyle: "bold"
+    });
+    const timerText = this.add.text(GAME_WIDTH / 2, 36, "10:00", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "38px",
+      color: "#f7d98a",
+      fontStyle: "bold",
+      align: "center"
+    }).setOrigin(0.5, 0);
+    const phaseText = this.add.text(GAME_WIDTH / 2 + 280, 24, "PHASE: FIRST FORM", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "16px",
+      color: "#9ffcff",
+      fontStyle: "bold",
+      align: "right"
+    }).setOrigin(1, 0);
+    const bossHpText = this.add.text(GAME_WIDTH / 2 - 280, 88, "BOSS HP BARS 999 / 999", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "15px",
+      color: "#ecfaff",
+      fontStyle: "bold"
+    });
+    const detailText = this.add.text(GAME_WIDTH / 2 + 280, 88, "GATE TIMER OFF", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "13px",
+      color: "#a9c7dc",
+      align: "right"
+    }).setOrigin(1, 0);
+    const contributionText = this.add.text(28, 230, "YOUR CONTRIBUTION\n0", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "19px",
+      color: "#f7d98a",
+      fontStyle: "bold",
+      lineSpacing: 6
+    });
+    const rankingText = this.add.text(GAME_WIDTH - 322, 92, "RAID RANKING\n--", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "14px",
+      color: "#d8f7ff",
+      fontStyle: "bold",
+      lineSpacing: 5
+    });
+    const incomingSupportText = this.add.text(GAME_WIDTH - 322, 384, `INCOMING SUPPORT\n${FINAL_BOSS_RAID_GUILD_NAMES["001"] || "GUILD 001"} STANDBY`, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "14px",
+      color: "#a9c7dc"
+    });
+    container.add([graphics, titleText, timerText, phaseText, bossHpText, detailText, contributionText, rankingText, incomingSupportText]);
+    this.uiContainer?.add(container);
+
+    state.hudContainer = container;
+    state.hudGraphics = graphics;
+    state.titleText = titleText;
+    state.timerText = timerText;
+    state.phaseText = phaseText;
+    state.bossHpText = bossHpText;
+    state.detailText = detailText;
+    state.contributionText = contributionText;
+    state.rankingText = rankingText;
+    state.incomingSupportText = incomingSupportText;
+  }
+
+  createFinalBossRaidBossTarget() {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !this.physics?.add || !this.enemies) {
+      return;
+    }
+
+    state.bossHitTarget?.destroy();
+    const position = this.getFinalBossRaidBossPosition();
+    const target = this.add.circle(position.x, position.y, 116, 0xffffff, 0.01).setDepth(17);
+    this.physics.add.existing(target);
+    target.isFinalBossRaidBoss = true;
+    target.isBoss = true;
+    target.isElite = false;
+    target.isDying = false;
+    target.aiBehavior = "finalBossRaid";
+    target.maxHp = Number.MAX_SAFE_INTEGER;
+    target.hp = target.maxHp;
+    target.xpValue = 0;
+    target.contactDamage = 0;
+    target.moveSpeed = 0;
+    target.baseTint = 0xffffff;
+    target.visualPulseOffset = 0;
+    target.body?.setAllowGravity?.(false);
+    target.body?.setImmovable?.(true);
+    target.body?.setCircle?.(116, 0, 0);
+    target.body?.setVelocity?.(0, 0);
+    this.enemies.add(target);
+    state.bossHitTarget = target;
+  }
+
+  syncFinalBossRaidBossTarget() {
+    const state = this.finalBossRaidState;
+    const target = state?.bossHitTarget;
+    if (!state?.active || !target?.active) {
+      return;
+    }
+
+    const position = this.getFinalBossRaidBossPosition();
+    target.setPosition(position.x, position.y);
+    target.body?.setVelocity?.(0, 0);
+    target.body?.updateFromGameObject?.();
+  }
+
+  getFinalBossRaidBossPosition() {
+    const center = this.getStageGateCenter();
+    return {
+      x: center.x,
+      y: center.y - 180
+    };
+  }
+
+  createFinalBossRaidBossVisualForPhase(phase) {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !phase) {
+      return;
+    }
+
+    state.bossContainer?.destroy();
+    const position = this.getFinalBossRaidBossPosition();
+    const container = this.add.container(position.x, position.y).setDepth(18);
+    const hasTexture = Boolean(phase.textureKey && this.textures.exists(phase.textureKey));
+    let bossSprite = null;
+    let fallbackGraphics = null;
+
+    if (hasTexture) {
+      bossSprite = this.add
+        .image(0, 0, phase.textureKey)
+        .setDisplaySize(330, 330)
+        .setAlpha(0.96);
+      container.add(bossSprite);
+    } else {
+      fallbackGraphics = this.add.graphics();
+      fallbackGraphics.fillStyle(0x050914, 0.88);
+      fallbackGraphics.fillCircle(0, 0, 116);
+      fallbackGraphics.lineStyle(5, phase.tint || 0x65e6ff, 0.88);
+      fallbackGraphics.strokeCircle(0, 0, 118);
+      fallbackGraphics.lineStyle(2, 0xecfaff, 0.28);
+      fallbackGraphics.strokeCircle(0, 0, 82);
+      fallbackGraphics.fillStyle(phase.tint || 0x65e6ff, 0.2);
+      fallbackGraphics.fillTriangle(-96, -44, 0, -136, 96, -44);
+      fallbackGraphics.fillTriangle(-88, 72, 0, 136, 88, 72);
+      fallbackGraphics.fillStyle(phase.tint || 0x65e6ff, 0.72);
+      fallbackGraphics.fillCircle(0, -8, 28);
+      container.add(fallbackGraphics);
+    }
+
+    const nameText = this.add.text(0, 144, phase.label || "FINAL BOSS", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "22px",
+      color: phase.accent || "#ecfaff",
+      fontStyle: "bold",
+      align: "center",
+      stroke: "#02070a",
+      strokeThickness: 4
+    }).setOrigin(0.5, 0.5);
+    container.add(nameText);
+
+    state.bossContainer = container;
+    state.bossSprite = bossSprite;
+    state.bossFallbackGraphics = fallbackGraphics;
+    state.bossNameText = nameText;
+    this.syncFinalBossRaidBossTarget();
+  }
+
+  getFinalBossRaidPhaseForElapsed(elapsedMs = 0) {
+    const state = this.finalBossRaidState || {};
+    const timings = state.phaseTimings?.length
+      ? state.phaseTimings
+      : this.buildFinalBossRaidTiming().phaseTimings;
+    const normalizedElapsed = Math.max(0, Number(elapsedMs) || 0);
+    return timings.find((phase) => normalizedElapsed >= phase.startMs && normalizedElapsed < phase.endMs)
+      || timings[timings.length - 1]
+      || FINAL_BOSS_RAID_CONFIG.phases[0];
+  }
+
+  setFinalBossRaidPhase(phase, reason = "phase") {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !phase || state.currentPhaseId === phase.id) {
+      return;
+    }
+
+    const previousPhaseId = state.currentPhaseId;
+    state.currentPhaseId = phase.id;
+    state.currentPhase = phase;
+    if (previousPhaseId === "third" && phase.id !== "third") {
+      this.cleanupFinalBossRaidThirdPhaseCombat("phaseExit", { clearMinions: true });
+    }
+    this.createFinalBossRaidBossVisualForPhase(phase);
+    if (phase.resolution) {
+      this.stopFinalBossRaidBgm(false, true);
+    } else {
+      this.playFinalBossRaidPhaseBgm(phase);
+    }
+    this.setLastPickupNotice(`FINAL RAID ${phase.label}`);
+
+    if (state.debug) {
+      console.log("[FINAL BOSS RAID] phase", {
+        reason,
+        id: phase.id,
+        label: phase.label,
+        startMs: phase.startMs,
+        endMs: phase.endMs,
+        hasImage: Boolean(phase.textureKey && this.textures.exists(phase.textureKey)),
+        hasBgm: Boolean(phase.audioKey && this.cache.audio.exists(phase.audioKey))
+      });
+    }
+  }
+
+  playFinalBossRaidPhaseBgm(phase) {
+    if (!phase?.audioKey || this.activeFinalBossRaidBgmPhaseId === phase.id) {
+      return;
+    }
+
+    this.stopFinalBossRaidBgm(false, false);
+    this.stopBgm();
+
+    if (!this.cache.audio.exists(phase.audioKey)) {
+      this.activeFinalBossRaidBgmPhaseId = null;
+      return;
+    }
+
+    const targetVolume = Phaser.Math.Clamp(phase.bgmVolume ?? DEFAULT_BGM_VOLUME, 0, 1);
+    const bgm = this.sound.add(phase.audioKey, {
+      loop: false,
+      volume: 0
+    });
+    this.activeFinalBossRaidBgm = bgm;
+    this.activeFinalBossRaidBgmPhaseId = phase.id;
+    bgm.play({ loop: false, volume: 0 });
+
+    const volumeState = { volume: 0 };
+    this.finalBossRaidBgmTween = this.tweens.add({
+      targets: volumeState,
+      volume: targetVolume,
+      duration: 500,
+      ease: "Sine.InOut",
+      onUpdate: () => {
+        if (this.activeFinalBossRaidBgm === bgm) {
+          bgm.setVolume(volumeState.volume);
+        }
+      },
+      onComplete: () => {
+        if (this.activeFinalBossRaidBgm === bgm) {
+          bgm.setVolume(targetVolume);
+        }
+        this.finalBossRaidBgmTween = null;
+      }
+    });
+  }
+
+  stopFinalBossRaidBgm(restoreNormalBgm = false, fade = true) {
+    if (this.finalBossRaidBgmTween) {
+      this.finalBossRaidBgmTween.stop();
+      this.finalBossRaidBgmTween = null;
+    }
+
+    const bgm = this.activeFinalBossRaidBgm;
+    this.activeFinalBossRaidBgm = null;
+    this.activeFinalBossRaidBgmPhaseId = null;
+    const restore = () => {
+      if (restoreNormalBgm && !this.gameOver && !this.extractionComplete && !this.shopActive) {
+        this.playSelectedBgm();
+      }
+    };
+
+    if (!bgm) {
+      restore();
+      return;
+    }
+
+    if (!fade) {
+      bgm.stop();
+      bgm.destroy();
+      restore();
+      return;
+    }
+
+    const volumeState = {
+      volume: Number.isFinite(bgm.volume) ? bgm.volume : DEFAULT_BGM_VOLUME
+    };
+    this.finalBossRaidBgmTween = this.tweens.add({
+      targets: volumeState,
+      volume: 0,
+      duration: 500,
+      ease: "Sine.InOut",
+      onUpdate: () => {
+        bgm.setVolume(volumeState.volume);
+      },
+      onComplete: () => {
+        bgm.stop();
+        bgm.destroy();
+        this.finalBossRaidBgmTween = null;
+        restore();
+      }
+    });
+  }
+
+  clearFinalBossRaidSupportCutinVisuals(reason = "cleanup") {
+    const state = this.finalBossRaidState;
+    if (!state) {
+      return;
+    }
+
+    if (Array.isArray(state.supportCutinStartTimers)) {
+      state.supportCutinStartTimers.forEach((timer) => {
+        if (timer?.remove) {
+          timer.remove(false);
+        }
+      });
+    }
+    state.supportCutinStartTimers = [];
+
+    if (state.supportCutinHoldTimer?.remove) {
+      state.supportCutinHoldTimer.remove(false);
+    }
+    state.supportCutinHoldTimer = null;
+
+    if (state.supportCutinTween) {
+      state.supportCutinTween.stop();
+      state.supportCutinTween = null;
+    }
+    if (state.supportCutinShadeTween) {
+      state.supportCutinShadeTween.stop();
+      state.supportCutinShadeTween = null;
+    }
+    if (state.supportCutinExitTween) {
+      state.supportCutinExitTween.stop();
+      state.supportCutinExitTween = null;
+    }
+
+    if (state.supportCutinShade) {
+      this.tweens?.killTweensOf?.(state.supportCutinShade);
+      state.supportCutinShade.destroy();
+    }
+    state.supportCutinShade = null;
+
+    if (state.supportCutinStreak) {
+      this.tweens?.killTweensOf?.(state.supportCutinStreak);
+      state.supportCutinStreak.destroy();
+    }
+    state.supportCutinStreak = null;
+
+    if (state.supportCutinContainer) {
+      this.tweens?.killTweensOf?.(state.supportCutinContainer);
+      state.supportCutinContainer.destroy();
+    }
+    state.supportCutinContainer = null;
+
+    if (state.debug && reason !== "newSupportBanner") {
+      console.log("[FINAL BOSS RAID] support cutin cleared", { reason });
+    }
+  }
+
+  stopFinalBossRaidSupportVoice(reason = "cleanup") {
+    const state = this.finalBossRaidState;
+    const voice = state?.supportVoiceSound;
+    if (!voice) {
+      return;
+    }
+
+    state.supportVoiceSound = null;
+    try {
+      voice.stop();
+      voice.destroy();
+    } catch (error) {
+      if (state.debug) {
+        console.warn("[FINAL BOSS RAID] support voice cleanup failed", { reason, error });
+      }
+    }
+  }
+
+  cleanupFinalBossRaidSupportEffects(reason = "cleanup") {
+    this.clearFinalBossRaidSupportCutinVisuals(reason);
+    this.stopFinalBossRaidSupportVoice(reason);
+  }
+
+  queueFinalBossRaidSpellTimer(delay, callback) {
+    const state = this.finalBossRaidState;
+    if (!state?.active) {
+      return null;
+    }
+
+    const timer = this.time.delayedCall(Math.max(0, Math.round(Number(delay) || 0)), () => {
+      state.spellTimers = (state.spellTimers || []).filter((entry) => entry !== timer);
+      if (state.active) {
+        callback();
+      }
+    });
+    state.spellTimers = state.spellTimers || [];
+    state.spellTimers.push(timer);
+    return timer;
+  }
+
+  registerFinalBossRaidSpellObjects(objects) {
+    const state = this.finalBossRaidState;
+    const list = (Array.isArray(objects) ? objects : [objects]).filter(Boolean);
+    if (!state?.active || list.length <= 0) {
+      return list;
+    }
+
+    state.activeSpellObjects = state.activeSpellObjects || [];
+    state.activeSpellObjects.push(...list);
+    this.skillEffectsLayer?.add?.(list);
+    return list;
+  }
+
+  unregisterFinalBossRaidSpellObjects(objects) {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !Array.isArray(state.activeSpellObjects)) {
+      return;
+    }
+
+    const list = Array.isArray(objects) ? objects : [objects];
+    state.activeSpellObjects = state.activeSpellObjects.filter((object) => !list.includes(object));
+  }
+
+  cleanupFinalBossRaidThirdPhaseCombat(reason = "cleanup", options = {}) {
+    const state = this.finalBossRaidState;
+    if (!state) {
+      return;
+    }
+
+    (state.spellTimers || []).forEach((timer) => timer?.remove?.(false));
+    state.spellTimers = [];
+    (state.attackMotionTimers || []).forEach((timer) => timer?.remove?.(false));
+    state.attackMotionTimers = [];
+
+    const objects = state.activeSpellObjects || [];
+    this.tweens?.killTweensOf?.(objects);
+    objects.forEach((object) => object?.destroy?.());
+    state.activeSpellObjects = [];
+    state.thirdPhaseCombatStarted = false;
+    state.nextThirdSpellAt = 0;
+    state.nextThirdMinionSpawnAt = 0;
+    state.playerSlowUntil = 0;
+    state.playerSlowMultiplier = 1;
+
+    if (state.bossSprite?.active && state.currentPhase?.textureKey && this.textures.exists(state.currentPhase.textureKey)) {
+      const displayWidth = state.bossSprite.displayWidth || 330;
+      const displayHeight = state.bossSprite.displayHeight || 330;
+      state.bossSprite.setTexture(state.currentPhase.textureKey);
+      state.bossSprite.setDisplaySize(displayWidth, displayHeight);
+    }
+
+    if (options.clearMinions) {
+      this.clearFinalBossRaidMinions(reason);
+    }
+  }
+
+  getFinalBossRaidMinions() {
+    const children = this.enemies?.getChildren?.() || [];
+    return children.filter((enemy) => enemy?.active && !enemy.isDying && enemy.isFinalBossRaidMinion);
+  }
+
+  clearFinalBossRaidMinions(reason = "cleanup") {
+    this.getFinalBossRaidMinions().forEach((enemy) => {
+      this.tweens?.killTweensOf?.(enemy);
+      this.clearDashEnemyWarning(enemy);
+      this.destroyEnemyBeamTelegraph(enemy);
+      this.cancelBossAttack(enemy);
+      if (enemy.body) {
+        enemy.body.enable = false;
+        enemy.body.setVelocity(0, 0);
+      }
+      this.spawnEnemyDefeatEffect(enemy.x, enemy.y);
+      this.enemies?.remove?.(enemy, true, true);
+      if (enemy.active) {
+        enemy.destroy();
+      }
+    });
+
+    if (this.finalBossRaidState?.debug) {
+      console.log("[FINAL BOSS RAID] minions cleared", { reason });
+    }
+  }
+
+  clearNonFinalBossRaidEnemies(reason = "finalBossRaidStart") {
+    const enemies = (this.enemies?.getChildren?.() || []).slice();
+    enemies.forEach((enemy) => {
+      if (!enemy?.active || enemy.isFinalBossRaidBoss || enemy.isFinalBossRaidMinion) {
+        return;
+      }
+      this.tweens?.killTweensOf?.(enemy);
+      this.tweens?.killTweensOf?.(enemy.eliteAura);
+      this.tweens?.killTweensOf?.(enemy.eliteRing);
+      this.clearDashEnemyWarning(enemy);
+      this.destroyEnemyBeamTelegraph(enemy);
+      this.cancelBossAttack(enemy);
+      enemy.eliteAura?.destroy?.();
+      enemy.eliteRing?.destroy?.();
+      if (enemy.body) {
+        enemy.body.enable = false;
+        enemy.body.setVelocity(0, 0);
+      }
+      this.enemies?.remove?.(enemy, true, true);
+      if (enemy.active) {
+        enemy.destroy();
+      }
+    });
+    this.activeWaveBoss = null;
+    this.waveBossSpawned = false;
+    this.enemySpawnTimer = 0;
+
+    if (this.finalBossRaidState?.debug || this.isFinalBossRaidDebugEnabled?.()) {
+      console.log("[FINAL BOSS RAID] non-raid enemies cleared", { reason, count: enemies.length });
+    }
+  }
+
+  destroyFinalBossRaidObjects(reason = "cleanup") {
+    const state = this.finalBossRaidState;
+    if (!state) {
+      return;
+    }
+
+    this.cleanupFinalBossRaidSupportEffects(reason);
+    this.cleanupFinalBossRaidThirdPhaseCombat(reason, { clearMinions: true });
+    this.tweens?.killTweensOf?.(state.fieldContainer);
+    this.tweens?.killTweensOf?.(state.hudContainer);
+    this.tweens?.killTweensOf?.(state.bossContainer);
+    this.tweens?.killTweensOf?.(state.bossHitTarget);
+    state.fieldContainer?.destroy();
+    state.hudContainer?.destroy();
+    state.bossContainer?.destroy();
+    if (state.bossHitTarget) {
+      this.enemies?.remove?.(state.bossHitTarget, true, true);
+      if (state.bossHitTarget?.active) {
+        state.bossHitTarget.destroy();
+      }
+    }
+    state.hudContainer = null;
+    state.fieldContainer = null;
+    state.fieldImage = null;
+    state.fieldFallbackGraphics = null;
+    state.fieldFallbackText = null;
+    state.fieldShade = null;
+    state.fieldPhaseWash = null;
+    state.hudGraphics = null;
+    state.titleText = null;
+    state.timerText = null;
+    state.phaseText = null;
+    state.detailText = null;
+    state.bossHpText = null;
+    state.contributionText = null;
+    state.rankingText = null;
+    state.incomingSupportText = null;
+    state.bossContainer = null;
+    state.bossSprite = null;
+    state.bossFallbackGraphics = null;
+    state.bossNameText = null;
+    state.bossHitTarget = null;
+
+    if (state.debug) {
+      console.log("[FINAL BOSS RAID] objects destroyed", { reason });
+    }
+  }
+
+  handleFinalBossRaidGuildJoined(entry) {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !entry || entry.announced) {
+      return;
+    }
+
+    entry.announced = true;
+    state.latestSupportGuildId = entry.id;
+    const voiceDurationMs = this.playFinalBossRaidSupportVoice(entry);
+    const bannerDelayMs = this.getFinalBossRaidSupportBannerDelayMs(entry, voiceDurationMs);
+    this.queueFinalBossRaidSupportBanner(entry, bannerDelayMs);
+    this.setLastPickupNotice(entry.finalPush ? `${entry.label} FINAL PUSH` : `${entry.label} RAID SUPPORT`);
+
+    if (state.debug) {
+      console.log("[FINAL BOSS RAID] guild joined", {
+        id: entry.id,
+        label: entry.label,
+        elapsedMs: Math.round(state.elapsedMs || 0),
+        voiceDurationMs: Math.round(voiceDurationMs || 0),
+        bannerDelayMs: Math.round(bannerDelayMs)
+      });
+    }
+  }
+
+  getFinalBossRaidSupportBannerDelayMs(entry, voiceDurationMs = 0) {
+    const state = this.finalBossRaidState;
+    const baseDelayMs = Math.max(0, (Number(voiceDurationMs) || 0) - 2000);
+    if (!state?.debug || baseDelayMs <= 0) {
+      return baseDelayMs;
+    }
+
+    const timeScale = Phaser.Math.Clamp(Number(state.timeScale) || 1, 0.02, 1);
+    if (timeScale >= 1) {
+      return baseDelayMs;
+    }
+
+    const scaledDelayMs = Math.max(0, Math.round(baseDelayMs * timeScale));
+    if (!entry?.finalPush) {
+      return Math.min(baseDelayMs, scaledDelayMs);
+    }
+
+    const remainingToResolutionMs = Math.max(0, (Number(state.resolutionStartMs) || 0) - (Number(state.elapsedMs) || 0));
+    const latestVisibleDelayMs = Math.max(0, remainingToResolutionMs - 2600);
+    return Math.min(baseDelayMs, scaledDelayMs, latestVisibleDelayMs);
+  }
+
+  playFinalBossRaidSupportVoice(entry) {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !entry?.voiceKey || !this.cache.audio.exists(entry.voiceKey)) {
+      return 0;
+    }
+
+    this.stopFinalBossRaidSupportVoice("nextSupportVoice");
+    const voice = this.sound.add(entry.voiceKey, {
+      volume: Phaser.Math.Clamp(entry.voiceVolume ?? 0.9, 0, 1)
+    });
+    state.supportVoiceSound = voice;
+    voice.once("complete", () => {
+      if (state.supportVoiceSound === voice) {
+        state.supportVoiceSound = null;
+      }
+      voice.destroy();
+    });
+    const durationMs = Number.isFinite(voice.duration) && voice.duration > 0
+      ? voice.duration * 1000
+      : 0;
+    voice.play();
+    return durationMs;
+  }
+
+  queueFinalBossRaidSupportBanner(entry, delayMs = 0) {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !entry) {
+      return;
+    }
+
+    this.clearFinalBossRaidSupportCutinVisuals("newSupportBanner");
+    const safeDelayMs = Math.max(0, Math.round(Number(delayMs) || 0));
+    if (safeDelayMs <= 30) {
+      this.showFinalBossRaidSupportBanner(entry);
+      return;
+    }
+
+    const timer = this.time.delayedCall(safeDelayMs, () => {
+      if (!state.active) {
+        return;
+      }
+      state.supportCutinStartTimers = (state.supportCutinStartTimers || []).filter((event) => event !== timer);
+      this.showFinalBossRaidSupportBanner(entry);
+    });
+    state.supportCutinStartTimers = state.supportCutinStartTimers || [];
+    state.supportCutinStartTimers.push(timer);
+  }
+
+  showFinalBossRaidSupportBanner(entry) {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !entry) {
+      return;
+    }
+
+    this.clearFinalBossRaidSupportCutinVisuals("newSupportBanner");
+    const bannerWidth = 1180;
+    const bannerHeight = 330;
+    const bannerY = GAME_HEIGHT * 0.48;
+    const startX = GAME_WIDTH + 680;
+    const streakStartX = GAME_WIDTH + 650;
+    const enterMs = 340;
+    const holdMs = 2000;
+    const exitMs = 360;
+    const accentColor = entry.finalPush ? 0xf0c463 : 0x65e6ff;
+    const accentText = entry.finalPush ? "#f7d98a" : "#9ffcff";
+
+    const shade = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x020308, 0)
+      .setScrollFactor(0)
+      .setDepth(779);
+    const container = this.add
+      .container(startX, bannerY)
+      .setScrollFactor(0)
+      .setDepth(780)
+      .setAlpha(0.98);
+
+    if (entry.bannerTextureKey && this.textures.exists(entry.bannerTextureKey)) {
+      const image = this.add.image(0, 0, entry.bannerTextureKey).setAlpha(0.98);
+      this.scaleImageToFitBox(image, bannerWidth, bannerHeight);
+      container.add(image);
+    } else {
+      const frame = this.add.graphics();
+      frame.fillStyle(0x02070d, 0.94);
+      frame.fillRoundedRect(-bannerWidth / 2, -bannerHeight / 2, bannerWidth, bannerHeight, 6);
+      frame.lineStyle(4, accentColor, 0.85);
+      frame.strokeRoundedRect(-bannerWidth / 2, -bannerHeight / 2, bannerWidth, bannerHeight, 6);
+      frame.fillStyle(accentColor, 0.18);
+      frame.fillRect(-bannerWidth / 2 + 34, bannerHeight / 2 - 40, bannerWidth - 68, 10);
+      frame.fillStyle(0xffffff, 0.08);
+      frame.fillTriangle(-bannerWidth / 2, -bannerHeight / 2, -bannerWidth / 2 + 240, -bannerHeight / 2, -bannerWidth / 2, bannerHeight / 2);
+      container.add(frame);
+
+      const label = this.add.text(-bannerWidth / 2 + 72, -94, entry.finalPush ? "FINAL PUSH SUPPORT" : "RAID SUPPORT LINK", {
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "28px",
+        color: accentText,
+        fontStyle: "bold"
+      });
+      const title = this.add.text(-bannerWidth / 2 + 72, -34, `${entry.label} JOINED`, {
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "58px",
+        color: "#ecfaff",
+        fontStyle: "bold",
+        stroke: "#02070a",
+        strokeThickness: 8
+      });
+      const sub = this.add.text(-bannerWidth / 2 + 74, 58, entry.finalPush ? "RANKING OVERRIDE / BOSS FINISHER READY" : "CUMULATIVE DAMAGE STREAM ONLINE", {
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "24px",
+        color: "#b8d4e8",
+        fontStyle: "bold"
+      });
+      container.add([label, title, sub]);
+    }
+
+    const streak = this.add
+      .rectangle(streakStartX, bannerY + 120, 1040, 10, accentColor, 0.72)
+      .setScrollFactor(0)
+      .setDepth(781)
+      .setAngle(-7)
+      .setBlendMode(Phaser.BlendModes.ADD);
+
+    if (this.uiContainer) {
+      this.uiContainer.add([shade, container, streak]);
+    }
+
+    state.supportCutinShade = shade;
+    state.supportCutinContainer = container;
+    state.supportCutinStreak = streak;
+    state.supportCutinShadeTween = this.tweens.add({
+      targets: shade,
+      alpha: 0.44,
+      duration: enterMs,
+      yoyo: true,
+      hold: holdMs,
+      ease: "Sine.InOut",
+      onComplete: () => {
+        if (state.supportCutinShade === shade) {
+          state.supportCutinShade = null;
+        }
+        state.supportCutinShadeTween = null;
+        shade.destroy();
+      }
+    });
+    state.supportCutinTween = this.tweens.add({
+      targets: [container, streak],
+      x: `-=${GAME_WIDTH + 140}`,
+      duration: enterMs,
+      ease: "Sine.Out",
+      onComplete: () => {
+        if (state.supportCutinContainer !== container) {
+          return;
+        }
+        state.supportCutinTween = null;
+      }
+    });
+    state.supportCutinExitTween = this.tweens.add({
+      targets: [container, streak],
+      x: `-=${GAME_WIDTH + 520}`,
+      alpha: 0,
+      delay: enterMs + holdMs,
+      duration: exitMs,
+      ease: "Sine.In",
+      onComplete: () => {
+        if (state.supportCutinContainer === container) {
+          state.supportCutinContainer = null;
+        }
+        if (state.supportCutinStreak === streak) {
+          state.supportCutinStreak = null;
+        }
+        state.supportCutinExitTween = null;
+        container.destroy();
+        streak.destroy();
+      }
+    });
+  }
+
+  initializeFinalBossRaidThirdPhaseCombat() {
+    const state = this.finalBossRaidState;
+    if (!state?.active || state.thirdPhaseCombatStarted) {
+      return;
+    }
+
+    const config = FINAL_BOSS_RAID_CONFIG.thirdPhaseCombat || {};
+    const elapsedMs = Math.max(0, Number(state.elapsedMs) || 0);
+    const timeScale = Phaser.Math.Clamp(Number(state.timeScale) || 1, 0.02, 1);
+    state.thirdPhaseCombatStarted = true;
+    state.nextThirdSpellAt = elapsedMs + Math.max(500, Math.round((config.initialSpellDelayMs || 4200) * timeScale));
+    state.nextThirdMinionSpawnAt = elapsedMs + Math.max(800, Math.round((config.minionInitialDelayMs || 5200) * timeScale));
+    state.thirdSpellIndex = 0;
+    this.setLastPickupNotice("ULTIMATE FORM SPELLCAST ONLINE");
+  }
+
+  getFinalBossRaidScaledThirdPhaseMs(key, fallbackValue) {
+    const state = this.finalBossRaidState;
+    const config = FINAL_BOSS_RAID_CONFIG.thirdPhaseCombat || {};
+    const timeScale = Phaser.Math.Clamp(Number(state?.timeScale) || 1, 0.02, 1);
+    return Math.max(1, Math.round((Number(config[key]) || fallbackValue) * timeScale));
+  }
+
+  updateFinalBossRaidThirdPhaseCombat(delta, time = this.time?.now || 0) {
+    const state = this.finalBossRaidState;
+    if (!state?.active || state.timerComplete) {
+      return;
+    }
+
+    if (state.currentPhase?.id !== "third") {
+      if (state.thirdPhaseCombatStarted) {
+        this.cleanupFinalBossRaidThirdPhaseCombat("phaseExit", { clearMinions: true });
+      }
+      return;
+    }
+
+    this.initializeFinalBossRaidThirdPhaseCombat();
+    if (this.isGensoKnightsEventActive?.()) {
+      const elapsedMs = Math.max(0, Number(state.elapsedMs) || 0);
+      state.nextThirdSpellAt = Math.max(state.nextThirdSpellAt || 0, elapsedMs + 1000);
+      state.nextThirdMinionSpawnAt = Math.max(state.nextThirdMinionSpawnAt || 0, elapsedMs + 1000);
+      return;
+    }
+
+    const elapsedMs = Math.max(0, Number(state.elapsedMs) || 0);
+    if (elapsedMs >= (state.nextThirdSpellAt || 0)) {
+      this.triggerFinalBossRaidThirdPhaseSpell();
+      state.nextThirdSpellAt = elapsedMs + this.getFinalBossRaidScaledThirdPhaseMs("spellIntervalMs", 7400);
+    }
+
+    if (elapsedMs >= (state.nextThirdMinionSpawnAt || 0)) {
+      this.spawnFinalBossRaidMinionBatch();
+      state.nextThirdMinionSpawnAt = elapsedMs + this.getFinalBossRaidScaledThirdPhaseMs("minionIntervalMs", 9000);
+    }
+  }
+
+  triggerFinalBossRaidThirdPhaseSpell() {
+    const state = this.finalBossRaidState;
+    if (!state?.active || state.currentPhase?.id !== "third") {
+      return;
+    }
+
+    const spellKind = (state.thirdSpellIndex || 0) % 2 === 0 ? "fire" : "ice";
+    state.thirdSpellIndex = (state.thirdSpellIndex || 0) + 1;
+    const config = FINAL_BOSS_RAID_CONFIG.thirdPhaseCombat || {};
+    const radius = spellKind === "fire" ? (config.fireRadius || 245) : (config.iceRadius || 175);
+    const warningMs = this.getFinalBossRaidScaledThirdPhaseMs("spellWarningMs", 1200);
+    const point = this.getFinalBossRaidSpellTargetPoint(spellKind, radius);
+
+    this.playFinalBossRaidBossAttackMotion(spellKind);
+    this.createFinalBossRaidSpellTelegraph(spellKind, point, radius, warningMs);
+    this.queueFinalBossRaidSpellTimer(warningMs, () => {
+      if (spellKind === "fire") {
+        this.detonateFinalBossRaidFireSpell(point, radius);
+      } else {
+        this.detonateFinalBossRaidIceSpell(point, radius);
+      }
+    });
+  }
+
+  getFinalBossRaidSpellTargetPoint(spellKind, radius) {
+    const playerX = this.playerHitbox?.x || this.getFinalBossRaidBossPosition().x;
+    const playerY = this.playerHitbox?.y || this.getFinalBossRaidBossPosition().y;
+    const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+    const distance = spellKind === "fire"
+      ? Phaser.Math.Between(20, 130)
+      : Phaser.Math.Between(0, 78);
+    return this.clampBossAttackPoint(
+      playerX + Math.cos(angle) * distance,
+      playerY + Math.sin(angle) * distance,
+      radius + 24
+    );
+  }
+
+  playFinalBossRaidBossAttackMotion(spellKind) {
+    const state = this.finalBossRaidState;
+    if (!state?.active) {
+      return;
+    }
+
+    const frames = spellKind === "fire"
+      ? FINAL_BOSS_RAID_CONFIG.attackAssets.fireFrames
+      : FINAL_BOSS_RAID_CONFIG.attackAssets.iceFrames;
+    const availableFrames = (frames || []).filter((frame) => this.textures.exists(frame.textureKey));
+    (state.attackMotionTimers || []).forEach((timer) => timer?.remove?.(false));
+    state.attackMotionTimers = [];
+
+    if (state.bossSprite?.active && availableFrames.length > 0) {
+      const displayWidth = state.bossSprite.displayWidth || 330;
+      const displayHeight = state.bossSprite.displayHeight || 330;
+      availableFrames.forEach((frame, index) => {
+        const timer = this.time.delayedCall(index * 86, () => {
+          if (!state.active || !state.bossSprite?.active) {
+            return;
+          }
+          state.bossSprite.setTexture(frame.textureKey);
+          state.bossSprite.setDisplaySize(displayWidth, displayHeight);
+        });
+        state.attackMotionTimers.push(timer);
+      });
+      const restoreTimer = this.time.delayedCall(availableFrames.length * 86 + 90, () => {
+        if (state.active && state.bossSprite?.active && state.currentPhase?.textureKey && this.textures.exists(state.currentPhase.textureKey)) {
+          state.bossSprite.setTexture(state.currentPhase.textureKey);
+          state.bossSprite.setDisplaySize(displayWidth, displayHeight);
+        }
+      });
+      state.attackMotionTimers.push(restoreTimer);
+      return;
+    }
+
+    const target = state.bossContainer;
+    if (target?.active) {
+      this.tweens.add({
+        targets: target,
+        scaleX: { from: 1.08, to: 1 },
+        scaleY: { from: 0.92, to: 1 },
+        duration: 210,
+        ease: "Back.Out"
+      });
+    }
+  }
+
+  createFinalBossRaidSpellTelegraph(spellKind, point, radius, warningMs) {
+    const isFire = spellKind === "fire";
+    const fillColor = isFire ? 0xff4218 : 0x3edcff;
+    const ringColor = isFire ? 0xffb05a : 0xb7f7ff;
+    const fill = this.add
+      .circle(point.x, point.y, radius, fillColor, isFire ? 0.16 : 0.13)
+      .setDepth(17)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const ring = this.add
+      .circle(point.x, point.y, radius, fillColor, 0)
+      .setStrokeStyle(isFire ? 5 : 4, ringColor, 0.86)
+      .setDepth(18)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const label = this.add.text(point.x, point.y, isFire ? "BLAZE" : "FREEZE", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: isFire ? "19px" : "17px",
+      color: isFire ? "#ffd9a8" : "#d8fbff",
+      fontStyle: "bold",
+      stroke: "#02070a",
+      strokeThickness: 4
+    }).setOrigin(0.5).setDepth(19).setAlpha(0.84);
+
+    const objects = this.registerFinalBossRaidSpellObjects([fill, ring, label]);
+    this.tweens.add({
+      targets: objects,
+      alpha: { from: 0.24, to: 0.9 },
+      duration: warningMs,
+      ease: "Sine.In"
+    });
+    this.queueFinalBossRaidSpellTimer(warningMs + 180, () => {
+      this.tweens.killTweensOf(objects);
+      objects.forEach((object) => object?.destroy?.());
+      this.unregisterFinalBossRaidSpellObjects(objects);
+    });
+    return objects;
+  }
+
+  getFinalBossRaidSpellDamage(baseDamage) {
+    const scaling = this.getCurrentEnemyScaling?.() || {};
+    return Math.max(1, Math.round(
+      (Number(baseDamage) || 1)
+      * (Number(scaling.enemyDamage) || 1)
+      * (Number(scaling.bossDamage) || 1)
+    ));
+  }
+
+  detonateFinalBossRaidFireSpell(point, radius) {
+    const config = FINAL_BOSS_RAID_CONFIG.thirdPhaseCombat || {};
+    const effect = this.spawnBossAttackImage(
+      FINAL_BOSS_RAID_CONFIG.attackAssets.fireEffect.textureKey,
+      point.x,
+      point.y,
+      radius * 2.35,
+      radius * 2.35,
+      0,
+      440
+    );
+    this.registerFinalBossRaidSpellObjects(effect);
+    if (this.isPlayerInBossCircle(point.x, point.y, radius)) {
+      this.applyDamageToPlayer(this.getFinalBossRaidSpellDamage(config.fireDamage || 18));
+    }
+  }
+
+  detonateFinalBossRaidIceSpell(point, radius) {
+    const config = FINAL_BOSS_RAID_CONFIG.thirdPhaseCombat || {};
+    const effect = this.spawnBossAttackImage(
+      FINAL_BOSS_RAID_CONFIG.attackAssets.iceEffect.textureKey,
+      point.x,
+      point.y,
+      radius * 2.2,
+      radius * 2.2,
+      0,
+      520
+    );
+    this.registerFinalBossRaidSpellObjects(effect);
+    if (!this.isPlayerInBossCircle(point.x, point.y, radius)) {
+      return;
+    }
+
+    this.applyDamageToPlayer(this.getFinalBossRaidSpellDamage(config.iceDamage || 8));
+    const state = this.finalBossRaidState;
+    if (state?.active) {
+      const slowMs = Math.max(400, Number(config.iceSlowMs) || 3600);
+      state.playerSlowUntil = Math.max(state.playerSlowUntil || 0, (this.time?.now || 0) + slowMs);
+      state.playerSlowMultiplier = Math.min(
+        Phaser.Math.Clamp(Number(state.playerSlowMultiplier) || 1, 0.3, 1),
+        Phaser.Math.Clamp(Number(config.iceSlowMultiplier) || 0.54, 0.3, 1)
+      );
+      this.setLastPickupNotice("FINAL RAID FREEZE FIELD");
+    }
+  }
+
+  getFinalBossRaidPlayerMoveMultiplier() {
+    const state = this.finalBossRaidState;
+    if (!state?.active || (this.time?.now || 0) >= (state.playerSlowUntil || 0)) {
+      if (state) {
+        state.playerSlowMultiplier = 1;
+      }
+      return 1;
+    }
+    return Phaser.Math.Clamp(Number(state.playerSlowMultiplier) || 1, 0.3, 1);
+  }
+
+  spawnFinalBossRaidMinionBatch() {
+    const state = this.finalBossRaidState;
+    const config = FINAL_BOSS_RAID_CONFIG.thirdPhaseCombat || {};
+    if (!state?.active || state.currentPhase?.id !== "third") {
+      return;
+    }
+
+    const maxActive = Math.max(0, Math.floor(Number(config.minionMaxActive) || 0));
+    const current = this.getFinalBossRaidMinions().length;
+    const openSlots = Math.max(0, maxActive - current);
+    if (openSlots <= 0) {
+      return;
+    }
+
+    const spawnCount = Math.min(openSlots, Math.max(1, Math.floor(Number(config.minionBatch) || 1)));
+    for (let index = 0; index < spawnCount; index += 1) {
+      this.spawnFinalBossRaidMinion(index);
+    }
+  }
+
+  spawnFinalBossRaidMinion(offset = 0) {
+    const config = FINAL_BOSS_RAID_CONFIG.thirdPhaseCombat || {};
+    const typeIds = (config.minionTypeIds || []).filter((id) => ENEMY_DEFINITIONS[id]);
+    if (typeIds.length <= 0) {
+      return null;
+    }
+
+    const state = this.finalBossRaidState || {};
+    const typeIndex = ((state.thirdSpellIndex || 0) + offset) % typeIds.length;
+    const enemy = this.spawnEnemy(typeIds[typeIndex], { waveDefinition: this.getCurrentWaveDefinition() });
+    if (!enemy) {
+      return null;
+    }
+
+    enemy.isFinalBossRaidMinion = true;
+    enemy.suppressGuaranteedDrops = true;
+    enemy.xpValue = 0;
+    enemy.contactDamage = Math.max(1, Math.round((enemy.contactDamage || 8) * 0.82));
+    enemy.setDepth(17.5);
+    this.spawnEliteSpawnEffect(enemy.x, enemy.y);
+    return enemy;
+  }
+
+  updateFinalBossRaidRankingEntries() {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !Array.isArray(state.rankingEntries)) {
+      return;
+    }
+
+    const elapsedMs = Math.max(0, Number(state.elapsedMs) || 0);
+    state.latestSupportGuildId = null;
+    state.nextSupportGuildId = null;
+    state.rankingEntries.forEach((entry) => {
+      if (entry.type === "player") {
+        entry.damage = Math.max(0, Math.floor(Number(state.playerContribution) || 0));
+        entry.joined = true;
+        return;
+      }
+
+      const joined = elapsedMs >= (entry.joinMs || 0);
+      entry.joined = joined;
+      if (!joined) {
+        entry.damage = 0;
+        if (!state.nextSupportGuildId) {
+          state.nextSupportGuildId = entry.id;
+        }
+        return;
+      }
+
+      if (!entry.announced) {
+        this.handleFinalBossRaidGuildJoined(entry);
+      }
+      state.latestSupportGuildId = entry.id;
+      entry.damage = this.getFinalBossRaidProjectedGuildDamage(entry, elapsedMs, state.currentPhase);
+    });
+  }
+
+  getFinalBossRaidProjectedGuildDamage(entry, elapsedMs, phase = null) {
+    if (!entry || entry.type !== "guild") {
+      return 0;
+    }
+
+    const joinMs = Math.max(0, Number(entry.joinMs) || 0);
+    const normalizedElapsed = Math.max(0, Number(elapsedMs) || 0);
+    if (normalizedElapsed < joinMs) {
+      return 0;
+    }
+
+    const activeElapsedMs = Math.max(0, normalizedElapsed - joinMs);
+    const activeSeconds = activeElapsedMs / 1000;
+    const phaseBoost = phase?.id === "third" ? 1.28 : (phase?.id === "second" ? 1.12 : 1);
+    let damage = (Number(entry.baseDamage) || 0) + activeSeconds * (Number(entry.damagePerSecond) || 0) * phaseBoost;
+    if (entry.finalPush) {
+      const burstPerSecond = Math.max(0, Number(entry.burstDamagePerSecond) || 0);
+      const burstExponent = Math.max(1, Number(entry.burstExponent) || 1);
+      damage += Math.pow(activeSeconds, burstExponent) * burstPerSecond;
+    }
+    return Math.max(0, Math.floor(damage));
+  }
+
+  calculateFinalBossRaidGuildDamageTarget(entries = [], elapsedMs = FINAL_BOSS_RAID_CONFIG.resolutionStartMs) {
+    const targetElapsedMs = Math.max(0, (Number(elapsedMs) || 0) - 1);
+    const phase = this.getFinalBossRaidPhaseForElapsed?.(targetElapsedMs);
+    const total = (entries || []).reduce((sum, entry) => {
+      return entry?.type === "guild"
+        ? sum + this.getFinalBossRaidProjectedGuildDamage(entry, targetElapsedMs, phase)
+        : sum;
+    }, 0);
+    return Math.max(1, Math.floor(total));
+  }
+
+  updateFinalBossRaidBossHpFromRaidProgress() {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !Array.isArray(state.rankingEntries)) {
+      return;
+    }
+
+    const maxBars = Math.max(1, Number(state.bossHpMaxBars) || FINAL_BOSS_RAID_CONFIG.bossHpBars);
+    if (state.clearRewardSaved || state.timerComplete || state.elapsedMs >= state.resolutionStartMs) {
+      state.bossHpBars = 0;
+      return;
+    }
+
+    const guildDamage = state.rankingEntries.reduce((sum, entry) => {
+      return entry?.type === "guild" && entry.joined ? sum + Math.max(0, Number(entry.damage) || 0) : sum;
+    }, 0);
+    const playerPressure = Math.max(0, Number(state.playerContribution) || 0) * 0.08;
+    const targetDamage = Math.max(1, Number(state.raidBossHpDamageTarget) || 1);
+    const damageRatio = Phaser.Math.Clamp((guildDamage + playerPressure) / targetDamage, 0, 1);
+    const projectedBars = Math.ceil(maxBars * (1 - damageRatio));
+    const finalGuildJoined = state.rankingEntries.some((entry) => entry?.type === "guild" && entry.finalPush && entry.joined);
+    const preFinalFloor = Math.max(1, Number(FINAL_BOSS_RAID_CONFIG.raidBossHpPreFinalFloorBars) || 1);
+    const currentPlayerLimitedBars = Math.max(
+      0,
+      maxBars - Math.max(0, Number(state.playerBossHpBarsDamage) || 0)
+    );
+
+    state.bossHpBars = Phaser.Math.Clamp(
+      Math.min(currentPlayerLimitedBars, finalGuildJoined ? projectedBars : Math.max(preFinalFloor, projectedBars)),
+      0,
+      maxBars
+    );
+  }
+
+  getFinalBossRaidRankingDisplayEntries() {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !Array.isArray(state.rankingEntries)) {
+      return [];
+    }
+
+    const joinedEntries = state.rankingEntries
+      .filter((entry) => entry.joined || entry.type === "player")
+      .sort((left, right) => (right.damage || 0) - (left.damage || 0));
+    const latestEntry = state.latestSupportGuildId
+      ? state.rankingEntries.find((entry) => entry.id === state.latestSupportGuildId)
+      : null;
+    const playerEntry = state.rankingEntries.find((entry) => entry.type === "player");
+    const selected = [];
+    joinedEntries.slice(0, 5).forEach((entry) => selected.push(entry));
+    [playerEntry, latestEntry].forEach((entry) => {
+      if (entry && !selected.includes(entry)) {
+        selected.push(entry);
+      }
+    });
+    return selected;
+  }
+
+  formatFinalBossRaidRankingLines() {
+    const state = this.finalBossRaidState;
+    if (!state?.active) {
+      return "RAID RANKING\n--";
+    }
+
+    const sorted = [...(state.rankingEntries || [])]
+      .filter((entry) => entry.joined || entry.type === "player")
+      .sort((left, right) => (right.damage || 0) - (left.damage || 0));
+    const rankMap = new Map(sorted.map((entry, index) => [entry.id, index + 1]));
+    const lines = this.getFinalBossRaidRankingDisplayEntries().map((entry) => {
+      const rank = rankMap.get(entry.id) || "-";
+      const marker = entry.type === "player" ? "YOU" : entry.label;
+      const suffix = entry.id === state.latestSupportGuildId ? " NEW" : "";
+      return `${String(rank).padStart(2, "0")} ${marker} ${Math.floor(entry.damage || 0).toLocaleString()}${suffix}`;
+    });
+    return ["RAID RANKING", ...lines].join("\n");
+  }
+
+  getFinalBossRaidFinalSupportEntry() {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !Array.isArray(state.rankingEntries)) {
+      return null;
+    }
+    return state.rankingEntries.find((entry) => entry.finalPush)
+      || state.rankingEntries.find((entry) => entry.id === "guild-013")
+      || null;
+  }
+
+  shouldShowFinalBossRaidPaceWarning() {
+    const state = this.finalBossRaidState;
+    const finalEntry = this.getFinalBossRaidFinalSupportEntry();
+    if (!state?.active || !finalEntry || finalEntry.joined) {
+      return false;
+    }
+
+    const elapsedMs = Math.max(0, Number(state.elapsedMs) || 0);
+    const joinMs = Math.max(0, Number(finalEntry.joinMs) || 0);
+    const leadMs = Math.max(1800, Math.round(14000 * (Number(state.timeScale) || 1)));
+    return elapsedMs >= Math.max(0, joinMs - leadMs) && elapsedMs < joinMs;
+  }
+
+  updateFinalBossRaidPaceWarning() {
+    const state = this.finalBossRaidState;
+    if (!state?.active) {
+      return;
+    }
+
+    const active = this.shouldShowFinalBossRaidPaceWarning();
+    state.paceWarningActive = active;
+    if (active && !state.paceWarningNotified) {
+      state.paceWarningNotified = true;
+      this.setLastPickupNotice("FINAL RAID PACE ALERT");
+    }
+  }
+
+  formatFinalBossRaidIncomingSupportLine() {
+    const state = this.finalBossRaidState;
+    if (!state?.active) {
+      return "INCOMING SUPPORT\n--";
+    }
+
+    const latest = state.latestSupportGuildId
+      ? state.rankingEntries.find((entry) => entry.id === state.latestSupportGuildId)
+      : null;
+    const next = state.nextSupportGuildId
+      ? state.rankingEntries.find((entry) => entry.id === state.nextSupportGuildId)
+      : null;
+    if (state.paceWarningActive) {
+      const finalEntry = this.getFinalBossRaidFinalSupportEntry();
+      const etaMs = Math.max(0, (finalEntry?.joinMs || 0) - (state.elapsedMs || 0));
+      return [
+        "INCOMING SUPPORT",
+        "PACE ALERT",
+        "このペースでは間に合わない",
+        `${finalEntry?.label || "GUILD 013"} ETA ${this.formatTimeMs(etaMs)}`
+      ].join("\n");
+    }
+    if (latest?.finalPush) {
+      return [
+        "INCOMING SUPPORT",
+        `${latest.label} FINAL PUSH`,
+        "RANKING RAPID ASCENT",
+        "BOSS FINISHER LINKED"
+      ].join("\n");
+    }
+    if (!next) {
+      return `INCOMING SUPPORT\n${latest?.label || "ALL GUILDS"} LINKED\nNEXT: FINAL PUSH`;
+    }
+
+    const etaMs = Math.max(0, (next.joinMs || 0) - (state.elapsedMs || 0));
+    return [
+      "INCOMING SUPPORT",
+      `${next.label} ETA ${this.formatTimeMs(etaMs)}`,
+      latest ? `RECENT ${latest.label}` : "RECENT NONE"
+    ].join("\n");
+  }
+
+  applyFinalBossRaidDamageToBoss(enemy, damage, flashTint = 0xffdede, impact = null) {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !enemy?.isFinalBossRaidBoss) {
+      return;
+    }
+
+    const finalDamage = Math.max(0, Number(damage) || 0);
+    if (finalDamage <= 0) {
+      return;
+    }
+
+    const displayDamage = Math.max(1, Math.round(finalDamage));
+    state.playerContribution = Math.max(0, (Number(state.playerContribution) || 0) + displayDamage);
+    state.playerBossHpBarsDamage = Math.max(
+      0,
+      (Number(state.playerBossHpBarsDamage) || 0) + finalDamage * FINAL_BOSS_RAID_CONFIG.playerBossHpDamageRatio
+    );
+    const minimumBars = Math.max(1, Number(FINAL_BOSS_RAID_CONFIG.playerMinimumBossHpBars) || 1);
+    state.bossHpBars = Math.max(
+      minimumBars,
+      (Number(state.bossHpMaxBars) || FINAL_BOSS_RAID_CONFIG.bossHpBars) - state.playerBossHpBarsDamage
+    );
+    enemy.hp = enemy.maxHp;
+
+    const textX = enemy.x + Phaser.Math.Between(-34, 34);
+    const textY = enemy.y - 72 + Phaser.Math.Between(-8, 8);
+    this.spawnFloatingCombatText(textX, textY, displayDamage, {
+      type: "damage",
+      fontSize: "18px",
+      color: "#f7d98a",
+      stroke: "#241504",
+      strokeThickness: 4,
+      rise: 42,
+      duration: 620,
+      jitterX: Phaser.Math.Between(-12, 12),
+      jitterY: Phaser.Math.Between(-4, 4)
+    });
+
+    const target = state.bossContainer || enemy;
+    this.tweens.killTweensOf(target);
+    this.tweens.add({
+      targets: target,
+      scaleX: { from: 1.045, to: 1 },
+      scaleY: { from: 0.965, to: 1 },
+      duration: 120,
+      ease: "Sine.easeOut"
+    });
+    state.bossNameText?.setColor(this.colorToCss(flashTint));
+  }
+
+  updateFinalBossRaid(delta, time = this.time?.now || 0) {
+    const state = this.finalBossRaidState;
+    if (!state?.active || this.gameOver || this.shopActive || this.extractionComplete) {
+      return;
+    }
+
+    if (!state.timerComplete) {
+      state.elapsedMs = Math.min(state.durationMs, Math.max(0, state.elapsedMs + Math.max(0, Number(delta) || 0)));
+      this.setFinalBossRaidPhase(this.getFinalBossRaidPhaseForElapsed(state.elapsedMs), "timer");
+      if (state.elapsedMs >= state.durationMs) {
+        this.completeFinalBossRaidTimer();
+      }
+    }
+
+    this.updateFinalBossRaidRankingEntries();
+    this.updateFinalBossRaidBossHpFromRaidProgress();
+    this.updateFinalBossRaidPaceWarning();
+    this.updateFinalBossRaidThirdPhaseCombat(delta, time);
+    this.updateFinalBossRaidHud();
+    this.updateFinalBossRaidVisuals(time);
+  }
+
+  updateFinalBossRaidVisuals(time = this.time?.now || 0) {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !state.bossContainer?.active) {
+      return;
+    }
+
+    this.syncFinalBossRaidBossTarget();
+    const elapsed = Math.max(0, Number(time) || 0);
+    const phase = state.currentPhase || this.getFinalBossRaidPhaseForElapsed(state.elapsedMs);
+    this.updateFinalBossRaidFieldVisuals(phase);
+    const pulse = Math.sin(elapsed / (phase?.resolution ? 180 : 320));
+    state.bossContainer.setScale(1 + pulse * (phase?.resolution ? 0.015 : 0.035));
+    state.bossContainer.setAlpha(phase?.resolution ? 0.78 + Math.max(0, pulse) * 0.12 : 0.95);
+    state.bossNameText?.setColor(phase?.accent || "#ecfaff");
+  }
+
+  updateFinalBossRaidHud() {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !state.hudContainer?.active || !state.hudGraphics) {
+      return;
+    }
+
+    const phase = state.currentPhase || this.getFinalBossRaidPhaseForElapsed(state.elapsedMs);
+    const remainingMs = Math.max(0, state.durationMs - (state.elapsedMs || 0));
+    const phaseRemainingMs = Math.max(0, (phase?.endMs || state.durationMs) - (state.elapsedMs || 0));
+    const progress = state.durationMs > 0 ? Phaser.Math.Clamp((state.elapsedMs || 0) / state.durationMs, 0, 1) : 0;
+    const phaseColor = phase?.tint || 0x65e6ff;
+    const phaseAccent = phase?.accent || "#9ffcff";
+    const graphics = state.hudGraphics;
+    const maxBars = Math.max(1, Number(state.bossHpMaxBars) || FINAL_BOSS_RAID_CONFIG.bossHpBars);
+    const rawTargetBars = Number(state.bossHpBars);
+    const targetBars = Phaser.Math.Clamp(Number.isFinite(rawTargetBars) ? rawTargetBars : maxBars, 0, maxBars);
+    const rawDisplayBars = Number(state.bossHpDisplayBars);
+    const displayStartBars = Number.isFinite(rawDisplayBars) ? rawDisplayBars : maxBars;
+    state.bossHpDisplayBars = targetBars <= 0
+      ? 0
+      : Phaser.Math.Linear(displayStartBars, targetBars, 0.22);
+    const hpRatio = Phaser.Math.Clamp(state.bossHpDisplayBars / maxBars, 0, 1);
+
+    graphics.clear();
+    graphics.fillStyle(0x02070d, 0.78);
+    graphics.fillRoundedRect(GAME_WIDTH / 2 - 306, 12, 612, 118, 8);
+    graphics.lineStyle(2, phaseColor, 0.54);
+    graphics.strokeRoundedRect(GAME_WIDTH / 2 - 306, 12, 612, 118, 8);
+    graphics.fillStyle(0x071521, 0.96);
+    graphics.fillRoundedRect(GAME_WIDTH / 2 - 280, 112, 560, 12, 5);
+    graphics.fillStyle(phaseColor, 0.92);
+    if (hpRatio > 0) {
+      graphics.fillRoundedRect(GAME_WIDTH / 2 - 280, 112, Math.max(4, 560 * hpRatio), 12, 5);
+    }
+    graphics.lineStyle(1, 0xecfaff, 0.16);
+    graphics.lineBetween(GAME_WIDTH / 2 - 280, 78, GAME_WIDTH / 2 + 280, 78);
+
+    graphics.fillStyle(0x02070d, 0.78);
+    graphics.fillRoundedRect(18, 212, 300, 108, 8);
+    graphics.lineStyle(2, 0xf0c463, 0.38);
+    graphics.strokeRoundedRect(18, 212, 300, 108, 8);
+
+    graphics.fillStyle(0x02070d, 0.78);
+    graphics.fillRoundedRect(GAME_WIDTH - 338, 76, 320, 286, 8);
+    graphics.lineStyle(2, 0x65e6ff, 0.38);
+    graphics.strokeRoundedRect(GAME_WIDTH - 338, 76, 320, 286, 8);
+
+    graphics.fillStyle(0x02070d, 0.78);
+    graphics.fillRoundedRect(GAME_WIDTH - 338, 372, 320, 82, 8);
+    graphics.lineStyle(2, 0xf0c463, 0.34);
+    graphics.strokeRoundedRect(GAME_WIDTH - 338, 372, 320, 82, 8);
+
+    graphics.fillStyle(0x071521, 0.96);
+    graphics.fillRoundedRect(GAME_WIDTH / 2 - 280, 68, 560, 6, 3);
+    graphics.fillStyle(phaseColor, 0.86);
+    graphics.fillRoundedRect(GAME_WIDTH / 2 - 280, 68, Math.max(3, 560 * progress), 6, 3);
+
+    state.timerText?.setText(this.formatTimeMs(remainingMs));
+    state.phaseText?.setText(`PHASE: ${phase?.label || "FINAL RAID"}`);
+    state.phaseText?.setColor(phaseAccent);
+    state.bossHpText?.setText(`BOSS HP BARS ${Math.ceil(targetBars).toLocaleString()} / ${maxBars.toLocaleString()}`);
+    state.contributionText?.setText(`YOUR CONTRIBUTION\n${Math.floor(state.playerContribution || 0).toLocaleString()}`);
+    state.rankingText?.setText(this.formatFinalBossRaidRankingLines());
+    state.incomingSupportText?.setText(this.formatFinalBossRaidIncomingSupportLine());
+    state.detailText?.setText([
+      `PHASE TIME ${this.formatTimeMs(phaseRemainingMs)}`,
+      state.debug ? `DEBUG x${state.timeScale.toFixed(2)}` : "600s EVENT",
+      state.paceWarningActive ? "PACE INSUFFICIENT" : "",
+      phase?.resolution ? "DEFEAT / REWARD MARGIN" : `PHASE ${Math.max(1, FINAL_BOSS_RAID_CONFIG.phases.findIndex((entry) => entry.id === phase?.id) + 1)}`
+    ].filter(Boolean).join(" / "));
+  }
+
+  awardFinalBossRaidClearRewards(reason = "clear") {
+    const state = this.finalBossRaidState;
+    if (!state?.active || state.clearRewardSaved) {
+      return false;
+    }
+
+    const wasAlreadyCleared = this.isFinalBossRaidCleared();
+    state.clearRewardSaved = true;
+    state.bossHpBars = 0;
+    state.bossHpDisplayBars = 0;
+    this.markFinalBossRaidCleared({
+      clearedAt: Date.now(),
+      unlockedBossCd: true,
+      unlockedFinalBossSupport: true
+    });
+    this.updateFinalBossRaidHud();
+    this.setLastPickupNotice(wasAlreadyCleared
+      ? "FINAL RAID CLEAR CONFIRMED"
+      : "FINAL RAID CLEAR: CD / SUPPORT UNLOCKED");
+    if (!wasAlreadyCleared) {
+      this.showOverflowRewardText("FINAL RAID CLEAR", this.playerHitbox?.x, this.playerHitbox?.y - 80, "#f7d98a");
+    }
+    if (state.debug) {
+      console.log("[FINAL BOSS RAID] clear rewards saved", {
+        reason,
+        finalBossState: { ...this.finalBossState },
+        shopOwnedCdIds: [...(this.shopState?.ownedCdIds || [])]
+      });
+    }
+    return true;
+  }
+
+  completeFinalBossRaidTimer() {
+    const state = this.finalBossRaidState;
+    if (!state?.active || state.timerComplete) {
+      return;
+    }
+
+    state.timerComplete = true;
+    state.elapsedMs = state.durationMs;
+    this.awardFinalBossRaidClearRewards("timerComplete");
+    if (state.debug) {
+      console.log("[FINAL BOSS RAID] timer complete", {
+        elapsedMs: state.elapsedMs,
+        cleared: this.finalBossState?.cleared === true
+      });
     }
   }
 
@@ -7030,6 +9788,9 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getRobotLevelCap(type) {
+    if (this.isDebugMaxBuildEnabled?.()) {
+      return ROBOT_MAX_LEVEL;
+    }
     const tier = this.getRobotCapTier(type);
     return Phaser.Math.Clamp(
       ROBOT_CUSTOM_BASE_LEVEL_CAP + tier * ROBOT_CUSTOM_LEVELS_PER_TIER,
@@ -7257,6 +10018,25 @@ class SurvivalScene extends Phaser.Scene {
     return Boolean(cdId && this.shopState?.ownedCdIds?.includes(cdId));
   }
 
+  getCdJacketTextureKey(cd, owned = false) {
+    if (!cd) {
+      const fallbackLockedKey = CD_CATALOG[0]?.lockedJacketTextureKey;
+      return this.textures.exists(fallbackLockedKey) ? fallbackLockedKey : "cd-placeholder-slot";
+    }
+
+    const preferredKey = owned ? cd.jacketTextureKey : (cd.lockedJacketTextureKey || cd.jacketTextureKey);
+    const fallbackKey = owned
+      ? (cd.fallbackJacketTextureKey || "cd-placeholder-slot")
+      : (cd.fallbackLockedJacketTextureKey || cd.fallbackJacketTextureKey || "cd-placeholder-slot");
+    if (this.textures.exists(preferredKey)) {
+      return preferredKey;
+    }
+    if (this.textures.exists(fallbackKey)) {
+      return fallbackKey;
+    }
+    return "cd-placeholder-slot";
+  }
+
   getOwnedCdDefinitions() {
     const ownedIds = new Set(Array.isArray(this.shopState?.ownedCdIds)
       ? this.shopState.ownedCdIds
@@ -7272,6 +10052,10 @@ class SurvivalScene extends Phaser.Scene {
     const cd = this.getCdDefinition(cdId);
     if (!cd) {
       this.showPreGameShop("このCDはまだ準備中です");
+      return;
+    }
+    if (this.isRewardLockedCd(cd)) {
+      this.showPreGameShop("Depth10 Final Raid 討伐で解放されます");
       return;
     }
     if (this.isCdOwned(cd.id)) {
@@ -11375,8 +14159,7 @@ class SurvivalScene extends Phaser.Scene {
       this.skillMutationState.currentChoices = [];
     }
     this.hideOverlay();
-    this.restoreGameplayInputAfterOverlay();
-    this.physics.world.resume();
+    this.resumeGameplayAfterBlockingOverlay("skillMutationSelection");
     this.tryOpenPendingPostOverlaySelections();
     return true;
   }
@@ -11386,6 +14169,7 @@ class SurvivalScene extends Phaser.Scene {
       this.tryOpenPendingSkillMutationSelection?.() ||
       this.tryOpenQueuedLostArmsEvolutionSelection?.() ||
       this.tryOpenPendingOverdriveModSelection?.() ||
+      this.tryStartFinalBossRaidFromDebugStart?.("postOverlay") ||
       this.tryOpenPendingDepthDirectiveSelection?.() ||
       false
     );
@@ -11685,8 +14469,7 @@ class SurvivalScene extends Phaser.Scene {
       this.overdriveModState.currentChoices = [];
     }
     this.hideOverlay();
-    this.restoreGameplayInputAfterOverlay();
-    this.physics.world.resume();
+    this.resumeGameplayAfterBlockingOverlay("overdriveModSelection");
     this.tryOpenPendingPostOverlaySelections();
     return true;
   }
@@ -12628,7 +15411,7 @@ class SurvivalScene extends Phaser.Scene {
     if (this.isGensoKnightsEventActive() || this.isTimingCoinSupportAttackActive()) {
       return false;
     }
-    return SUPPORT_ATTACK_DEFINITIONS.length > 0 || Boolean(GENSO_KNIGHTS_SUPPORT_DEFINITION);
+    return this.getAvailableSupportAttackDefinitions().length > 0 || Boolean(GENSO_KNIGHTS_SUPPORT_DEFINITION);
   }
 
   isTimingCoinSupportAttackActive() {
@@ -12724,6 +15507,22 @@ class SurvivalScene extends Phaser.Scene {
 
     this.pendingLevelUps += this.startingUpgradeSelectionsRemaining;
     this.showLevelUpChoices();
+  }
+
+  skipOpeningBoostDraftForDebug(reason = "debugSkipOpeningBoost") {
+    if (!this.isDebugSkipOpeningBoostEnabled?.()) {
+      return false;
+    }
+
+    this.startingUpgradeSelectionsRemaining = 0;
+    this.levelUpOpeningBoostActive = false;
+    if (this.runAnjuMemoryState) {
+      this.runAnjuMemoryState.openingBoostExtraChoiceActive = false;
+    }
+    if (this.isFinalBossRaidDebugEnabled?.()) {
+      console.log("[OPENING BOOST] skipped for debug", { reason });
+    }
+    return true;
   }
 
   isOpeningBoostDraftActive() {
@@ -14228,7 +17027,7 @@ class SurvivalScene extends Phaser.Scene {
       )
       .setDepth(15);
 
-    const initialTextureKey = this.getPlayerRobotTextureKey(this.playerRobotMotion?.directionKey || "down", false);
+    const initialTextureKey = this.getPlayerVisualTextureKey(this.playerRobotMotion?.directionKey || "down", false);
     this.playerSprite = this.add
       .image(startX, startY + PLAYER_SPRITE_OFFSET_Y, initialTextureKey)
       .setDepth(20);
@@ -14282,6 +17081,30 @@ class SurvivalScene extends Phaser.Scene {
     return this.textures.exists("player-idle") ? "player-idle" : preferredKey;
   }
 
+  isDepth10HumanPlayerVisualActive() {
+    return Math.floor(Number(this.stageDepth) || 1) === PLAYER_HUMAN_VISUAL_DEPTH;
+  }
+
+  getPlayerHumanTextureKey(moving = false) {
+    if (moving) {
+      const walkIndex = Math.floor(((this.playerRobotMotion?.hoverMs || 0) / 160)) % PLAYER_HUMAN_WALK_TEXTURE_KEYS.length;
+      const walkKey = PLAYER_HUMAN_WALK_TEXTURE_KEYS[walkIndex];
+      if (walkKey && this.textures.exists(walkKey)) {
+        return walkKey;
+      }
+    }
+    if (this.textures.exists(PLAYER_HUMAN_IDLE_TEXTURE_KEY)) {
+      return PLAYER_HUMAN_IDLE_TEXTURE_KEY;
+    }
+    return this.textures.exists("player-walk-a") ? "player-walk-a" : this.getPlayerRobotTextureKey("down", false);
+  }
+
+  getPlayerVisualTextureKey(directionKey = "down", moving = false) {
+    return this.isDepth10HumanPlayerVisualActive()
+      ? this.getPlayerHumanTextureKey(moving)
+      : this.getPlayerRobotTextureKey(directionKey, moving);
+  }
+
   getPlayerRobotDirectionKeyForAngle(angle) {
     if (!Number.isFinite(angle)) {
       return this.playerRobotMotion?.directionKey || "down";
@@ -14317,11 +17140,33 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     const frameHeight = Math.max(icon.frame?.height || 1, 1);
-    icon.setScale(PLAYER_ROBOT_HUD_DISPLAY_HEIGHT / frameHeight);
+    const textureKey = icon.texture?.key || "";
+    const targetHeight = textureKey.startsWith("player-robot-")
+      ? PLAYER_ROBOT_HUD_DISPLAY_HEIGHT
+      : PLAYER_HUMAN_HUD_DISPLAY_HEIGHT;
+    icon.setScale(targetHeight / frameHeight);
   }
 
   getSupportReferenceDisplayHeight() {
     return PLAYER_FALLBACK_DISPLAY_HEIGHT;
+  }
+
+  getPlayerHudTextureKey() {
+    return this.isDepth10HumanPlayerVisualActive()
+      ? this.getPlayerHumanTextureKey(false)
+      : this.getPlayerRobotTextureKey("down", false);
+  }
+
+  updateHudPlayerIcon() {
+    if (!this.hudPlayerIcon?.active) {
+      return;
+    }
+
+    const textureKey = this.getPlayerHudTextureKey();
+    if (textureKey && this.hudPlayerIcon.texture?.key !== textureKey) {
+      this.hudPlayerIcon.setTexture(textureKey);
+      this.scalePlayerRobotHudIcon(this.hudPlayerIcon);
+    }
   }
 
   setPlayerRobotPose(directionKey, moving) {
@@ -14329,12 +17174,22 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    const textureKey = this.getPlayerRobotTextureKey(directionKey, moving);
+    const useHumanVisual = this.isDepth10HumanPlayerVisualActive();
+    const textureKey = this.getPlayerVisualTextureKey(directionKey, moving);
     if (this.playerSprite.texture?.key !== textureKey) {
       this.playerSprite.setTexture(textureKey);
       this.scalePlayerRobotSprite();
     }
-    this.playerSprite.setFlipX(false);
+    if (useHumanVisual) {
+      const angle = this.playerRobotMotion?.angle;
+      const horizontal = Number.isFinite(angle) ? Math.cos(angle) : 1;
+      if (moving && Math.abs(horizontal) > 0.08) {
+        this.playerRobotMotion.humanFlipX = horizontal < 0;
+      }
+      this.playerSprite.setFlipX(Boolean(this.playerRobotMotion?.humanFlipX));
+    } else {
+      this.playerSprite.setFlipX(false);
+    }
   }
 
   updatePlayerRobotMotion(delta, direction, isMoving, isDashing) {
@@ -14365,9 +17220,14 @@ class SurvivalScene extends Phaser.Scene {
     const horizontalLean = isMoving
       ? Phaser.Math.Clamp(direction.x / Math.max(Math.abs(direction.x) + Math.abs(direction.y), 1), -1, 1)
       : 0;
-    const targetTilt = horizontalLean * (isDashing ? 6.5 : 4.2);
-    const targetLift = isDashing ? -10 : (isMoving ? -6 : -2);
-    const targetShadowScale = isDashing ? 0.82 : (isMoving ? 0.9 : 1);
+    const useHumanVisual = this.isDepth10HumanPlayerVisualActive();
+    const targetTilt = useHumanVisual
+      ? horizontalLean * (isDashing ? 3.2 : 2.2)
+      : horizontalLean * (isDashing ? 6.5 : 4.2);
+    const targetLift = useHumanVisual ? 0 : (isDashing ? -10 : (isMoving ? -6 : -2));
+    const targetShadowScale = useHumanVisual
+      ? (isDashing ? 0.94 : (isMoving ? 0.98 : 1))
+      : (isDashing ? 0.82 : (isMoving ? 0.9 : 1));
     motion.tiltAngle = Phaser.Math.Linear(motion.tiltAngle || 0, targetTilt, 0.22);
     motion.lift = Phaser.Math.Linear(motion.lift || 0, targetLift, 0.18);
     motion.shadowScale = Phaser.Math.Linear(motion.shadowScale || 1, targetShadowScale, 0.16);
@@ -14381,6 +17241,13 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     const motion = this.playerRobotMotion || {};
+    if (this.isDepth10HumanPlayerVisualActive()) {
+      this.playerBoosterGlow?.setAlpha(0);
+      this.playerBoosterCore?.setAlpha(0);
+      (this.playerBoosterStreaks || []).forEach((streak) => streak?.setAlpha(0));
+      return;
+    }
+
     const moving = Boolean(motion.isMoving);
     const dashing = Boolean(motion.isDashing);
     const angle = Number.isFinite(motion.angle) ? motion.angle : (this.playerAimAngle || Math.PI * 0.5);
@@ -15330,6 +18197,23 @@ class SurvivalScene extends Phaser.Scene {
     this.rearmInputManagerListeners();
   }
 
+  grantPostSelectionDamageGrace(durationMs = POST_SELECTION_DAMAGE_GRACE_MS, reason = "selection") {
+    if (this.gameOver || this.shopActive || this.extractionComplete || !this.stats) {
+      return;
+    }
+
+    const now = Math.max(0, Number(this.time?.now) || 0);
+    const graceMs = Math.max(0, Math.floor(Number(durationMs) || 0));
+    this.invincibleUntil = Math.max(Number(this.invincibleUntil) || 0, now + graceMs);
+    this.cancelActiveEnemyBeamCharges();
+  }
+
+  resumeGameplayAfterBlockingOverlay(reason = "selection") {
+    this.restoreGameplayInputAfterOverlay();
+    this.grantPostSelectionDamageGrace(POST_SELECTION_DAMAGE_GRACE_MS, reason);
+    this.physics?.world?.resume?.();
+  }
+
   shouldUseMobileControls() {
     if (typeof window === "undefined") {
       return false;
@@ -15656,10 +18540,11 @@ class SurvivalScene extends Phaser.Scene {
 
     const hudPlayerIcon = this.registerUiObject(
       this.add
-        .image(62, 70, this.getPlayerRobotTextureKey("down", false))
+        .image(62, 70, this.getPlayerHudTextureKey())
         .setScrollFactor(0)
         .setDepth(202)
     );
+    this.hudPlayerIcon = hudPlayerIcon;
     this.scalePlayerRobotHudIcon(hudPlayerIcon);
 
     this.hudLevelText = this.createHudText(this.hudUsesFrameAsset ? 134 : 114, this.hudUsesFrameAsset ? 23 : 25, "Lv. 1", {
@@ -17752,6 +20637,7 @@ class SurvivalScene extends Phaser.Scene {
     const owned = Boolean(cd && this.isCdOwned(cd.id));
     const selected = Boolean(cd && this.shopState.selectedCdId === cd.id);
     const enabled = Boolean(cd);
+    const rewardLocked = Boolean(cd && this.isRewardLockedCd(cd));
     const fill = selected ? 0x1c3147 : (enabled ? 0x101b2a : 0x070c12);
     const stroke = selected ? 0xf0c463 : 0x6fcfff;
     const panel = this.addOverlayChild(
@@ -17778,10 +20664,7 @@ class SurvivalScene extends Phaser.Scene {
       }, true, 4);
     }
 
-    const fallbackLockedKey = CD_CATALOG[0]?.lockedJacketTextureKey;
-    const imageKey = cd
-      ? (owned ? cd.jacketTextureKey : (cd.lockedJacketTextureKey || cd.jacketTextureKey))
-      : (this.textures.exists(fallbackLockedKey) ? fallbackLockedKey : "cd-placeholder-slot");
+    const imageKey = this.getCdJacketTextureKey(cd, owned);
     const image = this.addOverlayChild(
       this.add
         .image(x + width / 2, y + 50, imageKey)
@@ -17799,11 +20682,15 @@ class SurvivalScene extends Phaser.Scene {
 
     const title = cd?.title || `CD ${String(index + 1).padStart(2, "0")}`;
     const subtitle = cd
-      ? (owned ? cd.subtitle : "LOCKED")
+      ? (owned ? cd.subtitle : (rewardLocked ? "DEPTH10 RAID LOCKED" : "LOCKED"))
       : "COMING SOON";
     const actionLabel = !cd
       ? "SOON"
-      : (selected ? "SELECTED" : (owned ? "SELECT" : `BUY ${this.normalizeCoinAmount(cd.price).toLocaleString()} GEEK`));
+      : (
+        selected
+          ? "SELECTED"
+          : (owned ? "SELECT" : (rewardLocked ? "CLEAR FINAL RAID" : `BUY ${this.normalizeCoinAmount(cd.price).toLocaleString()} GEEK`))
+      );
     const bonusLabel = cd ? this.getCdBonusText(cd) : "";
 
     this.createOverlayText(x + 10, y + 101, title, {
@@ -17941,7 +20828,9 @@ class SurvivalScene extends Phaser.Scene {
     } else if (queueSkillMutationDebugPreset) {
       this.applySkillMutationDebugPreset({ prepareOnly: true });
     }
-    this.beginStartingUpgradeDraft();
+    if (!this.skipOpeningBoostDraftForDebug("gameStart")) {
+      this.beginStartingUpgradeDraft();
+    }
     if (queueSkillMutationDebugPreset) {
       const debugSkillId = this.getSkillMutationDebugParam("debugSkillMutationSkill");
       this.queueSkillMutationSelect(debugSkillId, "stage4");
@@ -17950,10 +20839,18 @@ class SurvivalScene extends Phaser.Scene {
     } else if (!forceSkillMutationDebugPreset) {
       this.applySkillMutationDebugPreset();
     }
-    this.queueDepthDirectiveSelection(this.stageDepth, "gameStart");
+    const debugStartFinalBossRaidPending = this.isFinalBossRaidDebugStartDepthTarget();
+    if (!debugStartFinalBossRaidPending) {
+      this.queueDepthDirectiveSelection(this.stageDepth, "gameStart");
+    }
     this.notifyGeekMilestoneForDepth(this.stageDepth, "gameStart");
-    this.onDepthStartedForNemesis(this.stageDepth, "gameStart");
+    if (!debugStartFinalBossRaidPending) {
+      this.onDepthStartedForNemesis(this.stageDepth, "gameStart");
+    }
     if (!this.levelUpActive) {
+      if (this.tryStartFinalBossRaidFromDebugStart("gameStart")) {
+        return;
+      }
       this.physics.world.resume();
     }
   }
@@ -18289,7 +21186,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   updateGateTimer(delta) {
-    if (this.gameOver || this.shopActive || this.levelUpActive || this.gateChoiceActive || this.extractionComplete) {
+    if (this.gameOver || this.shopActive || this.levelUpActive || this.gateChoiceActive || this.extractionComplete || this.isFinalBossRaidActive()) {
       return;
     }
 
@@ -19767,13 +22664,20 @@ class SurvivalScene extends Phaser.Scene {
       this.anomalyContractState.selectionOpen = false;
       this.anomalyContractState.selectionLocked = false;
     }
+    const enterFinalBossRaid = this.shouldEnterFinalBossRaid(targetDepth, mode);
     this.hideOverlay();
-    this.physics.world.resume();
+    if (!enterFinalBossRaid) {
+      this.resumeGameplayAfterBlockingOverlay("depthTransition");
+    }
     this.clearGateStabilizeProtocolState("depthTransition", { preserveAnchor: true });
     const prefix = mode === "force" ? "FORCE BREAKTHROUGH DEPTH" : "DEPTH";
     this.setLastPickupNotice(dataCacheCount > 0 ? `${prefix} ${this.stageDepth} / DATA CACHE ${dataCacheCount}` : `${prefix} ${this.stageDepth}`);
     this.notifyGeekMilestoneForDepth(this.stageDepth, "depthTransition");
     this.activatePendingAnomalyContract(targetDepth);
+    if (enterFinalBossRaid) {
+      this.beginFinalBossRaid(transition, { dataCacheCount });
+      return;
+    }
     this.queueDepthDirectiveSelection(targetDepth, "depthTransition");
     this.onDepthStartedForNemesis(targetDepth, "depthTransition");
   }
@@ -19821,6 +22725,7 @@ class SurvivalScene extends Phaser.Scene {
     this.resetDepthDirectiveState(emergency ? "emergencyExtract" : "extract");
     this.resetSkillMutationState(emergency ? "emergencyExtract" : "extract");
     this.resetNemesisBossState(emergency ? "emergencyExtract" : "extract");
+    this.resetFinalBossRaidState(emergency ? "emergencyExtract" : "extract");
     this.resetOverflowRewardState();
     this.destroyStageGate();
     this.hideOverlay();
@@ -20730,6 +23635,7 @@ class SurvivalScene extends Phaser.Scene {
     this.tryOpenPendingSkillMutationSelection();
     this.tryOpenQueuedLostArmsEvolutionSelection();
     this.tryOpenPendingOverdriveModSelection();
+    this.tryStartFinalBossRaidFromDebugStart("update");
     this.tryOpenPendingDepthDirectiveSelection();
 
     if (this.gameOver) {
@@ -20750,20 +23656,27 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
+    this.updateFinalBossRaid(delta, time);
+    const finalBossRaidActive = this.isFinalBossRaidActive();
+
     if (this.gateChoiceActive || this.extractionComplete) {
       return;
     }
 
     this.survivalTime += delta;
-    this.enemySpawnTimer += delta;
+    if (!finalBossRaidActive) {
+      this.enemySpawnTimer += delta;
+    }
     this.shootTimer += delta;
     this.updateOverdrive(delta);
     this.updateOverdriveMod(delta, time);
     this.updateRobotSyncDrive(delta);
     this.updateDepthDirective(delta, time);
-    this.updateNemesisBoss(time, delta);
-    this.updateBossSpawns();
-    this.updateGateTimer(delta);
+    if (!finalBossRaidActive) {
+      this.updateNemesisBoss(time, delta);
+      this.updateBossSpawns();
+      this.updateGateTimer(delta);
+    }
 
     if (this.gameOver || this.gateChoiceActive) {
       return;
@@ -20794,7 +23707,7 @@ class SurvivalScene extends Phaser.Scene {
     this.updateRobotMissiles(time, delta);
     this.updateEnemyProjectiles(time);
 
-    while (this.enemySpawnTimer >= this.getEnemySpawnInterval()) {
+    while (!finalBossRaidActive && this.enemySpawnTimer >= this.getEnemySpawnInterval()) {
       this.enemySpawnTimer -= this.getEnemySpawnInterval();
       this.spawnEnemyWave();
     }
@@ -20862,7 +23775,10 @@ class SurvivalScene extends Phaser.Scene {
     const isMoving = direction.lengthSq() > 0;
     const isDashing = this.updatePlayerDashState(delta, isMoving);
     if (isMoving) {
-      const moveSpeed = this.stats.moveSpeed * this.getOverdriveMoveSpeedMultiplier() * (isDashing ? DASH_SPEED_MULTIPLIER : 1);
+      const moveSpeed = this.stats.moveSpeed
+        * this.getOverdriveMoveSpeedMultiplier()
+        * this.getFinalBossRaidPlayerMoveMultiplier()
+        * (isDashing ? DASH_SPEED_MULTIPLIER : 1);
       direction.normalize().scale(moveSpeed);
       this.playerAimAngle = Math.atan2(direction.y, direction.x);
     }
@@ -20887,8 +23803,9 @@ class SurvivalScene extends Phaser.Scene {
 
     const motion = this.playerRobotMotion || {};
     const moving = Boolean(motion.isMoving);
-    const hoverSpeed = moving ? 0.012 : 0.0065;
-    const hoverAmount = moving ? 3.6 : 2.2;
+    const useHumanVisual = this.isDepth10HumanPlayerVisualActive();
+    const hoverSpeed = useHumanVisual ? (moving ? 0.02 : 0.006) : (moving ? 0.012 : 0.0065);
+    const hoverAmount = useHumanVisual ? (moving ? 1.4 : 0.4) : (moving ? 3.6 : 2.2);
     const hover = Math.sin((motion.hoverMs || 0) * hoverSpeed) * hoverAmount;
     this.playerSprite
       .setPosition(this.playerHitbox.x, this.playerHitbox.y + PLAYER_SPRITE_OFFSET_Y + hover + (motion.lift || 0))
@@ -22051,13 +24968,19 @@ class SurvivalScene extends Phaser.Scene {
 
   cancelActiveEnemyBeamCharges() {
     this.enemies?.children.each((enemy) => {
-      if (enemy?.active && enemy.isChargingBeam) {
+      if (enemy?.active && (enemy.isChargingBeam || enemy.beamChargeEvent || enemy.beamTelegraphObjects?.length)) {
         this.destroyEnemyBeamTelegraph(enemy);
       }
-      if (enemy?.active && enemy.isChargingDashAttack) {
+      if (enemy?.active && (enemy.isChargingDashAttack || enemy.dashTelegraphObjects?.length)) {
         this.clearDashEnemyWarning(enemy);
       }
-      if (enemy?.active && (enemy.isChargingBossAttack || enemy.isBossDashing)) {
+      const hasBossAttackRuntime = enemy?.active && (
+        enemy.isChargingBossAttack ||
+        enemy.isBossDashing ||
+        (enemy.bossAttackEvents?.length || 0) > 0 ||
+        (enemy.bossAttackObjects?.length || 0) > 0
+      );
+      if (hasBossAttackRuntime) {
         this.cancelBossAttack(enemy);
       }
     });
@@ -22738,7 +25661,7 @@ class SurvivalScene extends Phaser.Scene {
 
       skillState.orbitals.forEach((orbital) => {
         this.enemies.children.each((enemy) => {
-          if (!enemy.active || enemy.isDying || this.time.now < (enemy.hitRecoverUntil || 0)) {
+          if (!enemy.active || enemy.isDying || enemy.isFinalBossRaidBoss || this.time.now < (enemy.hitRecoverUntil || 0)) {
             return;
           }
 
@@ -22778,7 +25701,7 @@ class SurvivalScene extends Phaser.Scene {
     const now = this.time.now;
 
     this.enemies.children.each((enemy) => {
-      if (!enemy.active || enemy.isDying) {
+      if (!enemy.active || enemy.isDying || enemy.isFinalBossRaidBoss) {
         return;
       }
 
@@ -24352,7 +27275,7 @@ class SurvivalScene extends Phaser.Scene {
   getActiveEnemyCount() {
     let count = 0;
     this.enemies.children.each((enemy) => {
-      if (enemy.active && !enemy.isDying) {
+      if (enemy.active && !enemy.isDying && !enemy.isFinalBossRaidBoss) {
         count += 1;
       }
     });
@@ -24847,7 +27770,7 @@ class SurvivalScene extends Phaser.Scene {
     const maxDistanceSq = Number.isFinite(maxRange) ? maxRange * maxRange : Infinity;
 
     this.enemies.children.each((enemy) => {
-      if (!enemy.active || enemy.isDying) {
+      if (!enemy.active || enemy.isDying || enemy.isFinalBossRaidBoss) {
         return;
       }
 
@@ -26187,6 +29110,10 @@ class SurvivalScene extends Phaser.Scene {
       finalDamage *= Phaser.Math.Clamp(Number(enemy.lostArmsVulnerableMult) || 1, 1, 1.5);
     }
     finalDamage = this.applyOverdriveModHunterDamageModifier(enemy, finalDamage, impact);
+    if (enemy.isFinalBossRaidBoss) {
+      this.applyFinalBossRaidDamageToBoss(enemy, finalDamage, flashTint, impact);
+      return;
+    }
     enemy.hp -= finalDamage;
     this.spawnEnemyDamageNumber(enemy, finalDamage);
     this.applyEnemyImpact(enemy, impact);
@@ -26235,7 +29162,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   handlePlayerHit(playerHitbox, enemy) {
-    if (!enemy.active || enemy.isDying) {
+    if (!enemy.active || enemy.isDying || enemy.isFinalBossRaidBoss) {
       return;
     }
 
@@ -26266,33 +29193,38 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   killEnemy(enemy) {
-    if (!enemy.active || enemy.isDying) {
+    if (!enemy.active || enemy.isDying || enemy.isFinalBossRaidBoss) {
       return;
     }
 
     enemy.isDying = true;
     const isNemesis = this.isNemesisBoss(enemy);
-    this.runStats.kills += 1;
-    if (enemy.isElite) {
-      this.runStats.eliteKills += 1;
+    const suppressRaidMinionRewards = enemy.isFinalBossRaidMinion === true;
+    if (!suppressRaidMinionRewards) {
+      this.runStats.kills += 1;
+      if (enemy.isElite) {
+        this.runStats.eliteKills += 1;
+      }
+      if (enemy.isBoss && !isNemesis) {
+        this.runStats.bossKills = (this.runStats.bossKills || 0) + 1;
+        this.advanceWaveAfterBossKill(enemy);
+      }
+      this.handleDepthDirectiveEnemyKilled(enemy);
+      this.spawnXpOrb(enemy.x, enemy.y, enemy.xpValue);
     }
-    if (enemy.isBoss && !isNemesis) {
-      this.runStats.bossKills = (this.runStats.bossKills || 0) + 1;
-      this.advanceWaveAfterBossKill(enemy);
-    }
-    this.handleDepthDirectiveEnemyKilled(enemy);
-    this.spawnXpOrb(enemy.x, enemy.y, enemy.xpValue);
     this.spawnEnemyDefeatEffect(enemy.x, enemy.y);
-    const guaranteedDropsSpawned = enemy.suppressGuaranteedDrops ? true : this.spawnGuaranteedEnemyDrops(enemy);
-    if (!guaranteedDropsSpawned) {
-      this.trySpawnRareItem(enemy);
+    const guaranteedDropsSpawned = suppressRaidMinionRewards || enemy.suppressGuaranteedDrops ? true : this.spawnGuaranteedEnemyDrops(enemy);
+    if (!suppressRaidMinionRewards) {
+      if (!guaranteedDropsSpawned) {
+        this.trySpawnRareItem(enemy);
+      }
+      this.trySpawnSpecialItem(enemy);
+      this.trySpawnRobotBossDrop(enemy);
+      if (!enemy.suppressGuaranteedDrops) {
+        this.trySpawnLostArmDrop(enemy);
+      }
     }
-    this.trySpawnSpecialItem(enemy);
-    this.trySpawnRobotBossDrop(enemy);
-    if (!enemy.suppressGuaranteedDrops) {
-      this.trySpawnLostArmDrop(enemy);
-    }
-    if (isNemesis) {
+    if (isNemesis && !suppressRaidMinionRewards) {
       this.handleNemesisBossDefeated(enemy);
     }
     enemy.clearTint();
@@ -27813,20 +30745,30 @@ class SurvivalScene extends Phaser.Scene {
     this.triggerSupportAttack(this.pickSupportAttackDefinition());
   }
 
+  getAvailableSupportAttackDefinitions() {
+    return SUPPORT_ATTACK_DEFINITIONS.filter((definition) => {
+      if (definition.requiresFinalBossSupportUnlock) {
+        return this.isFinalBossSupportUnlocked();
+      }
+      return true;
+    });
+  }
+
   pickSupportAttackDefinition() {
+    const availableDefinitions = this.getAvailableSupportAttackDefinitions();
     const canTriggerGensoKnights = !this.isGensoKnightsEventActive()
       && !this.getActiveNemesisBoss()
       && !(this.activeSupportAttacks?.length)
       && this.lastSupportAttackId !== GENSO_KNIGHTS_SUPPORT_DEFINITION.id;
 
-    const candidates = SUPPORT_ATTACK_DEFINITIONS.filter((candidate) => {
+    const candidates = availableDefinitions.filter((candidate) => {
       return candidate.id !== this.lastSupportAttackId;
     });
     const pool = [
       ...(canTriggerGensoKnights ? [GENSO_KNIGHTS_SUPPORT_DEFINITION] : []),
-      ...(candidates.length > 0 ? candidates : SUPPORT_ATTACK_DEFINITIONS)
+      ...(candidates.length > 0 ? candidates : availableDefinitions)
     ];
-    return this.pickWeightedSupportAttackDefinition(pool) || SUPPORT_ATTACK_DEFINITIONS[0];
+    return this.pickWeightedSupportAttackDefinition(pool) || availableDefinitions[0] || null;
   }
 
   pickWeightedSupportAttackDefinition(pool) {
@@ -29475,6 +32417,8 @@ class SurvivalScene extends Phaser.Scene {
         this.updateSupportHealField(support, delta);
       } else if (definition.type === "randomAttack") {
         this.updateSupportRandomAttack(support, delta);
+      } else if (definition.type === "finalBossSupport") {
+        this.updateFinalBossSupportAttack(support, delta);
       } else if (definition.type === "followThunder") {
         this.updateSupportFollowThunder(support, delta);
       } else if (definition.type === "dashSlash") {
@@ -30318,6 +33262,163 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
+  updateFinalBossSupportAttack(support, delta) {
+    const definition = support.definition;
+    if (!Number.isFinite(support.nextFinalBossSpellAtMs)) {
+      support.nextFinalBossSpellAtMs = definition.attackInitialDelayMs || definition.attackIntervalMs || 2500;
+      support.finalBossSpellCount = 0;
+    }
+
+    support.attackTimerMs += delta;
+    const maxCount = Math.max(1, Math.floor(Number(definition.attackCount) || 8));
+    const intervalMs = Math.max(250, Number(definition.attackIntervalMs) || 2500);
+    while (
+      support.finalBossSpellCount < maxCount
+      && support.elapsedMs >= support.nextFinalBossSpellAtMs
+    ) {
+      this.performFinalBossSupportSpell(support, support.finalBossSpellCount);
+      support.finalBossSpellCount += 1;
+      support.nextFinalBossSpellAtMs += intervalMs;
+    }
+  }
+
+  performFinalBossSupportSpell(support, spellIndex = 0) {
+    const definition = support.definition;
+    const spellKind = spellIndex % 2 === 0 ? "fire" : "ice";
+    const target = this.pickFinalBossSupportTarget(definition);
+    if (!target) {
+      return;
+    }
+
+    const radius = spellKind === "fire"
+      ? (definition.fireRadius || 420)
+      : (definition.iceRadius || 330);
+    const center = this.clampBossAttackPoint(
+      target.x + Phaser.Math.Between(-28, 28),
+      target.y + Phaser.Math.Between(-22, 22),
+      radius + 28
+    );
+    const damage = spellKind === "fire"
+      ? (definition.fireDamageAmount || 46)
+      : (definition.iceDamageAmount || 30);
+    const knockbackForce = spellKind === "fire"
+      ? (definition.fireKnockbackForce || 520)
+      : (definition.iceKnockbackForce || 240);
+
+    support.sprite?.setFlipX(center.x < support.x);
+    this.spawnFinalBossSupportSpellEffect(center.x, center.y, radius, spellKind, definition);
+    const hitCount = this.damageFinalBossSupportSpellRadius(center.x, center.y, radius, damage, spellKind, definition, knockbackForce);
+    if (hitCount > 0) {
+      this.cameras.main.shake(spellKind === "fire" ? 130 : 90, spellKind === "fire" ? 0.0022 : 0.0014);
+    }
+    this.setLastPickupNotice(`${definition.noticeLabel} ${spellKind === "fire" ? "BLAZE" : "FREEZE"} ${hitCount} HIT`);
+  }
+
+  pickFinalBossSupportTarget(definition) {
+    const raidBoss = this.finalBossRaidState?.bossHitTarget;
+    if (raidBoss?.active && !raidBoss.isDying) {
+      return raidBoss;
+    }
+
+    const view = this.cameras.main.worldView;
+    const padding = definition.targetPadding || 160;
+    const radius = definition.targetRadius || 980;
+    const radiusSq = radius * radius;
+    const candidates = [];
+    const fallback = [];
+
+    this.enemies.children.each((enemy) => {
+      if (!enemy.active || enemy.isDying) {
+        return;
+      }
+
+      const distanceSq = Phaser.Math.Distance.Squared(enemy.x, enemy.y, this.playerHitbox.x, this.playerHitbox.y);
+      if (distanceSq <= radiusSq) {
+        fallback.push({ enemy, score: distanceSq });
+      }
+      if (
+        enemy.x >= view.left - padding &&
+        enemy.x <= view.right + padding &&
+        enemy.y >= view.top - padding &&
+        enemy.y <= view.bottom + padding
+      ) {
+        candidates.push({ enemy, score: distanceSq * (enemy.isBoss || enemy.isElite ? 0.45 : 1) });
+      }
+    });
+
+    const pool = candidates.length > 0 ? candidates : fallback;
+    pool.sort((left, right) => left.score - right.score);
+    return pool[0]?.enemy || null;
+  }
+
+  spawnFinalBossSupportSpellEffect(x, y, radius, spellKind, definition) {
+    const isFire = spellKind === "fire";
+    const asset = isFire
+      ? FINAL_BOSS_RAID_CONFIG.attackAssets.fireEffect
+      : FINAL_BOSS_RAID_CONFIG.attackAssets.iceEffect;
+    const effect = this.spawnBossAttackImage(
+      asset?.textureKey,
+      x,
+      y,
+      radius * (isFire ? 2.35 : 2.15),
+      radius * (isFire ? 2.35 : 2.15),
+      Phaser.Math.FloatBetween(-0.18, 0.18),
+      isFire ? 460 : 520
+    );
+    effect.setTint(isFire ? 0xffb05a : 0xb7f7ff);
+
+    const ring = this.add
+      .image(x, y + 12, "skill-hit-ring")
+      .setDepth(27)
+      .setScale(radius / 38, radius / 58)
+      .setTint(isFire ? 0xff6a33 : definition.glowTint)
+      .setAlpha(0.74)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.supportEffectsLayer.add(ring);
+    this.tweens.add({
+      targets: ring,
+      scaleX: ring.scaleX * 1.24,
+      scaleY: ring.scaleY * 1.24,
+      alpha: 0,
+      duration: isFire ? 420 : 520,
+      ease: "Cubic.Out",
+      onComplete: () => {
+        ring.destroy();
+      }
+    });
+  }
+
+  damageFinalBossSupportSpellRadius(x, y, radius, damage, spellKind, definition, knockbackForce) {
+    const now = this.time.now;
+    let hitCount = 0;
+    this.enemies.children.each((enemy) => {
+      if (!enemy.active || enemy.isDying) {
+        return;
+      }
+
+      const distance = Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y);
+      if (distance > radius) {
+        return;
+      }
+
+      if (spellKind === "ice") {
+        enemy.freezeUntil = Math.max(enemy.freezeUntil || 0, now + (definition.iceFreezeHoldMs || 820));
+        enemy.body?.setVelocity(0, 0);
+      }
+
+      const falloff = Phaser.Math.Clamp(1 - distance / Math.max(radius, 1), 0, 1);
+      this.applyDamageToEnemy(enemy, Math.max(1, Math.round(damage * (0.76 + falloff * 0.34))), definition.glowTint, {
+        sourceX: x,
+        sourceY: y,
+        force: knockbackForce,
+        recoverMs: spellKind === "fire" ? 170 : 120,
+        supportFinisher: true
+      });
+      hitCount += 1;
+    });
+    return hitCount;
+  }
+
   updateSupportFollowThunder(support, delta) {
     const definition = support.definition;
     this.moveSupportFollowNpc(support, definition, delta);
@@ -31068,7 +34169,7 @@ class SurvivalScene extends Phaser.Scene {
       if (this.levelUpActive && !this.gameOver) {
         this.levelUpActive = false;
         this.hideOverlay();
-        this.physics.world.resume();
+        this.resumeGameplayAfterBlockingOverlay("levelUpMax");
       }
       this.setLastPickupNotice("UPGRADE MAX / XP -> OVERDRIVE");
       return;
@@ -31883,6 +34984,7 @@ class SurvivalScene extends Phaser.Scene {
     this.resetDepthDirectiveState(reason);
     this.resetSkillMutationState(reason);
     this.resetNemesisBossState(reason);
+    this.resetFinalBossRaidState(reason);
     this.resetRobotSyncState(reason);
     this.resetRobotBarrierState(reason);
     this.resetRobotNapalmState(reason);
@@ -32039,6 +35141,7 @@ class SurvivalScene extends Phaser.Scene {
     this.resetDepthDirectiveState("returnToOpeningShop");
     this.resetSkillMutationState("returnToOpeningShop");
     this.resetNemesisBossState("returnToOpeningShop");
+    this.resetFinalBossRaidState("returnToOpeningShop");
     this.resetRobotSyncState("returnToOpeningShop");
     this.resetRobotBarrierState("returnToOpeningShop");
     this.resetRobotNapalmState("returnToOpeningShop");
@@ -32358,8 +35461,8 @@ class SurvivalScene extends Phaser.Scene {
 
     if (isNarrow) {
       const cardWidth = 640;
-      const cardHeight = 142;
-      const gap = 18;
+      const cardHeight = cardCount >= 4 ? 142 : 158;
+      const gap = cardCount >= 4 ? 10 : 12;
       const totalHeight = cardCount * cardHeight + Math.max(0, cardCount - 1) * gap;
       const startY = -totalHeight / 2 + cardHeight / 2 + 22;
       return {
@@ -32536,18 +35639,22 @@ class SurvivalScene extends Phaser.Scene {
     if (model.newEffects.length > 0) {
       const effectWidth = compact ? Math.min(360, contentWidth) : width - 54;
       const effectX = compact ? contentLeft : -effectWidth / 2;
-      const effectY = compact ? 42 : 88;
-      const effectPanel = this.add.rectangle(effectX, effectY, effectWidth, 30, model.typeColor, 0.18)
+      const effectY = compact ? 31 : 88;
+      const effectHeight = compact ? 24 : 30;
+      const effectPanel = this.add.rectangle(effectX, effectY, effectWidth, effectHeight, model.typeColor, 0.18)
         .setOrigin(compact ? 0 : 0, 0)
         .setStrokeStyle(1, model.typeColor, 0.78);
-      const effectText = this.add.text(effectX + 12, effectY + 7, `NEW EFFECT: ${model.newEffects[0]}`, {
+      const effectText = this.add.text(effectX + 12, effectY + (compact ? 5 : 7), `NEW EFFECT: ${model.newEffects[0]}`, {
         fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
-        fontSize: compact ? "12px" : "13px",
+        fontSize: compact ? "11px" : "13px",
         color: model.typeTextColor,
         fontStyle: "bold"
       });
+      if (compact) {
+        this.fitLevelUpChipText(effectText, effectWidth - 24, 9);
+      }
       container.add([effectPanel, effectText]);
-      chipY = compact ? 78 : 130;
+      chipY = compact ? 59 : 130;
     }
 
     this.createLevelUpChipList(
@@ -32558,6 +35665,14 @@ class SurvivalScene extends Phaser.Scene {
       compact ? contentWidth : width - 48,
       {
         maxChips: compact ? 3 : 6,
+        maxRows: compact ? 1 : 0,
+        fontSize: compact ? "10px" : "12px",
+        minFontSize: compact ? 8 : 10,
+        chipHeight: compact ? 20 : 23,
+        lineHeight: compact ? 22 : 28,
+        minWidth: compact ? 52 : 62,
+        paddingX: compact ? 8 : 10,
+        gap: compact ? 6 : 8,
         color: model.kind === "passive" ? 0x27344e : 0x10283a,
         stroke: model.themeColor
       }
@@ -32680,32 +35795,71 @@ class SurvivalScene extends Phaser.Scene {
     container.add([graphics, label]);
   }
 
+  fitLevelUpChipText(text, maxWidth, minFontSize = 9) {
+    if (!text || maxWidth <= 0) {
+      return;
+    }
+
+    let fontSize = Math.max(minFontSize, parseInt(text.style?.fontSize, 10) || 12);
+    while (text.width > maxWidth && fontSize > minFontSize) {
+      fontSize -= 1;
+      text.setFontSize(`${fontSize}px`);
+    }
+
+    if (text.width <= maxWidth) {
+      return;
+    }
+
+    const source = String(text.text || "");
+    let next = source;
+    while (next.length > 1 && text.width > maxWidth) {
+      next = `${next.slice(0, Math.max(1, next.length - 2))}…`;
+      text.setText(next);
+    }
+  }
+
   createLevelUpChipList(container, chips, startX, startY, maxWidth, options = {}) {
     let x = startX;
     let y = startY;
-    const lineHeight = 28;
+    let rowIndex = 0;
+    const lineHeight = Math.max(16, Math.floor(Number(options.lineHeight) || 28));
+    const chipHeight = Math.max(16, Math.floor(Number(options.chipHeight) || 23));
+    const minWidth = Math.max(40, Math.floor(Number(options.minWidth) || 62));
+    const paddingX = Math.max(4, Math.floor(Number(options.paddingX) || 10));
+    const gap = Math.max(2, Math.floor(Number(options.gap) || 8));
+    const fontSize = options.fontSize || "12px";
+    const minFontSize = Math.max(6, Math.floor(Number(options.minFontSize) || 9));
+    const maxRows = Math.max(0, Math.floor(Number(options.maxRows) || 0));
     const visibleChips = (chips || []).slice(0, options.maxChips || 6);
-    visibleChips.forEach((chip) => {
+    for (const chip of visibleChips) {
       const label = chip.label || String(chip);
       const text = this.add.text(0, 0, label, {
         fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
-        fontSize: "12px",
+        fontSize,
         color: "#e8f7ff",
         fontStyle: "bold"
       });
-      const chipWidth = Math.min(Math.max(62, text.width + 20), maxWidth);
+      let chipWidth = Math.min(Math.max(minWidth, text.width + paddingX * 2), maxWidth);
       if (x > startX && x + chipWidth > startX + maxWidth) {
+        if (maxRows > 0 && rowIndex + 1 >= maxRows) {
+          text.destroy();
+          break;
+        }
         x = startX;
         y += lineHeight;
+        rowIndex += 1;
       }
 
-      const back = this.add.rectangle(x, y, chipWidth, 23, options.color || 0x10283a, 0.88)
+      const availableWidth = Math.max(minWidth, startX + maxWidth - x);
+      chipWidth = Math.min(chipWidth, availableWidth);
+      this.fitLevelUpChipText(text, chipWidth - paddingX * 2, minFontSize);
+      const back = this.add.rectangle(x, y, chipWidth, chipHeight, options.color || 0x10283a, 0.88)
         .setOrigin(0, 0)
         .setStrokeStyle(1, options.stroke || 0x6fcfff, 0.34);
-      text.setPosition(x + 10, y + 4);
+      text.setPosition(x + paddingX, y + Math.max(2, Math.floor((chipHeight - text.height) / 2)));
       container.add([back, text]);
-      x += chipWidth + 8;
-    });
+      x += chipWidth + gap;
+    }
   }
 
   drawLevelUpCardBackground(record) {
@@ -32913,8 +36067,7 @@ class SurvivalScene extends Phaser.Scene {
       this.lostArmsResonanceSelectionActive = false;
       this.lostArmsEvolutionSelectionContext = null;
       this.hideOverlay();
-      this.restoreGameplayInputAfterOverlay();
-      this.physics.world.resume();
+      this.resumeGameplayAfterBlockingOverlay("lostArmsEvolutionSelection");
       this.tryOpenPendingPostOverlaySelections();
       return;
     }
@@ -32931,8 +36084,7 @@ class SurvivalScene extends Phaser.Scene {
 
       this.levelUpActive = false;
       this.hideOverlay();
-      this.restoreGameplayInputAfterOverlay();
-      this.physics.world.resume();
+      this.resumeGameplayAfterBlockingOverlay("robotTuningSelection");
       this.tryOpenPendingPostOverlaySelections();
       return;
     }
@@ -32957,8 +36109,7 @@ class SurvivalScene extends Phaser.Scene {
 
     this.levelUpActive = false;
     this.hideOverlay();
-    this.restoreGameplayInputAfterOverlay();
-    this.physics.world.resume();
+    this.resumeGameplayAfterBlockingOverlay("levelUpSelection");
     this.tryOpenPendingPostOverlaySelections();
   }
 
@@ -33065,6 +36216,7 @@ class SurvivalScene extends Phaser.Scene {
     this.teardownGateChoiceOverlay();
     this.teardownAnomalyContractOverlay();
     this.teardownStabilizeProtocolOverlay();
+    this.teardownFinalBossRaidPlaceholder?.("clearOverlay");
     this.cleanupDeepExtractionResultOverlay("clearOverlay");
     this.overlayButtons.forEach((item) => item.destroy());
     this.overlayButtons = [];
@@ -33112,7 +36264,7 @@ class SurvivalScene extends Phaser.Scene {
 
     this.levelUpActive = false;
     this.hideOverlay();
-    this.physics.world.resume();
+    this.resumeGameplayAfterBlockingOverlay("overlaySelection");
   }
 
   getPrimarySkillState() {
@@ -33178,6 +36330,24 @@ class SurvivalScene extends Phaser.Scene {
 
   updateDepthHud() {
     if (!this.hudDepthText) {
+      return;
+    }
+
+    if (this.isFinalBossRaidActive()) {
+      const state = this.finalBossRaidState || {};
+      const phase = state.currentPhase || this.getFinalBossRaidPhaseForElapsed(state.elapsedMs);
+      const remainingMs = Math.max(0, (state.durationMs || 0) - (state.elapsedMs || 0));
+      const phaseRemainingMs = Math.max(0, (phase?.endMs || state.durationMs || 0) - (state.elapsedMs || 0));
+      const coinScaling = this.getCurrentCoinScaling();
+      const milestoneHud = this.getGeekMilestoneHudStrings(coinScaling);
+      this.hudDepthText.setText(`DEPTH ${this.stageDepth || 1} FINAL RAID`);
+      this.hudUnsecuredCoinText?.setText(`UNSECURED GEEK ${this.normalizeCoinAmount(this.runUnsecuredCoins).toLocaleString()}`);
+      this.hudCoinMultiplierText?.setText(milestoneHud.multiplierText);
+      this.hudGateText?.setText(`RAID ${this.formatTimeMs(remainingMs)}`);
+      this.hudGateText?.setColor(phase?.accent || "#f7d98a");
+      this.hudInstabilityText?.setText(`${phase?.label || "FINAL RAID"} / ${this.formatTimeMs(phaseRemainingMs)} / GATE OFF`);
+      this.hudInstabilityText?.setColor(phase?.accent || "#f7d98a");
+      this.updateAnjuMemoryHud();
       return;
     }
 
@@ -33254,7 +36424,13 @@ class SurvivalScene extends Phaser.Scene {
     this.hudTimerText.setText(timeLabel);
     this.hudWaveText.setText(String(wave.id).padStart(2, "0"));
     this.hudKillsText.setText(this.runStats.kills.toLocaleString());
-    this.hudObjectiveText.setText(`${wave.label}\nBoss ${bossLabel}  Foes ${activeEnemies}/${wave.maxEnemies}`);
+    if (this.isFinalBossRaidActive()) {
+      const raidState = this.finalBossRaidState || {};
+      const phase = raidState.currentPhase || this.getFinalBossRaidPhaseForElapsed(raidState.elapsedMs);
+      this.hudObjectiveText.setText(`${FINAL_BOSS_RAID_CONFIG.title}\n${phase?.label || "FINAL RAID"}  Gate disabled`);
+    } else {
+      this.hudObjectiveText.setText(`${wave.label}\nBoss ${bossLabel}  Foes ${activeEnemies}/${wave.maxEnemies}`);
+    }
     this.hudResourceText.setText(this.formatHudBestSummary(this.bestRecord));
     this.hudCoinText?.setText(this.normalizeCoinAmount(this.runUnsecuredCoins).toLocaleString());
     this.updateDepthHud();
@@ -33277,6 +36453,7 @@ class SurvivalScene extends Phaser.Scene {
 
     this.setHudBarFill(this.hpBarFill, hpRatio);
     this.setHudBarFill(this.xpBarFill, xpRatio);
+    this.updateHudPlayerIcon();
     this.updateDashStaminaGauge();
     this.updateHudSkillSlots();
     this.updateHudRobotPanel();

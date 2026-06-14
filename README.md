@@ -2,7 +2,7 @@
 
 Phaser 3 製のブラウザ向け 2D サバイバルゲームです。ビルド工程はなく、`index.html`、`vendor/phaser.min.js`、`skillDefinitions.js`、`stageDefinitions.js`、`game.js` をローカル HTTP サーバーで配信して動かします。
 
-操作キャラは常時クマ型超巨大ロボットに搭乗し、背部ブースターで浮遊しながら高速移動します。スキル、パッシブ、サポート攻撃、随伴ロボット、LOST ARMS を強化しながら敵を倒し、XP と未確定 GEEK を集めます。2 分ごとに出現する Stage Gate では、Depth を上げて続行するか、未確定 GEEK を確定して帰還するかを選びます。
+操作キャラは通常 Depth ではクマ型超巨大ロボットに搭乗し、背部ブースターで浮遊しながら高速移動します。Depth10 では降機した人間グラフィックに切り替わります。スキル、パッシブ、サポート攻撃、随伴ロボット、LOST ARMS を強化しながら敵を倒し、XP と未確定 GEEK を集めます。2 分ごとに出現する Stage Gate では、Depth を上げて続行するか、未確定 GEEK を確定して帰還するかを選びます。
 
 ## 起動方法
 
@@ -29,7 +29,7 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - ランキング入力: 名前入力後 `Enter`
 - ゲームオーバー後: `R` または `Enter` でショップへ戻る
 
-移動中の操作キャラは 8 方向のクマ型ロボット画像へ向きを切り替え、ブースター噴出が最も強いフレームを維持します。見た目は巨大化していますが、ゲームバランス維持のため当たり判定は従来のプレイヤー hitbox を使います。
+移動中の操作キャラは通常 Depth では 8 方向のクマ型ロボット画像へ向きを切り替え、ブースター噴出が最も強いフレームを維持します。Depth10 では既存の人間キャラ画像に切り替わり、当たり判定は従来のプレイヤー hitbox のままです。
 
 ## スマートフォン対応
 
@@ -45,6 +45,11 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - `?mobileGate=0`: スマートフォン開始ゲートを無効化します。
 - `?mobileControls=1`: PC ブラウザでもモバイル操作 UI を表示します。
 - `?mobileControls=0`: モバイル操作 UI を無効化します。
+- `?debugStartDepth=10`: デバッグ用。`GAME START` 後のランを Depth10 から開始します。
+- `?debugSkipOpeningBoost=1`: デバッグ用。`GAME START` 後の Opening Boost 選択をスキップします。
+- `?debugStartDepth=10&debugFinalRaid=1&debugFinalRaidPhase=third&debugSkipOpeningBoost=1`: デバッグ用。Depth10 Final Raid を短縮タイマーの第三形態付近から確認します。
+- `?debugMaxBuild=1`: デバッグ用。攻撃スキル全種を最終Stage、ROBOTをLv.20/Tune Lv.20、HPを300、移動速度を+100にします。
+- `?debugStartDepth=10&debugFinalRaid=1&debugFinalRaidScale=0.05&debugFinalRaidPhase=third&debugMaxBuild=1&debugSkipOpeningBoost=1`: デバッグ用。強化済み状態でDepth10 Final Raidを確認します。
 
 ## ゲーム進行
 
@@ -413,6 +418,7 @@ Support アイテムを拾うとサポート攻撃が発動します。Support �
 - えも子
 - いしでん
 - アシグラ
+- ドールを解放せし者: Depth10 Final Raid 討伐後のみ低確率で抽選され、20秒間に爆炎/氷結魔法を約8回放ちます。
 
 元素騎士:
 
@@ -478,6 +484,7 @@ CD:
 - 未来を生きてる: 100,000 GEEK / 移動速度 +20、連射 +5%
 - コトコト: 100,000 GEEK / 攻撃力 +6%、最大スタミナ +15
 - いっちゃいな: 100,000 GEEK / 弾速 +8%、移動速度 +12
+- ドールを解放せし者: Depth10 Final Raid 討伐報酬。討伐前は CDSHOP でロック表示、討伐後は BGM として選択できます。
 
 永続強化の価格は基礎 1,000 GEEK からレベルに応じて増加し、100 GEEK 単位に丸められます。ショップ表示前、帰還後、ゲーム再生成時には `shop-loading-screen` が表示されます。
 
@@ -558,6 +565,7 @@ localStorage キー:
 - `lastmemoVansabaLostArmsState`: LOST ARMS 永続 Lv と pity
 - `lastmemoVansabaAnjuMemoryState`: ANJU MEMORY 残高、購入済み報酬、選択中スキン/称号/バッジ、チケット、到達済みマイルストーン
 - `lastmemoVansabaRunArchive`: 直近 20 件の RUN ARCHIVE / 戦闘ログ。ローカル閲覧専用でランキングや Firebase には送信しません。
+- `lastmemoVansabaFinalBossState`: Depth10 Final Raid 討伐済み、ラスボスCD、ラスボスサポート解禁状態
 - `collisionEditor:<stageId>`: 衝突判定編集モードの一時保存データ
 
 sessionStorage キー:
