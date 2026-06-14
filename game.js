@@ -3562,18 +3562,18 @@ const SUPPORT_ATTACK_DEFINITIONS = [
     cutinPath: "./画像/finalboss/finalboss_supportatack_finalboss.png",
     animationFrames: [
       {
-        textureKey: "support-finalboss-liberator-frame-1",
-        imagePath: "./画像/finalboss/finalboss_supportatack_finalboss.png"
+        textureKey: "finalboss-ultimate-form",
+        imagePath: "./画像/finalboss/finalboss_Ultimate Form.png"
       }
     ],
     showFieldVisual: false,
     supportOffsetX: 150,
-    supportOffsetY: -34,
-    supportShadowOffsetY: 76,
-    spriteLongestSide: 250,
-    durationMs: 20000,
+    supportOffsetY: -78,
+    supportShadowOffsetY: 112,
+    spriteLongestSide: 286,
+    durationMs: 20500,
     attackInitialDelayMs: 2500,
-    attackIntervalMs: 2500,
+    attackIntervalMs: 2100,
     attackCount: 8,
     targetRadius: 980,
     targetPadding: 160,
@@ -3583,7 +3583,10 @@ const SUPPORT_ATTACK_DEFINITIONS = [
     iceRadius: 330,
     iceDamageAmount: 30,
     iceFreezeHoldMs: 820,
-    iceKnockbackForce: 240
+    iceKnockbackForce: 240,
+    spellFieldDurationMs: 3000,
+    spellFieldTickMs: 600,
+    maxSpellFields: 4
   }
 ].map((definition) => ({
   ...definition,
@@ -35006,6 +35009,7 @@ class SurvivalScene extends Phaser.Scene {
 
   updateFinalBossSupportAttack(support, delta) {
     const definition = support.definition;
+    this.updateFinalBossSupportSpellFields(support, delta);
     if (!Number.isFinite(support.nextFinalBossSpellAtMs)) {
       support.nextFinalBossSpellAtMs = definition.attackInitialDelayMs || definition.attackIntervalMs || 2500;
       support.finalBossSpellCount = 0;
@@ -35048,20 +35052,15 @@ class SurvivalScene extends Phaser.Scene {
       : (definition.iceKnockbackForce || 240);
 
     support.sprite?.setFlipX(center.x < support.x);
-    this.spawnFinalBossSupportSpellEffect(center.x, center.y, radius, spellKind, definition);
-    const hitCount = this.damageFinalBossSupportSpellRadius(center.x, center.y, radius, damage, spellKind, definition, knockbackForce);
+    const field = this.spawnFinalBossSupportSpellField(support, center.x, center.y, radius, spellKind, definition, damage, knockbackForce);
+    const hitCount = field?.lastHitCount || 0;
     if (hitCount > 0) {
       this.cameras.main.shake(spellKind === "fire" ? 130 : 90, spellKind === "fire" ? 0.0022 : 0.0014);
     }
-    this.setLastPickupNotice(`${definition.noticeLabel} ${spellKind === "fire" ? "BLAZE" : "FREEZE"} ${hitCount} HIT`);
+    this.setLastPickupNotice(`${definition.noticeLabel} ${spellKind === "fire" ? "BLAZE FIELD" : "FREEZE FIELD"} ${hitCount} HIT`);
   }
 
   pickFinalBossSupportTarget(definition) {
-    const raidBoss = this.finalBossRaidState?.bossHitTarget;
-    if (raidBoss?.active && !raidBoss.isDying) {
-      return raidBoss;
-    }
-
     const view = this.cameras.main.worldView;
     const padding = definition.targetPadding || 160;
     const radius = definition.targetRadius || 980;
@@ -35070,7 +35069,7 @@ class SurvivalScene extends Phaser.Scene {
     const fallback = [];
 
     this.enemies.children.each((enemy) => {
-      if (!enemy.active || enemy.isDying) {
+      if (!enemy.active || enemy.isDying || enemy.isFinalBossRaidBoss || enemy.isFinalBossRaidMinion) {
         return;
       }
 
@@ -35093,48 +35092,201 @@ class SurvivalScene extends Phaser.Scene {
     return pool[0]?.enemy || null;
   }
 
-  spawnFinalBossSupportSpellEffect(x, y, radius, spellKind, definition) {
-    const isFire = spellKind === "fire";
-    const asset = isFire
-      ? FINAL_BOSS_RAID_CONFIG.attackAssets.fireEffect
-      : FINAL_BOSS_RAID_CONFIG.attackAssets.iceEffect;
-    const effect = this.spawnBossAttackImage(
-      asset?.textureKey,
-      x,
-      y,
-      radius * (isFire ? 2.35 : 2.15),
-      radius * (isFire ? 2.35 : 2.15),
-      Phaser.Math.FloatBetween(-0.18, 0.18),
-      isFire ? 460 : 520
-    );
-    effect.setTint(isFire ? 0xffb05a : 0xb7f7ff);
+  spawnFinalBossSupportSpellField(support, x, y, radius, spellKind, definition, totalDamage, knockbackForce) {
+    if (!support) {
+      return null;
+    }
 
+    const isFire = spellKind === "fire";
+    const durationMs = Math.max(100, Number(definition.spellFieldDurationMs) || 3000);
+    const tickMs = Math.max(80, Number(definition.spellFieldTickMs) || 600);
+    const tickCount = Math.max(1, 1 + Math.floor(Math.max(0, durationMs - 1) / tickMs));
+    const tickDamage = Math.max(1, Math.round((Number(totalDamage) || 1) / tickCount));
+    const fieldTextureKey = this.getFinalBossSupportSpellFieldTextureKey(spellKind);
+    const floor = this.add
+      .ellipse(x, y + 18, radius * 1.7, radius * 0.82, isFire ? 0xff4e18 : 0x4edfff, isFire ? 0.11 : 0.13)
+      .setDepth(19.2)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const glow = this.add
+      .image(x, y + 10, "skill-hit-glow")
+      .setDepth(19.35)
+      .setScale(Math.max(0.8, radius / 72), Math.max(0.62, radius / 92))
+      .setTint(isFire ? 0xff8a35 : 0xa8f8ff)
+      .setAlpha(isFire ? 0.28 : 0.32)
+      .setBlendMode(Phaser.BlendModes.ADD);
     const ring = this.add
       .image(x, y + 12, "skill-hit-ring")
-      .setDepth(27)
-      .setScale(radius / 38, radius / 58)
+      .setDepth(19.5)
+      .setScale(radius / 44, radius / 70)
       .setTint(isFire ? 0xff6a33 : definition.glowTint)
-      .setAlpha(0.74)
+      .setAlpha(0.56)
       .setBlendMode(Phaser.BlendModes.ADD);
-    this.supportEffectsLayer.add(ring);
-    this.tweens.add({
-      targets: ring,
-      scaleX: ring.scaleX * 1.24,
-      scaleY: ring.scaleY * 1.24,
-      alpha: 0,
-      duration: isFire ? 420 : 520,
-      ease: "Cubic.Out",
-      onComplete: () => {
-        ring.destroy();
+    const fieldImage = fieldTextureKey
+      ? this.add
+        .image(x, y + (isFire ? 6 : 16), fieldTextureKey)
+        .setOrigin(0.5, isFire ? 0.58 : 0.62)
+        .setDepth(19.45)
+        .setAlpha(isFire ? 0.34 : 0.42)
+        .setBlendMode(Phaser.BlendModes.ADD)
+      : null;
+
+    if (fieldImage) {
+      fieldImage.setDisplaySize(radius * (isFire ? 1.7 : 1.84), radius * (isFire ? 0.88 : 0.94));
+      fieldImage.setRotation(Phaser.Math.FloatBetween(-0.07, 0.07));
+    }
+
+    const objects = [floor, glow, ring, fieldImage].filter(Boolean);
+    this.supportEffectsLayer.add(objects);
+    const field = {
+      x,
+      y,
+      radius,
+      spellKind,
+      remainingMs: durationMs,
+      durationMs,
+      tickMs,
+      tickTimerMs: 0,
+      tickDamage,
+      knockbackForce: Math.max(0, Math.round((Number(knockbackForce) || 0) * (isFire ? 0.28 : 0.34))),
+      floor,
+      glow,
+      ring,
+      fieldImage,
+      objects,
+      lastHitCount: 0
+    };
+
+    field.lastHitCount = this.damageFinalBossSupportSpellRadius(
+      x,
+      y,
+      radius,
+      tickDamage,
+      spellKind,
+      definition,
+      field.knockbackForce
+    );
+    const fields = Array.isArray(support.finalBossSpellFields) ? support.finalBossSpellFields : [];
+    support.finalBossSpellFields = fields;
+    fields.push(field);
+    while (fields.length > Math.max(1, Number(definition.maxSpellFields) || 4)) {
+      this.destroyFinalBossSupportSpellField(fields.shift());
+    }
+    return field;
+  }
+
+  getFinalBossSupportSpellFieldTextureKey(spellKind) {
+    const asset = spellKind === "fire"
+      ? FINAL_BOSS_RAID_CONFIG.attackAssets.fireEffect
+      : FINAL_BOSS_RAID_CONFIG.attackAssets.iceEffect;
+    if (asset?.textureKey && this.textures.exists(asset.textureKey)) {
+      return asset.textureKey;
+    }
+
+    const frames = spellKind === "fire"
+      ? FINAL_BOSS_RAID_CONFIG.attackAssets.fireFrames
+      : FINAL_BOSS_RAID_CONFIG.attackAssets.iceFrames;
+    const fieldFrame = frames?.[4] || frames?.[0];
+    return fieldFrame?.textureKey && this.textures.exists(fieldFrame.textureKey)
+      ? fieldFrame.textureKey
+      : null;
+  }
+
+  updateFinalBossSupportSpellFields(support, delta) {
+    const fields = Array.isArray(support?.finalBossSpellFields) ? support.finalBossSpellFields : [];
+    if (!fields.length) {
+      return;
+    }
+
+    const remainingFields = [];
+    fields.forEach((field) => {
+      field.remainingMs -= delta;
+      field.tickTimerMs += delta;
+      this.updateFinalBossSupportSpellFieldVisual(field, delta);
+
+      while (field.remainingMs > 0 && field.tickTimerMs >= field.tickMs) {
+        field.tickTimerMs -= field.tickMs;
+        field.lastHitCount = this.damageFinalBossSupportSpellRadius(
+          field.x,
+          field.y,
+          field.radius,
+          field.tickDamage,
+          field.spellKind,
+          support.definition,
+          field.knockbackForce
+        );
+      }
+
+      if (field.remainingMs > 0) {
+        remainingFields.push(field);
+      } else {
+        this.destroyFinalBossSupportSpellField(field);
       }
     });
+    support.finalBossSpellFields = remainingFields;
+  }
+
+  updateFinalBossSupportSpellFieldVisual(field, delta) {
+    if (!field?.floor?.active) {
+      return;
+    }
+
+    const isFire = field.spellKind === "fire";
+    const ratio = Phaser.Math.Clamp(field.remainingMs / Math.max(1, field.durationMs), 0, 1);
+    const pulse = (Math.sin((this.time?.now || 0) / (isFire ? 190 : 230)) + 1) * 0.5;
+    field.floor
+      .setScale(1 + pulse * 0.08, 1 + pulse * 0.05)
+      .setAlpha((isFire ? 0.05 : 0.07) + ratio * (isFire ? 0.12 : 0.14));
+    field.glow
+      ?.setScale(
+        Math.max(0.8, field.radius / 72) * (0.9 + pulse * 0.12),
+        Math.max(0.62, field.radius / 92) * (0.86 + pulse * 0.1)
+      )
+      .setAlpha(((isFire ? 0.12 : 0.16) + pulse * 0.12) * ratio);
+    if (field.ring?.active) {
+      field.ring
+        .setScale((field.radius / 44) * (0.94 + pulse * 0.1), (field.radius / 70) * (0.88 + pulse * 0.08))
+        .setAlpha(((isFire ? 0.24 : 0.28) + pulse * 0.18) * ratio);
+      field.ring.rotation += (isFire ? 0.004 : -0.003) * (delta / 16.6667);
+    }
+    if (field.fieldImage?.active) {
+      field.fieldImage
+        .setAlpha(((isFire ? 0.2 : 0.26) + pulse * 0.08) * ratio)
+        .setDisplaySize(
+          field.radius * (isFire ? 1.66 : 1.8) * (0.98 + pulse * 0.03),
+          field.radius * (isFire ? 0.84 : 0.9) * (0.98 + pulse * 0.025)
+        );
+    }
+  }
+
+  destroyFinalBossSupportSpellField(field) {
+    if (!field) {
+      return;
+    }
+
+    const objects = (field.objects || [field.floor, field.glow, field.ring, field.fieldImage]).filter(Boolean);
+    if (objects.length > 0) {
+      this.tweens?.killTweensOf(objects);
+      objects.forEach((object) => object?.destroy?.());
+    }
+    field.objects = [];
+    field.floor = null;
+    field.glow = null;
+    field.ring = null;
+    field.fieldImage = null;
+  }
+
+  cleanupFinalBossSupportSpellFields(support) {
+    (support?.finalBossSpellFields || []).forEach((field) => this.destroyFinalBossSupportSpellField(field));
+    if (support) {
+      support.finalBossSpellFields = [];
+    }
   }
 
   damageFinalBossSupportSpellRadius(x, y, radius, damage, spellKind, definition, knockbackForce) {
     const now = this.time.now;
     let hitCount = 0;
     this.enemies.children.each((enemy) => {
-      if (!enemy.active || enemy.isDying) {
+      if (!enemy.active || enemy.isDying || enemy.isFinalBossRaidBoss || enemy.isFinalBossRaidMinion) {
         return;
       }
 
@@ -35836,6 +35988,9 @@ class SurvivalScene extends Phaser.Scene {
   finishSupportAttack(support, restoreNormalBgm = true) {
     if (support.definition?.type === "timingCoin") {
       this.cleanupTimingCoinSupportAttack(support);
+    }
+    if (support.definition?.type === "finalBossSupport") {
+      this.cleanupFinalBossSupportSpellFields(support);
     }
     this.stopSupportAttackAudio(support.definition, restoreNormalBgm);
     const objects = [support.sprite, support.shadow, ...(support.fieldObjects || [])].filter(Boolean);
