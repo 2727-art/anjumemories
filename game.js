@@ -924,6 +924,128 @@ const FINAL_BOSS_RAID_CONFIG = {
     };
   })
 };
+// Visual-only Depth10 Final Raid tuning. debugFinalRaidScale remains a timer speed override.
+const FINAL_RAID_VISUAL_CONFIG = {
+  cameraZoom: 0.72,
+  backgroundScale: 1.08,
+  playerVisualScale: 0.92,
+  bossThroneOffset: { x: 0, y: 120 },
+  bossDisplaySizeByPhase: {
+    first: 320,
+    second: 360,
+    third: 430
+  },
+  bossVisualScaleByPhase: {
+    first: 1,
+    second: 1.14,
+    third: 1.32
+  },
+  bossPositionOffsetByPhase: {
+    first: { x: -12, y: 12 },
+    second: { x: -10, y: -6 },
+    third: { x: -6, y: -36 }
+  },
+  bossDepthByPhase: {
+    first: 18.05,
+    second: 18.05,
+    third: 18.05
+  },
+  bossAlphaByPhase: {
+    first: 0.95,
+    second: 0.96,
+    third: 0.98
+  },
+  bossPulseScaleByPhase: {
+    first: 0.018,
+    second: 0.026,
+    third: 0.032
+  },
+  bossNameOffsetYByPhase: {
+    first: 124,
+    second: 142,
+    third: 166
+  },
+  bossNameAlphaByPhase: {
+    first: 0.72,
+    second: 0.52,
+    third: 0
+  },
+  fieldEffectScale: 0.96,
+  warningAreaVisualScale: 1,
+  bossClampToHudSafeArea: false,
+  depths: {
+    bossHitTarget: 17.1,
+    warningFill: 21.05,
+    warningRing: 21.15,
+    warningLabel: 21.25,
+    fieldEffect: 21.1,
+    playerShadow: 15,
+    playerVisual: 20.8,
+    playerBoost: 20.55
+  },
+  hudSafeMargin: {
+    top: 150,
+    right: 330,
+    bottom: 132,
+    left: 292
+  }
+};
+const FINAL_RAID_HUD_LAYOUT = {
+  depth: 820,
+  boss: { x: 348, y: 12, width: 584, height: 164 },
+  player: { x: 16, y: 16, width: 316, height: 210, iconSize: 72, skillSize: 54, skillGap: 8 },
+  revive: { x: 952, y: 16, width: 146, height: 68 },
+  damage: { x: 1112, y: 16, width: 150, height: 68 },
+  ranking: { x: 950, y: 104, width: 312, height: 304 },
+  objective: { x: 950, y: 512, width: 312, height: 116 },
+  action: { x: 360, y: 582, width: 560, height: 124, dashX: 438, dashY: 644, dashRadius: 42 }
+};
+const FINAL_RAID_HUD_SAFE_MARGINS = {
+  desktop: { top: 12, right: 16, bottom: 14, left: 16, centerGap: 16, panelGap: 12 },
+  compact: { top: 10, right: 12, bottom: 14, left: 12, centerGap: 12, panelGap: 10 },
+  mobile: {
+    top: 10,
+    right: 12,
+    bottom: 14,
+    left: 12,
+    centerGap: 12,
+    panelGap: 10,
+    dashAvoidTop: MOBILE_DASH_BUTTON_Y - MOBILE_DASH_BUTTON_RADIUS - 14,
+    dashAvoidBottom: MOBILE_DASH_BUTTON_Y + MOBILE_DASH_BUTTON_RADIUS + 14,
+    joystickAvoidRight: MOBILE_JOYSTICK_DEFAULT_X + MOBILE_JOYSTICK_RADIUS + 16
+  }
+};
+const FINAL_RAID_HUD_RESPONSIVE = {
+  compactDisplayWidth: 1120,
+  compactDisplayHeight: 640,
+  minBossWidth: 500,
+  minRightPanelWidth: 280,
+  minActionWidth: 500,
+  minFontPx: 9,
+  compactFontPx: 12
+};
+const FINAL_RAID_HUD_STYLE = {
+  panelFill: 0x02070d,
+  panelAlpha: 0.76,
+  panelStroke: 0x65e6ff,
+  panelStrokeAlpha: 0.42,
+  panelInnerFill: 0x07121c,
+  panelInnerAlpha: 0.26,
+  panelShadow: 0x000000,
+  panelShadowAlpha: 0.28,
+  metalStroke: 0x59666f,
+  metalBright: 0xc2a256,
+  metalDark: 0x1d252c,
+  neonBlue: 0x65e6ff,
+  neonCyan: 0x9ffcff,
+  hpTrail: 0xffd1fa,
+  barBack: 0x071521,
+  text: "#ecfaff",
+  muted: "#9fb4c4",
+  gold: "#f7d98a",
+  cyan: "#9ffcff",
+  red: "#ff657b"
+};
 const DEFAULT_PLAYER_NAME = "anju";
 const PLAYER_NAME_MAX_LENGTH = 16;
 const MAX_KILL_RANKING_ENTRIES = 50;
@@ -4772,6 +4894,14 @@ class SurvivalScene extends Phaser.Scene {
       fieldPhaseWash: null,
       hudContainer: null,
       hudGraphics: null,
+      hudElements: null,
+      hudSkillSlots: null,
+      hudBars: null,
+      hudStaticPhaseKey: null,
+      hudLayout: null,
+      hudLayoutKey: null,
+      hudTweens: [],
+      hudLastValues: {},
       titleText: null,
       timerText: null,
       phaseText: null,
@@ -4787,6 +4917,8 @@ class SurvivalScene extends Phaser.Scene {
       bossSprite: null,
       bossFallbackGraphics: null,
       bossNameText: null,
+      bossBaseVisualScale: 1,
+      bossDisplaySize: 330,
       bossHitTarget: null
     };
     this.finalBossRaidKeyHandler = null;
@@ -4794,6 +4926,184 @@ class SurvivalScene extends Phaser.Scene {
 
   isFinalBossRaidActive() {
     return Boolean(this.finalBossRaidState?.active);
+  }
+
+  getFinalRaidVisualConfig() {
+    return FINAL_RAID_VISUAL_CONFIG || {};
+  }
+
+  getFinalRaidVisualNumber(key, fallback = 1, min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY) {
+    const value = Number(this.getFinalRaidVisualConfig()?.[key]);
+    const normalizedValue = Number.isFinite(value) ? value : fallback;
+    return Phaser.Math.Clamp(normalizedValue, min, max);
+  }
+
+  getFinalRaidVisualPhaseId(phaseOrId = null) {
+    const phaseId = typeof phaseOrId === "string"
+      ? phaseOrId
+      : (phaseOrId?.id || this.finalBossRaidState?.currentPhaseId || "first");
+    return phaseId === "resolution" ? "third" : phaseId;
+  }
+
+  getFinalRaidVisualPhaseNumber(mapKey, phaseOrId = null, fallback = 1, min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY) {
+    const phaseId = this.getFinalRaidVisualPhaseId(phaseOrId);
+    const map = this.getFinalRaidVisualConfig()?.[mapKey] || {};
+    const value = Number(map[phaseId]);
+    const normalizedValue = Number.isFinite(value) ? value : fallback;
+    return Phaser.Math.Clamp(normalizedValue, min, max);
+  }
+
+  getFinalRaidBossVisualScale(phaseOrId = null) {
+    return this.getFinalRaidVisualPhaseNumber("bossVisualScaleByPhase", phaseOrId, 1, 0.1, 4);
+  }
+
+  getFinalRaidBossDisplaySize(phaseOrId = null) {
+    return this.getFinalRaidVisualPhaseNumber("bossDisplaySizeByPhase", phaseOrId, 330, 120, 900);
+  }
+
+  getFinalRaidBossDepth(phaseOrId = null) {
+    return this.getFinalRaidVisualPhaseNumber("bossDepthByPhase", phaseOrId, 18, -10, 200);
+  }
+
+  getFinalRaidBossAlpha(phaseOrId = null) {
+    return this.getFinalRaidVisualPhaseNumber("bossAlphaByPhase", phaseOrId, 0.95, 0, 1);
+  }
+
+  getFinalRaidBossPulseScale(phaseOrId = null) {
+    return this.getFinalRaidVisualPhaseNumber("bossPulseScaleByPhase", phaseOrId, 0.025, 0, 0.12);
+  }
+
+  getFinalRaidBossNameOffsetY(phaseOrId = null) {
+    return this.getFinalRaidVisualPhaseNumber("bossNameOffsetYByPhase", phaseOrId, 144, 80, 260);
+  }
+
+  getFinalRaidBossNameAlpha(phaseOrId = null) {
+    return this.getFinalRaidVisualPhaseNumber("bossNameAlphaByPhase", phaseOrId, 0.72, 0, 1);
+  }
+
+  getFinalRaidBossVisualOffset(phaseOrId = null) {
+    const phaseId = this.getFinalRaidVisualPhaseId(phaseOrId);
+    const offset = this.getFinalRaidVisualConfig()?.bossPositionOffsetByPhase?.[phaseId] || {};
+    return {
+      x: Number.isFinite(Number(offset.x)) ? Number(offset.x) : 0,
+      y: Number.isFinite(Number(offset.y)) ? Number(offset.y) : 0
+    };
+  }
+
+  getFinalRaidBossThroneOffset() {
+    const offset = this.getFinalRaidVisualConfig()?.bossThroneOffset || {};
+    return {
+      x: Number.isFinite(Number(offset.x)) ? Number(offset.x) : 0,
+      y: Number.isFinite(Number(offset.y)) ? Number(offset.y) : 0
+    };
+  }
+
+  getFinalRaidVisualDepth(key, fallback = 20) {
+    const value = Number(this.getFinalRaidVisualConfig()?.depths?.[key]);
+    return Number.isFinite(value) ? value : fallback;
+  }
+
+  getFinalRaidHudSafeMargin() {
+    const margin = this.getFinalRaidVisualConfig()?.hudSafeMargin || {};
+    return {
+      top: Math.max(0, Number(margin.top) || 0),
+      right: Math.max(0, Number(margin.right) || 0),
+      bottom: Math.max(0, Number(margin.bottom) || 0),
+      left: Math.max(0, Number(margin.left) || 0)
+    };
+  }
+
+  clampFinalRaidVisualPointToHudSafeArea(point, padding = 0) {
+    const camera = this.worldCamera || this.cameras?.main;
+    if (!point || !camera?.worldView) {
+      return point;
+    }
+
+    const zoom = Math.max(0.1, Number(camera.zoom) || WORLD_CAMERA_ZOOM);
+    const margin = this.getFinalRaidHudSafeMargin();
+    const view = camera.worldView;
+    const viewLeft = Number.isFinite(view.left) ? view.left : (Number(view.x) || 0);
+    const viewTop = Number.isFinite(view.top) ? view.top : (Number(view.y) || 0);
+    const viewRight = Number.isFinite(view.right)
+      ? view.right
+      : viewLeft + (Number(view.width) || GAME_WIDTH / zoom);
+    const viewBottom = Number.isFinite(view.bottom)
+      ? view.bottom
+      : viewTop + (Number(view.height) || GAME_HEIGHT / zoom);
+    const safeLeft = viewLeft + (margin.left + padding) / zoom;
+    const safeRight = viewRight - (margin.right + padding) / zoom;
+    const safeTop = viewTop + (margin.top + padding) / zoom;
+    const safeBottom = viewBottom - (margin.bottom + padding) / zoom;
+
+    if (safeRight <= safeLeft || safeBottom <= safeTop) {
+      return point;
+    }
+
+    return {
+      x: Phaser.Math.Clamp(point.x, safeLeft, safeRight),
+      y: Phaser.Math.Clamp(point.y, safeTop, safeBottom)
+    };
+  }
+
+  applyFinalRaidCameraZoom(reason = "apply") {
+    if (!this.isFinalBossRaidActive?.()) {
+      return;
+    }
+    this.setWorldCameraZoom?.(this.getFinalRaidVisualNumber("cameraZoom", WORLD_CAMERA_ZOOM, 0.45, 1.4));
+    if (this.finalBossRaidState?.debug) {
+      console.log("[FINAL BOSS RAID] visual zoom", { reason, zoom: this.worldCamera?.zoom });
+    }
+  }
+
+  applyFinalRaidVisualScales(reason = "apply") {
+    if (!this.isFinalBossRaidActive?.()) {
+      return;
+    }
+    this.applyFinalRaidCameraZoom(reason);
+    this.applyFinalRaidDepthOverrides(reason);
+    this.scalePlayerRobotSprite?.();
+  }
+
+  resetFinalRaidVisualScales(reason = "reset") {
+    this.setWorldCameraZoom?.(WORLD_CAMERA_ZOOM);
+    this.resetFinalRaidDepthOverrides?.(reason);
+    this.scalePlayerRobotSprite?.();
+    if (this.isFinalBossRaidDebugEnabled?.()) {
+      console.log("[FINAL BOSS RAID] visual reset", { reason, zoom: this.worldCamera?.zoom });
+    }
+  }
+
+  applyFinalRaidDepthOverrides(reason = "apply") {
+    if (!this.isFinalBossRaidActive?.()) {
+      return;
+    }
+
+    this.playerShadow?.setDepth?.(this.getFinalRaidVisualDepth("playerShadow", 15));
+    this.playerSprite?.setDepth?.(this.getFinalRaidVisualDepth("playerVisual", 20));
+    const boostDepth = this.getFinalRaidVisualDepth("playerBoost", 19.4);
+    this.playerBoosterGlow?.setDepth?.(boostDepth);
+    this.playerBoosterCore?.setDepth?.(boostDepth + 0.03);
+    (this.playerBoosterStreaks || []).forEach((streak, index) => {
+      streak?.setDepth?.(boostDepth - 0.06 + index * 0.02);
+    });
+
+    if (this.finalBossRaidState?.debug) {
+      console.log("[FINAL BOSS RAID] visual depths", { reason });
+    }
+  }
+
+  resetFinalRaidDepthOverrides(reason = "reset") {
+    this.playerShadow?.setDepth?.(15);
+    this.playerSprite?.setDepth?.(20);
+    this.playerBoosterGlow?.setDepth?.(19.38);
+    this.playerBoosterCore?.setDepth?.(19.42);
+    (this.playerBoosterStreaks || []).forEach((streak, index) => {
+      streak?.setDepth?.(19.32 + index * 0.02);
+    });
+
+    if (this.isFinalBossRaidDebugEnabled?.()) {
+      console.log("[FINAL BOSS RAID] depth reset", { reason });
+    }
   }
 
   teardownFinalBossRaidPlaceholder(reason = "cleanup") {
@@ -4819,6 +5129,7 @@ class SurvivalScene extends Phaser.Scene {
     this.stopFinalBossRaidBgm?.(false, true);
     this.teardownFinalBossRaidPlaceholder(reason);
     this.initializeFinalBossRaidState();
+    this.resetFinalRaidVisualScales?.(reason);
     this.setFinalBossRaidStandardHudSuppressed(false);
   }
 
@@ -7361,6 +7672,12 @@ class SurvivalScene extends Phaser.Scene {
     const rawPhase = this.getUrlStageParam(FINAL_BOSS_DEBUG_PHASE_QUERY_PARAM)
       || this.getUrlStageParam(FINAL_BOSS_DEBUG_PHASE_ALIAS_QUERY_PARAM);
     const normalizedPhase = String(rawPhase || "").trim().toLowerCase();
+    if (["first", "phase1", "1"].includes(normalizedPhase)) {
+      return "first";
+    }
+    if (["second", "phase2", "2"].includes(normalizedPhase)) {
+      return "second";
+    }
     if (["third", "phase3", "3", "ultimate"].includes(normalizedPhase)) {
       return "third";
     }
@@ -7395,15 +7712,16 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getFinalBossRaidDebugStartElapsedMs(timing) {
-    if (this.getFinalBossRaidDebugPhaseTarget() !== "third") {
+    const phaseTarget = this.getFinalBossRaidDebugPhaseTarget();
+    if (!phaseTarget || phaseTarget === "first") {
       return 0;
     }
 
-    const thirdPhase = (timing?.phaseTimings || []).find((phase) => phase.id === "third");
-    if (!thirdPhase) {
+    const targetPhase = (timing?.phaseTimings || []).find((phase) => phase.id === phaseTarget);
+    if (!targetPhase) {
       return 0;
     }
-    return Math.max(0, Math.min(Math.max(0, (timing?.totalDurationMs || 0) - 1000), thirdPhase.startMs + 300));
+    return Math.max(0, Math.min(Math.max(0, (timing?.totalDurationMs || 0) - 1000), targetPhase.startMs + 300));
   }
 
   buildFinalBossRaidSupportSchedule(timeScale = 1, timing = null) {
@@ -7612,6 +7930,14 @@ class SurvivalScene extends Phaser.Scene {
       fieldPhaseWash: null,
       hudContainer: null,
       hudGraphics: null,
+      hudElements: null,
+      hudSkillSlots: null,
+      hudBars: null,
+      hudStaticPhaseKey: null,
+      hudLayout: null,
+      hudLayoutKey: null,
+      hudTweens: [],
+      hudLastValues: {},
       titleText: null,
       timerText: null,
       phaseText: null,
@@ -7625,6 +7951,8 @@ class SurvivalScene extends Phaser.Scene {
       bossSprite: null,
       bossFallbackGraphics: null,
       bossNameText: null,
+      bossBaseVisualScale: 1,
+      bossDisplaySize: 330,
       bossHitTarget: null
     };
     this.gateChoiceActive = false;
@@ -7634,6 +7962,7 @@ class SurvivalScene extends Phaser.Scene {
     this.resumeGameplayAfterBlockingOverlay("finalBossRaidStart");
     this.setLastPickupNotice("DEPTH 10 FINAL RAID START");
     this.setFinalBossRaidStandardHudSuppressed(true);
+    this.applyFinalRaidVisualScales("start");
     this.createFinalBossRaidObjects();
     this.setFinalBossRaidPhase(this.getFinalBossRaidPhaseForElapsed(startElapsedMs), "start");
     this.updateFinalBossRaidRankingEntries();
@@ -7757,25 +8086,30 @@ class SurvivalScene extends Phaser.Scene {
     const sourceWidth = Math.max(1, source?.width || image.width || bounds.width || WORLD_WIDTH);
     const sourceHeight = Math.max(1, source?.height || image.height || bounds.height || WORLD_HEIGHT);
     const scale = Math.max(bounds.width / sourceWidth, bounds.height / sourceHeight);
-    image.setScale(scale);
+    const visualScale = this.getFinalRaidVisualNumber("backgroundScale", 1, 0.25, 3);
+    image.setScale(scale * visualScale);
   }
 
   createFinalBossRaidFieldFallbackGraphics(bounds, config = {}) {
     const graphics = this.add.graphics();
     const lineColor = config.lineColor || 0x65e6ff;
+    const backgroundScale = this.getFinalRaidVisualNumber("backgroundScale", 1, 0.25, 3);
+    const effectScale = this.getFinalRaidVisualNumber("fieldEffectScale", 1, 0.25, 3);
+    const visualScale = backgroundScale * effectScale;
     graphics.fillStyle(config.baseColor ?? 0x040913, 1);
     graphics.fillRect(bounds.left, bounds.top, bounds.width, bounds.height);
     graphics.fillStyle(0x0b1424, 0.72);
-    graphics.fillCircle(bounds.centerX, bounds.centerY, Math.min(bounds.width, bounds.height) * 0.34);
+    graphics.fillCircle(bounds.centerX, bounds.centerY, Math.min(bounds.width, bounds.height) * 0.34 * visualScale);
     graphics.lineStyle(3, lineColor, 0.18);
-    graphics.strokeCircle(bounds.centerX, bounds.centerY, 920);
+    graphics.strokeCircle(bounds.centerX, bounds.centerY, 920 * visualScale);
     graphics.lineStyle(2, 0xf0c463, 0.12);
-    graphics.strokeCircle(bounds.centerX, bounds.centerY, 1320);
+    graphics.strokeCircle(bounds.centerX, bounds.centerY, 1320 * visualScale);
     graphics.lineStyle(2, lineColor, 0.08);
-    for (let x = bounds.left; x <= bounds.right; x += 420) {
+    const gridStep = Math.max(120, 420 * backgroundScale);
+    for (let x = bounds.left; x <= bounds.right; x += gridStep) {
       graphics.lineBetween(x, bounds.top, x, bounds.bottom);
     }
-    for (let y = bounds.top; y <= bounds.bottom; y += 420) {
+    for (let y = bounds.top; y <= bounds.bottom; y += gridStep) {
       graphics.lineBetween(bounds.left, y, bounds.right, y);
     }
     graphics.lineStyle(4, 0xf0c463, 0.18);
@@ -7807,88 +8141,1208 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   createFinalBossRaidHud() {
+    this.createFinalRaidHudShell();
+  }
+
+  getFinalRaidBossDisplayName() {
+    const finalBossCd = CD_CATALOG.find((cd) => cd.id === FINAL_BOSS_CD_ID);
+    return finalBossCd?.title || "ドールを解放せし者";
+  }
+
+  getFinalRaidHudViewportInfo() {
+    const displaySize = this.scale?.displaySize;
+    const fallbackWindowWidth = typeof window !== "undefined" ? window.innerWidth : GAME_WIDTH;
+    const fallbackWindowHeight = typeof window !== "undefined" ? window.innerHeight : GAME_HEIGHT;
+    const displayWidth = Math.max(1, Math.round(Number(displaySize?.width) || fallbackWindowWidth || GAME_WIDTH));
+    const displayHeight = Math.max(1, Math.round(Number(displaySize?.height) || fallbackWindowHeight || GAME_HEIGHT));
+    const viewportWidth = Math.max(1, Math.round(fallbackWindowWidth || displayWidth));
+    const viewportHeight = Math.max(1, Math.round(fallbackWindowHeight || displayHeight));
+    const canvasRect = this.game?.canvas?.getBoundingClientRect?.();
+    const rectWidth = Math.max(1, Math.round(Number(canvasRect?.width) || displayWidth));
+    const rectHeight = Math.max(1, Math.round(Number(canvasRect?.height) || displayHeight));
+    const rectLeft = Number(canvasRect?.left);
+    const rectTop = Number(canvasRect?.top);
+    const rectRight = Number(canvasRect?.right);
+    const rectBottom = Number(canvasRect?.bottom);
+    const visibleRectWidth = Number.isFinite(rectLeft) && Number.isFinite(rectRight)
+      ? Math.max(1, Math.min(rectRight, viewportWidth) - Math.max(rectLeft, 0))
+      : Math.min(rectWidth, viewportWidth);
+    const visibleRectHeight = Number.isFinite(rectTop) && Number.isFinite(rectBottom)
+      ? Math.max(1, Math.min(rectBottom, viewportHeight) - Math.max(rectTop, 0))
+      : Math.min(rectHeight, viewportHeight);
+    const visibleDisplayWidth = Math.min(displayWidth, Math.round(visibleRectWidth));
+    const visibleDisplayHeight = Math.min(displayHeight, Math.round(visibleRectHeight));
+    const visibleGameWidth = rectWidth > visibleDisplayWidth
+      ? Math.max(1, Math.round(GAME_WIDTH * (visibleDisplayWidth / rectWidth)))
+      : GAME_WIDTH;
+    const visibleGameHeight = rectHeight > visibleDisplayHeight
+      ? Math.max(1, Math.round(GAME_HEIGHT * (visibleDisplayHeight / rectHeight)))
+      : GAME_HEIGHT;
+    const compact = displayWidth <= FINAL_RAID_HUD_RESPONSIVE.compactDisplayWidth
+      || displayHeight <= FINAL_RAID_HUD_RESPONSIVE.compactDisplayHeight
+      || visibleDisplayWidth <= FINAL_RAID_HUD_RESPONSIVE.compactDisplayWidth
+      || visibleDisplayHeight <= FINAL_RAID_HUD_RESPONSIVE.compactDisplayHeight;
+    const mobile = this.mobileControlsEnabled === true;
+    const mode = mobile ? "mobile" : (compact ? "compact" : "desktop");
+    return {
+      displayWidth,
+      displayHeight,
+      viewportWidth,
+      viewportHeight,
+      visibleGameWidth,
+      visibleGameHeight,
+      compact: compact || mobile,
+      mobile,
+      mode
+    };
+  }
+
+  getFinalRaidHudSafeMargins(info = this.getFinalRaidHudViewportInfo()) {
+    return FINAL_RAID_HUD_SAFE_MARGINS[info?.mode] || FINAL_RAID_HUD_SAFE_MARGINS.desktop;
+  }
+
+  getFinalRaidHudLayoutKey(info = this.getFinalRaidHudViewportInfo()) {
+    const displayBucketWidth = Math.round((Number(info?.displayWidth) || GAME_WIDTH) / 16) * 16;
+    const displayBucketHeight = Math.round((Number(info?.displayHeight) || GAME_HEIGHT) / 16) * 16;
+    const visibleBucketWidth = Math.round((Number(info?.visibleGameWidth) || GAME_WIDTH) / 16) * 16;
+    const visibleBucketHeight = Math.round((Number(info?.visibleGameHeight) || GAME_HEIGHT) / 16) * 16;
+    return `${info?.mode || "desktop"}:${displayBucketWidth}x${displayBucketHeight}:${visibleBucketWidth}x${visibleBucketHeight}`;
+  }
+
+  getFinalRaidHudFontSizePx(size, fallback = 14, min = FINAL_RAID_HUD_RESPONSIVE.minFontPx) {
+    const parsed = typeof size === "string"
+      ? Number.parseFloat(size)
+      : Number(size);
+    const value = Number.isFinite(parsed) ? parsed : fallback;
+    return Math.max(min, Math.round(value));
+  }
+
+  getFinalRaidHudLayout() {
+    const info = this.getFinalRaidHudViewportInfo();
+    const safe = this.getFinalRaidHudSafeMargins(info);
+    const layoutWidth = Math.min(GAME_WIDTH, Math.max(760, Number(info.visibleGameWidth) || GAME_WIDTH));
+    const layoutHeight = Math.min(GAME_HEIGHT, Math.max(520, Number(info.visibleGameHeight) || GAME_HEIGHT));
+    const topY = safe.top;
+    const rightPanelWidth = info.compact
+      ? Math.max(FINAL_RAID_HUD_RESPONSIVE.minRightPanelWidth, 286)
+      : FINAL_RAID_HUD_LAYOUT.ranking.width;
+    const rightX = layoutWidth - rightPanelWidth - safe.right;
+    const playerWidth = info.compact ? 300 : FINAL_RAID_HUD_LAYOUT.player.width;
+    const playerHeight = info.mobile ? 260 : FINAL_RAID_HUD_LAYOUT.player.height;
+    const playerX = safe.left;
+    const playerY = topY + 4;
+    const playerRight = playerX + playerWidth;
+    const centerLeft = playerRight + safe.centerGap;
+    const centerRight = rightX - safe.centerGap;
+    const availableBossWidth = Math.max(FINAL_RAID_HUD_RESPONSIVE.minBossWidth, centerRight - centerLeft);
+    const bossWidth = Math.min(FINAL_RAID_HUD_LAYOUT.boss.width, availableBossWidth);
+    const centeredBossX = Math.round((layoutWidth - bossWidth) / 2);
+    const bossX = Phaser.Math.Clamp(centeredBossX, centerLeft, centerRight - bossWidth);
+    const actionWidth = info.compact ? 520 : FINAL_RAID_HUD_LAYOUT.action.width;
+    const normalizedActionWidth = Math.max(FINAL_RAID_HUD_RESPONSIVE.minActionWidth, Math.min(FINAL_RAID_HUD_LAYOUT.action.width, actionWidth));
+    const actionX = Math.round((layoutWidth - normalizedActionWidth) / 2);
+    const actionY = layoutHeight - FINAL_RAID_HUD_LAYOUT.action.height - safe.bottom;
+    const dashRadius = FINAL_RAID_HUD_LAYOUT.action.dashRadius;
+    const topCardGap = info.compact ? 8 : 14;
+    const reviveWidth = Math.floor((rightPanelWidth - topCardGap) * 0.47);
+    const damageWidth = rightPanelWidth - topCardGap - reviveWidth;
+    const rankingY = topY + (info.compact ? 86 : 92);
+    const maxMobileRankingHeight = Math.max(168, Math.floor((safe.dashAvoidTop || 286) - rankingY - safe.panelGap));
+    const rankingHeight = info.mobile
+      ? Math.min(196, maxMobileRankingHeight)
+      : (info.compact ? 260 : FINAL_RAID_HUD_LAYOUT.ranking.height);
+    const objectiveY = layoutHeight - FINAL_RAID_HUD_LAYOUT.objective.height - (info.mobile ? 76 : 92);
+    const skillColumns = info.mobile ? 3 : 5;
+    const skillStartY = playerY + (skillColumns < 5 ? 140 : 148);
+    const skillLabelY = playerY + (skillColumns < 5 ? 118 : 128);
+    const tabWidth = info.compact ? 104 : 116;
+    const tabGap = info.compact ? 6 : 8;
+    const phaseTabTotalWidth = tabWidth * FINAL_BOSS_RAID_CONFIG.phases.length + tabGap * Math.max(0, FINAL_BOSS_RAID_CONFIG.phases.length - 1);
+    const phaseTabStartX = bossX + Math.round((bossWidth - phaseTabTotalWidth) / 2);
+
+    return {
+      depth: FINAL_RAID_HUD_LAYOUT.depth,
+      mode: info.mode,
+      compact: info.compact,
+      mobile: info.mobile,
+      layoutKey: this.getFinalRaidHudLayoutKey(info),
+      safe,
+      boss: {
+        x: bossX,
+        y: topY,
+        width: bossWidth,
+        height: FINAL_RAID_HUD_LAYOUT.boss.height,
+        phaseTabStartX,
+        phaseTabWidth: tabWidth,
+        phaseTabGap: tabGap
+      },
+      player: {
+        ...FINAL_RAID_HUD_LAYOUT.player,
+        x: playerX,
+        y: playerY,
+        width: playerWidth,
+        height: playerHeight,
+        hpBarWidth: info.compact ? 176 : 190,
+        skillColumns,
+        skillRowGap: 8,
+        skillStartY,
+        skillLabelY
+      },
+      revive: {
+        ...FINAL_RAID_HUD_LAYOUT.revive,
+        x: rightX,
+        y: topY + 4,
+        width: reviveWidth
+      },
+      damage: {
+        ...FINAL_RAID_HUD_LAYOUT.damage,
+        x: rightX + reviveWidth + topCardGap,
+        y: topY + 4,
+        width: damageWidth
+      },
+      ranking: {
+        ...FINAL_RAID_HUD_LAYOUT.ranking,
+        x: rightX,
+        y: rankingY,
+        width: rightPanelWidth,
+        height: rankingHeight,
+        maxRows: info.mobile ? 4 : 5,
+        fontSize: info.mobile ? "12px" : "14px",
+        lineSpacing: info.mobile ? 4 : 7,
+        supportFontSize: info.mobile ? "9px" : "11px"
+      },
+      objective: {
+        ...FINAL_RAID_HUD_LAYOUT.objective,
+        x: rightX,
+        y: objectiveY,
+        width: rightPanelWidth
+      },
+      action: {
+        ...FINAL_RAID_HUD_LAYOUT.action,
+        x: actionX,
+        y: actionY,
+        width: normalizedActionWidth,
+        dashX: actionX + 78,
+        dashY: actionY + 62,
+        dashRadius
+      }
+    };
+  }
+
+  createFinalRaidHudText(container, x, y, text, options = {}) {
+    const textObject = this.add
+      .text(x, y, text, {
+        fontFamily: options.fontFamily || "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: `${this.getFinalRaidHudFontSizePx(options.fontSize, 14, options.minFontPx)}px`,
+        color: options.color || FINAL_RAID_HUD_STYLE.text,
+        fontStyle: options.fontStyle || "",
+        align: options.align || "left",
+        lineSpacing: options.lineSpacing || 0,
+        wordWrap: options.wordWrap
+      })
+      .setOrigin(options.originX ?? 0, options.originY ?? 0)
+      .setScrollFactor(0);
+    if (options.alpha !== undefined) {
+      textObject.setAlpha(options.alpha);
+    }
+    if (options.shadowColor) {
+      textObject.setShadow(
+        options.shadowOffsetX ?? 0,
+        options.shadowOffsetY ?? 0,
+        options.shadowColor,
+        options.shadowBlur ?? 4,
+        options.shadowStroke ?? false,
+        options.shadowFill ?? true
+      );
+    }
+    container.add(textObject);
+    return textObject;
+  }
+
+  createHudLabel(container, x, y, text, options = {}) {
+    const glowColor = options.glowColor || (options.color === FINAL_RAID_HUD_STYLE.gold ? "#f7d98a" : "#9ffcff");
+    return this.createFinalRaidHudText(container, x, y, text, {
+      ...options,
+      fontStyle: options.fontStyle || "bold",
+      shadowColor: options.shadowColor || glowColor,
+      shadowBlur: options.shadowBlur ?? 5,
+      shadowFill: options.shadowFill ?? true
+    });
+  }
+
+  createFinalRaidHudImage(container, x, y, textureKey, maxSize, options = {}) {
+    const fallbackKey = this.textures.exists("skill-hit-glow")
+      ? "skill-hit-glow"
+      : (this.textures.exists("hud-icon-basic-skill") ? "hud-icon-basic-skill" : null);
+    const safeTextureKey = this.textures.exists(textureKey) ? textureKey : fallbackKey;
+    if (!safeTextureKey) {
+      return null;
+    }
+    const image = this.add
+      .image(x, y, safeTextureKey)
+      .setScrollFactor(0)
+      .setAlpha(options.alpha ?? 0.94);
+    if (this.textures.exists(safeTextureKey)) {
+      this.setHudIconToFit(image, safeTextureKey, maxSize);
+    }
+    container.add(image);
+    return image;
+  }
+
+  createFinalRaidHudBarFill(container, x, y, width, height, fillColor, alpha = 0.94, options = {}) {
+    const fill = this.add
+      .graphics()
+      .setPosition(x, y)
+      .setScrollFactor(0);
+    fill.maxWidth = Math.max(1, Number(width) || 1);
+    fill.barHeight = Math.max(1, Number(height) || 1);
+    fill.barFillColor = fillColor;
+    fill.barAlpha = alpha;
+    fill.barStyle = options.style || "cyan";
+    fill.barRadius = options.radius ?? Math.max(2, Math.round(fill.barHeight / 2));
+    fill.displayRatio = Phaser.Math.Clamp(Number(options.initialRatio) || 0, 0, 1);
+    fill.smoothFollow = options.smoothFollow === true;
+    fill.followSpeed = Phaser.Math.Clamp(Number(options.followSpeed) || 0.08, 0.02, 1);
+    container.add(fill);
+    this.updateBar(fill, fill.displayRatio, {
+      fillColor,
+      alpha,
+      immediate: true,
+      style: fill.barStyle
+    });
+    return fill;
+  }
+
+  setFinalRaidHudBarFill(fill, ratio, fillColor = null, alpha = null) {
+    this.updateBar(fill, ratio, { fillColor, alpha });
+  }
+
+  updateBar(fill, ratio, options = {}) {
+    if (!fill?.active) {
+      return;
+    }
+
+    const normalizedRatio = Phaser.Math.Clamp(Number(ratio) || 0, 0, 1);
+    const previousRatio = Number.isFinite(fill.displayRatio) ? fill.displayRatio : normalizedRatio;
+    let drawRatio = normalizedRatio;
+    if (fill.smoothFollow && options.immediate !== true) {
+      drawRatio = normalizedRatio >= previousRatio
+        ? normalizedRatio
+        : Phaser.Math.Linear(previousRatio, normalizedRatio, fill.followSpeed || 0.08);
+      if (Math.abs(drawRatio - normalizedRatio) < 0.002) {
+        drawRatio = normalizedRatio;
+      }
+    }
+    fill.displayRatio = drawRatio;
+
+    const maxWidth = Number(fill.maxWidth) || 1;
+    const height = Number(fill.barHeight) || 1;
+    const width = Math.max(0.001, maxWidth * drawRatio);
+    const color = options.fillColor ?? fill.barFillColor ?? FINAL_RAID_HUD_STYLE.neonBlue;
+    const alpha = options.alpha ?? fill.barAlpha ?? 0.94;
+    const radius = fill.barRadius ?? Math.max(2, Math.round(height / 2));
+    const style = options.style || fill.barStyle || "cyan";
+
+    fill.clear();
+    fill.setVisible(width > 0.001);
+    if (width <= 0.001) {
+      return;
+    }
+
+    const shadowAlpha = style === "trail" ? alpha * 0.34 : alpha * 0.18;
+    fill.fillStyle(0x000000, shadowAlpha);
+    fill.fillRoundedRect(0, 1, width, height, radius);
+    fill.fillStyle(color, style === "trail" ? alpha * 0.48 : alpha);
+    fill.fillRoundedRect(0, 0, width, height, radius);
+    fill.fillStyle(0xffffff, style === "gold" ? 0.2 : 0.15);
+    fill.fillRoundedRect(1, 1, Math.max(0.001, width - 2), Math.max(1, height * 0.42), radius);
+    fill.fillStyle(0x02050a, style === "gold" ? 0.12 : 0.18);
+    fill.fillRect(1, Math.max(1, height * 0.68), Math.max(0.001, width - 2), Math.max(1, height * 0.28));
+    if (width > 12 && style !== "trail") {
+      fill.lineStyle(1, 0xecfaff, style === "gold" ? 0.22 : 0.18);
+      fill.lineBetween(5, 2, width - 5, 2);
+    }
+  }
+
+  formatFinalRaidHudNumber(value, fallback = "0") {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) {
+      return fallback;
+    }
+    return Math.max(0, Math.ceil(numericValue)).toLocaleString();
+  }
+
+  getFinalRaidPhaseHudLabel(phaseOrId) {
+    const phaseId = typeof phaseOrId === "string" ? phaseOrId : phaseOrId?.id;
+    switch (phaseId) {
+      case "first":
+        return "第1形態";
+      case "second":
+        return "第2形態";
+      case "third":
+        return "最終形態";
+      case "resolution":
+        return "討伐演出";
+      default:
+        return "FINAL RAID";
+    }
+  }
+
+  getFinalRaidBossLevelText() {
+    const depth = Math.max(1, Math.floor(Number(this.finalBossRaidState?.targetDepth) || FINAL_BOSS_RAID_CONFIG.targetDepth));
+    return `Lv.${depth}`;
+  }
+
+  getFinalRaidReviveText() {
+    return "-- / --";
+  }
+
+  createFinalRaidHudSkillSlot(container, x, y, size) {
+    const panel = this.add
+      .rectangle(x, y, size, size, 0x03090f, 0.82)
+      .setOrigin(0, 0)
+      .setStrokeStyle(1, 0x587987, 0.42)
+      .setScrollFactor(0);
+    container.add(panel);
+    const icon = this.createFinalRaidHudImage(container, x + size / 2, y + size / 2 - 5, "skill-hit-glow", Math.round(size * 0.5), {
+      alpha: 0.2
+    });
+    const label = this.createFinalRaidHudText(container, x + size / 2, y + size - 17, "LOCKED", {
+      fontSize: "9px",
+      color: FINAL_RAID_HUD_STYLE.muted,
+      align: "center",
+      originX: 0.5
+    });
+    const stageDots = [];
+    const dotLeft = x + 8;
+    const dotY = y + size - 6;
+    const dotSpacing = (size - 16) / 7;
+    for (let index = 0; index < 8; index += 1) {
+      const dot = this.add
+        .circle(dotLeft + dotSpacing * index, dotY, 2, 0x596366, 0.38)
+        .setScrollFactor(0);
+      container.add(dot);
+      stageDots.push(dot);
+    }
+    return {
+      panel,
+      icon,
+      label,
+      stageDots,
+      x,
+      y,
+      size,
+      iconMaxSize: Math.round(size * 0.5)
+    };
+  }
+
+  createFinalRaidHudSkillSlots(container, layout = this.getFinalRaidHudLayout()) {
+    const playerLayout = layout.player || FINAL_RAID_HUD_LAYOUT.player;
+    const x = playerLayout.x + 8;
+    const y = playerLayout.skillStartY ?? (playerLayout.y + 148);
+    const columns = Math.max(1, Math.floor(playerLayout.skillColumns || 5));
+    const rowGap = playerLayout.skillRowGap ?? playerLayout.skillGap;
+    const slots = [];
+    for (let index = 0; index < 5; index += 1) {
+      const column = index % columns;
+      const row = Math.floor(index / columns);
+      slots.push(this.createFinalRaidHudSkillSlot(
+        container,
+        x + column * (playerLayout.skillSize + playerLayout.skillGap),
+        y + row * (playerLayout.skillSize + rowGap),
+        playerLayout.skillSize
+      ));
+    }
+    return slots;
+  }
+
+  createFinalRaidHudShell() {
     const state = this.finalBossRaidState;
     if (!state?.active) {
       return;
     }
 
-    state.hudContainer?.destroy();
+    this.destroyFinalRaidHud("recreate");
+    const layout = this.getFinalRaidHudLayout();
     const container = this.add
       .container(0, 0)
       .setScrollFactor(0)
-      .setDepth(760);
-    const graphics = this.add.graphics();
-    const titleText = this.add.text(GAME_WIDTH / 2 - 280, 20, "FINAL RAID TIMER", {
-      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      .setDepth(layout.depth);
+    const graphics = this.add.graphics().setScrollFactor(0);
+    container.add(graphics);
+
+    const boss = layout.boss;
+    const player = layout.player;
+    const revive = layout.revive;
+    const damage = layout.damage;
+    const ranking = layout.ranking;
+    const objective = layout.objective;
+    const action = layout.action;
+    const playerBarWidth = player.hpBarWidth || 190;
+    const elements = {};
+    elements.bars = {
+      bossHpTrail: this.createFinalRaidHudBarFill(container, boss.x + 34, boss.y + 56, boss.width - 68, 14, FINAL_RAID_HUD_STYLE.hpTrail, 0.64, {
+        style: "trail",
+        smoothFollow: true,
+        followSpeed: 0.07,
+        initialRatio: 1
+      }),
+      bossHp: this.createFinalRaidHudBarFill(container, boss.x + 34, boss.y + 56, boss.width - 68, 14, 0x65e6ff, 0.96, {
+        style: "hp",
+        initialRatio: 1
+      }),
+      break: this.createFinalRaidHudBarFill(container, boss.x + 82, boss.y + 148, 206, 9, 0xf0c463, 0.96, { style: "gold" }),
+      playerHp: this.createFinalRaidHudBarFill(container, player.x + 96, player.y + 62, playerBarWidth, 10, 0x5ee46d, 0.94, { style: "green" }),
+      playerXp: this.createFinalRaidHudBarFill(container, player.x + 96, player.y + 98, playerBarWidth, 9, 0x5a9cff, 0.92, { style: "blue" }),
+      sync: this.createFinalRaidHudBarFill(container, action.x + 262, action.y + 27, 236, 8, 0x5fc7e5, 0.88, { style: "cyan" })
+    };
+
+    elements.bossLabelText = this.createHudLabel(container, boss.x + 24, boss.y + 16, "BOSS", {
       fontSize: "13px",
-      color: "#ecfaff",
-      fontStyle: "bold"
+      color: FINAL_RAID_HUD_STYLE.red,
+      glowColor: "#ff657b"
     });
-    const timerText = this.add.text(GAME_WIDTH / 2, 36, "10:00", {
-      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
-      fontSize: "38px",
-      color: "#f7d98a",
+    elements.bossNameText = this.createFinalRaidHudText(container, boss.x + boss.width / 2, boss.y + 12, this.getFinalRaidBossDisplayName(), {
+      fontSize: "25px",
+      color: FINAL_RAID_HUD_STYLE.text,
       fontStyle: "bold",
-      align: "center"
-    }).setOrigin(0.5, 0);
-    const phaseText = this.add.text(GAME_WIDTH / 2 + 280, 24, "PHASE: FIRST FORM", {
-      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
-      fontSize: "16px",
-      color: "#9ffcff",
+      align: "center",
+      originX: 0.5
+    });
+    elements.bossLevelText = this.createFinalRaidHudText(container, boss.x + boss.width - 24, boss.y + 18, this.getFinalRaidBossLevelText(), {
+      fontSize: "13px",
+      color: FINAL_RAID_HUD_STYLE.red,
       fontStyle: "bold",
-      align: "right"
-    }).setOrigin(1, 0);
-    const bossHpText = this.add.text(GAME_WIDTH / 2 - 280, 88, "BOSS HP BARS 999 / 999", {
-      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      align: "right",
+      originX: 1
+    });
+    elements.bossHpText = this.createFinalRaidHudText(container, boss.x + boss.width / 2, boss.y + 74, "999 / 999", {
       fontSize: "15px",
-      color: "#ecfaff",
+      color: FINAL_RAID_HUD_STYLE.text,
+      fontStyle: "bold",
+      align: "center",
+      originX: 0.5
+    });
+    elements.bossHpPercentText = this.createFinalRaidHudText(container, boss.x + boss.width - 32, boss.y + 74, "100.0%", {
+      fontSize: "12px",
+      color: FINAL_RAID_HUD_STYLE.gold,
+      fontStyle: "bold",
+      align: "right",
+      originX: 1
+    });
+    elements.phaseText = this.createFinalRaidHudText(container, boss.x + 28, boss.y + 94, "PHASE", {
+      fontSize: "11px",
+      color: FINAL_RAID_HUD_STYLE.cyan,
       fontStyle: "bold"
     });
-    const detailText = this.add.text(GAME_WIDTH / 2 + 280, 88, "HP -- / --", {
-      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
-      fontSize: "13px",
-      color: "#a9c7dc",
-      align: "right"
-    }).setOrigin(1, 0);
-    const debugText = this.add.text(GAME_WIDTH / 2, 132, "", {
+    const phaseTabStartX = boss.phaseTabStartX ?? (boss.x + 110);
+    const phaseTabWidth = boss.phaseTabWidth ?? 116;
+    const phaseTabGap = boss.phaseTabGap ?? 8;
+    elements.phaseTabTexts = FINAL_BOSS_RAID_CONFIG.phases.map((phase, index) => {
+      return this.createFinalRaidHudText(container, phaseTabStartX + index * (phaseTabWidth + phaseTabGap) + phaseTabWidth / 2, boss.y + 102, this.getFinalRaidPhaseHudLabel(phase), {
+        fontSize: "10px",
+        color: FINAL_RAID_HUD_STYLE.muted,
+        fontStyle: "bold",
+        align: "center",
+        originX: 0.5
+      });
+    });
+    elements.breakText = this.createHudLabel(container, boss.x + 28, boss.y + 134, "BREAK", {
+      fontSize: "11px",
+      color: FINAL_RAID_HUD_STYLE.gold
+    });
+    elements.breakValueText = this.createFinalRaidHudText(container, boss.x + 286, boss.y + 134, "0%", {
+      fontSize: "11px",
+      color: FINAL_RAID_HUD_STYLE.gold,
+      fontStyle: "bold",
+      align: "right",
+      originX: 1
+    });
+    elements.timeLabelText = this.createHudLabel(container, boss.x + boss.width / 2, boss.y + 129, "TIME LIMIT", {
+      fontSize: "10px",
+      color: FINAL_RAID_HUD_STYLE.gold,
+      align: "center",
+      originX: 0.5
+    });
+    elements.timerText = this.createFinalRaidHudText(container, boss.x + boss.width / 2, boss.y + 140, "10:00", {
+      fontSize: "24px",
+      color: FINAL_RAID_HUD_STYLE.text,
+      fontStyle: "bold",
+      align: "center",
+      originX: 0.5
+    });
+    elements.debugText = this.createFinalRaidHudText(container, boss.x + boss.width / 2, boss.y + boss.height + 5, "", {
       fontFamily: "Consolas, Yu Gothic UI, monospace",
       fontSize: "10px",
       color: "#7f9faf",
-      align: "center"
-    }).setOrigin(0.5, 0).setAlpha(0.64).setVisible(false);
-    const contributionText = this.add.text(28, 230, "YOUR CONTRIBUTION\n0", {
-      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
-      fontSize: "19px",
-      color: "#f7d98a",
+      align: "center",
+      originX: 0.5,
+      alpha: 0.62
+    }).setVisible(false);
+
+    elements.playerIcon = this.createFinalRaidHudImage(
+      container,
+      player.x + 47,
+      player.y + 56,
+      this.getPlayerHudTextureKey(),
+      62
+    );
+    elements.playerLevelText = this.createFinalRaidHudText(container, player.x + 96, player.y + 20, "Lv. 1", {
+      fontSize: "24px",
+      color: FINAL_RAID_HUD_STYLE.text,
+      fontStyle: "bold"
+    });
+    elements.playerHpText = this.createFinalRaidHudText(container, player.x + player.width - 30, player.y + 58, "100 / 100", {
+      fontSize: "12px",
+      color: FINAL_RAID_HUD_STYLE.text,
+      align: "right",
+      originX: 1
+    });
+    elements.playerXpText = this.createFinalRaidHudText(container, player.x + player.width - 30, player.y + 95, "0 / 5", {
+      fontSize: "11px",
+      color: FINAL_RAID_HUD_STYLE.muted,
+      align: "right",
+      originX: 1
+    });
+    elements.skillLabelText = this.createHudLabel(container, player.x + 14, player.skillLabelY ?? (player.y + 128), "SKILLS", {
+      fontSize: "10px",
+      color: FINAL_RAID_HUD_STYLE.gold
+    });
+    const skillSlots = this.createFinalRaidHudSkillSlots(container, layout);
+
+    elements.reviveTitleText = this.createHudLabel(container, revive.x + revive.width / 2, revive.y + 10, "REVIVE", {
+      fontSize: "12px",
+      color: FINAL_RAID_HUD_STYLE.gold,
+      align: "center",
+      originX: 0.5
+    });
+    elements.reviveText = this.createFinalRaidHudText(container, revive.x + revive.width / 2, revive.y + 31, this.getFinalRaidReviveText(), {
+      fontSize: "22px",
+      color: FINAL_RAID_HUD_STYLE.text,
+      fontStyle: "bold",
+      align: "center",
+      originX: 0.5
+    });
+    elements.myDamageTitleText = this.createHudLabel(container, damage.x + damage.width / 2, damage.y + 10, "MY DAMAGE", {
+      fontSize: "12px",
+      color: FINAL_RAID_HUD_STYLE.gold,
+      align: "center",
+      originX: 0.5
+    });
+    elements.myDamageText = this.createFinalRaidHudText(container, damage.x + damage.width / 2, damage.y + 30, "0\n0.00%", {
+      fontSize: "15px",
+      color: FINAL_RAID_HUD_STYLE.text,
+      fontStyle: "bold",
+      align: "center",
+      lineSpacing: 2,
+      originX: 0.5
+    });
+
+    elements.rankingTitleText = this.createHudLabel(container, ranking.x + ranking.width / 2, ranking.y + 14, "GUILD DAMAGE RANKING", {
+      fontSize: "13px",
+      color: FINAL_RAID_HUD_STYLE.gold,
+      align: "center",
+      originX: 0.5
+    });
+    elements.rankingText = this.createFinalRaidHudText(container, ranking.x + 22, ranking.y + 46, "--", {
+      fontFamily: "Consolas, Yu Gothic UI, monospace",
+      fontSize: ranking.fontSize || "14px",
+      color: "#d8f7ff",
+      fontStyle: "bold",
+      lineSpacing: ranking.lineSpacing ?? 7,
+      wordWrap: { width: ranking.width - 44 }
+    });
+    elements.supportText = this.createFinalRaidHudText(container, ranking.x + 22, ranking.y + ranking.height - 44, "SUPPORT STANDBY", {
+      fontSize: ranking.supportFontSize || "11px",
+      color: FINAL_RAID_HUD_STYLE.muted,
+      lineSpacing: 3,
+      wordWrap: { width: ranking.width - 44 }
+    });
+
+    elements.objectiveTitleText = this.createHudLabel(container, objective.x + objective.width / 2, objective.y + 14, "OBJECTIVE", {
+      fontSize: "13px",
+      color: FINAL_RAID_HUD_STYLE.gold,
+      align: "center",
+      originX: 0.5
+    });
+    elements.objectiveText = this.createFinalRaidHudText(container, objective.x + 24, objective.y + 40, "", {
+      fontSize: "13px",
+      color: FINAL_RAID_HUD_STYLE.text,
+      lineSpacing: 8,
+      wordWrap: { width: objective.width - 48 }
+    });
+
+    elements.dashText = this.createFinalRaidHudText(container, action.dashX, action.dashY - 8, "DASH", {
+      fontSize: "15px",
+      color: FINAL_RAID_HUD_STYLE.text,
+      fontStyle: "bold",
+      align: "center",
+      originX: 0.5,
+      originY: 0.5
+    });
+    elements.dashStateText = this.createFinalRaidHudText(container, action.dashX, action.dashY + 17, "READY", {
+      fontSize: "10px",
+      color: FINAL_RAID_HUD_STYLE.cyan,
+      fontStyle: "bold",
+      align: "center",
+      originX: 0.5,
+      originY: 0.5
+    });
+    elements.syncText = this.createHudLabel(container, action.x + 174, action.y + 22, "SYNC 0%", {
+      fontSize: "13px",
+      color: FINAL_RAID_HUD_STYLE.cyan,
+      glowColor: "#9ffcff",
+      shadowBlur: 4
+    });
+    elements.robotIcon = this.createFinalRaidHudImage(container, action.x + 206, action.y + 72, this.getRobotTextureKey(), 42);
+    elements.fieldIcon = this.createFinalRaidHudImage(container, action.x + 374, action.y + 72, this.getRecoveryFieldTextureKey(), 42);
+    elements.robotText = this.createFinalRaidHudText(container, action.x + 242, action.y + 54, "ROBOT\nLv.1/10", {
+      fontSize: "16px",
+      color: FINAL_RAID_HUD_STYLE.text,
       fontStyle: "bold",
       lineSpacing: 6
     });
-    const rankingText = this.add.text(GAME_WIDTH - 322, 92, "RAID RANKING\n--", {
-      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
-      fontSize: "14px",
-      color: "#d8f7ff",
+    elements.fieldText = this.createFinalRaidHudText(container, action.x + 410, action.y + 54, "FIELD\nLv.1/10", {
+      fontSize: "16px",
+      color: FINAL_RAID_HUD_STYLE.text,
       fontStyle: "bold",
-      lineSpacing: 5
+      lineSpacing: 6
     });
-    const incomingSupportText = this.add.text(GAME_WIDTH - 322, 384, `INCOMING SUPPORT\n${FINAL_BOSS_RAID_GUILD_NAMES["001"] || "GUILD 001"} STANDBY`, {
-      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
-      fontSize: "14px",
-      color: "#a9c7dc"
-    });
-    container.add([graphics, titleText, timerText, phaseText, bossHpText, detailText, debugText, contributionText, rankingText, incomingSupportText]);
+
     this.uiContainer?.add(container);
 
     state.hudContainer = container;
     state.hudGraphics = graphics;
-    state.titleText = titleText;
-    state.timerText = timerText;
-    state.phaseText = phaseText;
-    state.bossHpText = bossHpText;
-    state.detailText = detailText;
-    state.debugText = debugText;
-    state.contributionText = contributionText;
-    state.rankingText = rankingText;
-    state.incomingSupportText = incomingSupportText;
+    state.hudElements = elements;
+    state.hudSkillSlots = skillSlots;
+    state.hudBars = elements.bars;
+    state.hudLayout = layout;
+    state.hudLayoutKey = layout.layoutKey;
+    state.hudTweens = [];
+    state.hudLastValues = {};
+    state.hudStaticPhaseKey = null;
+    state.titleText = elements.bossLabelText;
+    state.timerText = elements.timerText;
+    state.phaseText = elements.phaseText;
+    state.bossHpText = elements.bossHpText;
+    state.detailText = elements.playerHpText;
+    state.debugText = elements.debugText;
+    state.contributionText = elements.myDamageText;
+    state.rankingText = elements.rankingText;
+    state.incomingSupportText = elements.supportText;
+    this.updateFinalRaidHud();
+  }
+
+  destroyFinalRaidHud(reason = "cleanup") {
+    const state = this.finalBossRaidState;
+    if (!state) {
+      return;
+    }
+
+    (state.hudTweens || []).forEach((tween) => {
+      tween?.stop?.();
+      tween?.remove?.();
+    });
+    this.tweens?.killTweensOf?.(state.hudContainer);
+    state.hudContainer?.destroy();
+    state.hudContainer = null;
+    state.hudGraphics = null;
+    state.hudElements = null;
+    state.hudSkillSlots = null;
+    state.hudBars = null;
+    state.hudStaticPhaseKey = null;
+    state.hudLayout = null;
+    state.hudLayoutKey = null;
+    state.hudTweens = [];
+    state.hudLastValues = {};
+    state.titleText = null;
+    state.timerText = null;
+    state.phaseText = null;
+    state.detailText = null;
+    state.bossHpText = null;
+    state.contributionText = null;
+    state.rankingText = null;
+    state.incomingSupportText = null;
+    state.debugText = null;
+  }
+
+  drawFinalRaidHudCutPath(graphics, x, y, width, height, cut = 12) {
+    const safeCut = Phaser.Math.Clamp(Number(cut) || 0, 0, Math.max(0, Math.min(width, height) / 2 - 1));
+    graphics.beginPath();
+    graphics.moveTo(x + safeCut, y);
+    graphics.lineTo(x + width - safeCut, y);
+    graphics.lineTo(x + width, y + safeCut);
+    graphics.lineTo(x + width, y + height - safeCut);
+    graphics.lineTo(x + width - safeCut, y + height);
+    graphics.lineTo(x + safeCut, y + height);
+    graphics.lineTo(x, y + height - safeCut);
+    graphics.lineTo(x, y + safeCut);
+    graphics.closePath();
+  }
+
+  drawNeonFrame(graphics, panel, options = {}) {
+    const style = FINAL_RAID_HUD_STYLE;
+    const x = panel.x;
+    const y = panel.y;
+    const width = panel.width;
+    const height = panel.height;
+    const cut = options.cut ?? 14;
+    const strokeColor = options.stroke ?? style.panelStroke;
+    const strokeAlpha = options.strokeAlpha ?? style.panelStrokeAlpha;
+    const inset = options.inset ?? 4;
+
+    graphics.lineStyle(options.outerWidth ?? 3, options.metal ?? style.metalStroke, options.metalAlpha ?? 0.48);
+    this.drawFinalRaidHudCutPath(graphics, x, y, width, height, cut);
+    graphics.strokePath();
+    graphics.lineStyle(1, style.metalBright, options.goldAlpha ?? 0.22);
+    this.drawFinalRaidHudCutPath(graphics, x + 2, y + 2, width - 4, height - 4, Math.max(3, cut - 2));
+    graphics.strokePath();
+    graphics.lineStyle(options.innerWidth ?? 1, strokeColor, strokeAlpha);
+    this.drawFinalRaidHudCutPath(graphics, x + inset, y + inset, width - inset * 2, height - inset * 2, Math.max(3, cut - inset));
+    graphics.strokePath();
+
+    graphics.lineStyle(1, strokeColor, Math.min(0.9, strokeAlpha + 0.16));
+    graphics.lineBetween(x + cut + 10, y + inset + 1, x + width - cut - 10, y + inset + 1);
+    graphics.lineStyle(2, strokeColor, Math.min(0.82, strokeAlpha + 0.1));
+    graphics.lineBetween(x + 2, y + cut, x + cut, y + 2);
+    graphics.lineBetween(x + width - cut, y + 2, x + width - 2, y + cut);
+    graphics.lineBetween(x + 2, y + height - cut, x + cut, y + height - 2);
+    graphics.lineBetween(x + width - cut, y + height - 2, x + width - 2, y + height - cut);
+  }
+
+  drawGlassPanel(graphics, panel, options = {}) {
+    const style = FINAL_RAID_HUD_STYLE;
+    const cut = options.cut ?? 14;
+    const fill = options.fill ?? style.panelFill;
+    const alpha = options.alpha ?? style.panelAlpha;
+
+    graphics.fillStyle(style.panelShadow, options.shadowAlpha ?? style.panelShadowAlpha);
+    this.drawFinalRaidHudCutPath(graphics, panel.x + 3, panel.y + 4, panel.width, panel.height, cut);
+    graphics.fillPath();
+    graphics.fillStyle(fill, alpha);
+    this.drawFinalRaidHudCutPath(graphics, panel.x, panel.y, panel.width, panel.height, cut);
+    graphics.fillPath();
+    graphics.fillStyle(style.panelInnerFill, options.innerAlpha ?? style.panelInnerAlpha);
+    this.drawFinalRaidHudCutPath(graphics, panel.x + 5, panel.y + 5, panel.width - 10, panel.height - 10, Math.max(3, cut - 4));
+    graphics.fillPath();
+    graphics.fillStyle(0xffffff, options.glossAlpha ?? 0.045);
+    graphics.fillRect(panel.x + cut, panel.y + 4, Math.max(0, panel.width - cut * 2), Math.max(2, panel.height * 0.22));
+    this.drawNeonFrame(graphics, panel, options);
+
+    if (options.headerLine) {
+      const lineColor = options.headerColor ?? options.stroke ?? style.panelStroke;
+      graphics.lineStyle(1, lineColor, options.headerAlpha ?? 0.46);
+      graphics.lineBetween(panel.x + 18, panel.y + 30, panel.x + panel.width - 18, panel.y + 30);
+      graphics.lineStyle(3, lineColor, options.headerGlowAlpha ?? 0.08);
+      graphics.lineBetween(panel.x + 22, panel.y + 31, panel.x + panel.width - 22, panel.y + 31);
+    }
+  }
+
+  drawFinalRaidHudPanel(graphics, panel, options = {}) {
+    this.drawGlassPanel(graphics, panel, options);
+  }
+
+  drawFinalRaidHudBar(graphics, x, y, width, height, ratio, fillColor, options = {}) {
+    const normalizedRatio = Phaser.Math.Clamp(Number(ratio) || 0, 0, 1);
+    const radius = options.radius ?? Math.max(2, Math.round(height / 2));
+    graphics.fillStyle(options.backFill ?? FINAL_RAID_HUD_STYLE.barBack, options.backAlpha ?? 0.96);
+    graphics.fillRoundedRect(x, y, width, height, radius);
+    graphics.fillStyle(0xffffff, options.trackGlossAlpha ?? 0.04);
+    graphics.fillRoundedRect(x + 1, y + 1, Math.max(0.001, width - 2), Math.max(1, height * 0.38), radius);
+    if (normalizedRatio > 0.001) {
+      graphics.fillStyle(fillColor, options.fillAlpha ?? 0.94);
+      graphics.fillRoundedRect(x, y, Math.max(height, width * normalizedRatio), height, radius);
+    }
+    graphics.lineStyle(1, options.stroke ?? 0xecfaff, options.strokeAlpha ?? 0.16);
+    graphics.strokeRoundedRect(x, y, width, height, radius);
+  }
+
+  drawFinalRaidHudPhaseTabs(graphics, activePhase, phaseColor, layout = this.getFinalRaidHudLayout()) {
+    const boss = layout.boss || FINAL_RAID_HUD_LAYOUT.boss;
+    const tabY = boss.y + 98;
+    const tabHeight = 22;
+    const tabWidth = boss.phaseTabWidth ?? 116;
+    const tabGap = boss.phaseTabGap ?? 8;
+    const startX = boss.phaseTabStartX ?? (boss.x + 110);
+    FINAL_BOSS_RAID_CONFIG.phases.forEach((phase, index) => {
+      const x = startX + index * (tabWidth + tabGap);
+      const isActive = phase.id === activePhase?.id;
+      graphics.fillStyle(isActive ? phaseColor : 0x050b12, isActive ? 0.58 : 0.62);
+      this.drawFinalRaidHudCutPath(graphics, x, tabY, tabWidth, tabHeight, 8);
+      graphics.fillPath();
+      graphics.lineStyle(isActive ? 2 : 1, isActive ? phaseColor : 0x59666f, isActive ? 0.84 : 0.34);
+      this.drawFinalRaidHudCutPath(graphics, x, tabY, tabWidth, tabHeight, 8);
+      graphics.strokePath();
+      graphics.lineStyle(1, 0xffffff, isActive ? 0.2 : 0.08);
+      graphics.lineBetween(x + 10, tabY + 4, x + tabWidth - 10, tabY + 4);
+      if (isActive) {
+        graphics.lineStyle(3, phaseColor, 0.18);
+        graphics.lineBetween(x + 16, tabY + tabHeight - 3, x + tabWidth - 16, tabY + tabHeight - 3);
+      }
+    });
+  }
+
+  drawFinalRaidHudShellGraphics(metrics = {}) {
+    const state = this.finalBossRaidState;
+    const graphics = state?.hudGraphics;
+    if (!graphics) {
+      return;
+    }
+
+    const layout = state.hudLayout || this.getFinalRaidHudLayout();
+    const phaseColor = metrics.phaseColor || 0x65e6ff;
+    graphics.clear();
+    this.drawFinalRaidHudPanel(graphics, layout.boss, { stroke: phaseColor, strokeAlpha: 0.64, alpha: 0.8, cut: 18, headerLine: true, headerColor: phaseColor });
+    this.drawFinalRaidHudPanel(graphics, layout.player, { stroke: 0x65e6ff, strokeAlpha: 0.46, headerLine: true, cut: 16 });
+    this.drawFinalRaidHudPanel(graphics, layout.revive, { stroke: 0xf0c463, strokeAlpha: 0.42, headerLine: true, cut: 12 });
+    this.drawFinalRaidHudPanel(graphics, layout.damage, { stroke: 0xf0c463, strokeAlpha: 0.42, headerLine: true, cut: 12 });
+    this.drawFinalRaidHudPanel(graphics, layout.ranking, { stroke: 0x65e6ff, strokeAlpha: 0.48, headerLine: true, cut: 16 });
+    this.drawFinalRaidHudPanel(graphics, layout.objective, { stroke: 0xf0c463, strokeAlpha: 0.42, headerLine: true, cut: 16 });
+    this.drawFinalRaidHudPanel(graphics, layout.action, { stroke: 0x65e6ff, strokeAlpha: 0.42, headerLine: true, cut: 18 });
+
+    const boss = layout.boss;
+    this.drawFinalRaidHudBar(graphics, boss.x + 34, boss.y + 56, boss.width - 68, 14, 0, phaseColor, {
+      stroke: 0xffffff,
+      strokeAlpha: 0.22,
+      backFill: 0x100817
+    });
+    this.drawFinalRaidHudPhaseTabs(graphics, metrics.phase, phaseColor, layout);
+    this.drawFinalRaidHudBar(graphics, boss.x + 82, boss.y + 148, 206, 9, 0, 0xf0c463, {
+      backFill: 0x21170b,
+      stroke: 0xf0c463,
+      strokeAlpha: 0.24
+    });
+    this.drawGlassPanel(graphics, { x: boss.x + boss.width / 2 - 72, y: boss.y + 126, width: 144, height: 42 }, {
+      stroke: 0xf0c463,
+      strokeAlpha: 0.34,
+      alpha: 0.88,
+      cut: 10,
+      glossAlpha: 0.035
+    });
+
+    const player = layout.player;
+    const playerBarWidth = player.hpBarWidth || 190;
+    graphics.fillStyle(0x03080d, 0.92);
+    this.drawFinalRaidHudCutPath(graphics, player.x + 13, player.y + 18, player.iconSize, player.iconSize, 10);
+    graphics.fillPath();
+    graphics.lineStyle(1, 0x72818b, 0.52);
+    this.drawFinalRaidHudCutPath(graphics, player.x + 13, player.y + 18, player.iconSize, player.iconSize, 10);
+    graphics.strokePath();
+    this.drawFinalRaidHudBar(graphics, player.x + 96, player.y + 62, playerBarWidth, 10, 0, 0x5ee46d, {
+      backFill: 0x162218,
+      stroke: 0x8dfb9a,
+      strokeAlpha: 0.24
+    });
+    this.drawFinalRaidHudBar(graphics, player.x + 96, player.y + 98, playerBarWidth, 9, 0, 0x5a9cff, {
+      backFill: 0x111b2a,
+      stroke: 0x9dc5ff,
+      strokeAlpha: 0.22
+    });
+    graphics.lineStyle(1, 0xf0c463, 0.24);
+    const skillDividerY = (player.skillStartY ?? (player.y + 148)) - 8;
+    graphics.lineBetween(player.x + 10, skillDividerY, player.x + player.width - 10, skillDividerY);
+
+    const action = layout.action;
+    graphics.fillStyle(0x02070d, 0.88);
+    graphics.fillCircle(action.dashX, action.dashY, action.dashRadius + 14);
+    graphics.lineStyle(3, 0x59666f, 0.44);
+    graphics.strokeCircle(action.dashX, action.dashY, action.dashRadius + 17);
+    graphics.lineStyle(2, 0x65e6ff, 0.54);
+    graphics.strokeCircle(action.dashX, action.dashY, action.dashRadius + 14);
+    graphics.lineStyle(8, 0x17252c, 0.94);
+    graphics.strokeCircle(action.dashX, action.dashY, action.dashRadius);
+    graphics.lineStyle(1, 0xc8f7ff, 0.34);
+    graphics.strokeCircle(action.dashX, action.dashY, action.dashRadius - 10);
+    this.drawGlassPanel(graphics, { x: action.x + 174, y: action.y + 44, width: 136, height: 62 }, {
+      stroke: 0x65e6ff,
+      strokeAlpha: 0.22,
+      alpha: 0.7,
+      cut: 8,
+      glossAlpha: 0.03
+    });
+    this.drawGlassPanel(graphics, { x: action.x + 342, y: action.y + 44, width: 136, height: 62 }, {
+      stroke: 0x65e6ff,
+      strokeAlpha: 0.22,
+      alpha: 0.7,
+      cut: 8,
+      glossAlpha: 0.03
+    });
+    this.drawFinalRaidHudBar(graphics, action.x + 262, action.y + 27, 236, 8, 0, metrics.syncActive ? 0x9ffcff : 0x5fc7e5, {
+      backFill: 0x11212a,
+      stroke: 0x65e6ff,
+      strokeAlpha: 0.18
+    });
+  }
+
+  updateFinalRaidHudSkillSlots(slots = this.finalBossRaidState?.hudSkillSlots) {
+    if (!slots?.length) {
+      return;
+    }
+
+    const skillIds = Object.keys(SKILL_DEFINITIONS).slice(0, 3);
+    slots.forEach((slot, index) => {
+      if (index < skillIds.length) {
+        const skillId = skillIds[index];
+        const skillState = this.playerSkills?.[skillId];
+        const definition = SKILL_DEFINITIONS[skillId];
+        const iconKey = this.getSkillHudIconKey(definition);
+        const currentStage = skillState?.currentStage?.stage || 0;
+        const maxStage = definition?.stages?.length || 0;
+        const hasIcon = this.textures.exists(iconKey);
+        slot.panel
+          .setAlpha(skillState ? 0.9 : 0.5)
+          .setStrokeStyle(1, skillState ? 0xf0c463 : 0x587987, skillState ? 0.62 : 0.34);
+        if (slot.icon) {
+          slot.icon
+            .setVisible(hasIcon)
+            .setAlpha(skillState ? 0.96 : 0.24);
+        }
+        if (hasIcon && slot.icon) {
+          this.setHudIconToFit(slot.icon, iconKey, slot.iconMaxSize);
+        }
+        slot.label
+          .setFontSize(`${FINAL_RAID_HUD_RESPONSIVE.minFontPx}px`)
+          .setLineSpacing(0)
+          .setText(skillState ? `Lv.${currentStage}` : "LOCKED")
+          .setColor(skillState ? FINAL_RAID_HUD_STYLE.gold : FINAL_RAID_HUD_STYLE.muted);
+        this.setHudSkillStageDots(slot, currentStage, maxStage, Boolean(skillState));
+        return;
+      }
+
+      const armId = LOST_ARMS_IDS[index - skillIds.length];
+      const definition = this.getLostArmDefinition?.(armId);
+      const runtimeLevel = definition ? this.getLostArmRuntimeLevel(armId) : 0;
+      const iconKey = definition?.iconTextureKey || "skill-hit-glow";
+      const hasIcon = this.textures.exists(iconKey);
+      const armTint = definition?.tint || 0x9fe7ff;
+      slot.panel
+        .setAlpha(runtimeLevel > 0 ? 0.9 : 0.5)
+        .setStrokeStyle(1, runtimeLevel > 0 ? armTint : 0x587987, runtimeLevel > 0 ? 0.58 : 0.34);
+      if (slot.icon) {
+        slot.icon
+          .setVisible(hasIcon)
+          .setAlpha(runtimeLevel > 0 ? 0.94 : 0.24);
+      }
+      if (hasIcon && slot.icon) {
+        this.setHudIconToFit(slot.icon, iconKey, slot.iconMaxSize);
+      }
+      slot.label
+        .setFontSize(`${FINAL_RAID_HUD_RESPONSIVE.minFontPx}px`)
+        .setLineSpacing(0)
+        .setText(runtimeLevel > 0 ? `${definition.hudLabel}\nLv.${runtimeLevel}` : "LOCKED")
+        .setColor(runtimeLevel > 0 ? "#9fe7ff" : FINAL_RAID_HUD_STYLE.muted);
+      this.setHudSkillStageDots(slot, runtimeLevel, LOST_ARMS_MAX_LEVEL, runtimeLevel > 0);
+    });
+  }
+
+  pulseFinalRaidHudText(textObject, options = {}) {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !textObject?.active) {
+      return;
+    }
+
+    this.tweens?.killTweensOf?.(textObject);
+    textObject.setScale(options.fromScale ?? 1.055);
+    const tween = this.tweens.add({
+      targets: textObject,
+      scaleX: 1,
+      scaleY: 1,
+      duration: options.duration ?? 220,
+      ease: options.ease || "Sine.Out",
+      onComplete: () => {
+        if (state.hudTweens) {
+          state.hudTweens = state.hudTweens.filter((entry) => entry !== tween);
+        }
+      }
+    });
+    state.hudTweens = (state.hudTweens || []).filter((entry) => entry?.isPlaying?.() !== false);
+    state.hudTweens.push(tween);
+  }
+
+  trackFinalRaidHudValueChange(key, value, textObject, options = {}) {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !key) {
+      return;
+    }
+
+    const lastValues = state.hudLastValues || {};
+    const previous = lastValues[key];
+    lastValues[key] = value;
+    state.hudLastValues = lastValues;
+    if (previous !== undefined && previous !== value) {
+      this.pulseFinalRaidHudText(textObject, options);
+    }
+  }
+
+  playFinalRaidHudPhaseTransition(phase) {
+    const state = this.finalBossRaidState;
+    const container = state?.hudContainer;
+    const elements = state?.hudElements;
+    if (!state?.active || !container?.active || !elements) {
+      return;
+    }
+
+    const layout = state.hudLayout || this.getFinalRaidHudLayout();
+    const boss = layout.boss || FINAL_RAID_HUD_LAYOUT.boss;
+    const phaseColor = phase?.tint || 0x65e6ff;
+    this.pulseFinalRaidHudText(elements.phaseText, { fromScale: 1.1, duration: 300 });
+    this.pulseFinalRaidHudText(elements.bossNameText, { fromScale: 1.035, duration: 340 });
+    elements.phaseTabTexts?.forEach((text, index) => {
+      if (FINAL_BOSS_RAID_CONFIG.phases[index]?.id === phase?.id) {
+        this.pulseFinalRaidHudText(text, { fromScale: 1.08, duration: 260 });
+      }
+    });
+
+    const flash = this.add.graphics().setScrollFactor(0).setAlpha(0.72);
+    flash.lineStyle(3, phaseColor, 0.46);
+    flash.lineBetween(boss.x + 42, boss.y + 86, boss.x + boss.width - 42, boss.y + 86);
+    flash.lineStyle(1, 0xffffff, 0.32);
+    flash.lineBetween(boss.x + 58, boss.y + 88, boss.x + boss.width - 58, boss.y + 88);
+    container.add(flash);
+    const tween = this.tweens.add({
+      targets: flash,
+      alpha: 0,
+      duration: 420,
+      ease: "Sine.Out",
+      onComplete: () => {
+        flash.destroy();
+        if (state.hudTweens) {
+          state.hudTweens = state.hudTweens.filter((entry) => entry !== tween);
+        }
+      }
+    });
+    state.hudTweens = state.hudTweens || [];
+    state.hudTweens.push(tween);
+  }
+
+  updateFinalRaidHud() {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !state.hudContainer?.active) {
+      return;
+    }
+
+    const currentLayoutKey = this.getFinalRaidHudLayoutKey();
+    if (state.hudLayoutKey && state.hudLayoutKey !== currentLayoutKey) {
+      this.createFinalRaidHudShell();
+      return;
+    }
+
+    const elements = state.hudElements || {};
+    const bars = state.hudBars || elements.bars || {};
+    const layout = state.hudLayout || this.getFinalRaidHudLayout();
+    const phase = state.currentPhase || this.getFinalBossRaidPhaseForElapsed(state.elapsedMs);
+    const remainingMs = Math.max(0, state.durationMs - (state.elapsedMs || 0));
+    const phaseColor = phase?.tint || 0x65e6ff;
+    const phaseAccent = phase?.accent || FINAL_RAID_HUD_STYLE.cyan;
+    const phaseLabel = this.getFinalRaidPhaseHudLabel(phase);
+    const maxBars = Math.max(1, Number(state.bossHpMaxBars) || FINAL_BOSS_RAID_CONFIG.bossHpBars);
+    const rawTargetBars = Number(state.bossHpBars);
+    const targetBars = Phaser.Math.Clamp(Number.isFinite(rawTargetBars) ? rawTargetBars : maxBars, 0, maxBars);
+    state.bossHpDisplayBars = targetBars;
+    const bossHpRatio = Phaser.Math.Clamp(targetBars / maxBars, 0, 1);
+    const breakRatio = Phaser.Math.Clamp((Number(state.playerBossHpBarsDamage) || 0) / maxBars, 0, 1);
+    const playerHpRatio = this.stats
+      ? Phaser.Math.Clamp((Number(this.stats.hp) || 0) / Math.max(1, Number(this.stats.maxHp) || 1), 0, 1)
+      : 0;
+    const levelCapped = this.isPlayerLevelCapped?.() === true;
+    const nextLevelXp = Math.max(1, Math.floor(Number(this.stats?.nextLevelXp) || 1));
+    const playerXpRatio = levelCapped ? 1 : Phaser.Math.Clamp((Number(this.stats?.xp) || 0) / nextLevelXp, 0, 1);
+    const staminaRatio = this.stats
+      ? Phaser.Math.Clamp((this.stats.stamina ?? this.stats.maxStamina ?? 1) / Math.max(1, this.stats.maxStamina || 1), 0, 1)
+      : 0;
+    const syncActive = this.isRobotSyncActive?.() === true;
+    const syncRatio = syncActive
+      ? Phaser.Math.Clamp(Number(this.getRobotSyncActiveRatio?.()) || 0, 0, 1)
+      : Phaser.Math.Clamp(Number(this.getRobotSyncGaugeRatio?.()) || 0, 0, 1);
+    const staticPhaseKey = `${phase?.id || "none"}:${phaseColor}`;
+
+    if (state.hudStaticPhaseKey !== staticPhaseKey) {
+      this.drawFinalRaidHudShellGraphics({ phase, phaseColor, syncActive });
+      state.hudStaticPhaseKey = staticPhaseKey;
+    }
+    this.setFinalRaidHudBarFill(bars.bossHpTrail, bossHpRatio, FINAL_RAID_HUD_STYLE.hpTrail, 0.64);
+    this.setFinalRaidHudBarFill(bars.bossHp, bossHpRatio, phaseColor);
+    this.setFinalRaidHudBarFill(bars.break, breakRatio, 0xf0c463);
+    this.setFinalRaidHudBarFill(bars.playerHp, playerHpRatio, 0x5ee46d);
+    this.setFinalRaidHudBarFill(bars.playerXp, playerXpRatio, 0x5a9cff);
+    this.setFinalRaidHudBarFill(bars.sync, syncRatio, syncActive ? 0x9ffcff : 0x5fc7e5, syncActive ? 1 : 0.88);
+
+    elements.bossNameText?.setText(this.getFinalRaidBossDisplayName());
+    elements.bossLevelText?.setText(this.getFinalRaidBossLevelText());
+    elements.timerText?.setText(this.formatTimeMs(remainingMs));
+    elements.bossHpText?.setText(`HP ${this.formatFinalRaidHudNumber(targetBars)} / ${this.formatFinalRaidHudNumber(maxBars)}`);
+    elements.bossHpPercentText?.setText(`${(bossHpRatio * 100).toFixed(1)}%`);
+    this.trackFinalRaidHudValueChange("bossHpBars", Math.ceil(targetBars), elements.bossHpText, { fromScale: 1.035, duration: 180 });
+    this.trackFinalRaidHudValueChange("timerSecond", Math.ceil(remainingMs / 1000), elements.timerText, { fromScale: 1.025, duration: 160 });
+    if (elements.phaseText) {
+      elements.phaseText
+        .setText(`PHASE: ${phaseLabel}`)
+        .setColor(phaseAccent);
+    }
+    elements.phaseTabTexts?.forEach((text, index) => {
+      const tabPhase = FINAL_BOSS_RAID_CONFIG.phases[index];
+      text?.setText(this.getFinalRaidPhaseHudLabel(tabPhase));
+      text?.setColor(tabPhase?.id === phase?.id ? "#ffffff" : FINAL_RAID_HUD_STYLE.muted);
+    });
+    elements.breakValueText?.setText(`${Math.floor(breakRatio * 100)}%`);
+
+    const playerTextureKey = this.getPlayerHudTextureKey();
+    if (elements.playerIcon && this.textures.exists(playerTextureKey)) {
+      this.setHudIconToFit(elements.playerIcon, playerTextureKey, 62);
+    }
+    elements.playerLevelText?.setText(`Lv. ${this.stats?.level || 1}`);
+    elements.playerHpText?.setText(`${this.formatFinalRaidHudNumber(this.stats?.hp)} / ${this.formatFinalRaidHudNumber(this.stats?.maxHp)}`);
+    elements.playerXpText?.setText(levelCapped
+      ? "MAX / OD"
+      : `${this.formatFinalRaidHudNumber(Math.floor(Number(this.stats?.xp) || 0))} / ${this.formatFinalRaidHudNumber(nextLevelXp)}`);
+    this.updateFinalRaidHudSkillSlots();
+
+    elements.reviveText?.setText(this.getFinalRaidReviveText());
+    const playerContribution = Math.floor(Number(state.playerContribution) || 0);
+    const damageDenominator = Math.max(1, Number(state.raidBossHpDamageTarget) || maxBars);
+    const contributionPercent = Phaser.Math.Clamp(playerContribution / damageDenominator, 0, 9.99);
+    elements.myDamageText?.setText(`${playerContribution.toLocaleString()}\n${(contributionPercent * 100).toFixed(2)}%`);
+    this.trackFinalRaidHudValueChange("playerContributionPulse", Math.floor(playerContribution / 10000), elements.myDamageText, { fromScale: 1.025, duration: 180 });
+
+    const rankingMaxRows = Math.max(3, Math.floor(Number(layout.ranking?.maxRows) || 5));
+    const rankingLines = this.formatFinalBossRaidRankingLines().split("\n").slice(1, rankingMaxRows + 1).join("\n") || "--";
+    elements.rankingText?.setText(rankingLines);
+    elements.supportText?.setText(this.formatFinalBossRaidIncomingSupportLine().replace(/^INCOMING SUPPORT\n/, "SUPPORT\n"));
+    elements.objectiveText?.setText([
+      `◇ ボスを討伐する  ${targetBars <= 0 ? "1/1" : "0/1"}`,
+      `◇ 制限時間内に討伐  ${this.formatTimeMs(remainingMs)} / ${this.formatTimeMs(state.durationMs)}`,
+      "◇ 戦闘不能回数  -- / --"
+    ].join("\n"));
+
+    elements.dashStateText?.setText(this.dashLockedUntilRelease ? "LOCK" : (staminaRatio >= 0.18 ? "READY" : "LOW"));
+    elements.dashStateText?.setColor(this.isDashing ? "#e9ffff" : (staminaRatio >= 0.18 ? FINAL_RAID_HUD_STYLE.cyan : "#ffb3a8"));
+    const missileCap = Math.max(1, Number(this.getRobotLevelCap?.("missile")) || ROBOT_MAX_LEVEL);
+    const fieldCap = Math.max(1, Number(this.getRobotLevelCap?.("field")) || ROBOT_MAX_LEVEL);
+    const missileLevel = Phaser.Math.Clamp(this.robotState?.missileLevel || 1, 1, missileCap);
+    const fieldLevel = Phaser.Math.Clamp(this.robotState?.healLevel || 1, 1, fieldCap);
+    if (elements.syncText) {
+      elements.syncText
+        .setText(syncActive
+        ? `SYNC ${Math.ceil((this.robotState?.syncActiveMs || 0) / 1000)}s`
+        : `SYNC ${Math.floor(syncRatio * 100)}%`)
+        .setColor(syncActive ? "#e9ffff" : FINAL_RAID_HUD_STYLE.cyan);
+    }
+    const robotTextureKey = this.getRobotTextureKey(this.getRobotVisualLevel());
+    const fieldTextureKey = this.getRecoveryFieldTextureKey(fieldLevel);
+    if (elements.robotIcon && this.textures.exists(robotTextureKey)) {
+      this.setHudIconToFit(elements.robotIcon, robotTextureKey, 42);
+    }
+    if (elements.fieldIcon && this.textures.exists(fieldTextureKey)) {
+      this.setHudIconToFit(elements.fieldIcon, fieldTextureKey, 42);
+    }
+    elements.robotText?.setText(`ROBOT\nLv.${missileLevel}/${missileCap}`);
+    elements.fieldText?.setText(`FIELD\nLv.${fieldLevel}/${fieldCap}`);
+
+    if (elements.debugText) {
+      elements.debugText
+        .setVisible(false)
+        .setText("");
+    }
   }
 
   createFinalBossRaidBossTarget() {
@@ -7898,8 +9352,14 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     state.bossHitTarget?.destroy();
-    const position = this.getFinalBossRaidBossPosition();
-    const target = this.add.circle(position.x, position.y, 116, 0xffffff, 0.01).setDepth(17);
+    const position = this.getFinalBossRaidBossVisualPosition();
+    const target = this.add.circle(
+      position.x,
+      position.y,
+      116,
+      0xffffff,
+      0.01
+    ).setDepth(this.getFinalRaidVisualDepth("bossHitTarget", 17));
     this.physics.add.existing(target);
     target.isFinalBossRaidBoss = true;
     target.isBoss = true;
@@ -7928,8 +9388,9 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    const position = this.getFinalBossRaidBossPosition();
+    const position = this.getFinalBossRaidBossVisualPosition(state.currentPhase);
     target.setPosition(position.x, position.y);
+    target.setDepth?.(this.getFinalRaidVisualDepth("bossHitTarget", 17));
     target.body?.setVelocity?.(0, 0);
     target.body?.updateFromGameObject?.();
   }
@@ -7942,6 +9403,19 @@ class SurvivalScene extends Phaser.Scene {
     };
   }
 
+  getFinalBossRaidBossVisualPosition(phase = null) {
+    const basePosition = this.getFinalBossRaidBossPosition();
+    const throneOffset = this.getFinalRaidBossThroneOffset();
+    const offset = this.getFinalRaidBossVisualOffset(phase);
+    const position = {
+      x: basePosition.x + throneOffset.x + offset.x,
+      y: basePosition.y + throneOffset.y + offset.y
+    };
+    return this.getFinalRaidVisualConfig()?.bossClampToHudSafeArea
+      ? this.clampFinalRaidVisualPointToHudSafeArea(position)
+      : position;
+  }
+
   createFinalBossRaidBossVisualForPhase(phase) {
     const state = this.finalBossRaidState;
     if (!state?.active || !phase) {
@@ -7949,8 +9423,10 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     state.bossContainer?.destroy();
-    const position = this.getFinalBossRaidBossPosition();
-    const container = this.add.container(position.x, position.y).setDepth(18);
+    const position = this.getFinalBossRaidBossVisualPosition(phase);
+    const baseVisualScale = this.getFinalRaidBossVisualScale(phase);
+    const displaySize = this.getFinalRaidBossDisplaySize(phase);
+    const container = this.add.container(position.x, position.y).setDepth(this.getFinalRaidBossDepth(phase));
     const hasTexture = Boolean(phase.textureKey && this.textures.exists(phase.textureKey));
     let bossSprite = null;
     let fallbackGraphics = null;
@@ -7958,7 +9434,7 @@ class SurvivalScene extends Phaser.Scene {
     if (hasTexture) {
       bossSprite = this.add
         .image(0, 0, phase.textureKey)
-        .setDisplaySize(330, 330)
+        .setDisplaySize(displaySize, displaySize)
         .setAlpha(0.96);
       container.add(bossSprite);
     } else {
@@ -7977,7 +9453,7 @@ class SurvivalScene extends Phaser.Scene {
       container.add(fallbackGraphics);
     }
 
-    const nameText = this.add.text(0, 144, phase.label || "FINAL BOSS", {
+    const nameText = this.add.text(0, this.getFinalRaidBossNameOffsetY(phase), phase.label || "FINAL BOSS", {
       fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
       fontSize: "22px",
       color: phase.accent || "#ecfaff",
@@ -7985,13 +9461,17 @@ class SurvivalScene extends Phaser.Scene {
       align: "center",
       stroke: "#02070a",
       strokeThickness: 4
-    }).setOrigin(0.5, 0.5);
+    }).setOrigin(0.5, 0.5).setAlpha(this.getFinalRaidBossNameAlpha(phase));
     container.add(nameText);
 
     state.bossContainer = container;
     state.bossSprite = bossSprite;
     state.bossFallbackGraphics = fallbackGraphics;
     state.bossNameText = nameText;
+    state.bossBaseVisualScale = baseVisualScale;
+    state.bossDisplaySize = displaySize;
+    container.setScale(baseVisualScale);
+    nameText.setScale(1 / Math.max(0.1, baseVisualScale));
     this.syncFinalBossRaidBossTarget();
   }
 
@@ -8025,6 +9505,7 @@ class SurvivalScene extends Phaser.Scene {
       this.playFinalBossRaidPhaseBgm(phase);
     }
     this.setLastPickupNotice(`FINAL RAID ${phase.label}`);
+    this.playFinalRaidHudPhaseTransition(phase);
 
     if (state.debug) {
       console.log("[FINAL BOSS RAID] phase", {
@@ -8348,11 +9829,10 @@ class SurvivalScene extends Phaser.Scene {
     this.cleanupFinalBossRaidSupportEffects(reason);
     this.cleanupFinalBossRaidThirdPhaseCombat(reason, { clearMinions: true });
     this.tweens?.killTweensOf?.(state.fieldContainer);
-    this.tweens?.killTweensOf?.(state.hudContainer);
+    this.destroyFinalRaidHud(reason);
     this.tweens?.killTweensOf?.(state.bossContainer);
     this.tweens?.killTweensOf?.(state.bossHitTarget);
     state.fieldContainer?.destroy();
-    state.hudContainer?.destroy();
     state.bossContainer?.destroy();
     if (state.bossHitTarget) {
       this.enemies?.remove?.(state.bossHitTarget, true, true);
@@ -8368,6 +9848,14 @@ class SurvivalScene extends Phaser.Scene {
     state.fieldShade = null;
     state.fieldPhaseWash = null;
     state.hudGraphics = null;
+    state.hudElements = null;
+    state.hudSkillSlots = null;
+    state.hudBars = null;
+    state.hudStaticPhaseKey = null;
+    state.hudLayout = null;
+    state.hudLayoutKey = null;
+    state.hudTweens = [];
+    state.hudLastValues = {};
     state.titleText = null;
     state.timerText = null;
     state.phaseText = null;
@@ -8381,6 +9869,8 @@ class SurvivalScene extends Phaser.Scene {
     state.bossSprite = null;
     state.bossFallbackGraphics = null;
     state.bossNameText = null;
+    state.bossBaseVisualScale = 1;
+    state.bossDisplaySize = 330;
     state.bossHitTarget = null;
 
     if (state.debug) {
@@ -8743,10 +10233,14 @@ class SurvivalScene extends Phaser.Scene {
 
     const target = state.bossContainer;
     if (target?.active) {
+      const baseScale = Number.isFinite(Number(state.bossBaseVisualScale))
+        ? Number(state.bossBaseVisualScale)
+        : this.getFinalRaidBossVisualScale(state.currentPhase);
+      const squashScale = Math.max(0.1, baseScale);
       this.tweens.add({
         targets: target,
-        scaleX: { from: 1.08, to: 1 },
-        scaleY: { from: 0.92, to: 1 },
+        scaleX: { from: squashScale * 1.08, to: squashScale },
+        scaleY: { from: squashScale * 0.92, to: squashScale },
         duration: 210,
         ease: "Back.Out"
       });
@@ -8757,14 +10251,16 @@ class SurvivalScene extends Phaser.Scene {
     const isFire = spellKind === "fire";
     const fillColor = isFire ? 0xff4218 : 0x3edcff;
     const ringColor = isFire ? 0xffb05a : 0xb7f7ff;
+    // Warning visuals are configurable for readability; damage checks below still use the raw radius.
+    const visualRadius = Math.max(1, radius * this.getFinalRaidVisualNumber("warningAreaVisualScale", 1, 0.25, 3));
     const fill = this.add
-      .circle(point.x, point.y, radius, fillColor, isFire ? 0.16 : 0.13)
-      .setDepth(17)
+      .circle(point.x, point.y, visualRadius, fillColor, isFire ? 0.16 : 0.13)
+      .setDepth(this.getFinalRaidVisualDepth("warningFill", 17))
       .setBlendMode(Phaser.BlendModes.ADD);
     const ring = this.add
-      .circle(point.x, point.y, radius, fillColor, 0)
+      .circle(point.x, point.y, visualRadius, fillColor, 0)
       .setStrokeStyle(isFire ? 5 : 4, ringColor, 0.86)
-      .setDepth(18)
+      .setDepth(this.getFinalRaidVisualDepth("warningRing", 18))
       .setBlendMode(Phaser.BlendModes.ADD);
     const label = this.add.text(point.x, point.y, isFire ? "BLAZE" : "FREEZE", {
       fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
@@ -8773,7 +10269,7 @@ class SurvivalScene extends Phaser.Scene {
       fontStyle: "bold",
       stroke: "#02070a",
       strokeThickness: 4
-    }).setOrigin(0.5).setDepth(19).setAlpha(0.84);
+    }).setOrigin(0.5).setDepth(this.getFinalRaidVisualDepth("warningLabel", 19)).setAlpha(0.84);
 
     const objects = this.registerFinalBossRaidSpellObjects([fill, ring, label]);
     this.tweens.add({
@@ -8801,15 +10297,17 @@ class SurvivalScene extends Phaser.Scene {
 
   detonateFinalBossRaidFireSpell(point, radius) {
     const config = FINAL_BOSS_RAID_CONFIG.thirdPhaseCombat || {};
+    const visualScale = this.getFinalRaidVisualNumber("fieldEffectScale", 1, 0.25, 3);
     const effect = this.spawnBossAttackImage(
       FINAL_BOSS_RAID_CONFIG.attackAssets.fireEffect.textureKey,
       point.x,
       point.y,
-      radius * 2.35,
-      radius * 2.35,
+      radius * 2.35 * visualScale,
+      radius * 2.35 * visualScale,
       0,
       440
     );
+    effect?.setDepth?.(this.getFinalRaidVisualDepth("fieldEffect", 20));
     this.registerFinalBossRaidSpellObjects(effect);
     if (this.isPlayerInBossCircle(point.x, point.y, radius)) {
       this.applyDamageToPlayer(this.getFinalBossRaidSpellDamage(config.fireDamage || 18));
@@ -8818,15 +10316,17 @@ class SurvivalScene extends Phaser.Scene {
 
   detonateFinalBossRaidIceSpell(point, radius) {
     const config = FINAL_BOSS_RAID_CONFIG.thirdPhaseCombat || {};
+    const visualScale = this.getFinalRaidVisualNumber("fieldEffectScale", 1, 0.25, 3);
     const effect = this.spawnBossAttackImage(
       FINAL_BOSS_RAID_CONFIG.attackAssets.iceEffect.textureKey,
       point.x,
       point.y,
-      radius * 2.2,
-      radius * 2.2,
+      radius * 2.2 * visualScale,
+      radius * 2.2 * visualScale,
       0,
       520
     );
+    effect?.setDepth?.(this.getFinalRaidVisualDepth("fieldEffect", 20));
     this.registerFinalBossRaidSpellObjects(effect);
     if (!this.isPlayerInBossCircle(point.x, point.y, radius)) {
       return;
@@ -9204,94 +10704,25 @@ class SurvivalScene extends Phaser.Scene {
     const phase = state.currentPhase || this.getFinalBossRaidPhaseForElapsed(state.elapsedMs);
     this.updateFinalBossRaidFieldVisuals(phase);
     const pulse = Math.sin(elapsed / (phase?.resolution ? 180 : 320));
-    state.bossContainer.setScale(1 + pulse * (phase?.resolution ? 0.015 : 0.035));
-    state.bossContainer.setAlpha(phase?.resolution ? 0.78 + Math.max(0, pulse) * 0.12 : 0.95);
-    state.bossNameText?.setColor(phase?.accent || "#ecfaff");
+    const baseVisualScale = this.getFinalRaidBossVisualScale(phase);
+    const visualPosition = this.getFinalBossRaidBossVisualPosition(phase);
+    const pulseScale = this.getFinalRaidBossPulseScale(phase);
+    const currentScale = baseVisualScale * (1 + pulse * (phase?.resolution ? pulseScale * 0.45 : pulseScale));
+    const alphaBase = this.getFinalRaidBossAlpha(phase);
+    state.bossBaseVisualScale = baseVisualScale;
+    state.bossContainer.setPosition(visualPosition.x, visualPosition.y);
+    state.bossContainer.setDepth(this.getFinalRaidBossDepth(phase));
+    state.bossContainer.setScale(currentScale);
+    state.bossContainer.setAlpha(phase?.resolution ? 0.78 + Math.max(0, pulse) * 0.12 : alphaBase);
+    state.bossNameText
+      ?.setY(this.getFinalRaidBossNameOffsetY(phase))
+      .setScale(1 / Math.max(0.1, currentScale))
+      .setAlpha(this.getFinalRaidBossNameAlpha(phase))
+      .setColor(phase?.accent || "#ecfaff");
   }
 
   updateFinalBossRaidHud() {
-    const state = this.finalBossRaidState;
-    if (!state?.active || !state.hudContainer?.active || !state.hudGraphics) {
-      return;
-    }
-
-    const phase = state.currentPhase || this.getFinalBossRaidPhaseForElapsed(state.elapsedMs);
-    const remainingMs = Math.max(0, state.durationMs - (state.elapsedMs || 0));
-    const phaseRemainingMs = Math.max(0, (phase?.endMs || state.durationMs) - (state.elapsedMs || 0));
-    const progress = state.durationMs > 0 ? Phaser.Math.Clamp((state.elapsedMs || 0) / state.durationMs, 0, 1) : 0;
-    const phaseColor = phase?.tint || 0x65e6ff;
-    const phaseAccent = phase?.accent || "#9ffcff";
-    const graphics = state.hudGraphics;
-    const maxBars = Math.max(1, Number(state.bossHpMaxBars) || FINAL_BOSS_RAID_CONFIG.bossHpBars);
-    const rawTargetBars = Number(state.bossHpBars);
-    const targetBars = Phaser.Math.Clamp(Number.isFinite(rawTargetBars) ? rawTargetBars : maxBars, 0, maxBars);
-    const rawDisplayBars = Number(state.bossHpDisplayBars);
-    const displayStartBars = Number.isFinite(rawDisplayBars) ? rawDisplayBars : maxBars;
-    state.bossHpDisplayBars = targetBars <= 0
-      ? 0
-      : Phaser.Math.Linear(displayStartBars, targetBars, 0.22);
-    const hpRatio = Phaser.Math.Clamp(state.bossHpDisplayBars / maxBars, 0, 1);
-
-    graphics.clear();
-    graphics.fillStyle(0x02070d, 0.78);
-    graphics.fillRoundedRect(GAME_WIDTH / 2 - 306, 12, 612, 118, 8);
-    graphics.lineStyle(2, phaseColor, 0.54);
-    graphics.strokeRoundedRect(GAME_WIDTH / 2 - 306, 12, 612, 118, 8);
-    graphics.fillStyle(0x071521, 0.96);
-    graphics.fillRoundedRect(GAME_WIDTH / 2 - 280, 112, 560, 12, 5);
-    graphics.fillStyle(phaseColor, 0.92);
-    if (hpRatio > 0) {
-      graphics.fillRoundedRect(GAME_WIDTH / 2 - 280, 112, Math.max(4, 560 * hpRatio), 12, 5);
-    }
-    graphics.lineStyle(1, 0xecfaff, 0.16);
-    graphics.lineBetween(GAME_WIDTH / 2 - 280, 78, GAME_WIDTH / 2 + 280, 78);
-
-    graphics.fillStyle(0x02070d, 0.78);
-    graphics.fillRoundedRect(18, 212, 300, 108, 8);
-    graphics.lineStyle(2, 0xf0c463, 0.38);
-    graphics.strokeRoundedRect(18, 212, 300, 108, 8);
-
-    graphics.fillStyle(0x02070d, 0.78);
-    graphics.fillRoundedRect(GAME_WIDTH - 338, 76, 320, 286, 8);
-    graphics.lineStyle(2, 0x65e6ff, 0.38);
-    graphics.strokeRoundedRect(GAME_WIDTH - 338, 76, 320, 286, 8);
-
-    graphics.fillStyle(0x02070d, 0.78);
-    graphics.fillRoundedRect(GAME_WIDTH - 338, 372, 320, 82, 8);
-    graphics.lineStyle(2, 0xf0c463, 0.34);
-    graphics.strokeRoundedRect(GAME_WIDTH - 338, 372, 320, 82, 8);
-
-    graphics.fillStyle(0x071521, 0.96);
-    graphics.fillRoundedRect(GAME_WIDTH / 2 - 280, 68, 560, 6, 3);
-    graphics.fillStyle(phaseColor, 0.86);
-    graphics.fillRoundedRect(GAME_WIDTH / 2 - 280, 68, Math.max(3, 560 * progress), 6, 3);
-
-    state.timerText?.setText(this.formatTimeMs(remainingMs));
-    state.phaseText?.setText(`PHASE: ${phase?.label || "FINAL RAID"}`);
-    state.phaseText?.setColor(phaseAccent);
-    state.bossHpText?.setText(`BOSS HP BARS ${Math.ceil(targetBars).toLocaleString()} / ${maxBars.toLocaleString()}`);
-    state.contributionText?.setText(`YOUR CONTRIBUTION\n${Math.floor(state.playerContribution || 0).toLocaleString()}`);
-    state.rankingText?.setText(this.formatFinalBossRaidRankingLines());
-    state.incomingSupportText?.setText(this.formatFinalBossRaidIncomingSupportLine());
-    const playerHpText = this.stats
-      ? `HP ${Math.ceil(this.stats.hp || 0).toLocaleString()} / ${Math.ceil(this.stats.maxHp || 0).toLocaleString()}`
-      : "HP -- / --";
-    state.detailText?.setText(playerHpText);
-    const debugDetailText = state.debug
-      ? [
-        `DBG ${phase?.label || "FINAL RAID"}`,
-        `PHASE ${this.formatTimeMs(phaseRemainingMs)}`,
-        `x${state.timeScale.toFixed(2)}`,
-        state.paceWarningActive ? "PACE LOW" : "",
-        phase?.resolution ? "RESOLUTION" : ""
-      ].filter(Boolean).join(" / ")
-      : "";
-    if (state.debugText) {
-      state.debugText
-        .setVisible(Boolean(debugDetailText))
-        .setText(debugDetailText)
-        .setColor(phaseAccent);
-    }
+    this.updateFinalRaidHud();
   }
 
   awardFinalBossRaidClearRewards(reason = "clear") {
@@ -15724,7 +17155,7 @@ class SurvivalScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, worldBounds.width, worldBounds.height);
     this.worldCamera = this.cameras.main;
     this.worldCamera.setBounds(0, 0, worldBounds.width, worldBounds.height);
-    this.worldCamera.setZoom(WORLD_CAMERA_ZOOM);
+    this.setWorldCameraZoom(WORLD_CAMERA_ZOOM);
     this.stageDebugEnabled = false;
     this.stageDebugOptions = { ...STAGE_DEBUG_OPTIONS, layerVisibility: { ...STAGE_DEBUG_OPTIONS.layerVisibility } };
 
@@ -17153,7 +18584,7 @@ class SurvivalScene extends Phaser.Scene {
     );
 
     this.worldCamera.startFollow(this.playerHitbox, true, 0.12, 0.12);
-    this.worldCamera.setZoom(WORLD_CAMERA_ZOOM);
+    this.setWorldCameraZoom(WORLD_CAMERA_ZOOM);
   }
 
   getPlayerRobotTextureKey(directionKey = "down", moving = false) {
@@ -17222,7 +18653,10 @@ class SurvivalScene extends Phaser.Scene {
     const targetHeight = textureKey.startsWith("player-robot-")
       ? PLAYER_ROBOT_DISPLAY_HEIGHT
       : PLAYER_FALLBACK_DISPLAY_HEIGHT;
-    this.playerSprite.setScale(targetHeight / frameHeight);
+    const finalRaidScale = this.isFinalBossRaidActive?.()
+      ? this.getFinalRaidVisualNumber("playerVisualScale", 1, 0.25, 3)
+      : 1;
+    this.playerSprite.setScale((targetHeight / frameHeight) * finalRaidScale);
   }
 
   scalePlayerRobotHudIcon(icon) {
@@ -21154,25 +22588,46 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
+  updateUiContainerCameraCompensation(zoom = WORLD_CAMERA_ZOOM) {
+    if (!this.uiContainer?.active) {
+      return;
+    }
+
+    const safeZoom = Math.max(0.1, Number(zoom) || WORLD_CAMERA_ZOOM);
+    const uiOffsetX = GAME_WIDTH * 0.5 * (1 - 1 / safeZoom);
+    const uiOffsetY = GAME_HEIGHT * 0.5 * (1 - 1 / safeZoom);
+    this.uiContainer
+      .setPosition(uiOffsetX, uiOffsetY)
+      .setScale(1 / safeZoom);
+  }
+
+  setWorldCameraZoom(zoom = WORLD_CAMERA_ZOOM) {
+    const camera = this.worldCamera || this.cameras?.main;
+    if (!camera?.setZoom) {
+      return;
+    }
+
+    const safeZoom = Math.max(0.1, Number(zoom) || WORLD_CAMERA_ZOOM);
+    camera.setZoom(safeZoom);
+    this.updateUiContainerCameraCompensation(safeZoom);
+  }
+
   configureCameras() {
     this.worldCamera = this.cameras.main;
     const worldBounds = this.getStageWorldBounds(this.currentStage);
     this.worldCamera.setBounds(0, 0, worldBounds.width, worldBounds.height);
-    this.worldCamera.setZoom(WORLD_CAMERA_ZOOM);
+    this.setWorldCameraZoom(WORLD_CAMERA_ZOOM);
 
     if (this.uiContainer) {
       this.uiContainer.destroy();
     }
 
-    const uiOffsetX = GAME_WIDTH * 0.5 * (1 - 1 / WORLD_CAMERA_ZOOM);
-    const uiOffsetY = GAME_HEIGHT * 0.5 * (1 - 1 / WORLD_CAMERA_ZOOM);
-
     this.uiContainer = this.add
-      .container(uiOffsetX, uiOffsetY)
+      .container(0, 0)
       .setScrollFactor(0)
-      .setDepth(10000)
-      .setScale(1 / WORLD_CAMERA_ZOOM);
+      .setDepth(10000);
     this.uiContainer.add(this.uiObjects || []);
+    this.updateUiContainerCameraCompensation(this.worldCamera.zoom || WORLD_CAMERA_ZOOM);
   }
 
   createColliders() {
