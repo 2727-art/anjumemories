@@ -2119,6 +2119,7 @@ const ROBOT_VASE_XP_BONUS = 8;
 const ROBOT_MISSILE_HIT_XP = 1;
 const ROBOT_FIELD_PULSE_XP = 1;
 const ROBOT_SYNC_DEBUG_QUERY_PARAM = "debugRobotSync";
+const RECOVERY_FIELD_DEBUG_QUERY_PARAM = "debugRecoveryFieldScale";
 const ROBOT_SYNC_CONFIG = {
   gaugeMax: 100,
   activeDurationMs: 18000,
@@ -2141,6 +2142,32 @@ const ROBOT_SYNC_CONFIG = {
   fieldPulseMinDamage: 2,
   fieldPulseKnockback: 220,
   fieldPulseXpBonus: 1
+};
+const RECOVERY_FIELD_VISUAL_CONFIG = {
+  baseDepth: 16,
+  depthOffsetFromPlayer: 4,
+  alphaMin: 0.5,
+  alphaMax: 0.62,
+  syncAlphaMin: 0.54,
+  syncAlphaMax: 0.7,
+  pulseScaleMax: 1.012,
+  widths: {
+    lv1: 220,
+    lv10: 320,
+    lv11: 320,
+    lv15: 320,
+    lv20: 320
+  },
+  aspectRatios: {
+    base: 1308 / 2048,
+    extended: 1
+  },
+  groundOffsets: {
+    robot: { ratio: 0.42, min: 52, max: 70 },
+    human: { ratio: 0.45, min: 34, max: 50 },
+    finalRaid: { ratio: 0.43, min: 32, max: 48 }
+  },
+  debugLogIntervalMs: 650
 };
 const ROBOT_EX_LEVEL_REQUIREMENTS = {
   10: 2,
@@ -2213,6 +2240,7 @@ const ROBOT_NAPALM_MISSILE_ASSETS = [
     imagePath: "./画像/robot/robot_bombslv20.png"
   }
 ];
+const ROBOT_RECOVERY_FIELD_ASSET_LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 15, 20];
 const ROBOT_IMAGE_ASSETS = {
   robotLevels: Array.from({ length: ROBOT_MAX_LEVEL }, (_, index) => {
     const level = index + 1;
@@ -2243,8 +2271,7 @@ const ROBOT_IMAGE_ASSETS = {
       imagePath: `./画像/robot/missile_explosion_frame_${String(frame).padStart(2, "0")}.png`
     };
   }),
-  recoveryFields: Array.from({ length: ROBOT_BASE_MAX_LEVEL }, (_, index) => {
-    const level = index + 1;
+  recoveryFields: ROBOT_RECOVERY_FIELD_ASSET_LEVELS.map((level) => {
     return {
       textureKey: `robot-recovery-field-${level}`,
       imagePath: `./画像/robot/recovery_field_lv${String(level).padStart(2, "0")}.png`
@@ -4753,6 +4780,7 @@ class SurvivalScene extends Phaser.Scene {
       contributionText: null,
       rankingText: null,
       incomingSupportText: null,
+      debugText: null,
       barBack: null,
       barFill: null,
       bossContainer: null,
@@ -4791,6 +4819,7 @@ class SurvivalScene extends Phaser.Scene {
     this.stopFinalBossRaidBgm?.(false, true);
     this.teardownFinalBossRaidPlaceholder(reason);
     this.initializeFinalBossRaidState();
+    this.setFinalBossRaidStandardHudSuppressed(false);
   }
 
   initializeAnomalyContractState() {
@@ -7591,6 +7620,7 @@ class SurvivalScene extends Phaser.Scene {
       contributionText: null,
       rankingText: null,
       incomingSupportText: null,
+      debugText: null,
       bossContainer: null,
       bossSprite: null,
       bossFallbackGraphics: null,
@@ -7603,6 +7633,7 @@ class SurvivalScene extends Phaser.Scene {
     this.releaseMobileControlPointers?.();
     this.resumeGameplayAfterBlockingOverlay("finalBossRaidStart");
     this.setLastPickupNotice("DEPTH 10 FINAL RAID START");
+    this.setFinalBossRaidStandardHudSuppressed(true);
     this.createFinalBossRaidObjects();
     this.setFinalBossRaidPhase(this.getFinalBossRaidPhaseForElapsed(startElapsedMs), "start");
     this.updateFinalBossRaidRankingEntries();
@@ -7813,12 +7844,18 @@ class SurvivalScene extends Phaser.Scene {
       color: "#ecfaff",
       fontStyle: "bold"
     });
-    const detailText = this.add.text(GAME_WIDTH / 2 + 280, 88, "GATE TIMER OFF", {
+    const detailText = this.add.text(GAME_WIDTH / 2 + 280, 88, "HP -- / --", {
       fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
       fontSize: "13px",
       color: "#a9c7dc",
       align: "right"
     }).setOrigin(1, 0);
+    const debugText = this.add.text(GAME_WIDTH / 2, 132, "", {
+      fontFamily: "Consolas, Yu Gothic UI, monospace",
+      fontSize: "10px",
+      color: "#7f9faf",
+      align: "center"
+    }).setOrigin(0.5, 0).setAlpha(0.64).setVisible(false);
     const contributionText = this.add.text(28, 230, "YOUR CONTRIBUTION\n0", {
       fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
       fontSize: "19px",
@@ -7838,7 +7875,7 @@ class SurvivalScene extends Phaser.Scene {
       fontSize: "14px",
       color: "#a9c7dc"
     });
-    container.add([graphics, titleText, timerText, phaseText, bossHpText, detailText, contributionText, rankingText, incomingSupportText]);
+    container.add([graphics, titleText, timerText, phaseText, bossHpText, detailText, debugText, contributionText, rankingText, incomingSupportText]);
     this.uiContainer?.add(container);
 
     state.hudContainer = container;
@@ -7848,6 +7885,7 @@ class SurvivalScene extends Phaser.Scene {
     state.phaseText = phaseText;
     state.bossHpText = bossHpText;
     state.detailText = detailText;
+    state.debugText = debugText;
     state.contributionText = contributionText;
     state.rankingText = rankingText;
     state.incomingSupportText = incomingSupportText;
@@ -8338,6 +8376,7 @@ class SurvivalScene extends Phaser.Scene {
     state.contributionText = null;
     state.rankingText = null;
     state.incomingSupportText = null;
+    state.debugText = null;
     state.bossContainer = null;
     state.bossSprite = null;
     state.bossFallbackGraphics = null;
@@ -9234,12 +9273,25 @@ class SurvivalScene extends Phaser.Scene {
     state.contributionText?.setText(`YOUR CONTRIBUTION\n${Math.floor(state.playerContribution || 0).toLocaleString()}`);
     state.rankingText?.setText(this.formatFinalBossRaidRankingLines());
     state.incomingSupportText?.setText(this.formatFinalBossRaidIncomingSupportLine());
-    state.detailText?.setText([
-      `PHASE TIME ${this.formatTimeMs(phaseRemainingMs)}`,
-      state.debug ? `DEBUG x${state.timeScale.toFixed(2)}` : "600s EVENT",
-      state.paceWarningActive ? "PACE INSUFFICIENT" : "",
-      phase?.resolution ? "DEFEAT / REWARD MARGIN" : `PHASE ${Math.max(1, FINAL_BOSS_RAID_CONFIG.phases.findIndex((entry) => entry.id === phase?.id) + 1)}`
-    ].filter(Boolean).join(" / "));
+    const playerHpText = this.stats
+      ? `HP ${Math.ceil(this.stats.hp || 0).toLocaleString()} / ${Math.ceil(this.stats.maxHp || 0).toLocaleString()}`
+      : "HP -- / --";
+    state.detailText?.setText(playerHpText);
+    const debugDetailText = state.debug
+      ? [
+        `DBG ${phase?.label || "FINAL RAID"}`,
+        `PHASE ${this.formatTimeMs(phaseRemainingMs)}`,
+        `x${state.timeScale.toFixed(2)}`,
+        state.paceWarningActive ? "PACE LOW" : "",
+        phase?.resolution ? "RESOLUTION" : ""
+      ].filter(Boolean).join(" / ")
+      : "";
+    if (state.debugText) {
+      state.debugText
+        .setVisible(Boolean(debugDetailText))
+        .setText(debugDetailText)
+        .setColor(phaseAccent);
+    }
   }
 
   awardFinalBossRaidClearRewards(reason = "clear") {
@@ -15500,6 +15552,45 @@ class SurvivalScene extends Phaser.Scene {
     return objects;
   }
 
+  setFinalBossRaidStandardHudSuppressed(suppressed) {
+    const hudObjects = this.standardHudObjects || [];
+    if (hudObjects.length <= 0) {
+      if (!suppressed) {
+        this.standardHudVisibilityBeforeFinalRaid = null;
+        this.standardHudSuppressed = false;
+      }
+      return;
+    }
+
+    if (suppressed) {
+      if (!this.standardHudSuppressed || !this.standardHudVisibilityBeforeFinalRaid) {
+        this.standardHudVisibilityBeforeFinalRaid = new Map(
+          hudObjects.map((object) => [object, object?.visible !== false])
+        );
+        this.standardHudSuppressed = true;
+      }
+      hudObjects.forEach((object) => object?.setVisible?.(false));
+      return;
+    }
+
+    if (!this.standardHudSuppressed) {
+      return;
+    }
+
+    const visibilitySnapshot = this.standardHudVisibilityBeforeFinalRaid;
+    hudObjects.forEach((object) => {
+      if (!object?.setVisible) {
+        return;
+      }
+      const previousVisible = visibilitySnapshot?.has(object)
+        ? visibilitySnapshot.get(object)
+        : true;
+      object.setVisible(previousVisible);
+    });
+    this.standardHudVisibilityBeforeFinalRaid = null;
+    this.standardHudSuppressed = false;
+  }
+
   beginStartingUpgradeDraft() {
     if (this.startingUpgradeSelectionsRemaining <= 0) {
       return;
@@ -17291,12 +17382,16 @@ class SurvivalScene extends Phaser.Scene {
     const startY = this.playerHitbox.y - 56;
     this.robotState.x = startX;
     this.robotState.y = startY;
+    const fieldPoint = this.getRecoveryFieldGroundPoint();
 
     this.robotRecoveryField = this.add
-      .image(this.playerHitbox.x, this.playerHitbox.y + 6, this.getRobotRecoveryFieldTextureKey())
-      .setDepth(16)
-      .setAlpha(0.24)
-      .setBlendMode(Phaser.BlendModes.ADD);
+      .image(fieldPoint.x, fieldPoint.y, this.getRecoveryFieldTextureKey())
+      .setOrigin(0.5, 0.5)
+      .setDepth(this.getRecoveryFieldVisualDepth())
+      .setAlpha(RECOVERY_FIELD_VISUAL_CONFIG.alphaMin)
+      .setAngle(0)
+      .setRotation(0)
+      .setBlendMode(Phaser.BlendModes.NORMAL);
 
     this.robotShadow = this.add
       .ellipse(startX, startY + 42, 58, 16, 0x000000, 0.24)
@@ -17390,9 +17485,206 @@ class SurvivalScene extends Phaser.Scene {
     return this.textures.exists(asset?.textureKey) ? asset.textureKey : "hud-icon-basic-skill";
   }
 
+  getRecoveryFieldAssetLevel(level = this.robotState?.healLevel || 1) {
+    const normalizedLevel = Phaser.Math.Clamp(Math.floor(Number(level) || 1), 1, ROBOT_MAX_LEVEL);
+    if (normalizedLevel <= ROBOT_BASE_MAX_LEVEL) {
+      return normalizedLevel;
+    }
+    if (normalizedLevel <= 14) {
+      return 11;
+    }
+    if (normalizedLevel <= 19) {
+      return 15;
+    }
+    return 20;
+  }
+
+  getRecoveryFieldAssetForLevel(level = this.robotState?.healLevel || 1) {
+    const preferredLevel = this.getRecoveryFieldAssetLevel(level);
+    const fallbackLevels = [preferredLevel];
+    if (preferredLevel >= 20) {
+      fallbackLevels.push(15, 11, 10);
+    } else if (preferredLevel >= 15) {
+      fallbackLevels.push(11, 10);
+    } else if (preferredLevel >= 11) {
+      fallbackLevels.push(10);
+    }
+
+    const lowLevelStart = Math.min(preferredLevel, ROBOT_BASE_MAX_LEVEL);
+    for (let candidateLevel = lowLevelStart; candidateLevel >= 1; candidateLevel -= 1) {
+      fallbackLevels.push(candidateLevel);
+    }
+
+    const uniqueLevels = [...new Set(fallbackLevels)];
+    for (const candidateLevel of uniqueLevels) {
+      const asset = ROBOT_IMAGE_ASSETS.recoveryFields.find((entry) => entry?.textureKey === `robot-recovery-field-${candidateLevel}`);
+      if (asset?.textureKey && this.textures.exists(asset.textureKey)) {
+        return asset;
+      }
+    }
+
+    return null;
+  }
+
+  getRecoveryFieldTextureKey(level = this.robotState?.healLevel || 1) {
+    const asset = this.getRecoveryFieldAssetForLevel(level);
+    if (asset?.textureKey && this.textures.exists(asset.textureKey)) {
+      return asset.textureKey;
+    }
+    return this.textures.exists("skill-hit-ring") ? "skill-hit-ring" : "skill-hit-glow";
+  }
+
   getRobotRecoveryFieldTextureKey(level = this.robotState?.healLevel || 1) {
-    const asset = this.getRobotImageAssetForLevel(ROBOT_IMAGE_ASSETS.recoveryFields, level);
-    return this.textures.exists(asset?.textureKey) ? asset.textureKey : "skill-hit-ring";
+    return this.getRecoveryFieldTextureKey(level);
+  }
+
+  getRecoveryFieldPlayerMode() {
+    if (this.isFinalBossRaidActive?.()) {
+      return "finalRaid";
+    }
+    return this.isDepth10HumanPlayerVisualActive?.() ? "human" : "robot";
+  }
+
+  getRecoveryFieldGroundPoint() {
+    const x = this.playerHitbox?.x ?? this.playerSprite?.x ?? GAME_WIDTH / 2;
+    const mode = this.getRecoveryFieldPlayerMode();
+    const offsetConfig = RECOVERY_FIELD_VISUAL_CONFIG.groundOffsets[mode]
+      || RECOVERY_FIELD_VISUAL_CONFIG.groundOffsets.robot;
+    const spriteHeight = Math.max(
+      this.playerSprite?.displayHeight || (mode === "robot" ? PLAYER_ROBOT_DISPLAY_HEIGHT : PLAYER_FALLBACK_DISPLAY_HEIGHT),
+      1
+    );
+    const spriteY = this.playerSprite?.y ?? ((this.playerHitbox?.y ?? GAME_HEIGHT / 2) + PLAYER_SPRITE_OFFSET_Y);
+    const offsetY = Phaser.Math.Clamp(
+      spriteHeight * offsetConfig.ratio,
+      offsetConfig.min,
+      offsetConfig.max
+    );
+    return { x, y: spriteY + offsetY };
+  }
+
+  getRecoveryFieldVisualDepth() {
+    const baseDepth = RECOVERY_FIELD_VISUAL_CONFIG.baseDepth;
+    const playerDepth = Number(this.playerSprite?.depth);
+    if (!Number.isFinite(playerDepth)) {
+      return baseDepth;
+    }
+    return Math.min(baseDepth, playerDepth - RECOVERY_FIELD_VISUAL_CONFIG.depthOffsetFromPlayer);
+  }
+
+  getRecoveryFieldVisualScale(level = this.robotState?.healLevel || 1) {
+    const normalizedLevel = Phaser.Math.Clamp(Math.floor(Number(level) || 1), 1, ROBOT_MAX_LEVEL);
+    const widths = RECOVERY_FIELD_VISUAL_CONFIG.widths;
+    const baseWidth = Math.max(widths.lv1 || 1, 1);
+    if (normalizedLevel <= ROBOT_BASE_MAX_LEVEL) {
+      const progress = ROBOT_BASE_MAX_LEVEL <= 1 ? 0 : (normalizedLevel - 1) / (ROBOT_BASE_MAX_LEVEL - 1);
+      return Phaser.Math.Linear(widths.lv1, widths.lv10, progress) / baseWidth;
+    }
+    if (normalizedLevel <= 14) {
+      return widths.lv11 / baseWidth;
+    }
+    if (normalizedLevel <= 19) {
+      return widths.lv15 / baseWidth;
+    }
+    return widths.lv20 / baseWidth;
+  }
+
+  getRecoveryFieldVisualWidth(level = this.robotState?.healLevel || 1) {
+    return Math.round(RECOVERY_FIELD_VISUAL_CONFIG.widths.lv1 * this.getRecoveryFieldVisualScale(level));
+  }
+
+  getRecoveryFieldVisualAspectRatio(level = this.robotState?.healLevel || 1, textureKey = this.getRecoveryFieldTextureKey(level)) {
+    const match = String(textureKey || "").match(/robot-recovery-field-(\d+)/);
+    const assetLevel = match ? Number(match[1]) : this.getRecoveryFieldAssetLevel(level);
+    return assetLevel <= ROBOT_BASE_MAX_LEVEL
+      ? RECOVERY_FIELD_VISUAL_CONFIG.aspectRatios.base
+      : RECOVERY_FIELD_VISUAL_CONFIG.aspectRatios.extended;
+  }
+
+  getRecoveryFieldDisplaySize(level = this.robotState?.healLevel || 1, pulseScale = 1, textureKey = this.getRecoveryFieldTextureKey(level)) {
+    const width = this.getRecoveryFieldVisualWidth(level) * pulseScale;
+    return {
+      width,
+      height: width * this.getRecoveryFieldVisualAspectRatio(level, textureKey)
+    };
+  }
+
+  getRecoveryFieldVisualLongestSide(level = this.robotState?.healLevel || 1) {
+    return this.getRecoveryFieldVisualWidth(level);
+  }
+
+  isRecoveryFieldScaleDebugEnabled() {
+    try {
+      return new URLSearchParams(window.location.search).get(RECOVERY_FIELD_DEBUG_QUERY_PARAM) === "1";
+    } catch (error) {
+      return false;
+    }
+  }
+
+  logRecoveryFieldScaleDebug(details, force = false) {
+    if (!this.isRecoveryFieldScaleDebugEnabled()) {
+      return;
+    }
+    const now = this.time?.now || 0;
+    const signature = [
+      details.level,
+      details.textureKey,
+      Math.round(details.displayWidth),
+      Math.round(details.displayHeight),
+      details.playerMode
+    ].join(":");
+    if (!force && now - (this.recoveryFieldDebugLastLogAt || 0) < RECOVERY_FIELD_VISUAL_CONFIG.debugLogIntervalMs) {
+      return;
+    }
+    this.recoveryFieldDebugSignature = signature;
+    this.recoveryFieldDebugLastLogAt = now;
+    console.log("[RECOVERY FIELD SCALE]", JSON.stringify(details));
+  }
+
+  applyRecoveryFieldVisual(delta = 0) {
+    if (!this.robotRecoveryField || !this.robotState || !this.playerHitbox) {
+      return;
+    }
+
+    const level = this.robotState?.healLevel || 1;
+    const textureKey = this.getRecoveryFieldTextureKey(level);
+    const textureChanged = this.robotRecoveryField.texture?.key !== textureKey;
+    if (textureChanged) {
+      this.robotRecoveryField.setTexture(textureKey);
+    }
+
+    const pulse = (Math.sin(this.robotState.bobTimer * 1.3) + 1) * 0.5;
+    const syncActive = this.isRobotSyncActive();
+    const alphaMin = syncActive ? RECOVERY_FIELD_VISUAL_CONFIG.syncAlphaMin : RECOVERY_FIELD_VISUAL_CONFIG.alphaMin;
+    const alphaMax = syncActive ? RECOVERY_FIELD_VISUAL_CONFIG.syncAlphaMax : RECOVERY_FIELD_VISUAL_CONFIG.alphaMax;
+    const alpha = Phaser.Math.Linear(alphaMin, alphaMax, pulse);
+    const pulseScale = Phaser.Math.Linear(1, RECOVERY_FIELD_VISUAL_CONFIG.pulseScaleMax, pulse);
+    const groundPoint = this.getRecoveryFieldGroundPoint();
+    const size = this.getRecoveryFieldDisplaySize(level, pulseScale, textureKey);
+    const depth = this.getRecoveryFieldVisualDepth();
+
+    this.robotRecoveryField
+      .setOrigin(0.5, 0.5)
+      .setPosition(groundPoint.x, groundPoint.y)
+      .setDepth(depth)
+      .setAlpha(alpha)
+      .setTint(syncActive ? 0xdffcff : 0xffffff)
+      .setAngle(0)
+      .setRotation(0)
+      .setBlendMode(Phaser.BlendModes.NORMAL)
+      .setDisplaySize(size.width, size.height);
+
+    this.logRecoveryFieldScaleDebug({
+      level,
+      textureKey,
+      displayWidth: Number(this.robotRecoveryField.displayWidth.toFixed(2)),
+      displayHeight: Number(this.robotRecoveryField.displayHeight.toFixed(2)),
+      alpha: Number(this.robotRecoveryField.alpha.toFixed(3)),
+      angle: Number(this.robotRecoveryField.angle.toFixed(3)),
+      rotation: Number(this.robotRecoveryField.rotation.toFixed(4)),
+      depth: this.robotRecoveryField.depth,
+      playerMode: this.getRecoveryFieldPlayerMode()
+    }, textureChanged || delta === 0);
   }
 
   getRobotImageAssetForLevel(assetList, level) {
@@ -17445,7 +17737,8 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     if (this.robotRecoveryField) {
-      this.robotRecoveryField.setTexture(this.getRobotRecoveryFieldTextureKey(this.robotState.healLevel));
+      this.robotRecoveryField.setTexture(this.getRecoveryFieldTextureKey(this.robotState.healLevel));
+      this.applyRecoveryFieldVisual(0);
     }
   }
 
@@ -18513,6 +18806,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   createHud() {
+    const hudObjectStartIndex = this.uiObjects?.length || 0;
     this.hudUsesFrameAsset = this.textures.exists(HUD_IMAGE_ASSETS.overlayFrame.textureKey);
     if (this.hudUsesFrameAsset) {
       this.hudFrameOverlay = this.registerUiObject(
@@ -18871,6 +19165,11 @@ class SurvivalScene extends Phaser.Scene {
           .setDepth(704)
       );
     }
+
+    this.standardHudObjects = (this.uiObjects || []).slice(hudObjectStartIndex);
+    this.standardHudVisibilityBeforeFinalRaid = null;
+    this.standardHudSuppressed = false;
+    this.setFinalBossRaidStandardHudSuppressed(this.isFinalBossRaidActive?.() === true);
   }
 
   createRobotHudPanel() {
@@ -18981,7 +19280,7 @@ class SurvivalScene extends Phaser.Scene {
     };
 
     const robotSlot = createInfoSlot(robotSlotX, this.getRobotTextureKey(), "ROBOT", 0xffc94d);
-    const fieldSlot = createInfoSlot(fieldSlotX, this.getRobotRecoveryFieldTextureKey(), "FIELD", 0x9be7ff);
+    const fieldSlot = createInfoSlot(fieldSlotX, this.getRecoveryFieldTextureKey(), "FIELD", 0x9be7ff);
 
     this.hudRobotPanel = {
       robotSlot,
@@ -19322,7 +19621,7 @@ class SurvivalScene extends Phaser.Scene {
     const visualLevel = this.getRobotVisualLevel();
     const fieldLevel = Phaser.Math.Clamp(this.robotState.healLevel || 1, 1, fieldCap);
     const robotTextureKey = this.getRobotTextureKey(visualLevel);
-    const fieldTextureKey = this.getRobotRecoveryFieldTextureKey(fieldLevel);
+    const fieldTextureKey = this.getRecoveryFieldTextureKey(fieldLevel);
     const { robotSlot, fieldSlot } = this.hudRobotPanel;
 
     robotSlot.levelText.setText(`ROBOT\nLv.${missileLevel}/${missileCap}`);
@@ -24158,19 +24457,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   updateRobotRecoveryFieldVisual(delta) {
-    if (!this.robotRecoveryField || !this.robotState) {
-      return;
-    }
-
-    const pulse = (Math.sin(this.robotState.bobTimer * 1.3) + 1) * 0.5;
-    const radius = this.getRobotRecoveryRadius();
-    const syncActive = this.isRobotSyncActive();
-    this.robotRecoveryField
-      .setPosition(this.playerHitbox.x, this.playerHitbox.y + 8)
-      .setAlpha(syncActive ? 0.24 + pulse * 0.16 : 0.17 + pulse * 0.08)
-      .setTint(syncActive ? 0x9ffcff : 0xffffff)
-      .setAngle(this.robotRecoveryField.angle + 0.18 * (delta / 16.6667));
-    this.scaleWorldImageToFit(this.robotRecoveryField, radius * 2);
+    this.applyRecoveryFieldVisual(delta);
   }
 
   getRobotRecoveryRadius() {
@@ -36466,6 +36753,7 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     this.updateStageCollisionEditorHud();
+    this.setFinalBossRaidStandardHudSuppressed(this.isFinalBossRaidActive());
   }
 }
 

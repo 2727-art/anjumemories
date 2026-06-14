@@ -50,6 +50,7 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - `?debugStartDepth=10&debugFinalRaid=1&debugFinalRaidPhase=third&debugSkipOpeningBoost=1`: デバッグ用。Depth10 Final Raid を短縮タイマーの第三形態付近から確認します。
 - `?debugMaxBuild=1`: デバッグ用。攻撃スキル全種を最終Stage、ROBOTをLv.20/Tune Lv.20、HPを300、移動速度を+100にします。
 - `?debugStartDepth=10&debugFinalRaid=1&debugFinalRaidScale=0.05&debugFinalRaidPhase=third&debugMaxBuild=1&debugSkipOpeningBoost=1`: デバッグ用。強化済み状態でDepth10 Final Raidを確認します。
+- `?debugRecoveryFieldScale=1`: デバッグ用。Recovery Field の選択画像、表示サイズ、alpha、angle / rotation、depth、表示モードを console に出します。
 
 ## ゲーム進行
 
@@ -448,7 +449,7 @@ Lv11+ ROBOT EX:
 - `Napalm Missile`: `ROBOT CUSTOM` で 180,000 GEEK、Missile Cap Tier 1 以上が必要です。購入後、Missile Lv11+でミサイル爆発時に燃焼を付与します。Lv15+では短時間の燃焼床を生成し、最大8個まで残ります。燃焼ダメージは既存の敵ダメージ処理を通るため、撃破・ドロップ・ランキング加算は通常処理に乗ります。
 - `Barrier Field`: `ROBOT CUSTOM` で 180,000 GEEK、Recovery Cap Tier 1 以上が必要です。購入後、Recovery Lv11+でHPとは別のシールドを生成します。Barrierは被弾時にHPより先に削られ、破壊後はクールダウンを経て回復フィールドのパルスで再構築されます。Recovery Lv20では90秒クールダウンのLast Standがあり、致死ダメージ時に一度だけHP1で踏みとどまります。
 - ロボット本体は Lv11-15 で `robot_lv11.png`、Lv16-19 で `robot_lv16.png`、Lv20 で `robot_lv20.png` を使います。ナパーム弾は Lv11-15 / 16-19 / 20 で `robot_bombslv11.png` / `robot_bombslv16.png` / `robot_bombslv20.png` を使います。燃焼は `missile_explosion_frame_01.png` から `missile_explosion_frame_08.png` のフレームアニメーションです。
-- Recovery Field の Lv11-20 専用画像は未使用です。Barrier Field 展開中はキャラクター本体に白い半透明シールドを重ねて表示し、Recovery Field画像は既存Lv10までの素材へフォールバックします。
+- Recovery Field は Lv1-10 で各Lv画像を使い、Lv11-14 は `recovery_field_lv11.png`、Lv15-19 は `recovery_field_lv15.png`、Lv20 は `recovery_field_lv20.png` を使います。Lv11以降の各区間では同じ表示スケールを保ち、毎Lvごとの拡大は行いません。Barrier Field 展開中はキャラクター本体に白い半透明シールドを重ねて表示し、Recovery Field は常時回転しない静止デカールとして、プレイヤー/ロボットの足元にプレイヤーより下の depth で表示します。画像未読込時は Lv20 -> Lv15 -> Lv11 -> Lv10 の順にフォールバックし、最後は既存のリング表現へ戻します。
 
 ROBOT SYNC DRIVE:
 
@@ -615,6 +616,7 @@ http://127.0.0.1:4173/?debugGeekMilestone=1
 http://127.0.0.1:4173/?debugRankingDepth=1
 http://127.0.0.1:4173/?debugRunArchive=1
 http://127.0.0.1:4173/?debugRobotSync=1
+http://127.0.0.1:4173/?debugRecoveryFieldScale=1
 http://127.0.0.1:4173/?debugSkillMutation=1
 http://127.0.0.1:4173/?debugSkillMutation=1&debugSkillMutationSkill=basicSkill
 http://127.0.0.1:4173/?debugSkillMutation=1&debugSkillMutationSkill=tornadoSkill
