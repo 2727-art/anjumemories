@@ -8607,6 +8607,31 @@ class SurvivalScene extends Phaser.Scene {
     this.updateBar(fill, ratio, { fillColor, alpha });
   }
 
+  setFinalRaidHudText(textObject, value) {
+    if (!textObject?.setText) {
+      return textObject;
+    }
+
+    const nextText = Array.isArray(value) ? value.join("\n") : String(value ?? "");
+    const currentText = String(textObject._text ?? textObject.text ?? "");
+    if (currentText !== nextText) {
+      textObject.setText(nextText);
+    }
+    return textObject;
+  }
+
+  setFinalRaidHudColor(textObject, color) {
+    if (!textObject?.setColor || !color) {
+      return textObject;
+    }
+
+    if (textObject.finalRaidHudColor !== color) {
+      textObject.setColor(color);
+      textObject.finalRaidHudColor = color;
+    }
+    return textObject;
+  }
+
   updateBar(fill, ratio, options = {}) {
     if (!fill?.active) {
       return;
@@ -8632,6 +8657,20 @@ class SurvivalScene extends Phaser.Scene {
     const alpha = options.alpha ?? fill.barAlpha ?? 0.94;
     const radius = fill.barRadius ?? Math.max(2, Math.round(height / 2));
     const style = options.style || fill.barStyle || "cyan";
+    const drawKey = [
+      Math.round(drawRatio * 10000),
+      color,
+      Math.round(alpha * 1000),
+      Math.round(maxWidth),
+      Math.round(height),
+      radius,
+      style
+    ].join(":");
+
+    if (options.immediate !== true && fill.lastBarDrawKey === drawKey) {
+      return;
+    }
+    fill.lastBarDrawKey = drawKey;
 
     fill.clear();
     fill.setVisible(width > 0.001);
@@ -9316,9 +9355,9 @@ class SurvivalScene extends Phaser.Scene {
         }
         slot.label
           .setFontSize(`${FINAL_RAID_HUD_RESPONSIVE.minFontPx}px`)
-          .setLineSpacing(0)
-          .setText(skillState ? `Lv.${currentStage}` : "LOCKED")
-          .setColor(skillState ? FINAL_RAID_HUD_STYLE.gold : FINAL_RAID_HUD_STYLE.muted);
+          .setLineSpacing(0);
+        this.setFinalRaidHudText(slot.label, skillState ? `Lv.${currentStage}` : "LOCKED");
+        this.setFinalRaidHudColor(slot.label, skillState ? FINAL_RAID_HUD_STYLE.gold : FINAL_RAID_HUD_STYLE.muted);
         this.setHudSkillStageDots(slot, currentStage, maxStage, Boolean(skillState));
         return;
       }
@@ -9342,9 +9381,9 @@ class SurvivalScene extends Phaser.Scene {
       }
       slot.label
         .setFontSize(`${FINAL_RAID_HUD_RESPONSIVE.minFontPx}px`)
-        .setLineSpacing(0)
-        .setText(runtimeLevel > 0 ? `${definition.hudLabel}\nLv.${runtimeLevel}` : "LOCKED")
-        .setColor(runtimeLevel > 0 ? "#9fe7ff" : FINAL_RAID_HUD_STYLE.muted);
+        .setLineSpacing(0);
+      this.setFinalRaidHudText(slot.label, runtimeLevel > 0 ? `${definition.hudLabel}\nLv.${runtimeLevel}` : "LOCKED");
+      this.setFinalRaidHudColor(slot.label, runtimeLevel > 0 ? "#9fe7ff" : FINAL_RAID_HUD_STYLE.muted);
       this.setHudSkillStageDots(slot, runtimeLevel, LOST_ARMS_MAX_LEVEL, runtimeLevel > 0);
     });
   }
@@ -9486,52 +9525,53 @@ class SurvivalScene extends Phaser.Scene {
     this.setFinalRaidHudBarFill(bars.playerXp, playerXpRatio, 0x5a9cff);
     this.setFinalRaidHudBarFill(bars.sync, syncRatio, syncActive ? 0x9ffcff : 0x5fc7e5, syncActive ? 1 : 0.88);
 
-    elements.bossNameText?.setText(this.getFinalRaidBossDisplayName());
-    elements.bossLevelText?.setText(this.getFinalRaidBossLevelText());
-    elements.timerText
-      ?.setText(this.formatTimeMs(remainingMs))
-      .setColor(timerDangerActive ? "#fff1dc" : FINAL_RAID_HUD_STYLE.text);
-    elements.timeLabelText
-      ?.setColor(timerDangerActive ? "#ffb0a8" : FINAL_RAID_HUD_STYLE.gold);
-    elements.bossHpText?.setText(`HP ${this.formatFinalRaidHudNumber(targetBars)} / ${this.formatFinalRaidHudNumber(maxBars)}`);
-    elements.bossHpPercentText?.setText(`${(bossHpRatio * 100).toFixed(1)}%`);
+    this.setFinalRaidHudText(elements.bossNameText, this.getFinalRaidBossDisplayName());
+    this.setFinalRaidHudText(elements.bossLevelText, this.getFinalRaidBossLevelText());
+    this.setFinalRaidHudColor(
+      this.setFinalRaidHudText(elements.timerText, this.formatTimeMs(remainingMs)),
+      timerDangerActive ? "#fff1dc" : FINAL_RAID_HUD_STYLE.text
+    );
+    this.setFinalRaidHudColor(elements.timeLabelText, timerDangerActive ? "#ffb0a8" : FINAL_RAID_HUD_STYLE.gold);
+    this.setFinalRaidHudText(elements.bossHpText, `HP ${this.formatFinalRaidHudNumber(targetBars)} / ${this.formatFinalRaidHudNumber(maxBars)}`);
+    this.setFinalRaidHudText(elements.bossHpPercentText, `${(bossHpRatio * 100).toFixed(1)}%`);
     this.trackFinalRaidHudValueChange("bossHpBars", Math.ceil(targetBars), elements.bossHpText, { fromScale: 1.035, duration: 180 });
     this.trackFinalRaidHudValueChange("timerSecond", Math.ceil(remainingMs / 1000), elements.timerText, { fromScale: 1.025, duration: 160 });
     if (elements.phaseText) {
-      elements.phaseText
-        .setText(`PHASE: ${phaseLabel}`)
-        .setColor(phaseAccent);
+      this.setFinalRaidHudColor(
+        this.setFinalRaidHudText(elements.phaseText, `PHASE: ${phaseLabel}`),
+        phaseAccent
+      );
     }
     elements.phaseTabTexts?.forEach((text, index) => {
       const tabPhase = FINAL_BOSS_RAID_CONFIG.phases[index];
-      text?.setText(this.getFinalRaidPhaseHudLabel(tabPhase));
-      text?.setColor(tabPhase?.id === phase?.id ? "#ffffff" : FINAL_RAID_HUD_STYLE.muted);
+      this.setFinalRaidHudText(text, this.getFinalRaidPhaseHudLabel(tabPhase));
+      this.setFinalRaidHudColor(text, tabPhase?.id === phase?.id ? "#ffffff" : FINAL_RAID_HUD_STYLE.muted);
     });
-    elements.breakValueText?.setText(`${Math.floor(breakRatio * 100)}%`);
+    this.setFinalRaidHudText(elements.breakValueText, `${Math.floor(breakRatio * 100)}%`);
 
     const playerTextureKey = this.getPlayerHudTextureKey();
     if (elements.playerIcon && this.textures.exists(playerTextureKey)) {
       this.setHudIconToFit(elements.playerIcon, playerTextureKey, 62);
     }
-    elements.playerLevelText?.setText(`Lv. ${this.stats?.level || 1}`);
-    elements.playerHpText?.setText(`${this.formatFinalRaidHudNumber(this.stats?.hp)} / ${this.formatFinalRaidHudNumber(this.stats?.maxHp)}`);
-    elements.playerXpText?.setText(levelCapped
+    this.setFinalRaidHudText(elements.playerLevelText, `Lv. ${this.stats?.level || 1}`);
+    this.setFinalRaidHudText(elements.playerHpText, `${this.formatFinalRaidHudNumber(this.stats?.hp)} / ${this.formatFinalRaidHudNumber(this.stats?.maxHp)}`);
+    this.setFinalRaidHudText(elements.playerXpText, levelCapped
       ? "MAX / OD"
       : `${this.formatFinalRaidHudNumber(Math.floor(Number(this.stats?.xp) || 0))} / ${this.formatFinalRaidHudNumber(nextLevelXp)}`);
     this.updateFinalRaidHudSkillSlots();
 
-    elements.reviveText?.setText(this.getFinalRaidReviveText());
+    this.setFinalRaidHudText(elements.reviveText, this.getFinalRaidReviveText());
     const playerContribution = Math.floor(Number(state.playerContribution) || 0);
     const damageDenominator = Math.max(1, Number(state.raidBossHpDamageTarget) || maxBars);
     const contributionPercent = Phaser.Math.Clamp(playerContribution / damageDenominator, 0, 9.99);
-    elements.myDamageText?.setText(`${playerContribution.toLocaleString()}\n${(contributionPercent * 100).toFixed(2)}%`);
+    this.setFinalRaidHudText(elements.myDamageText, `${playerContribution.toLocaleString()}\n${(contributionPercent * 100).toFixed(2)}%`);
     this.trackFinalRaidHudValueChange("playerContributionPulse", Math.floor(playerContribution / 10000), elements.myDamageText, { fromScale: 1.025, duration: 180 });
 
     const rankingMaxRows = Math.max(3, Math.floor(Number(layout.ranking?.maxRows) || 5));
     const rankingLines = this.formatFinalBossRaidRankingLines().split("\n").slice(1, rankingMaxRows + 1).join("\n") || "--";
-    elements.rankingText?.setText(rankingLines);
+    this.setFinalRaidHudText(elements.rankingText, rankingLines);
     const liberationReady = Boolean(state.liberationGateActive || state.timerComplete);
-    elements.objectiveText?.setText(liberationReady
+    this.setFinalRaidHudText(elements.objectiveText, liberationReady
       ? [
         "◇ ボス討伐完了  1/1",
         "◇ ドール解放ゲート 出現",
@@ -9543,18 +9583,19 @@ class SurvivalScene extends Phaser.Scene {
         "◇ 戦闘不能回数  -- / --"
       ].join("\n"));
 
-    elements.dashStateText?.setText(this.dashLockedUntilRelease ? "LOCK" : (staminaRatio >= 0.18 ? "READY" : "LOW"));
-    elements.dashStateText?.setColor(this.isDashing ? "#e9ffff" : (staminaRatio >= 0.18 ? FINAL_RAID_HUD_STYLE.cyan : "#ffb3a8"));
+    this.setFinalRaidHudText(elements.dashStateText, this.dashLockedUntilRelease ? "LOCK" : (staminaRatio >= 0.18 ? "READY" : "LOW"));
+    this.setFinalRaidHudColor(elements.dashStateText, this.isDashing ? "#e9ffff" : (staminaRatio >= 0.18 ? FINAL_RAID_HUD_STYLE.cyan : "#ffb3a8"));
     const missileCap = Math.max(1, Number(this.getRobotLevelCap?.("missile")) || ROBOT_MAX_LEVEL);
     const fieldCap = Math.max(1, Number(this.getRobotLevelCap?.("field")) || ROBOT_MAX_LEVEL);
     const missileLevel = Phaser.Math.Clamp(this.robotState?.missileLevel || 1, 1, missileCap);
     const fieldLevel = Phaser.Math.Clamp(this.robotState?.healLevel || 1, 1, fieldCap);
     if (elements.syncText) {
-      elements.syncText
-        .setText(syncActive
+      this.setFinalRaidHudColor(
+        this.setFinalRaidHudText(elements.syncText, syncActive
         ? `SYNC ${Math.ceil((this.robotState?.syncActiveMs || 0) / 1000)}s`
-        : `SYNC ${Math.floor(syncRatio * 100)}%`)
-        .setColor(syncActive ? "#e9ffff" : FINAL_RAID_HUD_STYLE.cyan);
+        : `SYNC ${Math.floor(syncRatio * 100)}%`),
+        syncActive ? "#e9ffff" : FINAL_RAID_HUD_STYLE.cyan
+      );
     }
     const robotTextureKey = this.getRobotTextureKey(this.getRobotVisualLevel());
     const fieldTextureKey = this.getRecoveryFieldTextureKey(fieldLevel);
@@ -9564,15 +9605,14 @@ class SurvivalScene extends Phaser.Scene {
     if (elements.fieldIcon && this.textures.exists(fieldTextureKey)) {
       this.setHudIconToFit(elements.fieldIcon, fieldTextureKey, 42);
     }
-    elements.robotTitleText?.setText("ROBOT");
-    elements.robotLevelText?.setText(`Lv.${missileLevel}/${missileCap}`);
-    elements.fieldTitleText?.setText("FIELD");
-    elements.fieldLevelText?.setText(`Lv.${fieldLevel}/${fieldCap}`);
+    this.setFinalRaidHudText(elements.robotTitleText, "ROBOT");
+    this.setFinalRaidHudText(elements.robotLevelText, `Lv.${missileLevel}/${missileCap}`);
+    this.setFinalRaidHudText(elements.fieldTitleText, "FIELD");
+    this.setFinalRaidHudText(elements.fieldLevelText, `Lv.${fieldLevel}/${fieldCap}`);
 
     if (elements.debugText) {
-      elements.debugText
-        .setVisible(false)
-        .setText("");
+      elements.debugText.setVisible(false);
+      this.setFinalRaidHudText(elements.debugText, "");
     }
   }
 
@@ -22339,6 +22379,9 @@ class SurvivalScene extends Phaser.Scene {
     if (!this.hudRobotPanel || !this.robotState) {
       return;
     }
+    if (this.isFinalBossRaidActive?.() && this.standardHudSuppressed) {
+      return;
+    }
 
     const missileCap = this.getRobotLevelCap("missile");
     const fieldCap = this.getRobotLevelCap("field");
@@ -26675,7 +26718,12 @@ class SurvivalScene extends Phaser.Scene {
     this.updateRobotCompanion(delta);
     this.updateCleaningRobotCompanion(delta);
     this.updateGateVisuals(delta);
-    this.updateHud();
+    const finalBossRaidActiveAtFrameStart = this.isFinalBossRaidActive();
+    if (finalBossRaidActiveAtFrameStart) {
+      this.setFinalBossRaidStandardHudSuppressed(true);
+    } else {
+      this.updateHud();
+    }
     this.updateMobileControlsVisibility();
     this.tryOpenPendingSkillMutationSelection();
     this.tryOpenQueuedLostArmsEvolutionSelection();
