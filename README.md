@@ -47,7 +47,7 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - `?mobileControls=0`: モバイル操作 UI を無効化します。
 - `?debugStartDepth=10`: デバッグ用。`GAME START` 後のランを Depth10 から開始します。
 - `?debugSkipOpeningBoost=1`: デバッグ用。`GAME START` 後の Opening Boost 選択をスキップします。
-- `?debugStartDepth=10&debugFinalRaid=1&debugFinalRaidPhase=third&debugSkipOpeningBoost=1`: デバッグ用。Depth10 Final Raid を短縮タイマーの第三形態付近から確認します。
+- `?debugStartDepth=10&debugFinalRaid=1&debugFinalRaidScale=0.1&debugFinalRaidPhase=third&debugSkipOpeningBoost=1`: デバッグ用。Depth10 Final Raid を短縮タイマーの第三形態付近から確認します。
 - `?debugMaxBuild=1`: デバッグ用。攻撃スキル全種を最終Stage、ROBOTをLv.20/Tune Lv.20、HPを300、移動速度を+100にします。
 - `?debugStartDepth=10&debugFinalRaid=1&debugFinalRaidScale=0.05&debugFinalRaidPhase=third&debugMaxBuild=1&debugSkipOpeningBoost=1`: デバッグ用。強化済み状態でDepth10 Final Raidを確認します。
 - `?debugRecoveryFieldScale=1`: デバッグ用。Recovery Field の選択画像、表示サイズ、alpha、angle / rotation、depth、表示モードを console に出します。
@@ -61,7 +61,16 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 5. 各 Depth の開始から 120 秒で Stage Gate が開きます。
 6. Stage Gate では次の Depth へ進むか、未確定 GEEK を確定してショップへ帰還します。
 7. `NEXT STAGE` / `FORCE BREAKTHROUGH` で次 Depth へ進むと、地面に残った一部報酬が DATA CACHE に圧縮されます。
-8. 帰還、ゲームオーバー、Gate 崩壊後はローディング表示を挟んで Opening Shop に戻ります。
+8. Depth10 初回未討伐時は通常フィールドではなく Depth10 Final Raid に入り、600 秒生存後に専用の `ドールを解放する` ゲートだけが出現します。このゲートは Depth11 へ進まず、討伐報酬を保存して Opening Shop へ帰還します。
+9. 帰還、ゲームオーバー、Gate 崩壊後はローディング表示を挟んで Opening Shop に戻ります。
+
+## Depth10 Final Raid
+
+Depth10 初回未討伐時の専用戦闘です。カメラはプレイヤーとボスを同時に収める専用ズームへ切り替わり、ボスはフィールド上部の玉座位置へ固定されます。プレイヤーがフィールド下側へ離れた場合は、ボス演出を残しながらカメラがプレイヤー側へ追従します。Final Raid 中のみプレイヤー移動速度は専用の固定値になり、通常 Depth の移動速度や永続強化には影響しません。
+
+第1形態と第2形態では短い予兆付きフィールド攻撃が発生します。第3形態では爆炎/氷結が約3秒残る持続フィールドになり、氷結フィールド命中時は一時的に移動速度が低下します。第3形態の Add は高耐久の Elite 扱いになり、短い予兆付きの小フィールド攻撃を行いますが、通常ドロップや XP 報酬には混ざりません。
+
+支援ランキングは終盤まで REDWOLF が上位に残り、エクスカリオンは登場後に少し遅れて追い上げる演出です。ボス HP は解決フェーズ前に最低残量が残るよう制御され、600 秒到達後に `ドールを解放する` ゲートで討伐報酬を保存して Opening Shop へ帰還します。
 
 ## GEEK 仕様
 
@@ -544,7 +553,7 @@ Best Depth はそのランで実際に到達した最大 Depth です。Extracte
 
 Opening Shop の `ARCHIVE` タブから、直近 20 件のラン結果を新しい順に閲覧できます。各ログはローカル保存専用で、GEEK 残高、ANJU MEMORY 残高、ランキング、Firebase 送信値、ゲームバランスには影響しません。
 
-保存対象は通常 `EXTRACT`、`EMERGENCY EXTRACT`、通常ゲームオーバー、Depth 5 までの Gate Collapse です。`?debugDeepResult=1` のプレビュー、ゲーム開始前、手動でページを閉じただけの中断は保存されません。1 ランにつき保存は 1 件だけで、21 件目以降は古いログから削除されます。
+保存対象は通常 `EXTRACT`、`EMERGENCY EXTRACT`、通常ゲームオーバー、Depth 5 までの Gate Collapse です。Depth10 Final Raid の `ドールを解放する` 帰還は通常抽出相当として保存されます。`?debugDeepResult=1` のプレビュー、ゲーム開始前、手動でページを閉じただけの中断は保存されません。1 ランにつき保存は 1 件だけで、21 件目以降は古いログから削除されます。
 
 主な保存項目:
 

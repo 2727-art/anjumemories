@@ -787,10 +787,82 @@ const FINAL_BOSS_RAID_GUILD_NAMES = {
   "012": "ひとりぼっちの",
   "013": "エクスカリオン"
 };
-const FINAL_BOSS_RAID_CONFIG = {
-  targetDepth: 10,
+const FINAL_RAID_TIMELINE_CONFIG = {
   totalDurationMs: 600000,
   resolutionStartMs: 558000,
+  finalPushJoinMs: 535000,
+  finalPushBurstDelayMs: 14500,
+  minBossHpBeforeResolutionBars: 12
+};
+const FINAL_RAID_ASSIST_RANKING_SCRIPT = {
+  preFinalLeaderGuildId: "guild-010",
+  preFinalLeaderLeadDamage: 480000,
+  preFinalLeaderLeadRatio: 1.04,
+  finalPushBurstDelayMs: FINAL_RAID_TIMELINE_CONFIG.finalPushBurstDelayMs
+};
+const FINAL_RAID_CAMERA_CONFIG = {
+  zoom: 0.48,
+  focusBossWeight: 0.74,
+  farFocusBossWeight: 0.2,
+  playerLeashStartY: 780,
+  playerLeashEndY: 1900,
+  focusOffsetX: 0,
+  focusOffsetY: 120,
+  playerMoveSpeed: 145
+};
+const FINAL_RAID_BOSS_ANCHOR = {
+  source: "playBounds",
+  xRatio: 0.5,
+  yRatio: 0.085,
+  offsetX: 0,
+  offsetY: 0
+};
+const FINAL_RAID_PLAYER_START_OFFSET = {
+  x: 0,
+  y: 760
+};
+const FINAL_RAID_FIELD_ATTACK_CONFIG = {
+  maxActiveFields: 5,
+  defaultFieldDurationMs: 3000,
+  defaultFieldTickMs: 600,
+  minFieldSeparationRatio: 0.62,
+  phases: {
+    first: {
+      initialDelayMs: 3000,
+      intervalMs: 4700,
+      patterns: [
+        { kind: "arcane", label: "SIGIL", radius: 118, damage: 8, warningMs: 1450, fieldDurationMs: 700, targetMode: "playerLong" }
+      ]
+    },
+    second: {
+      initialDelayMs: 2200,
+      intervalMs: 4300,
+      patterns: [
+        { kind: "arcane", label: "SIGIL", radius: 126, damage: 9, warningMs: 1350, fieldDurationMs: 720, targetMode: "playerLong" },
+        { kind: "wide", label: "RIFT", radius: 228, damage: 13, warningMs: 1750, fieldDurationMs: 820, targetMode: "playerLong" }
+      ]
+    },
+    third: {
+      fieldDurationMs: 3000,
+      fieldTickMs: 600,
+      maxFields: 5
+    }
+  }
+};
+const FINAL_RAID_ADD_MONSTER_CONFIG = {
+  hpMultiplier: 18,
+  contactDamageMultiplier: 0.86,
+  attackInitialDelayMs: { min: 1600, max: 2800 },
+  attackIntervalMs: { min: 3600, max: 5400 },
+  attackWarningMs: 1150,
+  attackRadius: 142,
+  attackDamage: 7,
+  targetJitter: 110
+};
+const FINAL_BOSS_RAID_CONFIG = {
+  targetDepth: 10,
+  totalDurationMs: FINAL_RAID_TIMELINE_CONFIG.totalDurationMs,
+  resolutionStartMs: FINAL_RAID_TIMELINE_CONFIG.resolutionStartMs,
   debugTimeScale: 0.1,
   title: "Depth10 Final Raid",
   field: {
@@ -852,12 +924,24 @@ const FINAL_BOSS_RAID_CONFIG = {
     tint: 0xf0c463,
     accent: "#f7d98a"
   },
+  liberationGate: {
+    title: "DOLL LIBERATION",
+    subtitle: "Depth10 Final Raid 討伐完了",
+    actionLabel: "ドールを解放する",
+    description: [
+      "ラスボスCD「ドールを解放せし者」解放",
+      "ラスボスサポート攻撃 解放",
+      "Opening Shopへ帰還"
+    ],
+    notice: "DOLL LIBERATION READY"
+  },
   bossHpBars: 999,
   playerBossHpDamageRatio: 0.00072,
   playerMinimumBossHpBars: 420,
   raidBossHpPreFinalFloorBars: 128,
   debugFinalPushMinLeadMs: 6500,
   debugFinalPushMinAfterPreviousMs: 650,
+  bossDisplayName: "ドールを統べし者",
   attackAssets: {
     fireFrames: Array.from({ length: 8 }, (_, index) => {
       const frameNumber = String(index + 1).padStart(2, "0");
@@ -911,7 +995,7 @@ const FINAL_BOSS_RAID_CONFIG = {
       id: `guild-${guildCode}`,
       code: guildCode,
       label: FINAL_BOSS_RAID_GUILD_NAMES[guildCode] || `GUILD ${guildCode}`,
-      joinMs: isFinalGuild ? 555000 : 26000 + index * 40000,
+      joinMs: isFinalGuild ? FINAL_RAID_TIMELINE_CONFIG.finalPushJoinMs : 26000 + index * 40000,
       baseDamage: isFinalGuild ? 1800000 : 900000 + index * 240000,
       damagePerSecond: isFinalGuild ? 62000 : 4300 + index * 920,
       burstDamagePerSecond: isFinalGuild ? 350000 : 0,
@@ -926,24 +1010,33 @@ const FINAL_BOSS_RAID_CONFIG = {
 };
 // Visual-only Depth10 Final Raid tuning. debugFinalRaidScale remains a timer speed override.
 const FINAL_RAID_VISUAL_CONFIG = {
-  cameraZoom: 0.72,
-  backgroundScale: 1.08,
+  cameraZoom: FINAL_RAID_CAMERA_CONFIG.zoom,
+  cameraFocusBossWeight: FINAL_RAID_CAMERA_CONFIG.focusBossWeight,
+  cameraFarFocusBossWeight: FINAL_RAID_CAMERA_CONFIG.farFocusBossWeight,
+  cameraPlayerLeashStartY: FINAL_RAID_CAMERA_CONFIG.playerLeashStartY,
+  cameraPlayerLeashEndY: FINAL_RAID_CAMERA_CONFIG.playerLeashEndY,
+  cameraFocusOffsetX: FINAL_RAID_CAMERA_CONFIG.focusOffsetX,
+  cameraFocusOffsetY: FINAL_RAID_CAMERA_CONFIG.focusOffsetY,
+  playerMoveSpeed: FINAL_RAID_CAMERA_CONFIG.playerMoveSpeed,
+  bossAnchor: { ...FINAL_RAID_BOSS_ANCHOR },
+  playerStartOffsetFromBoss: { ...FINAL_RAID_PLAYER_START_OFFSET },
+  backgroundScale: 1,
   playerVisualScale: 0.92,
-  bossThroneOffset: { x: 0, y: 120 },
+  bossThroneOffset: { x: 0, y: 0 },
   bossDisplaySizeByPhase: {
-    first: 320,
-    second: 360,
-    third: 430
+    first: 420,
+    second: 560,
+    third: 860
   },
   bossVisualScaleByPhase: {
-    first: 1,
-    second: 1.14,
-    third: 1.32
+    first: 1.04,
+    second: 1.18,
+    third: 1.62
   },
   bossPositionOffsetByPhase: {
-    first: { x: -12, y: 12 },
-    second: { x: -10, y: -6 },
-    third: { x: -6, y: -36 }
+    first: { x: 0, y: -6 },
+    second: { x: 0, y: -18 },
+    third: { x: 0, y: -190 }
   },
   bossDepthByPhase: {
     first: 18.05,
@@ -961,17 +1054,17 @@ const FINAL_RAID_VISUAL_CONFIG = {
     third: 0.032
   },
   bossNameOffsetYByPhase: {
-    first: 124,
-    second: 142,
-    third: 166
+    first: 168,
+    second: 220,
+    third: 340
   },
   bossNameAlphaByPhase: {
     first: 0.72,
     second: 0.52,
     third: 0
   },
-  fieldEffectScale: 0.96,
-  warningAreaVisualScale: 1,
+  fieldEffectScale: 1.08,
+  warningAreaVisualScale: 1.08,
   bossClampToHudSafeArea: false,
   depths: {
     bossHitTarget: 17.1,
@@ -1038,7 +1131,7 @@ const FINAL_RAID_HUD_STYLE = {
   metalDark: 0x1d252c,
   neonBlue: 0x65e6ff,
   neonCyan: 0x9ffcff,
-  hpTrail: 0xffd1fa,
+  hpTrail: 0xffbfdc,
   barBack: 0x071521,
   text: "#ecfaff",
   muted: "#9fb4c4",
@@ -4862,6 +4955,10 @@ class SurvivalScene extends Phaser.Scene {
       phaseTimings: [],
       timerComplete: false,
       clearRewardSaved: false,
+      liberationGateActive: false,
+      liberationGateLocked: false,
+      liberationGateContainer: null,
+      liberationGateButtonBounds: null,
       debug: false,
       bossHpMaxBars: FINAL_BOSS_RAID_CONFIG.bossHpBars,
       bossHpBars: FINAL_BOSS_RAID_CONFIG.bossHpBars,
@@ -4885,10 +4982,13 @@ class SurvivalScene extends Phaser.Scene {
       supportCutinStartTimers: [],
       supportVoiceSound: null,
       thirdPhaseCombatStarted: false,
+      nextPhaseAttackAt: 0,
+      phaseAttackIndex: 0,
       nextThirdSpellAt: 0,
       nextThirdMinionSpawnAt: 0,
       thirdSpellIndex: 0,
       activeSpellObjects: [],
+      activeSpellFields: [],
       spellTimers: [],
       attackMotionTimers: [],
       playerSlowUntil: 0,
@@ -4929,6 +5029,8 @@ class SurvivalScene extends Phaser.Scene {
       bossHitTarget: null
     };
     this.finalBossRaidKeyHandler = null;
+    this.finalBossLiberationGateKeyHandler = null;
+    this.finalBossLiberationGatePointerHandler = null;
   }
 
   isFinalBossRaidActive() {
@@ -5005,6 +5107,35 @@ class SurvivalScene extends Phaser.Scene {
     };
   }
 
+  getFinalRaidBossAnchorConfig() {
+    const anchor = this.getFinalRaidVisualConfig()?.bossAnchor || {};
+    const source = anchor.source === "worldBounds" || anchor.source === "playBounds"
+      ? anchor.source
+      : "movementBounds";
+    return {
+      source,
+      xRatio: Phaser.Math.Clamp(Number(anchor.xRatio) || 0.5, 0, 1),
+      yRatio: Phaser.Math.Clamp(Number(anchor.yRatio) || 0.28, 0, 1),
+      offsetX: Number.isFinite(Number(anchor.offsetX)) ? Number(anchor.offsetX) : 0,
+      offsetY: Number.isFinite(Number(anchor.offsetY)) ? Number(anchor.offsetY) : 0
+    };
+  }
+
+  getFinalRaidBossAnchorBounds() {
+    const anchor = this.getFinalRaidBossAnchorConfig();
+    if (anchor.source === "worldBounds") {
+      return this.getStageWorldBounds(this.currentStage);
+    }
+    if (anchor.source === "playBounds") {
+      return this.getStagePlayBounds(this.currentStage, 0)
+        || this.getStageMovementBounds(this.currentStage, 0)
+        || this.getStageWorldBounds(this.currentStage);
+    }
+    return this.getStageMovementBounds(this.currentStage, 0)
+      || this.getStagePlayBounds(this.currentStage, 0)
+      || this.getStageWorldBounds(this.currentStage);
+  }
+
   getFinalRaidVisualDepth(key, fallback = 20) {
     const value = Number(this.getFinalRaidVisualConfig()?.depths?.[key]);
     return Number.isFinite(value) ? value : fallback;
@@ -5056,7 +5187,10 @@ class SurvivalScene extends Phaser.Scene {
     if (!this.isFinalBossRaidActive?.()) {
       return;
     }
+    const camera = this.worldCamera || this.cameras?.main;
+    camera?.stopFollow?.();
     this.setWorldCameraZoom?.(this.getFinalRaidVisualNumber("cameraZoom", WORLD_CAMERA_ZOOM, 0.45, 1.4));
+    this.updateFinalBossRaidCamera?.();
     if (this.finalBossRaidState?.debug) {
       console.log("[FINAL BOSS RAID] visual zoom", { reason, zoom: this.worldCamera?.zoom });
     }
@@ -5073,6 +5207,9 @@ class SurvivalScene extends Phaser.Scene {
 
   resetFinalRaidVisualScales(reason = "reset") {
     this.setWorldCameraZoom?.(WORLD_CAMERA_ZOOM);
+    if (this.playerHitbox?.active && this.worldCamera?.startFollow) {
+      this.worldCamera.startFollow(this.playerHitbox, true, 0.12, 0.12);
+    }
     this.resetFinalRaidDepthOverrides?.(reason);
     this.scalePlayerRobotSprite?.();
     if (this.isFinalBossRaidDebugEnabled?.()) {
@@ -7668,7 +7805,7 @@ class SurvivalScene extends Phaser.Scene {
       }
     }
 
-    return Phaser.Math.Clamp(FINAL_BOSS_RAID_CONFIG.debugTimeScale || 0.1, 0.02, 1);
+    return 1;
   }
 
   getFinalBossRaidDebugPhaseTarget() {
@@ -7898,6 +8035,10 @@ class SurvivalScene extends Phaser.Scene {
       phaseTimings: timing.phaseTimings,
       timerComplete: false,
       clearRewardSaved: false,
+      liberationGateActive: false,
+      liberationGateLocked: false,
+      liberationGateContainer: null,
+      liberationGateButtonBounds: null,
       debug: this.isFinalBossRaidDebugEnabled(),
       bossHpMaxBars: FINAL_BOSS_RAID_CONFIG.bossHpBars,
       bossHpBars: FINAL_BOSS_RAID_CONFIG.bossHpBars,
@@ -7921,10 +8062,13 @@ class SurvivalScene extends Phaser.Scene {
       supportCutinStartTimers: [],
       supportVoiceSound: null,
       thirdPhaseCombatStarted: false,
+      nextPhaseAttackAt: 0,
+      phaseAttackIndex: 0,
       nextThirdSpellAt: 0,
       nextThirdMinionSpawnAt: 0,
       thirdSpellIndex: 0,
       activeSpellObjects: [],
+      activeSpellFields: [],
       spellTimers: [],
       attackMotionTimers: [],
       playerSlowUntil: 0,
@@ -7972,6 +8116,7 @@ class SurvivalScene extends Phaser.Scene {
     this.applyFinalRaidVisualScales("start");
     this.createFinalBossRaidObjects();
     this.setFinalBossRaidPhase(this.getFinalBossRaidPhaseForElapsed(startElapsedMs), "start");
+    this.positionFinalBossRaidPlayerStart("start");
     this.updateFinalBossRaidRankingEntries();
     this.updateFinalBossRaidBossHpFromRaidProgress();
     this.updateFinalBossRaidHud();
@@ -8152,8 +8297,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getFinalRaidBossDisplayName() {
-    const finalBossCd = CD_CATALOG.find((cd) => cd.id === FINAL_BOSS_CD_ID);
-    return finalBossCd?.title || "ドールを解放せし者";
+    return FINAL_BOSS_RAID_CONFIG.bossDisplayName || "ドールを統べし者";
   }
 
   getFinalRaidHudViewportInfo() {
@@ -8245,11 +8389,22 @@ class SurvivalScene extends Phaser.Scene {
     const bossWidth = Math.min(FINAL_RAID_HUD_LAYOUT.boss.width, availableBossWidth);
     const centeredBossX = Math.round((layoutWidth - bossWidth) / 2);
     const bossX = Phaser.Math.Clamp(centeredBossX, centerLeft, centerRight - bossWidth);
-    const actionWidth = info.compact ? 520 : FINAL_RAID_HUD_LAYOUT.action.width;
-    const normalizedActionWidth = Math.max(FINAL_RAID_HUD_RESPONSIVE.minActionWidth, Math.min(FINAL_RAID_HUD_LAYOUT.action.width, actionWidth));
-    const actionX = Math.round((layoutWidth - normalizedActionWidth) / 2);
-    const actionY = layoutHeight - FINAL_RAID_HUD_LAYOUT.action.height - safe.bottom;
-    const dashRadius = FINAL_RAID_HUD_LAYOUT.action.dashRadius;
+    const actionWidth = info.compact ? 114 : 124;
+    const actionX = Math.min(layoutWidth - actionWidth - safe.right, playerX + 8);
+    const actionY = playerY + playerHeight + safe.panelGap;
+    const actionAvailableHeight = Math.max(240, layoutHeight - actionY - safe.bottom);
+    const actionHeight = Math.min(430, actionAvailableHeight);
+    const actionCenterX = actionX + actionWidth / 2;
+    const dashRadius = Math.min(FINAL_RAID_HUD_LAYOUT.action.dashRadius, Math.max(30, Math.floor((actionWidth - 40) / 2)));
+    const moduleSlotHeight = Math.min(102, Math.max(78, Math.floor(actionHeight * 0.23)));
+    const moduleSlotWidth = actionWidth - 24;
+    const moduleSlotX = actionX + 12;
+    const moduleGap = Math.max(10, Math.floor(actionHeight * 0.035));
+    const fieldSlotY = actionY + actionHeight - 16 - moduleSlotHeight;
+    const robotSlotY = fieldSlotY - moduleGap - moduleSlotHeight;
+    const syncTextY = Math.min(actionY + 184, robotSlotY - 32);
+    const syncBarY = syncTextY + 21;
+    const dashY = actionY + Math.max(66, Math.min(82, syncTextY - actionY - 100));
     const topCardGap = info.compact ? 8 : 14;
     const reviveWidth = Math.floor((rightPanelWidth - topCardGap) * 0.47);
     const damageWidth = rightPanelWidth - topCardGap - reviveWidth;
@@ -8328,10 +8483,30 @@ class SurvivalScene extends Phaser.Scene {
         ...FINAL_RAID_HUD_LAYOUT.action,
         x: actionX,
         y: actionY,
-        width: normalizedActionWidth,
-        dashX: actionX + 78,
-        dashY: actionY + 62,
-        dashRadius
+        width: actionWidth,
+        height: actionHeight,
+        centerX: actionCenterX,
+        dashX: actionCenterX,
+        dashY,
+        dashRadius,
+        syncTextX: actionCenterX,
+        syncTextY,
+        syncBarX: actionX + 22,
+        syncBarY,
+        syncBarWidth: actionWidth - 44,
+        syncBarHeight: 8,
+        robotSlot: {
+          x: moduleSlotX,
+          y: robotSlotY,
+          width: moduleSlotWidth,
+          height: moduleSlotHeight
+        },
+        fieldSlot: {
+          x: moduleSlotX,
+          y: fieldSlotY,
+          width: moduleSlotWidth,
+          height: moduleSlotHeight
+        }
       }
     };
   }
@@ -8601,7 +8776,7 @@ class SurvivalScene extends Phaser.Scene {
       break: this.createFinalRaidHudBarFill(container, boss.x + 82, boss.y + 148, 206, 9, 0xf0c463, 0.96, { style: "gold" }),
       playerHp: this.createFinalRaidHudBarFill(container, player.x + 96, player.y + 62, playerBarWidth, 10, 0x5ee46d, 0.94, { style: "green" }),
       playerXp: this.createFinalRaidHudBarFill(container, player.x + 96, player.y + 98, playerBarWidth, 9, 0x5a9cff, 0.92, { style: "blue" }),
-      sync: this.createFinalRaidHudBarFill(container, action.x + 262, action.y + 27, 236, 8, 0x5fc7e5, 0.88, { style: "cyan" })
+      sync: this.createFinalRaidHudBarFill(container, action.syncBarX, action.syncBarY, action.syncBarWidth, action.syncBarHeight, 0x5fc7e5, 0.88, { style: "cyan" })
     };
 
     elements.bossLabelText = this.createHudLabel(container, boss.x + 24, boss.y + 16, "BOSS", {
@@ -8759,13 +8934,6 @@ class SurvivalScene extends Phaser.Scene {
       lineSpacing: ranking.lineSpacing ?? 7,
       wordWrap: { width: ranking.width - 44 }
     });
-    elements.supportText = this.createFinalRaidHudText(container, ranking.x + 22, ranking.y + ranking.height - 44, "SUPPORT STANDBY", {
-      fontSize: ranking.supportFontSize || "11px",
-      color: FINAL_RAID_HUD_STYLE.muted,
-      lineSpacing: 3,
-      wordWrap: { width: ranking.width - 44 }
-    });
-
     elements.objectiveTitleText = this.createHudLabel(container, objective.x + objective.width / 2, objective.y + 14, "OBJECTIVE", {
       fontSize: "13px",
       color: FINAL_RAID_HUD_STYLE.gold,
@@ -8779,6 +8947,12 @@ class SurvivalScene extends Phaser.Scene {
       wordWrap: { width: objective.width - 48 }
     });
 
+    const robotSlot = action.robotSlot || { x: action.x + 14, y: action.y + 210, width: action.width - 28, height: 96 };
+    const fieldSlot = action.fieldSlot || { x: action.x + 14, y: action.y + 318, width: action.width - 28, height: 96 };
+    const robotCenterX = robotSlot.x + robotSlot.width / 2;
+    const fieldCenterX = fieldSlot.x + fieldSlot.width / 2;
+    const robotIconY = robotSlot.y + Math.round(robotSlot.height * 0.55);
+    const fieldIconY = fieldSlot.y + Math.round(fieldSlot.height * 0.55);
     elements.dashText = this.createFinalRaidHudText(container, action.dashX, action.dashY - 8, "DASH", {
       fontSize: "15px",
       color: FINAL_RAID_HUD_STYLE.text,
@@ -8795,25 +8969,43 @@ class SurvivalScene extends Phaser.Scene {
       originX: 0.5,
       originY: 0.5
     });
-    elements.syncText = this.createHudLabel(container, action.x + 174, action.y + 22, "SYNC 0%", {
+    elements.syncText = this.createHudLabel(container, action.syncTextX, action.syncTextY, "SYNC 0%", {
       fontSize: "13px",
       color: FINAL_RAID_HUD_STYLE.cyan,
       glowColor: "#9ffcff",
-      shadowBlur: 4
+      shadowBlur: 4,
+      align: "center",
+      originX: 0.5
     });
-    elements.robotIcon = this.createFinalRaidHudImage(container, action.x + 206, action.y + 72, this.getRobotTextureKey(), 42);
-    elements.fieldIcon = this.createFinalRaidHudImage(container, action.x + 374, action.y + 72, this.getRecoveryFieldTextureKey(), 42);
-    elements.robotText = this.createFinalRaidHudText(container, action.x + 242, action.y + 54, "ROBOT\nLv.1/10", {
-      fontSize: "16px",
+    elements.robotTitleText = this.createFinalRaidHudText(container, robotCenterX, robotSlot.y + 13, "ROBOT", {
+      fontSize: "15px",
       color: FINAL_RAID_HUD_STYLE.text,
       fontStyle: "bold",
-      lineSpacing: 6
+      align: "center",
+      originX: 0.5
     });
-    elements.fieldText = this.createFinalRaidHudText(container, action.x + 410, action.y + 54, "FIELD\nLv.1/10", {
-      fontSize: "16px",
+    elements.robotIcon = this.createFinalRaidHudImage(container, robotCenterX, robotIconY, this.getRobotTextureKey(), 42);
+    elements.robotLevelText = this.createFinalRaidHudText(container, robotCenterX, robotSlot.y + robotSlot.height - 26, "Lv.1/10", {
+      fontSize: "15px",
       color: FINAL_RAID_HUD_STYLE.text,
       fontStyle: "bold",
-      lineSpacing: 6
+      align: "center",
+      originX: 0.5
+    });
+    elements.fieldTitleText = this.createFinalRaidHudText(container, fieldCenterX, fieldSlot.y + 13, "FIELD", {
+      fontSize: "15px",
+      color: FINAL_RAID_HUD_STYLE.text,
+      fontStyle: "bold",
+      align: "center",
+      originX: 0.5
+    });
+    elements.fieldIcon = this.createFinalRaidHudImage(container, fieldCenterX, fieldIconY, this.getRecoveryFieldTextureKey(), 42);
+    elements.fieldLevelText = this.createFinalRaidHudText(container, fieldCenterX, fieldSlot.y + fieldSlot.height - 26, "Lv.1/10", {
+      fontSize: "15px",
+      color: FINAL_RAID_HUD_STYLE.text,
+      fontStyle: "bold",
+      align: "center",
+      originX: 0.5
     });
 
     this.uiContainer?.add(container);
@@ -8836,7 +9028,6 @@ class SurvivalScene extends Phaser.Scene {
     state.debugText = elements.debugText;
     state.contributionText = elements.myDamageText;
     state.rankingText = elements.rankingText;
-    state.incomingSupportText = elements.supportText;
     this.updateFinalRaidHud();
   }
 
@@ -9050,6 +9241,8 @@ class SurvivalScene extends Phaser.Scene {
     graphics.lineBetween(player.x + 10, skillDividerY, player.x + player.width - 10, skillDividerY);
 
     const action = layout.action;
+    const robotSlot = action.robotSlot || { x: action.x + 14, y: action.y + 210, width: action.width - 28, height: 96 };
+    const fieldSlot = action.fieldSlot || { x: action.x + 14, y: action.y + 318, width: action.width - 28, height: 96 };
     graphics.fillStyle(0x02070d, 0.88);
     graphics.fillCircle(action.dashX, action.dashY, action.dashRadius + 14);
     graphics.lineStyle(3, 0x59666f, 0.44);
@@ -9060,21 +9253,21 @@ class SurvivalScene extends Phaser.Scene {
     graphics.strokeCircle(action.dashX, action.dashY, action.dashRadius);
     graphics.lineStyle(1, 0xc8f7ff, 0.34);
     graphics.strokeCircle(action.dashX, action.dashY, action.dashRadius - 10);
-    this.drawGlassPanel(graphics, { x: action.x + 174, y: action.y + 44, width: 136, height: 62 }, {
+    this.drawGlassPanel(graphics, robotSlot, {
       stroke: 0x65e6ff,
       strokeAlpha: 0.22,
       alpha: 0.7,
       cut: 8,
       glossAlpha: 0.03
     });
-    this.drawGlassPanel(graphics, { x: action.x + 342, y: action.y + 44, width: 136, height: 62 }, {
+    this.drawGlassPanel(graphics, fieldSlot, {
       stroke: 0x65e6ff,
       strokeAlpha: 0.22,
       alpha: 0.7,
       cut: 8,
       glossAlpha: 0.03
     });
-    this.drawFinalRaidHudBar(graphics, action.x + 262, action.y + 27, 236, 8, 0, metrics.syncActive ? 0x9ffcff : 0x5fc7e5, {
+    this.drawFinalRaidHudBar(graphics, action.syncBarX, action.syncBarY, action.syncBarWidth, action.syncBarHeight, 0, metrics.syncActive ? 0x9ffcff : 0x5fc7e5, {
       backFill: 0x11212a,
       stroke: 0x65e6ff,
       strokeAlpha: 0.18
@@ -9314,12 +9507,18 @@ class SurvivalScene extends Phaser.Scene {
     const rankingMaxRows = Math.max(3, Math.floor(Number(layout.ranking?.maxRows) || 5));
     const rankingLines = this.formatFinalBossRaidRankingLines().split("\n").slice(1, rankingMaxRows + 1).join("\n") || "--";
     elements.rankingText?.setText(rankingLines);
-    elements.supportText?.setText(this.formatFinalBossRaidIncomingSupportLine().replace(/^INCOMING SUPPORT\n/, "SUPPORT\n"));
-    elements.objectiveText?.setText([
-      `◇ ボスを討伐する  ${targetBars <= 0 ? "1/1" : "0/1"}`,
-      `◇ 制限時間内に討伐  ${this.formatTimeMs(remainingMs)} / ${this.formatTimeMs(state.durationMs)}`,
-      "◇ 戦闘不能回数  -- / --"
-    ].join("\n"));
+    const liberationReady = Boolean(state.liberationGateActive || state.timerComplete);
+    elements.objectiveText?.setText(liberationReady
+      ? [
+        "◇ ボス討伐完了  1/1",
+        "◇ ドール解放ゲート 出現",
+        "◇ Opening Shopへ帰還"
+      ].join("\n")
+      : [
+        `◇ ボスを討伐する  ${targetBars <= 0 ? "1/1" : "0/1"}`,
+        `◇ 制限時間内に討伐  ${this.formatTimeMs(remainingMs)} / ${this.formatTimeMs(state.durationMs)}`,
+        "◇ 戦闘不能回数  -- / --"
+      ].join("\n"));
 
     elements.dashStateText?.setText(this.dashLockedUntilRelease ? "LOCK" : (staminaRatio >= 0.18 ? "READY" : "LOW"));
     elements.dashStateText?.setColor(this.isDashing ? "#e9ffff" : (staminaRatio >= 0.18 ? FINAL_RAID_HUD_STYLE.cyan : "#ffb3a8"));
@@ -9342,8 +9541,10 @@ class SurvivalScene extends Phaser.Scene {
     if (elements.fieldIcon && this.textures.exists(fieldTextureKey)) {
       this.setHudIconToFit(elements.fieldIcon, fieldTextureKey, 42);
     }
-    elements.robotText?.setText(`ROBOT\nLv.${missileLevel}/${missileCap}`);
-    elements.fieldText?.setText(`FIELD\nLv.${fieldLevel}/${fieldCap}`);
+    elements.robotTitleText?.setText("ROBOT");
+    elements.robotLevelText?.setText(`Lv.${missileLevel}/${missileCap}`);
+    elements.fieldTitleText?.setText("FIELD");
+    elements.fieldLevelText?.setText(`Lv.${fieldLevel}/${fieldCap}`);
 
     if (elements.debugText) {
       elements.debugText
@@ -9403,10 +9604,19 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getFinalBossRaidBossPosition() {
-    const center = this.getStageGateCenter();
+    const anchor = this.getFinalRaidBossAnchorConfig();
+    const bounds = this.getFinalRaidBossAnchorBounds();
+    if (!bounds) {
+      const center = this.getStageGateCenter();
+      return {
+        x: center.x,
+        y: center.y - 180
+      };
+    }
+
     return {
-      x: center.x,
-      y: center.y - 180
+      x: bounds.left + bounds.width * anchor.xRatio + anchor.offsetX,
+      y: bounds.top + bounds.height * anchor.yRatio + anchor.offsetY
     };
   }
 
@@ -9421,6 +9631,79 @@ class SurvivalScene extends Phaser.Scene {
     return this.getFinalRaidVisualConfig()?.bossClampToHudSafeArea
       ? this.clampFinalRaidVisualPointToHudSafeArea(position)
       : position;
+  }
+
+  getFinalBossRaidPlayerStartOffset() {
+    const offset = this.getFinalRaidVisualConfig()?.playerStartOffsetFromBoss || {};
+    return {
+      x: Number.isFinite(Number(offset.x)) ? Number(offset.x) : 0,
+      y: Number.isFinite(Number(offset.y)) ? Number(offset.y) : 720
+    };
+  }
+
+  getFinalBossRaidPlayerStartPosition(phase = null) {
+    const bossPosition = this.getFinalBossRaidBossVisualPosition(phase);
+    const offset = this.getFinalBossRaidPlayerStartOffset();
+    const worldBounds = this.getStageWorldBounds(this.currentStage);
+    const bounds = this.getStageMovementBounds(this.currentStage, 96)
+      || this.getStagePlayBounds(this.currentStage, 96)
+      || {
+        left: worldBounds.left + 96,
+        top: worldBounds.top + 96,
+        right: worldBounds.right - 96,
+        bottom: worldBounds.bottom - 96
+      };
+    const point = this.clampPointToBounds(bossPosition.x + offset.x, bossPosition.y + offset.y, bounds);
+    return this.getSafeDropPoint(point.x, point.y, 48);
+  }
+
+  positionFinalBossRaidPlayerStart(reason = "start") {
+    if (!this.playerHitbox?.active) {
+      return;
+    }
+
+    const point = this.getFinalBossRaidPlayerStartPosition(this.finalBossRaidState?.currentPhase);
+    this.playerHitbox.setPosition(point.x, point.y);
+    if (this.playerHitbox.body) {
+      this.playerHitbox.body.reset?.(point.x, point.y);
+      this.playerHitbox.body.setVelocity?.(0, 0);
+      this.playerHitbox.body.updateFromGameObject?.();
+    }
+    this.playerSprite?.setPosition(point.x, point.y + PLAYER_SPRITE_OFFSET_Y);
+    this.playerShadow?.setPosition(point.x, point.y + PLAYER_SHADOW_OFFSET_Y);
+    this.playerBoosterGlow?.setPosition(point.x, point.y);
+    this.playerBoosterCore?.setPosition(point.x, point.y);
+    (this.playerBoosterStreaks || []).forEach((streak) => streak?.setPosition?.(point.x, point.y));
+
+    if (this.robotState) {
+      this.robotState.x = point.x - 78;
+      this.robotState.y = point.y - 56;
+      this.robotSprite?.setPosition(this.robotState.x, this.robotState.y);
+      this.robotShadow?.setPosition(this.robotState.x, this.robotState.y + 44);
+      this.robotMuzzleGlow?.setPosition(this.robotState.x, this.robotState.y + 4);
+      this.updateRobotRecoveryFieldVisual?.(0);
+      this.updateRobotBarrierVisual?.(0);
+    }
+
+    if (this.cleaningRobotState) {
+      const followPoint = this.getCleaningRobotFollowPoint?.() || { x: point.x + 90, y: point.y - 28 };
+      this.cleaningRobotState.x = followPoint.x;
+      this.cleaningRobotState.y = followPoint.y;
+      this.cleaningRobotState.target = null;
+      this.cleaningRobotSprite?.setPosition(followPoint.x, followPoint.y);
+      this.cleaningRobotShadow?.setPosition(followPoint.x, followPoint.y + 37);
+      this.cleaningRobotGlow?.setPosition(followPoint.x, followPoint.y + 2);
+    }
+
+    this.syncPlayerVisuals?.();
+    this.updatePlayerRobotBoostVisuals?.(0);
+    if (this.finalBossRaidState?.debug) {
+      console.log("[FINAL BOSS RAID] player start positioned", {
+        reason,
+        x: Math.round(point.x),
+        y: Math.round(point.y)
+      });
+    }
   }
 
   createFinalBossRaidBossVisualForPhase(phase) {
@@ -9502,6 +9785,10 @@ class SurvivalScene extends Phaser.Scene {
     const previousPhaseId = state.currentPhaseId;
     state.currentPhaseId = phase.id;
     state.currentPhase = phase;
+    if (previousPhaseId !== phase.id) {
+      state.nextPhaseAttackAt = 0;
+      state.phaseAttackIndex = 0;
+    }
     if (previousPhaseId === "third" && phase.id !== "third") {
       this.cleanupFinalBossRaidThirdPhaseCombat("phaseExit", { clearMinions: true });
     }
@@ -9735,12 +10022,19 @@ class SurvivalScene extends Phaser.Scene {
     state.activeSpellObjects = state.activeSpellObjects.filter((object) => !list.includes(object));
   }
 
+  scaleFinalBossRaidMs(value, fallbackValue, minValue = 1) {
+    const state = this.finalBossRaidState;
+    const timeScale = Phaser.Math.Clamp(Number(state?.timeScale) || 1, 0.02, 1);
+    return Math.max(minValue, Math.round((Number(value) || fallbackValue) * timeScale));
+  }
+
   cleanupFinalBossRaidThirdPhaseCombat(reason = "cleanup", options = {}) {
     const state = this.finalBossRaidState;
     if (!state) {
       return;
     }
 
+    this.cleanupFinalBossRaidDamageFields(reason);
     (state.spellTimers || []).forEach((timer) => timer?.remove?.(false));
     state.spellTimers = [];
     (state.attackMotionTimers || []).forEach((timer) => timer?.remove?.(false));
@@ -9751,6 +10045,8 @@ class SurvivalScene extends Phaser.Scene {
     objects.forEach((object) => object?.destroy?.());
     state.activeSpellObjects = [];
     state.thirdPhaseCombatStarted = false;
+    state.nextPhaseAttackAt = 0;
+    state.phaseAttackIndex = 0;
     state.nextThirdSpellAt = 0;
     state.nextThirdMinionSpawnAt = 0;
     state.playerSlowUntil = 0;
@@ -9833,6 +10129,7 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
+    this.teardownFinalBossLiberationGate(reason);
     this.cleanupFinalBossRaidSupportEffects(reason);
     this.cleanupFinalBossRaidThirdPhaseCombat(reason, { clearMinions: true });
     this.tweens?.killTweensOf?.(state.fieldContainer);
@@ -10162,6 +10459,8 @@ class SurvivalScene extends Phaser.Scene {
       this.spawnFinalBossRaidMinionBatch();
       state.nextThirdMinionSpawnAt = elapsedMs + this.getFinalBossRaidScaledThirdPhaseMs("minionIntervalMs", 9000);
     }
+
+    this.updateFinalBossRaidMinionAttacks(delta, time);
   }
 
   triggerFinalBossRaidThirdPhaseSpell() {
@@ -10189,17 +10488,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getFinalBossRaidSpellTargetPoint(spellKind, radius) {
-    const playerX = this.playerHitbox?.x || this.getFinalBossRaidBossPosition().x;
-    const playerY = this.playerHitbox?.y || this.getFinalBossRaidBossPosition().y;
-    const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-    const distance = spellKind === "fire"
-      ? Phaser.Math.Between(20, 130)
-      : Phaser.Math.Between(0, 78);
-    return this.clampBossAttackPoint(
-      playerX + Math.cos(angle) * distance,
-      playerY + Math.sin(angle) * distance,
-      radius + 24
-    );
+    return this.getFinalBossRaidFieldAttackPoint({
+      kind: spellKind,
+      targetMode: spellKind === "fire" ? "playerClose" : "playerTight"
+    }, radius);
   }
 
   playFinalBossRaidBossAttackMotion(spellKind) {
@@ -10238,50 +10530,144 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    const target = state.bossContainer;
-    if (target?.active) {
-      const baseScale = Number.isFinite(Number(state.bossBaseVisualScale))
-        ? Number(state.bossBaseVisualScale)
-        : this.getFinalRaidBossVisualScale(state.currentPhase);
-      const squashScale = Math.max(0.1, baseScale);
-      this.tweens.add({
-        targets: target,
-        scaleX: { from: squashScale * 1.08, to: squashScale },
-        scaleY: { from: squashScale * 0.92, to: squashScale },
-        duration: 210,
-        ease: "Back.Out"
-      });
-    }
+    // Boss scale stays static in Final Raid to keep camera/render cost stable.
+  }
+
+  getFinalBossRaidSpellPalette(spellKind = "fire") {
+    const palettes = {
+      fire: {
+        fillColor: 0xff4218,
+        ringColor: 0xffb05a,
+        fieldColor: 0xff4e18,
+        glowColor: 0xff8a35,
+        label: "BLAZE",
+        labelColor: "#ffd9a8",
+        labelFontSize: "19px",
+        labelAlpha: 0.78,
+        warningAlpha: 0.22,
+        warningStrokeWidth: 6,
+        fieldInitialAlpha: 0.2,
+        fieldBaseAlpha: 0.08,
+        fieldRatioAlpha: 0.18
+      },
+      ice: {
+        fillColor: 0x3edcff,
+        ringColor: 0xb7f7ff,
+        fieldColor: 0x4edfff,
+        glowColor: 0xa8f8ff,
+        label: "FREEZE",
+        labelColor: "#d8fbff",
+        labelFontSize: "17px",
+        labelAlpha: 0.76,
+        warningAlpha: 0.18,
+        warningStrokeWidth: 5,
+        fieldInitialAlpha: 0.18,
+        fieldBaseAlpha: 0.08,
+        fieldRatioAlpha: 0.17
+      },
+      arcane: {
+        fillColor: 0xb95cff,
+        ringColor: 0xf4c3ff,
+        fieldColor: 0xb058ff,
+        glowColor: 0xf59dff,
+        label: "SIGIL",
+        labelColor: "#f4dcff",
+        labelFontSize: "17px",
+        labelAlpha: 0.66,
+        warningAlpha: 0.15,
+        warningStrokeWidth: 4,
+        fieldInitialAlpha: 0.13,
+        fieldBaseAlpha: 0.06,
+        fieldRatioAlpha: 0.13
+      },
+      wide: {
+        fillColor: 0xffcf5a,
+        ringColor: 0xfff0a8,
+        fieldColor: 0xf0b83e,
+        glowColor: 0xffe38a,
+        label: "RIFT",
+        labelColor: "#fff1c2",
+        labelFontSize: "18px",
+        labelAlpha: 0.7,
+        warningAlpha: 0.16,
+        warningStrokeWidth: 6,
+        fieldInitialAlpha: 0.16,
+        fieldBaseAlpha: 0.07,
+        fieldRatioAlpha: 0.15
+      },
+      add: {
+        fillColor: 0xd747b7,
+        ringColor: 0xff9ee4,
+        fieldColor: 0xd64cc5,
+        glowColor: 0xff9ee4,
+        label: "ADD",
+        labelColor: "#ffe2f7",
+        labelFontSize: "13px",
+        labelAlpha: 0.24,
+        warningAlpha: 0.055,
+        warningStrokeWidth: 2,
+        fieldInitialAlpha: 0.08,
+        fieldBaseAlpha: 0.035,
+        fieldRatioAlpha: 0.08
+      }
+    };
+    return palettes[spellKind] || palettes.fire;
   }
 
   createFinalBossRaidSpellTelegraph(spellKind, point, radius, warningMs) {
-    const isFire = spellKind === "fire";
-    const fillColor = isFire ? 0xff4218 : 0x3edcff;
-    const ringColor = isFire ? 0xffb05a : 0xb7f7ff;
+    const palette = this.getFinalBossRaidSpellPalette(spellKind);
     // Warning visuals are configurable for readability; damage checks below still use the raw radius.
     const visualRadius = Math.max(1, radius * this.getFinalRaidVisualNumber("warningAreaVisualScale", 1, 0.25, 3));
+    const fieldTextureKey = this.getFinalBossRaidFieldTextureKey(spellKind);
+    const imageMetrics = fieldTextureKey ? this.getFinalBossRaidFieldImageMetrics(spellKind, radius) : null;
     const fill = this.add
-      .circle(point.x, point.y, visualRadius, fillColor, isFire ? 0.16 : 0.13)
+      .circle(point.x, point.y, visualRadius, palette.fillColor, palette.warningAlpha)
       .setDepth(this.getFinalRaidVisualDepth("warningFill", 17))
       .setBlendMode(Phaser.BlendModes.ADD);
+    const warningImage = fieldTextureKey
+      ? this.add
+        .image(point.x + imageMetrics.xOffset, point.y + imageMetrics.yOffset, fieldTextureKey)
+        .setOrigin(0.5, imageMetrics.originY)
+        .setDepth(this.getFinalRaidVisualDepth("warningFill", 17) + 0.04)
+        .setDisplaySize(imageMetrics.width * 0.9, imageMetrics.height * 0.9)
+        .setAlpha(imageMetrics.warningAlpha)
+        .setBlendMode(Phaser.BlendModes.ADD)
+      : null;
+    warningImage?.setRotation?.(Phaser.Math.FloatBetween(-0.045, 0.045));
     const ring = this.add
-      .circle(point.x, point.y, visualRadius, fillColor, 0)
-      .setStrokeStyle(isFire ? 5 : 4, ringColor, 0.86)
+      .circle(point.x, point.y, visualRadius, palette.fillColor, 0)
+      .setStrokeStyle(palette.warningStrokeWidth, palette.ringColor, 0.86)
       .setDepth(this.getFinalRaidVisualDepth("warningRing", 18))
       .setBlendMode(Phaser.BlendModes.ADD);
-    const label = this.add.text(point.x, point.y, isFire ? "BLAZE" : "FREEZE", {
+    const label = this.add.text(point.x, point.y, palette.label, {
       fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
-      fontSize: isFire ? "19px" : "17px",
-      color: isFire ? "#ffd9a8" : "#d8fbff",
+      fontSize: palette.labelFontSize,
+      color: palette.labelColor,
       fontStyle: "bold",
       stroke: "#02070a",
       strokeThickness: 4
-    }).setOrigin(0.5).setDepth(this.getFinalRaidVisualDepth("warningLabel", 19)).setAlpha(0.84);
+    }).setOrigin(0.5).setDepth(this.getFinalRaidVisualDepth("warningLabel", 19)).setAlpha(
+      Number.isFinite(palette.labelAlpha) ? palette.labelAlpha : 0.84
+    );
 
-    const objects = this.registerFinalBossRaidSpellObjects([fill, ring, label]);
+    const objects = this.registerFinalBossRaidSpellObjects([fill, warningImage, ring, label].filter(Boolean));
     this.tweens.add({
-      targets: objects,
+      targets: [fill, ring],
       alpha: { from: 0.24, to: 0.9 },
+      duration: warningMs,
+      ease: "Sine.In"
+    });
+    if (warningImage) {
+      this.tweens.add({
+        targets: warningImage,
+        alpha: { from: imageMetrics.warningAlpha * 0.35, to: imageMetrics.warningAlpha },
+        duration: warningMs,
+        ease: "Sine.In"
+      });
+    }
+    this.tweens.add({
+      targets: label,
+      alpha: { from: Math.max(0.05, label.alpha * 0.55), to: label.alpha },
       duration: warningMs,
       ease: "Sine.In"
     });
@@ -10302,54 +10688,437 @@ class SurvivalScene extends Phaser.Scene {
     ));
   }
 
+  getFinalBossRaidFieldTextureKey(spellKind = "fire") {
+    if (spellKind !== "fire" && spellKind !== "ice") {
+      return null;
+    }
+
+    const asset = spellKind === "fire"
+      ? FINAL_BOSS_RAID_CONFIG.attackAssets.fireEffect
+      : FINAL_BOSS_RAID_CONFIG.attackAssets.iceEffect;
+    if (asset?.textureKey && this.textures.exists(asset.textureKey)) {
+      return asset.textureKey;
+    }
+
+    const frames = spellKind === "fire"
+      ? FINAL_BOSS_RAID_CONFIG.attackAssets.fireFrames
+      : FINAL_BOSS_RAID_CONFIG.attackAssets.iceFrames;
+    const fieldFrame = frames?.[4] || frames?.[0];
+    return fieldFrame?.textureKey && this.textures.exists(fieldFrame.textureKey)
+      ? fieldFrame.textureKey
+      : null;
+  }
+
+  getFinalBossRaidFieldImageMetrics(spellKind = "fire", radius = 120, options = {}) {
+    const normalizedRadius = Math.max(1, Number(radius) || 120);
+    const effectScale = this.getFinalRaidVisualNumber("fieldEffectScale", 1, 0.25, 3);
+    const isFire = spellKind === "fire";
+    const isIce = spellKind === "ice";
+    if (!isFire && !isIce) {
+      return {
+        xOffset: 0,
+        yOffset: 12,
+        originY: 0.62,
+        width: normalizedRadius * 1.8 * effectScale,
+        height: normalizedRadius * 0.94 * effectScale,
+        alpha: 0.32,
+        warningAlpha: 0.12
+      };
+    }
+
+    const supportScale = options.support ? 0.86 : 1;
+    return {
+      xOffset: 0,
+      yOffset: normalizedRadius * (isFire ? 0.08 : 0.12),
+      originY: isFire ? 0.58 : 0.64,
+      width: normalizedRadius * (isFire ? 3.15 : 3.35) * effectScale * supportScale,
+      height: normalizedRadius * (isFire ? 1.78 : 1.92) * effectScale * supportScale,
+      alpha: isFire ? 0.78 : 0.82,
+      warningAlpha: isFire ? 0.2 : 0.24
+    };
+  }
+
+  spawnFinalBossRaidDamageField(point, radius, spellKind = "fire", options = {}) {
+    const state = this.finalBossRaidState;
+    if (!state?.active || state.timerComplete || !point) {
+      return null;
+    }
+
+    const fieldConfig = FINAL_RAID_FIELD_ATTACK_CONFIG || {};
+    const palette = this.getFinalBossRaidSpellPalette(spellKind);
+    const durationMs = Math.max(100, Number(options.durationMs) || Number(fieldConfig.defaultFieldDurationMs) || 3000);
+    const tickMs = Math.max(80, Number(options.tickMs) || Number(fieldConfig.defaultFieldTickMs) || 600);
+    const tickCount = Math.max(1, 1 + Math.floor(Math.max(0, durationMs - 1) / tickMs));
+    const tickDamage = Math.max(1, Math.round(
+      Number(options.tickDamage) || (this.getFinalBossRaidSpellDamage(Number(options.damage) || 1) / tickCount)
+    ));
+    const fieldTextureKey = this.getFinalBossRaidFieldTextureKey(spellKind);
+    const fieldImageMetrics = fieldTextureKey ? this.getFinalBossRaidFieldImageMetrics(spellKind, radius) : null;
+    const usesBossEffectAsset = Boolean(fieldTextureKey && (spellKind === "fire" || spellKind === "ice"));
+    const floor = this.add
+      .ellipse(
+        point.x,
+        point.y + 18,
+        radius * (usesBossEffectAsset ? 2.25 : 1.7),
+        radius * (usesBossEffectAsset ? 1.02 : 0.82),
+        palette.fieldColor,
+        usesBossEffectAsset ? 0.045 : (Number.isFinite(palette.fieldInitialAlpha) ? palette.fieldInitialAlpha : 0.12)
+      )
+      .setDepth(this.getFinalRaidVisualDepth("fieldEffect", 20))
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const glow = this.textures.exists("skill-hit-glow")
+      ? this.add
+        .image(point.x, point.y + 10, "skill-hit-glow")
+        .setDepth(this.getFinalRaidVisualDepth("fieldEffect", 20) + 0.05)
+        .setScale(
+          Math.max(0.8, radius / (usesBossEffectAsset ? 58 : 72)),
+          Math.max(0.62, radius / (usesBossEffectAsset ? 72 : 92))
+        )
+        .setTint(palette.glowColor)
+        .setAlpha(usesBossEffectAsset ? 0.42 : 0.3)
+        .setBlendMode(Phaser.BlendModes.ADD)
+      : this.add
+        .circle(point.x, point.y + 10, Math.max(24, radius * 0.62), palette.glowColor, 0.18)
+        .setDepth(this.getFinalRaidVisualDepth("fieldEffect", 20) + 0.05)
+        .setBlendMode(Phaser.BlendModes.ADD);
+    const ring = this.textures.exists("skill-hit-ring")
+      ? this.add
+        .image(point.x, point.y + 12, "skill-hit-ring")
+        .setDepth(this.getFinalRaidVisualDepth("fieldEffect", 20) + 0.12)
+        .setScale(radius / (usesBossEffectAsset ? 36 : 44), radius / (usesBossEffectAsset ? 54 : 70))
+        .setTint(palette.ringColor)
+        .setAlpha(usesBossEffectAsset ? 0.24 : 0.58)
+        .setBlendMode(Phaser.BlendModes.ADD)
+      : this.add
+        .circle(point.x, point.y + 12, radius * 0.82, palette.ringColor, 0)
+        .setStrokeStyle(3, palette.ringColor, 0.58)
+        .setDepth(this.getFinalRaidVisualDepth("fieldEffect", 20) + 0.12)
+        .setBlendMode(Phaser.BlendModes.ADD);
+    const fieldImage = fieldTextureKey
+      ? this.add
+        .image(point.x + fieldImageMetrics.xOffset, point.y + fieldImageMetrics.yOffset, fieldTextureKey)
+        .setOrigin(0.5, fieldImageMetrics.originY)
+        .setDepth(this.getFinalRaidVisualDepth("fieldEffect", 20) + 0.22)
+        .setAlpha(fieldImageMetrics.alpha)
+        .setBlendMode(Phaser.BlendModes.ADD)
+      : null;
+    if (fieldImage) {
+      fieldImage.setDisplaySize(fieldImageMetrics.width, fieldImageMetrics.height);
+      fieldImage.setRotation(Phaser.Math.FloatBetween(-0.045, 0.045));
+    }
+
+    const objects = this.registerFinalBossRaidSpellObjects([floor, glow, ring, fieldImage].filter(Boolean));
+    const field = {
+      x: point.x,
+      y: point.y,
+      radius,
+      spellKind,
+      remainingMs: durationMs,
+      durationMs,
+      tickMs,
+      tickTimerMs: 0,
+      tickDamage,
+      slowMs: Math.max(0, Number(options.slowMs) || 0),
+      slowMultiplier: Phaser.Math.Clamp(Number(options.slowMultiplier) || 1, 0.3, 1),
+      floor,
+      glow,
+      ring,
+      fieldImage,
+      imageWidthBase: fieldImageMetrics?.width || 0,
+      imageHeightBase: fieldImageMetrics?.height || 0,
+      imageAlphaBase: fieldImageMetrics?.alpha || 0,
+      objects,
+      lastHit: false
+    };
+
+    state.activeSpellFields = Array.isArray(state.activeSpellFields) ? state.activeSpellFields : [];
+    state.activeSpellFields.push(field);
+    this.damageFinalBossRaidFieldPlayer(field);
+    this.trimFinalBossRaidDamageFields(Number(options.maxFields) || this.getFinalBossRaidMaxActiveFields());
+    return field;
+  }
+
+  getFinalBossRaidMaxActiveFields() {
+    const phaseConfig = FINAL_RAID_FIELD_ATTACK_CONFIG.phases?.[this.finalBossRaidState?.currentPhaseId] || {};
+    return Math.max(
+      1,
+      Math.floor(Number(phaseConfig.maxFields) || Number(FINAL_RAID_FIELD_ATTACK_CONFIG.maxActiveFields) || 5)
+    );
+  }
+
+  trimFinalBossRaidDamageFields(maxFields = 5) {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !Array.isArray(state.activeSpellFields)) {
+      return;
+    }
+
+    while (state.activeSpellFields.length > Math.max(1, Math.floor(Number(maxFields) || 5))) {
+      this.destroyFinalBossRaidDamageField(state.activeSpellFields.shift());
+    }
+  }
+
+  updateFinalBossRaidDamageFields(delta) {
+    const state = this.finalBossRaidState;
+    const fields = Array.isArray(state?.activeSpellFields) ? state.activeSpellFields : [];
+    if (!fields.length) {
+      return;
+    }
+
+    const normalizedDelta = Math.max(0, Number(delta) || 0);
+    const remainingFields = [];
+    fields.forEach((field) => {
+      if (!field?.floor?.active) {
+        this.destroyFinalBossRaidDamageField(field);
+        return;
+      }
+
+      field.remainingMs -= normalizedDelta;
+      field.tickTimerMs += normalizedDelta;
+      this.updateFinalBossRaidDamageFieldVisual(field, normalizedDelta);
+      while (field.remainingMs > 0 && field.tickTimerMs >= field.tickMs) {
+        field.tickTimerMs -= field.tickMs;
+        this.damageFinalBossRaidFieldPlayer(field);
+      }
+
+      if (field.remainingMs > 0) {
+        remainingFields.push(field);
+      } else {
+        this.destroyFinalBossRaidDamageField(field);
+      }
+    });
+    state.activeSpellFields = remainingFields;
+  }
+
+  updateFinalBossRaidDamageFieldVisual(field, delta) {
+    if (!field?.floor?.active) {
+      return;
+    }
+
+    const palette = this.getFinalBossRaidSpellPalette(field.spellKind);
+    const isFire = field.spellKind === "fire";
+    const isIce = field.spellKind === "ice";
+    const ratio = Phaser.Math.Clamp(field.remainingMs / Math.max(1, field.durationMs), 0, 1);
+    const pulse = (Math.sin((this.time?.now || 0) / (isFire ? 185 : (isIce ? 230 : 205))) + 1) * 0.5;
+    const floorBaseAlpha = Number.isFinite(palette.fieldBaseAlpha)
+      ? palette.fieldBaseAlpha
+      : (isFire ? 0.05 : 0.07);
+    const floorRatioAlpha = Number.isFinite(palette.fieldRatioAlpha)
+      ? palette.fieldRatioAlpha
+      : (isFire ? 0.12 : 0.14);
+    field.floor.setFillStyle(palette.fieldColor, floorBaseAlpha + ratio * floorRatioAlpha);
+    if (!isFire && !isIce) {
+      field.floor.setScale(1 + pulse * 0.08, 1 + pulse * 0.05);
+    }
+    field.glow
+      ?.setAlpha(((isFire || isIce ? 0.2 : 0.12) + pulse * (isFire || isIce ? 0.16 : 0.12)) * ratio);
+    if (!isFire && !isIce && field.glow?.active) {
+      field.glow.setScale(
+        Math.max(0.8, field.radius / 72) * (0.9 + pulse * 0.12),
+        Math.max(0.62, field.radius / 92) * (0.86 + pulse * 0.1)
+      );
+    }
+    if (field.ring?.active) {
+      field.ring.setAlpha(((isFire || isIce ? 0.12 : 0.24) + pulse * (isFire || isIce ? 0.14 : 0.18)) * ratio);
+      if (!isFire && !isIce) {
+        field.ring.setScale(
+          (field.radius / 44) * (0.94 + pulse * 0.1),
+          (field.radius / 70) * (0.88 + pulse * 0.08)
+        );
+      }
+      field.ring.rotation += (isFire ? 0.004 : -0.003) * (delta / 16.6667);
+    }
+    if (field.fieldImage?.active) {
+      const imageAlphaBase = Math.max(0, Number(field.imageAlphaBase) || (isFire ? 0.78 : 0.82));
+      field.fieldImage.setAlpha(Phaser.Math.Clamp(imageAlphaBase * (0.42 + ratio * 0.58) + pulse * 0.05, 0, 0.96));
+      if (!isFire && !isIce) {
+        field.fieldImage.setDisplaySize(
+          Math.max(1, Number(field.imageWidthBase) || field.radius * (isFire ? 3.15 : 3.35)) * (0.985 + pulse * 0.035),
+          Math.max(1, Number(field.imageHeightBase) || field.radius * (isFire ? 1.78 : 1.92)) * (0.985 + pulse * 0.03)
+        );
+      }
+    }
+  }
+
+  damageFinalBossRaidFieldPlayer(field) {
+    const state = this.finalBossRaidState;
+    if (!state?.active || state.timerComplete || this.gameOver || !field) {
+      return false;
+    }
+    if (!this.playerHitbox?.active || !this.isPlayerInBossCircle(field.x, field.y, field.radius)) {
+      field.lastHit = false;
+      return false;
+    }
+
+    this.applyDamageToPlayer(Math.max(1, Math.floor(Number(field.tickDamage) || 1)));
+    field.lastHit = true;
+    if (field.spellKind === "ice" && field.slowMs > 0) {
+      state.playerSlowUntil = Math.max(state.playerSlowUntil || 0, (this.time?.now || 0) + field.slowMs);
+      state.playerSlowMultiplier = Math.min(
+        Phaser.Math.Clamp(Number(state.playerSlowMultiplier) || 1, 0.3, 1),
+        Phaser.Math.Clamp(Number(field.slowMultiplier) || 0.54, 0.3, 1)
+      );
+      this.setLastPickupNotice("FINAL RAID FREEZE FIELD");
+    }
+    return true;
+  }
+
+  destroyFinalBossRaidDamageField(field) {
+    if (!field) {
+      return;
+    }
+
+    const objects = (field.objects || [field.floor, field.glow, field.ring, field.fieldImage]).filter(Boolean);
+    if (objects.length > 0) {
+      this.tweens?.killTweensOf(objects);
+      objects.forEach((object) => object?.destroy?.());
+      this.unregisterFinalBossRaidSpellObjects(objects);
+    }
+    field.objects = [];
+    field.floor = null;
+    field.glow = null;
+    field.ring = null;
+    field.fieldImage = null;
+  }
+
+  cleanupFinalBossRaidDamageFields(reason = "cleanup") {
+    const state = this.finalBossRaidState;
+    (state?.activeSpellFields || []).forEach((field) => this.destroyFinalBossRaidDamageField(field));
+    if (state) {
+      state.activeSpellFields = [];
+    }
+  }
+
+  isFinalBossRaidFieldPointClear(point, radius) {
+    const fields = this.finalBossRaidState?.activeSpellFields || [];
+    const minRatio = Phaser.Math.Clamp(Number(FINAL_RAID_FIELD_ATTACK_CONFIG.minFieldSeparationRatio) || 0.62, 0, 1.4);
+    return fields.every((field) => {
+      if (!field?.floor?.active) {
+        return true;
+      }
+      const minimumDistance = (Math.max(1, Number(radius) || 1) + Math.max(1, Number(field.radius) || 1)) * minRatio;
+      return Phaser.Math.Distance.Between(point.x, point.y, field.x, field.y) >= minimumDistance;
+    });
+  }
+
+  getFinalBossRaidFieldAttackPoint(patternOrKind, radius, sourceEnemy = null) {
+    const pattern = typeof patternOrKind === "string" ? { kind: patternOrKind } : (patternOrKind || {});
+    const kind = pattern.kind || "fire";
+    const mode = pattern.targetMode || (kind === "ice" ? "playerTight" : "playerClose");
+    const bossPosition = this.getFinalBossRaidBossPosition();
+    const playerX = this.playerHitbox?.x || bossPosition.x;
+    const playerY = this.playerHitbox?.y || bossPosition.y;
+    const originX = sourceEnemy?.active ? sourceEnemy.x : playerX;
+    const originY = sourceEnemy?.active ? sourceEnemy.y : playerY;
+    const jitter = Math.max(0, Number(pattern.targetJitter) || 0);
+    let fallback = null;
+
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      let distance = 0;
+      if (mode === "playerLong") {
+        distance = Phaser.Math.Between(92, 230);
+      } else if (mode === "playerTight") {
+        distance = Phaser.Math.Between(0, 78);
+      } else if (mode === "wide") {
+        distance = Phaser.Math.Between(120, 260);
+      } else if (mode === "add") {
+        distance = Phaser.Math.Between(0, Math.max(24, jitter || 110));
+      } else {
+        distance = kind === "fire" ? Phaser.Math.Between(20, 130) : Phaser.Math.Between(36, 150);
+      }
+
+      const sourceBias = mode === "add" && sourceEnemy?.active ? 0.24 : 0;
+      const baseX = playerX * (1 - sourceBias) + originX * sourceBias;
+      const baseY = playerY * (1 - sourceBias) + originY * sourceBias;
+      const candidate = this.clampBossAttackPoint(
+        baseX + Math.cos(angle) * distance,
+        baseY + Math.sin(angle) * distance,
+        radius + 24
+      );
+      fallback = fallback || candidate;
+      if (this.isFinalBossRaidFieldPointClear(candidate, radius)) {
+        return candidate;
+      }
+    }
+
+    return fallback || this.clampBossAttackPoint(playerX, playerY, radius + 24);
+  }
+
+  updateFinalBossRaidPhaseAttackCombat(delta, time = this.time?.now || 0) {
+    const state = this.finalBossRaidState;
+    if (!state?.active || state.timerComplete || this.isGensoKnightsEventActive?.()) {
+      return;
+    }
+
+    const phaseId = state.currentPhase?.id;
+    const phaseConfig = FINAL_RAID_FIELD_ATTACK_CONFIG.phases?.[phaseId];
+    const patterns = Array.isArray(phaseConfig?.patterns) ? phaseConfig.patterns : [];
+    if (!phaseConfig || patterns.length <= 0) {
+      return;
+    }
+
+    const elapsedMs = Math.max(0, Number(state.elapsedMs) || 0);
+    if (!state.nextPhaseAttackAt) {
+      state.nextPhaseAttackAt = elapsedMs + this.scaleFinalBossRaidMs(phaseConfig.initialDelayMs, 3200, 300);
+      return;
+    }
+    if (elapsedMs < state.nextPhaseAttackAt) {
+      return;
+    }
+
+    const pattern = patterns[(state.phaseAttackIndex || 0) % patterns.length];
+    state.phaseAttackIndex = (state.phaseAttackIndex || 0) + 1;
+    this.triggerFinalBossRaidPhasePattern(pattern, phaseConfig);
+    state.nextPhaseAttackAt = elapsedMs + this.scaleFinalBossRaidMs(phaseConfig.intervalMs, 5000, 450);
+  }
+
+  triggerFinalBossRaidPhasePattern(pattern, phaseConfig = {}) {
+    const state = this.finalBossRaidState;
+    if (!state?.active || state.timerComplete || !pattern) {
+      return;
+    }
+
+    const kind = pattern.kind || "arcane";
+    const radius = Math.max(32, Number(pattern.radius) || 120);
+    const warningMs = this.scaleFinalBossRaidMs(pattern.warningMs, phaseConfig.warningMs || 1400, 120);
+    const point = this.getFinalBossRaidFieldAttackPoint(pattern, radius);
+    this.playFinalBossRaidBossAttackMotion(kind);
+    this.createFinalBossRaidSpellTelegraph(kind, point, radius, warningMs);
+    this.queueFinalBossRaidSpellTimer(warningMs, () => {
+      const currentState = this.finalBossRaidState;
+      if (!currentState?.active || currentState.timerComplete) {
+        return;
+      }
+      this.spawnFinalBossRaidDamageField(point, radius, kind, {
+        durationMs: Math.max(140, Number(pattern.fieldDurationMs) || 720),
+        tickMs: Math.max(80, Number(pattern.tickMs) || 650),
+        damage: Math.max(1, Number(pattern.damage) || 8)
+      });
+    });
+  }
+
   detonateFinalBossRaidFireSpell(point, radius) {
     const config = FINAL_BOSS_RAID_CONFIG.thirdPhaseCombat || {};
-    const visualScale = this.getFinalRaidVisualNumber("fieldEffectScale", 1, 0.25, 3);
-    const effect = this.spawnBossAttackImage(
-      FINAL_BOSS_RAID_CONFIG.attackAssets.fireEffect.textureKey,
-      point.x,
-      point.y,
-      radius * 2.35 * visualScale,
-      radius * 2.35 * visualScale,
-      0,
-      440
-    );
-    effect?.setDepth?.(this.getFinalRaidVisualDepth("fieldEffect", 20));
-    this.registerFinalBossRaidSpellObjects(effect);
-    if (this.isPlayerInBossCircle(point.x, point.y, radius)) {
-      this.applyDamageToPlayer(this.getFinalBossRaidSpellDamage(config.fireDamage || 18));
-    }
+    const phaseConfig = FINAL_RAID_FIELD_ATTACK_CONFIG.phases?.third || {};
+    this.spawnFinalBossRaidDamageField(point, radius, "fire", {
+      durationMs: Math.max(100, Number(phaseConfig.fieldDurationMs) || 3000),
+      tickMs: Math.max(80, Number(phaseConfig.fieldTickMs) || 600),
+      damage: Math.max(1, Number(config.fireDamage) || 18),
+      maxFields: phaseConfig.maxFields
+    });
   }
 
   detonateFinalBossRaidIceSpell(point, radius) {
     const config = FINAL_BOSS_RAID_CONFIG.thirdPhaseCombat || {};
-    const visualScale = this.getFinalRaidVisualNumber("fieldEffectScale", 1, 0.25, 3);
-    const effect = this.spawnBossAttackImage(
-      FINAL_BOSS_RAID_CONFIG.attackAssets.iceEffect.textureKey,
-      point.x,
-      point.y,
-      radius * 2.2 * visualScale,
-      radius * 2.2 * visualScale,
-      0,
-      520
-    );
-    effect?.setDepth?.(this.getFinalRaidVisualDepth("fieldEffect", 20));
-    this.registerFinalBossRaidSpellObjects(effect);
-    if (!this.isPlayerInBossCircle(point.x, point.y, radius)) {
-      return;
-    }
-
-    this.applyDamageToPlayer(this.getFinalBossRaidSpellDamage(config.iceDamage || 8));
-    const state = this.finalBossRaidState;
-    if (state?.active) {
-      const slowMs = Math.max(400, Number(config.iceSlowMs) || 3600);
-      state.playerSlowUntil = Math.max(state.playerSlowUntil || 0, (this.time?.now || 0) + slowMs);
-      state.playerSlowMultiplier = Math.min(
-        Phaser.Math.Clamp(Number(state.playerSlowMultiplier) || 1, 0.3, 1),
-        Phaser.Math.Clamp(Number(config.iceSlowMultiplier) || 0.54, 0.3, 1)
-      );
-      this.setLastPickupNotice("FINAL RAID FREEZE FIELD");
-    }
+    const phaseConfig = FINAL_RAID_FIELD_ATTACK_CONFIG.phases?.third || {};
+    this.spawnFinalBossRaidDamageField(point, radius, "ice", {
+      durationMs: Math.max(100, Number(phaseConfig.fieldDurationMs) || 3000),
+      tickMs: Math.max(80, Number(phaseConfig.fieldTickMs) || 600),
+      damage: Math.max(1, Number(config.iceDamage) || 8),
+      slowMs: Math.max(400, Number(config.iceSlowMs) || 3600),
+      slowMultiplier: Phaser.Math.Clamp(Number(config.iceSlowMultiplier) || 0.54, 0.3, 1),
+      maxFields: phaseConfig.maxFields
+    });
   }
 
   getFinalBossRaidPlayerMoveMultiplier() {
@@ -10361,6 +11130,14 @@ class SurvivalScene extends Phaser.Scene {
       return 1;
     }
     return Phaser.Math.Clamp(Number(state.playerSlowMultiplier) || 1, 0.3, 1);
+  }
+
+  getFinalBossRaidPlayerMoveSpeedOverride() {
+    if (!this.finalBossRaidState?.active) {
+      return null;
+    }
+    const fixedSpeed = this.getFinalRaidVisualNumber("playerMoveSpeed", 145, 60, 260);
+    return fixedSpeed * this.getFinalBossRaidPlayerMoveMultiplier();
   }
 
   spawnFinalBossRaidMinionBatch() {
@@ -10399,11 +11176,79 @@ class SurvivalScene extends Phaser.Scene {
 
     enemy.isFinalBossRaidMinion = true;
     enemy.suppressGuaranteedDrops = true;
+    enemy.isElite = true;
     enemy.xpValue = 0;
-    enemy.contactDamage = Math.max(1, Math.round((enemy.contactDamage || 8) * 0.82));
+    const addConfig = FINAL_RAID_ADD_MONSTER_CONFIG || {};
+    const hpMultiplier = Math.max(1, Number(addConfig.hpMultiplier) || 1);
+    enemy.maxHp = Math.max(1, Math.round((Number(enemy.maxHp) || Number(enemy.hp) || 1) * hpMultiplier));
+    enemy.hp = enemy.maxHp;
+    enemy.contactDamage = Math.max(1, Math.round(
+      (enemy.contactDamage || 8) * (Number(addConfig.contactDamageMultiplier) || 0.82)
+    ));
+    this.scheduleFinalBossRaidMinionAttack(enemy, this.time?.now || 0, addConfig.attackInitialDelayMs);
     enemy.setDepth(17.5);
     this.spawnEliteSpawnEffect(enemy.x, enemy.y);
     return enemy;
+  }
+
+  scheduleFinalBossRaidMinionAttack(enemy, now = this.time?.now || 0, range = null) {
+    if (!enemy) {
+      return;
+    }
+
+    const fallbackRange = FINAL_RAID_ADD_MONSTER_CONFIG.attackIntervalMs || {};
+    const sourceRange = range || fallbackRange;
+    const minMs = Math.max(200, Number(sourceRange.min) || Number(fallbackRange.min) || 3600);
+    const maxMs = Math.max(minMs, Number(sourceRange.max) || Number(fallbackRange.max) || 5400);
+    enemy.nextFinalRaidAddAttackAt = Math.max(0, Number(now) || 0)
+      + this.scaleFinalBossRaidMs(Phaser.Math.Between(minMs, maxMs), maxMs, 240);
+  }
+
+  updateFinalBossRaidMinionAttacks(delta, time = this.time?.now || 0) {
+    const state = this.finalBossRaidState;
+    if (!state?.active || state.timerComplete || state.currentPhase?.id !== "third") {
+      return;
+    }
+
+    this.getFinalBossRaidMinions().forEach((enemy) => {
+      if (!Number.isFinite(Number(enemy.nextFinalRaidAddAttackAt))) {
+        this.scheduleFinalBossRaidMinionAttack(enemy, time, FINAL_RAID_ADD_MONSTER_CONFIG.attackInitialDelayMs);
+        return;
+      }
+      if (time < enemy.nextFinalRaidAddAttackAt) {
+        return;
+      }
+      this.triggerFinalBossRaidMinionAttack(enemy);
+      this.scheduleFinalBossRaidMinionAttack(enemy, time, FINAL_RAID_ADD_MONSTER_CONFIG.attackIntervalMs);
+    });
+  }
+
+  triggerFinalBossRaidMinionAttack(enemy) {
+    const state = this.finalBossRaidState;
+    if (!state?.active || state.timerComplete || !enemy?.active || enemy.isDying) {
+      return;
+    }
+
+    const config = FINAL_RAID_ADD_MONSTER_CONFIG || {};
+    const radius = Math.max(36, Number(config.attackRadius) || 142);
+    const warningMs = this.scaleFinalBossRaidMs(config.attackWarningMs, 1150, 120);
+    const point = this.getFinalBossRaidFieldAttackPoint({
+      kind: "add",
+      targetMode: "add",
+      targetJitter: config.targetJitter || 110
+    }, radius, enemy);
+    this.createFinalBossRaidSpellTelegraph("add", point, radius, warningMs);
+    this.queueFinalBossRaidSpellTimer(warningMs, () => {
+      const currentState = this.finalBossRaidState;
+      if (!currentState?.active || currentState.timerComplete || !enemy?.active || enemy.isDying) {
+        return;
+      }
+      this.spawnFinalBossRaidDamageField(point, radius, "add", {
+        durationMs: 720,
+        tickMs: 720,
+        damage: Math.max(1, Number(config.attackDamage) || 7)
+      });
+    });
   }
 
   updateFinalBossRaidRankingEntries() {
@@ -10438,6 +11283,44 @@ class SurvivalScene extends Phaser.Scene {
       state.latestSupportGuildId = entry.id;
       entry.damage = this.getFinalBossRaidProjectedGuildDamage(entry, elapsedMs, state.currentPhase);
     });
+    this.applyFinalBossRaidRankingScript(elapsedMs);
+  }
+
+  applyFinalBossRaidRankingScript(elapsedMs = 0) {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !Array.isArray(state.rankingEntries)) {
+      return;
+    }
+
+    const script = FINAL_RAID_ASSIST_RANKING_SCRIPT || {};
+    const leader = state.rankingEntries.find((entry) => entry.id === script.preFinalLeaderGuildId);
+    const finalEntry = this.getFinalBossRaidFinalSupportEntry();
+    if (!leader?.joined || !finalEntry) {
+      return;
+    }
+
+    const normalizedElapsed = Math.max(0, Number(elapsedMs) || 0);
+    const burstDelayMs = Math.max(0, Math.round(
+      (Number(script.finalPushBurstDelayMs) || 0) * Phaser.Math.Clamp(Number(state.timeScale) || 1, 0.02, 1)
+    ));
+    const finalBurstActive = finalEntry.joined
+      && normalizedElapsed >= Math.max(0, Number(finalEntry.joinMs) || 0) + burstDelayMs;
+    if (finalBurstActive) {
+      return;
+    }
+
+    const topDamage = state.rankingEntries.reduce((maxDamage, entry) => {
+      if (!entry?.joined || entry.id === leader.id || entry.type !== "guild") {
+        return maxDamage;
+      }
+      return Math.max(maxDamage, Math.max(0, Number(entry.damage) || 0));
+    }, 0);
+    const leadRatio = Math.max(1, Number(script.preFinalLeaderLeadRatio) || 1.04);
+    const leadDamage = Math.max(0, Number(script.preFinalLeaderLeadDamage) || 0);
+    leader.damage = Math.max(
+      Math.max(0, Math.floor(Number(leader.damage) || 0)),
+      Math.ceil(topDamage * leadRatio + leadDamage)
+    );
   }
 
   getFinalBossRaidProjectedGuildDamage(entry, elapsedMs, phase = null) {
@@ -10458,7 +11341,12 @@ class SurvivalScene extends Phaser.Scene {
     if (entry.finalPush) {
       const burstPerSecond = Math.max(0, Number(entry.burstDamagePerSecond) || 0);
       const burstExponent = Math.max(1, Number(entry.burstExponent) || 1);
-      damage += Math.pow(activeSeconds, burstExponent) * burstPerSecond;
+      const burstDelayMs = Math.max(0, Math.round(
+        (Number(FINAL_RAID_ASSIST_RANKING_SCRIPT.finalPushBurstDelayMs) || 0)
+        * Phaser.Math.Clamp(Number(this.finalBossRaidState?.timeScale) || 1, 0.02, 1)
+      ));
+      const burstActiveSeconds = Math.max(0, activeElapsedMs - burstDelayMs) / 1000;
+      damage += Math.pow(burstActiveSeconds, burstExponent) * burstPerSecond;
     }
     return Math.max(0, Math.floor(damage));
   }
@@ -10500,8 +11388,15 @@ class SurvivalScene extends Phaser.Scene {
       maxBars - Math.max(0, Number(state.playerBossHpBarsDamage) || 0)
     );
 
+    const unlockedBars = Math.min(
+      currentPlayerLimitedBars,
+      finalGuildJoined ? projectedBars : Math.max(preFinalFloor, projectedBars)
+    );
+    const minimumBeforeResolution = state.elapsedMs < state.resolutionStartMs
+      ? Math.max(0, Number(FINAL_RAID_TIMELINE_CONFIG.minBossHpBeforeResolutionBars) || 0)
+      : 0;
     state.bossHpBars = Phaser.Math.Clamp(
-      Math.min(currentPlayerLimitedBars, finalGuildJoined ? projectedBars : Math.max(preFinalFloor, projectedBars)),
+      Math.max(minimumBeforeResolution, unlockedBars),
       0,
       maxBars
     );
@@ -10598,6 +11493,14 @@ class SurvivalScene extends Phaser.Scene {
     const next = state.nextSupportGuildId
       ? state.rankingEntries.find((entry) => entry.id === state.nextSupportGuildId)
       : null;
+    if (state.liberationGateActive || state.timerComplete) {
+      return [
+        "INCOMING SUPPORT",
+        "DOLL LIBERATION READY",
+        "ドールを解放する",
+        "OPENING SHOP RETURN"
+      ].join("\n");
+    }
     if (state.paceWarningActive) {
       const finalEntry = this.getFinalBossRaidFinalSupportEntry();
       const etaMs = Math.max(0, (finalEntry?.joinMs || 0) - (state.elapsedMs || 0));
@@ -10666,15 +11569,6 @@ class SurvivalScene extends Phaser.Scene {
       jitterY: Phaser.Math.Between(-4, 4)
     });
 
-    const target = state.bossContainer || enemy;
-    this.tweens.killTweensOf(target);
-    this.tweens.add({
-      targets: target,
-      scaleX: { from: 1.045, to: 1 },
-      scaleY: { from: 0.965, to: 1 },
-      duration: 120,
-      ease: "Sine.easeOut"
-    });
     state.bossNameText?.setColor(this.colorToCss(flashTint));
   }
 
@@ -10695,6 +11589,8 @@ class SurvivalScene extends Phaser.Scene {
     this.updateFinalBossRaidRankingEntries();
     this.updateFinalBossRaidBossHpFromRaidProgress();
     this.updateFinalBossRaidPaceWarning();
+    this.updateFinalBossRaidDamageFields(delta);
+    this.updateFinalBossRaidPhaseAttackCombat(delta, time);
     this.updateFinalBossRaidThirdPhaseCombat(delta, time);
     this.updateFinalBossRaidHud();
     this.updateFinalBossRaidVisuals(time);
@@ -10713,19 +11609,55 @@ class SurvivalScene extends Phaser.Scene {
     const pulse = Math.sin(elapsed / (phase?.resolution ? 180 : 320));
     const baseVisualScale = this.getFinalRaidBossVisualScale(phase);
     const visualPosition = this.getFinalBossRaidBossVisualPosition(phase);
-    const pulseScale = this.getFinalRaidBossPulseScale(phase);
-    const currentScale = baseVisualScale * (1 + pulse * (phase?.resolution ? pulseScale * 0.45 : pulseScale));
     const alphaBase = this.getFinalRaidBossAlpha(phase);
     state.bossBaseVisualScale = baseVisualScale;
     state.bossContainer.setPosition(visualPosition.x, visualPosition.y);
     state.bossContainer.setDepth(this.getFinalRaidBossDepth(phase));
-    state.bossContainer.setScale(currentScale);
     state.bossContainer.setAlpha(phase?.resolution ? 0.78 + Math.max(0, pulse) * 0.12 : alphaBase);
     state.bossNameText
       ?.setY(this.getFinalRaidBossNameOffsetY(phase))
-      .setScale(1 / Math.max(0.1, currentScale))
       .setAlpha(this.getFinalRaidBossNameAlpha(phase))
       .setColor(phase?.accent || "#ecfaff");
+  }
+
+  updateFinalBossRaidCamera() {
+    const state = this.finalBossRaidState;
+    const camera = this.worldCamera || this.cameras?.main;
+    if (!state?.active || !camera?.centerOn || !this.playerHitbox?.active) {
+      return;
+    }
+
+    camera.stopFollow?.();
+    const bossPosition = this.getFinalBossRaidBossVisualPosition(state.currentPhase);
+    const baseWeight = this.getFinalRaidVisualNumber("cameraFocusBossWeight", 0.36, 0, 0.75);
+    const farWeight = Math.min(baseWeight, this.getFinalRaidVisualNumber("cameraFarFocusBossWeight", 0.2, 0, 0.75));
+    const leashStartY = this.getFinalRaidVisualNumber("cameraPlayerLeashStartY", 780, 0, 2400);
+    const leashEndY = Math.max(
+      leashStartY + 1,
+      this.getFinalRaidVisualNumber("cameraPlayerLeashEndY", 1900, 1, 3600)
+    );
+    const lowerDistanceY = Math.max(0, this.playerHitbox.y - bossPosition.y);
+    const leashRatio = Phaser.Math.Clamp((lowerDistanceY - leashStartY) / (leashEndY - leashStartY), 0, 1);
+    const easedLeashRatio = leashRatio * leashRatio * (3 - 2 * leashRatio);
+    const weight = Phaser.Math.Linear(baseWeight, farWeight, easedLeashRatio);
+    const focusOffsetX = this.getFinalRaidVisualNumber("cameraFocusOffsetX", 0, -500, 500);
+    const focusOffsetY = this.getFinalRaidVisualNumber("cameraFocusOffsetY", 0, -500, 500);
+    let focusX = this.playerHitbox.x * (1 - weight) + bossPosition.x * weight + focusOffsetX;
+    let focusY = this.playerHitbox.y * (1 - weight) + bossPosition.y * weight + focusOffsetY;
+
+    const zoom = Math.max(0.1, Number(camera.zoom) || WORLD_CAMERA_ZOOM);
+    const bounds = this.getStageWorldBounds(this.currentStage);
+    const halfWidth = GAME_WIDTH / (2 * zoom);
+    const halfHeight = GAME_HEIGHT / (2 * zoom);
+    if (bounds.width > halfWidth * 2) {
+      focusX = Phaser.Math.Clamp(focusX, bounds.left + halfWidth, bounds.right - halfWidth);
+    }
+    if (bounds.height > halfHeight * 2) {
+      focusY = Phaser.Math.Clamp(focusY, bounds.top + halfHeight, bounds.bottom - halfHeight);
+    }
+
+    camera.centerOn(focusX, focusY);
+    this.updateUiContainerCameraCompensation?.(zoom);
   }
 
   updateFinalBossRaidHud() {
@@ -10764,6 +11696,240 @@ class SurvivalScene extends Phaser.Scene {
     return true;
   }
 
+  teardownFinalBossLiberationGate(reason = "cleanup") {
+    const state = this.finalBossRaidState;
+    const hadGate = Boolean(state?.liberationGateActive || state?.liberationGateContainer || this.finalBossLiberationGateKeyHandler);
+    if (this.finalBossLiberationGateKeyHandler && this.input?.keyboard) {
+      this.input.keyboard.off("keydown", this.finalBossLiberationGateKeyHandler);
+    }
+    this.finalBossLiberationGateKeyHandler = null;
+    if (this.finalBossLiberationGatePointerHandler && this.input) {
+      this.input.off("pointerup", this.finalBossLiberationGatePointerHandler);
+    }
+    this.finalBossLiberationGatePointerHandler = null;
+
+    if (state?.liberationGateContainer) {
+      this.tweens?.killTweensOf?.(state.liberationGateContainer);
+      state.liberationGateContainer.destroy();
+    }
+    if (state) {
+      state.liberationGateActive = false;
+      state.liberationGateLocked = false;
+      state.liberationGateContainer = null;
+      state.liberationGateButtonBounds = null;
+    }
+
+    if (hadGate && (state?.debug || this.isFinalBossRaidDebugEnabled?.())) {
+      console.log("[FINAL BOSS RAID] liberation gate cleared", { reason });
+    }
+  }
+
+  openFinalBossLiberationGate(reason = "timerComplete") {
+    const state = this.finalBossRaidState;
+    if (!state?.active || state.liberationGateActive) {
+      return false;
+    }
+
+    this.awardFinalBossRaidClearRewards(reason);
+    const config = FINAL_BOSS_RAID_CONFIG.liberationGate || {};
+    state.liberationGateActive = true;
+    state.liberationGateLocked = false;
+    state.liberationGateButtonBounds = {
+      x: GAME_WIDTH / 2 - 195,
+      y: GAME_HEIGHT / 2 + 94 - 29,
+      width: 390,
+      height: 58
+    };
+    this.gateChoiceActive = false;
+    this.gateChoiceLocked = false;
+    this.levelUpActive = false;
+    this.releaseMobileControlPointers?.();
+    this.physics?.world?.pause?.();
+    this.cleanupFinalBossRaidThirdPhaseCombat("liberationGate", { clearMinions: true });
+    this.setLastPickupNotice(config.notice || "DOLL LIBERATION READY");
+    this.updateFinalBossRaidHud();
+    this.updateHud?.();
+
+    const panelWidth = 690;
+    const panelHeight = 324;
+    const container = this.add
+      .container(GAME_WIDTH / 2, GAME_HEIGHT / 2)
+      .setScrollFactor(0)
+      .setDepth(FINAL_RAID_HUD_LAYOUT.depth + 120)
+      .setAlpha(0)
+      .setScale(0.98);
+    state.liberationGateContainer = container;
+    this.uiContainer?.add(container);
+
+    const shade = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x02070d, 0.58).setOrigin(0.5);
+    const panel = this.add.graphics();
+    panel.fillStyle(0x030912, 0.94);
+    panel.fillRoundedRect(-panelWidth / 2, -panelHeight / 2, panelWidth, panelHeight, 12);
+    panel.lineStyle(3, 0xf0c463, 0.76);
+    panel.strokeRoundedRect(-panelWidth / 2, -panelHeight / 2, panelWidth, panelHeight, 12);
+    panel.lineStyle(1, 0x65e6ff, 0.32);
+    panel.strokeRoundedRect(-panelWidth / 2 + 12, -panelHeight / 2 + 12, panelWidth - 24, panelHeight - 24, 8);
+    panel.fillStyle(0xf0c463, 0.82);
+    panel.fillRect(-panelWidth / 2 + 34, -panelHeight / 2 + 84, panelWidth - 68, 2);
+    panel.fillRect(-panelWidth / 2 + 58, panelHeight / 2 - 70, panelWidth - 116, 2);
+
+    const title = this.add.text(0, -126, config.title || "DOLL LIBERATION", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "34px",
+      color: "#f7d98a",
+      fontStyle: "bold",
+      align: "center",
+      stroke: "#1f1202",
+      strokeThickness: 4
+    }).setOrigin(0.5);
+    const subtitle = this.add.text(0, -88, config.subtitle || "Depth10 Final Raid 討伐完了", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "17px",
+      color: "#ecfaff",
+      fontStyle: "bold",
+      align: "center"
+    }).setOrigin(0.5);
+    const description = this.add.text(0, -30, (config.description || []).join("\n"), {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "18px",
+      color: "#d6ecff",
+      align: "center",
+      lineSpacing: 8
+    }).setOrigin(0.5);
+    const button = this.add.rectangle(0, 94, 390, 58, 0x142337, 0.98)
+      .setStrokeStyle(2, 0xf7d98a, 0.88)
+      .setInteractive({ useHandCursor: true });
+    const buttonLabel = this.add.text(0, 94, config.actionLabel || "ドールを解放する", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "22px",
+      color: "#fff4ca",
+      fontStyle: "bold",
+      align: "center"
+    }).setOrigin(0.5);
+    const hint = this.add.text(0, 140, "クリック / タップ / Enter / 1", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "13px",
+      color: "#9fc9df",
+      fontStyle: "bold",
+      align: "center"
+    }).setOrigin(0.5);
+    const buttonHitZone = this.add.zone(0, 94, 390, 58).setInteractive({ useHandCursor: true });
+
+    const activate = () => this.completeFinalBossLiberationReturn();
+    const onButtonOver = () => button.setFillStyle(0x24405e, 1);
+    const onButtonOut = () => button.setFillStyle(0x142337, 0.98);
+    const onButtonUp = (pointer) => {
+      pointer?.event?.stopPropagation?.();
+      activate();
+    };
+    button.on("pointerover", onButtonOver);
+    button.on("pointerout", onButtonOut);
+    button.on("pointerup", onButtonUp);
+    buttonHitZone.on("pointerover", onButtonOver);
+    buttonHitZone.on("pointerout", onButtonOut);
+    buttonHitZone.on("pointerup", onButtonUp);
+    this.finalBossLiberationGateKeyHandler = (event) => {
+      if (!state.liberationGateActive || state.liberationGateLocked) {
+        return;
+      }
+      const key = String(event?.key || "").toLowerCase();
+      const code = String(event?.code || "").toLowerCase();
+      if (!["enter", "1"].includes(key) && key !== " " && code !== "space") {
+        return;
+      }
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+      activate();
+    };
+    this.input?.keyboard?.on("keydown", this.finalBossLiberationGateKeyHandler);
+    this.finalBossLiberationGatePointerHandler = (pointer) => {
+      if (!state.liberationGateActive || state.liberationGateLocked) {
+        return;
+      }
+      const point = this.getOverlayPointerGamePosition(pointer);
+      const bounds = state.liberationGateButtonBounds;
+      if (!bounds) {
+        return;
+      }
+      const inside = point.x >= bounds.x
+        && point.x <= bounds.x + bounds.width
+        && point.y >= bounds.y
+        && point.y <= bounds.y + bounds.height;
+      if (!inside) {
+        return;
+      }
+      pointer?.event?.preventDefault?.();
+      pointer?.event?.stopPropagation?.();
+      activate();
+    };
+    this.input?.on("pointerup", this.finalBossLiberationGatePointerHandler);
+
+    container.add([shade, panel, title, subtitle, description, button, buttonLabel, hint, buttonHitZone]);
+    this.tweens.add({
+      targets: container,
+      alpha: 1,
+      scale: 1,
+      duration: 220,
+      ease: "Back.Out"
+    });
+
+    if (state.debug) {
+      console.log("[FINAL BOSS RAID] liberation gate opened", {
+        reason,
+        finalBossState: { ...this.finalBossState }
+      });
+    }
+    return true;
+  }
+
+  completeFinalBossLiberationReturn() {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !state.liberationGateActive || state.liberationGateLocked) {
+      return;
+    }
+
+    state.liberationGateLocked = true;
+    this.awardFinalBossRaidClearRewards("liberationReturn");
+    const result = this.secureRunCoins(1);
+    const lostArmsMessage = this.securePendingLostArms?.() || "";
+    const anjuMemoryAward = this.awardAnjuMemoryOnExtraction?.("normal") || null;
+    this.setRunRankingExtractionStats("normal", result?.secured, true);
+    const recordState = this.saveBestRecordIfNeeded();
+    const deepExtractionContext = this.captureDeepExtractionResultContext(result, false, lostArmsMessage);
+    this.saveRunArchiveEntryOnce({
+      outcome: "normal_extract",
+      extractionSucceeded: true,
+      extractMode: "normal",
+      deathReason: "none",
+      result,
+      extractedGeek: result?.secured,
+      unconfirmedGeekFinal: (result?.secured || 0) + (result?.lost || 0),
+      anjuMemoryAward,
+      lostArmsMessage,
+      recordState,
+      context: deepExtractionContext
+    });
+    this.extractionComplete = true;
+    this.gateChoiceActive = false;
+    this.gateChoiceLocked = false;
+    this.setLastPickupNotice("DOLL LIBERATED");
+
+    const messageLines = [
+      "ドールを解放しました / CD・SUPPORT解放"
+    ];
+    const resultParts = [];
+    if ((result?.secured || 0) > 0) {
+      resultParts.push(`GEEK ${this.normalizeCoinAmount(result.secured).toLocaleString()} 確定`);
+    }
+    if ((anjuMemoryAward?.amount || 0) > 0) {
+      resultParts.push(`ANJU MEMORY +${this.normalizeAnjuMemoryAmount(anjuMemoryAward.amount)}`);
+    }
+    if (resultParts.length > 0) {
+      messageLines.push(resultParts.join(" / "));
+    }
+    this.returnToOpeningShop(messageLines.join("\n"), { showMobileLaunchGate: true });
+  }
+
   completeFinalBossRaidTimer() {
     const state = this.finalBossRaidState;
     if (!state?.active || state.timerComplete) {
@@ -10773,6 +11939,7 @@ class SurvivalScene extends Phaser.Scene {
     state.timerComplete = true;
     state.elapsedMs = state.durationMs;
     this.awardFinalBossRaidClearRewards("timerComplete");
+    this.openFinalBossLiberationGate("timerComplete");
     if (state.debug) {
       console.log("[FINAL BOSS RAID] timer complete", {
         elapsedMs: state.elapsedMs,
@@ -25474,6 +26641,9 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     this.updatePlayerMovement(delta);
+    if (finalBossRaidActive) {
+      this.updateFinalBossRaidCamera();
+    }
     this.checkStageGateEntry();
     if (this.gateChoiceActive) {
       return;
@@ -25566,10 +26736,13 @@ class SurvivalScene extends Phaser.Scene {
     const isMoving = direction.lengthSq() > 0;
     const isDashing = this.updatePlayerDashState(delta, isMoving);
     if (isMoving) {
-      const moveSpeed = this.stats.moveSpeed
-        * this.getOverdriveMoveSpeedMultiplier()
-        * this.getFinalBossRaidPlayerMoveMultiplier()
-        * (isDashing ? DASH_SPEED_MULTIPLIER : 1);
+      const finalRaidMoveSpeed = this.getFinalBossRaidPlayerMoveSpeedOverride();
+      const baseMoveSpeed = Number.isFinite(finalRaidMoveSpeed)
+        ? finalRaidMoveSpeed
+        : this.stats.moveSpeed
+          * this.getOverdriveMoveSpeedMultiplier()
+          * this.getFinalBossRaidPlayerMoveMultiplier();
+      const moveSpeed = baseMoveSpeed * (isDashing ? DASH_SPEED_MULTIPLIER : 1);
       direction.normalize().scale(moveSpeed);
       this.playerAimAngle = Math.atan2(direction.y, direction.x);
     }
@@ -35137,36 +36310,39 @@ class SurvivalScene extends Phaser.Scene {
     const tickCount = Math.max(1, 1 + Math.floor(Math.max(0, durationMs - 1) / tickMs));
     const tickDamage = Math.max(1, Math.round((Number(totalDamage) || 1) / tickCount));
     const fieldTextureKey = this.getFinalBossSupportSpellFieldTextureKey(spellKind);
+    const fieldImageMetrics = fieldTextureKey
+      ? this.getFinalBossRaidFieldImageMetrics(spellKind, radius, { support: true })
+      : null;
     const floor = this.add
-      .ellipse(x, y + 18, radius * 1.7, radius * 0.82, isFire ? 0xff4e18 : 0x4edfff, isFire ? 0.11 : 0.13)
+      .ellipse(x, y + 18, radius * 2.25, radius * 1.02, isFire ? 0xff4e18 : 0x4edfff, isFire ? 0.055 : 0.065)
       .setDepth(19.2)
       .setBlendMode(Phaser.BlendModes.ADD);
     const glow = this.add
       .image(x, y + 10, "skill-hit-glow")
       .setDepth(19.35)
-      .setScale(Math.max(0.8, radius / 72), Math.max(0.62, radius / 92))
+      .setScale(Math.max(0.8, radius / 58), Math.max(0.62, radius / 72))
       .setTint(isFire ? 0xff8a35 : 0xa8f8ff)
-      .setAlpha(isFire ? 0.28 : 0.32)
+      .setAlpha(isFire ? 0.42 : 0.46)
       .setBlendMode(Phaser.BlendModes.ADD);
     const ring = this.add
       .image(x, y + 12, "skill-hit-ring")
       .setDepth(19.5)
-      .setScale(radius / 44, radius / 70)
+      .setScale(radius / 36, radius / 54)
       .setTint(isFire ? 0xff6a33 : definition.glowTint)
-      .setAlpha(0.56)
+      .setAlpha(0.24)
       .setBlendMode(Phaser.BlendModes.ADD);
     const fieldImage = fieldTextureKey
       ? this.add
-        .image(x, y + (isFire ? 6 : 16), fieldTextureKey)
-        .setOrigin(0.5, isFire ? 0.58 : 0.62)
+        .image(x + fieldImageMetrics.xOffset, y + fieldImageMetrics.yOffset, fieldTextureKey)
+        .setOrigin(0.5, fieldImageMetrics.originY)
         .setDepth(19.45)
-        .setAlpha(isFire ? 0.34 : 0.42)
+        .setAlpha(fieldImageMetrics.alpha)
         .setBlendMode(Phaser.BlendModes.ADD)
       : null;
 
     if (fieldImage) {
-      fieldImage.setDisplaySize(radius * (isFire ? 1.7 : 1.84), radius * (isFire ? 0.88 : 0.94));
-      fieldImage.setRotation(Phaser.Math.FloatBetween(-0.07, 0.07));
+      fieldImage.setDisplaySize(fieldImageMetrics.width, fieldImageMetrics.height);
+      fieldImage.setRotation(Phaser.Math.FloatBetween(-0.045, 0.045));
     }
 
     const objects = [floor, glow, ring, fieldImage].filter(Boolean);
@@ -35186,6 +36362,9 @@ class SurvivalScene extends Phaser.Scene {
       glow,
       ring,
       fieldImage,
+      imageWidthBase: fieldImageMetrics?.width || 0,
+      imageHeightBase: fieldImageMetrics?.height || 0,
+      imageAlphaBase: fieldImageMetrics?.alpha || 0,
       objects,
       lastHitCount: 0
     };
@@ -35267,28 +36446,16 @@ class SurvivalScene extends Phaser.Scene {
     const isFire = field.spellKind === "fire";
     const ratio = Phaser.Math.Clamp(field.remainingMs / Math.max(1, field.durationMs), 0, 1);
     const pulse = (Math.sin((this.time?.now || 0) / (isFire ? 190 : 230)) + 1) * 0.5;
-    field.floor
-      .setScale(1 + pulse * 0.08, 1 + pulse * 0.05)
-      .setAlpha((isFire ? 0.05 : 0.07) + ratio * (isFire ? 0.12 : 0.14));
-    field.glow
-      ?.setScale(
-        Math.max(0.8, field.radius / 72) * (0.9 + pulse * 0.12),
-        Math.max(0.62, field.radius / 92) * (0.86 + pulse * 0.1)
-      )
-      .setAlpha(((isFire ? 0.12 : 0.16) + pulse * 0.12) * ratio);
+    field.floor.setAlpha((isFire ? 0.055 : 0.065) + ratio * (isFire ? 0.16 : 0.17));
+    field.glow?.setAlpha(((isFire ? 0.2 : 0.22) + pulse * 0.16) * ratio);
     if (field.ring?.active) {
       field.ring
-        .setScale((field.radius / 44) * (0.94 + pulse * 0.1), (field.radius / 70) * (0.88 + pulse * 0.08))
-        .setAlpha(((isFire ? 0.24 : 0.28) + pulse * 0.18) * ratio);
+        .setAlpha(((isFire ? 0.12 : 0.14) + pulse * 0.14) * ratio);
       field.ring.rotation += (isFire ? 0.004 : -0.003) * (delta / 16.6667);
     }
     if (field.fieldImage?.active) {
-      field.fieldImage
-        .setAlpha(((isFire ? 0.2 : 0.26) + pulse * 0.08) * ratio)
-        .setDisplaySize(
-          field.radius * (isFire ? 1.66 : 1.8) * (0.98 + pulse * 0.03),
-          field.radius * (isFire ? 0.84 : 0.9) * (0.98 + pulse * 0.025)
-        );
+      const imageAlphaBase = Math.max(0, Number(field.imageAlphaBase) || (isFire ? 0.78 : 0.82));
+      field.fieldImage.setAlpha(Phaser.Math.Clamp(imageAlphaBase * (0.42 + ratio * 0.58) + pulse * 0.05, 0, 0.96));
     }
   }
 
@@ -38149,6 +39316,7 @@ class SurvivalScene extends Phaser.Scene {
     this.teardownAnomalyContractOverlay();
     this.teardownStabilizeProtocolOverlay();
     this.teardownFinalBossRaidPlaceholder?.("clearOverlay");
+    this.teardownFinalBossLiberationGate?.("clearOverlay");
     this.cleanupDeepExtractionResultOverlay("clearOverlay");
     this.overlayButtons.forEach((item) => item.destroy());
     this.overlayButtons = [];
@@ -38359,7 +39527,10 @@ class SurvivalScene extends Phaser.Scene {
     if (this.isFinalBossRaidActive()) {
       const raidState = this.finalBossRaidState || {};
       const phase = raidState.currentPhase || this.getFinalBossRaidPhaseForElapsed(raidState.elapsedMs);
-      this.hudObjectiveText.setText(`${FINAL_BOSS_RAID_CONFIG.title}\n${phase?.label || "FINAL RAID"}  Gate disabled`);
+      const raidObjective = raidState.liberationGateActive || raidState.timerComplete
+        ? "ドールを解放する  Opening Shopへ帰還"
+        : `${phase?.label || "FINAL RAID"}  Gate disabled`;
+      this.hudObjectiveText.setText(`${FINAL_BOSS_RAID_CONFIG.title}\n${raidObjective}`);
     } else {
       this.hudObjectiveText.setText(`${wave.label}\nBoss ${bossLabel}  Foes ${activeEnemies}/${wave.maxEnemies}`);
     }
