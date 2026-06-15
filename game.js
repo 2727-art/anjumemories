@@ -1582,6 +1582,7 @@ const LOST_ARMS_PITY_STEP = 0.005;
 const LOST_ARMS_PITY_MAX = 0.10;
 const LOST_ARMS_DEBUG_QUERY_PARAM = "debugLostArms";
 const LOST_ARMS_RESONANCE_DEBUG_QUERY_PARAM = "debugLostArmsResonance";
+const LOST_ARMS_JAMMING_NOTICE = "DOLL FIELD JAMMING / LOST ARMS DISABLED";
 const LOST_ARMS_IDS = ["abyssRail", "gravitySeed"];
 const DEFAULT_LOST_ARMS_LEVELS = {
   abyssRail: 0,
@@ -5042,6 +5043,15 @@ class SurvivalScene extends Phaser.Scene {
     return Boolean(this.finalBossRaidState?.active);
   }
 
+  isLostArmsJammed() {
+    const state = this.finalBossRaidState;
+    return Boolean(
+      state?.active &&
+      !state.blockingPlaceholderActive &&
+      state.targetDepth === FINAL_BOSS_RAID_CONFIG.targetDepth
+    );
+  }
+
   getFinalRaidVisualConfig() {
     return FINAL_RAID_VISUAL_CONFIG || {};
   }
@@ -8011,6 +8021,7 @@ class SurvivalScene extends Phaser.Scene {
     this.stopBgm();
     this.destroyGateSignalVisual();
     this.destroyStageGate();
+    this.clearActiveLostArmEffects();
     this.clearNonFinalBossRaidEnemies("finalBossRaidStart");
     const supportSchedule = this.buildFinalBossRaidSupportSchedule(timing.timeScale, timing);
     const startElapsedMs = this.getFinalBossRaidDebugStartElapsedMs(timing);
@@ -8119,7 +8130,7 @@ class SurvivalScene extends Phaser.Scene {
     this.levelUpActive = false;
     this.releaseMobileControlPointers?.();
     this.resumeGameplayAfterBlockingOverlay("finalBossRaidStart");
-    this.setLastPickupNotice("DEPTH 10 FINAL RAID START");
+    this.setLastPickupNotice(LOST_ARMS_JAMMING_NOTICE);
     this.setFinalBossRaidStandardHudSuppressed(true);
     this.applyFinalRaidVisualScales("start");
     this.createFinalBossRaidObjects();
@@ -9365,16 +9376,17 @@ class SurvivalScene extends Phaser.Scene {
       const armId = LOST_ARMS_IDS[index - skillIds.length];
       const definition = this.getLostArmDefinition?.(armId);
       const runtimeLevel = definition ? this.getLostArmRuntimeLevel(armId) : 0;
+      const jammed = runtimeLevel > 0 && this.isLostArmsJammed();
       const iconKey = definition?.iconTextureKey || "skill-hit-glow";
       const hasIcon = this.textures.exists(iconKey);
       const armTint = definition?.tint || 0x9fe7ff;
       slot.panel
-        .setAlpha(runtimeLevel > 0 ? 0.9 : 0.5)
-        .setStrokeStyle(1, runtimeLevel > 0 ? armTint : 0x587987, runtimeLevel > 0 ? 0.58 : 0.34);
+        .setAlpha(jammed ? 0.52 : (runtimeLevel > 0 ? 0.9 : 0.5))
+        .setStrokeStyle(1, jammed ? 0x59666f : (runtimeLevel > 0 ? armTint : 0x587987), jammed ? 0.42 : (runtimeLevel > 0 ? 0.58 : 0.34));
       if (slot.icon) {
         slot.icon
           .setVisible(hasIcon)
-          .setAlpha(runtimeLevel > 0 ? 0.94 : 0.24);
+          .setAlpha(jammed ? 0.36 : (runtimeLevel > 0 ? 0.94 : 0.24));
       }
       if (hasIcon && slot.icon) {
         this.setHudIconToFit(slot.icon, iconKey, slot.iconMaxSize);
@@ -9382,9 +9394,9 @@ class SurvivalScene extends Phaser.Scene {
       slot.label
         .setFontSize(`${FINAL_RAID_HUD_RESPONSIVE.minFontPx}px`)
         .setLineSpacing(0);
-      this.setFinalRaidHudText(slot.label, runtimeLevel > 0 ? `${definition.hudLabel}\nLv.${runtimeLevel}` : "LOCKED");
-      this.setFinalRaidHudColor(slot.label, runtimeLevel > 0 ? "#9fe7ff" : FINAL_RAID_HUD_STYLE.muted);
-      this.setHudSkillStageDots(slot, runtimeLevel, LOST_ARMS_MAX_LEVEL, runtimeLevel > 0);
+      this.setFinalRaidHudText(slot.label, jammed ? `${definition.hudLabel}\nJAMMED` : (runtimeLevel > 0 ? `${definition.hudLabel}\nLv.${runtimeLevel}` : "LOCKED"));
+      this.setFinalRaidHudColor(slot.label, jammed ? "#7f9ba8" : (runtimeLevel > 0 ? "#9fe7ff" : FINAL_RAID_HUD_STYLE.muted));
+      this.setHudSkillStageDots(slot, runtimeLevel, LOST_ARMS_MAX_LEVEL, runtimeLevel > 0 && !jammed);
     });
   }
 
@@ -13250,7 +13262,8 @@ class SurvivalScene extends Phaser.Scene {
       charging: false,
       shotCount: 0,
       chargeEvent: null,
-      chargeObjects: []
+      chargeObjects: [],
+      residualFields: []
     };
   }
 
@@ -13502,6 +13515,7 @@ class SurvivalScene extends Phaser.Scene {
       !this.levelUpActive &&
       !this.gateChoiceActive &&
       !this.extractionComplete &&
+      !this.isLostArmsJammed() &&
       !this.overlayContainer?.visible &&
       (this.pendingLevelUps || 0) <= 0
     );
@@ -14185,12 +14199,23 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   updateLostArmsCombat(delta) {
+    if (this.isLostArmsJammed()) {
+      if (this.abyssRailState?.charging || this.gravitySeedState?.fields?.length || this.abyssRailState?.residualFields?.length) {
+        this.clearActiveLostArmEffects();
+      }
+      return;
+    }
+
     this.updateAbyssRail(delta);
     this.updateGravitySeed(delta);
     this.updateGravitySeedFields(delta);
   }
 
   updateAbyssRail(delta) {
+    if (this.isLostArmsJammed()) {
+      return;
+    }
+
     const level = this.getLostArmRuntimeLevel("abyssRail");
     if (level <= 0 || !this.abyssRailState) {
       return;
@@ -14283,7 +14308,7 @@ class SurvivalScene extends Phaser.Scene {
     });
     this.abyssRailState.chargeEvent = this.time.delayedCall(chargeMs, () => {
       this.destroyAbyssRailChargeObjects();
-      if (this.gameOver || this.shopActive || this.levelUpActive || this.gateChoiceActive || this.extractionComplete) {
+      if (this.gameOver || this.shopActive || this.levelUpActive || this.gateChoiceActive || this.extractionComplete || this.isLostArmsJammed()) {
         return;
       }
 
@@ -14314,6 +14339,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   fireAbyssRail(originX, originY, angle, target, level, config) {
+    if (this.isLostArmsJammed()) {
+      return;
+    }
+
     const range = 1880;
     const endX = originX + Math.cos(angle) * range;
     const endY = originY + Math.sin(angle) * range;
@@ -14340,6 +14369,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   damageAbyssRailLine(startX, startY, endX, endY, level, config, isCrossRail) {
+    if (this.isLostArmsJammed()) {
+      return;
+    }
+
     const width = Math.max(12, config.width || 24) * (isCrossRail ? 0.82 : 1);
     const angle = Phaser.Math.Angle.Between(startX, startY, endX, endY);
     const length = Phaser.Math.Distance.Between(startX, startY, endX, endY);
@@ -14426,6 +14459,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   spawnAbyssRailResidualField(startX, startY, endX, endY, width, baseDamage) {
+    if (this.isLostArmsJammed()) {
+      return;
+    }
+
     const angle = Phaser.Math.Angle.Between(startX, startY, endX, endY);
     const length = Phaser.Math.Distance.Between(startX, startY, endX, endY);
     const centerX = (startX + endX) * 0.5;
@@ -14436,13 +14473,14 @@ class SurvivalScene extends Phaser.Scene {
       .setDepth(18)
       .setBlendMode(Phaser.BlendModes.ADD);
     const tickDamage = Math.max(1, Math.round(baseDamage * 0.22));
+    const residualEntry = { field, tickEvent: null };
 
     this.skillEffectsLayer.add(field);
     const tickEvent = this.time.addEvent({
       delay: 280,
       repeat: 2,
       callback: () => {
-        if (!field.active || this.gameOver) {
+        if (!field.active || this.gameOver || this.isLostArmsJammed()) {
           return;
         }
         this.enemies.children.each((enemy) => {
@@ -14462,6 +14500,8 @@ class SurvivalScene extends Phaser.Scene {
         });
       }
     });
+    residualEntry.tickEvent = tickEvent;
+    this.abyssRailState?.residualFields?.push(residualEntry);
 
     this.tweens.add({
       targets: field,
@@ -14471,11 +14511,18 @@ class SurvivalScene extends Phaser.Scene {
       onComplete: () => {
         tickEvent.remove(false);
         field.destroy();
+        if (this.abyssRailState?.residualFields) {
+          this.abyssRailState.residualFields = this.abyssRailState.residualFields.filter((entry) => entry !== residualEntry);
+        }
       }
     });
   }
 
   updateGravitySeed(delta) {
+    if (this.isLostArmsJammed()) {
+      return;
+    }
+
     const level = this.getLostArmRuntimeLevel("gravitySeed");
     if (level <= 0 || !this.gravitySeedState) {
       return;
@@ -14559,6 +14606,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   spawnGravitySeedField(x, y, level, config) {
+    if (this.isLostArmsJammed()) {
+      return;
+    }
+
     const radius = config.radius || 120;
     const graphics = this.add.graphics().setDepth(17).setBlendMode(Phaser.BlendModes.ADD);
     const ring = this.add
@@ -14618,6 +14669,11 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   updateGravitySeedFields(delta) {
+    if (this.isLostArmsJammed()) {
+      this.clearActiveLostArmEffects();
+      return;
+    }
+
     if (!this.gravitySeedState?.fields?.length) {
       return;
     }
@@ -14790,6 +14846,14 @@ class SurvivalScene extends Phaser.Scene {
 
   clearActiveLostArmEffects() {
     this.destroyAbyssRailChargeObjects();
+    (this.abyssRailState?.residualFields || []).forEach((entry) => {
+      entry?.tickEvent?.remove?.(false);
+      this.tweens?.killTweensOf?.(entry?.field);
+      entry?.field?.destroy?.();
+    });
+    if (this.abyssRailState) {
+      this.abyssRailState.residualFields = [];
+    }
     this.gravitySeedState?.fields?.forEach((field) => {
       field.active = false;
       field.graphics?.destroy();
@@ -22328,6 +22392,7 @@ class SurvivalScene extends Phaser.Scene {
 
     const runtimeLevel = this.getLostArmRuntimeLevel(armId);
     const pending = this.isLostArmPending(armId);
+    const jammed = runtimeLevel > 0 && this.isLostArmsJammed();
     const resonanceEntry = this.getLostArmsResonanceEntry(armId);
     const evolution = this.getLostArmsEvolutionDefinition(armId);
     const resonanceUnlocked = this.isLostArmsResonanceUnlocked() || (resonanceEntry?.points || 0) > 0 || Boolean(evolution);
@@ -22340,37 +22405,41 @@ class SurvivalScene extends Phaser.Scene {
         ? `RES ${resonanceEntry?.points || 0}/${LOST_ARMS_RESONANCE_CONFIG.pointsRequired}`
         : (pending ? "UNSEC" : ""));
     const iconKey = this.textures.exists(definition.iconTextureKey) ? definition.iconTextureKey : "skill-hit-glow";
-    const labelText = runtimeLevel <= 0
+    const labelText = jammed
+      ? [definition.hudLabel, levelLine, "JAMMED"].filter(Boolean).join("\n")
+      : (runtimeLevel <= 0
       ? "???\nLOCKED"
-      : [definition.hudLabel, levelLine, resonanceLine].filter(Boolean).join("\n");
-    const activeColor = evolution
+      : [definition.hudLabel, levelLine, resonanceLine].filter(Boolean).join("\n"));
+    const activeColor = jammed
+      ? "#7f9ba8"
+      : (evolution
       ? "#ffb8fb"
       : (runtimeLevel >= LOST_ARMS_MAX_LEVEL
       ? "#fff3c8"
-      : (pending ? "#f0c463" : "#9fe7ff"));
+      : (pending ? "#f0c463" : "#9fe7ff")));
 
     slot.icon
       .setVisible(true)
-      .setAlpha(runtimeLevel > 0 ? 0.95 : 0.28);
+      .setAlpha(jammed ? 0.34 : (runtimeLevel > 0 ? 0.95 : 0.28));
     this.setHudIconToFit(slot.icon, iconKey, Math.max(24, slot.iconMaxSize - (pending || resonanceUnlocked ? 5 : 1)));
     slot.panel
-      .setAlpha(runtimeLevel > 0 ? 0.9 : 0.5)
-      .setStrokeStyle?.(1, evolution ? 0xff73f6 : (pending ? 0xf0c463 : (runtimeLevel > 0 ? definition.tint : HUD_STYLE.slotStroke)), evolution ? 0.82 : (pending ? 0.7 : 0.36));
+      .setAlpha(jammed ? 0.52 : (runtimeLevel > 0 ? 0.9 : 0.5))
+      .setStrokeStyle?.(1, jammed ? 0x59666f : (evolution ? 0xff73f6 : (pending ? 0xf0c463 : (runtimeLevel > 0 ? definition.tint : HUD_STYLE.slotStroke))), jammed ? 0.42 : (evolution ? 0.82 : (pending ? 0.7 : 0.36)));
     slot.label
-      .setFontSize(resonanceUnlocked || pending ? "8px" : "9px")
-      .setLineSpacing(resonanceUnlocked || pending ? -1 : 0)
-      .setPosition(slot.x + slot.size / 2, slot.y + slot.size - (this.hudUsesFrameAsset ? (resonanceUnlocked || pending ? 40 : 33) : (resonanceUnlocked || pending ? 34 : 27)))
+      .setFontSize(jammed || resonanceUnlocked || pending ? "8px" : "9px")
+      .setLineSpacing(jammed || resonanceUnlocked || pending ? -1 : 0)
+      .setPosition(slot.x + slot.size / 2, slot.y + slot.size - (this.hudUsesFrameAsset ? (jammed || resonanceUnlocked || pending ? 40 : 33) : (jammed || resonanceUnlocked || pending ? 34 : 27)))
       .setText(labelText)
       .setColor(activeColor);
-    this.setHudSkillStageDots(slot, runtimeLevel, LOST_ARMS_MAX_LEVEL, runtimeLevel > 0);
+    this.setHudSkillStageDots(slot, runtimeLevel, LOST_ARMS_MAX_LEVEL, runtimeLevel > 0 && !jammed);
     slot.stageDots?.forEach((dot, index) => {
       if (!dot.visible) {
         return;
       }
       const filled = index < runtimeLevel;
       dot.setFillStyle(
-        filled ? (pending ? 0xf0c463 : definition.tint) : 0x596366,
-        filled ? 0.96 : 0.38
+        filled ? (jammed ? 0x7f9ba8 : (pending ? 0xf0c463 : definition.tint)) : 0x596366,
+        filled ? (jammed ? 0.42 : 0.96) : 0.38
       );
     });
   }
