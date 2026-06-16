@@ -1110,10 +1110,7 @@ const FINAL_RAID_HUD_LAYOUT = {
   depth: 820,
   boss: { x: 348, y: 12, width: 584, height: 164 },
   player: { x: 16, y: 16, width: 316, height: 210, iconSize: 72, skillSize: 54, skillGap: 8 },
-  revive: { x: 952, y: 16, width: 146, height: 68 },
-  damage: { x: 1112, y: 16, width: 150, height: 68 },
   ranking: { x: 950, y: 104, width: 312, height: 304 },
-  objective: { x: 950, y: 512, width: 312, height: 116 },
   action: { x: 360, y: 582, width: 560, height: 124, dashX: 438, dashY: 644, dashRadius: 42 }
 };
 const FINAL_RAID_HUD_SAFE_MARGINS = {
@@ -4999,7 +4996,6 @@ class SurvivalScene extends Phaser.Scene {
       bossHpDisplayBars: FINAL_BOSS_RAID_CONFIG.bossHpBars,
       storyHpTimelinePoints: [],
       nextStoryHpUpdateAt: 0,
-      playerContribution: 0,
       nextPlayerSignalAt: 0,
       lastPlayerSignalVisualAt: -999999,
       lastPlayerSignalPoints: 0,
@@ -7965,17 +7961,7 @@ class SurvivalScene extends Phaser.Scene {
       bannerTextureKey: guild.bannerTextureKey,
       voiceKey: guild.voiceKey
     }));
-    return [
-      ...guildEntries,
-      {
-        id: "player",
-        label: "YOU",
-        type: "player",
-        damage: 0,
-        joined: true,
-        joinMs: 0
-      }
-    ];
+    return guildEntries;
   }
 
   shouldEnterFinalBossRaid(targetDepth, mode = "next") {
@@ -8100,7 +8086,6 @@ class SurvivalScene extends Phaser.Scene {
       bossHpDisplayBars: FINAL_BOSS_RAID_CONFIG.bossHpBars,
       storyHpTimelinePoints: [],
       nextStoryHpUpdateAt: 0,
-      playerContribution: 0,
       nextPlayerSignalAt: 0,
       lastPlayerSignalVisualAt: -999999,
       lastPlayerSignalPoints: 0,
@@ -8468,15 +8453,11 @@ class SurvivalScene extends Phaser.Scene {
     const syncTextY = Math.min(actionY + 184, robotSlotY - 32);
     const syncBarY = syncTextY + 21;
     const dashY = actionY + Math.max(66, Math.min(82, syncTextY - actionY - 100));
-    const topCardGap = info.compact ? 8 : 14;
-    const reviveWidth = Math.floor((rightPanelWidth - topCardGap) * 0.47);
-    const damageWidth = rightPanelWidth - topCardGap - reviveWidth;
-    const rankingY = topY + (info.compact ? 86 : 92);
+    const rankingY = topY + 4;
     const maxMobileRankingHeight = Math.max(168, Math.floor((safe.dashAvoidTop || 286) - rankingY - safe.panelGap));
     const rankingHeight = info.mobile
-      ? Math.min(196, maxMobileRankingHeight)
-      : (info.compact ? 260 : FINAL_RAID_HUD_LAYOUT.ranking.height);
-    const objectiveY = layoutHeight - FINAL_RAID_HUD_LAYOUT.objective.height - (info.mobile ? 76 : 92);
+      ? Math.min(254, maxMobileRankingHeight)
+      : (info.compact ? 304 : FINAL_RAID_HUD_LAYOUT.ranking.height);
     const skillColumns = info.mobile ? 3 : 5;
     const skillStartY = playerY + (skillColumns < 5 ? 140 : 148);
     const skillLabelY = playerY + (skillColumns < 5 ? 118 : 128);
@@ -8513,18 +8494,6 @@ class SurvivalScene extends Phaser.Scene {
         skillStartY,
         skillLabelY
       },
-      revive: {
-        ...FINAL_RAID_HUD_LAYOUT.revive,
-        x: rightX,
-        y: topY + 4,
-        width: reviveWidth
-      },
-      damage: {
-        ...FINAL_RAID_HUD_LAYOUT.damage,
-        x: rightX + reviveWidth + topCardGap,
-        y: topY + 4,
-        width: damageWidth
-      },
       ranking: {
         ...FINAL_RAID_HUD_LAYOUT.ranking,
         x: rightX,
@@ -8535,12 +8504,6 @@ class SurvivalScene extends Phaser.Scene {
         fontSize: info.mobile ? "12px" : "14px",
         lineSpacing: info.mobile ? 4 : 7,
         supportFontSize: info.mobile ? "9px" : "11px"
-      },
-      objective: {
-        ...FINAL_RAID_HUD_LAYOUT.objective,
-        x: rightX,
-        y: objectiveY,
-        width: rightPanelWidth
       },
       action: {
         ...FINAL_RAID_HUD_LAYOUT.action,
@@ -8857,10 +8820,7 @@ class SurvivalScene extends Phaser.Scene {
 
     const boss = layout.boss;
     const player = layout.player;
-    const revive = layout.revive;
-    const damage = layout.damage;
     const ranking = layout.ranking;
-    const objective = layout.objective;
     const action = layout.action;
     const playerBarWidth = player.hpBarWidth || 190;
     const elements = {};
@@ -8968,34 +8928,6 @@ class SurvivalScene extends Phaser.Scene {
     });
     const skillSlots = this.createFinalRaidHudSkillSlots(container, layout);
 
-    elements.reviveTitleText = this.createHudLabel(container, revive.x + revive.width / 2, revive.y + 10, "REVIVE", {
-      fontSize: "12px",
-      color: FINAL_RAID_HUD_STYLE.gold,
-      align: "center",
-      originX: 0.5
-    });
-    elements.reviveText = this.createFinalRaidHudText(container, revive.x + revive.width / 2, revive.y + 31, this.getFinalRaidReviveText(), {
-      fontSize: "22px",
-      color: FINAL_RAID_HUD_STYLE.text,
-      fontStyle: "bold",
-      align: "center",
-      originX: 0.5
-    });
-    elements.myDamageTitleText = this.createHudLabel(container, damage.x + damage.width / 2, damage.y + 10, "RAID SIGNAL", {
-      fontSize: "12px",
-      color: FINAL_RAID_HUD_STYLE.gold,
-      align: "center",
-      originX: 0.5
-    });
-    elements.myDamageText = this.createFinalRaidHudText(container, damage.x + damage.width / 2, damage.y + 30, "0\nHIT +1", {
-      fontSize: "15px",
-      color: FINAL_RAID_HUD_STYLE.text,
-      fontStyle: "bold",
-      align: "center",
-      lineSpacing: 2,
-      originX: 0.5
-    });
-
     elements.rankingTitleText = this.createHudLabel(container, ranking.x + ranking.width / 2, ranking.y + 14, "GUILD DAMAGE RANKING", {
       fontSize: "13px",
       color: FINAL_RAID_HUD_STYLE.gold,
@@ -9009,18 +8941,6 @@ class SurvivalScene extends Phaser.Scene {
       fontStyle: "bold",
       lineSpacing: ranking.lineSpacing ?? 7,
       wordWrap: { width: ranking.width - 44 }
-    });
-    elements.objectiveTitleText = this.createHudLabel(container, objective.x + objective.width / 2, objective.y + 14, "OBJECTIVE", {
-      fontSize: "13px",
-      color: FINAL_RAID_HUD_STYLE.gold,
-      align: "center",
-      originX: 0.5
-    });
-    elements.objectiveText = this.createFinalRaidHudText(container, objective.x + 24, objective.y + 40, "", {
-      fontSize: "13px",
-      color: FINAL_RAID_HUD_STYLE.text,
-      lineSpacing: 8,
-      wordWrap: { width: objective.width - 48 }
     });
 
     const robotSlot = action.robotSlot || { x: action.x + 14, y: action.y + 210, width: action.width - 28, height: 96 };
@@ -9102,7 +9022,7 @@ class SurvivalScene extends Phaser.Scene {
     state.bossHpText = null;
     state.detailText = elements.playerHpText;
     state.debugText = elements.debugText;
-    state.contributionText = elements.myDamageText;
+    state.contributionText = null;
     state.rankingText = elements.rankingText;
     this.updateFinalRaidHud();
   }
@@ -9270,10 +9190,7 @@ class SurvivalScene extends Phaser.Scene {
     graphics.clear();
     this.drawFinalRaidHudPanel(graphics, layout.boss, { stroke: phaseColor, strokeAlpha: 0.64, alpha: 0.8, cut: 18, headerLine: true, headerColor: phaseColor });
     this.drawFinalRaidHudPanel(graphics, layout.player, { stroke: 0x65e6ff, strokeAlpha: 0.46, headerLine: true, cut: 16 });
-    this.drawFinalRaidHudPanel(graphics, layout.revive, { stroke: 0xf0c463, strokeAlpha: 0.42, headerLine: true, cut: 12 });
-    this.drawFinalRaidHudPanel(graphics, layout.damage, { stroke: 0xf0c463, strokeAlpha: 0.42, headerLine: true, cut: 12 });
     this.drawFinalRaidHudPanel(graphics, layout.ranking, { stroke: 0x65e6ff, strokeAlpha: 0.48, headerLine: true, cut: 16 });
-    this.drawFinalRaidHudPanel(graphics, layout.objective, { stroke: 0xf0c463, strokeAlpha: 0.42, headerLine: true, cut: 16 });
     this.drawFinalRaidHudPanel(graphics, layout.action, { stroke: 0x65e6ff, strokeAlpha: 0.42, headerLine: true, cut: 18 });
 
     const boss = layout.boss;
@@ -9578,12 +9495,6 @@ class SurvivalScene extends Phaser.Scene {
       : `${this.formatFinalRaidHudNumber(Math.floor(Number(this.stats?.xp) || 0))} / ${this.formatFinalRaidHudNumber(nextLevelXp)}`);
     this.updateFinalRaidHudSkillSlots();
 
-    this.setFinalRaidHudText(elements.reviveText, this.getFinalRaidReviveText());
-    const playerContribution = Math.floor(Number(state.playerContribution) || 0);
-    const signalPerPulse = this.getFinalBossRaidPlayerSignalPoints();
-    this.setFinalRaidHudText(elements.myDamageText, `${playerContribution.toLocaleString()}\nHIT +${signalPerPulse.toLocaleString()}`);
-    this.trackFinalRaidHudValueChange("playerContributionPulse", Math.floor(playerContribution / 25), elements.myDamageText, { fromScale: 1.025, duration: 180 });
-
     const rankingMaxRows = Math.max(3, Math.floor(Number(layout.ranking?.maxRows) || 5));
     const rankingRefreshIntervalMs = this.getFinalBossRaidRankingHudRefreshIntervalMs();
     const shouldRefreshRankingHud = state.rankingHudDirty
@@ -9595,18 +9506,6 @@ class SurvivalScene extends Phaser.Scene {
       state.rankingHudDirty = false;
     }
     this.setFinalRaidHudText(elements.rankingText, state.cachedRankingHudLines || "--");
-    const liberationReady = Boolean(state.liberationGateActive || state.timerComplete);
-    this.setFinalRaidHudText(elements.objectiveText, liberationReady
-      ? [
-        "◇ ボス討伐完了  1/1",
-        "◇ ドール解放ゲート 出現",
-        "◇ Opening Shopへ帰還"
-      ].join("\n")
-      : [
-        `◇ ボスを討伐する  ${targetBars <= 0 ? "1/1" : "0/1"}`,
-        `◇ 制限時間内に討伐  ${this.formatTimeMs(remainingMs)} / ${this.formatTimeMs(state.durationMs)}`,
-        "◇ 戦闘不能回数  -- / --"
-      ].join("\n"));
 
     this.setFinalRaidHudText(elements.dashStateText, this.dashLockedUntilRelease ? "LOCK" : (staminaRatio >= 0.18 ? "READY" : "LOW"));
     this.setFinalRaidHudColor(elements.dashStateText, this.isDashing ? "#e9ffff" : (staminaRatio >= 0.18 ? FINAL_RAID_HUD_STYLE.cyan : "#ffb3a8"));
@@ -11407,11 +11306,6 @@ class SurvivalScene extends Phaser.Scene {
     let joinStateChanged = false;
 
     state.rankingEntries.forEach((entry) => {
-      if (entry.type === "player") {
-        entry.joined = true;
-        return;
-      }
-
       const joined = elapsedMs >= (entry.joinMs || 0);
       if (entry.joined !== joined) {
         joinStateChanged = true;
@@ -11452,10 +11346,6 @@ class SurvivalScene extends Phaser.Scene {
     state.rankingScriptDirty = false;
     state.rankingHudDirty = true;
     state.rankingEntries.forEach((entry) => {
-      if (entry.type === "player") {
-        entry.damage = Math.max(0, Math.floor(Number(state.playerContribution) || 0));
-        return;
-      }
       entry.damage = entry.joined
         ? this.getFinalBossRaidProjectedGuildDamage(entry, elapsedMs, state.currentPhase, state.timeScale)
         : 0;
@@ -11646,15 +11536,14 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     const joinedEntries = state.rankingEntries
-      .filter((entry) => entry.joined || entry.type === "player")
+      .filter((entry) => entry.type === "guild" && entry.joined)
       .sort((left, right) => (right.damage || 0) - (left.damage || 0));
     const latestEntry = state.latestSupportGuildId
       ? state.rankingEntries.find((entry) => entry.id === state.latestSupportGuildId)
       : null;
-    const playerEntry = state.rankingEntries.find((entry) => entry.type === "player");
     const selected = [];
     joinedEntries.slice(0, 5).forEach((entry) => selected.push(entry));
-    [playerEntry, latestEntry].forEach((entry) => {
+    [latestEntry].forEach((entry) => {
       if (entry && !selected.includes(entry)) {
         selected.push(entry);
       }
@@ -11669,12 +11558,12 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     const sorted = [...(state.rankingEntries || [])]
-      .filter((entry) => entry.joined || entry.type === "player")
+      .filter((entry) => entry.type === "guild" && entry.joined)
       .sort((left, right) => (right.damage || 0) - (left.damage || 0));
     const rankMap = new Map(sorted.map((entry, index) => [entry.id, index + 1]));
     const lines = this.getFinalBossRaidRankingDisplayEntries().map((entry) => {
       const rank = rankMap.get(entry.id) || "-";
-      const marker = entry.type === "player" ? "YOU" : entry.label;
+      const marker = entry.label;
       const suffix = entry.id === state.latestSupportGuildId ? " NEW" : "";
       return `${String(rank).padStart(2, "0")} ${marker} ${Math.floor(entry.damage || 0).toLocaleString()}${suffix}`;
     });
@@ -11768,29 +11657,6 @@ class SurvivalScene extends Phaser.Scene {
     ].join("\n");
   }
 
-  getFinalBossRaidPlayerSignalPoints(state = this.finalBossRaidState) {
-    const config = FINAL_BOSS_RAID_CONFIG.playerSignal || {};
-    const entries = Array.isArray(state?.rankingEntries) ? state.rankingEntries : [];
-    const elapsedMs = Math.max(0, Number(state?.elapsedMs) || 0);
-    const joinedGuildCount = entries.reduce((count, entry) => {
-      if (entry?.type !== "guild") {
-        return count;
-      }
-      const joined = entry.joined || elapsedMs >= Math.max(0, Number(entry.joinMs) || 0);
-      return joined ? count + 1 : count;
-    }, 0);
-    const finalPushJoined = entries.some((entry) => {
-      return entry?.type === "guild"
-        && entry.finalPush
-        && (entry.joined || elapsedMs >= Math.max(0, Number(entry.joinMs) || 0));
-    });
-    const basePoints = Math.max(1, Math.floor(Number(config.basePoints) || 1));
-    const joinedBonus = Math.max(0, Math.floor(Number(config.joinedGuildBonus) || 0));
-    const finalPushBonus = finalPushJoined ? Math.max(0, Math.floor(Number(config.finalPushBonus) || 0)) : 0;
-    const maxPoints = Math.max(1, Math.floor(Number(config.maxPointsPerPulse) || 1));
-    return Phaser.Math.Clamp(basePoints + joinedGuildCount * joinedBonus + finalPushBonus, 1, maxPoints);
-  }
-
   spawnFinalBossRaidPlayerSignalPulse(enemy, points, flashTint = 0xffdede) {
     const state = this.finalBossRaidState;
     if (!state?.active || !enemy?.active || !this.add || !this.skillEffectsLayer) {
@@ -11854,12 +11720,9 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    const signalPoints = this.getFinalBossRaidPlayerSignalPoints(state);
+    const signalPoints = Math.max(1, Math.floor(Number(config.basePoints) || 1));
     state.nextPlayerSignalAt = now + pulseIntervalMs;
     state.lastPlayerSignalPoints = signalPoints;
-    state.playerContribution = Math.max(0, Math.floor(Number(state.playerContribution) || 0) + signalPoints);
-    state.rankingScriptDirty = true;
-    state.rankingHudDirty = true;
     this.spawnFinalBossRaidPlayerSignalPulse(enemy, signalPoints, flashTint);
   }
 
