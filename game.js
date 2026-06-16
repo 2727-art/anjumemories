@@ -1325,6 +1325,8 @@ const CD_SHOP_SLOT_COUNT = 10;
 const CD_PURCHASE_PRICE = 100000;
 const FINAL_BOSS_CD_ID = "finalBossLiberator";
 const FINAL_BOSS_SUPPORT_ID = "finalBossLiberatorSupport";
+const OPENING_SHOP_BACKGROUND_TEXTURE_KEY = "opening-shop-bg";
+const OPENING_SHOP_BACKGROUND_PATH = "./画像/ui/opening_shop_bg.jpg";
 const DEFAULT_BEST_RECORD = {
   survivalTimeMs: 0,
   level: 0,
@@ -1348,8 +1350,8 @@ const CD_CATALOG = [
     startsUnlocked: true,
     jacketTextureKey: "cd-jacket-anju",
     lockedJacketTextureKey: "cd-jacket-anju-locked",
-    jacketPath: "./画像/cd/anju.png",
-    lockedJacketPath: "./画像/cd/anju_locked.png",
+    jacketPath: "./画像/cd/anju.jpg",
+    lockedJacketPath: "./画像/cd/anju_locked.jpg",
     audioKey: "bgm-anju",
     audioPath: "./音声/bgm/anju.mp3"
   },
@@ -1361,14 +1363,14 @@ const CD_CATALOG = [
     startsUnlocked: false,
     jacketTextureKey: "cd-jacket-nandeyanen",
     lockedJacketTextureKey: "cd-jacket-nandeyanen-locked",
-    jacketPath: "./画像/cd/nandeyanen.png",
-    lockedJacketPath: "./画像/cd/nandeyanen_locked.png",
+    jacketPath: "./画像/cd/nandeyanen.jpg",
+    lockedJacketPath: "./画像/cd/nandeyanen_locked.jpg",
     audioKey: "bgm-nandeyanen",
     audioPath: "./音声/bgm/nandeyanen.mp3",
-    bonusLabel: "ATK +10% / 弾速 +6%",
+    bonusLabel: "ATK +10% / 連射 +6%",
     statBonus: {
       damageMultiplierAdd: 0.1,
-      bulletSpeedMultiplier: 1.06
+      fireIntervalMultiplier: 0.94
     }
   },
   {
@@ -1379,8 +1381,8 @@ const CD_CATALOG = [
     startsUnlocked: false,
     jacketTextureKey: "cd-jacket-hanseikai",
     lockedJacketTextureKey: "cd-jacket-hanseikai-locked",
-    jacketPath: "./画像/cd/hanseikai.png",
-    lockedJacketPath: "./画像/cd/hanseikai_locked.png",
+    jacketPath: "./画像/cd/hanseikai.jpg",
+    lockedJacketPath: "./画像/cd/hanseikai_locked.jpg",
     audioKey: "bgm-hanseikai",
     audioPath: "./音声/bgm/hanseikai_ver2.wav",
     bonusLabel: "HP +25 / STAM +20",
@@ -1397,8 +1399,8 @@ const CD_CATALOG = [
     startsUnlocked: false,
     jacketTextureKey: "cd-jacket-miraiwoikiteru",
     lockedJacketTextureKey: "cd-jacket-miraiwoikiteru-locked",
-    jacketPath: "./画像/cd/miraiwoikiteru.png",
-    lockedJacketPath: "./画像/cd/miraiwoikiteru_locked.png",
+    jacketPath: "./画像/cd/miraiwoikiteru.jpg",
+    lockedJacketPath: "./画像/cd/miraiwoikiteru_locked.jpg",
     audioKey: "bgm-miraiwoikiteru",
     audioPath: "./音声/bgm/miraiwoikiteru.mp3",
     bonusLabel: "SPD +20 / 連射 +5%",
@@ -1415,8 +1417,8 @@ const CD_CATALOG = [
     startsUnlocked: false,
     jacketTextureKey: "cd-jacket-kotokoto",
     lockedJacketTextureKey: "cd-jacket-kotokoto-locked",
-    jacketPath: "./画像/cd/kotokoto.png",
-    lockedJacketPath: "./画像/cd/kotokoto_locked.png",
+    jacketPath: "./画像/cd/kotokoto.jpg",
+    lockedJacketPath: "./画像/cd/kotokoto_locked.jpg",
     audioKey: "bgm-kotokoto",
     audioPath: "./音声/bgm/kotokoto.wav",
     bonusLabel: "ATK +6% / STAM +15",
@@ -1433,8 +1435,8 @@ const CD_CATALOG = [
     startsUnlocked: false,
     jacketTextureKey: "cd-jacket-ichaina",
     lockedJacketTextureKey: "cd-jacket-ichaina-locked",
-    jacketPath: "./画像/cd/ichaina.png",
-    lockedJacketPath: "./画像/cd/ichaina_locked.png",
+    jacketPath: "./画像/cd/ichaina.jpg",
+    lockedJacketPath: "./画像/cd/ichaina_locked.jpg",
     audioKey: "bgm-ichaina",
     audioPath: "./音声/bgm/ichaina.mp3",
     bonusLabel: "弾速 +8% / SPD +12",
@@ -1454,11 +1456,15 @@ const CD_CATALOG = [
     lockedJacketTextureKey: "cd-jacket-finalboss-liberator-locked",
     fallbackJacketTextureKey: "cd-finalboss-unlocked-fallback",
     fallbackLockedJacketTextureKey: "cd-finalboss-locked-fallback",
-    jacketPath: "./画像/cd/bosscd_unlock.png",
-    lockedJacketPath: "./画像/cd/bosscd_lock.png",
+    jacketPath: "./画像/cd/bosscd_unlock.jpg",
+    lockedJacketPath: "./画像/cd/bosscd_lock.jpg",
     audioKey: "bgm-finalboss-liberator",
     audioPath: "./音声/bgm/ドールを解放せし者.mp3",
-    bonusLabel: "DEPTH10 FINAL RAID CLEAR"
+    bonusLabel: "HP +100 / STAM +50",
+    statBonus: {
+      maxHpAdd: 100,
+      maxStaminaAdd: 50
+    }
   }
 ];
 const SHOP_UPGRADE_DEFINITIONS = {
@@ -3914,6 +3920,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   preloadShopAssets() {
+    this.loadImageIfNeeded(OPENING_SHOP_BACKGROUND_TEXTURE_KEY, OPENING_SHOP_BACKGROUND_PATH);
     CD_CATALOG.forEach((cd) => {
       this.loadImageIfNeeded(cd.jacketTextureKey, cd.jacketPath);
       if (cd.lockedJacketTextureKey && cd.lockedJacketPath) {
@@ -22977,6 +22984,9 @@ class SurvivalScene extends Phaser.Scene {
     if (options.origin) {
       label.setOrigin(options.origin.x, options.origin.y);
     }
+    if (Number.isFinite(options.angle)) {
+      label.setAngle(options.angle);
+    }
 
     return this.addOverlayChild(label);
   }
@@ -23074,13 +23084,15 @@ class SurvivalScene extends Phaser.Scene {
     this.createOverlayText(-530, -188, "CD購入とBGM選択専用。購入済みCDの永続ボーナスは選択中BGMに関係なく常時発動します。", {
       fontSize: "12px",
       color: "#9ab7cc",
-      wordWrap: { width: 760 }
+      wordWrap: { width: 560 }
     });
 
-    this.renderCdShopGrid(-530, -154);
+    this.renderCdShopGrid(-530, -118);
+    this.createFinalBossCdFeatureCard(-98, -118, 302, 364);
+    this.renderCdBonusSummaryHud(230, -118, 318, 364);
 
     const selectedCd = this.getSelectedCdDefinition();
-    this.createOverlayText(-530, 258, `BGM  ${selectedCd?.title || "NONE"}`, {
+    this.createOverlayText(-530, 260, `BGM  ${selectedCd?.title || "NONE"}`, {
       fontSize: "18px",
       color: "#ecf7ff",
       fontStyle: "bold"
@@ -23832,8 +23844,9 @@ class SurvivalScene extends Phaser.Scene {
     this.clearOverlayButtons();
     this.configureOverlayPanel(1160, 650);
     this.overlayPanel
-      .setFillStyle(0x081320, 0.97)
+      .setFillStyle(0x01060c, 0.18)
       .setStrokeStyle(2, 0x6fcfff, 0.35);
+    this.renderOpeningShopBackground();
     this.overlayTitle
       .setStyle({
         fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
@@ -23915,17 +23928,56 @@ class SurvivalScene extends Phaser.Scene {
     scheduleMobileFullscreenResumeGate();
   }
 
+  renderOpeningShopBackground() {
+    const width = 1148;
+    const height = 638;
+    const bgObjects = [];
+
+    if (this.textures.exists(OPENING_SHOP_BACKGROUND_TEXTURE_KEY)) {
+      bgObjects.push(
+        this.add
+          .image(0, 0, OPENING_SHOP_BACKGROUND_TEXTURE_KEY)
+          .setDisplaySize(width, height)
+          .setAlpha(1)
+      );
+    } else {
+      bgObjects.push(
+        this.add
+          .rectangle(0, 0, width, height, 0x061221, 0.94)
+      );
+    }
+
+    bgObjects.push(
+      this.add
+        .rectangle(0, 0, width, height, 0x020913, 0.5)
+    );
+    bgObjects.push(
+      this.add
+        .rectangle(0, -height / 2 + 46, width, 92, 0x01050a, 0.62)
+    );
+    bgObjects.push(
+      this.add
+        .rectangle(0, height / 2 - 54, width, 108, 0x01050a, 0.46)
+    );
+
+    bgObjects.forEach((object, index) => {
+      this.overlayContainer.addAt(object, 1 + index);
+      this.overlayButtons.push(object);
+    });
+  }
+
   renderCdShopGrid(originX, originY) {
-    const cardWidth = 124;
-    const cardHeight = 178;
-    const gap = 12;
-    const slots = Array.from({ length: CD_SHOP_SLOT_COUNT }, (_, index) => CD_CATALOG[index] || null);
+    const cardWidth = 126;
+    const cardHeight = 176;
+    const columnGap = 14;
+    const rowGap = 8;
+    const slots = CD_CATALOG.filter((cd) => cd.id !== FINAL_BOSS_CD_ID);
 
     slots.forEach((cd, index) => {
-      const column = index % 5;
-      const row = Math.floor(index / 5);
-      const x = originX + column * (cardWidth + gap);
-      const y = originY + row * (cardHeight + gap);
+      const column = index % 3;
+      const row = Math.floor(index / 3);
+      const x = originX + column * (cardWidth + columnGap);
+      const y = originY + row * (cardHeight + rowGap);
       this.createCdShopCard(cd, index, x, y, cardWidth, cardHeight);
     });
   }
@@ -23961,18 +24013,20 @@ class SurvivalScene extends Phaser.Scene {
       }, true, 4);
     }
 
+    const imageSize = Math.min(80, width - 38, Math.max(70, Math.round(height * 0.46)));
+    const imageCenterY = y + 12 + imageSize / 2;
     const imageKey = this.getCdJacketTextureKey(cd, owned);
     const image = this.addOverlayChild(
       this.add
-        .image(x + width / 2, y + 50, imageKey)
-        .setDisplaySize(90, 90)
+        .image(x + width / 2, imageCenterY, imageKey)
+        .setDisplaySize(imageSize, imageSize)
         .setAlpha(enabled ? 1 : 0.42)
     );
 
     if (!owned) {
       this.addOverlayChild(
         this.add
-          .rectangle(x + width / 2, y + 50, 90, 90, 0x02060b, enabled ? 0.22 : 0.52)
+          .rectangle(x + width / 2, imageCenterY, imageSize, imageSize, 0x02060b, enabled ? 0.22 : 0.52)
       );
       image.setTint(0x9f92d8);
     }
@@ -23989,31 +24043,349 @@ class SurvivalScene extends Phaser.Scene {
           : (owned ? "SELECT" : (rewardLocked ? "CLEAR FINAL RAID" : `BUY ${this.normalizeCoinAmount(cd.price).toLocaleString()} GEEK`))
       );
     const bonusLabel = cd ? this.getCdBonusText(cd) : "";
+    const titleY = y + imageSize + 20;
 
-    this.createOverlayText(x + 10, y + 101, title, {
-      fontSize: "14px",
+    this.createOverlayText(x + 10, titleY, title, {
+      fontSize: "12px",
       color: enabled ? "#ecf7ff" : "#617484",
       fontStyle: "bold",
       wordWrap: { width: width - 20 }
     });
-    this.createOverlayText(x + 10, y + 121, subtitle, {
-      fontSize: "10px",
+    this.createOverlayText(x + 10, titleY + 19, subtitle, {
+      fontSize: "9px",
       color: enabled ? "#9ab7cc" : "#566875",
       wordWrap: { width: width - 20 }
     });
-    this.createOverlayText(x + 10, y + 137, bonusLabel, {
-      fontSize: "10px",
+    this.createOverlayText(x + 10, titleY + 34, bonusLabel, {
+      fontSize: "9px",
       color: owned ? "#66d25f" : (enabled ? "#f0c463" : "#566875"),
       fontStyle: "bold",
       wordWrap: { width: width - 20 }
     });
-    this.createOverlayText(x + width / 2, y + height - 16, actionLabel, {
-      fontSize: owned || selected ? "12px" : "11px",
+    this.createOverlayText(x + width / 2, y + height - 13, actionLabel, {
+      fontSize: owned || selected ? "11px" : "9px",
       color: selected ? "#f0c463" : (enabled ? "#ecf7ff" : "#566875"),
       fontStyle: "bold",
       align: "center",
       origin: { x: 0.5, y: 0.5 }
     });
+  }
+
+  createFinalBossCdFeatureCard(x, y, width, height) {
+    const cd = this.getCdDefinition(FINAL_BOSS_CD_ID);
+    if (!cd) {
+      return;
+    }
+
+    const owned = this.isCdOwned(cd.id);
+    const selected = this.shopState.selectedCdId === cd.id;
+    const rewardLocked = this.isRewardLockedCd(cd);
+    const fill = selected ? 0x221a35 : 0x0c1320;
+    const stroke = selected ? 0xf0c463 : (owned ? 0xd797ff : 0x6fcfff);
+    const panel = this.addOverlayChild(
+      this.add
+        .rectangle(x, y, width, height, fill, 0.92)
+        .setOrigin(0, 0)
+        .setStrokeStyle(selected ? 2 : 1, stroke, selected ? 0.86 : 0.42)
+    );
+
+    panel.setInteractive({ useHandCursor: true });
+    panel.on("pointerover", () => panel.setFillStyle(selected ? 0x30234b : 0x16233a, 0.97));
+    panel.on("pointerout", () => panel.setFillStyle(fill, 0.92));
+    this.addOverlayAction(panel, () => {
+      if (owned) {
+        this.selectCd(cd.id);
+      } else {
+        this.purchaseCd(cd.id);
+      }
+    }, true, 8);
+
+    const imageKey = this.getCdJacketTextureKey(cd, owned);
+    const jacketWidth = Math.min(width - 28, Math.round((height - 30) * 0.75));
+    const jacketHeight = Math.min(height - 28, Math.round(jacketWidth / 0.75));
+    const image = this.addOverlayChild(
+      this.add
+        .image(x + width / 2, y + height / 2 + 2, imageKey)
+        .setDisplaySize(jacketWidth, jacketHeight)
+        .setAlpha(owned ? 1 : 0.82)
+    );
+    if (!owned) {
+      image.setTint(0x9a78c8);
+      this.addOverlayChild(
+        this.add
+          .rectangle(x + width / 2, y + height / 2 + 2, jacketWidth, jacketHeight, 0x02040a, rewardLocked ? 0.22 : 0.14)
+      );
+    }
+
+    this.addOverlayChild(
+      this.add
+        .rectangle(x + width / 2, y + height - 61, width - 24, 88, 0x050914, 0.72)
+        .setStrokeStyle(1, 0xf0c463, owned ? 0.36 : 0.22)
+    );
+
+    const ribbonText = owned ? "RAID CLEAR" : "RAID LOCK";
+    const ribbon = this.addOverlayChild(
+      this.add
+        .rectangle(x + 42, y + 27, 74, 22, owned ? 0xf0c463 : 0x22162f, owned ? 0.92 : 0.9)
+        .setAngle(-36)
+    );
+    ribbon.setStrokeStyle(1, owned ? 0xfff0a8 : 0xc596ff, 0.58);
+    this.createOverlayText(x + 42, y + 27, ribbonText, {
+      fontSize: "9px",
+      color: owned ? "#10131b" : "#f0e6ff",
+      fontStyle: "bold",
+      align: "center",
+      angle: -36,
+      origin: { x: 0.5, y: 0.5 }
+    });
+
+    this.createOverlayText(x + width / 2, y + 16, "FINAL REWARD", {
+      fontSize: "13px",
+      color: "#f0c463",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0.5 }
+    });
+    this.createOverlayText(x + width / 2, y + height - 97, cd.title, {
+      fontSize: "23px",
+      color: "#ecf7ff",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0.5 }
+    });
+    this.createOverlayText(x + width / 2, y + height - 69, cd.subtitle, {
+      fontSize: "14px",
+      color: "#c9d7e7",
+      align: "center",
+      origin: { x: 0.5, y: 0.5 }
+    });
+    this.createOverlayText(x + width / 2, y + height - 45, this.getCdBonusText(cd), {
+      fontSize: "13px",
+      color: owned ? "#66d25f" : "#f0c463",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0.5 }
+    });
+    this.createOverlayText(x + width / 2, y + height - 20, selected ? "SELECTED" : (owned ? "RAID SELECT" : "CLEAR FINAL RAID"), {
+      fontSize: "15px",
+      color: selected ? "#f0c463" : (owned ? "#66d25f" : "#ecf7ff"),
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0.5 }
+    });
+  }
+
+  getCdBonusSummary() {
+    const summary = {
+      attackPercent: 0,
+      hpAdd: 0,
+      speedAdd: 0,
+      staminaAdd: 0,
+      fireRateMultiplier: 1,
+      bulletSpeedMultiplier: 1,
+      activeCount: 0,
+      totalCount: CD_CATALOG.length
+    };
+
+    this.getOwnedCdDefinitions().forEach((cd) => {
+      summary.activeCount += 1;
+      const bonus = cd.statBonus;
+      if (!bonus) {
+        return;
+      }
+      summary.attackPercent += (Number(bonus.damageMultiplierAdd) || 0) * 100;
+      summary.hpAdd += Number(bonus.maxHpAdd) || 0;
+      summary.speedAdd += Number(bonus.moveSpeedAdd) || 0;
+      summary.staminaAdd += Number(bonus.maxStaminaAdd) || 0;
+      summary.fireRateMultiplier *= Number(bonus.fireIntervalMultiplier) || 1;
+      summary.bulletSpeedMultiplier *= Number(bonus.bulletSpeedMultiplier) || 1;
+    });
+
+    summary.fireRatePercent = Math.max(0, (1 - summary.fireRateMultiplier) * 100);
+    summary.bulletSpeedPercent = Math.max(0, (summary.bulletSpeedMultiplier - 1) * 100);
+    return summary;
+  }
+
+  formatShopBonusPercent(value) {
+    const normalized = Math.max(0, Number(value) || 0);
+    return `+ ${normalized.toFixed(1)}%`;
+  }
+
+  formatShopBonusNumber(value) {
+    return `+ ${Math.round(Math.max(0, Number(value) || 0)).toLocaleString()}`;
+  }
+
+  calculateOpeningShopBonusScore(summary = this.getCdBonusSummary()) {
+    const weaponLevel = this.getPermanentUpgradeLevel("weapon");
+    const armorLevel = this.getPermanentUpgradeLevel("armor");
+    const shoesLevel = this.getPermanentUpgradeLevel("shoes");
+    const robotCustom = this.getRobotCustomState();
+    const permanentAttackPercent = weaponLevel * 6;
+    const permanentHpAdd = armorLevel * 10;
+    const permanentSpeedAdd = shoesLevel * 8;
+
+    let score = 0;
+    score += (permanentAttackPercent + summary.attackPercent) * 1000;
+    score += (permanentHpAdd + summary.hpAdd) * 55;
+    score += (permanentSpeedAdd + summary.speedAdd) * 150;
+    score += summary.staminaAdd * 55;
+    score += summary.fireRatePercent * 1200;
+    score += summary.bulletSpeedPercent * 800;
+    score += this.getCleaningRobotLevel() * 2500;
+    score += (Number(robotCustom.missileCapTier) || 0) * 5000;
+    score += (Number(robotCustom.recoveryCapTier) || 0) * 5000;
+    score += robotCustom.napalmUnlocked ? 15000 : 0;
+    score += robotCustom.barrierUnlocked ? 15000 : 0;
+    return Math.max(0, Math.round(score));
+  }
+
+  renderCdBonusSummaryHud(x, y, width, height) {
+    const summary = this.getCdBonusSummary();
+    const score = this.calculateOpeningShopBonusScore(summary);
+    const graphics = this.addOverlayChild(this.add.graphics());
+
+    graphics.fillStyle(0x06131f, 0.92);
+    graphics.fillRoundedRect(x, y, width, height, 8);
+    graphics.lineStyle(2, 0x36d7ff, 0.64);
+    graphics.strokeRoundedRect(x + 1, y + 1, width - 2, height - 2, 8);
+    graphics.lineStyle(1, 0x7df3ff, 0.22);
+    graphics.strokeRoundedRect(x + 10, y + 10, width - 20, height - 20, 4);
+
+    const rows = [
+      { type: "attack", label: "ATTACK BONUS", jp: "攻撃力ボーナス", value: this.formatShopBonusPercent(summary.attackPercent), color: 0xffd866 },
+      { type: "hp", label: "HP BONUS", jp: "HPボーナス", value: this.formatShopBonusNumber(summary.hpAdd), color: 0xf2f7ff },
+      { type: "speed", label: "SPEED BONUS", jp: "速度ボーナス", value: this.formatShopBonusNumber(summary.speedAdd), color: 0x77f0b4 },
+      { type: "stamina", label: "STAMINA BONUS", jp: "スタミナボーナス", value: this.formatShopBonusNumber(summary.staminaAdd), color: 0xf0c463 },
+      { type: "fireRate", label: "FIRE RATE", jp: "連射ボーナス", value: this.formatShopBonusPercent(summary.fireRatePercent), color: 0x9ffcff },
+      { type: "bullet", label: "BULLET SPEED", jp: "弾速ボーナス", value: this.formatShopBonusPercent(summary.bulletSpeedPercent), color: 0xc596ff }
+    ];
+
+    rows.forEach((row, index) => {
+      const rowY = y + 62 + index * 39;
+      graphics.fillStyle(index % 2 === 0 ? 0x0a1c2b : 0x071520, 0.78);
+      graphics.fillRoundedRect(x + 14, rowY - 16, width - 28, 33, 4);
+      graphics.lineStyle(1, 0x6fcfff, 0.1);
+      graphics.strokeRoundedRect(x + 14, rowY - 16, width - 28, 33, 4);
+      this.createCdBonusIcon(x + 34, rowY, row.type, row.color);
+      this.createOverlayText(x + 58, rowY - 14, row.label, {
+        fontSize: "11px",
+        color: "#cfe7f7",
+        fontStyle: "bold"
+      });
+      this.createOverlayText(x + 58, rowY, row.jp, {
+        fontSize: "9px",
+        color: "#8eaec2"
+      });
+      this.createOverlayText(x + width - 18, rowY - 12, row.value, {
+        fontSize: "21px",
+        color: `#${row.color.toString(16).padStart(6, "0")}`,
+        fontStyle: "bold",
+        align: "right",
+        origin: { x: 1, y: 0 }
+      });
+    });
+
+    graphics.lineStyle(1, 0x36d7ff, 0.28);
+    graphics.lineBetween(x + 18, y + height - 68, x + width - 18, y + height - 68);
+    graphics.fillStyle(0x061f20, 0.78);
+    graphics.fillRoundedRect(x + 14, y + height - 56, 98, 42, 4);
+    graphics.fillRoundedRect(x + 122, y + height - 56, width - 136, 42, 4);
+
+    this.createOverlayText(x + 25, y + height - 50, "ACTIVE CDS", {
+      fontSize: "10px",
+      color: "#77f0b4",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(x + 25, y + height - 31, `${summary.activeCount}/${summary.totalCount}`, {
+      fontSize: "22px",
+      color: "#66d25f",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(x + 138, y + height - 50, "TOTAL BONUS SCORE", {
+      fontSize: "10px",
+      color: "#b8d4e8",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(x + 138, y + height - 31, score.toLocaleString(), {
+      fontSize: "22px",
+      color: "#66d25f",
+      fontStyle: "bold"
+    });
+
+    this.createOverlayText(x + 22, y + 16, "TOTAL CD BONUS SUMMARY", {
+      fontSize: "14px",
+      color: "#ecf7ff",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(x + 22, y + 36, "総合CDボーナス", {
+      fontSize: "10px",
+      color: "#8fb5ca"
+    });
+  }
+
+  createCdBonusIcon(x, y, type, color) {
+    const graphics = this.addOverlayChild(this.add.graphics());
+    graphics.fillStyle(0x07111e, 0.92);
+    graphics.fillRoundedRect(x - 16, y - 16, 32, 32, 5);
+    graphics.lineStyle(1, color, 0.58);
+    graphics.strokeRoundedRect(x - 16, y - 16, 32, 32, 5);
+    graphics.lineStyle(3, color, 0.92);
+
+    if (type === "attack") {
+      graphics.lineBetween(x - 8, y + 9, x + 9, y - 8);
+      graphics.lineStyle(2, 0xecf7ff, 0.84);
+      graphics.lineBetween(x - 10, y + 4, x - 4, y + 10);
+      graphics.fillStyle(color, 0.92);
+      graphics.fillTriangle(x + 8, y - 12, x + 13, y - 4, x + 4, y - 7);
+      return graphics;
+    }
+
+    if (type === "hp") {
+      graphics.fillStyle(color, 0.18);
+      graphics.fillCircle(x - 5, y - 4, 6);
+      graphics.fillCircle(x + 5, y - 4, 6);
+      graphics.fillTriangle(x - 11, y - 1, x + 11, y - 1, x, y + 12);
+      graphics.lineStyle(2, color, 0.94);
+      graphics.strokeCircle(x - 5, y - 4, 6);
+      graphics.strokeCircle(x + 5, y - 4, 6);
+      graphics.lineBetween(x - 11, y - 1, x, y + 12);
+      graphics.lineBetween(x + 11, y - 1, x, y + 12);
+      return graphics;
+    }
+
+    if (type === "speed") {
+      graphics.lineBetween(x - 11, y - 8, x - 2, y);
+      graphics.lineBetween(x - 2, y, x - 11, y + 8);
+      graphics.lineBetween(x - 1, y - 8, x + 8, y);
+      graphics.lineBetween(x + 8, y, x - 1, y + 8);
+      return graphics;
+    }
+
+    if (type === "stamina") {
+      graphics.fillStyle(color, 0.92);
+      graphics.fillTriangle(x + 1, y - 13, x - 8, y + 2, x, y + 1);
+      graphics.fillTriangle(x, y - 1, x + 8, y - 2, x - 1, y + 13);
+      return graphics;
+    }
+
+    if (type === "fireRate") {
+      graphics.strokeCircle(x, y, 10);
+      graphics.lineBetween(x, y - 12, x, y - 6);
+      graphics.lineBetween(x + 8, y - 8, x + 4, y - 4);
+      graphics.lineBetween(x + 12, y, x + 6, y);
+      graphics.lineStyle(2, color, 0.92);
+      graphics.lineBetween(x - 2, y + 2, x + 7, y - 7);
+      return graphics;
+    }
+
+    graphics.fillStyle(color, 0.9);
+    graphics.fillCircle(x - 7, y, 4);
+    graphics.fillTriangle(x - 4, y - 6, x + 12, y, x - 4, y + 6);
+    graphics.lineStyle(1, 0xecf7ff, 0.7);
+    graphics.lineBetween(x - 13, y - 7, x - 6, y - 7);
+    graphics.lineBetween(x - 15, y, x - 8, y);
+    graphics.lineBetween(x - 13, y + 7, x - 6, y + 7);
+    return graphics;
   }
 
   renderPermanentUpgradeCards(originX, originY) {
