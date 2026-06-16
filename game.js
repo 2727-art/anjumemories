@@ -1384,7 +1384,7 @@ const CD_CATALOG = [
     jacketPath: "./画像/cd/hanseikai.jpg",
     lockedJacketPath: "./画像/cd/hanseikai_locked.jpg",
     audioKey: "bgm-hanseikai",
-    audioPath: "./音声/bgm/hanseikai_ver2.wav",
+    audioPath: "./音声/bgm/hanseikai_ver2.mp3",
     bonusLabel: "HP +25 / STAM +20",
     statBonus: {
       maxHpAdd: 25,
@@ -1420,7 +1420,7 @@ const CD_CATALOG = [
     jacketPath: "./画像/cd/kotokoto.jpg",
     lockedJacketPath: "./画像/cd/kotokoto_locked.jpg",
     audioKey: "bgm-kotokoto",
-    audioPath: "./音声/bgm/kotokoto.wav",
+    audioPath: "./音声/bgm/kotokoto.mp3",
     bonusLabel: "ATK +6% / STAM +15",
     statBonus: {
       damageMultiplierAdd: 0.06,
