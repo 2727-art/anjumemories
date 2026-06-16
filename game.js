@@ -945,6 +945,17 @@ const FINAL_BOSS_RAID_CONFIG = {
     pulseIntervalMs: 420,
     visualMinIntervalMs: 420
   },
+  storyHpTimeline: [
+    { remainingMs: FINAL_RAID_TIMELINE_CONFIG.totalDurationMs, bars: 999 },
+    { remainingMs: FINAL_RAID_TIMELINE_CONFIG.timerDangerLeadMs, bars: 445 },
+    { remainingMs: FINAL_RAID_TIMELINE_CONFIG.totalDurationMs - FINAL_RAID_TIMELINE_CONFIG.resolutionStartMs, bars: 0 }
+  ],
+  rankingScript: {
+    updateIntervalMs: 500,
+    hudRefreshIntervalMs: 500,
+    damageDisplayStep: 1000,
+    finalPushDamageDisplayStep: 10000
+  },
   raidBossHpPreFinalFloorBars: 128,
   debugFinalPushMinLeadMs: 6500,
   debugFinalPushMinAfterPreviousMs: 650,
@@ -4979,11 +4990,15 @@ class SurvivalScene extends Phaser.Scene {
       nextPlayerSignalAt: 0,
       lastPlayerSignalVisualAt: -999999,
       lastPlayerSignalPoints: 0,
-      raidBossHpDamageTarget: 1,
       supportSchedule: [],
       rankingEntries: [],
       latestSupportGuildId: null,
       nextSupportGuildId: null,
+      rankingScriptDirty: true,
+      nextRankingScriptUpdateAt: 0,
+      rankingHudDirty: true,
+      nextRankingHudRefreshAt: 0,
+      cachedRankingHudLines: "",
       paceWarningActive: false,
       paceWarningNotified: false,
       supportCutinShade: null,
@@ -8074,11 +8089,15 @@ class SurvivalScene extends Phaser.Scene {
       nextPlayerSignalAt: 0,
       lastPlayerSignalVisualAt: -999999,
       lastPlayerSignalPoints: 0,
-      raidBossHpDamageTarget: this.calculateFinalBossRaidGuildDamageTarget(rankingEntries, timing.resolutionStartMs, timing.timeScale),
       supportSchedule,
       rankingEntries,
       latestSupportGuildId: null,
       nextSupportGuildId: supportSchedule.find((entry) => (entry.joinMs || 0) > startElapsedMs)?.id || null,
+      rankingScriptDirty: true,
+      nextRankingScriptUpdateAt: 0,
+      rankingHudDirty: true,
+      nextRankingHudRefreshAt: 0,
+      cachedRankingHudLines: "",
       paceWarningActive: false,
       paceWarningNotified: false,
       supportCutinShade: null,
@@ -9589,8 +9608,16 @@ class SurvivalScene extends Phaser.Scene {
     this.trackFinalRaidHudValueChange("playerContributionPulse", Math.floor(playerContribution / 25), elements.myDamageText, { fromScale: 1.025, duration: 180 });
 
     const rankingMaxRows = Math.max(3, Math.floor(Number(layout.ranking?.maxRows) || 5));
-    const rankingLines = this.formatFinalBossRaidRankingLines().split("\n").slice(1, rankingMaxRows + 1).join("\n") || "--";
-    this.setFinalRaidHudText(elements.rankingText, rankingLines);
+    const rankingRefreshIntervalMs = this.getFinalBossRaidRankingHudRefreshIntervalMs();
+    const shouldRefreshRankingHud = state.rankingHudDirty
+      || !state.cachedRankingHudLines
+      || (state.elapsedMs || 0) >= Math.max(0, Number(state.nextRankingHudRefreshAt) || 0);
+    if (shouldRefreshRankingHud) {
+      state.cachedRankingHudLines = this.formatFinalBossRaidRankingLines().split("\n").slice(1, rankingMaxRows + 1).join("\n") || "--";
+      state.nextRankingHudRefreshAt = Math.max(0, Number(state.elapsedMs) || 0) + rankingRefreshIntervalMs;
+      state.rankingHudDirty = false;
+    }
+    this.setFinalRaidHudText(elements.rankingText, state.cachedRankingHudLines || "--");
     const liberationReady = Boolean(state.liberationGateActive || state.timerComplete);
     this.setFinalRaidHudText(elements.objectiveText, liberationReady
       ? [
@@ -10187,6 +10214,8 @@ class SurvivalScene extends Phaser.Scene {
     state.bossHpBars = 0;
     state.bossHpDisplayBars = 0;
     if (!state.rankingDamageFrozen) {
+      state.rankingScriptDirty = true;
+      state.rankingHudDirty = true;
       const restorePhase = state.currentPhase;
       if (restorePhase?.resolution) {
         state.currentPhase = this.getFinalBossRaidPhaseForElapsed(Math.max(0, (Number(state.resolutionStartMs) || 0) - 1));
@@ -11396,32 +11425,83 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     const elapsedMs = Math.max(0, Number(state.elapsedMs) || 0);
-    state.latestSupportGuildId = null;
-    state.nextSupportGuildId = null;
+    let latestJoinedGuild = null;
+    let nextSupportGuildId = null;
+    let joinStateChanged = false;
+
     state.rankingEntries.forEach((entry) => {
       if (entry.type === "player") {
-        entry.damage = Math.max(0, Math.floor(Number(state.playerContribution) || 0));
         entry.joined = true;
         return;
       }
 
       const joined = elapsedMs >= (entry.joinMs || 0);
+      if (entry.joined !== joined) {
+        joinStateChanged = true;
+      }
       entry.joined = joined;
       if (!joined) {
         entry.damage = 0;
-        if (!state.nextSupportGuildId) {
-          state.nextSupportGuildId = entry.id;
+        if (!nextSupportGuildId) {
+          nextSupportGuildId = entry.id;
         }
         return;
       }
 
       if (!entry.announced) {
         this.handleFinalBossRaidGuildJoined(entry);
+        joinStateChanged = true;
       }
-      state.latestSupportGuildId = entry.id;
-      entry.damage = this.getFinalBossRaidProjectedGuildDamage(entry, elapsedMs, state.currentPhase, state.timeScale);
+      if (!latestJoinedGuild || (entry.joinMs || 0) >= (latestJoinedGuild.joinMs || 0)) {
+        latestJoinedGuild = entry;
+      }
+    });
+
+    state.latestSupportGuildId = latestJoinedGuild?.id || null;
+    state.nextSupportGuildId = nextSupportGuildId;
+    if (joinStateChanged) {
+      state.rankingScriptDirty = true;
+      state.rankingHudDirty = true;
+    }
+
+    const updateIntervalMs = this.getFinalBossRaidRankingScriptUpdateIntervalMs();
+    const shouldUpdateScript = state.rankingScriptDirty
+      || elapsedMs >= Math.max(0, Number(state.nextRankingScriptUpdateAt) || 0);
+    if (!shouldUpdateScript) {
+      return;
+    }
+
+    state.nextRankingScriptUpdateAt = elapsedMs + updateIntervalMs;
+    state.rankingScriptDirty = false;
+    state.rankingHudDirty = true;
+    state.rankingEntries.forEach((entry) => {
+      if (entry.type === "player") {
+        entry.damage = Math.max(0, Math.floor(Number(state.playerContribution) || 0));
+        return;
+      }
+      entry.damage = entry.joined
+        ? this.getFinalBossRaidProjectedGuildDamage(entry, elapsedMs, state.currentPhase, state.timeScale)
+        : 0;
     });
     this.applyFinalBossRaidRankingScript(elapsedMs);
+  }
+
+  getFinalBossRaidRankingScriptUpdateIntervalMs() {
+    const config = FINAL_BOSS_RAID_CONFIG.rankingScript || {};
+    return Math.max(100, Math.floor(Number(config.updateIntervalMs) || 500));
+  }
+
+  getFinalBossRaidRankingHudRefreshIntervalMs() {
+    const config = FINAL_BOSS_RAID_CONFIG.rankingScript || {};
+    return Math.max(100, Math.floor(Number(config.hudRefreshIntervalMs) || this.getFinalBossRaidRankingScriptUpdateIntervalMs()));
+  }
+
+  quantizeFinalBossRaidDisplayDamage(value, entry = null) {
+    const config = FINAL_BOSS_RAID_CONFIG.rankingScript || {};
+    const step = Math.max(1, Math.floor(Number(entry?.finalPush
+      ? config.finalPushDamageDisplayStep
+      : config.damageDisplayStep) || 1));
+    return Math.floor(Math.max(0, Number(value) || 0) / step) * step;
   }
 
   applyFinalBossRaidRankingScript(elapsedMs = 0) {
@@ -11487,18 +11567,52 @@ class SurvivalScene extends Phaser.Scene {
       const burstActiveSeconds = Math.max(0, activeElapsedMs - burstDelayMs) / (1000 * timeScale);
       damage += Math.pow(burstActiveSeconds, burstExponent) * burstPerSecond;
     }
-    return Math.max(0, Math.floor(damage));
+    return this.quantizeFinalBossRaidDisplayDamage(damage, entry);
   }
 
-  calculateFinalBossRaidGuildDamageTarget(entries = [], elapsedMs = FINAL_BOSS_RAID_CONFIG.resolutionStartMs, timeScaleOverride = null) {
-    const targetElapsedMs = Math.max(0, (Number(elapsedMs) || 0) - 1);
-    const phase = this.getFinalBossRaidPhaseForElapsed?.(targetElapsedMs);
-    const total = (entries || []).reduce((sum, entry) => {
-      return entry?.type === "guild"
-        ? sum + this.getFinalBossRaidProjectedGuildDamage(entry, targetElapsedMs, phase, timeScaleOverride)
-        : sum;
-    }, 0);
-    return Math.max(1, Math.floor(total));
+  getFinalBossRaidStoryHpBars(elapsedMs = this.finalBossRaidState?.elapsedMs) {
+    const state = this.finalBossRaidState;
+    const maxBars = Math.max(1, Number(state?.bossHpMaxBars) || FINAL_BOSS_RAID_CONFIG.bossHpBars);
+    const normalizedElapsed = Math.max(0, Number(elapsedMs) || 0);
+    const durationMs = Math.max(1, Number(state?.durationMs) || FINAL_BOSS_RAID_CONFIG.totalDurationMs);
+    const resolutionStartMs = Math.max(0, Number(state?.resolutionStartMs) || FINAL_BOSS_RAID_CONFIG.resolutionStartMs);
+    if (normalizedElapsed >= resolutionStartMs || state?.clearRewardSaved || state?.timerComplete) {
+      return 0;
+    }
+
+    const timeScale = Phaser.Math.Clamp(Number(state?.timeScale) || 1, 0.02, 1);
+    const points = (FINAL_BOSS_RAID_CONFIG.storyHpTimeline || [])
+      .map((point) => {
+        const remainingMs = Number(point.remainingMs);
+        const elapsedPointMs = Number.isFinite(remainingMs)
+          ? durationMs - Math.max(0, Math.round(remainingMs * timeScale))
+          : Math.round((Number(point.elapsedMs) || 0) * timeScale);
+        const bars = Number.isFinite(Number(point.bars))
+          ? Number(point.bars)
+          : maxBars * Phaser.Math.Clamp(Number(point.ratio) || 0, 0, 1);
+        return {
+          elapsedMs: Phaser.Math.Clamp(elapsedPointMs, 0, resolutionStartMs),
+          bars: Phaser.Math.Clamp(bars, 0, maxBars)
+        };
+      })
+      .sort((left, right) => left.elapsedMs - right.elapsedMs);
+
+    if (points.length <= 0) {
+      return maxBars;
+    }
+    if (normalizedElapsed <= points[0].elapsedMs) {
+      return Math.ceil(points[0].bars);
+    }
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const current = points[index];
+      const next = points[index + 1];
+      if (normalizedElapsed <= next.elapsedMs) {
+        const span = Math.max(1, next.elapsedMs - current.elapsedMs);
+        const ratio = Phaser.Math.Clamp((normalizedElapsed - current.elapsedMs) / span, 0, 1);
+        return Math.ceil(Phaser.Math.Linear(current.bars, next.bars, ratio));
+      }
+    }
+    return Math.ceil(points[points.length - 1].bars);
   }
 
   updateFinalBossRaidBossHpFromRaidProgress() {
@@ -11516,21 +11630,11 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    const guildDamage = state.rankingEntries.reduce((sum, entry) => {
-      return entry?.type === "guild" && entry.joined ? sum + Math.max(0, Number(entry.damage) || 0) : sum;
-    }, 0);
-    const targetDamage = Math.max(1, Number(state.raidBossHpDamageTarget) || 1);
-    const damageRatio = Phaser.Math.Clamp(guildDamage / targetDamage, 0, 1);
-    const projectedBars = Math.ceil(maxBars * (1 - damageRatio));
-    const finalGuildJoined = state.rankingEntries.some((entry) => entry?.type === "guild" && entry.finalPush && entry.joined);
-    const preFinalFloor = Math.max(1, Number(FINAL_BOSS_RAID_CONFIG.raidBossHpPreFinalFloorBars) || 1);
-
-    const unlockedBars = finalGuildJoined ? projectedBars : Math.max(preFinalFloor, projectedBars);
     const minimumBeforeResolution = state.elapsedMs < state.resolutionStartMs
       ? Math.max(0, Number(FINAL_RAID_TIMELINE_CONFIG.minBossHpBeforeResolutionBars) || 0)
       : 0;
     state.bossHpBars = Phaser.Math.Clamp(
-      Math.max(minimumBeforeResolution, unlockedBars),
+      Math.max(minimumBeforeResolution, this.getFinalBossRaidStoryHpBars(state.elapsedMs)),
       0,
       maxBars
     );
@@ -11755,6 +11859,8 @@ class SurvivalScene extends Phaser.Scene {
     state.nextPlayerSignalAt = now + pulseIntervalMs;
     state.lastPlayerSignalPoints = signalPoints;
     state.playerContribution = Math.max(0, Math.floor(Number(state.playerContribution) || 0) + signalPoints);
+    state.rankingScriptDirty = true;
+    state.rankingHudDirty = true;
     this.spawnFinalBossRaidPlayerSignalPulse(enemy, signalPoints, flashTint);
   }
 
