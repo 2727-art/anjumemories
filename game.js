@@ -145,6 +145,7 @@ const DASH_HUD_CONFIG = {
   radius: 45
 };
 const MOBILE_CONTROL_QUERY_PARAM = "mobileControls";
+const COMMS_UI_DEBUG_QUERY_PARAM = "debugComms";
 const MOBILE_GATE_SKIP_SESSION_KEY = "lastmemoVansabaSkipMobileGateOnce";
 const MOBILE_GATE_SKIP_QUERY_PARAM = "skipMobileGateOnce";
 const MOBILE_FULLSCREEN_REQUESTED_SESSION_KEY = "lastmemoVansabaFullscreenRequested";
@@ -861,6 +862,39 @@ const FINAL_RAID_ADD_MONSTER_CONFIG = {
   attackRadius: 142,
   attackDamage: 7,
   targetJitter: 110
+};
+const FINAL_RAID_PSEUDO_DAMAGE_CONFIG = {
+  boss: {
+    base: 88888,
+    variance: 22222,
+    minIntervalMs: 360,
+    fontSize: "17px",
+    color: "#fff4c8",
+    stroke: "#4f230d",
+    rise: 36,
+    duration: 700
+  },
+  minion: {
+    base: 18888,
+    variance: 7777,
+    minIntervalMs: 420,
+    fontSize: "15px",
+    color: "#eaffff",
+    stroke: "#123d4f",
+    rise: 28,
+    duration: 620
+  }
+};
+const FINAL_RAID_MINION_STASIS_CONFIG = {
+  guildCode: "012",
+  notice: "ひとりぼっちの ELECTROMAGNETIC FIELD",
+  ringTint: 0x9ffcff,
+  floorTint: 0x4be8ff,
+  floorAlpha: 0.13,
+  ringAlpha: 0.5,
+  floorScaleX: 2.35,
+  floorScaleY: 0.82,
+  ringScale: 0.72
 };
 const FINAL_BOSS_RAID_CONFIG = {
   targetDepth: 10,
@@ -1798,6 +1832,65 @@ const HUD_STYLE = {
   xp: 0x45a9ff,
   slotFill: 0x0b1013,
   slotStroke: 0xb8c4c8
+};
+const COMMS_UI_CONFIG = {
+  defaultDurationMs: 5200,
+  minDurationMs: 1400,
+  maxDurationMs: 12000,
+  queueMax: 6,
+  interruptPriority: 10,
+  depth: 735,
+  fadeInMs: 220,
+  fadeOutMs: 180,
+  slideOffsetX: 18,
+  desktop: {
+    x: 286,
+    y: 408,
+    width: 430,
+    height: 116,
+    bodyFontSize: "15px"
+  },
+  mobile: {
+    x: 382,
+    y: 432,
+    width: 520,
+    height: 112,
+    bodyFontSize: "14px"
+  }
+};
+const COMMS_UI_VARIANT_PALETTES = {
+  normal: {
+    stroke: 0x6fcfff,
+    glow: 0x4de7ff,
+    accent: "#9ffcff",
+    body: "#e8f7ff",
+    speaker: "#ecfaff",
+    label: "COMMS LINK"
+  },
+  system: {
+    stroke: 0x74a7ff,
+    glow: 0x5d8dff,
+    accent: "#a9c7ff",
+    body: "#dce9ff",
+    speaker: "#f0f6ff",
+    label: "SYSTEM LINK"
+  },
+  warning: {
+    stroke: 0xff8a6b,
+    glow: 0xff5f5f,
+    accent: "#ffd0a6",
+    body: "#ffe7d6",
+    speaker: "#fff2e6",
+    label: "WARNING"
+  },
+  noise: {
+    stroke: 0xb98cff,
+    glow: 0x7ad8ff,
+    accent: "#d8c6ff",
+    body: "#dbeeff",
+    speaker: "#f2ecff",
+    label: "SIGNAL NOISE"
+  }
 };
 const LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS = 160;
 const LEVEL_UP_PASSIVE_MAX_LEVEL = 10;
@@ -4303,6 +4396,7 @@ class SurvivalScene extends Phaser.Scene {
     this.createPlayerSkills();
     this.createInput();
     this.createHud();
+    this.createCommsUi();
     this.createOverlay();
     const runShutdownCleanup = (cleanup) => {
       if (!this.skipShopReturnSceneShutdownCleanup) {
@@ -4325,6 +4419,8 @@ class SurvivalScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetNemesisBossState("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetFinalBossRaidState("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetFinalBossRaidState("sceneDestroy"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.destroyCommsUi("sceneShutdown"));
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.destroyCommsUi("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.cleanupDeepExtractionResultOverlay("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.cleanupDeepExtractionResultOverlay("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.cleanupGeekMilestoneNotice("sceneShutdown")));
@@ -4909,6 +5005,7 @@ class SurvivalScene extends Phaser.Scene {
     this.uiContainer = null;
     this.lastPickupNotice = "";
     this.lastPickupNoticeUntil = 0;
+    this.commsState = this.createCommsState();
     this.dropSpawnSerial = 0;
     this.nextDropLimitCleanupAt = 0;
     this.activeBgm = null;
@@ -5025,6 +5122,9 @@ class SurvivalScene extends Phaser.Scene {
       nextThirdSpellAt: 0,
       nextThirdMinionSpawnAt: 0,
       thirdSpellIndex: 0,
+      minionStasisActive: false,
+      minionStasisObjects: [],
+      pseudoDamageCounter: 0,
       activeSpellObjects: [],
       activeSpellFields: [],
       spellTimers: [],
@@ -8115,6 +8215,9 @@ class SurvivalScene extends Phaser.Scene {
       nextThirdSpellAt: 0,
       nextThirdMinionSpawnAt: 0,
       thirdSpellIndex: 0,
+      minionStasisActive: false,
+      minionStasisObjects: [],
+      pseudoDamageCounter: 0,
       activeSpellObjects: [],
       activeSpellFields: [],
       spellTimers: [],
@@ -10057,9 +10160,190 @@ class SurvivalScene extends Phaser.Scene {
     return children.filter((enemy) => enemy?.active && !enemy.isDying && enemy.isFinalBossRaidMinion);
   }
 
+  isFinalBossRaidMinionStasisActive() {
+    return Boolean(this.finalBossRaidState?.active && this.finalBossRaidState.minionStasisActive);
+  }
+
+  isFinalBossRaidEnemyTargetable(enemy) {
+    if (!enemy?.active || enemy.isDying) {
+      return false;
+    }
+    if (enemy.isFinalBossRaidBoss) {
+      const state = this.finalBossRaidState;
+      return Boolean(state?.active && !state.bossDefeated && !state.timerComplete);
+    }
+    if (enemy.isFinalBossRaidMinion && this.isFinalBossRaidMinionStasisActive()) {
+      return false;
+    }
+    return true;
+  }
+
+  getFinalBossRaidPseudoDamageValue(kind = "boss") {
+    const state = this.finalBossRaidState;
+    const config = FINAL_RAID_PSEUDO_DAMAGE_CONFIG[kind] || FINAL_RAID_PSEUDO_DAMAGE_CONFIG.boss;
+    if (state) {
+      state.pseudoDamageCounter = Math.max(0, Math.floor(Number(state.pseudoDamageCounter) || 0)) + 1;
+    }
+    const base = Math.max(1, Math.floor(Number(config.base) || 1));
+    const variance = Math.max(0, Math.floor(Number(config.variance) || 0));
+    const counter = Math.max(0, Math.floor(Number(state?.pseudoDamageCounter) || 0));
+    const wave = variance > 0 ? Math.floor((Math.sin(counter * 1.73) + 1) * 0.5 * variance) : 0;
+    const jitter = variance > 0 ? Phaser.Math.Between(0, Math.max(1, Math.floor(variance * 0.28))) : 0;
+    return base + wave + jitter;
+  }
+
+  spawnFinalBossRaidPseudoDamageNumber(enemy, kind = "boss") {
+    if (!enemy?.active) {
+      return null;
+    }
+
+    const now = Math.max(0, Number(this.time?.now) || 0);
+    const config = FINAL_RAID_PSEUDO_DAMAGE_CONFIG[kind] || FINAL_RAID_PSEUDO_DAMAGE_CONFIG.boss;
+    const intervalMs = Math.max(0, Number(config.minIntervalMs) || 0);
+    const lastKey = kind === "minion" ? "lastFinalRaidPseudoMinionDamageAt" : "lastFinalRaidPseudoBossDamageAt";
+    if (now - Math.max(0, Number(enemy[lastKey]) || 0) < intervalMs) {
+      return null;
+    }
+    enemy[lastKey] = now;
+
+    const enemyHeight = Math.max(enemy.displayHeight || enemy.body?.height || (kind === "boss" ? 220 : 42), 24);
+    return this.spawnFloatingCombatText(
+      enemy.x + Phaser.Math.Between(-12, 12),
+      enemy.y - enemyHeight * (kind === "boss" ? 0.42 : 0.58) - 8,
+      this.getFinalBossRaidPseudoDamageValue(kind),
+      {
+        type: "damage",
+        fontSize: config.fontSize,
+        color: config.color,
+        stroke: config.stroke,
+        rise: config.rise,
+        duration: config.duration,
+        depth: kind === "boss" ? 31 : 30
+      }
+    );
+  }
+
+  applyFinalBossRaidMinionPseudoHit(enemy, flashTint = 0xffdede, impact = null) {
+    if (!enemy?.active || enemy.isDying || !enemy.isFinalBossRaidMinion) {
+      return;
+    }
+    if (this.isFinalBossRaidMinionStasisActive()) {
+      return;
+    }
+
+    this.spawnFinalBossRaidPseudoDamageNumber(enemy, "minion");
+    this.applyEnemyImpact(enemy, impact);
+    this.playEnemyHitReaction(enemy);
+    enemy.setTint(flashTint);
+    this.time.delayedCall(60, () => {
+      if (enemy.active && !enemy.isDying && !enemy.finalRaidMinionStasis) {
+        enemy.clearTint();
+        enemy.setTint(enemy.baseTint);
+      }
+    });
+  }
+
+  destroyFinalBossRaidMinionStasisField(enemy) {
+    const objects = (enemy?.finalRaidStasisObjects || []).filter(Boolean);
+    if (objects.length > 0) {
+      this.tweens?.killTweensOf?.(objects);
+      objects.forEach((object) => object?.destroy?.());
+    }
+    if (enemy) {
+      enemy.finalRaidStasisObjects = [];
+    }
+  }
+
+  createFinalBossRaidMinionStasisField(enemy) {
+    if (!enemy?.active || enemy.finalRaidStasisObjects?.length) {
+      return;
+    }
+
+    const config = FINAL_RAID_MINION_STASIS_CONFIG;
+    const radius = Math.max(enemy.displayWidth || enemy.body?.width || 56, 52);
+    const floor = this.add
+      .ellipse(
+        enemy.x,
+        enemy.y + 10,
+        radius * (Number(config.floorScaleX) || 2.35),
+        radius * (Number(config.floorScaleY) || 0.82),
+        config.floorTint,
+        config.floorAlpha
+      )
+      .setDepth(16.4)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const ring = this.add
+      .image(enemy.x, enemy.y + 8, "skill-hit-ring")
+      .setDepth(16.6)
+      .setScale(Math.max(0.36, radius / 84) * (Number(config.ringScale) || 0.72), Math.max(0.22, radius / 126) * (Number(config.ringScale) || 0.72))
+      .setTint(config.ringTint)
+      .setAlpha(config.ringAlpha)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.skillEffectsLayer?.add([floor, ring]);
+    enemy.finalRaidStasisObjects = [floor, ring];
+
+    const state = this.finalBossRaidState;
+    if (state) {
+      state.minionStasisObjects = state.minionStasisObjects || [];
+      state.minionStasisObjects.push(floor, ring);
+    }
+    this.tweens?.add({
+      targets: floor,
+      alpha: { from: config.floorAlpha, to: Math.min(0.26, config.floorAlpha * 1.72) },
+      scaleX: 1.08,
+      scaleY: 1.06,
+      duration: 780,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.InOut"
+    });
+    this.tweens?.add({
+      targets: ring,
+      alpha: { from: config.ringAlpha, to: Math.min(0.78, config.ringAlpha * 1.35) },
+      angle: 360,
+      duration: 2100,
+      repeat: -1,
+      ease: "Linear"
+    });
+  }
+
+  applyFinalBossRaidMinionStasis(enemy, reason = "support") {
+    if (!enemy?.active || enemy.isDying || !enemy.isFinalBossRaidMinion || enemy.finalRaidMinionStasis) {
+      return;
+    }
+
+    enemy.finalRaidMinionStasis = true;
+    enemy.contactDamage = 0;
+    enemy.nextFinalRaidAddAttackAt = Number.POSITIVE_INFINITY;
+    enemy.body?.setVelocity?.(0, 0);
+    enemy.body?.setImmovable?.(true);
+    this.clearDashEnemyWarning(enemy);
+    this.destroyEnemyBeamTelegraph(enemy);
+    this.cancelBossAttack(enemy);
+    enemy.clearTint?.();
+    enemy.setTint?.(FINAL_RAID_MINION_STASIS_CONFIG.ringTint);
+    enemy.setAlpha?.(0.86);
+    this.createFinalBossRaidMinionStasisField(enemy);
+    if (this.finalBossRaidState?.debug) {
+      console.log("[FINAL BOSS RAID] minion stasis", { reason, enemyTypeId: enemy.enemyTypeId });
+    }
+  }
+
+  activateFinalBossRaidMinionStasis(reason = "support") {
+    const state = this.finalBossRaidState;
+    if (!state?.active || state.minionStasisActive) {
+      return;
+    }
+
+    state.minionStasisActive = true;
+    this.getFinalBossRaidMinions().forEach((enemy) => this.applyFinalBossRaidMinionStasis(enemy, reason));
+    this.setLastPickupNotice(FINAL_RAID_MINION_STASIS_CONFIG.notice);
+  }
+
   clearFinalBossRaidMinions(reason = "cleanup") {
     this.getFinalBossRaidMinions().forEach((enemy) => {
       this.tweens?.killTweensOf?.(enemy);
+      this.destroyFinalBossRaidMinionStasisField(enemy);
       this.clearDashEnemyWarning(enemy);
       this.destroyEnemyBeamTelegraph(enemy);
       this.cancelBossAttack(enemy);
@@ -10073,6 +10357,9 @@ class SurvivalScene extends Phaser.Scene {
         enemy.destroy();
       }
     });
+    if (this.finalBossRaidState) {
+      this.finalBossRaidState.minionStasisObjects = [];
+    }
 
     if (this.finalBossRaidState?.debug) {
       console.log("[FINAL BOSS RAID] minions cleared", { reason });
@@ -10234,6 +10521,9 @@ class SurvivalScene extends Phaser.Scene {
     const bannerDelayMs = this.getFinalBossRaidSupportBannerDelayMs(entry, voiceDurationMs);
     this.queueFinalBossRaidSupportBanner(entry, bannerDelayMs);
     this.setLastPickupNotice(entry.finalPush ? `${entry.label} FINAL PUSH` : `${entry.label} RAID SUPPORT`);
+    if (entry.code === FINAL_RAID_MINION_STASIS_CONFIG.guildCode) {
+      this.activateFinalBossRaidMinionStasis(entry.label || entry.id);
+    }
 
     if (state.debug) {
       console.log("[FINAL BOSS RAID] guild joined", {
@@ -11183,7 +11473,7 @@ class SurvivalScene extends Phaser.Scene {
   spawnFinalBossRaidMinionBatch() {
     const state = this.finalBossRaidState;
     const config = FINAL_BOSS_RAID_CONFIG.thirdPhaseCombat || {};
-    if (!state?.active || state.bossDefeated || state.currentPhase?.id !== "third") {
+    if (!state?.active || state.bossDefeated || state.minionStasisActive || state.currentPhase?.id !== "third") {
       return;
     }
 
@@ -11228,6 +11518,9 @@ class SurvivalScene extends Phaser.Scene {
     this.scheduleFinalBossRaidMinionAttack(enemy, this.time?.now || 0, addConfig.attackInitialDelayMs);
     enemy.setDepth(17.5);
     this.spawnEliteSpawnEffect(enemy.x, enemy.y);
+    if (state.minionStasisActive) {
+      this.applyFinalBossRaidMinionStasis(enemy, "spawn");
+    }
     return enemy;
   }
 
@@ -11251,6 +11544,10 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     this.getFinalBossRaidMinions().forEach((enemy) => {
+      if (enemy.finalRaidMinionStasis) {
+        enemy.body?.setVelocity?.(0, 0);
+        return;
+      }
       if (!Number.isFinite(Number(enemy.nextFinalRaidAddAttackAt))) {
         this.scheduleFinalBossRaidMinionAttack(enemy, time, FINAL_RAID_ADD_MONSTER_CONFIG.attackInitialDelayMs);
         return;
@@ -11265,7 +11562,7 @@ class SurvivalScene extends Phaser.Scene {
 
   triggerFinalBossRaidMinionAttack(enemy) {
     const state = this.finalBossRaidState;
-    if (!state?.active || state.timerComplete || state.bossDefeated || !enemy?.active || enemy.isDying) {
+    if (!state?.active || state.timerComplete || state.bossDefeated || !enemy?.active || enemy.isDying || enemy.finalRaidMinionStasis) {
       return;
     }
 
@@ -11280,7 +11577,7 @@ class SurvivalScene extends Phaser.Scene {
     this.createFinalBossRaidSpellTelegraph("add", point, radius, warningMs);
     this.queueFinalBossRaidSpellTimer(warningMs, () => {
       const currentState = this.finalBossRaidState;
-      if (!currentState?.active || currentState.timerComplete || currentState.bossDefeated || !enemy?.active || enemy.isDying) {
+      if (!currentState?.active || currentState.timerComplete || currentState.bossDefeated || !enemy?.active || enemy.isDying || enemy.finalRaidMinionStasis) {
         return;
       }
       this.spawnFinalBossRaidDamageField(point, radius, "add", {
@@ -11709,6 +12006,7 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     enemy.hp = enemy.maxHp;
+    this.spawnFinalBossRaidPseudoDamageNumber(enemy, "boss");
     if (impact?.raidSignal !== true) {
       return;
     }
@@ -14179,7 +14477,7 @@ class SurvivalScene extends Phaser.Scene {
 
   spawnEventHorizonSecondaryCollapse(x, y, radius, damage) {
     this.enemies.children.each((enemy) => {
-      if (!enemy.active || enemy.isDying) {
+      if (!this.isFinalBossRaidEnemyTargetable(enemy)) {
         return;
       }
       const distance = Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y);
@@ -14274,7 +14572,7 @@ class SurvivalScene extends Phaser.Scene {
     const originY = this.playerHitbox.y;
 
     this.enemies.children.each((enemy) => {
-      if (!enemy.active || enemy.isDying) {
+      if (!this.isFinalBossRaidEnemyTargetable(enemy)) {
         return;
       }
 
@@ -14427,7 +14725,7 @@ class SurvivalScene extends Phaser.Scene {
 
     this.skillEffectsLayer.add([glow, core, flash]);
     this.enemies.children.each((enemy) => {
-      if (!enemy.active || enemy.isDying) {
+      if (!this.isFinalBossRaidEnemyTargetable(enemy)) {
         return;
       }
 
@@ -16508,7 +16806,7 @@ class SurvivalScene extends Phaser.Scene {
       if (!enemy.active || enemy.isDying || enemy === excludeEnemy) {
         return;
       }
-      if (enemy.isFinalBossRaidBoss) {
+      if (!this.isFinalBossRaidEnemyTargetable(enemy)) {
         return;
       }
       if (options.highValueOnly && !this.isHighValueMutationTarget(enemy)) {
@@ -18446,6 +18744,504 @@ class SurvivalScene extends Phaser.Scene {
     });
     this.standardHudVisibilityBeforeFinalRaid = null;
     this.standardHudSuppressed = false;
+  }
+
+  createCommsState() {
+    return {
+      container: null,
+      panelGraphics: null,
+      glowGraphics: null,
+      linkText: null,
+      speakerText: null,
+      bodyText: null,
+      statusText: null,
+      indicatorDot: null,
+      queue: [],
+      activeMessage: null,
+      hideTimer: null,
+      tweens: [],
+      layout: null,
+      visible: false,
+      transitioning: false,
+      sequence: 0,
+      debugMessagesQueued: false
+    };
+  }
+
+  createCommsUi() {
+    if (!this.commsState) {
+      this.commsState = this.createCommsState();
+    }
+
+    const state = this.commsState;
+    if (state.container?.active) {
+      return state.container;
+    }
+
+    const container = this.registerUiObject(
+      this.add
+        .container(0, 0)
+        .setScrollFactor(0)
+        .setDepth(COMMS_UI_CONFIG.depth)
+        .setAlpha(0)
+        .setVisible(false)
+    );
+    const glowGraphics = this.add.graphics();
+    const panelGraphics = this.add.graphics();
+    const indicatorDot = this.add.circle(14, 17, 3.5, 0x9ffcff, 0.94);
+    const linkText = this.add.text(26, 9, "COMMS LINK", {
+      fontFamily: "Consolas, Yu Gothic UI, monospace",
+      fontSize: "11px",
+      color: "#9ffcff",
+      fontStyle: "bold",
+      letterSpacing: 0
+    });
+    const statusText = this.add.text(0, 9, "ONLINE", {
+      fontFamily: "Consolas, Yu Gothic UI, monospace",
+      fontSize: "11px",
+      color: "#9ffcff",
+      fontStyle: "bold",
+      align: "right",
+      letterSpacing: 0
+    }).setOrigin(1, 0);
+    const speakerText = this.add.text(22, 30, "", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "18px",
+      color: "#ecfaff",
+      fontStyle: "bold"
+    });
+    const bodyText = this.add.text(22, 57, "", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "15px",
+      color: "#e8f7ff",
+      lineSpacing: 3,
+      wordWrap: { width: 380, useAdvancedWrap: true }
+    });
+
+    container.add([glowGraphics, panelGraphics, indicatorDot, linkText, statusText, speakerText, bodyText]);
+    state.container = container;
+    state.panelGraphics = panelGraphics;
+    state.glowGraphics = glowGraphics;
+    state.indicatorDot = indicatorDot;
+    state.linkText = linkText;
+    state.statusText = statusText;
+    state.speakerText = speakerText;
+    state.bodyText = bodyText;
+
+    this.layoutCommsUi();
+    this.scale?.off?.("resize", this.handleCommsUiResize, this);
+    this.scale?.on?.("resize", this.handleCommsUiResize, this);
+    if (this.uiContainer?.active && !container.parentContainer) {
+      this.uiContainer.add(container);
+    }
+    return container;
+  }
+
+  handleCommsUiResize() {
+    this.layoutCommsUi();
+  }
+
+  getCommsUiLayout() {
+    const gameWidth = Math.max(1, Number(this.scale?.gameSize?.width) || GAME_WIDTH);
+    const gameHeight = Math.max(1, Number(this.scale?.gameSize?.height) || GAME_HEIGHT);
+    const base = this.mobileControlsEnabled ? COMMS_UI_CONFIG.mobile : COMMS_UI_CONFIG.desktop;
+    const width = Math.min(base.width, Math.max(280, gameWidth - 48));
+    const height = Math.min(base.height, Math.max(96, gameHeight - 48));
+    const x = Phaser.Math.Clamp(base.x, 18, Math.max(18, gameWidth - width - 18));
+    const y = Phaser.Math.Clamp(base.y, 72, Math.max(72, gameHeight - height - 18));
+
+    return {
+      x,
+      y,
+      width,
+      height,
+      cut: 18,
+      bodyFontSize: base.bodyFontSize,
+      textWidth: Math.max(220, width - 44)
+    };
+  }
+
+  layoutCommsUi() {
+    const state = this.commsState;
+    if (!state?.container?.active) {
+      return null;
+    }
+
+    const layout = this.getCommsUiLayout();
+    state.layout = layout;
+    if (state.visible && !state.transitioning) {
+      state.container.setPosition(layout.x, layout.y);
+    } else if (!state.visible) {
+      state.container.setPosition(layout.x - COMMS_UI_CONFIG.slideOffsetX, layout.y);
+    }
+    state.statusText?.setPosition(layout.width - 20, 9);
+    state.bodyText
+      ?.setPosition(22, 57)
+      .setFontSize(layout.bodyFontSize)
+      .setWordWrapWidth(layout.textWidth, true);
+    this.drawCommsUiPanel(this.getCommsVariantPalette(state.activeMessage?.variant));
+    return layout;
+  }
+
+  drawCommsUiPanel(palette = COMMS_UI_VARIANT_PALETTES.normal) {
+    const state = this.commsState;
+    const layout = state?.layout || this.getCommsUiLayout();
+    if (!state?.panelGraphics || !state?.glowGraphics || !layout) {
+      return;
+    }
+
+    const { width, height, cut } = layout;
+    const drawPath = (graphics) => {
+      graphics.beginPath();
+      graphics.moveTo(cut, 0);
+      graphics.lineTo(width, 0);
+      graphics.lineTo(width, height - cut);
+      graphics.lineTo(width - cut, height);
+      graphics.lineTo(0, height);
+      graphics.lineTo(0, cut);
+      graphics.closePath();
+    };
+
+    state.glowGraphics.clear();
+    state.glowGraphics.lineStyle(3, palette.glow, 0.18);
+    drawPath(state.glowGraphics);
+    state.glowGraphics.strokePath();
+
+    state.panelGraphics.clear();
+    state.panelGraphics.fillStyle(0x02080f, 0.82);
+    drawPath(state.panelGraphics);
+    state.panelGraphics.fillPath();
+    state.panelGraphics.lineStyle(1, palette.stroke, 0.72);
+    drawPath(state.panelGraphics);
+    state.panelGraphics.strokePath();
+    state.panelGraphics.lineStyle(1, 0xffffff, 0.18);
+    state.panelGraphics.lineBetween(cut + 4, 2, Math.min(width - 12, 132), 2);
+    state.panelGraphics.lineStyle(2, palette.stroke, 0.64);
+    state.panelGraphics.lineBetween(12, height - 12, Math.min(width - 168, 128), height - 12);
+    state.panelGraphics.lineBetween(width - 118, height - 10, width - 34, height - 10);
+    state.panelGraphics.lineStyle(1, palette.glow, 0.28);
+    state.panelGraphics.lineBetween(width - 78, 20, width - 20, 20);
+    state.panelGraphics.fillStyle(palette.glow, 0.2);
+    state.panelGraphics.fillRect(20, 49, width - 40, 1);
+  }
+
+  getCommsVariantPalette(variant = "normal") {
+    return COMMS_UI_VARIANT_PALETTES[this.normalizeCommsVariant(variant)] || COMMS_UI_VARIANT_PALETTES.normal;
+  }
+
+  normalizeCommsVariant(variant = "normal") {
+    const normalized = String(variant || "normal").toLowerCase();
+    return COMMS_UI_VARIANT_PALETTES[normalized] ? normalized : "normal";
+  }
+
+  normalizeCommsMessage(messageOrOptions) {
+    const state = this.commsState || this.createCommsState();
+    const options = typeof messageOrOptions === "string"
+      ? { speaker: "SYSTEM", text: messageOrOptions }
+      : (messageOrOptions || {});
+    const text = String(options.text ?? options.message ?? "").trim();
+    if (!text) {
+      return null;
+    }
+
+    const speaker = String(options.speaker || "SYSTEM").trim().slice(0, 24) || "SYSTEM";
+    const duration = Phaser.Math.Clamp(
+      Math.floor(Number(options.duration) || COMMS_UI_CONFIG.defaultDurationMs),
+      COMMS_UI_CONFIG.minDurationMs,
+      COMMS_UI_CONFIG.maxDurationMs
+    );
+    const priority = Number.isFinite(Number(options.priority)) ? Number(options.priority) : 0;
+    state.sequence = Math.max(0, Math.floor(Number(state.sequence) || 0)) + 1;
+    return {
+      id: `comms-${Date.now()}-${state.sequence}`,
+      speaker,
+      text,
+      duration,
+      variant: this.normalizeCommsVariant(options.variant),
+      priority
+    };
+  }
+
+  showCommsMessage(messageOrOptions) {
+    return this.queueCommsMessage(messageOrOptions);
+  }
+
+  queueCommsMessage(messageOrOptions) {
+    if (!this.commsState) {
+      this.commsState = this.createCommsState();
+    }
+    if (!this.commsState.container?.active) {
+      this.createCommsUi();
+    }
+
+    const state = this.commsState;
+    const message = this.normalizeCommsMessage(messageOrOptions);
+    if (!message) {
+      return false;
+    }
+
+    const activePriority = Number(state.activeMessage?.priority) || 0;
+    if (
+      state.activeMessage &&
+      message.priority >= COMMS_UI_CONFIG.interruptPriority &&
+      message.priority > activePriority
+    ) {
+      state.queue.unshift(message);
+      this.hideCurrentCommsMessage("priorityInterrupt", { immediate: true, showNext: true });
+      return true;
+    }
+
+    if (message.priority > 0) {
+      state.queue.unshift(message);
+    } else {
+      state.queue.push(message);
+    }
+    while (state.queue.length > COMMS_UI_CONFIG.queueMax) {
+      if (message.priority > 0) {
+        state.queue.pop();
+      } else {
+        state.queue.shift();
+      }
+    }
+    this.tryShowNextCommsMessage();
+    return true;
+  }
+
+  canDisplayCommsMessage() {
+    return Boolean(
+      this.commsState?.container?.active &&
+      !this.shopActive &&
+      !this.gameOver &&
+      !this.extractionComplete &&
+      !this.levelUpActive &&
+      !this.gateChoiceActive &&
+      !this.overlayContainer?.visible
+    );
+  }
+
+  tryShowNextCommsMessage() {
+    const state = this.commsState;
+    if (!state?.container?.active || state.activeMessage || state.transitioning || state.queue.length <= 0) {
+      return false;
+    }
+    if (!this.canDisplayCommsMessage()) {
+      return false;
+    }
+
+    const message = state.queue.shift();
+    this.displayCommsMessage(message);
+    return true;
+  }
+
+  displayCommsMessage(message) {
+    const state = this.commsState;
+    if (!state?.container?.active || !message) {
+      return;
+    }
+
+    this.removeCommsTimer();
+    this.stopCommsTweens();
+    state.activeMessage = message;
+    state.visible = true;
+    state.transitioning = true;
+    const layout = this.layoutCommsUi() || this.getCommsUiLayout();
+    const palette = this.getCommsVariantPalette(message.variant);
+    state.container
+      .setPosition(layout.x - COMMS_UI_CONFIG.slideOffsetX, layout.y)
+      .setAlpha(0)
+      .setVisible(true);
+    state.indicatorDot
+      ?.setFillStyle(palette.glow, 0.94)
+      .setAlpha(0.48);
+    state.linkText
+      ?.setText(palette.label)
+      .setColor(palette.accent);
+    state.statusText
+      ?.setText(message.variant === "normal" ? "ONLINE" : message.variant.toUpperCase())
+      .setColor(palette.accent);
+    state.speakerText
+      ?.setText(message.speaker)
+      .setColor(palette.speaker);
+    state.bodyText
+      ?.setText(message.text)
+      .setColor(palette.body)
+      .setWordWrapWidth(layout.textWidth, true);
+    this.drawCommsUiPanel(palette);
+
+    this.addCommsTween({
+      targets: state.container,
+      x: layout.x,
+      alpha: 1,
+      duration: COMMS_UI_CONFIG.fadeInMs,
+      ease: "Sine.Out",
+      onComplete: () => {
+        state.transitioning = false;
+      }
+    });
+    if (state.indicatorDot) {
+      this.addCommsTween({
+        targets: state.indicatorDot,
+        alpha: { from: 0.38, to: 1 },
+        duration: 520,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.InOut"
+      });
+    }
+    state.hideTimer = this.time.delayedCall(message.duration, () => this.hideCurrentCommsMessage("duration"));
+  }
+
+  hideCurrentCommsMessage(reason = "hide", options = {}) {
+    const state = this.commsState;
+    if (!state?.container?.active) {
+      return;
+    }
+
+    this.removeCommsTimer();
+    this.stopCommsTweens();
+    const finish = () => {
+      state.container?.setVisible(false).setAlpha(0);
+      state.activeMessage = null;
+      state.visible = false;
+      state.transitioning = false;
+      if (options.showNext !== false) {
+        this.tryShowNextCommsMessage();
+      }
+    };
+
+    if (options.immediate) {
+      finish();
+      return;
+    }
+
+    state.transitioning = true;
+    const layout = state.layout || this.getCommsUiLayout();
+    this.addCommsTween({
+      targets: state.container,
+      x: layout.x - Math.max(8, COMMS_UI_CONFIG.slideOffsetX * 0.5),
+      alpha: 0,
+      duration: COMMS_UI_CONFIG.fadeOutMs,
+      ease: "Sine.In",
+      onComplete: finish
+    });
+  }
+
+  addCommsTween(config) {
+    const state = this.commsState;
+    if (!state || !this.tweens) {
+      return null;
+    }
+
+    const onComplete = config.onComplete;
+    const tween = this.tweens.add({
+      ...config,
+      onComplete: (...args) => {
+        state.tweens = (state.tweens || []).filter((entry) => entry !== tween);
+        onComplete?.(...args);
+      }
+    });
+    state.tweens = state.tweens || [];
+    state.tweens.push(tween);
+    return tween;
+  }
+
+  stopCommsTweens() {
+    const state = this.commsState;
+    if (!state) {
+      return;
+    }
+
+    (state.tweens || []).forEach((tween) => tween?.remove?.());
+    state.tweens = [];
+    const targets = [state.container, state.indicatorDot].filter(Boolean);
+    if (targets.length > 0) {
+      this.tweens?.killTweensOf?.(targets);
+    }
+  }
+
+  removeCommsTimer() {
+    const state = this.commsState;
+    if (!state?.hideTimer) {
+      return;
+    }
+    state.hideTimer.remove(false);
+    state.hideTimer = null;
+  }
+
+  resetCommsUi(reason = "reset") {
+    const state = this.commsState;
+    if (!state) {
+      return;
+    }
+
+    this.removeCommsTimer();
+    this.stopCommsTweens();
+    state.queue = [];
+    state.activeMessage = null;
+    state.visible = false;
+    state.transitioning = false;
+    state.debugMessagesQueued = false;
+    state.container?.setVisible(false).setAlpha(0);
+    if (this.isCommsDebugEnabled?.()) {
+      console.log("[COMMS] reset", { reason });
+    }
+  }
+
+  destroyCommsUi(reason = "destroy") {
+    const state = this.commsState;
+    if (!state) {
+      return;
+    }
+
+    this.scale?.off?.("resize", this.handleCommsUiResize, this);
+    this.resetCommsUi(reason);
+    state.container?.destroy();
+    this.commsState = this.createCommsState();
+  }
+
+  isCommsDebugEnabled() {
+    const value = this.getUrlStageParam(COMMS_UI_DEBUG_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  queueDebugCommsMessagesIfNeeded(reason = "debugComms") {
+    const state = this.commsState;
+    if (!state || state.debugMessagesQueued || !this.isCommsDebugEnabled()) {
+      return false;
+    }
+    if (!this.canDisplayCommsMessage()) {
+      return false;
+    }
+
+    state.debugMessagesQueued = true;
+    [
+      {
+        speaker: "SYSTEM",
+        text: "COMMS LINK INITIALIZED",
+        variant: "system",
+        duration: 2600
+      },
+      {
+        speaker: "花火亭",
+        text: "通信チェック。聞こえてる？ クマ型フレームの信号、安定してるよ。",
+        variant: "normal"
+      },
+      {
+        speaker: "OPERATOR",
+        text: "Depth signal nominal. Gate timer and combat HUD remain online.",
+        variant: "system"
+      },
+      {
+        speaker: "花火亭",
+        text: "長く表示しすぎないよう、通信は短文で流す設計にしておこう。",
+        variant: "normal"
+      }
+    ].forEach((message) => this.queueCommsMessage(message));
+
+    if (this.isCommsDebugEnabled()) {
+      console.log("[COMMS] debug messages queued", { reason });
+    }
+    return true;
   }
 
   beginStartingUpgradeDraft() {
@@ -24379,6 +25175,7 @@ class SurvivalScene extends Phaser.Scene {
     if (!debugStartFinalBossRaidPending) {
       this.onDepthStartedForNemesis(this.stageDepth, "gameStart");
     }
+    this.queueDebugCommsMessagesIfNeeded("gameStart");
     if (!this.levelUpActive) {
       if (this.tryStartFinalBossRaidFromDebugStart("gameStart")) {
         return;
@@ -26279,6 +27076,7 @@ class SurvivalScene extends Phaser.Scene {
     this.resetSkillMutationState(emergency ? "emergencyExtract" : "extract");
     this.resetNemesisBossState(emergency ? "emergencyExtract" : "extract");
     this.resetFinalBossRaidState(emergency ? "emergencyExtract" : "extract");
+    this.resetCommsUi(emergency ? "emergencyExtract" : "extract");
     this.resetOverflowRewardState();
     this.destroyStageGate();
     this.hideOverlay();
@@ -27190,6 +27988,8 @@ class SurvivalScene extends Phaser.Scene {
       this.updateHud();
     }
     this.updateMobileControlsVisibility();
+    this.queueDebugCommsMessagesIfNeeded("update");
+    this.tryShowNextCommsMessage();
     this.tryOpenPendingSkillMutationSelection();
     this.tryOpenQueuedLostArmsEvolutionSelection();
     this.tryOpenPendingOverdriveModSelection();
@@ -27968,7 +28768,7 @@ class SurvivalScene extends Phaser.Scene {
     let hitCount = 0;
 
     this.enemies.children.each((enemy) => {
-      if (!enemy.active || enemy.isDying) {
+      if (!this.isFinalBossRaidEnemyTargetable(enemy)) {
         return;
       }
 
@@ -28198,6 +28998,12 @@ class SurvivalScene extends Phaser.Scene {
   updateEnemies() {
     this.enemies.children.each((enemy) => {
       if (!enemy.active || enemy.isDying) {
+        return;
+      }
+
+      if (enemy.finalRaidMinionStasis) {
+        enemy.body?.setVelocity?.(0, 0);
+        this.constrainEnemyToMovementBounds(enemy);
         return;
       }
 
@@ -29223,7 +30029,7 @@ class SurvivalScene extends Phaser.Scene {
 
       skillState.orbitals.forEach((orbital) => {
         this.enemies.children.each((enemy) => {
-          if (!enemy.active || enemy.isDying || enemy.isFinalBossRaidBoss || this.time.now < (enemy.hitRecoverUntil || 0)) {
+          if (!this.isFinalBossRaidEnemyTargetable(enemy) || this.time.now < (enemy.hitRecoverUntil || 0)) {
             return;
           }
 
@@ -29263,7 +30069,7 @@ class SurvivalScene extends Phaser.Scene {
     const now = this.time.now;
 
     this.enemies.children.each((enemy) => {
-      if (!enemy.active || enemy.isDying || enemy.isFinalBossRaidBoss) {
+      if (!enemy.active || enemy.isDying || enemy.isFinalBossRaidBoss || enemy.finalRaidMinionStasis) {
         return;
       }
 
@@ -31332,7 +32138,7 @@ class SurvivalScene extends Phaser.Scene {
     const maxDistanceSq = Number.isFinite(maxRange) ? maxRange * maxRange : Infinity;
 
     this.enemies.children.each((enemy) => {
-      if (!enemy.active || enemy.isDying || enemy.isFinalBossRaidBoss) {
+      if (!this.isFinalBossRaidEnemyTargetable(enemy)) {
         return;
       }
 
@@ -31548,7 +32354,7 @@ class SurvivalScene extends Phaser.Scene {
   pickRobotBombardmentPoint() {
     const candidates = [];
     this.enemies.children.each((enemy) => {
-      if (enemy.active && !enemy.isDying) {
+      if (this.isFinalBossRaidEnemyTargetable(enemy)) {
         candidates.push(enemy);
       }
     });
@@ -31620,6 +32426,15 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
+    if (enemy.isFinalBossRaidBoss) {
+      this.applyFinalBossRaidDamageToBoss(enemy, 1, 0xffd7f8, {
+        sourceX: missile.x,
+        sourceY: missile.y,
+        force: 0,
+        recoverMs: 0,
+        raidSignal: true
+      });
+    }
     this.detonateRobotMissile(missile, enemy.x, enemy.y, false);
   }
 
@@ -31630,7 +32445,7 @@ class SurvivalScene extends Phaser.Scene {
 
     const radius = missile.splashRadius || (isLargeExplosion ? 160 : 46);
     const damage = missile.damage || this.getRobotMissileDamage();
-    const sourceEnemy = missile.target?.active && !missile.target.isDying ? missile.target : null;
+    const sourceEnemy = this.isFinalBossRaidEnemyTargetable(missile.target) ? missile.target : null;
     missile.body.enable = false;
     missile.destroy();
     this.applyRobotExplosionDamage(x, y, radius, damage, isLargeExplosion);
@@ -31641,15 +32456,23 @@ class SurvivalScene extends Phaser.Scene {
   applyRobotExplosionDamage(x, y, radius, damage, isLargeExplosion) {
     let syncGaugeGain = 0;
     this.enemies.children.each((enemy) => {
-      if (!enemy.active || enemy.isDying) {
-        return;
-      }
-      if (enemy.isFinalBossRaidBoss) {
+      if (!this.isFinalBossRaidEnemyTargetable(enemy)) {
         return;
       }
 
       const distance = Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y);
       if (distance > radius) {
+        return;
+      }
+
+      if (enemy.isFinalBossRaidBoss) {
+        this.applyFinalBossRaidDamageToBoss(enemy, 1, isLargeExplosion ? 0xff9df4 : 0xffd7f8, {
+          sourceX: x,
+          sourceY: y,
+          force: 0,
+          recoverMs: 0,
+          raidSignal: true
+        });
         return;
       }
 
@@ -31789,14 +32612,14 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   pickRobotNapalmTarget(x, y, sourceEnemy = null) {
-    if (sourceEnemy?.active && !sourceEnemy.isDying) {
+    if (this.isFinalBossRaidEnemyTargetable(sourceEnemy)) {
       return sourceEnemy;
     }
 
     const candidates = [];
     const radiusSq = ROBOT_NAPALM_CONFIG.targetRadius * ROBOT_NAPALM_CONFIG.targetRadius;
     this.enemies.children.each((enemy) => {
-      if (!enemy.active || enemy.isDying) {
+      if (!this.isFinalBossRaidEnemyTargetable(enemy)) {
         return;
       }
       const distanceSq = Phaser.Math.Distance.Squared(x, y, enemy.x, enemy.y);
@@ -31810,7 +32633,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   applyRobotNapalmBurn(enemy, baseDamage, level = this.robotState?.missileLevel || 1) {
-    if (!enemy?.active || enemy.isDying || !this.robotState) {
+    if (!this.isFinalBossRaidEnemyTargetable(enemy) || !this.robotState) {
       return;
     }
 
@@ -31951,7 +32774,7 @@ class SurvivalScene extends Phaser.Scene {
     const remainingBurns = [];
     burns.forEach((entry) => {
       const enemy = entry.enemy;
-      if (!enemy?.active || enemy.isDying) {
+      if (!this.isFinalBossRaidEnemyTargetable(enemy)) {
         return;
       }
       entry.remainingMs -= delta;
@@ -31998,7 +32821,7 @@ class SurvivalScene extends Phaser.Scene {
       while (field.tickTimerMs >= ROBOT_NAPALM_CONFIG.burnTickMs && field.remainingMs > 0) {
         field.tickTimerMs -= ROBOT_NAPALM_CONFIG.burnTickMs;
         this.enemies.children.each((enemy) => {
-          if (!enemy.active || enemy.isDying) {
+          if (!this.isFinalBossRaidEnemyTargetable(enemy)) {
             return;
           }
           if (Phaser.Math.Distance.Between(field.x, field.y, enemy.x, enemy.y) > field.radius) {
@@ -32107,7 +32930,7 @@ class SurvivalScene extends Phaser.Scene {
     );
     let hitCount = 0;
     this.enemies.children.each((enemy) => {
-      if (!enemy.active || enemy.isDying) {
+      if (!this.isFinalBossRaidEnemyTargetable(enemy)) {
         return;
       }
 
@@ -32686,6 +33509,11 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
+    if (enemy.isFinalBossRaidMinion && this.isFinalBossRaidActive()) {
+      this.applyFinalBossRaidMinionPseudoHit(enemy, flashTint, impact);
+      return;
+    }
+
     if (this.time.now < (enemy.supportDamageHoldUntil || 0) && !impact?.supportFinisher) {
       return;
     }
@@ -32745,7 +33573,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   handlePlayerHit(playerHitbox, enemy) {
-    if (!enemy.active || enemy.isDying || enemy.isFinalBossRaidBoss) {
+    if (!enemy.active || enemy.isDying || enemy.isFinalBossRaidBoss || enemy.finalRaidMinionStasis) {
       return;
     }
 
@@ -35453,7 +36281,7 @@ class SurvivalScene extends Phaser.Scene {
     const candidates = [];
 
     this.enemies.children.each((enemy) => {
-      if (!enemy.active || enemy.isDying) {
+      if (!this.isFinalBossRaidEnemyTargetable(enemy)) {
         return;
       }
 
@@ -36384,7 +37212,7 @@ class SurvivalScene extends Phaser.Scene {
     const now = this.time.now;
 
     this.enemies.children.each((enemy) => {
-      if (!enemy.active || enemy.isDying) {
+      if (!this.isFinalBossRaidEnemyTargetable(enemy)) {
         return;
       }
 
@@ -37202,7 +38030,7 @@ class SurvivalScene extends Phaser.Scene {
     const padding = 120;
 
     this.enemies.children.each((enemy) => {
-      if (!enemy.active || enemy.isDying) {
+      if (!this.isFinalBossRaidEnemyTargetable(enemy)) {
         return;
       }
 
@@ -37547,7 +38375,7 @@ class SurvivalScene extends Phaser.Scene {
     const rankedEnemies = [];
 
     this.enemies.children.each((enemy) => {
-      if (!enemy.active || enemy.isDying) {
+      if (!this.isFinalBossRaidEnemyTargetable(enemy)) {
         return;
       }
 
@@ -37570,7 +38398,7 @@ class SurvivalScene extends Phaser.Scene {
     const fallback = [];
 
     this.enemies.children.each((enemy) => {
-      if (!enemy.active || enemy.isDying) {
+      if (!this.isFinalBossRaidEnemyTargetable(enemy)) {
         return;
       }
 
@@ -37593,7 +38421,7 @@ class SurvivalScene extends Phaser.Scene {
     let hitCount = 0;
 
     this.enemies.children.each((enemy) => {
-      if (!enemy.active || enemy.isDying) {
+      if (!this.isFinalBossRaidEnemyTargetable(enemy)) {
         return;
       }
 
@@ -38718,6 +39546,7 @@ class SurvivalScene extends Phaser.Scene {
     this.resetRobotBarrierState(reason);
     this.resetRobotNapalmState(reason);
     this.cleanupGeekMilestoneNotice(reason);
+    this.resetCommsUi(reason);
     this.resetOverflowRewardState();
     this.lastGameOverReason = { reason, lostCoins, lostArmsMessage };
     this.supportAttackBgmDuckingCount = 0;
@@ -38876,6 +39705,7 @@ class SurvivalScene extends Phaser.Scene {
     this.resetRobotBarrierState("returnToOpeningShop");
     this.resetRobotNapalmState("returnToOpeningShop");
     this.cleanupGeekMilestoneNotice("returnToOpeningShop");
+    this.resetCommsUi("returnToOpeningShop");
     this.resetOverflowRewardState();
     this.skipShopReturnSceneShutdownCleanup = true;
     this.overlayActions = [];
