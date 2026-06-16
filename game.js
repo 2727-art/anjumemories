@@ -937,8 +937,14 @@ const FINAL_BOSS_RAID_CONFIG = {
     notice: "DOLL LIBERATION READY"
   },
   bossHpBars: 999,
-  playerBossHpDamageRatio: 0.00072,
-  playerMinimumBossHpBars: 420,
+  playerSignal: {
+    basePoints: 1,
+    joinedGuildBonus: 1,
+    finalPushBonus: 4,
+    maxPointsPerPulse: 18,
+    pulseIntervalMs: 420,
+    visualMinIntervalMs: 420
+  },
   raidBossHpPreFinalFloorBars: 128,
   debugFinalPushMinLeadMs: 6500,
   debugFinalPushMinAfterPreviousMs: 650,
@@ -4970,7 +4976,9 @@ class SurvivalScene extends Phaser.Scene {
       bossHpBars: FINAL_BOSS_RAID_CONFIG.bossHpBars,
       bossHpDisplayBars: FINAL_BOSS_RAID_CONFIG.bossHpBars,
       playerContribution: 0,
-      playerBossHpBarsDamage: 0,
+      nextPlayerSignalAt: 0,
+      lastPlayerSignalVisualAt: -999999,
+      lastPlayerSignalPoints: 0,
       raidBossHpDamageTarget: 1,
       supportSchedule: [],
       rankingEntries: [],
@@ -8063,7 +8071,9 @@ class SurvivalScene extends Phaser.Scene {
       bossHpBars: FINAL_BOSS_RAID_CONFIG.bossHpBars,
       bossHpDisplayBars: FINAL_BOSS_RAID_CONFIG.bossHpBars,
       playerContribution: 0,
-      playerBossHpBarsDamage: 0,
+      nextPlayerSignalAt: 0,
+      lastPlayerSignalVisualAt: -999999,
+      lastPlayerSignalPoints: 0,
       raidBossHpDamageTarget: this.calculateFinalBossRaidGuildDamageTarget(rankingEntries, timing.resolutionStartMs, timing.timeScale),
       supportSchedule,
       rankingEntries,
@@ -8963,13 +8973,13 @@ class SurvivalScene extends Phaser.Scene {
       align: "center",
       originX: 0.5
     });
-    elements.myDamageTitleText = this.createHudLabel(container, damage.x + damage.width / 2, damage.y + 10, "MY DAMAGE", {
+    elements.myDamageTitleText = this.createHudLabel(container, damage.x + damage.width / 2, damage.y + 10, "RAID SIGNAL", {
       fontSize: "12px",
       color: FINAL_RAID_HUD_STYLE.gold,
       align: "center",
       originX: 0.5
     });
-    elements.myDamageText = this.createFinalRaidHudText(container, damage.x + damage.width / 2, damage.y + 30, "0\n0.00%", {
+    elements.myDamageText = this.createFinalRaidHudText(container, damage.x + damage.width / 2, damage.y + 30, "0\nHIT +1", {
       fontSize: "15px",
       color: FINAL_RAID_HUD_STYLE.text,
       fontStyle: "bold",
@@ -9505,7 +9515,7 @@ class SurvivalScene extends Phaser.Scene {
     const targetBars = Phaser.Math.Clamp(Number.isFinite(rawTargetBars) ? rawTargetBars : maxBars, 0, maxBars);
     state.bossHpDisplayBars = targetBars;
     const bossHpRatio = Phaser.Math.Clamp(targetBars / maxBars, 0, 1);
-    const breakRatio = Phaser.Math.Clamp((Number(state.playerBossHpBarsDamage) || 0) / maxBars, 0, 1);
+    const breakRatio = Phaser.Math.Clamp(1 - bossHpRatio, 0, 1);
     const playerHpRatio = this.stats
       ? Phaser.Math.Clamp((Number(this.stats.hp) || 0) / Math.max(1, Number(this.stats.maxHp) || 1), 0, 1)
       : 0;
@@ -9574,10 +9584,9 @@ class SurvivalScene extends Phaser.Scene {
 
     this.setFinalRaidHudText(elements.reviveText, this.getFinalRaidReviveText());
     const playerContribution = Math.floor(Number(state.playerContribution) || 0);
-    const damageDenominator = Math.max(1, Number(state.raidBossHpDamageTarget) || maxBars);
-    const contributionPercent = Phaser.Math.Clamp(playerContribution / damageDenominator, 0, 9.99);
-    this.setFinalRaidHudText(elements.myDamageText, `${playerContribution.toLocaleString()}\n${(contributionPercent * 100).toFixed(2)}%`);
-    this.trackFinalRaidHudValueChange("playerContributionPulse", Math.floor(playerContribution / 10000), elements.myDamageText, { fromScale: 1.025, duration: 180 });
+    const signalPerPulse = this.getFinalBossRaidPlayerSignalPoints();
+    this.setFinalRaidHudText(elements.myDamageText, `${playerContribution.toLocaleString()}\nHIT +${signalPerPulse.toLocaleString()}`);
+    this.trackFinalRaidHudValueChange("playerContributionPulse", Math.floor(playerContribution / 25), elements.myDamageText, { fromScale: 1.025, duration: 180 });
 
     const rankingMaxRows = Math.max(3, Math.floor(Number(layout.ranking?.maxRows) || 5));
     const rankingLines = this.formatFinalBossRaidRankingLines().split("\n").slice(1, rankingMaxRows + 1).join("\n") || "--";
@@ -11510,21 +11519,13 @@ class SurvivalScene extends Phaser.Scene {
     const guildDamage = state.rankingEntries.reduce((sum, entry) => {
       return entry?.type === "guild" && entry.joined ? sum + Math.max(0, Number(entry.damage) || 0) : sum;
     }, 0);
-    const playerPressure = Math.max(0, Number(state.playerContribution) || 0) * 0.08;
     const targetDamage = Math.max(1, Number(state.raidBossHpDamageTarget) || 1);
-    const damageRatio = Phaser.Math.Clamp((guildDamage + playerPressure) / targetDamage, 0, 1);
+    const damageRatio = Phaser.Math.Clamp(guildDamage / targetDamage, 0, 1);
     const projectedBars = Math.ceil(maxBars * (1 - damageRatio));
     const finalGuildJoined = state.rankingEntries.some((entry) => entry?.type === "guild" && entry.finalPush && entry.joined);
     const preFinalFloor = Math.max(1, Number(FINAL_BOSS_RAID_CONFIG.raidBossHpPreFinalFloorBars) || 1);
-    const currentPlayerLimitedBars = Math.max(
-      0,
-      maxBars - Math.max(0, Number(state.playerBossHpBarsDamage) || 0)
-    );
 
-    const unlockedBars = Math.min(
-      currentPlayerLimitedBars,
-      finalGuildJoined ? projectedBars : Math.max(preFinalFloor, projectedBars)
-    );
+    const unlockedBars = finalGuildJoined ? projectedBars : Math.max(preFinalFloor, projectedBars);
     const minimumBeforeResolution = state.elapsedMs < state.resolutionStartMs
       ? Math.max(0, Number(FINAL_RAID_TIMELINE_CONFIG.minBossHpBeforeResolutionBars) || 0)
       : 0;
@@ -11664,45 +11665,97 @@ class SurvivalScene extends Phaser.Scene {
     ].join("\n");
   }
 
+  getFinalBossRaidPlayerSignalPoints(state = this.finalBossRaidState) {
+    const config = FINAL_BOSS_RAID_CONFIG.playerSignal || {};
+    const entries = Array.isArray(state?.rankingEntries) ? state.rankingEntries : [];
+    const elapsedMs = Math.max(0, Number(state?.elapsedMs) || 0);
+    const joinedGuildCount = entries.reduce((count, entry) => {
+      if (entry?.type !== "guild") {
+        return count;
+      }
+      const joined = entry.joined || elapsedMs >= Math.max(0, Number(entry.joinMs) || 0);
+      return joined ? count + 1 : count;
+    }, 0);
+    const finalPushJoined = entries.some((entry) => {
+      return entry?.type === "guild"
+        && entry.finalPush
+        && (entry.joined || elapsedMs >= Math.max(0, Number(entry.joinMs) || 0));
+    });
+    const basePoints = Math.max(1, Math.floor(Number(config.basePoints) || 1));
+    const joinedBonus = Math.max(0, Math.floor(Number(config.joinedGuildBonus) || 0));
+    const finalPushBonus = finalPushJoined ? Math.max(0, Math.floor(Number(config.finalPushBonus) || 0)) : 0;
+    const maxPoints = Math.max(1, Math.floor(Number(config.maxPointsPerPulse) || 1));
+    return Phaser.Math.Clamp(basePoints + joinedGuildCount * joinedBonus + finalPushBonus, 1, maxPoints);
+  }
+
+  spawnFinalBossRaidPlayerSignalPulse(enemy, points, flashTint = 0xffdede) {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !enemy?.active || !this.add || !this.skillEffectsLayer) {
+      return;
+    }
+
+    const config = FINAL_BOSS_RAID_CONFIG.playerSignal || {};
+    const now = Math.max(0, Number(this.time?.now) || 0);
+    const minIntervalMs = Math.max(0, Number(config.visualMinIntervalMs) || 0);
+    if (now - (Number(state.lastPlayerSignalVisualAt) || 0) < minIntervalMs) {
+      return;
+    }
+    state.lastPlayerSignalVisualAt = now;
+
+    const ring = this.add
+      .image(enemy.x + Phaser.Math.Between(-10, 10), enemy.y - 18 + Phaser.Math.Between(-6, 6), "skill-hit-ring")
+      .setDepth(23)
+      .setScale(0.62 + Math.min(0.22, points * 0.012))
+      .setAlpha(0.68)
+      .setTint(flashTint)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setAngle(Phaser.Math.Between(-24, 24));
+    this.skillEffectsLayer.add(ring);
+    this.tweens.add({
+      targets: ring,
+      scaleX: ring.scaleX * 1.48,
+      scaleY: ring.scaleY * 1.48,
+      alpha: 0,
+      angle: ring.angle + 32,
+      duration: 220,
+      ease: "Quad.Out",
+      onComplete: () => ring.destroy()
+    });
+
+    const bossNameText = state.hudElements?.bossNameText || state.bossNameText;
+    if (bossNameText?.active) {
+      bossNameText.setColor(this.colorToCss(flashTint));
+      this.time.delayedCall(90, () => {
+        if (bossNameText.active) {
+          bossNameText.setColor(FINAL_RAID_HUD_STYLE.text);
+        }
+      });
+    }
+  }
+
   applyFinalBossRaidDamageToBoss(enemy, damage, flashTint = 0xffdede, impact = null) {
     const state = this.finalBossRaidState;
     if (!state?.active || !enemy?.isFinalBossRaidBoss) {
       return;
     }
 
-    const finalDamage = Math.max(0, Number(damage) || 0);
-    if (finalDamage <= 0) {
+    enemy.hp = enemy.maxHp;
+    if (impact?.raidSignal !== true) {
       return;
     }
 
-    const displayDamage = Math.max(1, Math.round(finalDamage));
-    state.playerContribution = Math.max(0, (Number(state.playerContribution) || 0) + displayDamage);
-    state.playerBossHpBarsDamage = Math.max(
-      0,
-      (Number(state.playerBossHpBarsDamage) || 0) + finalDamage * FINAL_BOSS_RAID_CONFIG.playerBossHpDamageRatio
-    );
-    const minimumBars = Math.max(1, Number(FINAL_BOSS_RAID_CONFIG.playerMinimumBossHpBars) || 1);
-    state.bossHpBars = Math.max(
-      minimumBars,
-      (Number(state.bossHpMaxBars) || FINAL_BOSS_RAID_CONFIG.bossHpBars) - state.playerBossHpBarsDamage
-    );
-    enemy.hp = enemy.maxHp;
+    const now = Math.max(0, Number(this.time?.now) || 0);
+    const config = FINAL_BOSS_RAID_CONFIG.playerSignal || {};
+    const pulseIntervalMs = Math.max(0, Number(config.pulseIntervalMs) || 0);
+    if (now < (Number(state.nextPlayerSignalAt) || 0)) {
+      return;
+    }
 
-    const textX = enemy.x + Phaser.Math.Between(-34, 34);
-    const textY = enemy.y - 72 + Phaser.Math.Between(-8, 8);
-    this.spawnFloatingCombatText(textX, textY, displayDamage, {
-      type: "damage",
-      fontSize: "18px",
-      color: "#f7d98a",
-      stroke: "#241504",
-      strokeThickness: 4,
-      rise: 42,
-      duration: 620,
-      jitterX: Phaser.Math.Between(-12, 12),
-      jitterY: Phaser.Math.Between(-4, 4)
-    });
-
-    state.bossNameText?.setColor(this.colorToCss(flashTint));
+    const signalPoints = this.getFinalBossRaidPlayerSignalPoints(state);
+    state.nextPlayerSignalAt = now + pulseIntervalMs;
+    state.lastPlayerSignalPoints = signalPoints;
+    state.playerContribution = Math.max(0, Math.floor(Number(state.playerContribution) || 0) + signalPoints);
+    this.spawnFinalBossRaidPlayerSignalPulse(enemy, signalPoints, flashTint);
   }
 
   updateFinalBossRaid(delta, time = this.time?.now || 0) {
@@ -16483,6 +16536,9 @@ class SurvivalScene extends Phaser.Scene {
       if (!enemy.active || enemy.isDying || enemy === excludeEnemy) {
         return;
       }
+      if (enemy.isFinalBossRaidBoss) {
+        return;
+      }
       if (options.highValueOnly && !this.isHighValueMutationTarget(enemy)) {
         return;
       }
@@ -16804,6 +16860,9 @@ class SurvivalScene extends Phaser.Scene {
 
   applySkillMutationOnHit(skillId, enemy, hitbox, baseDamage) {
     if (!this.isSkillMutationTargetSkill(skillId) || !enemy?.active || enemy.isDying) {
+      return;
+    }
+    if (enemy.isFinalBossRaidBoss) {
       return;
     }
     this.applySkillMutationCoreOnHit(skillId, enemy, hitbox);
@@ -27582,6 +27641,16 @@ class SurvivalScene extends Phaser.Scene {
       }
 
       hitCount += 1;
+      if (enemy.isFinalBossRaidBoss) {
+        this.applyFinalBossRaidDamageToBoss(enemy, 1, stageData.damageTint || 0xffffff, {
+          sourceX: x,
+          sourceY: y,
+          force: 0,
+          recoverMs: 0,
+          raidSignal: true
+        });
+        return;
+      }
       this.applyDamageToEnemy(enemy, damage, stageData.damageTint || 0xffffff, {
         sourceX: x,
         sourceY: y,
@@ -31238,6 +31307,9 @@ class SurvivalScene extends Phaser.Scene {
       if (!enemy.active || enemy.isDying) {
         return;
       }
+      if (enemy.isFinalBossRaidBoss) {
+        return;
+      }
 
       const distance = Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y);
       if (distance > radius) {
@@ -31863,6 +31935,13 @@ class SurvivalScene extends Phaser.Scene {
       recoverMs: 95
     };
     bullet.destroy();
+    if (enemy.isFinalBossRaidBoss) {
+      this.applyFinalBossRaidDamageToBoss(enemy, 1, 0xffe6dd, {
+        ...impact,
+        raidSignal: true
+      });
+      return;
+    }
     this.applyDamageToEnemy(enemy, bullet.damage, 0xffe6dd, impact);
   }
 
@@ -31883,6 +31962,16 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     hitbox.damageCooldowns.set(enemy, now);
+    if (enemy.isFinalBossRaidBoss) {
+      this.applyFinalBossRaidDamageToBoss(enemy, 1, hitbox.damageTint || 0xf4c8ff, {
+        sourceX: hitbox.x,
+        sourceY: hitbox.y,
+        force: 0,
+        recoverMs: 0,
+        raidSignal: true
+      });
+      return;
+    }
     this.spawnSkillHitEffect(hitbox, enemy);
     const damage = this.getMutatedSkillDamage(hitbox.skillId, hitbox.baseDamage || hitbox.damage, {
       source: "contact",
@@ -32255,6 +32344,11 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
+    if (enemy.isFinalBossRaidBoss) {
+      this.applyFinalBossRaidDamageToBoss(enemy, 1, flashTint, impact);
+      return;
+    }
+
     if (this.time.now < (enemy.supportDamageHoldUntil || 0) && !impact?.supportFinisher) {
       return;
     }
@@ -32266,10 +32360,6 @@ class SurvivalScene extends Phaser.Scene {
       finalDamage *= Phaser.Math.Clamp(Number(enemy.lostArmsVulnerableMult) || 1, 1, 1.5);
     }
     finalDamage = this.applyOverdriveModHunterDamageModifier(enemy, finalDamage, impact);
-    if (enemy.isFinalBossRaidBoss) {
-      this.applyFinalBossRaidDamageToBoss(enemy, finalDamage, flashTint, impact);
-      return;
-    }
     enemy.hp -= finalDamage;
     this.spawnEnemyDamageNumber(enemy, finalDamage);
     this.applyEnemyImpact(enemy, impact);
