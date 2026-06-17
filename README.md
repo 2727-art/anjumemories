@@ -47,6 +47,10 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - `?mobileControls=0`: モバイル操作 UI を無効化します。
 - `?debugStartDepth=10`: デバッグ用。`GAME START` 後のランを Depth10 から開始します。
 - `?debugSkipOpeningBoost=1`: デバッグ用。`GAME START` 後の Opening Boost 選択をスキップします。
+- `?debugComms=1`: デバッグ用。戦闘中の通信UIテスト文を表示します。
+- `?debugCommsStory=1`: デバッグ用。通信ストーリーの保存済みフラグを無視し、このランでは再生済み保存を行いません。
+- `?debugCommsStoryReset=1`: デバッグ用。起動時に通信ストーリーの再生済み保存を削除します。
+- `?debugCommsStoryDepth=1`: デバッグ用。`1` / `3` / `6` / `8` / `9` / `10` の指定Depth通信を `GAME START` 後にテスト再生します。
 - `?debugStartDepth=10&debugFinalRaid=1&debugFinalRaidScale=0.1&debugFinalRaidPhase=third&debugSkipOpeningBoost=1`: デバッグ用。Depth10 Final Raid を短縮タイマーの第三形態付近から確認します。
 - `?debugMaxBuild=1`: デバッグ用。攻撃スキル全種を最終Stage、ROBOTをLv.20/Tune Lv.20、HPを300、移動速度を+100にします。
 - `?debugStartDepth=10&debugFinalRaid=1&debugFinalRaidScale=0.05&debugFinalRaidPhase=third&debugMaxBuild=1&debugSkipOpeningBoost=1`: デバッグ用。強化済み状態でDepth10 Final Raidを確認します。
@@ -584,6 +588,7 @@ localStorage キー:
 - `lastmemoVansabaAnjuMemoryState`: ANJU MEMORY 残高、購入済み報酬、選択中スキン/称号/バッジ、チケット、到達済みマイルストーン
 - `lastmemoVansabaRunArchive`: 直近 20 件の RUN ARCHIVE / 戦闘ログ。ローカル閲覧専用でランキングや Firebase には送信しません。
 - `lastmemoVansabaFinalBossState`: Depth10 Final Raid 討伐済み、ラスボスCD、ラスボスサポート解禁状態
+- `lastmemoVansabaCommsStoryState`: Depth 初回通信の再生済みフラグ
 - `collisionEditor:<stageId>`: 衝突判定編集モードの一時保存データ
 
 sessionStorage キー:

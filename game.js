@@ -146,6 +146,23 @@ const DASH_HUD_CONFIG = {
 };
 const MOBILE_CONTROL_QUERY_PARAM = "mobileControls";
 const COMMS_UI_DEBUG_QUERY_PARAM = "debugComms";
+const COMMS_STORY_DEBUG_QUERY_PARAM = "debugCommsStory";
+const COMMS_STORY_DEBUG_RESET_QUERY_PARAM = "debugCommsStoryReset";
+const COMMS_STORY_DEBUG_DEPTH_QUERY_PARAM = "debugCommsStoryDepth";
+const COMMS_GENERIC_DEBUG_QUERY_PARAM = "debugCommsGeneric";
+const COMMS_GENERIC_DEBUG_COOLDOWN_QUERY_PARAM = "debugCommsGenericCooldown";
+const COMMS_GENERIC_DEBUG_EVENT_QUERY_PARAM = "debugCommsGenericEvent";
+const COMMS_BANTER_DEBUG_QUERY_PARAM = "debugCommsBanter";
+const COMMS_BANTER_DEBUG_NOW_QUERY_PARAM = "debugCommsBanterNow";
+const COMMS_BANTER_DEBUG_CATEGORY_QUERY_PARAM = "debugCommsBanterCategory";
+const COMMS_BANTER_DEBUG_COOLDOWN_QUERY_PARAM = "debugCommsBanterCooldown";
+const COMMS_BANTER_DEBUG_LIST_QUERY_PARAM = "debugCommsBanterList";
+const COMMS_EPILOGUE_DEBUG_QUERY_PARAM = "debugCommsEpilogue";
+const COMMS_EPILOGUE_DEBUG_RESET_QUERY_PARAM = "debugCommsEpilogueReset";
+const COMMS_EPILOGUE_DEBUG_SEQUENCE_QUERY_PARAM = "debugCommsEpilogueSequence";
+const COMMS_EPILOGUE_DEBUG_SHOP_QUERY_PARAM = "debugCommsEpilogueShop";
+const COMMS_EPILOGUE_DEBUG_FORCE_PENDING_QUERY_PARAM = "debugCommsEpilogueForcePending";
+const COMMS_EPILOGUE_PENDING_SESSION_KEY = "lastmemoVansabaPendingCommsEpilogue";
 const MOBILE_GATE_SKIP_SESSION_KEY = "lastmemoVansabaSkipMobileGateOnce";
 const MOBILE_GATE_SKIP_QUERY_PARAM = "skipMobileGateOnce";
 const MOBILE_FULLSCREEN_REQUESTED_SESSION_KEY = "lastmemoVansabaFullscreenRequested";
@@ -1840,6 +1857,7 @@ const COMMS_UI_CONFIG = {
   queueMax: 6,
   interruptPriority: 10,
   depth: 735,
+  epilogueDepth: 930,
   fadeInMs: 220,
   fadeOutMs: 180,
   slideOffsetX: 18,
@@ -1892,6 +1910,542 @@ const COMMS_UI_VARIANT_PALETTES = {
     label: "SIGNAL NOISE"
   }
 };
+const COMMS_STORY_VERSION = 1;
+const COMMS_STORY_STORAGE_KEY = "lastmemoVansabaCommsStoryState";
+const COMMS_STORY_DEBUG_DEPTHS = [1, 3, 6, 8, 9, 10];
+const COMMS_STORY_SEQUENCES = [
+  {
+    id: "depth1_first",
+    depth: 1,
+    messages: [
+      { speaker: "SYSTEM", text: "COMMS LINK ESTABLISHED", variant: "system", duration: 3200 },
+      { speaker: "Kurokage[花火亭]", text: "こちらKurokage。信号は拾えている。クマ型フレームの同期、問題なし。", variant: "normal", duration: 5200 },
+      { speaker: "Hiromaro[IGNIS]", text: "よし、聞こえてるね！ ラグオスが静かすぎるけど、こっちは賑やかにいこう。", variant: "normal", duration: 5400 },
+      { speaker: "Alamode[花火亭]", text: "花火亭は基地側で支援に回るよ。あんじゅちゃん、まずは浅層の反応を確認して。", variant: "normal", duration: 5600 },
+      { speaker: "Omaru[IGNIS]", text: "元素騎士側の連絡線も開いている。必要になれば、すぐ救援を集める。", variant: "normal", duration: 5400 }
+    ]
+  },
+  {
+    id: "depth3_first",
+    depth: 3,
+    messages: [
+      { speaker: "Kurokage[花火亭]", text: "Depth3付近でドール部隊の識別信号を検出。微弱だが、本物だ。", variant: "system", duration: 5400 },
+      { speaker: "Alamode[花火亭]", text: "オペレーター署名が途中で消えてる……深部で何かに遮断されたみたい。", variant: "normal", duration: 5600 },
+      { speaker: "Omaru[IGNIS]", text: "救援要請は外にも投げている。戻れるプレイヤーを探しているところだ。", variant: "normal", duration: 5400 },
+      { speaker: "Hiromaro[IGNIS]", text: "こっちは任せて。あんじゅちゃんは前だけ見て進もう！", variant: "normal", duration: 4600 }
+    ]
+  },
+  {
+    id: "depth6_first",
+    depth: 6,
+    messages: [
+      { speaker: "SYSTEM", text: "DEEP SIGNAL DETECTED", variant: "system", duration: 3200 },
+      { speaker: "Kurokage[花火亭]", text: "ここから先は通常の福音領域じゃない。通信遅延が出始めてる。", variant: "warning", duration: 5400 },
+      { speaker: "Alamode[花火亭]", text: "ラスメモのプレイヤーたちにも声をかけてる。まだ届く、きっと届くよ。", variant: "normal", duration: 5600 },
+      { speaker: "Omaru[IGNIS]", text: "元素騎士側の準備も進める。次はこっちが助ける番だ。", variant: "normal", duration: 5200 },
+      { speaker: "Hiromaro[IGNIS]", text: "深部突入だね。BGM上げていこう、気持ちで負けない！", variant: "normal", duration: 5000 }
+    ]
+  },
+  {
+    id: "depth8_first",
+    depth: 8,
+    messages: [
+      { speaker: "Kurokage[花火亭]", text: "Depth8で未公開レイド領域の断片を確認。仕様だけが深部に残っている。", variant: "warning", duration: 5600 },
+      { speaker: "Alamode[花火亭]", text: "誘導信号も、帰還ログも途切れてる……誰にも見つけられなかった場所なんだ。", variant: "normal", duration: 5800 },
+      { speaker: "Omaru[IGNIS]", text: "なら、こちらから知らせる。救援ルートを洗い直す。", variant: "normal", duration: 5000 },
+      { speaker: "Hiromaro[IGNIS]", text: "誰も気づかなかった場所でも、今はあんじゅちゃんが見つけた。十分すごいよ。", variant: "normal", duration: 5800 }
+    ]
+  },
+  {
+    id: "depth9_first",
+    depth: 9,
+    messages: [
+      { speaker: "SYSTEM", text: "COMMS NOISE INCREASING", variant: "warning", duration: 3200 },
+      { speaker: "Kurokage[花火亭]", text: "ジャミングが強い。クマ型フレームの遠隔補正が跳ね返されてる。", variant: "warning", duration: 5600 },
+      { speaker: "Alamode[花火亭]", text: "この先、花火亭からのサポートが届かなくなるかもしれない。", variant: "normal", duration: 5200 },
+      { speaker: "Omaru[IGNIS]", text: "救援連絡は続ける。通信が切れても、信号は止めない。", variant: "normal", duration: 5200 },
+      { speaker: "Hiromaro[IGNIS]", text: "怖いなら、音楽だけでも連れていって。ひとりに見えても、ひとりじゃない。", variant: "normal", duration: 5800 },
+      { speaker: "Kurokage[花火亭]", text: "Depth10入口で外部フレーム切断の可能性。……ノイズが、もう――", variant: "noise", duration: 5600 }
+    ]
+  },
+  {
+    id: "depth10_first",
+    depth: 10,
+    messages: [
+      { speaker: "SYSTEM", text: "DOLL FIELD JAMMING DETECTED", variant: "warning", duration: 3200 },
+      { speaker: "SYSTEM", text: "EXTERNAL FRAME LINK LOST", variant: "noise", duration: 3200 },
+      { speaker: "SYSTEM", text: "COMMS LINK: OFFLINE", variant: "noise", duration: 3000 },
+      { speaker: "SYSTEM", text: "DOLL CORE ACTIVITY LIMIT: 10:00", variant: "warning", duration: 3600 },
+      { speaker: "SYSTEM", text: "RAID SIGNAL: MANUAL TRANSMIT READY", variant: "system", duration: 3800 },
+      { speaker: "Hiromaro[IGNIS]", text: "CACHED VOICE: 最後まで行こう。帰ったら、ちゃんとみんなで騒ごうね。", variant: "noise", duration: 5600 }
+    ]
+  }
+];
+const COMMS_EPILOGUE_VERSION = 1;
+const COMMS_EPILOGUE_PRIORITY = 8;
+const COMMS_EPILOGUE_SEQUENCE_ALIASES = {
+  boss_break: "depth10_boss_break_epilogue",
+  release_gate: "depth10_release_gate_epilogue",
+  shop_return: "depth10_shop_return_epilogue",
+  next_run: "depth10_next_run_epilogue"
+};
+const COMMS_EPILOGUE_SEQUENCES = [
+  {
+    id: "depth10_boss_break_epilogue",
+    messages: [
+      { speaker: "SYSTEM", text: "BOSS SIGNAL LOST", variant: "system", duration: 3000 },
+      { speaker: "SYSTEM", text: "DOLL FIELD JAMMING WEAKENING", variant: "warning", duration: 3400 },
+      { speaker: "Kurokage[花火亭]", text: "……聞こえるか。こちらKurokage。通信が、戻り始めている。", variant: "noise", duration: 5600 },
+      { speaker: "Alamode[花火亭]", text: "あんじゅちゃん、無事？ 返事はできなくてもいい、信号は見えてる。", variant: "noise", duration: 5600 },
+      { speaker: "Omaru[IGNIS]", text: "救援信号、全線で確認。封鎖中枢の反応は沈黙した。", variant: "system", duration: 5400 },
+      { speaker: "Hiromaro[IGNIS]", text: "やった……！ でもまだ帰るまでが作戦だよ。あと少し！", variant: "normal", duration: 5400 }
+    ]
+  },
+  {
+    id: "depth10_release_gate_epilogue",
+    messages: [
+      { speaker: "SYSTEM", text: "RETURN GATE RECONNECTED", variant: "system", duration: 3200 },
+      { speaker: "Kurokage[花火亭]", text: "帰還ルートを確認。Depth10封鎖、解除方向。ゲートへ向かってくれ。", variant: "system", duration: 5600 },
+      { speaker: "Alamode[花火亭]", text: "ドールたちの識別信号が戻ってきてる……ちゃんと、戻ってきてるよ。", variant: "normal", duration: 5800 },
+      { speaker: "Omaru[IGNIS]", text: "救援参加者へ完了通知を送る。元素騎士側にも、作戦成功を共有する。", variant: "normal", duration: 5600 },
+      { speaker: "Hiromaro[IGNIS]", text: "帰ろう。ラグオスで、みんなにただいまって言おう！", variant: "normal", duration: 5400 }
+    ]
+  },
+  {
+    id: "depth10_shop_return_epilogue",
+    shopSafe: true,
+    messages: [
+      { speaker: "SYSTEM", text: "LAGOS COMMS RESTORED", variant: "system", duration: 3200 },
+      { speaker: "Kurokage[花火亭]", text: "基地側通信、復旧。深部ログの回収にも成功した。", variant: "system", duration: 5200 },
+      { speaker: "Alamode[花火亭]", text: "おかえり、あんじゅちゃん。ちゃんと帰ってきてくれて、ありがとう。", variant: "normal", duration: 5600 },
+      { speaker: "Omaru[IGNIS]", text: "救援線は維持する。ここで終わりじゃない。次は、戻ってきた人たちを迎える番だ。", variant: "normal", duration: 6200 },
+      { speaker: "Hiromaro[IGNIS]", text: "祝勝会だー！ ……って言いたいけど、まずは休憩！ ほんとにお疲れさま！", variant: "normal", duration: 5800 },
+      { speaker: "SYSTEM", text: "DOLL LIBERATION RECORD SAVED", variant: "system", duration: 3600 }
+    ]
+  },
+  {
+    id: "depth10_next_run_epilogue",
+    messages: [
+      { speaker: "Kurokage[花火亭]", text: "Depth10突破後の通信網は安定している。通常探索への復帰を確認。", variant: "system", duration: 5400 },
+      { speaker: "Alamode[花火亭]", text: "ラグオス、前より少しだけ賑やかに感じるね。きっと、信号が戻ったからだよ。", variant: "normal", duration: 5800 },
+      { speaker: "Omaru[IGNIS]", text: "救援連絡は継続中だ。戻ってくる人が増えれば、世界はもう一度つながる。", variant: "normal", duration: 5600 },
+      { speaker: "Hiromaro[IGNIS]", text: "よし、今日も行こう！ でもDepth10を越えたからって、無茶はなしね！", variant: "normal", duration: 5400 }
+    ]
+  }
+];
+const COMMS_EPILOGUE_SEQUENCE_IDS = COMMS_EPILOGUE_SEQUENCES.map((sequence) => sequence.id);
+const COMMS_GENERIC_EVENT_TYPES = [
+  "gate_approach",
+  "gate_online",
+  "gate_unstable",
+  "hp_50",
+  "hp_25",
+  "hp_10",
+  "boss_spawn",
+  "nemesis_spawn",
+  "support_pickup",
+  "support_genso_knights",
+  "support_stabilized"
+];
+const COMMS_GENERIC_DEFAULTS = {
+  globalCooldownMs: 12000,
+  debugCooldownMs: 120,
+  maxPending: 4,
+  maxPerDepth: 8,
+  lowPriorityQueueLimit: 3,
+  pendingMaxAgeMs: 18000,
+  cutinDelayMs: 2200,
+  repeatBossChance: 0.34,
+  supportPickupChance: 0.36,
+  supportStabilizedChance: 0.45,
+  cooldowns: {
+    boss_spawn: 45000,
+    support_pickup: 55000,
+    support_stabilized: 55000
+  }
+};
+const COMMS_GENERIC_EVENT_CONFIG = {
+  gate_approach: { priority: 1, uniqueDepthKey: "gateApproachDepths", pending: true, important: true },
+  gate_online: { priority: 2, uniqueDepthKey: "gateOnlineDepths", pending: true, important: true, bypassGlobalCooldown: true },
+  gate_unstable: { priority: 2, uniqueDepthKey: "gateUnstableDepths", pending: true, important: true, bypassGlobalCooldown: true },
+  hp_50: { priority: 1, hpThreshold: "50", pending: true, important: true },
+  hp_25: { priority: 2, hpThreshold: "25", pending: true, important: true },
+  hp_10: { priority: 4, hpThreshold: "10", pending: true, important: true, bypassGlobalCooldown: true },
+  boss_spawn: { priority: 1, cooldownMs: COMMS_GENERIC_DEFAULTS.cooldowns.boss_spawn, chance: COMMS_GENERIC_DEFAULTS.repeatBossChance },
+  nemesis_spawn: { priority: 4, pending: true, important: true, bypassGlobalCooldown: true },
+  support_pickup: { priority: 0, cooldownMs: COMMS_GENERIC_DEFAULTS.cooldowns.support_pickup, chance: COMMS_GENERIC_DEFAULTS.supportPickupChance },
+  support_genso_knights: { priority: 2, pending: true, important: true, delayMs: COMMS_GENERIC_DEFAULTS.cutinDelayMs },
+  support_stabilized: { priority: 0, cooldownMs: COMMS_GENERIC_DEFAULTS.cooldowns.support_stabilized, chance: COMMS_GENERIC_DEFAULTS.supportStabilizedChance }
+};
+const COMMS_GENERIC_POOLS = {
+  gate_approach: [
+    { speaker: "Kurokage[花火亭]", text: "Gate信号を捕捉。あと少しで開く。周囲の敵圧に注意。", variant: "system", duration: 5000 },
+    { speaker: "Alamode[花火亭]", text: "帰還ルートが近いよ。進むか戻るか、落ち着いて選ぼう。", variant: "normal", duration: 5200 },
+    { speaker: "Omaru[IGNIS]", text: "救援線をGate側へ寄せる。突破するなら援護の準備を続ける。", variant: "normal", duration: 5200 },
+    { speaker: "Hiromaro[IGNIS]", text: "出口が近い！ 欲張るなら最後まで、帰るなら確実にね！", variant: "normal", duration: 5000 }
+  ],
+  gate_online: [
+    { speaker: "SYSTEM", text: "STAGE GATE ONLINE", variant: "system", duration: 3000 },
+    { speaker: "Kurokage[花火亭]", text: "Gate開口を確認。安定時間内に判断して。", variant: "system", duration: 4600 },
+    { speaker: "Hiromaro[IGNIS]", text: "Gate開いた！ ここで戻るのも、突っ込むのも作戦だよ！", variant: "normal", duration: 5000 },
+    { speaker: "Alamode[花火亭]", text: "無理しすぎないで。持ち帰ることも、大事な勝ちだから。", variant: "normal", duration: 5200 }
+  ],
+  gate_unstable: [
+    { speaker: "SYSTEM", text: "UNSTABLE GATE SIGNAL", variant: "warning", duration: 3000 },
+    { speaker: "Kurokage[花火亭]", text: "Gateが揺らいでる。不安定度が上がる前に決めた方がいい。", variant: "warning", duration: 5400 },
+    { speaker: "Alamode[花火亭]", text: "無理に進むなら、次はもっと荒れる。帰還も選択肢だよ。", variant: "normal", duration: 5400 },
+    { speaker: "Omaru[IGNIS]", text: "突破するなら救援線を維持する。撤退するなら確実に戻ろう。", variant: "normal", duration: 5200 }
+  ],
+  hp_50: [
+    { speaker: "Kurokage[花火亭]", text: "耐久値が半分を切った。回復フィールドとHealの位置を確認。", variant: "warning", duration: 5200 },
+    { speaker: "Alamode[花火亭]", text: "大丈夫、まだ立て直せる。敵の輪から一度抜けよう。", variant: "normal", duration: 5200 },
+    { speaker: "Hiromaro[IGNIS]", text: "深呼吸！ ブースターで距離を取って、リズム戻そう！", variant: "normal", duration: 5000 }
+  ],
+  hp_25: [
+    { speaker: "SYSTEM", text: "FRAME INTEGRITY CRITICAL", variant: "warning", duration: 3000 },
+    { speaker: "Kurokage[花火亭]", text: "危険域。次の被弾で崩れる可能性がある。無理に拾いに行くな。", variant: "warning", duration: 5600 },
+    { speaker: "Omaru[IGNIS]", text: "救援線は維持している。生存優先で動いてくれ。", variant: "normal", duration: 5000 },
+    { speaker: "Alamode[花火亭]", text: "あんじゅちゃん、逃げていい。帰るために進んでるんだから。", variant: "normal", duration: 5400 }
+  ],
+  hp_10: [
+    { speaker: "SYSTEM", text: "EMERGENCY VITAL ALERT", variant: "warning", duration: 3000 },
+    { speaker: "Kurokage[花火亭]", text: "最優先: 離脱。敵密度の薄い方向へ。", variant: "warning", duration: 4600 },
+    { speaker: "Hiromaro[IGNIS]", text: "今は倒すより生き残る！ DASH、DASH！", variant: "warning", duration: 4600 },
+    { speaker: "Alamode[花火亭]", text: "お願い、無理しないで。HealかGateまで持ちこたえて。", variant: "warning", duration: 5200 }
+  ],
+  boss_spawn: [
+    { speaker: "SYSTEM", text: "LARGE ENEMY SIGNAL", variant: "system", duration: 3000 },
+    { speaker: "Kurokage[花火亭]", text: "大型反応。通常敵より耐久が高い、足を止めないで。", variant: "warning", duration: 5200 },
+    { speaker: "Omaru[IGNIS]", text: "こちらも救援連絡を続ける。撃破できるなら報酬も狙える。", variant: "normal", duration: 5400 },
+    { speaker: "Hiromaro[IGNIS]", text: "ボス来た！ でもいつも通り、囲まれなければ勝てる！", variant: "normal", duration: 5000 },
+    { speaker: "Alamode[花火亭]", text: "無理に近づかなくていいよ。Gateまで耐える選択もあり。", variant: "normal", duration: 5200 }
+  ],
+  nemesis_spawn: [
+    { speaker: "SYSTEM", text: "NEMESIS SIGNAL DETECTED", variant: "warning", duration: 3200 },
+    { speaker: "Kurokage[花火亭]", text: "高Depth専用の異常個体。通常ボスとは別物だ。", variant: "warning", duration: 5400 },
+    { speaker: "Omaru[IGNIS]", text: "危険度が高い。救援ルートを優先更新する。", variant: "warning", duration: 5000 },
+    { speaker: "Alamode[花火亭]", text: "倒せなくてもいい。生きて戻る判断を忘れないで。", variant: "normal", duration: 5200 }
+  ],
+  support_pickup: [
+    { speaker: "SYSTEM", text: "SUPPORT SIGNAL ACQUIRED", variant: "system", duration: 3000 },
+    { speaker: "Alamode[花火亭]", text: "支援信号を拾ったよ。今のうちに押し返そう。", variant: "normal", duration: 5000 },
+    { speaker: "Omaru[IGNIS]", text: "支援投入を確認。攻勢に合わせて連絡線を広げる。", variant: "normal", duration: 5000 },
+    { speaker: "Hiromaro[IGNIS]", text: "ナイス支援！ ここから盛り返すよ！", variant: "normal", duration: 4400 },
+    { speaker: "Kurokage[花火亭]", text: "Support回収を確認。効果中に敵密度を下げたい。", variant: "system", duration: 5000 }
+  ],
+  support_genso_knights: [
+    { speaker: "Omaru[IGNIS]", text: "元素騎士側、支援線接続。ここは一気に切り開く。", variant: "system", duration: 5200 },
+    { speaker: "Hiromaro[IGNIS]", text: "来た来た！ 元素騎士チーム、出番だよ！", variant: "normal", duration: 5000 },
+    { speaker: "Alamode[花火亭]", text: "花火亭も合わせる。あんじゅちゃん、支援に乗って！", variant: "normal", duration: 5200 },
+    { speaker: "Kurokage[花火亭]", text: "特殊支援イベントを確認。報酬ドロップも監視する。", variant: "system", duration: 5200 }
+  ],
+  support_stabilized: [
+    { speaker: "Kurokage[花火亭]", text: "Support信号は重複中。STABILIZEへ変換された。", variant: "system", duration: 5000 },
+    { speaker: "Alamode[花火亭]", text: "直接支援は出せないけど、Gate安定にはつながるよ。", variant: "normal", duration: 5200 },
+    { speaker: "Omaru[IGNIS]", text: "支援線は無駄にしない。蓄積分を次の判断に使おう。", variant: "normal", duration: 5200 }
+  ]
+};
+const COMMS_BANTER_CATEGORY_IDS = [
+  "robot_frame",
+  "music_mood",
+  "lagos_quiet",
+  "rescue_coordination",
+  "shallow_depth",
+  "deep_depth",
+  "depth9_tension",
+  "pair_smalltalk",
+  "light_encourage",
+  "system_check"
+];
+const COMMS_BANTER_DEFAULTS = {
+  initialDelayMs: { min: 35000, max: 60000 },
+  repeatDelayMs: { min: 45000, max: 80000 },
+  debugInitialDelayMs: { min: 5000, max: 8000 },
+  debugRepeatDelayMs: { min: 8000, max: 15000 },
+  cooldownBypassDelayMs: 1200,
+  depthStoryExtraDelayMs: 26000,
+  maxPerDepth: 2,
+  maxDepth9PerDepth: 1,
+  maxPerRun: 22,
+  historyLimit: 8,
+  queueBusyLimit: 2,
+  hpLowRatio: 0.4,
+  genericGraceMs: 15000,
+  nearGateLeadMs: GATE_WARNING_LEAD_MS
+};
+const COMMS_BANTER_CATEGORY_DEPTHS = {
+  shallow_depth: { minDepth: 1, maxDepth: 5 },
+  deep_depth: { minDepth: 6, maxDepth: 8 },
+  depth9_tension: { minDepth: 9, maxDepth: 9 }
+};
+const COMMS_BANTER_DEPTH_CATEGORY_ORDER = [
+  {
+    minDepth: 1,
+    maxDepth: 5,
+    categories: ["robot_frame", "music_mood", "lagos_quiet", "rescue_coordination", "shallow_depth", "pair_smalltalk", "light_encourage", "system_check"]
+  },
+  {
+    minDepth: 6,
+    maxDepth: 8,
+    categories: ["deep_depth", "rescue_coordination", "music_mood", "light_encourage", "system_check", "pair_smalltalk"]
+  },
+  {
+    minDepth: 9,
+    maxDepth: 9,
+    categories: ["depth9_tension", "rescue_coordination", "system_check"]
+  },
+  {
+    minDepth: 10,
+    maxDepth: 99,
+    categories: ["rescue_coordination", "system_check"]
+  }
+];
+const COMMS_BANTER_POOLS = {
+  robot_frame: [
+    { id: "robot_frame_001", speaker: "Kurokage[花火亭]", text: "クマ型フレームの姿勢制御は安定。ブースター熱だけ少し高い。", variant: "normal", duration: 5200 },
+    { id: "robot_frame_002", speaker: "Hiromaro[IGNIS]", text: "このクマ、見た目よりずっと速いよね。かわいいのに圧がすごい。", variant: "normal", duration: 5200 },
+    { id: "robot_frame_003", speaker: "Alamode[花火亭]", text: "背中のブースター、ちゃんと見えてるよ。無理して壁際に突っ込まないでね。", variant: "normal", duration: 5600 },
+    { id: "robot_frame_004", speaker: "Omaru[IGNIS]", text: "フレーム経由の活動時間は伸びている。探索範囲を少し広げよう。", variant: "normal", duration: 5400 },
+    { id: "robot_frame_005", speaker: "Kurokage[花火亭]", text: "音響システムも生きている。士気維持には意外と重要だ。", variant: "system", duration: 5000 },
+    { id: "robot_frame_006", speaker: "Hiromaro[IGNIS]", text: "クマ型で戦場を走るの、冷静に考えるとすごい絵面だよね。", variant: "normal", duration: 5200 },
+    { id: "robot_frame_007", speaker: "Alamode[花火亭]", text: "そのフレーム、花火亭側でも評判いいよ。主に見た目が。", variant: "normal", duration: 5000 },
+    { id: "robot_frame_008", speaker: "Kurokage[花火亭]", text: "外部フレームの反応速度は良好。判断はあんじゅちゃん本人に追従している。", variant: "system", duration: 5600 }
+  ],
+  music_mood: [
+    { id: "music_mood_001", speaker: "Hiromaro[IGNIS]", text: "BGMがあるだけで、深部の空気も少し軽くなるね。", variant: "normal", duration: 5000 },
+    { id: "music_mood_002", speaker: "Alamode[花火亭]", text: "好きな曲を流して。怖い場所ほど、自分のリズムが大事。", variant: "normal", duration: 5400 },
+    { id: "music_mood_003", speaker: "Omaru[IGNIS]", text: "通信は短く保つ。音楽と戦闘音を優先してくれ。", variant: "normal", duration: 5000 },
+    { id: "music_mood_004", speaker: "Kurokage[花火亭]", text: "オーディオ出力正常。ノイズが増えたらこちらで拾う。", variant: "system", duration: 5000 },
+    { id: "music_mood_005", speaker: "Hiromaro[IGNIS]", text: "今の流れ、いい感じ！ リズムに乗っていこう！", variant: "normal", duration: 4600 },
+    { id: "music_mood_006", speaker: "Alamode[花火亭]", text: "音があると、無人の街でも少しだけあたたかいね。", variant: "normal", duration: 5200 },
+    { id: "music_mood_007", speaker: "Hiromaro[IGNIS]", text: "戦闘中のプレイリストって大事だよ。気持ちが折れにくくなる。", variant: "normal", duration: 5400 },
+    { id: "music_mood_008", speaker: "Kurokage[花火亭]", text: "音量は上げすぎるな。警告音を聞き逃す。", variant: "normal", duration: 4600 }
+  ],
+  lagos_quiet: [
+    { id: "lagos_quiet_001", speaker: "Alamode[花火亭]", text: "ラグオスが静かすぎるね。でも、通信がある間はひとりじゃないよ。", variant: "normal", duration: 5600 },
+    { id: "lagos_quiet_002", speaker: "Kurokage[花火亭]", text: "街区ログに人流がない。だが設備はまだ生きている。", variant: "system", duration: 5200 },
+    { id: "lagos_quiet_003", speaker: "Omaru[IGNIS]", text: "静かな場所ほど、戻ってきた時の声が響く。", variant: "normal", duration: 4800 },
+    { id: "lagos_quiet_004", speaker: "Hiromaro[IGNIS]", text: "じゃあ今のうちに、戻った時の乾杯の練習しとく？", variant: "normal", duration: 5000 },
+    { id: "lagos_quiet_005", speaker: "Alamode[花火亭]", text: "この街、ちゃんと待ってる感じがする。だから迎えに行こう。", variant: "normal", duration: 5600 },
+    { id: "lagos_quiet_006", speaker: "Kurokage[花火亭]", text: "停止しているログと、残っている信号が混在している。完全な沈黙ではない。", variant: "system", duration: 5800 },
+    { id: "lagos_quiet_007", speaker: "Hiromaro[IGNIS]", text: "静かすぎるなら、こっちから賑やかにすればいい。まずは通信から！", variant: "normal", duration: 5400 },
+    { id: "lagos_quiet_008", speaker: "Omaru[IGNIS]", text: "応答は少ない。だが、少ないこととゼロは違う。拾えるものは拾う。", variant: "normal", duration: 5600 }
+  ],
+  rescue_coordination: [
+    { id: "rescue_coordination_001", speaker: "Omaru[IGNIS]", text: "救援連絡、継続中。昔のプレイヤーにも信号を投げている。", variant: "normal", duration: 5400 },
+    { id: "rescue_coordination_002", speaker: "Alamode[花火亭]", text: "花火亭側でも声をかけてる。小さな反応でも拾っていくね。", variant: "normal", duration: 5400 },
+    { id: "rescue_coordination_003", speaker: "Kurokage[花火亭]", text: "応答は少ないがゼロではない。焦る必要はない。", variant: "system", duration: 5000 },
+    { id: "rescue_coordination_004", speaker: "Hiromaro[IGNIS]", text: "ひとり戻ってくれば、そこからまた賑やかになるよ。", variant: "normal", duration: 5000 },
+    { id: "rescue_coordination_005", speaker: "Omaru[IGNIS]", text: "元素騎士側の連絡線は維持している。次の救援候補を確認中だ。", variant: "normal", duration: 5400 },
+    { id: "rescue_coordination_006", speaker: "Alamode[花火亭]", text: "戻ってきてくれる人がいたら、ちゃんと迎えられるように準備してるよ。", variant: "normal", duration: 5600 },
+    { id: "rescue_coordination_007", speaker: "Kurokage[花火亭]", text: "基地側の通信帯域を整理した。重要信号は優先して通す。", variant: "system", duration: 5200 },
+    { id: "rescue_coordination_008", speaker: "Hiromaro[IGNIS]", text: "救援って、まず声を出すところからだよね。届くまで何度でも呼ぼう。", variant: "normal", duration: 5600 }
+  ],
+  shallow_depth: [
+    { id: "shallow_depth_001", speaker: "Kurokage[花火亭]", text: "浅層の敵密度は許容範囲。囲まれないことを優先。", variant: "system", duration: 5000 },
+    { id: "shallow_depth_002", speaker: "Hiromaro[IGNIS]", text: "浅層でも油断しない。基本を守れば長く潜れるよ。", variant: "normal", duration: 5000 },
+    { id: "shallow_depth_003", speaker: "Alamode[花火亭]", text: "今のうちに動きに慣れておこう。深くなるほど判断が大事になる。", variant: "normal", duration: 5400 },
+    { id: "shallow_depth_004", speaker: "Omaru[IGNIS]", text: "浅層データを集めている。救援側にも共有しておく。", variant: "normal", duration: 5000 },
+    { id: "shallow_depth_005", speaker: "Hiromaro[IGNIS]", text: "いいペース！ こういう時こそ、欲張りすぎないのがコツ。", variant: "normal", duration: 5000 },
+    { id: "shallow_depth_006", speaker: "Kurokage[花火亭]", text: "通信品質は安定。深部に入る前にログをできるだけ取る。", variant: "system", duration: 5200 }
+  ],
+  deep_depth: [
+    { id: "deep_depth_001", speaker: "Kurokage[花火亭]", text: "深部域。通信遅延が少し増えた。応答が遅れても慌てるな。", variant: "warning", duration: 5600 },
+    { id: "deep_depth_002", speaker: "Alamode[花火亭]", text: "ここから先は、帰る判断も大事にしてね。持ち帰れば次につながる。", variant: "normal", duration: 5600 },
+    { id: "deep_depth_003", speaker: "Omaru[IGNIS]", text: "深部報酬は大きい。だが、生還が最優先だ。", variant: "normal", duration: 5000 },
+    { id: "deep_depth_004", speaker: "Hiromaro[IGNIS]", text: "深いほどBGM音量ちょっと上げたくなるよね。気合い入るし。", variant: "normal", duration: 5200 },
+    { id: "deep_depth_005", speaker: "Kurokage[花火亭]", text: "敵反応の密度が上がっている。直線移動より旋回を意識。", variant: "system", duration: 5200 },
+    { id: "deep_depth_006", speaker: "Alamode[花火亭]", text: "深部まで来られたこと自体が前進だよ。無理せず積み上げよう。", variant: "normal", duration: 5400 },
+    { id: "deep_depth_007", speaker: "Omaru[IGNIS]", text: "こちらの連絡網も深部対応へ切り替える。救援線を細くしない。", variant: "normal", duration: 5400 },
+    { id: "deep_depth_008", speaker: "Hiromaro[IGNIS]", text: "深部って言うと怖いけど、ここまで来た経験値はちゃんと残ってるよ。", variant: "normal", duration: 5600 }
+  ],
+  depth9_tension: [
+    { id: "depth9_tension_001", speaker: "Kurokage[花火亭]", text: "ノイズが混じり始めた。こちらの声が乱れたらDepth10信号圏だ。", variant: "noise", duration: 5600 },
+    { id: "depth9_tension_002", speaker: "Alamode[花火亭]", text: "もし途切れても、ここまでの通信はちゃんと届いてる。", variant: "normal", duration: 5200 },
+    { id: "depth9_tension_003", speaker: "Omaru[IGNIS]", text: "連絡線は維持する。切断されても救援要請は止めない。", variant: "normal", duration: 5200 },
+    { id: "depth9_tension_004", speaker: "Hiromaro[IGNIS]", text: "ちょっと怖いけど、ここまで来たのもすごいことだよ。", variant: "normal", duration: 5200 },
+    { id: "depth9_tension_005", speaker: "Kurokage[花火亭]", text: "Depth10方向から干渉波。雑談できる余裕は、そろそろ少ない。", variant: "noise", duration: 5400 },
+    { id: "depth9_tension_006", speaker: "Alamode[花火亭]", text: "声が届くうちに言っておくね。帰ってきたら、ちゃんと迎えるから。", variant: "normal", duration: 5600 }
+  ],
+  pair_smalltalk: [
+    {
+      id: "pair_smalltalk_001",
+      minDepth: 1,
+      maxDepth: 5,
+      messages: [
+        { speaker: "Hiromaro[IGNIS]", text: "このクマ型フレーム、名前つけない？", variant: "normal", duration: 4000 },
+        { speaker: "Kurokage[花火亭]", text: "任務中だ。識別名は現状で十分。", variant: "normal", duration: 4200 }
+      ]
+    },
+    {
+      id: "pair_smalltalk_002",
+      minDepth: 1,
+      maxDepth: 6,
+      messages: [
+        { speaker: "Alamode[花火亭]", text: "今の言い方、ちょっと冷たくない？", variant: "normal", duration: 4000 },
+        { speaker: "Kurokage[花火亭]", text: "冷却性能の話なら正常だ。", variant: "normal", duration: 4000 }
+      ]
+    },
+    {
+      id: "pair_smalltalk_003",
+      minDepth: 1,
+      maxDepth: 8,
+      messages: [
+        { speaker: "Hiromaro[IGNIS]", text: "帰ったら何食べる？", variant: "normal", duration: 3600 },
+        { speaker: "Alamode[花火亭]", text: "まずは無事に帰ってからね。約束だけ先にしておこう。", variant: "normal", duration: 5000 }
+      ]
+    },
+    {
+      id: "pair_smalltalk_004",
+      minDepth: 1,
+      maxDepth: 8,
+      messages: [
+        { speaker: "Omaru[IGNIS]", text: "救援リストを更新した。", variant: "normal", duration: 3600 },
+        { speaker: "Hiromaro[IGNIS]", text: "じゃあ帰還後の打ち上げリストも更新しよう！", variant: "normal", duration: 4600 }
+      ]
+    },
+    {
+      id: "pair_smalltalk_005",
+      minDepth: 6,
+      maxDepth: 8,
+      messages: [
+        { speaker: "Kurokage[花火亭]", text: "深部ノイズ、増加。会話量を少し落とす。", variant: "warning", duration: 4400 },
+        { speaker: "Hiromaro[IGNIS]", text: "了解。じゃあ短くいくね。ファイト！", variant: "normal", duration: 4200 }
+      ]
+    },
+    {
+      id: "pair_smalltalk_006",
+      minDepth: 1,
+      maxDepth: 7,
+      messages: [
+        { speaker: "Alamode[花火亭]", text: "通信があるだけで、少し安心するね。", variant: "normal", duration: 4200 },
+        { speaker: "Omaru[IGNIS]", text: "安心は戦力になる。維持しよう。", variant: "normal", duration: 4200 }
+      ]
+    }
+  ],
+  light_encourage: [
+    { id: "light_encourage_001", speaker: "Hiromaro[IGNIS]", text: "いい動き！ その調子で、無理なくいこう。", variant: "normal", duration: 4400 },
+    { id: "light_encourage_002", speaker: "Alamode[花火亭]", text: "焦らなくていいよ。進めたぶんだけ、ちゃんと意味がある。", variant: "normal", duration: 5200 },
+    { id: "light_encourage_003", speaker: "Omaru[IGNIS]", text: "探索は継続できている。それだけで状況は前に動いている。", variant: "normal", duration: 5200 },
+    { id: "light_encourage_004", speaker: "Kurokage[花火亭]", text: "行動ログを記録中。無駄な移動は少ない。良い判断だ。", variant: "system", duration: 5000 },
+    { id: "light_encourage_005", speaker: "Hiromaro[IGNIS]", text: "今の回避、見てたよ！ そういうの大事！", variant: "normal", duration: 4400 },
+    { id: "light_encourage_006", speaker: "Alamode[花火亭]", text: "疲れたら少し大回りしていいよ。止まらないことが大事。", variant: "normal", duration: 5200 },
+    { id: "light_encourage_007", speaker: "Omaru[IGNIS]", text: "支援側は維持できている。あんじゅちゃんは探索に集中してくれ。", variant: "normal", duration: 5200 },
+    { id: "light_encourage_008", speaker: "Hiromaro[IGNIS]", text: "こういう地道な周回が、最後に効いてくるんだよね。", variant: "normal", duration: 5000 }
+  ],
+  system_check: [
+    { id: "system_check_001", speaker: "Kurokage[花火亭]", text: "通信チェック。ラグはあるが、会話には支障なし。", variant: "system", duration: 4600 },
+    { id: "system_check_002", speaker: "Kurokage[花火亭]", text: "クマ型フレーム、同期継続。姿勢補正も生きている。", variant: "system", duration: 5000 },
+    { id: "system_check_003", speaker: "Omaru[IGNIS]", text: "救援連絡線、維持。応答待ちの信号を整理している。", variant: "normal", duration: 5000 },
+    { id: "system_check_004", speaker: "Alamode[花火亭]", text: "基地側は大丈夫。そっちは戦闘に集中して。", variant: "normal", duration: 4600 },
+    { id: "system_check_005", speaker: "Kurokage[花火亭]", text: "ログ保存中。深部で途切れても、ここまでの記録は残る。", variant: "system", duration: 5400 },
+    { id: "system_check_006", speaker: "Hiromaro[IGNIS]", text: "通信チェックついでに応援チェック。今日もちゃんと応援してる！", variant: "normal", duration: 5200 }
+  ]
+};
+
+function isCommsStoryDebugResetRequested() {
+  const value = getUrlSearchParam(COMMS_STORY_DEBUG_RESET_QUERY_PARAM);
+  return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+}
+
+function isCommsEpilogueDebugResetRequested() {
+  const value = getUrlSearchParam(COMMS_EPILOGUE_DEBUG_RESET_QUERY_PARAM);
+  return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+}
+
+function isCommsEpilogueDebugForcePendingRequested() {
+  const value = getUrlSearchParam(COMMS_EPILOGUE_DEBUG_FORCE_PENDING_QUERY_PARAM);
+  return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+}
+
+function isCommsBanterDebugListRequested() {
+  const value = getUrlSearchParam(COMMS_BANTER_DEBUG_LIST_QUERY_PARAM);
+  return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+}
+
+function logCommsBanterListForDebugOnBoot() {
+  if (!isCommsBanterDebugListRequested()) {
+    return false;
+  }
+
+  const counts = {};
+  COMMS_BANTER_CATEGORY_IDS.forEach((category) => {
+    counts[category] = (COMMS_BANTER_POOLS[category] || []).length;
+  });
+  console.log("[COMMS BANTER] list", counts);
+  return true;
+}
+
+function resetCommsStoryStorageForDebugOnBoot() {
+  if (!isCommsStoryDebugResetRequested()) {
+    return false;
+  }
+
+  let hadState = false;
+  try {
+    hadState = window.localStorage?.getItem(COMMS_STORY_STORAGE_KEY) !== null;
+    window.localStorage?.removeItem(COMMS_STORY_STORAGE_KEY);
+  } catch (error) {
+    return false;
+  }
+
+  if (hadState) {
+    console.log(`[COMMS STORY] storage reset ${COMMS_STORY_STORAGE_KEY}`, { reason: "boot", key: COMMS_STORY_STORAGE_KEY });
+  }
+  return hadState;
+}
+
+function resetCommsEpilogueStorageForDebugOnBoot() {
+  if (!isCommsEpilogueDebugResetRequested()) {
+    return false;
+  }
+
+  let removedIds = [];
+  try {
+    const rawState = window.localStorage?.getItem(COMMS_STORY_STORAGE_KEY) || "";
+    if (!rawState) {
+      return false;
+    }
+    const parsed = JSON.parse(rawState);
+    if (!parsed?.played || typeof parsed.played !== "object") {
+      return false;
+    }
+    removedIds = COMMS_EPILOGUE_SEQUENCE_IDS.filter((sequenceId) => parsed.played[sequenceId] === true);
+    if (removedIds.length <= 0) {
+      return false;
+    }
+    removedIds.forEach((sequenceId) => {
+      delete parsed.played[sequenceId];
+    });
+    window.localStorage?.setItem(COMMS_STORY_STORAGE_KEY, JSON.stringify({
+      version: COMMS_STORY_VERSION,
+      played: parsed.played || {}
+    }));
+  } catch (error) {
+    return false;
+  }
+
+  console.log("[COMMS EPILOGUE] reset", { key: COMMS_STORY_STORAGE_KEY, removedIds });
+  return true;
+}
+
+function setPendingCommsEpilogueForDebugOnBoot() {
+  if (!isCommsEpilogueDebugForcePendingRequested()) {
+    return false;
+  }
+  try {
+    window.sessionStorage?.setItem(COMMS_EPILOGUE_PENDING_SESSION_KEY, "depth10_shop_return_epilogue");
+    console.log("[COMMS EPILOGUE] force pending", { key: COMMS_EPILOGUE_PENDING_SESSION_KEY, sequenceId: "depth10_shop_return_epilogue" });
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+resetCommsStoryStorageForDebugOnBoot();
+resetCommsEpilogueStorageForDebugOnBoot();
+setPendingCommsEpilogueForDebugOnBoot();
+logCommsBanterListForDebugOnBoot();
 const LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS = 160;
 const LEVEL_UP_PASSIVE_MAX_LEVEL = 10;
 const PLAYER_LEVEL_CAP = 99;
@@ -5006,6 +5560,13 @@ class SurvivalScene extends Phaser.Scene {
     this.lastPickupNotice = "";
     this.lastPickupNoticeUntil = 0;
     this.commsState = this.createCommsState();
+    this.handleCommsStoryDebugReset("createState");
+    this.handleCommsEpilogueDebugReset("createState");
+    this.commsStoryState = this.loadCommsStoryState();
+    this.initializeCommsStoryRunState();
+    this.initializeCommsEpilogueRunState();
+    this.initializeGenericCommsState();
+    this.initializeCommsBanterState();
     this.dropSpawnSerial = 0;
     this.nextDropLimitCleanupAt = 0;
     this.activeBgm = null;
@@ -6981,6 +7542,11 @@ class SurvivalScene extends Phaser.Scene {
     this.setLastPickupNotice(`${definition.title} DEPTH ${depth}`);
     this.showOverflowRewardText("NEMESIS BOSS", enemy.x, enemy.y - Math.max(110, enemy.displayHeight * 0.52), "#ffd1d8");
     this.updateNemesisBossHud?.();
+    this.tryQueueGenericComms("nemesis_spawn", {
+      depth,
+      bossType: definition.id,
+      isFinalRaid: false
+    });
     if (this.isNemesisBossDebugEnabled()) {
       console.log("[NEMESIS] spawned", {
         depth,
@@ -8272,6 +8838,7 @@ class SurvivalScene extends Phaser.Scene {
     this.updateFinalBossRaidBossHpFromRaidProgress();
     this.updateFinalBossRaidHud();
     this.updateFinalBossRaidVisuals(this.time?.now || 0);
+    this.tryQueueDepthComms(FINAL_BOSS_RAID_CONFIG.targetDepth, "finalBossRaidStart");
 
     if (this.isFinalBossRaidDebugEnabled()) {
       console.log("[FINAL BOSS RAID] start", {
@@ -10408,6 +10975,7 @@ class SurvivalScene extends Phaser.Scene {
     state.bossFallbackGraphics = null;
     state.bossNameText = null;
     this.setLastPickupNotice("FINAL RAID BOSS DEFEATED");
+    this.tryQueueDepth10EpilogueComms?.("depth10_boss_break_epilogue", reason);
 
     if (state.debug) {
       console.log("[FINAL BOSS RAID] boss defeated", {
@@ -12193,6 +12761,7 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     this.awardFinalBossRaidClearRewards(reason);
+    this.tryQueueDepth10EpilogueComms?.("depth10_release_gate_epilogue", reason);
     const config = FINAL_BOSS_RAID_CONFIG.liberationGate || {};
     state.liberationGateActive = true;
     state.liberationGateLocked = false;
@@ -12327,6 +12896,7 @@ class SurvivalScene extends Phaser.Scene {
     this.input?.on("pointerup", this.finalBossLiberationGatePointerHandler);
 
     container.add([shade, panel, title, subtitle, description, button, buttonLabel, hint, buttonHitZone]);
+    this.bringCommsUiToTop();
     this.tweens.add({
       targets: container,
       alpha: 1,
@@ -12389,6 +12959,7 @@ class SurvivalScene extends Phaser.Scene {
     if (resultParts.length > 0) {
       messageLines.push(resultParts.join(" / "));
     }
+    this.setPendingShopEpilogueComms?.("depth10_shop_return_epilogue", "liberationReturn");
     this.returnToOpeningShop(messageLines.join("\n"), { showMobileLaunchGate: true });
   }
 
@@ -18958,7 +19529,13 @@ class SurvivalScene extends Phaser.Scene {
       text,
       duration,
       variant: this.normalizeCommsVariant(options.variant),
-      priority
+      priority,
+      source: options.source || null,
+      storySequenceId: options.storySequenceId || null,
+      epilogueSequenceId: options.epilogueSequenceId || null,
+      genericEventType: options.genericEventType || null,
+      banterEntryId: options.banterEntryId || null,
+      banterCategory: options.banterCategory || null
     };
   }
 
@@ -19007,7 +19584,42 @@ class SurvivalScene extends Phaser.Scene {
     return true;
   }
 
-  canDisplayCommsMessage() {
+  isShopLoadingScreenVisible() {
+    try {
+      const screen = document.getElementById("shop-loading-screen");
+      return Boolean(screen && !screen.hidden && screen.style.display !== "none");
+    } catch (error) {
+      return false;
+    }
+  }
+
+  isMobileLaunchGateVisible() {
+    try {
+      const gate = document.getElementById("mobile-start-gate");
+      return Boolean(gate && !gate.hidden && gate.style.display !== "none");
+    } catch (error) {
+      return false;
+    }
+  }
+
+  canDisplayShopEpilogueComms() {
+    return Boolean(
+      this.commsState?.container?.active &&
+      this.shopActive &&
+      !this.restartInProgress &&
+      !this.gameOver &&
+      !this.extractionComplete &&
+      !this.rankingNameEntryActive &&
+      !this.deepExtractionResultState?.active &&
+      !this.isShopLoadingScreenVisible() &&
+      !this.isMobileLaunchGateVisible()
+    );
+  }
+
+  canDisplayCommsMessage(message = null) {
+    if (message?.source === "epilogue" && this.shopActive) {
+      return this.canDisplayShopEpilogueComms();
+    }
     return Boolean(
       this.commsState?.container?.active &&
       !this.shopActive &&
@@ -19024,12 +19636,22 @@ class SurvivalScene extends Phaser.Scene {
     if (!state?.container?.active || state.activeMessage || state.transitioning || state.queue.length <= 0) {
       return false;
     }
-    if (!this.canDisplayCommsMessage()) {
+    const message = state.queue[0];
+    if (!this.canDisplayCommsMessage(message)) {
       return false;
     }
 
-    const message = state.queue.shift();
+    state.queue.shift();
     this.displayCommsMessage(message);
+    return true;
+  }
+
+  bringCommsUiToTop() {
+    const container = this.commsState?.container;
+    if (!container?.active) {
+      return false;
+    }
+    this.uiContainer?.bringToTop?.(container);
     return true;
   }
 
@@ -19044,9 +19666,13 @@ class SurvivalScene extends Phaser.Scene {
     state.activeMessage = message;
     state.visible = true;
     state.transitioning = true;
+    if (message.source === "epilogue") {
+      this.bringCommsUiToTop();
+    }
     const layout = this.layoutCommsUi() || this.getCommsUiLayout();
     const palette = this.getCommsVariantPalette(message.variant);
     state.container
+      .setDepth(message.source === "epilogue" ? COMMS_UI_CONFIG.epilogueDepth : COMMS_UI_CONFIG.depth)
       .setPosition(layout.x - COMMS_UI_CONFIG.slideOffsetX, layout.y)
       .setAlpha(0)
       .setVisible(true);
@@ -19181,6 +19807,10 @@ class SurvivalScene extends Phaser.Scene {
     state.visible = false;
     state.transitioning = false;
     state.debugMessagesQueued = false;
+    this.resetCommsStoryRunState?.(reason);
+    this.resetCommsEpilogueRunState?.(reason);
+    this.resetGenericCommsState?.(reason);
+    this.resetCommsBanterForRun?.(reason);
     state.container?.setVisible(false).setAlpha(0);
     if (this.isCommsDebugEnabled?.()) {
       console.log("[COMMS] reset", { reason });
@@ -19197,6 +19827,1511 @@ class SurvivalScene extends Phaser.Scene {
     this.resetCommsUi(reason);
     state.container?.destroy();
     this.commsState = this.createCommsState();
+  }
+
+  createDefaultCommsStoryState() {
+    return {
+      version: COMMS_STORY_VERSION,
+      played: {}
+    };
+  }
+
+  normalizeCommsStoryState(record = {}) {
+    const played = {};
+    if (record?.played && typeof record.played === "object") {
+      Object.keys(record.played).forEach((sequenceId) => {
+        if (typeof sequenceId === "string" && record.played[sequenceId] === true) {
+          played[sequenceId] = true;
+        }
+      });
+    }
+
+    return {
+      version: COMMS_STORY_VERSION,
+      played
+    };
+  }
+
+  loadCommsStoryState() {
+    let rawState = null;
+
+    try {
+      rawState = window.localStorage?.getItem(COMMS_STORY_STORAGE_KEY) || null;
+    } catch (error) {
+      rawState = null;
+    }
+
+    if (!rawState) {
+      return this.createDefaultCommsStoryState();
+    }
+
+    try {
+      return this.normalizeCommsStoryState(JSON.parse(rawState));
+    } catch (error) {
+      return this.createDefaultCommsStoryState();
+    }
+  }
+
+  saveCommsStoryState() {
+    this.commsStoryState = this.normalizeCommsStoryState(this.commsStoryState);
+
+    try {
+      window.localStorage?.setItem(COMMS_STORY_STORAGE_KEY, JSON.stringify(this.commsStoryState));
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  isCommsStoryDebugEnabled() {
+    const value = this.getUrlStageParam(COMMS_STORY_DEBUG_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  isCommsStoryDebugResetEnabled() {
+    const value = this.getUrlStageParam(COMMS_STORY_DEBUG_RESET_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  handleCommsStoryDebugReset(reason = "debugCommsStoryReset") {
+    if (!this.isCommsStoryDebugResetEnabled()) {
+      return false;
+    }
+
+    let hadState = false;
+    try {
+      hadState = window.localStorage?.getItem(COMMS_STORY_STORAGE_KEY) !== null;
+      window.localStorage?.removeItem(COMMS_STORY_STORAGE_KEY);
+    } catch (error) {
+      return false;
+    }
+
+    if (hadState) {
+      console.log(`[COMMS STORY] storage reset ${COMMS_STORY_STORAGE_KEY}`, { reason, key: COMMS_STORY_STORAGE_KEY });
+    }
+    return hadState;
+  }
+
+  createCommsStoryRunState() {
+    return {
+      queuedSequenceIds: {},
+      pendingSequences: [],
+      debugDepthSequenceId: null
+    };
+  }
+
+  initializeCommsStoryRunState() {
+    this.commsStoryRunState = this.createCommsStoryRunState();
+    return this.commsStoryRunState;
+  }
+
+  resetCommsStoryRunState(reason = "reset") {
+    this.initializeCommsStoryRunState();
+    if (this.isCommsStoryDebugEnabled?.()) {
+      console.log("[COMMS STORY] run state reset", { reason });
+    }
+  }
+
+  getCommsStoryDebugDepth() {
+    const depth = Math.floor(Number(this.getUrlStageParam(COMMS_STORY_DEBUG_DEPTH_QUERY_PARAM)));
+    return COMMS_STORY_DEBUG_DEPTHS.includes(depth) ? depth : 0;
+  }
+
+  getCommsStorySequence(sequenceOrDepth) {
+    if (typeof sequenceOrDepth === "string") {
+      return COMMS_STORY_SEQUENCES.find((sequence) => sequence.id === sequenceOrDepth) || null;
+    }
+
+    const depth = Math.max(1, Math.floor(Number(sequenceOrDepth) || 1));
+    return COMMS_STORY_SEQUENCES.find((sequence) => sequence.depth === depth) || null;
+  }
+
+  hasCommsStoryPlayed(sequenceId, options = {}) {
+    if (options.force || options.debug || this.isCommsStoryDebugEnabled()) {
+      return false;
+    }
+    return this.commsStoryState?.played?.[sequenceId] === true;
+  }
+
+  markCommsStoryPlayed(sequenceId) {
+    if (!sequenceId) {
+      return false;
+    }
+
+    this.commsStoryState = this.normalizeCommsStoryState(this.commsStoryState || this.createDefaultCommsStoryState());
+    if (this.commsStoryState.played[sequenceId] === true) {
+      return true;
+    }
+
+    this.commsStoryState.played[sequenceId] = true;
+    return this.saveCommsStoryState();
+  }
+
+  hasCommsStoryQueuedThisRun(sequenceId) {
+    return this.commsStoryRunState?.queuedSequenceIds?.[sequenceId] === true;
+  }
+
+  hasPendingCommsStorySequence(sequenceId) {
+    return Boolean(this.commsStoryRunState?.pendingSequences?.some((entry) => entry.id === sequenceId));
+  }
+
+  canQueueCommsStorySequenceNow(sequence) {
+    if (!sequence?.messages?.length) {
+      return false;
+    }
+    if (!this.commsState?.container?.active) {
+      this.createCommsUi();
+    }
+    if (!this.canDisplayCommsMessage()) {
+      return false;
+    }
+
+    const queuedCount = Math.max(0, this.commsState?.queue?.length || 0);
+    const queueRoom = Math.max(0, COMMS_UI_CONFIG.queueMax - queuedCount);
+    return queueRoom >= sequence.messages.length;
+  }
+
+  queuePendingCommsStorySequence(sequence, reason = "pending", options = {}) {
+    if (!sequence?.id) {
+      return false;
+    }
+    if (!this.commsStoryRunState) {
+      this.initializeCommsStoryRunState();
+    }
+    if (this.hasCommsStoryQueuedThisRun(sequence.id) || this.hasPendingCommsStorySequence(sequence.id)) {
+      return false;
+    }
+
+    this.commsStoryRunState.pendingSequences.push({
+      id: sequence.id,
+      reason,
+      options: {
+        debug: options.debug === true,
+        force: options.force === true,
+        skipSave: options.skipSave === true
+      }
+    });
+    return false;
+  }
+
+  flushPendingCommsStory(reason = "update") {
+    const state = this.commsStoryRunState;
+    if (!state?.pendingSequences?.length) {
+      return false;
+    }
+
+    const pending = state.pendingSequences.slice();
+    state.pendingSequences = [];
+    let queuedAny = false;
+
+    for (let index = 0; index < pending.length; index += 1) {
+      const entry = pending[index];
+      const sequence = this.getCommsStorySequence(entry.id);
+      if (!sequence || this.hasCommsStoryQueuedThisRun(sequence.id) || this.hasCommsStoryPlayed(sequence.id, entry.options)) {
+        continue;
+      }
+      if (!this.canQueueCommsStorySequenceNow(sequence)) {
+        state.pendingSequences.push(entry, ...pending.slice(index + 1));
+        break;
+      }
+
+      queuedAny = this.playCommsStorySequence(sequence, reason || entry.reason, entry.options) || queuedAny;
+    }
+
+    return queuedAny;
+  }
+
+  playCommsStorySequence(sequenceOrId, reason = "story", options = {}) {
+    const sequence = typeof sequenceOrId === "object"
+      ? sequenceOrId
+      : this.getCommsStorySequence(sequenceOrId);
+    if (!sequence?.id || !sequence.messages?.length) {
+      return false;
+    }
+    if (!this.commsStoryRunState) {
+      this.initializeCommsStoryRunState();
+    }
+
+    this.commsStoryRunState.queuedSequenceIds[sequence.id] = true;
+    this.commsStoryRunState.pendingSequences = (this.commsStoryRunState.pendingSequences || [])
+      .filter((entry) => entry.id !== sequence.id);
+
+    let queuedAny = false;
+    sequence.messages.forEach((message) => {
+      queuedAny = this.queueCommsMessage({
+        ...message,
+        source: "story",
+        storySequenceId: sequence.id
+      }) || queuedAny;
+    });
+
+    if (!queuedAny) {
+      delete this.commsStoryRunState.queuedSequenceIds[sequence.id];
+      return false;
+    }
+
+    const skipSave = options.skipSave === true || options.debug === true || this.isCommsStoryDebugEnabled();
+    if (!skipSave) {
+      this.markCommsStoryPlayed(sequence.id);
+    }
+    if (skipSave || this.isCommsStoryDebugEnabled()) {
+      console.log(`[COMMS STORY] queued ${sequence.id}`, {
+        id: sequence.id,
+        depth: sequence.depth,
+        reason,
+        saved: !skipSave
+      });
+    }
+    return true;
+  }
+
+  tryQueueCommsStorySequence(sequenceOrId, reason = "story", options = {}) {
+    const sequence = typeof sequenceOrId === "object"
+      ? sequenceOrId
+      : this.getCommsStorySequence(sequenceOrId);
+    if (!sequence?.id || !sequence.messages?.length) {
+      return false;
+    }
+    if (!this.commsStoryRunState) {
+      this.initializeCommsStoryRunState();
+    }
+    if (
+      this.hasCommsStoryQueuedThisRun(sequence.id) ||
+      this.hasPendingCommsStorySequence(sequence.id) ||
+      this.hasCommsStoryPlayed(sequence.id, options)
+    ) {
+      return false;
+    }
+    if (!this.canQueueCommsStorySequenceNow(sequence)) {
+      return this.queuePendingCommsStorySequence(sequence, reason, options);
+    }
+
+    return this.playCommsStorySequence(sequence, reason, options);
+  }
+
+  tryQueueDepthComms(depth = this.stageDepth, reason = "depthStart", options = {}) {
+    const sequence = this.getCommsStorySequence(depth);
+    if (!sequence) {
+      return false;
+    }
+    return this.tryQueueCommsStorySequence(sequence, reason, options);
+  }
+
+  handleDepthStoryComms(depth = this.stageDepth, reason = "depthStart", options = {}) {
+    return this.tryQueueDepthComms(depth, reason, options);
+  }
+
+  tryQueueDebugCommsStoryDepthIfNeeded(reason = "debugCommsStoryDepth") {
+    if (!this.runArchiveStarted || this.shopActive) {
+      return false;
+    }
+
+    const depth = this.getCommsStoryDebugDepth();
+    if (!depth) {
+      return false;
+    }
+
+    const sequence = this.getCommsStorySequence(depth);
+    if (!sequence?.id) {
+      return false;
+    }
+    if (!this.commsStoryRunState) {
+      this.initializeCommsStoryRunState();
+    }
+    if (
+      this.commsStoryRunState.debugDepthSequenceId === sequence.id ||
+      this.hasCommsStoryQueuedThisRun(sequence.id) ||
+      this.hasPendingCommsStorySequence(sequence.id)
+    ) {
+      return false;
+    }
+
+    const queued = this.tryQueueCommsStorySequence(sequence, reason, {
+      debug: true,
+      force: true,
+      skipSave: true
+    });
+    if (queued || this.hasPendingCommsStorySequence(sequence.id)) {
+      this.commsStoryRunState.debugDepthSequenceId = sequence.id;
+    }
+    return queued;
+  }
+
+  createCommsEpilogueRunState() {
+    return {
+      queuedSequenceIds: {},
+      debugSequenceId: null,
+      debugShopQueued: false,
+      shopFlushTimer: null
+    };
+  }
+
+  initializeCommsEpilogueRunState() {
+    this.commsEpilogueRunState = this.createCommsEpilogueRunState();
+    return this.commsEpilogueRunState;
+  }
+
+  cleanupCommsEpilogueTimers(reason = "cleanup") {
+    const timer = this.commsEpilogueRunState?.shopFlushTimer;
+    if (timer?.remove) {
+      timer.remove(false);
+    }
+    if (this.commsEpilogueRunState) {
+      this.commsEpilogueRunState.shopFlushTimer = null;
+    }
+    this.debugLogCommsEpilogue("cleanup", { reason });
+  }
+
+  resetCommsEpilogueRunState(reason = "reset") {
+    this.cleanupCommsEpilogueTimers(reason);
+    this.commsEpilogueRunState = this.createCommsEpilogueRunState();
+    this.debugLogCommsEpilogue("runReset", { reason });
+    return this.commsEpilogueRunState;
+  }
+
+  isCommsEpilogueDebugEnabled() {
+    const value = this.getUrlStageParam(COMMS_EPILOGUE_DEBUG_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  isCommsEpilogueDebugResetEnabled() {
+    const value = this.getUrlStageParam(COMMS_EPILOGUE_DEBUG_RESET_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  isCommsEpilogueShopDebugEnabled() {
+    const value = this.getUrlStageParam(COMMS_EPILOGUE_DEBUG_SHOP_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  debugLogCommsEpilogue(action, payload = {}) {
+    if (this.isCommsEpilogueDebugEnabled?.() || this.isCommsEpilogueDebugResetEnabled?.()) {
+      console.log(`[COMMS EPILOGUE] ${action}`, payload);
+    }
+  }
+
+  handleCommsEpilogueDebugReset(reason = "debugCommsEpilogueReset") {
+    if (!this.isCommsEpilogueDebugResetEnabled()) {
+      return false;
+    }
+
+    this.commsStoryState = this.loadCommsStoryState();
+    const removedIds = COMMS_EPILOGUE_SEQUENCE_IDS.filter((sequenceId) => this.commsStoryState?.played?.[sequenceId] === true);
+    if (removedIds.length <= 0) {
+      return false;
+    }
+    removedIds.forEach((sequenceId) => {
+      delete this.commsStoryState.played[sequenceId];
+    });
+    const saved = this.saveCommsStoryState();
+    console.log("[COMMS EPILOGUE] reset", { reason, key: COMMS_STORY_STORAGE_KEY, removedIds, saved });
+    return saved;
+  }
+
+  normalizeCommsEpilogueSequenceId(sequenceIdOrAlias) {
+    const value = String(sequenceIdOrAlias || "").trim();
+    if (!value) {
+      return "";
+    }
+    return COMMS_EPILOGUE_SEQUENCE_ALIASES[value] || value;
+  }
+
+  getCommsEpilogueSequence(sequenceIdOrAlias) {
+    const sequenceId = this.normalizeCommsEpilogueSequenceId(sequenceIdOrAlias);
+    return COMMS_EPILOGUE_SEQUENCES.find((sequence) => sequence.id === sequenceId) || null;
+  }
+
+  getDebugCommsEpilogueSequenceId() {
+    const raw = String(this.getUrlStageParam(COMMS_EPILOGUE_DEBUG_SEQUENCE_QUERY_PARAM) || "").trim();
+    return this.normalizeCommsEpilogueSequenceId(raw);
+  }
+
+  hasDepth10EpiloguePlayed(sequenceId, options = {}) {
+    if (options.force || options.debug || this.isCommsEpilogueDebugEnabled()) {
+      return false;
+    }
+    return this.commsStoryState?.played?.[sequenceId] === true;
+  }
+
+  markDepth10EpiloguePlayed(sequenceId) {
+    const saved = this.markCommsStoryPlayed(sequenceId);
+    this.debugLogCommsEpilogue("played save", { sequenceId, key: COMMS_STORY_STORAGE_KEY, saved });
+    return saved;
+  }
+
+  hasCommsEpilogueQueuedThisRun(sequenceId) {
+    return this.commsEpilogueRunState?.queuedSequenceIds?.[sequenceId] === true;
+  }
+
+  hasCommsEpilogueTraffic() {
+    const queue = this.commsState?.queue || [];
+    return Boolean(
+      this.commsState?.activeMessage?.source === "epilogue" ||
+      queue.some((message) => message?.source === "epilogue")
+    );
+  }
+
+  trimCommsQueueForEpilogue(requiredRoom = 1) {
+    const state = this.commsState;
+    if (!state?.queue) {
+      return 0;
+    }
+
+    let removed = 0;
+    while (COMMS_UI_CONFIG.queueMax - state.queue.length < requiredRoom) {
+      const removableIndex = state.queue
+        .map((message, index) => ({ message, index }))
+        .reverse()
+        .find((entry) => entry.message?.source !== "epilogue")?.index;
+      if (!Number.isInteger(removableIndex)) {
+        break;
+      }
+      state.queue.splice(removableIndex, 1);
+      removed += 1;
+    }
+    return removed;
+  }
+
+  canQueueCommsEpilogueSequenceNow(sequence, options = {}) {
+    if (!sequence?.messages?.length) {
+      return false;
+    }
+    if (!this.commsState?.container?.active) {
+      this.createCommsUi();
+    }
+
+    const firstMessage = {
+      source: "epilogue",
+      epilogueSequenceId: sequence.id
+    };
+    if (!this.canDisplayCommsMessage(firstMessage)) {
+      return false;
+    }
+
+    const messageCount = Math.min(sequence.messages.length, COMMS_UI_CONFIG.queueMax);
+    if (COMMS_UI_CONFIG.queueMax - Math.max(0, this.commsState?.queue?.length || 0) < messageCount) {
+      this.trimCommsQueueForEpilogue(messageCount);
+    }
+    const queueRoom = Math.max(0, COMMS_UI_CONFIG.queueMax - Math.max(0, this.commsState?.queue?.length || 0));
+    return options.force === true || queueRoom >= messageCount || this.hasCommsEpilogueTraffic();
+  }
+
+  playDepth10EpilogueSequence(sequenceIdOrAlias, reason = "epilogue", options = {}) {
+    const sequence = typeof sequenceIdOrAlias === "object"
+      ? sequenceIdOrAlias
+      : this.getCommsEpilogueSequence(sequenceIdOrAlias);
+    if (!sequence?.id || !sequence.messages?.length) {
+      this.debugLogCommsEpilogue("skip", { reason, sequenceId: sequenceIdOrAlias, skipReason: "unknownSequence" });
+      return false;
+    }
+    if (!this.commsEpilogueRunState) {
+      this.initializeCommsEpilogueRunState();
+    }
+
+    if (!this.commsState?.container?.active) {
+      this.createCommsUi();
+    }
+    const state = this.commsState;
+    this.trimCommsQueueForEpilogue(Math.min(sequence.messages.length, COMMS_UI_CONFIG.queueMax));
+    const messages = sequence.messages.slice(0, COMMS_UI_CONFIG.queueMax);
+    const normalizedMessages = messages
+      .map((message) => this.normalizeCommsMessage({
+        ...message,
+        priority: COMMS_EPILOGUE_PRIORITY,
+        source: "epilogue",
+        epilogueSequenceId: sequence.id
+      }))
+      .filter(Boolean);
+    if (normalizedMessages.length <= 0) {
+      this.debugLogCommsEpilogue("skip", { reason, sequenceId: sequence.id, skipReason: "normalizeFailed" });
+      return false;
+    }
+
+    const lastQueuedEpilogueIndex = (state.queue || []).reduce((lastIndex, message, index) => (
+      message?.source === "epilogue" ? index : lastIndex
+    ), -1);
+    const insertIndex = this.commsState?.activeMessage?.source === "epilogue" || lastQueuedEpilogueIndex >= 0
+      ? lastQueuedEpilogueIndex + 1
+      : 0;
+    state.queue.splice(insertIndex, 0, ...normalizedMessages);
+    this.trimCommsQueueForEpilogue(0);
+    this.tryShowNextCommsMessage();
+
+    const queuedAny = normalizedMessages.length > 0;
+
+    if (!queuedAny) {
+      this.debugLogCommsEpilogue("skip", { reason, sequenceId: sequence.id, skipReason: "queueFailed" });
+      return false;
+    }
+
+    this.commsEpilogueRunState.queuedSequenceIds[sequence.id] = true;
+    const skipSave = options.skipSave === true || options.debug === true || this.isCommsEpilogueDebugEnabled();
+    if (!skipSave) {
+      this.markDepth10EpiloguePlayed(sequence.id);
+    }
+    this.debugLogCommsEpilogue("queued", {
+      reason,
+      sequenceId: sequence.id,
+      messageCount: messages.length,
+      saved: !skipSave
+    });
+    return true;
+  }
+
+  tryQueueDepth10EpilogueComms(sequenceIdOrAlias, reason = "epilogue", options = {}) {
+    const sequence = this.getCommsEpilogueSequence(sequenceIdOrAlias);
+    this.debugLogCommsEpilogue("trigger", { reason, sequenceId: sequenceIdOrAlias, resolvedId: sequence?.id || null });
+    if (!sequence?.id) {
+      this.debugLogCommsEpilogue("skip", { reason, sequenceId: sequenceIdOrAlias, skipReason: "unknownSequence" });
+      return false;
+    }
+    if (!this.commsEpilogueRunState) {
+      this.initializeCommsEpilogueRunState();
+    }
+    if (this.hasCommsEpilogueQueuedThisRun(sequence.id)) {
+      this.debugLogCommsEpilogue("skip", { reason, sequenceId: sequence.id, skipReason: "runDuplicate" });
+      return false;
+    }
+    if (this.hasDepth10EpiloguePlayed(sequence.id, options)) {
+      this.debugLogCommsEpilogue("skip", { reason, sequenceId: sequence.id, skipReason: "alreadyPlayed" });
+      return false;
+    }
+    if (!this.canQueueCommsEpilogueSequenceNow(sequence, options)) {
+      this.debugLogCommsEpilogue("skip", { reason, sequenceId: sequence.id, skipReason: "notSafeNow" });
+      return false;
+    }
+    return this.playDepth10EpilogueSequence(sequence, reason, options);
+  }
+
+  setPendingShopEpilogueComms(sequenceIdOrAlias = "depth10_shop_return_epilogue", reason = "pending") {
+    const sequence = this.getCommsEpilogueSequence(sequenceIdOrAlias);
+    if (!sequence?.id) {
+      return false;
+    }
+    if (this.hasDepth10EpiloguePlayed(sequence.id)) {
+      this.debugLogCommsEpilogue("skip", { reason, sequenceId: sequence.id, skipReason: "alreadyPlayed" });
+      return false;
+    }
+    try {
+      window.sessionStorage?.setItem(COMMS_EPILOGUE_PENDING_SESSION_KEY, sequence.id);
+      this.debugLogCommsEpilogue("pending set", { reason, key: COMMS_EPILOGUE_PENDING_SESSION_KEY, sequenceId: sequence.id });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  peekPendingShopEpilogueComms() {
+    try {
+      return this.normalizeCommsEpilogueSequenceId(window.sessionStorage?.getItem(COMMS_EPILOGUE_PENDING_SESSION_KEY) || "");
+    } catch (error) {
+      return "";
+    }
+  }
+
+  clearPendingShopEpilogueComms(reason = "clear") {
+    try {
+      window.sessionStorage?.removeItem(COMMS_EPILOGUE_PENDING_SESSION_KEY);
+      this.debugLogCommsEpilogue("pending clear", { reason, key: COMMS_EPILOGUE_PENDING_SESSION_KEY });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  scheduleShopEpilogueFlush(reason = "shop") {
+    const state = this.commsEpilogueRunState || this.initializeCommsEpilogueRunState();
+    state.shopFlushTimer?.remove?.(false);
+    state.shopFlushTimer = this.time?.delayedCall?.(420, () => {
+      if (this.commsEpilogueRunState) {
+        this.commsEpilogueRunState.shopFlushTimer = null;
+      }
+      this.flushPendingShopEpilogueComms(reason);
+    }) || null;
+    return Boolean(state.shopFlushTimer);
+  }
+
+  flushPendingShopEpilogueComms(reason = "shop") {
+    if (!this.shopActive || this.restartInProgress) {
+      this.debugLogCommsEpilogue("skip", { reason, skipReason: "shopInactive" });
+      return false;
+    }
+
+    const state = this.commsEpilogueRunState || this.initializeCommsEpilogueRunState();
+    const debugShop = this.isCommsEpilogueShopDebugEnabled();
+    let sequenceId = this.peekPendingShopEpilogueComms();
+    let debug = false;
+    if (!sequenceId && debugShop && !state.debugShopQueued) {
+      sequenceId = "depth10_shop_return_epilogue";
+      debug = true;
+    }
+    if (!sequenceId) {
+      return false;
+    }
+
+    if (!this.canDisplayShopEpilogueComms()) {
+      this.debugLogCommsEpilogue("skip", { reason, sequenceId, skipReason: "shopNotSafe" });
+      this.scheduleShopEpilogueFlush(`${reason}:retry`);
+      return false;
+    }
+
+    const queued = this.tryQueueDepth10EpilogueComms(sequenceId, reason, {
+      debug,
+      force: debug,
+      skipSave: debug
+    });
+    if (!queued) {
+      return false;
+    }
+
+    if (debug) {
+      state.debugShopQueued = true;
+    } else {
+      this.clearPendingShopEpilogueComms(reason);
+    }
+    return true;
+  }
+
+  tryQueueDebugCommsEpilogueSequenceIfNeeded(reason = "debugCommsEpilogueSequence") {
+    if (!this.runArchiveStarted || this.shopActive) {
+      return false;
+    }
+    const sequenceId = this.getDebugCommsEpilogueSequenceId();
+    if (!sequenceId) {
+      return false;
+    }
+    const sequence = this.getCommsEpilogueSequence(sequenceId);
+    if (!sequence?.id) {
+      return false;
+    }
+    const state = this.commsEpilogueRunState || this.initializeCommsEpilogueRunState();
+    if (state.debugSequenceId === sequence.id || this.hasCommsEpilogueQueuedThisRun(sequence.id)) {
+      return false;
+    }
+    const queued = this.tryQueueDepth10EpilogueComms(sequence.id, reason, {
+      debug: true,
+      force: true,
+      skipSave: true
+    });
+    if (queued) {
+      state.debugSequenceId = sequence.id;
+    }
+    return queued;
+  }
+
+  createGenericCommsState() {
+    return {
+      lastQueuedAt: Number.NEGATIVE_INFINITY,
+      lastByEvent: {},
+      perDepthCount: {},
+      gateApproachDepths: {},
+      gateOnlineDepths: {},
+      gateUnstableDepths: {},
+      hpThresholdsByDepth: {},
+      bossFirstByDepth: {},
+      bossCount: 0,
+      supportCount: 0,
+      pending: [],
+      debugEventQueued: {},
+      lastSpeaker: ""
+    };
+  }
+
+  initializeGenericCommsState() {
+    this.genericCommsState = this.createGenericCommsState();
+    return this.genericCommsState;
+  }
+
+  resetGenericCommsState(reason = "reset") {
+    this.initializeGenericCommsState();
+    if (this.isGenericCommsDebugEnabled?.()) {
+      console.log("[COMMS GENERIC] reset", { reason });
+    }
+  }
+
+  isGenericCommsDebugEnabled() {
+    const value = this.getUrlStageParam(COMMS_GENERIC_DEBUG_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  isGenericCommsCooldownBypassEnabled() {
+    if (!this.isGenericCommsDebugEnabled()) {
+      return false;
+    }
+    return String(this.getUrlStageParam(COMMS_GENERIC_DEBUG_COOLDOWN_QUERY_PARAM) || "") === "0";
+  }
+
+  debugLogGenericComms(action, payload = {}) {
+    if (this.isGenericCommsDebugEnabled?.()) {
+      console.log(`[COMMS GENERIC] ${action}`, payload);
+    }
+  }
+
+  getDebugGenericCommsEvents() {
+    const raw = String(this.getUrlStageParam(COMMS_GENERIC_DEBUG_EVENT_QUERY_PARAM) || "").trim();
+    if (!raw) {
+      return [];
+    }
+    return raw
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter((entry) => COMMS_GENERIC_EVENT_TYPES.includes(entry));
+  }
+
+  getGenericCommsNow() {
+    return Math.max(0, Number(this.time?.now) || 0);
+  }
+
+  normalizeGenericCommsContext(context = {}) {
+    const maxHp = Math.max(1, Number(context.maxHp ?? this.stats?.maxHp) || 1);
+    const currentHp = Math.max(0, Number(context.currentHp ?? this.stats?.hp) || 0);
+    const rawHpRatio = Number(context.hpRatio);
+    const hpRatio = Number.isFinite(rawHpRatio)
+      ? Phaser.Math.Clamp(rawHpRatio, 0, 1)
+      : Phaser.Math.Clamp(currentHp / maxHp, 0, 1);
+    return {
+      ...context,
+      depth: Math.max(1, Math.floor(Number(context.depth ?? this.stageDepth) || 1)),
+      wave: Math.max(1, Math.floor(Number(context.wave ?? this.currentWaveId) || 1)),
+      currentHp,
+      maxHp,
+      hpRatio,
+      isFinalRaid: context.isFinalRaid === true || this.isFinalBossRaidActive?.() === true
+    };
+  }
+
+  hasCommsStoryTraffic() {
+    const queue = this.commsState?.queue || [];
+    return Boolean(
+      this.commsState?.activeMessage?.source === "story" ||
+      queue.some((message) => message?.source === "story") ||
+      (this.commsStoryRunState?.pendingSequences?.length || 0) > 0
+    );
+  }
+
+  hasGenericCommsHpThresholdQueued(depth, threshold) {
+    return this.genericCommsState?.hpThresholdsByDepth?.[depth]?.[threshold] === true;
+  }
+
+  getGenericCommsChance(eventType, config, context) {
+    if (this.isGenericCommsDebugEnabled?.()) {
+      return 1;
+    }
+    if (eventType === "boss_spawn" && !this.genericCommsState?.bossFirstByDepth?.[context.depth]) {
+      return 1;
+    }
+    return Phaser.Math.Clamp(Number(config.chance ?? 1) || 1, 0, 1);
+  }
+
+  getGenericCommsDecision(eventType, context = {}, options = {}) {
+    const state = this.genericCommsState || this.initializeGenericCommsState();
+    const config = COMMS_GENERIC_EVENT_CONFIG[eventType] || {};
+    const pool = COMMS_GENERIC_POOLS[eventType];
+    const now = this.getGenericCommsNow();
+    if (!COMMS_GENERIC_EVENT_TYPES.includes(eventType) || !pool?.length) {
+      return { ok: false, reason: "unknownEvent" };
+    }
+    if (!this.runArchiveStarted || this.shopActive || this.gameOver || this.extractionComplete) {
+      return { ok: false, reason: "runInactive" };
+    }
+    if (context.isFinalRaid) {
+      return { ok: false, reason: "finalRaidSuppressed" };
+    }
+    if (Math.max(0, Number(config.delayMs) || 0) > 0 && options.fromPending !== true) {
+      return { ok: false, reason: "delay", pending: true };
+    }
+
+    const depth = context.depth;
+    if (config.uniqueDepthKey && state[config.uniqueDepthKey]?.[depth]) {
+      return { ok: false, reason: "depthDuplicate" };
+    }
+    if (config.hpThreshold && this.hasGenericCommsHpThresholdQueued(depth, config.hpThreshold)) {
+      return { ok: false, reason: "hpDuplicate" };
+    }
+
+    const perDepthCount = Math.max(0, state.perDepthCount?.[depth] || 0);
+    if (!config.important && perDepthCount >= COMMS_GENERIC_DEFAULTS.maxPerDepth) {
+      return { ok: false, reason: "depthLimit" };
+    }
+
+    if (this.hasCommsStoryTraffic()) {
+      return { ok: false, reason: "storyTraffic", pending: options.debugTest || config.pending || config.important };
+    }
+    if (this.hasCommsEpilogueTraffic?.()) {
+      return { ok: false, reason: "epilogueTraffic", pending: options.debugTest || config.pending || config.important };
+    }
+    if (!this.commsState?.container?.active) {
+      this.createCommsUi();
+    }
+    if (!this.canDisplayCommsMessage()) {
+      return { ok: false, reason: "overlay", pending: options.debugTest || config.pending || config.important };
+    }
+
+    const queueLength = Math.max(0, this.commsState?.queue?.length || 0);
+    if (queueLength >= COMMS_UI_CONFIG.queueMax) {
+      return { ok: false, reason: "queueFull", pending: options.debugTest || config.important };
+    }
+    if (!config.important && queueLength >= COMMS_GENERIC_DEFAULTS.lowPriorityQueueLimit) {
+      return { ok: false, reason: "queueBusy" };
+    }
+
+    const cooldownsDisabled = options.ignoreCooldown === true || this.isGenericCommsCooldownBypassEnabled();
+    const globalCooldownMs = this.isGenericCommsCooldownBypassEnabled()
+      ? COMMS_GENERIC_DEFAULTS.debugCooldownMs
+      : COMMS_GENERIC_DEFAULTS.globalCooldownMs;
+    if (
+      !cooldownsDisabled &&
+      !config.bypassGlobalCooldown &&
+      now - (Number(state.lastQueuedAt) || Number.NEGATIVE_INFINITY) < globalCooldownMs
+    ) {
+      return { ok: false, reason: "globalCooldown", pending: config.important === true };
+    }
+
+    const eventCooldownMs = this.isGenericCommsCooldownBypassEnabled()
+      ? COMMS_GENERIC_DEFAULTS.debugCooldownMs
+      : Math.max(0, Number(config.cooldownMs) || 0);
+    if (
+      !cooldownsDisabled &&
+      eventCooldownMs > 0 &&
+      now - (Number(state.lastByEvent?.[eventType]) || Number.NEGATIVE_INFINITY) < eventCooldownMs
+    ) {
+      return { ok: false, reason: "eventCooldown", pending: config.important === true };
+    }
+
+    const chance = this.getGenericCommsChance(eventType, config, context);
+    if (chance < 1 && options.forceChance !== true && Math.random() > chance) {
+      return { ok: false, reason: "chance", chance };
+    }
+
+    return { ok: true, reason: "ready" };
+  }
+
+  queuePendingGenericComms(eventType, context = {}, reason = "pending", options = {}) {
+    if (options.allowPending === false) {
+      return false;
+    }
+    const state = this.genericCommsState || this.initializeGenericCommsState();
+    const config = COMMS_GENERIC_EVENT_CONFIG[eventType] || {};
+    const now = this.getGenericCommsNow();
+    const depth = context.depth || Math.max(1, Math.floor(Number(this.stageDepth) || 1));
+    const duplicate = state.pending.some((entry) => entry.eventType === eventType && entry.context?.depth === depth);
+    if (duplicate) {
+      this.debugLogGenericComms("skip", { eventType, reason: "pendingDuplicate", depth });
+      return false;
+    }
+
+    const priority = Math.max(0, Number(config.priority) || 0);
+    if (state.pending.length >= COMMS_GENERIC_DEFAULTS.maxPending) {
+      const replaceIndex = state.pending.findIndex((entry) => {
+        const entryPriority = Math.max(0, Number(COMMS_GENERIC_EVENT_CONFIG[entry.eventType]?.priority) || 0);
+        return entryPriority < priority;
+      });
+      if (replaceIndex < 0) {
+        this.debugLogGenericComms("skip", { eventType, reason: "pendingFull", depth });
+        return false;
+      }
+      state.pending.splice(replaceIndex, 1);
+    }
+
+    state.pending.push({
+      eventType,
+      context,
+      reason,
+      queuedAt: now,
+      notBefore: now + Math.max(0, Number(config.delayMs) || 0),
+      options: {
+        debugTest: options.debugTest === true,
+        forceChance: options.forceChance === true,
+        ignoreCooldown: options.ignoreCooldown === true
+      }
+    });
+    this.debugLogGenericComms("pending", { eventType, reason, depth });
+    return true;
+  }
+
+  pickGenericCommsMessage(eventType, context = {}) {
+    const pool = COMMS_GENERIC_POOLS[eventType] || [];
+    if (pool.length <= 0) {
+      return null;
+    }
+    const lastSpeaker = this.genericCommsState?.lastSpeaker || "";
+    const candidates = pool.length > 1
+      ? pool.filter((message) => message.speaker !== lastSpeaker)
+      : pool;
+    const selectedPool = candidates.length > 0 ? candidates : pool;
+    const index = Phaser.Math.Between(0, selectedPool.length - 1);
+    return {
+      ...selectedPool[index],
+      context
+    };
+  }
+
+  markGenericCommsQueued(eventType, context, message) {
+    const state = this.genericCommsState || this.initializeGenericCommsState();
+    const config = COMMS_GENERIC_EVENT_CONFIG[eventType] || {};
+    const now = this.getGenericCommsNow();
+    const depth = context.depth;
+    state.lastQueuedAt = now;
+    state.lastByEvent[eventType] = now;
+    state.perDepthCount[depth] = Math.max(0, state.perDepthCount[depth] || 0) + 1;
+    if (config.uniqueDepthKey && state[config.uniqueDepthKey]) {
+      state[config.uniqueDepthKey][depth] = true;
+    }
+    if (config.hpThreshold) {
+      state.hpThresholdsByDepth[depth] = state.hpThresholdsByDepth[depth] || {};
+      state.hpThresholdsByDepth[depth][config.hpThreshold] = true;
+    }
+    if (eventType === "boss_spawn") {
+      state.bossFirstByDepth[depth] = true;
+      state.bossCount += 1;
+    }
+    if (eventType === "support_pickup" || eventType === "support_genso_knights" || eventType === "support_stabilized") {
+      state.supportCount += 1;
+    }
+    state.lastSpeaker = message?.speaker || state.lastSpeaker || "";
+  }
+
+  tryQueueGenericComms(eventType, context = {}, options = {}) {
+    const normalizedContext = this.normalizeGenericCommsContext(context);
+    this.debugLogGenericComms("trigger", { eventType, context: normalizedContext });
+    const decision = this.getGenericCommsDecision(eventType, normalizedContext, options);
+    if (!decision.ok) {
+      if (decision.pending) {
+        return this.queuePendingGenericComms(eventType, normalizedContext, decision.reason, options);
+      }
+      this.debugLogGenericComms("skip", { eventType, reason: decision.reason, context: normalizedContext, chance: decision.chance });
+      return false;
+    }
+
+    const config = COMMS_GENERIC_EVENT_CONFIG[eventType] || {};
+    const message = this.pickGenericCommsMessage(eventType, normalizedContext);
+    if (!message) {
+      this.debugLogGenericComms("skip", { eventType, reason: "noMessage" });
+      return false;
+    }
+
+    const queued = this.queueCommsMessage({
+      ...message,
+      priority: Math.max(0, Number(config.priority) || 0),
+      source: "generic",
+      genericEventType: eventType
+    });
+    if (!queued) {
+      if (config.important || options.debugTest) {
+        return this.queuePendingGenericComms(eventType, normalizedContext, "queueFailed", options);
+      }
+      this.debugLogGenericComms("skip", { eventType, reason: "queueFailed" });
+      return false;
+    }
+
+    this.markGenericCommsQueued(eventType, normalizedContext, message);
+    this.debugLogGenericComms("queued", { eventType, depth: normalizedContext.depth, speaker: message.speaker });
+    return true;
+  }
+
+  flushPendingGenericComms(reason = "update") {
+    const state = this.genericCommsState;
+    if (!state?.pending?.length) {
+      return false;
+    }
+
+    const now = this.getGenericCommsNow();
+    const pending = state.pending.slice();
+    state.pending = [];
+    let queuedAny = false;
+
+    pending.forEach((entry) => {
+      if (now < entry.notBefore) {
+        state.pending.push(entry);
+        return;
+      }
+      if (now - entry.queuedAt > COMMS_GENERIC_DEFAULTS.pendingMaxAgeMs && !entry.options?.debugTest) {
+        this.debugLogGenericComms("skip", { eventType: entry.eventType, reason: "pendingExpired" });
+        return;
+      }
+      queuedAny = this.tryQueueGenericComms(entry.eventType, entry.context, {
+        ...entry.options,
+        forceChance: true,
+        fromPending: true,
+        pendingReason: reason
+      }) || queuedAny;
+    });
+
+    return queuedAny;
+  }
+
+  handleGenericCommsHpThresholds(context = {}) {
+    const normalizedContext = this.normalizeGenericCommsContext(context);
+    if (normalizedContext.currentHp <= 0 || this.gameOver) {
+      return false;
+    }
+
+    const thresholds = [
+      { eventType: "hp_10", ratio: 0.1, key: "10" },
+      { eventType: "hp_25", ratio: 0.25, key: "25" },
+      { eventType: "hp_50", ratio: 0.5, key: "50" }
+    ];
+    const target = thresholds.find((entry) => {
+      return normalizedContext.hpRatio <= entry.ratio
+        && !this.hasGenericCommsHpThresholdQueued(normalizedContext.depth, entry.key);
+    });
+    if (!target) {
+      return false;
+    }
+    return this.tryQueueGenericComms(target.eventType, normalizedContext);
+  }
+
+  tryQueueDebugGenericCommsEventIfNeeded(reason = "debugCommsGenericEvent") {
+    if (!this.runArchiveStarted || this.shopActive) {
+      return false;
+    }
+    const events = this.getDebugGenericCommsEvents();
+    if (events.length <= 0) {
+      return false;
+    }
+    const state = this.genericCommsState || this.initializeGenericCommsState();
+    let queuedAny = false;
+    events.forEach((eventType) => {
+      if (state.debugEventQueued[eventType]) {
+        return;
+      }
+      state.debugEventQueued[eventType] = true;
+      queuedAny = this.tryQueueGenericComms(eventType, {
+        depth: this.stageDepth,
+        wave: this.currentWaveId,
+        bossType: eventType === "nemesis_spawn" ? "debugNemesis" : "debugBoss",
+        supportType: eventType.startsWith("support_") ? eventType : null,
+        isUnstableGate: eventType === "gate_unstable",
+        isFinalRaid: this.isFinalBossRaidActive?.() === true,
+        debugReason: reason
+      }, {
+        debugTest: true,
+        forceChance: true,
+        ignoreCooldown: true
+      }) || queuedAny;
+    });
+    return queuedAny;
+  }
+
+  createCommsBanterState() {
+    return {
+      lastQueuedAt: Number.NEGATIVE_INFINITY,
+      nextAttemptAt: 0,
+      perDepthCount: {},
+      runCount: 0,
+      lastSpeaker: "",
+      lastCategory: "",
+      recentEntryIds: [],
+      timer: null,
+      debugNowQueued: false,
+      debugNowNextAttemptAt: 0
+    };
+  }
+
+  initializeCommsBanterState() {
+    this.cleanupCommsBanter("initialize");
+    this.commsBanterState = this.createCommsBanterState();
+    return this.commsBanterState;
+  }
+
+  cleanupCommsBanter(reason = "cleanup") {
+    const timer = this.commsBanterState?.timer;
+    if (timer?.remove) {
+      timer.remove(false);
+    }
+    if (this.commsBanterState) {
+      this.commsBanterState.timer = null;
+      this.commsBanterState.nextAttemptAt = 0;
+    }
+    if (this.isCommsBanterDebugEnabled?.()) {
+      console.log("[COMMS BANTER] cleanup", { reason });
+    }
+  }
+
+  resetCommsBanterForRun(reason = "reset") {
+    this.cleanupCommsBanter(reason);
+    this.commsBanterState = this.createCommsBanterState();
+    if (this.isCommsBanterDebugEnabled?.()) {
+      console.log("[COMMS BANTER] reset", { reason });
+    }
+    return this.commsBanterState;
+  }
+
+  resetCommsBanterForDepth(depth = this.stageDepth, reason = "depthTransition") {
+    const state = this.commsBanterState || this.initializeCommsBanterState();
+    const safeDepth = Math.max(1, Math.floor(Number(depth) || 1));
+    state.perDepthCount[safeDepth] = 0;
+    this.scheduleNextCommsBanter(this.getCommsBanterInitialDelayMs(reason, safeDepth), reason);
+    this.debugLogCommsBanter("depthReset", { depth: safeDepth, reason });
+    return state;
+  }
+
+  isCommsBanterDebugEnabled() {
+    const value = this.getUrlStageParam(COMMS_BANTER_DEBUG_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  isCommsBanterDebugNowEnabled() {
+    const value = this.getUrlStageParam(COMMS_BANTER_DEBUG_NOW_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  isCommsBanterCooldownBypassEnabled() {
+    if (!this.isCommsBanterDebugEnabled()) {
+      return false;
+    }
+    return String(this.getUrlStageParam(COMMS_BANTER_DEBUG_COOLDOWN_QUERY_PARAM) || "") === "0";
+  }
+
+  getDebugCommsBanterCategory() {
+    const category = String(this.getUrlStageParam(COMMS_BANTER_DEBUG_CATEGORY_QUERY_PARAM) || "").trim();
+    return COMMS_BANTER_CATEGORY_IDS.includes(category) ? category : "";
+  }
+
+  debugLogCommsBanter(action, payload = {}) {
+    if (this.isCommsBanterDebugEnabled?.()) {
+      console.log(`[COMMS BANTER] ${action}`, payload);
+    }
+  }
+
+  getCommsBanterNow() {
+    return this.getGenericCommsNow?.() || Math.max(0, Number(this.time?.now) || 0);
+  }
+
+  getCommsBanterDelayMs(range) {
+    if (this.isCommsBanterCooldownBypassEnabled()) {
+      return COMMS_BANTER_DEFAULTS.cooldownBypassDelayMs;
+    }
+    const safeRange = range || COMMS_BANTER_DEFAULTS.repeatDelayMs;
+    const min = Math.max(0, Math.floor(Number(safeRange.min) || 0));
+    const max = Math.max(min, Math.floor(Number(safeRange.max) || min));
+    return Phaser.Math.Between(min, max);
+  }
+
+  getCommsBanterInitialDelayMs(reason = "initial", depth = this.stageDepth) {
+    const range = this.isCommsBanterDebugEnabled()
+      ? COMMS_BANTER_DEFAULTS.debugInitialDelayMs
+      : COMMS_BANTER_DEFAULTS.initialDelayMs;
+    let delayMs = this.getCommsBanterDelayMs(range);
+    const hasStoryAtDepth = Boolean(this.getCommsStorySequence?.(depth));
+    if (!this.isCommsBanterDebugEnabled() && hasStoryAtDepth) {
+      delayMs += COMMS_BANTER_DEFAULTS.depthStoryExtraDelayMs;
+    }
+    this.debugLogCommsBanter("initialDelay", { reason, depth, delayMs });
+    return delayMs;
+  }
+
+  getCommsBanterRepeatDelayMs(reason = "repeat") {
+    const range = this.isCommsBanterDebugEnabled()
+      ? COMMS_BANTER_DEFAULTS.debugRepeatDelayMs
+      : COMMS_BANTER_DEFAULTS.repeatDelayMs;
+    const delayMs = this.getCommsBanterDelayMs(range);
+    this.debugLogCommsBanter("repeatDelay", { reason, delayMs });
+    return delayMs;
+  }
+
+  scheduleNextCommsBanter(delayMs = this.getCommsBanterRepeatDelayMs(), reason = "schedule") {
+    const state = this.commsBanterState || this.initializeCommsBanterState();
+    if (state.timer?.remove) {
+      state.timer.remove(false);
+    }
+    state.timer = null;
+    if (!this.time?.delayedCall || this.shopActive || this.gameOver || this.extractionComplete) {
+      return false;
+    }
+
+    const safeDelay = Math.max(250, Math.floor(Number(delayMs) || 0));
+    state.nextAttemptAt = this.getCommsBanterNow() + safeDelay;
+    state.timer = this.time.delayedCall(safeDelay, () => {
+      if (this.commsBanterState) {
+        this.commsBanterState.timer = null;
+      }
+      this.tryQueueCommsBanter("timer", { depth: this.stageDepth });
+      if (this.commsBanterState && !this.shopActive && !this.gameOver && !this.extractionComplete) {
+        this.scheduleNextCommsBanter(this.getCommsBanterRepeatDelayMs("timer"), "timer");
+      }
+    });
+    this.debugLogCommsBanter("schedule", { reason, delayMs: safeDelay, nextAttemptAt: state.nextAttemptAt });
+    return true;
+  }
+
+  normalizeCommsBanterContext(context = {}) {
+    const maxHp = Math.max(1, Number(context.maxHp ?? this.stats?.maxHp) || 1);
+    const currentHp = Math.max(0, Number(context.currentHp ?? this.stats?.hp) || 0);
+    return {
+      ...context,
+      depth: Math.max(1, Math.floor(Number(context.depth ?? this.stageDepth) || 1)),
+      currentHp,
+      maxHp,
+      hpRatio: Phaser.Math.Clamp(Number(context.hpRatio ?? currentHp / maxHp) || 0, 0, 1),
+      isFinalRaid: context.isFinalRaid === true || this.isFinalBossRaidActive?.() === true,
+      gateUnsafe: this.isGateUnsafeForCommsBanter()
+    };
+  }
+
+  hasGenericCommsTraffic() {
+    const queue = this.commsState?.queue || [];
+    return Boolean(
+      this.commsState?.activeMessage?.source === "generic" ||
+      queue.some((message) => message?.source === "generic") ||
+      (this.genericCommsState?.pending?.length || 0) > 0
+    );
+  }
+
+  hasBanterBlockingCommsTraffic() {
+    const activeSource = this.commsState?.activeMessage?.source || "";
+    const queue = this.commsState?.queue || [];
+    return Boolean(
+      activeSource === "story" ||
+      activeSource === "epilogue" ||
+      activeSource === "generic" ||
+      activeSource === "banter" ||
+      this.hasCommsEpilogueTraffic?.() ||
+      this.hasCommsStoryTraffic?.() ||
+      this.hasGenericCommsTraffic?.() ||
+      queue.length >= COMMS_BANTER_DEFAULTS.queueBusyLimit
+    );
+  }
+
+  isCommsOfflineForBanter() {
+    const active = this.commsState?.activeMessage;
+    const queue = this.commsState?.queue || [];
+    return Boolean(
+      this.isFinalBossRaidActive?.() ||
+      active?.text === "COMMS LINK: OFFLINE" ||
+      active?.storySequenceId === "depth10_first" ||
+      queue.some((message) => message?.text === "COMMS LINK: OFFLINE" || message?.storySequenceId === "depth10_first")
+    );
+  }
+
+  isGateUnsafeForCommsBanter() {
+    if (this.gateState?.status && this.gateState.status !== "closed") {
+      return true;
+    }
+    const remainingMs = Math.max(0, GATE_INTERVAL_MS - (this.stageDepthElapsedMs || 0));
+    return remainingMs <= COMMS_BANTER_DEFAULTS.nearGateLeadMs;
+  }
+
+  canQueueCommsBanter(context = {}, options = {}) {
+    const state = this.commsBanterState || this.initializeCommsBanterState();
+    const depth = context.depth;
+    const relaxSafety = options.relaxSafety === true && this.isCommsBanterDebugEnabled();
+    if (!this.runArchiveStarted || this.shopActive || this.gameOver || this.extractionComplete) {
+      return { ok: false, reason: "runInactive" };
+    }
+    if (context.isFinalRaid || this.isCommsOfflineForBanter()) {
+      return { ok: false, reason: "offlineOrFinalRaid" };
+    }
+    if ((this.startingUpgradeSelectionsRemaining || 0) > 0 || this.levelUpActive || this.gateChoiceActive || this.overlayContainer?.visible) {
+      return { ok: false, reason: "overlay" };
+    }
+    if (!this.commsState?.container?.active) {
+      this.createCommsUi();
+    }
+    if (!this.canDisplayCommsMessage()) {
+      return { ok: false, reason: "commsHidden" };
+    }
+    if (!relaxSafety && context.hpRatio < COMMS_BANTER_DEFAULTS.hpLowRatio) {
+      return { ok: false, reason: "hpLow" };
+    }
+    if (this.hasBanterBlockingCommsTraffic()) {
+      return { ok: false, reason: "commsBusy" };
+    }
+    if (!relaxSafety && context.gateUnsafe) {
+      return { ok: false, reason: "gateNear" };
+    }
+    if (!relaxSafety && (this.getActiveWaveBoss?.() || this.getActiveNemesisBoss?.() || this.isGensoKnightsEventActive?.())) {
+      return { ok: false, reason: "bossActive" };
+    }
+    if (!relaxSafety && this.getCommsBanterNow() - (Number(this.genericCommsState?.lastQueuedAt) || Number.NEGATIVE_INFINITY) < COMMS_BANTER_DEFAULTS.genericGraceMs) {
+      return { ok: false, reason: "genericGrace" };
+    }
+    const depthLimit = depth === 9 ? COMMS_BANTER_DEFAULTS.maxDepth9PerDepth : COMMS_BANTER_DEFAULTS.maxPerDepth;
+    if ((state.perDepthCount[depth] || 0) >= depthLimit) {
+      return { ok: false, reason: "depthLimit" };
+    }
+    if ((state.runCount || 0) >= COMMS_BANTER_DEFAULTS.maxPerRun) {
+      return { ok: false, reason: "runLimit" };
+    }
+    return { ok: true, reason: "ready" };
+  }
+
+  getCommsBanterAllowedCategories(depth = this.stageDepth) {
+    const forcedCategory = this.getDebugCommsBanterCategory();
+    if (forcedCategory) {
+      return [forcedCategory];
+    }
+    const match = COMMS_BANTER_DEPTH_CATEGORY_ORDER.find((entry) => {
+      return depth >= entry.minDepth && depth <= entry.maxDepth;
+    });
+    return match?.categories?.length ? match.categories.slice() : ["rescue_coordination", "system_check"];
+  }
+
+  normalizeCommsBanterEntry(category, entry) {
+    const categoryDefaults = COMMS_BANTER_CATEGORY_DEPTHS[category] || {};
+    const messages = (entry.messages || [entry]).slice(0, 2).map((message) => ({
+      speaker: message.speaker,
+      text: message.text,
+      variant: message.variant || "normal",
+      duration: message.duration || COMMS_UI_CONFIG.defaultDurationMs
+    })).filter((message) => message.speaker && message.text);
+    if (!entry?.id || messages.length <= 0) {
+      return null;
+    }
+    return {
+      ...entry,
+      category,
+      minDepth: Math.max(1, Math.floor(Number(entry.minDepth ?? categoryDefaults.minDepth ?? 1) || 1)),
+      maxDepth: Math.max(1, Math.floor(Number(entry.maxDepth ?? categoryDefaults.maxDepth ?? 99) || 99)),
+      weight: Math.max(0.1, Number(entry.weight) || 1),
+      messages
+    };
+  }
+
+  getCommsBanterCandidates(context = {}, options = {}) {
+    const state = this.commsBanterState || this.initializeCommsBanterState();
+    const allowedCategories = this.getCommsBanterAllowedCategories(context.depth);
+    const history = options.relaxHistory ? [] : (state.recentEntryIds || []);
+    const candidates = [];
+    allowedCategories.forEach((category) => {
+      (COMMS_BANTER_POOLS[category] || []).forEach((entry) => {
+        const normalized = this.normalizeCommsBanterEntry(category, entry);
+        if (!normalized) {
+          return;
+        }
+        if (context.depth < normalized.minDepth || context.depth > normalized.maxDepth) {
+          return;
+        }
+        if (history.includes(normalized.id)) {
+          return;
+        }
+        if (normalized.excludeDuringFinalRaid && context.isFinalRaid) {
+          return;
+        }
+        if (normalized.excludeWhenHpLow && context.hpRatio < COMMS_BANTER_DEFAULTS.hpLowRatio) {
+          return;
+        }
+        if (normalized.excludeNearGate && context.gateUnsafe) {
+          return;
+        }
+        candidates.push(normalized);
+      });
+    });
+    return candidates;
+  }
+
+  pickWeightedCommsBanterEntry(entries = []) {
+    const total = entries.reduce((sum, entry) => sum + Math.max(0.1, Number(entry.weight) || 1), 0);
+    if (total <= 0) {
+      return entries[0] || null;
+    }
+    let roll = Math.random() * total;
+    for (const entry of entries) {
+      roll -= Math.max(0.1, Number(entry.weight) || 1);
+      if (roll <= 0) {
+        return entry;
+      }
+    }
+    return entries[entries.length - 1] || null;
+  }
+
+  pickCommsBanterEntry(context = {}) {
+    const state = this.commsBanterState || this.initializeCommsBanterState();
+    let candidates = this.getCommsBanterCandidates(context);
+    if (candidates.length <= 0) {
+      candidates = this.getCommsBanterCandidates(context, { relaxHistory: true });
+    }
+    if (candidates.length <= 0) {
+      return null;
+    }
+
+    const categoryFiltered = candidates.filter((entry) => entry.category !== state.lastCategory);
+    const categoryPool = categoryFiltered.length > 0 ? categoryFiltered : candidates;
+    const speakerFiltered = categoryPool.filter((entry) => entry.messages[0]?.speaker !== state.lastSpeaker);
+    const pool = speakerFiltered.length > 0 ? speakerFiltered : categoryPool;
+    return this.pickWeightedCommsBanterEntry(pool);
+  }
+
+  markCommsBanterQueued(entry, context = {}) {
+    const state = this.commsBanterState || this.initializeCommsBanterState();
+    const depth = context.depth;
+    const messages = entry.messages || [];
+    state.lastQueuedAt = this.getCommsBanterNow();
+    state.perDepthCount[depth] = Math.max(0, state.perDepthCount[depth] || 0) + 1;
+    state.runCount = Math.max(0, state.runCount || 0) + 1;
+    state.lastCategory = entry.category || state.lastCategory || "";
+    state.lastSpeaker = messages[messages.length - 1]?.speaker || state.lastSpeaker || "";
+    state.recentEntryIds = [entry.id, ...(state.recentEntryIds || []).filter((id) => id !== entry.id)]
+      .slice(0, COMMS_BANTER_DEFAULTS.historyLimit);
+  }
+
+  tryQueueCommsBanter(reason = "banter", context = {}, options = {}) {
+    const normalizedContext = this.normalizeCommsBanterContext(context);
+    this.debugLogCommsBanter("trigger", { reason, context: normalizedContext });
+    const decision = this.canQueueCommsBanter(normalizedContext, options);
+    if (!decision.ok && options.force !== true) {
+      this.debugLogCommsBanter("skip", { reason, skipReason: decision.reason, context: normalizedContext });
+      return false;
+    }
+
+    const entry = this.pickCommsBanterEntry(normalizedContext);
+    if (!entry) {
+      this.debugLogCommsBanter("skip", { reason, skipReason: "noCandidate", context: normalizedContext });
+      return false;
+    }
+
+    const messages = entry.messages.slice(0, 2);
+    const queueLength = Math.max(0, this.commsState?.queue?.length || 0);
+    if (COMMS_UI_CONFIG.queueMax - queueLength < messages.length) {
+      this.debugLogCommsBanter("skip", { reason, skipReason: "queueRoom", entryId: entry.id });
+      return false;
+    }
+
+    let queuedAny = false;
+    messages.forEach((message) => {
+      queuedAny = this.queueCommsMessage({
+        ...message,
+        priority: 0,
+        source: "banter",
+        banterEntryId: entry.id,
+        banterCategory: entry.category
+      }) || queuedAny;
+    });
+
+    if (!queuedAny) {
+      this.debugLogCommsBanter("skip", { reason, skipReason: "queueFailed", entryId: entry.id });
+      return false;
+    }
+
+    this.markCommsBanterQueued(entry, normalizedContext);
+    this.debugLogCommsBanter("queued", {
+      reason,
+      entryId: entry.id,
+      category: entry.category,
+      depth: normalizedContext.depth,
+      messageCount: messages.length
+    });
+    return true;
+  }
+
+  tryQueueDebugCommsBanterNowIfNeeded(reason = "debugCommsBanterNow") {
+    if (!this.isCommsBanterDebugNowEnabled() || !this.runArchiveStarted || this.shopActive) {
+      return false;
+    }
+    const state = this.commsBanterState || this.initializeCommsBanterState();
+    if (state.debugNowQueued) {
+      return false;
+    }
+    const now = this.getCommsBanterNow();
+    if (now < (state.debugNowNextAttemptAt || 0)) {
+      return false;
+    }
+    state.debugNowNextAttemptAt = now + 600;
+    const queued = this.tryQueueCommsBanter(reason, { depth: this.stageDepth }, { force: false, relaxSafety: true });
+    if (queued) {
+      state.debugNowQueued = true;
+    }
+    return queued;
   }
 
   isCommsDebugEnabled() {
@@ -24541,6 +26676,7 @@ class SurvivalScene extends Phaser.Scene {
       this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
       window.requestAnimationFrame?.(() => hideShopLoadingScreen());
       scheduleMobileFullscreenResumeGate();
+      this.scheduleShopEpilogueFlush("showPreGameShop");
       return;
     }
 
@@ -24554,6 +26690,7 @@ class SurvivalScene extends Phaser.Scene {
       this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
       window.requestAnimationFrame?.(() => hideShopLoadingScreen());
       scheduleMobileFullscreenResumeGate();
+      this.scheduleShopEpilogueFlush("showPreGameShop");
       return;
     }
 
@@ -24567,6 +26704,7 @@ class SurvivalScene extends Phaser.Scene {
       this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
       window.requestAnimationFrame?.(() => hideShopLoadingScreen());
       scheduleMobileFullscreenResumeGate();
+      this.scheduleShopEpilogueFlush("showPreGameShop");
       return;
     }
 
@@ -24585,6 +26723,7 @@ class SurvivalScene extends Phaser.Scene {
     this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
     window.requestAnimationFrame?.(() => hideShopLoadingScreen());
     scheduleMobileFullscreenResumeGate();
+    this.scheduleShopEpilogueFlush("showPreGameShop");
   }
 
   renderOpeningShopBackground() {
@@ -25139,6 +27278,8 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   startGameFromShop() {
+    const pendingShopEpilogue = this.peekPendingShopEpilogueComms?.() || "";
+    this.cleanupCommsEpilogueTimers?.("gameStart");
     this.shopActive = false;
     this.shopStatusMessage = "";
     this.runArchiveStarted = true;
@@ -25176,6 +27317,20 @@ class SurvivalScene extends Phaser.Scene {
       this.onDepthStartedForNemesis(this.stageDepth, "gameStart");
     }
     this.queueDebugCommsMessagesIfNeeded("gameStart");
+    if (pendingShopEpilogue === "depth10_shop_return_epilogue") {
+      this.clearPendingShopEpilogueComms?.("nextRunFallback");
+      this.tryQueueDepth10EpilogueComms?.("depth10_next_run_epilogue", "nextRunFallback");
+    }
+    this.tryQueueDebugCommsEpilogueSequenceIfNeeded("gameStart");
+    const debugCommsStoryDepth = this.getCommsStoryDebugDepth();
+    this.tryQueueDebugCommsStoryDepthIfNeeded("gameStart");
+    if (!debugCommsStoryDepth && (this.stageDepth || 1) === 1) {
+      this.tryQueueDepthComms(1, "gameStart");
+    }
+    this.resetCommsBanterForRun("gameStart");
+    if (!debugStartFinalBossRaidPending) {
+      this.scheduleNextCommsBanter(this.getCommsBanterInitialDelayMs("gameStart", this.stageDepth), "gameStart");
+    }
     if (!this.levelUpActive) {
       if (this.tryStartFinalBossRaidFromDebugStart("gameStart")) {
         return;
@@ -25577,6 +27732,9 @@ class SurvivalScene extends Phaser.Scene {
     this.gateWarningFlashUntil = this.time.now + 900;
     this.spawnGateSignalVisual();
     this.setLastPickupNotice("GATE SIGNAL DETECTED");
+    this.tryQueueGenericComms("gate_approach", {
+      depth: this.stageDepth
+    });
   }
 
   getStageGateCenter() {
@@ -25689,6 +27847,10 @@ class SurvivalScene extends Phaser.Scene {
     } else {
       this.setLastPickupNotice("GATE ONLINE");
     }
+    this.tryQueueGenericComms("gate_online", {
+      depth: this.stageDepth,
+      isUnstableGate: false
+    });
   }
 
   drawStageGateGraphics() {
@@ -27025,11 +29187,14 @@ class SurvivalScene extends Phaser.Scene {
     this.notifyGeekMilestoneForDepth(this.stageDepth, "depthTransition");
     this.activatePendingAnomalyContract(targetDepth);
     if (enterFinalBossRaid) {
+      this.cleanupCommsBanter("finalBossRaidStart");
       this.beginFinalBossRaid(transition, { dataCacheCount });
       return;
     }
     this.queueDepthDirectiveSelection(targetDepth, "depthTransition");
     this.onDepthStartedForNemesis(targetDepth, "depthTransition");
+    this.tryQueueDepthComms(targetDepth, "depthTransition");
+    this.resetCommsBanterForDepth(targetDepth, "depthTransition");
   }
 
   chooseEmergencyExtract() {
@@ -27973,6 +30138,10 @@ class SurvivalScene extends Phaser.Scene {
     }
     this.setLastPickupNotice(`GATE INSTABILITY +${this.gateInstabilityStacks}`);
     this.drawStageGateGraphics();
+    this.tryQueueGenericComms("gate_unstable", {
+      depth: this.stageDepth,
+      isUnstableGate: true
+    });
   }
 
   update(time, delta) {
@@ -27989,6 +30158,12 @@ class SurvivalScene extends Phaser.Scene {
     }
     this.updateMobileControlsVisibility();
     this.queueDebugCommsMessagesIfNeeded("update");
+    this.tryQueueDebugCommsEpilogueSequenceIfNeeded("update");
+    this.tryQueueDebugCommsStoryDepthIfNeeded("update");
+    this.flushPendingCommsStory("update");
+    this.tryQueueDebugGenericCommsEventIfNeeded("update");
+    this.flushPendingGenericComms("update");
+    this.tryQueueDebugCommsBanterNowIfNeeded("update");
     this.tryShowNextCommsMessage();
     this.tryOpenPendingSkillMutationSelection();
     this.tryOpenQueuedLostArmsEvolutionSelection();
@@ -31882,6 +34057,14 @@ class SurvivalScene extends Phaser.Scene {
       isBoss: true
     });
     this.setLastPickupNotice(`BOSS WAVE ${wave.id}`);
+    if (this.activeWaveBoss?.active) {
+      this.tryQueueGenericComms("boss_spawn", {
+        depth: this.stageDepth,
+        wave: wave.id,
+        bossType: typeId,
+        isFinalRaid: false
+      });
+    }
   }
 
   getActiveWaveBoss() {
@@ -33557,6 +35740,15 @@ class SurvivalScene extends Phaser.Scene {
     const hpDamage = Math.max(0, Math.round(barrierResult.hpDamage || 0));
     this.stats.hp = Math.max(0, this.stats.hp - hpDamage);
     this.handleDepthDirectivePlayerDamage(hpDamage);
+    if (hpDamage > 0 && this.stats.hp > 0) {
+      this.handleGenericCommsHpThresholds({
+        depth: this.stageDepth,
+        currentHp: this.stats.hp,
+        maxHp: this.stats.maxHp,
+        hpRatio: this.stats.hp / Math.max(1, this.stats.maxHp),
+        hpDamage
+      });
+    }
 
     this.tweens.add({
       targets: this.damageFlash,
@@ -34749,6 +36941,10 @@ class SurvivalScene extends Phaser.Scene {
     if (definition.effectType === "bomb" && !this.canApplySupportReward(definition)) {
       this.spawnSpecialItemPickupEffect(playerHitbox.x, playerHitbox.y - 10, definition);
       this.convertSupportOverflowReward(definition, playerHitbox.x, playerHitbox.y - 18);
+      this.tryQueueGenericComms("support_stabilized", {
+        depth: this.stageDepth,
+        supportType: definition.id
+      });
       this.destroySpecialItem(item);
       return;
     }
@@ -35230,6 +37426,10 @@ class SurvivalScene extends Phaser.Scene {
     this.activeSupportAttacks.push(support);
     this.cameras.main.shake(120, 0.0018);
     this.setLastPickupNotice(`SUPPORT ${definition.label}`);
+    this.tryQueueGenericComms("support_pickup", {
+      depth: this.stageDepth,
+      supportType: definition.id
+    });
   }
 
   triggerTimingCoinSupportAttack(definition) {
@@ -35250,6 +37450,10 @@ class SurvivalScene extends Phaser.Scene {
     this.activeSupportAttacks.push(support);
     this.cameras.main.shake(160, 0.002);
     this.setLastPickupNotice(`SUPPORT ${definition.label}`);
+    this.tryQueueGenericComms("support_pickup", {
+      depth: this.stageDepth,
+      supportType: definition.id
+    });
   }
 
   playSupportAttackCutinVoice(definition) {
@@ -35381,6 +37585,11 @@ class SurvivalScene extends Phaser.Scene {
 
     this.cameras.main.shake(220, 0.0022);
     this.setLastPickupNotice("SPECIAL SUPPORT 元素騎士");
+    this.tryQueueGenericComms("support_genso_knights", {
+      depth: this.stageDepth,
+      supportType: definition.id,
+      isGensoKnightsSupport: true
+    });
   }
 
   playGensoKnightsBgm(definition) {
