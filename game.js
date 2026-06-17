@@ -828,15 +828,15 @@ const FINAL_RAID_CAMERA_CONFIG = {
   playerLeashStartY: 780,
   playerLeashEndY: 1900,
   focusOffsetX: 0,
-  focusOffsetY: 120,
+  focusOffsetY: -100,
   playerMoveSpeed: 145
 };
 const FINAL_RAID_BOSS_ANCHOR = {
-  source: "worldBounds",
+  source: "arena",
   xRatio: 0.5,
   yRatio: 0.5,
   offsetX: 0,
-  offsetY: 120
+  offsetY: 150
 };
 const FINAL_RAID_PLAYER_START_OFFSET = {
   x: 0,
@@ -881,9 +881,10 @@ const FINAL_RAID_ADD_MONSTER_CONFIG = {
   targetJitter: 110
 };
 const FINAL_RAID_GIANT_WEAPON_CONFIG = {
+  activePhaseId: "third",
   attackInitialDelayMs: 5200,
   attackIntervalMs: 9200,
-  warningMs: 2100,
+  warningMs: 3100,
   fieldDurationMs: 960,
   fieldTickMs: 960,
   damage: 16,
@@ -897,26 +898,26 @@ const FINAL_RAID_GIANT_WEAPON_CONFIG = {
       label: "FLOATING ARSENAL-06",
       textureKey: "finalboss-bossfield-monster-06",
       imagePath: "./画像/finalboss/bossfield_monster06.png",
-      xRatio: 0.2,
-      yRatio: 0.22,
-      displaySize: 1240,
-      targetRadius: 190,
+      xRatio: 0.29,
+      yRatio: 0.38,
+      displaySize: 2300,
+      targetRadius: 340,
       depth: 9.04,
-      attackOriginOffsetX: 120,
-      attackOriginOffsetY: 120
+      attackOriginOffsetX: 70,
+      attackOriginOffsetY: 230
     },
     {
       id: "right",
       label: "FLOATING ARSENAL-05",
       textureKey: "finalboss-bossfield-monster-05",
       imagePath: "./画像/finalboss/bossfield_monster05.png",
-      xRatio: 0.8,
-      yRatio: 0.22,
-      displaySize: 1240,
-      targetRadius: 190,
+      xRatio: 0.71,
+      yRatio: 0.38,
+      displaySize: 2300,
+      targetRadius: 340,
       depth: 9.06,
-      attackOriginOffsetX: -120,
-      attackOriginOffsetY: 120
+      attackOriginOffsetX: -70,
+      attackOriginOffsetY: 230
     }
   ]
 };
@@ -984,11 +985,18 @@ const FINAL_BOSS_RAID_CONFIG = {
     driftMs: 8800
   },
   arena: {
-    centerOffsetY: 120,
+    centerOffsetY: 470,
     fieldDisplayWidth: 3260,
     movementWidth: 2320,
     movementHeight: 1040,
-    movementOffsetY: 160
+    movementOffsetY: 160,
+    movementPolygon: [
+      { xRatio: 0.08, yRatio: 0.62 },
+      { xRatio: 0.44, yRatio: 0.36 },
+      { xRatio: 0.56, yRatio: 0.36 },
+      { xRatio: 0.92, yRatio: 0.62 },
+      { xRatio: 0.5, yRatio: 0.86 }
+    ]
   },
   phases: [
     {
@@ -5915,7 +5923,7 @@ class SurvivalScene extends Phaser.Scene {
 
   getFinalRaidBossAnchorConfig() {
     const anchor = this.getFinalRaidVisualConfig()?.bossAnchor || {};
-    const source = anchor.source === "worldBounds" || anchor.source === "playBounds"
+    const source = anchor.source === "arena" || anchor.source === "worldBounds" || anchor.source === "playBounds"
       ? anchor.source
       : "movementBounds";
     return {
@@ -5929,6 +5937,9 @@ class SurvivalScene extends Phaser.Scene {
 
   getFinalRaidBossAnchorBounds() {
     const anchor = this.getFinalRaidBossAnchorConfig();
+    if (anchor.source === "arena") {
+      return this.getFinalBossRaidArenaMetrics();
+    }
     if (anchor.source === "worldBounds") {
       return this.getStageWorldBounds(this.currentStage);
     }
@@ -8994,10 +9005,63 @@ class SurvivalScene extends Phaser.Scene {
     };
   }
 
+  getFinalBossRaidMovementPolygon(padding = 0) {
+    const arenaConfig = FINAL_BOSS_RAID_CONFIG.arena || {};
+    const pointsConfig = Array.isArray(arenaConfig.movementPolygon) ? arenaConfig.movementPolygon : [];
+    if (pointsConfig.length < 3) {
+      return null;
+    }
+
+    const metrics = this.getFinalBossRaidArenaMetrics();
+    const points = pointsConfig.map((point) => ({
+      x: metrics.left + metrics.displayWidth * Phaser.Math.Clamp(Number(point?.xRatio) || 0, -0.5, 1.5),
+      y: metrics.top + metrics.displayHeight * Phaser.Math.Clamp(Number(point?.yRatio) || 0, -0.5, 1.5)
+    }));
+    const safePadding = Math.max(0, Number(padding) || 0);
+    if (safePadding <= 0) {
+      return points;
+    }
+
+    const center = points.reduce((sum, point) => ({
+      x: sum.x + point.x / points.length,
+      y: sum.y + point.y / points.length
+    }), { x: 0, y: 0 });
+    return points.map((point) => {
+      const dx = point.x - center.x;
+      const dy = point.y - center.y;
+      const distance = Math.max(1, Math.hypot(dx, dy));
+      const ratio = Math.max(0, (distance - safePadding) / distance);
+      return {
+        x: center.x + dx * ratio,
+        y: center.y + dy * ratio
+      };
+    });
+  }
+
   getFinalBossRaidMovementBounds(padding = 0) {
     const metrics = this.getFinalBossRaidArenaMetrics();
     const arenaConfig = FINAL_BOSS_RAID_CONFIG.arena || {};
     const safePadding = Math.max(0, Number(padding) || 0);
+    const polygon = this.getFinalBossRaidMovementPolygon(safePadding);
+    if (polygon?.length >= 3) {
+      const xs = polygon.map((point) => point.x);
+      const ys = polygon.map((point) => point.y);
+      const left = Math.min(...xs);
+      const right = Math.max(...xs);
+      const top = Math.min(...ys);
+      const bottom = Math.max(...ys);
+      return {
+        left,
+        top,
+        right,
+        bottom,
+        width: Math.max(1, right - left),
+        height: Math.max(1, bottom - top),
+        centerX: (left + right) * 0.5,
+        centerY: (top + bottom) * 0.5
+      };
+    }
+
     const width = Math.max(260, Number(arenaConfig.movementWidth) || metrics.displayWidth * 0.72);
     const height = Math.max(220, Number(arenaConfig.movementHeight) || metrics.displayHeight * 0.56);
     const centerX = metrics.centerX;
@@ -11700,6 +11764,12 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
+    const config = FINAL_RAID_GIANT_WEAPON_CONFIG;
+    if (state.currentPhase?.id !== (config.activePhaseId || "third")) {
+      state.nextGiantWeaponAttackAt = 0;
+      return;
+    }
+
     const targets = this.getFinalBossRaidGiantWeaponTargets();
     if (targets.length <= 0) {
       return;
@@ -11707,7 +11777,6 @@ class SurvivalScene extends Phaser.Scene {
 
     const elapsedMs = Math.max(0, Number(state.elapsedMs) || 0);
     if (!state.nextGiantWeaponAttackAt) {
-      const config = FINAL_RAID_GIANT_WEAPON_CONFIG;
       state.nextGiantWeaponAttackAt = elapsedMs + this.scaleFinalBossRaidMs(
         config.attackInitialDelayMs,
         5200,
@@ -11742,6 +11811,10 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     const config = FINAL_RAID_GIANT_WEAPON_CONFIG;
+    if (state.currentPhase?.id !== (config.activePhaseId || "third")) {
+      return;
+    }
+
     const radius = this.getFinalBossRaidGiantWeaponAttackRadius();
     const warningMs = this.scaleFinalBossRaidMs(config.warningMs, 2100, 240);
     const point = this.getFinalBossRaidFieldAttackPoint({
@@ -31467,17 +31540,80 @@ class SurvivalScene extends Phaser.Scene {
     };
   }
 
+  isPointInsidePolygon(x, y, polygon) {
+    if (!Array.isArray(polygon) || polygon.length < 3) {
+      return false;
+    }
+
+    let inside = false;
+    for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index, index += 1) {
+      const point = polygon[index];
+      const previousPoint = polygon[previous];
+      const crosses = (point.y > y) !== (previousPoint.y > y);
+      if (!crosses) {
+        continue;
+      }
+      const intersectionX = (previousPoint.x - point.x) * (y - point.y) / ((previousPoint.y - point.y) || 1) + point.x;
+      if (x < intersectionX) {
+        inside = !inside;
+      }
+    }
+    return inside;
+  }
+
+  getClosestPointOnSegment(x, y, start, end) {
+    const segmentX = end.x - start.x;
+    const segmentY = end.y - start.y;
+    const segmentLengthSq = segmentX * segmentX + segmentY * segmentY;
+    if (segmentLengthSq <= 0.0001) {
+      return { x: start.x, y: start.y };
+    }
+
+    const ratio = Phaser.Math.Clamp(
+      ((x - start.x) * segmentX + (y - start.y) * segmentY) / segmentLengthSq,
+      0,
+      1
+    );
+    return {
+      x: start.x + segmentX * ratio,
+      y: start.y + segmentY * ratio
+    };
+  }
+
+  clampPointToPolygon(x, y, polygon) {
+    if (!Array.isArray(polygon) || polygon.length < 3 || this.isPointInsidePolygon(x, y, polygon)) {
+      return { x, y };
+    }
+
+    let closestPoint = { x, y };
+    let closestDistanceSq = Number.POSITIVE_INFINITY;
+    for (let index = 0; index < polygon.length; index += 1) {
+      const start = polygon[index];
+      const end = polygon[(index + 1) % polygon.length];
+      const candidate = this.getClosestPointOnSegment(x, y, start, end);
+      const distanceSq = Phaser.Math.Distance.Squared(x, y, candidate.x, candidate.y);
+      if (distanceSq < closestDistanceSq) {
+        closestDistanceSq = distanceSq;
+        closestPoint = candidate;
+      }
+    }
+    return closestPoint;
+  }
+
   constrainPlayerToMovementBounds() {
     if (!this.playerHitbox?.active || !this.isFinalBossRaidActive?.()) {
       return;
     }
 
-    const bounds = this.getStageMovementBounds(this.currentStage, PLAYER_HITBOX_RADIUS);
-    if (!bounds) {
+    const polygon = this.getFinalBossRaidMovementPolygon?.(PLAYER_HITBOX_RADIUS);
+    const bounds = polygon?.length >= 3 ? null : this.getStageMovementBounds(this.currentStage, PLAYER_HITBOX_RADIUS);
+    if (!polygon?.length && !bounds) {
       return;
     }
 
-    const clampedPoint = this.clampPointToBounds(this.playerHitbox.x, this.playerHitbox.y, bounds);
+    const clampedPoint = polygon?.length >= 3
+      ? this.clampPointToPolygon(this.playerHitbox.x, this.playerHitbox.y, polygon)
+      : this.clampPointToBounds(this.playerHitbox.x, this.playerHitbox.y, bounds);
     const movedX = Math.abs(clampedPoint.x - this.playerHitbox.x) > 0.01;
     const movedY = Math.abs(clampedPoint.y - this.playerHitbox.y) > 0.01;
     if (!movedX && !movedY) {
