@@ -9502,7 +9502,7 @@ class SurvivalScene extends Phaser.Scene {
       : FINAL_RAID_HUD_LAYOUT.ranking.width;
     const rightX = layoutWidth - rightPanelWidth - safe.right;
     const playerWidth = info.compact ? 300 : FINAL_RAID_HUD_LAYOUT.player.width;
-    const playerHeight = info.mobile ? 260 : FINAL_RAID_HUD_LAYOUT.player.height;
+    const playerHeight = FINAL_RAID_HUD_LAYOUT.player.height;
     const playerX = safe.left;
     const playerY = topY + 4;
     const playerRight = playerX + playerWidth;
@@ -9528,12 +9528,17 @@ class SurvivalScene extends Phaser.Scene {
     const syncTextY = Math.min(actionY + 184, robotSlotY - 32);
     const syncBarY = syncTextY + 21;
     const dashY = actionY + Math.max(66, Math.min(82, syncTextY - actionY - 100));
-    const rankingY = topY + 4;
-    const maxMobileRankingHeight = Math.max(168, Math.floor((safe.dashAvoidTop || 286) - rankingY - safe.panelGap));
-    const rankingHeight = info.mobile
-      ? Math.min(254, maxMobileRankingHeight)
-      : (info.compact ? 304 : FINAL_RAID_HUD_LAYOUT.ranking.height);
-    const skillColumns = info.mobile ? 3 : 5;
+    const rankingRows = 5;
+    const rankingFontPx = info.mobile ? 12 : 14;
+    const rankingLineSpacing = info.mobile ? 3 : 5;
+    const baseRankingHeight = Math.max(
+      info.mobile ? 150 : 164,
+      46 + rankingRows * (rankingFontPx + rankingLineSpacing) + 12
+    );
+    const maxRankingHeight = Math.max(info.mobile ? 142 : 154, layoutHeight - (topY + 4) - safe.bottom);
+    const rankingHeight = Math.min(baseRankingHeight, maxRankingHeight);
+    const rankingY = Math.max(topY + 4, layoutHeight - safe.bottom - rankingHeight);
+    const skillColumns = 5;
     const skillStartY = playerY + (skillColumns < 5 ? 140 : 148);
     const skillLabelY = playerY + (skillColumns < 5 ? 118 : 128);
     const tabWidth = info.compact ? 104 : 116;
@@ -9564,6 +9569,8 @@ class SurvivalScene extends Phaser.Scene {
         width: playerWidth,
         height: playerHeight,
         hpBarWidth: info.compact ? 176 : 190,
+        skillSize: info.mobile ? 48 : FINAL_RAID_HUD_LAYOUT.player.skillSize,
+        skillGap: info.mobile ? 6 : FINAL_RAID_HUD_LAYOUT.player.skillGap,
         skillColumns,
         skillRowGap: 8,
         skillStartY,
@@ -9575,9 +9582,9 @@ class SurvivalScene extends Phaser.Scene {
         y: rankingY,
         width: rightPanelWidth,
         height: rankingHeight,
-        maxRows: info.mobile ? 4 : 5,
-        fontSize: info.mobile ? "12px" : "14px",
-        lineSpacing: info.mobile ? 4 : 7,
+        maxRows: rankingRows,
+        fontSize: `${rankingFontPx}px`,
+        lineSpacing: rankingLineSpacing,
         supportFontSize: info.mobile ? "9px" : "11px"
       },
       action: {
