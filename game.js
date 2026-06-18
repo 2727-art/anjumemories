@@ -193,6 +193,7 @@ const MOBILE_CONTROL_MIN_MARGIN = 88;
 const MOBILE_DASH_BUTTON_X = GAME_WIDTH - 126;
 const MOBILE_DASH_BUTTON_Y = 350;
 const MOBILE_DASH_BUTTON_RADIUS = 58;
+const MOBILE_FINAL_RAID_DASH_BUTTON_Y = GAME_HEIGHT - MOBILE_DASH_BUTTON_RADIUS - 34;
 const SHOP_LOADING_MIN_VISIBLE_MS = 650;
 const SHOP_RETURN_RELOAD_DELAY_MS = 720;
 const SHOP_RETURN_WATCHDOG_MS = 6500;
@@ -1371,7 +1372,7 @@ const RAID_RESCUE_LINK_GUILD_COMMS = {
 };
 const RAID_RESCUE_LINK_HUD_STYLE = {
   width: 312,
-  compactWidth: 258,
+  compactWidth: 286,
   height: 388,
   compactHeight: 356,
   rowHeight: 18,
@@ -9747,21 +9748,27 @@ class SurvivalScene extends Phaser.Scene {
     const moduleSlotWidth = actionWidth - 24;
     const moduleSlotX = actionX + 12;
     const moduleGap = Math.max(10, Math.floor(actionHeight * 0.035));
-    const fieldSlotY = actionY + actionHeight - 16 - moduleSlotHeight;
-    const robotSlotY = fieldSlotY - moduleGap - moduleSlotHeight;
-    const syncTextY = Math.min(actionY + 184, robotSlotY - 32);
+    const dashBottomPadding = info.mobile ? 22 : 24;
+    const dashY = actionY + actionHeight - dashRadius - dashBottomPadding;
+    const fieldSlotY = Math.max(actionY + 156, dashY - dashRadius - 24 - moduleSlotHeight);
+    const robotSlotY = Math.max(actionY + 66, fieldSlotY - moduleGap - moduleSlotHeight);
+    const syncTextY = Math.max(actionY + 28, Math.min(actionY + 98, robotSlotY - 36));
     const syncBarY = syncTextY + 21;
-    const dashY = actionY + Math.max(66, Math.min(82, syncTextY - actionY - 100));
     const rankingRows = 5;
     const rankingFontPx = info.mobile ? 12 : 14;
     const rankingLineSpacing = info.mobile ? 3 : 5;
+    const rightColumnY = topY + 4;
+    const rightColumnGap = safe.panelGap;
+    const rescueLinkHeight = info.compact || this.mobileControlsEnabled === true
+      ? RAID_RESCUE_LINK_HUD_STYLE.compactHeight
+      : RAID_RESCUE_LINK_HUD_STYLE.height;
     const baseRankingHeight = Math.max(
       info.mobile ? 150 : 164,
       46 + rankingRows * (rankingFontPx + rankingLineSpacing) + 12
     );
-    const maxRankingHeight = Math.max(info.mobile ? 142 : 154, layoutHeight - (topY + 4) - safe.bottom);
+    const rankingY = rightColumnY + rescueLinkHeight + rightColumnGap;
+    const maxRankingHeight = Math.max(info.mobile ? 142 : 154, layoutHeight - rankingY - safe.bottom);
     const rankingHeight = Math.min(baseRankingHeight, maxRankingHeight);
-    const rankingY = Math.max(topY + 4, layoutHeight - safe.bottom - rankingHeight);
     const skillColumns = 5;
     const skillStartY = playerY + (skillColumns < 5 ? 140 : 148);
     const skillLabelY = playerY + (skillColumns < 5 ? 118 : 128);
@@ -9810,6 +9817,13 @@ class SurvivalScene extends Phaser.Scene {
         fontSize: `${rankingFontPx}px`,
         lineSpacing: rankingLineSpacing,
         supportFontSize: info.mobile ? "9px" : "11px"
+      },
+      rightColumn: {
+        x: rightX,
+        y: rightColumnY,
+        width: rightPanelWidth,
+        gap: rightColumnGap,
+        rescueHeight: rescueLinkHeight
       },
       action: {
         ...FINAL_RAID_HUD_LAYOUT.action,
@@ -12557,15 +12571,15 @@ class SurvivalScene extends Phaser.Scene {
     const compact = this.isFinalRaidRescueCompactDebugEnabled() || raidLayout.compact || this.mobileControlsEnabled === true;
     const width = compact ? RAID_RESCUE_LINK_HUD_STYLE.compactWidth : RAID_RESCUE_LINK_HUD_STYLE.width;
     const height = compact ? RAID_RESCUE_LINK_HUD_STYLE.compactHeight : RAID_RESCUE_LINK_HUD_STYLE.height;
-    const gap = compact ? 8 : 12;
     const safe = raidLayout.safe || FINAL_RAID_HUD_SAFE_MARGINS.desktop;
     const ranking = raidLayout.ranking || FINAL_RAID_HUD_LAYOUT.ranking;
-    let x = ranking.x - width - gap;
-    let y = ranking.y;
-    if (x < (safe.left || 12)) {
-      x = ranking.x;
-      y = ranking.y - height - gap;
-    }
+    const column = raidLayout.rightColumn || {
+      x: ranking.x,
+      y: safe.top || 10,
+      width: ranking.width || width
+    };
+    let x = column.x + Math.max(0, (column.width || width) - width);
+    let y = column.y;
     x = Phaser.Math.Clamp(Math.round(x), safe.left || 12, Math.max(safe.left || 12, GAME_WIDTH - width - (safe.right || 12)));
     y = Phaser.Math.Clamp(Math.round(y), safe.top || 10, Math.max(safe.top || 10, GAME_HEIGHT - height - (safe.bottom || 14)));
     return {
@@ -30026,6 +30040,7 @@ class SurvivalScene extends Phaser.Scene {
       dashIcon,
       dashLabel
     };
+    this.layoutMobileControlVisuals();
 
     this.input.off("pointerdown", this.handleMobilePointerDown, this);
     this.input.off("pointermove", this.handleMobilePointerMove, this);
@@ -30037,6 +30052,20 @@ class SurvivalScene extends Phaser.Scene {
     this.input.on("pointerup", this.handleMobilePointerUp, this);
     this.input.on("pointerupoutside", this.handleMobilePointerUp, this);
     this.input.on("gameout", this.handleMobileGameOut, this);
+  }
+
+  getMobileDashButtonPosition() {
+    return {
+      x: MOBILE_DASH_BUTTON_X,
+      y: this.isFinalBossRaidActive?.() ? MOBILE_FINAL_RAID_DASH_BUTTON_Y : MOBILE_DASH_BUTTON_Y
+    };
+  }
+
+  layoutMobileControlVisuals() {
+    const dash = this.getMobileDashButtonPosition();
+    this.mobileControlVisuals?.dashBase?.setPosition(dash.x, dash.y);
+    this.mobileControlVisuals?.dashIcon?.setPosition(dash.x, dash.y - 8);
+    this.mobileControlVisuals?.dashLabel?.setPosition(dash.x, dash.y + 38);
   }
 
   canUseMobileGameplayControls() {
@@ -30057,6 +30086,7 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     const visible = this.canUseMobileGameplayControls();
+    this.layoutMobileControlVisuals();
     this.mobileControlsContainer.setVisible(visible);
     if (!visible) {
       this.releaseMobileControlPointers();
@@ -30079,7 +30109,8 @@ class SurvivalScene extends Phaser.Scene {
       return false;
     }
 
-    const distance = Phaser.Math.Distance.Between(point.x, point.y, MOBILE_DASH_BUTTON_X, MOBILE_DASH_BUTTON_Y);
+    const dash = this.getMobileDashButtonPosition();
+    const distance = Phaser.Math.Distance.Between(point.x, point.y, dash.x, dash.y);
     return distance <= MOBILE_DASH_BUTTON_RADIUS + 38;
   }
 
