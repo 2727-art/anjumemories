@@ -163,6 +163,23 @@ const COMMS_EPILOGUE_DEBUG_SEQUENCE_QUERY_PARAM = "debugCommsEpilogueSequence";
 const COMMS_EPILOGUE_DEBUG_SHOP_QUERY_PARAM = "debugCommsEpilogueShop";
 const COMMS_EPILOGUE_DEBUG_FORCE_PENDING_QUERY_PARAM = "debugCommsEpilogueForcePending";
 const COMMS_EPILOGUE_PENDING_SESSION_KEY = "lastmemoVansabaPendingCommsEpilogue";
+const RAID_RESCUE_LINK_DEBUG_QUERY_PARAM = "debugRaidRescueLink";
+const RAID_RESCUE_LINK_DEBUG_GUILD_QUERY_PARAM = "debugRaidRescueGuild";
+const RAID_RESCUE_LINK_DEBUG_HUD_QUERY_PARAM = "debugRaidRescueHud";
+const RAID_RESCUE_LINK_DEBUG_COMPACT_QUERY_PARAM = "debugRaidRescueCompact";
+const RAID_RESCUE_EFFECTS_DEBUG_QUERY_PARAM = "debugRaidRescueEffects";
+const RAID_RESCUE_EFFECT_DEBUG_QUERY_PARAM = "debugRaidRescueEffect";
+const RAID_RESCUE_EFFECT_SCALE_DEBUG_QUERY_PARAM = "debugRaidRescueEffectScale";
+const RAID_RESCUE_NO_EFFECTS_DEBUG_QUERY_PARAM = "debugRaidRescueNoEffects";
+const RAID_GUILD_EFFECTS_DEBUG_QUERY_PARAM = "debugRaidGuildEffects";
+const RAID_GUILD_EFFECT_DEBUG_QUERY_PARAM = "debugRaidGuildEffect";
+const RAID_GUILD_EFFECT_SCALE_DEBUG_QUERY_PARAM = "debugRaidGuildEffectScale";
+const RAID_GUILD_EFFECT_HIT_DEBUG_QUERY_PARAM = "debugRaidGuildEffectHit";
+const RAID_BATTLEFIELD_CONTROL_HUD_DEBUG_QUERY_PARAM = "debugRaidBattlefieldControlHud";
+const RAID_ALLIED_MESH_DEBUG_QUERY_PARAM = "debugRaidAlliedMesh";
+const RAID_ALLIED_MESH_PHASE_DEBUG_QUERY_PARAM = "debugRaidAlliedMeshPhase";
+const RAID_ALLIED_MESH_SCALE_DEBUG_QUERY_PARAM = "debugRaidAlliedMeshScale";
+const RAID_ALLIED_MESH_INCOMPLETE_DEBUG_QUERY_PARAM = "debugRaidAlliedMeshIncomplete";
 const MOBILE_GATE_SKIP_SESSION_KEY = "lastmemoVansabaSkipMobileGateOnce";
 const MOBILE_GATE_SKIP_QUERY_PARAM = "skipMobileGateOnce";
 const MOBILE_FULLSCREEN_REQUESTED_SESSION_KEY = "lastmemoVansabaFullscreenRequested";
@@ -1163,7 +1180,18 @@ const FINAL_BOSS_RAID_CONFIG = {
     iceDamage: 10,
     iceTickDamage: 5,
     iceSlowMs: 3600,
-    iceSlowMultiplier: 0.54
+    iceSlowMultiplier: 0.54,
+    tacticalTargeting: {
+      enabled: true,
+      candidateAngles: 14,
+      fireDistanceRatios: [0.62, 0.98, 1.34],
+      iceDistanceRatios: [0.18, 0.54, 0.88],
+      escapeProbeAngles: 16,
+      escapeProbeDistance: 340,
+      minimumSafeExits: 2,
+      idealSafeExits: 4,
+      repeatPenaltyRadius: 190
+    }
   },
   minionCombat: {
     phaseId: "second",
@@ -1198,6 +1226,185 @@ const FINAL_BOSS_RAID_CONFIG = {
       voicePath: `./音声/finalboss/finalboss_supportatack_bunner${guildCode}.mp3`
     };
   })
+};
+const RAID_RESCUE_LINK_SOURCE = "raid_rescue";
+const RAID_RESCUE_LINK_CATEGORY = "guild_arrival";
+const RAID_RESCUE_LINK_CHANNEL = "local_mesh";
+const RAID_ALLIED_MESH_RELAY_CHANNEL = "mesh_relay";
+const RAID_RESCUE_LINK_TOTAL_NODES = FINAL_BOSS_RAID_CONFIG.rankingGuilds.length;
+const FINAL_RAID_HUD_DEPTH = 820;
+const RAID_RESCUE_LINK_PRIORITY = {
+  normal: 2,
+  effect: 3,
+  first: 4,
+  major: 5,
+  mesh: 6,
+  excalion: 7,
+  recovery: 8
+};
+const FINAL_RAID_RESCUE_EFFECT_KEYS = {
+  shield: "relief_shield",
+  beacon: "rescue_beacon"
+};
+const FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS = {
+  debuffWard: "guild_debuff_ward",
+  earthenBulwark: "guild_earthen_bulwark",
+  hopeRegen: "guild_hope_regen",
+  windRelease: "guild_wind_release",
+  legendGuard: "guild_legend_guard",
+  sanctuaryLink: "guild_sanctuary_link",
+  frontlineGuard: "guild_frontline_guard",
+  alliedMeshMaximum: "guild_allied_mesh_maximum"
+};
+const FINAL_RAID_RESCUE_EFFECTS = {
+  reliefBudgetRatio: 0.04,
+  reliefShieldDurationMs: 12000,
+  reliefShieldCapRatio: 0.08,
+  beaconTriggerNodeCount: 7,
+  beaconDurationMs: 10000,
+  beaconRadius: 140,
+  beaconPulseCount: 4,
+  beaconPulseIntervalMs: 2500,
+  beaconHealRatioPerPulse: 0.03,
+  effectHudUpdateIntervalMs: 100,
+  instantEffectLabelDurationMs: 2500
+};
+const FINAL_RAID_GUILD_SUPPORT_EFFECTS = {
+  damageReductionCapRatio: 0.15,
+  vanguardRecoveryBudgetRatio: 0.06,
+  debuffWardDurationMs: 15000,
+  earthenBulwarkDurationMs: 10000,
+  earthenBulwarkReductionRatio: 0.1,
+  hopeRegenDurationMs: 10000,
+  hopeRegenPulseCount: 5,
+  hopeRegenPulseIntervalMs: 2000,
+  hopeRegenHealRatio: 0.012,
+  windReleaseDurationMs: 8000,
+  windReleaseStaminaRatio: 0.5,
+  legendGuardDurationMs: 15000,
+  legendGuardReductionRatio: 0.5,
+  safehouseReductionRatio: 0.1,
+  familyShelterShieldRatio: 0.08,
+  sanctuaryDurationMs: 10000,
+  sanctuaryReductionRatio: 0.12,
+  frontlineGuardDurationMs: 12000,
+  frontlineGuardReductionRatio: 0.15,
+  alliedMeshRecoveryBudgetRatio: 0.08,
+  alliedMeshDurationMs: 12000,
+  alliedMeshReductionRatio: 0.15
+};
+const FINAL_RAID_GUILD_ACTIVE_EFFECT_PRIORITY = {
+  [FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.alliedMeshMaximum]: 1,
+  [FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.legendGuard]: 2,
+  [FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.frontlineGuard]: 3,
+  [FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.sanctuaryLink]: 4,
+  [FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.earthenBulwark]: 5,
+  [FINAL_RAID_RESCUE_EFFECT_KEYS.beacon]: 6,
+  [FINAL_RAID_RESCUE_EFFECT_KEYS.shield]: 7,
+  [FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.debuffWard]: 8,
+  [FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.windRelease]: 9,
+  [FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.hopeRegen]: 10
+};
+const FINAL_RAID_GUILD_SUPPORT_BY_ID = {
+  "guild-001": { label: "VANGUARD AID", recoveryBudgetRatio: FINAL_RAID_GUILD_SUPPORT_EFFECTS.vanguardRecoveryBudgetRatio },
+  "guild-002": { key: FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.debuffWard, label: "DEBUFF WARD", slowImmunityMs: FINAL_RAID_GUILD_SUPPORT_EFFECTS.debuffWardDurationMs, charges: 1 },
+  "guild-003": { key: FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.earthenBulwark, label: "EARTHEN BULWARK", durationMs: FINAL_RAID_GUILD_SUPPORT_EFFECTS.earthenBulwarkDurationMs, reductionRatio: FINAL_RAID_GUILD_SUPPORT_EFFECTS.earthenBulwarkReductionRatio },
+  "guild-004": { key: FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.hopeRegen, label: "HOPE REGEN", durationMs: FINAL_RAID_GUILD_SUPPORT_EFFECTS.hopeRegenDurationMs, pulseCount: FINAL_RAID_GUILD_SUPPORT_EFFECTS.hopeRegenPulseCount, pulseIntervalMs: FINAL_RAID_GUILD_SUPPORT_EFFECTS.hopeRegenPulseIntervalMs, healRatio: FINAL_RAID_GUILD_SUPPORT_EFFECTS.hopeRegenHealRatio },
+  "guild-005": { key: FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.windRelease, label: "WIND RELEASE", slowImmunityMs: FINAL_RAID_GUILD_SUPPORT_EFFECTS.windReleaseDurationMs, staminaRatio: FINAL_RAID_GUILD_SUPPORT_EFFECTS.windReleaseStaminaRatio },
+  "guild-006": { key: FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.legendGuard, label: "LEGEND GUARD", durationMs: FINAL_RAID_GUILD_SUPPORT_EFFECTS.legendGuardDurationMs, reductionRatio: FINAL_RAID_GUILD_SUPPORT_EFFECTS.legendGuardReductionRatio, charges: 1 },
+  "guild-007": { label: "SAFEHOUSE LINK", safehouseLink: true },
+  "guild-008": { label: "FAMILY SHELTER", shieldFillRatio: FINAL_RAID_GUILD_SUPPORT_EFFECTS.familyShelterShieldRatio },
+  "guild-009": { key: FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.sanctuaryLink, label: "SANCTUARY LINK", durationMs: FINAL_RAID_GUILD_SUPPORT_EFFECTS.sanctuaryDurationMs, reductionRatio: FINAL_RAID_GUILD_SUPPORT_EFFECTS.sanctuaryReductionRatio, slowImmunityMs: FINAL_RAID_GUILD_SUPPORT_EFFECTS.sanctuaryDurationMs },
+  "guild-010": { key: FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.frontlineGuard, label: "FRONTLINE GUARD", durationMs: FINAL_RAID_GUILD_SUPPORT_EFFECTS.frontlineGuardDurationMs, reductionRatio: FINAL_RAID_GUILD_SUPPORT_EFFECTS.frontlineGuardReductionRatio },
+  "guild-013": { key: FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.alliedMeshMaximum, label: "ALLIED MESH MAXIMUM", recoveryBudgetRatio: FINAL_RAID_GUILD_SUPPORT_EFFECTS.alliedMeshRecoveryBudgetRatio, durationMs: FINAL_RAID_GUILD_SUPPORT_EFFECTS.alliedMeshDurationMs, reductionRatio: FINAL_RAID_GUILD_SUPPORT_EFFECTS.alliedMeshReductionRatio, slowImmunityMs: FINAL_RAID_GUILD_SUPPORT_EFFECTS.alliedMeshDurationMs, fullStamina: true }
+};
+const FINAL_RAID_BATTLEFIELD_CONTROL_SIDES = {
+  left: { label: "LEFT BATTERY", compactLabel: "LEFT", restraintGuildId: "guild-011" },
+  right: { label: "RIGHT BATTERY", compactLabel: "RIGHT", restraintGuildId: "guild-012" }
+};
+const RAID_RESCUE_LINK_GUILD_EVENT_TYPES = {
+  "guild-001": "otomenokiba_arrival",
+  "guild-002": "guild-002_arrival",
+  "guild-003": "guild-003_arrival",
+  "guild-004": "guild-004_arrival",
+  "guild-005": "guild-005_arrival",
+  "guild-006": "guild-006_arrival",
+  "guild-007": "guild-007_arrival",
+  "guild-008": "guild-008_arrival",
+  "guild-009": "guild-009_arrival",
+  "guild-010": "redwolf_arrival",
+  "guild-011": "coven_arrival",
+  "guild-012": "hitoribocchi_arrival",
+  "guild-013": "excalion_arrival"
+};
+const RAID_RESCUE_LINK_GUILD_LABELS = {
+  "guild-010": "FRONTLINE LINK",
+  "guild-013": "ALLIED MESH"
+};
+const RAID_RESCUE_LINK_RESTRAINT_LABELS = {
+  "guild-011": { weaponId: "left", label: "LEFT BATTERY SEALED" },
+  "guild-012": { weaponId: "right", label: "RIGHT BATTERY SEALED" }
+};
+const RAID_RESCUE_LINK_GUILD_COMMS = {
+  "guild-001": [
+    { speaker: "SYSTEM", text: "UNKNOWN IFF SIGNAL DETECTED", variant: "noise", duration: 2200, eventType: "first_allied_signal" },
+    { speaker: "SYSTEM", text: "FIRST ALLIED SIGNAL CONFIRMED", variant: "system", duration: 2400, eventType: "first_allied_signal" },
+    { speaker: "SYSTEM", text: "LOCAL MESH NODE CONNECTED — 乙女の牙", variant: "system", duration: 2800, eventType: "otomenokiba_arrival" }
+  ],
+  "guild-010": [
+    { speaker: "SYSTEM", text: "LOCAL MESH NODE CONNECTED — REDWOLF", variant: "system", duration: 2600, eventType: "redwolf_arrival" },
+    { speaker: "REDWOLF", text: "聞こえるか。救援に入った。前線はこっちで支える。", variant: "normal", duration: 5000, eventType: "redwolf_arrival" }
+  ],
+  "guild-011": [
+    { speaker: "SYSTEM", text: "LOCAL MESH NODE CONNECTED — Coven", variant: "system", duration: 2600, eventType: "coven_arrival" },
+    { speaker: "Coven", text: "左の大型兵器を拘束する。左半面は任せろ。", variant: "normal", duration: 5000, eventType: "coven_arrival" }
+  ],
+  "guild-012": [
+    { speaker: "SYSTEM", text: "LOCAL MESH NODE CONNECTED — ひとりぼっちの", variant: "system", duration: 2600, eventType: "hitoribocchi_arrival" },
+    { speaker: "ひとりぼっちの", text: "右は任せて。退路は潰させない。", variant: "normal", duration: 4800, eventType: "hitoribocchi_arrival" }
+  ],
+  "guild-013": [
+    { speaker: "SYSTEM", text: "HIGH-OUTPUT LOCAL SIGNAL DETECTED", variant: "warning", duration: 2400, eventType: "excalion_arrival" },
+    { speaker: "SYSTEM", text: "LOCAL MESH NODE CONNECTED — エクスカリオン", variant: "system", duration: 2800, eventType: "excalion_arrival" },
+    { speaker: "エクスカリオン", text: "遅くなった。ここから最後まで一緒に行く。", variant: "normal", duration: 5200, eventType: "excalion_arrival" }
+  ]
+};
+const RAID_RESCUE_LINK_HUD_STYLE = {
+  width: 312,
+  compactWidth: 258,
+  height: 388,
+  compactHeight: 356,
+  rowHeight: 18,
+  compactRowHeight: 16,
+  depth: FINAL_RAID_HUD_DEPTH + 4
+};
+const RAID_ALLIED_MESH_PHASES = {
+  standby: "standby",
+  online: "online",
+  maximumCharging: "maximum_charging",
+  maximum: "maximum",
+  relay: "relay",
+  relayActive: "relay_active",
+  stable: "stable"
+};
+const RAID_ALLIED_MESH_NODE_STATES = {
+  pending: "pending",
+  connected: "connected",
+  maximum: "maximum",
+  relay: "relay",
+  stable: "stable",
+  offline: "offline"
+};
+const RAID_ALLIED_MESH_CONFIG = {
+  arrivalDelayMs: 560,
+  nodeSweepIntervalMs: 92,
+  nodePulseMs: 220,
+  allPulseMs: 380,
+  bannerFadeInMs: 220,
+  bannerHoldMs: 1700,
+  bannerFadeOutMs: 460,
+  playerPulseMs: 760,
+  debugSequenceGapMs: 1450
 };
 // Visual-only Depth10 Final Raid tuning. debugFinalRaidScale remains a timer speed override.
 const FINAL_RAID_VISUAL_CONFIG = {
@@ -1286,7 +1493,7 @@ const FINAL_RAID_VISUAL_CONFIG = {
   }
 };
 const FINAL_RAID_HUD_LAYOUT = {
-  depth: 820,
+  depth: FINAL_RAID_HUD_DEPTH,
   boss: { x: 348, y: 12, width: 584, height: 164 },
   player: { x: 16, y: 16, width: 316, height: 210, iconSize: 72, skillSize: 54, skillGap: 8 },
   ranking: { x: 950, y: 104, width: 312, height: 304 },
@@ -1983,7 +2190,7 @@ const COMMS_UI_CONFIG = {
   defaultDurationMs: 5200,
   minDurationMs: 1400,
   maxDurationMs: 12000,
-  queueMax: 6,
+  queueMax: 7,
   interruptPriority: 10,
   depth: 735,
   epilogueDepth: 930,
@@ -2101,12 +2308,14 @@ const COMMS_STORY_SEQUENCES = [
     id: "depth10_first",
     depth: 10,
     messages: [
-      { speaker: "SYSTEM", text: "DOLL FIELD JAMMING DETECTED", variant: "warning", duration: 3200 },
-      { speaker: "SYSTEM", text: "EXTERNAL FRAME LINK LOST", variant: "noise", duration: 3200 },
-      { speaker: "SYSTEM", text: "COMMS LINK: OFFLINE", variant: "noise", duration: 3000 },
-      { speaker: "SYSTEM", text: "DOLL CORE ACTIVITY LIMIT: 10:00", variant: "warning", duration: 3600 },
-      { speaker: "SYSTEM", text: "RAID SIGNAL: MANUAL TRANSMIT READY", variant: "system", duration: 3800 },
-      { speaker: "Hiromaro[IGNIS]", text: "CACHED VOICE: 最後まで行こう。帰ったら、ちゃんとみんなで騒ごうね。", variant: "noise", duration: 5600 }
+      { speaker: "SYSTEM", text: "DOLL FIELD JAMMING DETECTED", variant: "warning", duration: 3200, channel: "system", category: "depth_story" },
+      { speaker: "SYSTEM", text: "EXTERNAL FRAME LINK LOST", variant: "noise", duration: 3200, channel: "system", category: "depth_story" },
+      { speaker: "SYSTEM", text: "EXTERNAL DOWNLINK: LOST", variant: "noise", duration: 3000, channel: "system", category: "depth_story" },
+      { speaker: "SYSTEM", text: "EMERGENCY UPLINK: ACTIVE", variant: "system", duration: 3200, channel: "system", category: "depth_story" },
+      { speaker: "SYSTEM", text: "LOCAL MESH: STANDBY", variant: "system", duration: 3000, channel: "system", category: "depth_story" },
+      { speaker: "SYSTEM", text: "DOLL CORE ACTIVITY LIMIT: 10:00", variant: "warning", duration: 3600, channel: "system", category: "depth_story" },
+      { speaker: "SYSTEM", text: "RAID SIGNAL: MANUAL TRANSMIT READY", variant: "system", duration: 3800, channel: "system", category: "depth_story" },
+      { speaker: "Hiromaro[IGNIS]", text: "CACHED VOICE: 最後まで行こう。帰ったら、ちゃんとみんなで騒ごうね。", variant: "noise", duration: 5600, channel: "system", category: "depth_story" }
     ]
   }
 ];
@@ -2124,7 +2333,8 @@ const COMMS_EPILOGUE_SEQUENCES = [
     messages: [
       { speaker: "SYSTEM", text: "BOSS SIGNAL LOST", variant: "system", duration: 3000 },
       { speaker: "SYSTEM", text: "DOLL FIELD JAMMING WEAKENING", variant: "warning", duration: 3400 },
-      { speaker: "Kurokage[花火亭]", text: "……聞こえるか。こちらKurokage。通信が、戻り始めている。", variant: "noise", duration: 5600 },
+      { speaker: "SYSTEM", text: "ALLIED MESH RELAY — EXTERNAL DOWNLINK RECOVERING", variant: "system", duration: 3200, priority: RAID_RESCUE_LINK_PRIORITY.recovery, source: RAID_RESCUE_LINK_SOURCE, category: "comms_recovery", channel: RAID_ALLIED_MESH_RELAY_CHANNEL, eventType: "external_downlink_recovering", allowDuringFinalRaid: true, finalRaid: true },
+      { speaker: "Kurokage[花火亭]", text: "……聞こえるか。こちらKurokage。通信が、戻り始めている。", variant: "noise", duration: 5600, commsStateTransition: "external_carrier_detected" },
       { speaker: "Alamode[花火亭]", text: "あんじゅちゃん、無事？ 返事はできなくてもいい、信号は見えてる。", variant: "noise", duration: 5600 },
       { speaker: "Omaru[IGNIS]", text: "救援信号、全線で確認。封鎖中枢の反応は沈黙した。", variant: "system", duration: 5400 },
       { speaker: "Hiromaro[IGNIS]", text: "やった……！ でもまだ帰るまでが作戦だよ。あと少し！", variant: "normal", duration: 5400 }
@@ -5595,6 +5805,7 @@ class SurvivalScene extends Phaser.Scene {
     this.survivalTime = 0;
     this.initializeDepthRunState();
     this.initializeFinalBossRaidState();
+    this.initFinalRaidRescueLinkState("createState");
     this.initializeAnjuMemoryRunState();
     this.applyDebugStartDepthRunProgress("createState");
     this.initializeAnomalyContractState();
@@ -5826,6 +6037,8 @@ class SurvivalScene extends Phaser.Scene {
       nextThirdSpellAt: 0,
       nextThirdMinionSpawnAt: 0,
       thirdSpellIndex: 0,
+      thirdSpellTargetHistory: [],
+      thirdSpellPlan: null,
       minionPhaseCombatStarted: false,
       nextMinionSpawnAt: 0,
       minionPhaseDefeatCount: 0,
@@ -6171,6 +6384,7 @@ class SurvivalScene extends Phaser.Scene {
     this.stopFinalBossRaidBgm?.(false, true);
     this.teardownFinalBossRaidPlaceholder(reason);
     this.initializeFinalBossRaidState();
+    this.initFinalRaidRescueLinkState(reason);
     this.resetFinalRaidVisualScales?.(reason);
     this.setFinalBossRaidStandardHudSuppressed(false);
   }
@@ -8971,6 +9185,8 @@ class SurvivalScene extends Phaser.Scene {
       nextThirdSpellAt: 0,
       nextThirdMinionSpawnAt: 0,
       thirdSpellIndex: 0,
+      thirdSpellTargetHistory: [],
+      thirdSpellPlan: null,
       minionPhaseCombatStarted: false,
       nextMinionSpawnAt: 0,
       minionPhaseDefeatCount: 0,
@@ -9032,9 +9248,17 @@ class SurvivalScene extends Phaser.Scene {
     this.resumeGameplayAfterBlockingOverlay("finalBossRaidStart");
     this.setLastPickupNotice(LOST_ARMS_JAMMING_NOTICE);
     this.setFinalBossRaidStandardHudSuppressed(true);
+    this.initFinalRaidRescueLinkState("finalBossRaidStart");
+    this.setFinalRaidCommsDirectionState({
+      externalDownlink: "lost",
+      emergencyUplink: "active",
+      localMesh: "standby"
+    }, "finalBossRaidStart");
     this.applyFinalRaidVisualScales("start");
     this.createFinalBossRaidObjects();
+    this.createFinalRaidRescueLinkHud("finalBossRaidStart");
     this.applyFinalBossRaidJoinedGiantWeaponRestraints("finalBossRaidStart");
+    this.syncFinalRaidRescueLinkFromRanking("finalBossRaidStart");
     this.setFinalBossRaidPhase(this.getFinalBossRaidPhaseForElapsed(startElapsedMs), "start");
     this.positionFinalBossRaidPlayerStart("start");
     this.updateFinalBossRaidRankingEntries();
@@ -10588,6 +10812,7 @@ class SurvivalScene extends Phaser.Scene {
       state.rankingHudDirty = false;
     }
     this.setFinalRaidHudText(elements.rankingText, state.cachedRankingHudLines || "--");
+    this.layoutFinalRaidRescueLinkHud?.();
 
     this.setFinalRaidHudText(elements.dashStateText, this.dashLockedUntilRelease ? "LOCK" : (staminaRatio >= 0.18 ? "READY" : "LOW"));
     this.setFinalRaidHudColor(elements.dashStateText, this.isDashing ? "#e9ffff" : (staminaRatio >= 0.18 ? FINAL_RAID_HUD_STYLE.cyan : "#ffb3a8"));
@@ -11144,6 +11369,8 @@ class SurvivalScene extends Phaser.Scene {
     state.nextPhaseAttackAt = 0;
     state.phaseAttackIndex = 0;
     state.nextThirdSpellAt = 0;
+    state.thirdSpellTargetHistory = [];
+    state.thirdSpellPlan = null;
     state.nextThirdMinionSpawnAt = 0;
     state.nextMinionSpawnAt = 0;
     state.minionPhaseDefeatCount = 0;
@@ -11402,6 +11629,7 @@ class SurvivalScene extends Phaser.Scene {
 
     const weaponConfig = this.getFinalBossRaidGiantWeaponConfig(weaponId);
     this.setLastPickupNotice(`${entry?.label || restraint.label || "GUILD"} RESTRAINS ${weaponConfig?.label || weaponId}`);
+    this.refreshFinalRaidRescueLinkHud?.();
     if (state.debug) {
       console.log("[FINAL BOSS RAID] giant weapon restrained", {
         reason,
@@ -11420,7 +11648,17 @@ class SurvivalScene extends Phaser.Scene {
     if (!restraint) {
       return false;
     }
-    return this.restrainFinalBossRaidGiantWeapon(restraint.weaponId, entry, restraint, reason);
+    const applied = this.restrainFinalBossRaidGiantWeapon(restraint.weaponId, entry, restraint, reason);
+    if (applied) {
+      const rescueLabel = RAID_RESCUE_LINK_RESTRAINT_LABELS[entry?.id];
+      if (rescueLabel?.label) {
+        this.updateFinalRaidRescueLinkEntry?.(entry.id, {
+          connectionLabel: rescueLabel.label,
+          status: "sealed"
+        }, reason);
+      }
+    }
+    return applied;
   }
 
   applyFinalBossRaidJoinedGiantWeaponRestraints(reason = "syncJoinedGuilds") {
@@ -11711,6 +11949,7 @@ class SurvivalScene extends Phaser.Scene {
     state.bossFallbackGraphics = null;
     state.bossNameText = null;
     this.setLastPickupNotice("FINAL RAID BOSS DEFEATED");
+    this.markFinalRaidRescueLinkOperationComplete?.(reason);
     this.tryQueueDepth10EpilogueComms?.("depth10_boss_break_epilogue", reason);
 
     if (state.debug) {
@@ -11761,6 +12000,7 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     this.teardownFinalBossLiberationGate(reason);
+    this.cleanupFinalRaidRescueLink(reason);
     this.cleanupFinalBossRaidSupportEffects(reason);
     this.cleanupFinalBossRaidThirdPhaseCombat(reason, { clearMinions: true });
     this.destroyFinalBossRaidGiantWeaponTargets(reason);
@@ -11834,6 +12074,7 @@ class SurvivalScene extends Phaser.Scene {
     const voiceDurationMs = this.playFinalBossRaidSupportVoice(entry);
     const bannerDelayMs = this.getFinalBossRaidSupportBannerDelayMs(entry, voiceDurationMs);
     this.queueFinalBossRaidSupportBanner(entry, bannerDelayMs);
+    this.handleFinalRaidGuildArrival(entry, { reason: "guildJoined" });
     this.setLastPickupNotice(entry.finalPush ? `${entry.label} FINAL PUSH` : `${entry.label} RAID SUPPORT`);
     this.applyFinalBossRaidGuildGiantWeaponRestraint(entry, "guildJoined");
 
@@ -11846,6 +12087,3666 @@ class SurvivalScene extends Phaser.Scene {
         bannerDelayMs: Math.round(bannerDelayMs)
       });
     }
+  }
+
+  createFinalRaidRescueLinkState() {
+    return {
+      externalDownlink: "lost",
+      emergencyUplink: "active",
+      localMesh: "standby",
+      meshPhase: RAID_ALLIED_MESH_PHASES.standby,
+      expectedNodeCount: RAID_RESCUE_LINK_TOTAL_NODES,
+      arrivedGuildIds: new Set(),
+      entries: [],
+      firstNodeConnected: false,
+      operationComplete: false,
+      alliedMeshMaximumActivated: false,
+      alliedMeshMaximumAnnounced: false,
+      alliedMeshAnimationPlayed: false,
+      recoveryBridgeStarted: false,
+      recoveryCarrierDetected: false,
+      externalDownlinkRestored: false,
+      container: null,
+      graphics: null,
+      glowGraphics: null,
+      headerText: null,
+      downlinkText: null,
+      uplinkText: null,
+      meshText: null,
+      nodeCountText: null,
+      omittedText: null,
+      supportNodeTitleText: null,
+      supportNodeContainer: null,
+      supportNodeVisuals: new Map(),
+      supportNodeStates: new Map(),
+      debugSupportNodeStates: null,
+      debugConnectedNodeCount: null,
+      activeEffectsTitleText: null,
+      battlefieldTitleText: null,
+      battlefieldControlRows: [],
+      effectRows: [],
+      effectToastText: null,
+      rows: [],
+      tweens: [],
+      timers: [],
+      effectTweens: [],
+      effectTimers: [],
+      meshTweens: [],
+      meshTimers: [],
+      meshObjects: [],
+      alliedMeshBannerContainer: null,
+      alliedMeshBannerGraphics: null,
+      alliedMeshBannerTexts: [],
+      layout: null,
+      debugPreviewQueued: false,
+      debugHudPreviewCreated: false,
+      debugEffectPreviewQueued: false,
+      debugAlliedMeshPreviewQueued: false,
+      debugAlliedMeshPreviewActive: false,
+      lastHudDebugSignature: "",
+      activeEffects: new Map(),
+      effectHudLastUpdateAt: 0,
+      reliefAppliedGuildIds: new Set(),
+      rescueShieldHp: 0,
+      rescueShieldMaxHp: 0,
+      rescueShieldEndsAt: 0,
+      rescueShieldSourceGuildId: null,
+      rescueShieldGraphics: null,
+      rescueBeaconDeployed: false,
+      rescueBeaconActive: false,
+      rescueBeaconState: null,
+      rescueBeaconContainer: null,
+      rescueBeaconGraphics: null,
+      rescueBeaconLabel: null,
+      guildSupportAppliedIds: new Set(),
+      guildDamageReductions: new Map(),
+      guildSlowImmunities: new Map(),
+      guildSupportTimers: [],
+      guildSupportTweens: [],
+      guildSupportObjects: [],
+      debuffWard: null,
+      legendGuard: null,
+      safehouseLinkActive: false,
+      debugGuildEffectPreviewQueued: false,
+      debugGuildEffectHitQueued: false,
+      debugBattlefieldControlHudQueued: false,
+      battlefieldControlPreview: null
+    };
+  }
+
+  initFinalRaidRescueLinkState(reason = "init") {
+    this.cleanupFinalRaidRescueLink(reason, { silent: true });
+    this.finalRaidRescueLinkState = this.createFinalRaidRescueLinkState();
+    this.initFinalRaidRescueEffects(reason);
+    this.debugLogFinalRaidRescueLink("initialized", { reason });
+    return this.finalRaidRescueLinkState;
+  }
+
+  isFinalRaidRescueLinkDebugEnabled() {
+    const value = this.getUrlStageParam(RAID_RESCUE_LINK_DEBUG_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  isFinalRaidRescueHudDebugEnabled() {
+    const value = this.getUrlStageParam(RAID_RESCUE_LINK_DEBUG_HUD_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  isFinalRaidRescueCompactDebugEnabled() {
+    const value = this.getUrlStageParam(RAID_RESCUE_LINK_DEBUG_COMPACT_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  isFinalRaidRescueEffectsDebugEnabled() {
+    const value = this.getUrlStageParam(RAID_RESCUE_EFFECTS_DEBUG_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  isFinalRaidRescueNoEffectsDebugEnabled() {
+    const value = this.getUrlStageParam(RAID_RESCUE_NO_EFFECTS_DEBUG_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  getDebugFinalRaidRescueEffectParam() {
+    return String(this.getUrlStageParam(RAID_RESCUE_EFFECT_DEBUG_QUERY_PARAM) || "").trim().toLowerCase();
+  }
+
+  getFinalRaidRescueEffectTimeScale() {
+    if (!this.isFinalRaidRescueEffectsDebugEnabled?.()) {
+      return 1;
+    }
+    const value = Number(this.getUrlStageParam(RAID_RESCUE_EFFECT_SCALE_DEBUG_QUERY_PARAM));
+    return Number.isFinite(value) ? Phaser.Math.Clamp(value, 0.1, 4) : 1;
+  }
+
+  scaleFinalRaidRescueEffectMs(value, fallbackValue = value) {
+    const base = Math.max(1, Number(value) || Number(fallbackValue) || 1);
+    return Math.max(1, Math.round(base * this.getFinalRaidRescueEffectTimeScale()));
+  }
+
+  isFinalRaidGuildEffectsDebugEnabled() {
+    const value = this.getUrlStageParam(RAID_GUILD_EFFECTS_DEBUG_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  getDebugFinalRaidGuildEffectParam() {
+    return String(this.getUrlStageParam(RAID_GUILD_EFFECT_DEBUG_QUERY_PARAM) || "").trim().toLowerCase();
+  }
+
+  getDebugFinalRaidGuildEffectHitEnabled() {
+    const value = this.getUrlStageParam(RAID_GUILD_EFFECT_HIT_DEBUG_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  getDebugFinalRaidBattlefieldControlHudParam() {
+    return String(this.getUrlStageParam(RAID_BATTLEFIELD_CONTROL_HUD_DEBUG_QUERY_PARAM) || "").trim().toLowerCase();
+  }
+
+  getFinalRaidGuildEffectTimeScale() {
+    if (!this.isFinalRaidGuildEffectsDebugEnabled?.()) {
+      return 1;
+    }
+    const guildValue = Number(this.getUrlStageParam(RAID_GUILD_EFFECT_SCALE_DEBUG_QUERY_PARAM));
+    if (Number.isFinite(guildValue)) {
+      return Phaser.Math.Clamp(guildValue, 0.1, 4);
+    }
+    const rescueValue = Number(this.getUrlStageParam(RAID_RESCUE_EFFECT_SCALE_DEBUG_QUERY_PARAM));
+    return Number.isFinite(rescueValue) ? Phaser.Math.Clamp(rescueValue, 0.1, 4) : 1;
+  }
+
+  scaleFinalRaidGuildEffectMs(value, fallbackValue = value) {
+    const base = Math.max(1, Number(value) || Number(fallbackValue) || 1);
+    return Math.max(1, Math.round(base * this.getFinalRaidGuildEffectTimeScale()));
+  }
+
+  getDebugFinalRaidRescueGuildParam() {
+    return String(this.getUrlStageParam(RAID_RESCUE_LINK_DEBUG_GUILD_QUERY_PARAM) || "").trim();
+  }
+
+  debugLogFinalRaidRescueLink(action, payload = {}) {
+    if (this.isFinalRaidRescueLinkDebugEnabled?.()) {
+      console.log(`[RAID RESCUE LINK] ${action}`, payload);
+    }
+  }
+
+  debugLogFinalRaidRescueEffect(action, payload = {}) {
+    if (this.isFinalRaidRescueEffectsDebugEnabled?.()) {
+      console.log(`[RAID RESCUE EFFECT] ${action}`, payload);
+    }
+  }
+
+  debugLogFinalRaidGuildEffect(action, payload = {}) {
+    if (this.isFinalRaidGuildEffectsDebugEnabled?.()) {
+      console.log(`[RAID GUILD EFFECT] ${action}`, payload);
+    }
+  }
+
+  isFinalRaidAlliedMeshDebugEnabled() {
+    const value = this.getUrlStageParam(RAID_ALLIED_MESH_DEBUG_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  getDebugFinalRaidAlliedMeshPhaseParam() {
+    return String(this.getUrlStageParam(RAID_ALLIED_MESH_PHASE_DEBUG_QUERY_PARAM) || "").trim().toLowerCase();
+  }
+
+  isFinalRaidAlliedMeshIncompleteDebugEnabled() {
+    if (!this.isFinalRaidAlliedMeshDebugEnabled?.()) {
+      return false;
+    }
+    const value = this.getUrlStageParam(RAID_ALLIED_MESH_INCOMPLETE_DEBUG_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  getFinalRaidAlliedMeshTimeScale() {
+    if (!this.isFinalRaidAlliedMeshDebugEnabled?.()) {
+      return 1;
+    }
+    const value = Number(this.getUrlStageParam(RAID_ALLIED_MESH_SCALE_DEBUG_QUERY_PARAM));
+    return Number.isFinite(value) ? Phaser.Math.Clamp(value, 0.1, 4) : 1;
+  }
+
+  scaleFinalRaidAlliedMeshMs(value, fallbackValue = value) {
+    const base = Math.max(1, Number(value) || Number(fallbackValue) || 1);
+    return Math.max(1, Math.round(base * this.getFinalRaidAlliedMeshTimeScale()));
+  }
+
+  debugLogFinalRaidAlliedMesh(action, payload = {}) {
+    if (this.isFinalRaidAlliedMeshDebugEnabled?.()) {
+      console.log(`[RAID ALLIED MESH] ${action}`, payload);
+    }
+  }
+
+  getFinalRaidRescueLinkState() {
+    if (!this.finalRaidRescueLinkState) {
+      this.finalRaidRescueLinkState = this.createFinalRaidRescueLinkState();
+    }
+    return this.finalRaidRescueLinkState;
+  }
+
+  getFinalRaidRescueGuildEventType(guildId) {
+    return RAID_RESCUE_LINK_GUILD_EVENT_TYPES[guildId] || `${guildId || "guild"}_arrival`;
+  }
+
+  getFinalRaidRescueEntryLabel(entry) {
+    return RAID_RESCUE_LINK_GUILD_LABELS[entry?.id] || "LOCAL NODE";
+  }
+
+  getFinalRaidRescueGuildDescriptor(entryOrGuildId) {
+    if (!entryOrGuildId) {
+      return null;
+    }
+    if (typeof entryOrGuildId === "object") {
+      return {
+        ...entryOrGuildId,
+        id: entryOrGuildId.id,
+        code: entryOrGuildId.code,
+        label: entryOrGuildId.label || FINAL_BOSS_RAID_GUILD_NAMES[entryOrGuildId.code] || entryOrGuildId.id,
+        joinMs: Math.max(0, Math.floor(Number(entryOrGuildId.joinMs) || 0))
+      };
+    }
+    const value = String(entryOrGuildId || "").trim();
+    return FINAL_BOSS_RAID_CONFIG.rankingGuilds.find((guild) => guild.id === value || guild.code === value) || null;
+  }
+
+  setFinalRaidCommsDirectionState(patch = {}, reason = "state") {
+    const state = this.getFinalRaidRescueLinkState();
+    if (typeof patch.externalDownlink === "string") {
+      state.externalDownlink = patch.externalDownlink;
+    }
+    if (typeof patch.emergencyUplink === "string") {
+      state.emergencyUplink = patch.emergencyUplink;
+    }
+    if (typeof patch.localMesh === "string") {
+      state.localMesh = patch.localMesh;
+    }
+    if (patch.operationComplete !== undefined) {
+      state.operationComplete = patch.operationComplete === true;
+    }
+    this.refreshFinalRaidRescueLinkHud();
+    this.debugLogFinalRaidRescueLink("mesh state", {
+      reason,
+      externalDownlink: state.externalDownlink,
+      emergencyUplink: state.emergencyUplink,
+      localMesh: state.localMesh,
+      operationComplete: state.operationComplete
+    });
+    return state;
+  }
+
+  shouldShowFinalRaidRescueLinkHud() {
+    return this.isFinalBossRaidActive?.() === true
+      || this.isFinalRaidRescueHudDebugEnabled()
+      || this.isFinalRaidGuildEffectsDebugEnabled?.()
+      || this.isFinalRaidAlliedMeshDebugEnabled?.()
+      || Boolean(this.getDebugFinalRaidBattlefieldControlHudParam?.());
+  }
+
+  createFinalRaidRescueLinkHud(reason = "create") {
+    const state = this.getFinalRaidRescueLinkState();
+    if (state.container?.active) {
+      this.layoutFinalRaidRescueLinkHud();
+      return state.container;
+    }
+    if (!this.shouldShowFinalRaidRescueLinkHud()) {
+      return null;
+    }
+
+    const container = this.add
+      .container(0, 0)
+      .setScrollFactor(0)
+      .setDepth(RAID_RESCUE_LINK_HUD_STYLE.depth)
+      .setAlpha(0.96);
+    const glowGraphics = this.add.graphics().setScrollFactor(0).setAlpha(0);
+    const graphics = this.add.graphics().setScrollFactor(0);
+    const headerText = this.createFinalRaidHudText(container, 16, 12, "RESCUE LINK", {
+      fontFamily: "Consolas, Yu Gothic UI, monospace",
+      fontSize: "13px",
+      color: FINAL_RAID_HUD_STYLE.cyan,
+      fontStyle: "bold"
+    });
+    const downlinkText = this.createFinalRaidHudText(container, 16, 38, "", {
+      fontFamily: "Consolas, Yu Gothic UI, monospace",
+      fontSize: "10px",
+      color: "#ff9aa2",
+      fontStyle: "bold"
+    });
+    const uplinkText = this.createFinalRaidHudText(container, 16, 52, "", {
+      fontFamily: "Consolas, Yu Gothic UI, monospace",
+      fontSize: "10px",
+      color: FINAL_RAID_HUD_STYLE.cyan,
+      fontStyle: "bold"
+    });
+    const meshText = this.createFinalRaidHudText(container, 16, 66, "", {
+      fontFamily: "Consolas, Yu Gothic UI, monospace",
+      fontSize: "10px",
+      color: FINAL_RAID_HUD_STYLE.gold,
+      fontStyle: "bold"
+    });
+    const nodeCountText = this.createFinalRaidHudText(container, 16, 82, "", {
+      fontFamily: "Consolas, Yu Gothic UI, monospace",
+      fontSize: "11px",
+      color: "#ecfaff",
+      fontStyle: "bold"
+    });
+    const omittedText = this.createFinalRaidHudText(container, 18, 0, "", {
+      fontFamily: "Consolas, Yu Gothic UI, monospace",
+      fontSize: "9px",
+      color: FINAL_RAID_HUD_STYLE.muted,
+      fontStyle: "bold"
+    }).setVisible(false);
+    const supportNodeTitleText = this.createFinalRaidHudText(container, 16, 0, "MESH ARRAY", {
+      fontFamily: "Consolas, Yu Gothic UI, monospace",
+      fontSize: "9px",
+      color: FINAL_RAID_HUD_STYLE.gold,
+      fontStyle: "bold"
+    });
+    const supportNodeContainer = this.add.container(0, 0).setScrollFactor(0);
+    const activeEffectsTitleText = this.createFinalRaidHudText(container, 16, 0, "ACTIVE EFFECTS", {
+      fontFamily: "Consolas, Yu Gothic UI, monospace",
+      fontSize: "9px",
+      color: FINAL_RAID_HUD_STYLE.gold,
+      fontStyle: "bold"
+    });
+    const effectToastText = this.createFinalRaidHudText(container, 16, 0, "", {
+      fontFamily: "Consolas, Yu Gothic UI, monospace",
+      fontSize: "9px",
+      color: "#ecfaff",
+      fontStyle: "bold"
+    }).setVisible(false).setAlpha(0);
+    const battlefieldTitleText = this.createFinalRaidHudText(container, 16, 0, "BATTLEFIELD CONTROL", {
+      fontFamily: "Consolas, Yu Gothic UI, monospace",
+      fontSize: "9px",
+      color: FINAL_RAID_HUD_STYLE.gold,
+      fontStyle: "bold"
+    });
+    container.addAt(glowGraphics, 0);
+    container.addAt(graphics, 1);
+    container.add(supportNodeContainer);
+
+    state.effectRows = [];
+    for (let index = 0; index < 4; index += 1) {
+      const row = this.add.container(0, 0).setScrollFactor(0).setVisible(false);
+      const dot = this.add.circle(0, 4, 3, FINAL_RAID_HUD_STYLE.neonCyan, 0.9).setScrollFactor(0);
+      const nameText = this.add.text(12, -3, "", {
+        fontFamily: "Consolas, Yu Gothic UI, monospace",
+        fontSize: "8px",
+        color: "#ecfaff",
+        fontStyle: "bold"
+      }).setScrollFactor(0);
+      const metaText = this.add.text(122, -3, "", {
+        fontFamily: "Consolas, Yu Gothic UI, monospace",
+        fontSize: "8px",
+        color: FINAL_RAID_HUD_STYLE.cyan,
+        fontStyle: "bold",
+        align: "right"
+      }).setOrigin(0, 0).setScrollFactor(0);
+      const bar = this.add.graphics().setScrollFactor(0);
+      row.add([bar, dot, nameText, metaText]);
+      container.add(row);
+      state.effectRows.push({ container: row, dot, nameText, metaText, bar, effectKey: null });
+    }
+
+    state.battlefieldControlRows = [];
+    Object.entries(FINAL_RAID_BATTLEFIELD_CONTROL_SIDES).forEach(([side, sideConfig]) => {
+      const row = this.add.container(0, 0).setScrollFactor(0);
+      const dot = this.add.circle(0, 4, 3, FINAL_RAID_HUD_STYLE.neonCyan, 0.65).setScrollFactor(0);
+      const labelText = this.add.text(12, -3, sideConfig.label, {
+        fontFamily: "Consolas, Yu Gothic UI, monospace",
+        fontSize: "8px",
+        color: "#ecfaff",
+        fontStyle: "bold"
+      }).setScrollFactor(0);
+      const statusText = this.add.text(140, -3, "STANDBY", {
+        fontFamily: "Consolas, Yu Gothic UI, monospace",
+        fontSize: "8px",
+        color: FINAL_RAID_HUD_STYLE.muted,
+        fontStyle: "bold",
+        align: "right"
+      }).setOrigin(0, 0).setScrollFactor(0);
+      row.add([dot, labelText, statusText]);
+      container.add(row);
+      state.battlefieldControlRows.push({ side, container: row, dot, labelText, statusText });
+    });
+
+    state.rows = [];
+    for (let index = 0; index < 5; index += 1) {
+      const row = this.add.container(0, 0).setScrollFactor(0).setVisible(false);
+      const dot = this.add.circle(0, 4, 3, FINAL_RAID_HUD_STYLE.neonCyan, 0.88).setScrollFactor(0);
+      const nameText = this.add.text(12, -3, "", {
+        fontFamily: "Consolas, Yu Gothic UI, monospace",
+        fontSize: "10px",
+        color: "#ecfaff",
+        fontStyle: "bold"
+      }).setScrollFactor(0);
+      const labelText = this.add.text(12, 9, "", {
+        fontFamily: "Consolas, Yu Gothic UI, monospace",
+        fontSize: "8px",
+        color: FINAL_RAID_HUD_STYLE.cyan,
+        fontStyle: "bold"
+      }).setScrollFactor(0);
+      row.add([dot, nameText, labelText]);
+      container.add(row);
+      state.rows.push({ container: row, dot, nameText, labelText, guildId: null, baseX: 0, baseY: 0 });
+    }
+
+    this.uiContainer?.add(container);
+    state.container = container;
+    state.graphics = graphics;
+    state.glowGraphics = glowGraphics;
+    state.headerText = headerText;
+    state.downlinkText = downlinkText;
+    state.uplinkText = uplinkText;
+    state.meshText = meshText;
+    state.nodeCountText = nodeCountText;
+    state.omittedText = omittedText;
+    state.supportNodeTitleText = supportNodeTitleText;
+    state.supportNodeContainer = supportNodeContainer;
+    state.activeEffectsTitleText = activeEffectsTitleText;
+    state.battlefieldTitleText = battlefieldTitleText;
+    state.effectToastText = effectToastText;
+    this.createFinalRaidSupportNodeArray();
+    this.layoutFinalRaidRescueLinkHud();
+    this.refreshFinalRaidRescueLinkHud();
+    this.debugLogFinalRaidRescueLink("hud created", { reason });
+    return container;
+  }
+
+  getFinalRaidRescueLinkHudLayout() {
+    const raidLayout = this.finalBossRaidState?.hudLayout || this.getFinalRaidHudLayout();
+    const compact = this.isFinalRaidRescueCompactDebugEnabled() || raidLayout.compact || this.mobileControlsEnabled === true;
+    const width = compact ? RAID_RESCUE_LINK_HUD_STYLE.compactWidth : RAID_RESCUE_LINK_HUD_STYLE.width;
+    const height = compact ? RAID_RESCUE_LINK_HUD_STYLE.compactHeight : RAID_RESCUE_LINK_HUD_STYLE.height;
+    const gap = compact ? 8 : 12;
+    const safe = raidLayout.safe || FINAL_RAID_HUD_SAFE_MARGINS.desktop;
+    const ranking = raidLayout.ranking || FINAL_RAID_HUD_LAYOUT.ranking;
+    let x = ranking.x - width - gap;
+    let y = ranking.y;
+    if (x < (safe.left || 12)) {
+      x = ranking.x;
+      y = ranking.y - height - gap;
+    }
+    x = Phaser.Math.Clamp(Math.round(x), safe.left || 12, Math.max(safe.left || 12, GAME_WIDTH - width - (safe.right || 12)));
+    y = Phaser.Math.Clamp(Math.round(y), safe.top || 10, Math.max(safe.top || 10, GAME_HEIGHT - height - (safe.bottom || 14)));
+    return {
+      x,
+      y,
+      width,
+      height,
+      compact,
+      rowCount: compact ? 4 : 4,
+      rowHeight: compact ? RAID_RESCUE_LINK_HUD_STYLE.compactRowHeight : RAID_RESCUE_LINK_HUD_STYLE.rowHeight,
+      meshArrayTitleY: compact ? 101 : 102,
+      meshArrayStartY: compact ? 116 : 118,
+      effectTitleY: compact ? 148 : 144,
+      effectRowStartY: compact ? 163 : 160,
+      effectRowHeight: compact ? 15 : 17,
+      effectRowCount: compact ? 3 : 4,
+      battlefieldTitleY: compact ? 214 : 236,
+      battlefieldRowStartY: compact ? 230 : 252,
+      battlefieldRowHeight: compact ? 15 : 18,
+      nodeStartY: compact ? 270 : 302
+    };
+  }
+
+  layoutFinalRaidRescueLinkHud() {
+    const state = this.finalRaidRescueLinkState;
+    if (!state?.container?.active) {
+      return null;
+    }
+    const layout = this.getFinalRaidRescueLinkHudLayout();
+    state.layout = layout;
+    state.container.setPosition(layout.x, layout.y).setDepth(RAID_RESCUE_LINK_HUD_STYLE.depth);
+    const statusFont = layout.compact ? "9px" : "10px";
+    state.headerText?.setFontSize(layout.compact ? "12px" : "13px");
+    [state.downlinkText, state.uplinkText, state.meshText].forEach((text) => text?.setFontSize(statusFont));
+    state.nodeCountText?.setFontSize(layout.compact ? "10px" : "11px");
+    state.supportNodeTitleText
+      ?.setPosition(16, layout.meshArrayTitleY)
+      ?.setFontSize(layout.compact ? "8px" : "9px");
+    state.supportNodeContainer?.setPosition(18, layout.meshArrayStartY);
+    this.layoutFinalRaidSupportNodeArray(layout);
+    state.activeEffectsTitleText
+      ?.setPosition(16, layout.effectTitleY)
+      ?.setFontSize(layout.compact ? "8px" : "9px");
+    state.battlefieldTitleText
+      ?.setPosition(16, layout.battlefieldTitleY)
+      ?.setFontSize(layout.compact ? "8px" : "9px");
+    (state.battlefieldControlRows || []).forEach((row, index) => {
+      row.container?.setPosition(18, layout.battlefieldRowStartY + index * layout.battlefieldRowHeight);
+      row.labelText
+        ?.setText(layout.compact ? (FINAL_RAID_BATTLEFIELD_CONTROL_SIDES[row.side]?.compactLabel || row.side).toUpperCase() : (FINAL_RAID_BATTLEFIELD_CONTROL_SIDES[row.side]?.label || row.side).toUpperCase())
+        ?.setFontSize(layout.compact ? "7px" : "8px");
+      row.statusText
+        ?.setPosition(layout.compact ? 96 : 140, -3)
+        ?.setFontSize(layout.compact ? "7px" : "8px");
+    });
+    state.effectToastText
+      ?.setPosition(16, layout.effectTitleY)
+      ?.setFontSize(layout.compact ? "8px" : "9px")
+      ?.setWordWrapWidth?.(Math.max(120, layout.width - 32));
+    state.omittedText?.setFontSize("9px");
+    this.drawFinalRaidRescueLinkHudPanel();
+    this.refreshFinalRaidRescueLinkHud();
+    return layout;
+  }
+
+  drawFinalRaidRescueLinkHudPanel() {
+    const state = this.finalRaidRescueLinkState;
+    const graphics = state?.graphics;
+    const glow = state?.glowGraphics;
+    const layout = state?.layout;
+    if (!graphics || !layout) {
+      return;
+    }
+    const panel = { x: 0, y: 0, width: layout.width, height: layout.height };
+    graphics.clear();
+    const meshOnline = ["online", "stable", "maximum", "relay", "relay_active"].includes(state.localMesh);
+    this.drawGlassPanel(graphics, panel, {
+      stroke: state.localMesh === "maximum" ? 0xf0c463 : (meshOnline ? 0x9ffcff : 0x65e6ff),
+      strokeAlpha: state.localMesh === "standby" ? 0.4 : 0.62,
+      alpha: 0.78,
+      innerAlpha: 0.24,
+      cut: 14,
+      headerLine: true,
+      headerColor: state.localMesh === "maximum" ? 0xf0c463 : (state.localMesh === "standby" ? 0x65e6ff : 0x9ffcff)
+    });
+    graphics.lineStyle(1, 0xf0c463, state.firstNodeConnected ? 0.32 : 0.14);
+    graphics.lineBetween(16, 96, layout.width - 16, 96);
+    graphics.lineStyle(1, 0x65e6ff, 0.2);
+    graphics.lineBetween(16, Math.max(104, layout.effectTitleY - 9), layout.width - 16, Math.max(104, layout.effectTitleY - 9));
+    graphics.lineStyle(1, 0x65e6ff, 0.2);
+    graphics.lineBetween(16, Math.max(104, layout.battlefieldTitleY - 9), layout.width - 16, Math.max(104, layout.battlefieldTitleY - 9));
+    graphics.lineStyle(1, 0x65e6ff, 0.18);
+    graphics.lineBetween(16, Math.max(104, layout.nodeStartY - 10), layout.width - 16, Math.max(104, layout.nodeStartY - 10));
+    if (glow) {
+      glow.clear();
+      glow.lineStyle(4, 0x9ffcff, 0.3);
+      this.drawFinalRaidHudCutPath(glow, -1, -1, layout.width + 2, layout.height + 2, 15);
+      glow.strokePath();
+    }
+  }
+
+  getFinalRaidSupportNodeDisplay(nodeState = RAID_ALLIED_MESH_NODE_STATES.pending) {
+    const displays = {
+      [RAID_ALLIED_MESH_NODE_STATES.pending]: { fill: 0x06131c, fillAlpha: 0.48, stroke: 0x416476, strokeAlpha: 0.42, text: FINAL_RAID_HUD_STYLE.muted, glow: 0x65e6ff },
+      [RAID_ALLIED_MESH_NODE_STATES.connected]: { fill: 0x063545, fillAlpha: 0.74, stroke: 0x65e6ff, strokeAlpha: 0.82, text: "#ecfaff", glow: 0x65e6ff },
+      [RAID_ALLIED_MESH_NODE_STATES.maximum]: { fill: 0xf0c463, fillAlpha: 0.86, stroke: 0xdfffff, strokeAlpha: 0.95, text: "#07131c", glow: 0xf0c463 },
+      [RAID_ALLIED_MESH_NODE_STATES.relay]: { fill: 0x0a3b54, fillAlpha: 0.82, stroke: 0x9ffcff, strokeAlpha: 0.9, text: "#ecfaff", glow: 0x9ffcff },
+      [RAID_ALLIED_MESH_NODE_STATES.stable]: { fill: 0x0a4a43, fillAlpha: 0.72, stroke: 0x8be870, strokeAlpha: 0.76, text: "#ecfaff", glow: 0x8be870 },
+      [RAID_ALLIED_MESH_NODE_STATES.offline]: { fill: 0x15191e, fillAlpha: 0.5, stroke: 0x557282, strokeAlpha: 0.32, text: FINAL_RAID_HUD_STYLE.muted, glow: 0x557282 }
+    };
+    return displays[nodeState] || displays[RAID_ALLIED_MESH_NODE_STATES.pending];
+  }
+
+  normalizeFinalRaidSupportNodeState(nodeState) {
+    const value = String(nodeState || "").trim().toLowerCase();
+    return Object.values(RAID_ALLIED_MESH_NODE_STATES).includes(value)
+      ? value
+      : RAID_ALLIED_MESH_NODE_STATES.pending;
+  }
+
+  createFinalRaidSupportNodeArray() {
+    const state = this.finalRaidRescueLinkState;
+    const parent = state?.supportNodeContainer;
+    if (!parent?.active || state.supportNodeVisuals?.size > 0) {
+      return false;
+    }
+    state.supportNodeVisuals = new Map();
+    FINAL_BOSS_RAID_CONFIG.rankingGuilds.forEach((entry) => {
+      const node = this.add.container(0, 0).setScrollFactor(0);
+      const graphics = this.add.graphics().setScrollFactor(0);
+      const labelText = this.add.text(0, 0, entry.code || "", {
+        fontFamily: "Consolas, Yu Gothic UI, monospace",
+        fontSize: "7px",
+        color: FINAL_RAID_HUD_STYLE.muted,
+        fontStyle: "bold"
+      }).setOrigin(0.5).setScrollFactor(0);
+      node.add([graphics, labelText]);
+      parent.add(node);
+      state.supportNodeVisuals.set(entry.id, {
+        guildId: entry.id,
+        code: entry.code,
+        container: node,
+        graphics,
+        labelText,
+        size: 9,
+        state: RAID_ALLIED_MESH_NODE_STATES.pending
+      });
+    });
+    return true;
+  }
+
+  drawFinalRaidSupportNodeVisual(visual, nodeState = RAID_ALLIED_MESH_NODE_STATES.pending) {
+    if (!visual?.graphics?.active) {
+      return false;
+    }
+    const stateName = this.normalizeFinalRaidSupportNodeState(nodeState);
+    const display = this.getFinalRaidSupportNodeDisplay(stateName);
+    const size = Math.max(5, Number(visual.size) || 8);
+    const graphics = visual.graphics;
+    graphics.clear();
+    graphics.fillStyle(display.fill, display.fillAlpha);
+    graphics.lineStyle(stateName === RAID_ALLIED_MESH_NODE_STATES.maximum ? 2 : 1, display.stroke, display.strokeAlpha);
+    graphics.beginPath();
+    for (let index = 0; index < 6; index += 1) {
+      const angle = Phaser.Math.DegToRad(60 * index - 30);
+      const x = Math.cos(angle) * size;
+      const y = Math.sin(angle) * size;
+      if (index === 0) {
+        graphics.moveTo(x, y);
+      } else {
+        graphics.lineTo(x, y);
+      }
+    }
+    graphics.closePath();
+    graphics.fillPath();
+    graphics.strokePath();
+    if (stateName === RAID_ALLIED_MESH_NODE_STATES.maximum || stateName === RAID_ALLIED_MESH_NODE_STATES.relay) {
+      graphics.lineStyle(1, display.glow, stateName === RAID_ALLIED_MESH_NODE_STATES.maximum ? 0.5 : 0.34);
+      graphics.strokeCircle(0, 0, size + 3);
+    }
+    visual.labelText
+      ?.setText(visual.code || "")
+      ?.setColor(display.text)
+      ?.setFontSize(size <= 7 ? "6px" : "7px");
+    visual.state = stateName;
+    return true;
+  }
+
+  layoutFinalRaidSupportNodeArray(layout = null) {
+    const state = this.finalRaidRescueLinkState;
+    if (!state?.supportNodeContainer?.active) {
+      return false;
+    }
+    const hudLayout = layout || state.layout || this.getFinalRaidRescueLinkHudLayout();
+    const visuals = FINAL_BOSS_RAID_CONFIG.rankingGuilds
+      .map((entry) => state.supportNodeVisuals?.get?.(entry.id))
+      .filter(Boolean);
+    if (visuals.length <= 0) {
+      return false;
+    }
+    const compact = hudLayout.compact === true;
+    const size = compact ? 7 : 8;
+    const gap = compact ? 7 : 6;
+    const rowGap = compact ? 16 : 0;
+    const rows = compact
+      ? [visuals.slice(0, 7), visuals.slice(7)]
+      : [visuals];
+    const availableWidth = Math.max(120, hudLayout.width - 36);
+    rows.forEach((row, rowIndex) => {
+      const step = size * 2 + gap;
+      const rowWidth = row.length * size * 2 + Math.max(0, row.length - 1) * gap;
+      const startX = Math.max(size, Math.round((availableWidth - rowWidth) / 2) + size);
+      row.forEach((visual, columnIndex) => {
+        visual.size = size;
+        visual.container?.setPosition(startX + columnIndex * step, rowIndex * rowGap + size);
+        this.drawFinalRaidSupportNodeVisual(visual, this.getFinalRaidSupportNodeState(visual.guildId));
+      });
+    });
+    return true;
+  }
+
+  getFinalRaidSupportNodeState(guildId) {
+    const state = this.finalRaidRescueLinkState;
+    if (!state || !guildId) {
+      return RAID_ALLIED_MESH_NODE_STATES.pending;
+    }
+    const debugState = state.debugSupportNodeStates instanceof Map ? state.debugSupportNodeStates.get(guildId) : null;
+    if (debugState) {
+      return this.normalizeFinalRaidSupportNodeState(debugState);
+    }
+    const forcedState = state.supportNodeStates instanceof Map ? state.supportNodeStates.get(guildId) : null;
+    if (forcedState) {
+      return this.normalizeFinalRaidSupportNodeState(forcedState);
+    }
+    if (!state.arrivedGuildIds?.has?.(guildId)) {
+      return RAID_ALLIED_MESH_NODE_STATES.pending;
+    }
+    if (state.meshPhase === RAID_ALLIED_MESH_PHASES.stable) {
+      return RAID_ALLIED_MESH_NODE_STATES.stable;
+    }
+    if (state.meshPhase === RAID_ALLIED_MESH_PHASES.relay || state.meshPhase === RAID_ALLIED_MESH_PHASES.relayActive) {
+      return RAID_ALLIED_MESH_NODE_STATES.relay;
+    }
+    if (state.meshPhase === RAID_ALLIED_MESH_PHASES.maximum) {
+      return RAID_ALLIED_MESH_NODE_STATES.maximum;
+    }
+    return RAID_ALLIED_MESH_NODE_STATES.connected;
+  }
+
+  getFinalRaidAlliedMeshConnectedNodeCount() {
+    const state = this.finalRaidRescueLinkState;
+    if (!state) {
+      return 0;
+    }
+    if (state.debugAlliedMeshPreviewActive && Number.isFinite(Number(state.debugConnectedNodeCount))) {
+      return Math.max(0, Math.floor(Number(state.debugConnectedNodeCount) || 0));
+    }
+    return Math.max(0, state.arrivedGuildIds?.size || 0);
+  }
+
+  refreshFinalRaidSupportNodeArray() {
+    const state = this.finalRaidRescueLinkState;
+    if (!state?.supportNodeContainer?.active) {
+      return false;
+    }
+    this.createFinalRaidSupportNodeArray();
+    this.layoutFinalRaidSupportNodeArray(state.layout);
+    return true;
+  }
+
+  setFinalRaidSupportNodeVisualState(guildId, nodeState, options = {}) {
+    const state = this.getFinalRaidRescueLinkState();
+    if (!guildId) {
+      return false;
+    }
+    const normalized = this.normalizeFinalRaidSupportNodeState(nodeState);
+    if (options.preview === true) {
+      state.debugAlliedMeshPreviewActive = true;
+      state.debugSupportNodeStates = state.debugSupportNodeStates instanceof Map ? state.debugSupportNodeStates : new Map();
+      state.debugSupportNodeStates.set(guildId, normalized);
+      const connectedStates = new Set([
+        RAID_ALLIED_MESH_NODE_STATES.connected,
+        RAID_ALLIED_MESH_NODE_STATES.maximum,
+        RAID_ALLIED_MESH_NODE_STATES.relay,
+        RAID_ALLIED_MESH_NODE_STATES.stable
+      ]);
+      state.debugConnectedNodeCount = Array.from(state.debugSupportNodeStates.values()).filter((entryState) => connectedStates.has(entryState)).length;
+    } else {
+      state.supportNodeStates = state.supportNodeStates instanceof Map ? state.supportNodeStates : new Map();
+      state.supportNodeStates.set(guildId, normalized);
+    }
+    const visual = state.supportNodeVisuals?.get?.(guildId);
+    if (visual) {
+      this.drawFinalRaidSupportNodeVisual(visual, normalized);
+      if (options.animate !== false && visual.container?.active) {
+        visual.container.setScale(0.84).setAlpha(0.58);
+        this.addFinalRaidAlliedMeshTween(this.tweens.add({
+          targets: visual.container,
+          scaleX: 1,
+          scaleY: 1,
+          alpha: 1,
+          duration: this.scaleFinalRaidAlliedMeshMs(options.durationMs || 210),
+          ease: "Back.Out"
+        }));
+      }
+    }
+    return true;
+  }
+
+  setAllFinalRaidSupportNodeVisualStates(nodeState, options = {}) {
+    FINAL_BOSS_RAID_CONFIG.rankingGuilds.forEach((entry) => {
+      this.setFinalRaidSupportNodeVisualState(entry.id, nodeState, {
+        ...options,
+        animate: options.animate === true
+      });
+    });
+    this.refreshFinalRaidSupportNodeArray();
+    return true;
+  }
+
+  getFinalRaidRescueLinkStatusTexts() {
+    const state = this.getFinalRaidRescueLinkState();
+    const compact = state.layout?.compact || this.isFinalRaidRescueCompactDebugEnabled();
+    const downlinkDisplay = {
+      lost: "LOST",
+      recovering: "RECOVERING",
+      degraded: "DEGRADED",
+      online: "ONLINE"
+    };
+    const downlinkState = downlinkDisplay[state.externalDownlink] || "LOST";
+    const uplinkState = state.emergencyUplink === "complete" ? "COMPLETE" : "ACTIVE";
+    const meshDisplay = (() => {
+      if (state.localMesh === "maximum") {
+        return compact ? "MESH MAXIMUM" : "ALLIED MESH: MAXIMUM";
+      }
+      if (state.localMesh === "relay") {
+        return compact ? "MESH RELAY" : "ALLIED MESH: RELAY MODE";
+      }
+      if (state.localMesh === "relay_active") {
+        return compact ? "VOICE CARRIER" : "VOICE CARRIER DETECTED";
+      }
+      if (state.localMesh === "stable") {
+        return compact ? "MESH STABLE" : "ALLIED MESH: STABLE";
+      }
+      const meshState = state.localMesh === "online" ? "ONLINE" : "STANDBY";
+      return compact ? `MESH ${meshState}` : `LOCAL MESH: ${meshState}`;
+    })();
+    return compact
+      ? {
+        downlink: `DOWNLINK ${downlinkState}`,
+        uplink: `UPLINK ${uplinkState}`,
+        mesh: meshDisplay
+      }
+      : {
+        downlink: `EXTERNAL DOWNLINK: ${downlinkState}`,
+        uplink: `EMERGENCY UPLINK: ${uplinkState}`,
+        mesh: meshDisplay
+      };
+  }
+
+  getFinalRaidBattlefieldControlStatus(side) {
+    const rescueState = this.finalRaidRescueLinkState;
+    const previewStatus = rescueState?.battlefieldControlPreview?.[side];
+    if (previewStatus) {
+      return previewStatus;
+    }
+    const raidState = this.finalBossRaidState;
+    if (!raidState?.active) {
+      return "standby";
+    }
+    if (raidState.bossDefeated || raidState.timerComplete || rescueState?.operationComplete) {
+      return "offline";
+    }
+    if (raidState.giantWeaponRestrainedIds?.[side]) {
+      return "sealed";
+    }
+    const targetActive = this.getFinalBossRaidGiantWeaponTargets?.().some((target) => {
+      return target?.active && this.getFinalBossRaidGiantWeaponSide?.(target) === side;
+    });
+    if (targetActive) {
+      return "locking";
+    }
+    return raidState.thirdPhaseCombatStarted || raidState.currentPhase?.id === "third" ? "hostile" : "standby";
+  }
+
+  getFinalRaidBattlefieldControlDisplay(side) {
+    const status = this.getFinalRaidBattlefieldControlStatus(side);
+    const displays = {
+      standby: { label: "STANDBY", color: FINAL_RAID_HUD_STYLE.muted, dotColor: 0x65e6ff, alpha: 0.52 },
+      hostile: { label: "HOSTILE", color: "#ff9aa2", dotColor: 0xff5d7a, alpha: 0.86 },
+      locking: { label: "LOCKING", color: "#ffd98a", dotColor: 0xf0c463, alpha: 0.95 },
+      sealed: { label: "SEALED", color: FINAL_RAID_HUD_STYLE.gold, dotColor: 0xf0c463, alpha: 1 },
+      offline: { label: "OFFLINE", color: FINAL_RAID_HUD_STYLE.muted, dotColor: 0x557282, alpha: 0.42 }
+    };
+    return displays[status] || displays.standby;
+  }
+
+  getFinalRaidRescueActiveEffectRows(now = this.time?.now || 0) {
+    const state = this.finalRaidRescueLinkState;
+    const effects = state?.activeEffects instanceof Map ? Array.from(state.activeEffects.values()) : [];
+    const active = effects.filter((effect) => {
+      const endsAt = Math.max(0, Number(effect?.endsAt) || 0);
+      if (!effect?.key || endsAt <= now) {
+        return false;
+      }
+      if (effect.key === FINAL_RAID_RESCUE_EFFECT_KEYS.shield) {
+        return Math.round(Number(state.rescueShieldHp) || 0) > 0;
+      }
+      if (effect.key === FINAL_RAID_RESCUE_EFFECT_KEYS.beacon) {
+        return state.rescueBeaconActive === true;
+      }
+      if (effect.key === FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.debuffWard) {
+        return Math.max(0, Math.floor(Number(state.debuffWard?.charges) || 0)) > 0;
+      }
+      if (effect.key === FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.legendGuard) {
+        return Math.max(0, Math.floor(Number(state.legendGuard?.charges) || 0)) > 0;
+      }
+      return true;
+    });
+    return active
+      .sort((left, right) => (FINAL_RAID_GUILD_ACTIVE_EFFECT_PRIORITY[left.key] ?? 99) - (FINAL_RAID_GUILD_ACTIVE_EFFECT_PRIORITY[right.key] ?? 99));
+  }
+
+  isPlayerInsideFinalRaidRescueBeacon() {
+    const state = this.finalRaidRescueLinkState;
+    const beacon = state?.rescueBeaconState;
+    if (!state?.rescueBeaconActive || !beacon || !this.playerHitbox?.active) {
+      return false;
+    }
+    return Phaser.Math.Distance.Between(this.playerHitbox.x, this.playerHitbox.y, beacon.x, beacon.y) <= beacon.radius + PLAYER_HITBOX_RADIUS;
+  }
+
+  isFinalRaidSafehouseActive() {
+    return this.finalRaidRescueLinkState?.safehouseLinkActive === true && this.isPlayerInsideFinalRaidRescueBeacon();
+  }
+
+  formatFinalRaidRescueEffectRow(effect, layout, now = this.time?.now || 0) {
+    const compact = layout?.compact === true;
+    const remainingMs = Math.max(0, Math.max(0, Number(effect?.endsAt) || 0) - now);
+    const seconds = (remainingMs / 1000).toFixed(1);
+    const durationMs = Math.max(1, Number(effect?.durationMs) || remainingMs || 1);
+    const progress = Phaser.Math.Clamp(remainingMs / durationMs, 0, 1);
+    if (effect?.key === FINAL_RAID_RESCUE_EFFECT_KEYS.beacon) {
+      const pulseIndex = Math.max(0, Math.floor(Number(effect.pulseIndex) || 0));
+      const pulseCount = Math.max(1, Math.floor(Number(effect.pulseCount) || FINAL_RAID_RESCUE_EFFECTS.beaconPulseCount));
+      const safehouseLinked = this.finalRaidRescueLinkState?.safehouseLinkActive === true;
+      const safehouseMeta = safehouseLinked ? (this.isFinalRaidSafehouseActive() ? "SAFEHOUSE ACTIVE" : "SAFEHOUSE OUTSIDE") : "";
+      return {
+        iconColor: 0x9ffcff,
+        label: compact ? "FX BEACON" : "RESCUE BEACON",
+        meta: safehouseMeta
+          ? (compact ? safehouseMeta.replace("SAFEHOUSE ", "SAFE ") : safehouseMeta)
+          : (compact ? `${seconds}s ${pulseIndex}/${pulseCount}` : `${seconds}s PULSE ${pulseIndex}/${pulseCount}`),
+        progress,
+        barColor: 0x9ffcff
+      };
+    }
+    const genericDisplays = {
+      [FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.debuffWard]: { iconColor: 0xdfffff, label: "DEBUFF WARD", compactLabel: "WARD", barColor: 0xdfffff, meta: `${Math.max(0, Math.floor(Number(this.finalRaidRescueLinkState?.debuffWard?.charges) || 0))} CHG` },
+      [FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.earthenBulwark]: { iconColor: 0x8be870, label: "EARTHEN BULWARK", compactLabel: "BULWARK", barColor: 0x8be870, meta: "-10% DMG" },
+      [FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.hopeRegen]: { iconColor: 0xffd98a, label: "HOPE REGEN", compactLabel: "REGEN", barColor: 0xffd98a, meta: `${Math.max(0, Math.floor(Number(effect.pulseIndex) || 0))}/${Math.max(1, Math.floor(Number(effect.pulseCount) || 1))}` },
+      [FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.windRelease]: { iconColor: 0x9ffcff, label: "WIND RELEASE", compactLabel: "WIND", barColor: 0x9ffcff, meta: "SLOW IMMUNE" },
+      [FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.legendGuard]: { iconColor: 0xf0c463, label: "LEGEND GUARD", compactLabel: "LEGEND", barColor: 0xf0c463, meta: `${Math.max(0, Math.floor(Number(this.finalRaidRescueLinkState?.legendGuard?.charges) || 0))} CHG` },
+      [FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.sanctuaryLink]: { iconColor: 0xdfffff, label: "SANCTUARY LINK", compactLabel: "SANCT", barColor: 0xdfffff, meta: "-12% DMG" },
+      [FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.frontlineGuard]: { iconColor: 0xff9aa2, label: "FRONTLINE GUARD", compactLabel: "FRONT", barColor: 0xff9aa2, meta: "-15% DMG" },
+      [FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.alliedMeshMaximum]: { iconColor: 0xf0c463, label: "ALLIED MESH MAXIMUM", compactLabel: "MESH MAX", barColor: 0xf0c463, meta: "-15% DMG" }
+    };
+    const generic = genericDisplays[effect?.key];
+    if (generic) {
+      return {
+        iconColor: generic.iconColor,
+        label: compact ? generic.compactLabel : generic.label,
+        meta: compact ? `${seconds}s` : `${seconds}s ${generic.meta || ""}`.trim(),
+        progress,
+        barColor: generic.barColor
+      };
+    }
+    const shieldHp = Math.max(0, Math.round(Number(this.finalRaidRescueLinkState?.rescueShieldHp) || 0));
+    const shieldMax = Math.max(1, Math.round(Number(this.finalRaidRescueLinkState?.rescueShieldMaxHp) || 1));
+    return {
+      iconColor: 0x65e6ff,
+      label: compact ? "FX SHIELD" : "RELIEF SHIELD",
+      meta: compact ? `${seconds}s ${shieldHp}/${shieldMax}` : `${seconds}s ${shieldHp}/${shieldMax}`,
+      progress,
+      barColor: 0x65e6ff
+    };
+  }
+
+  drawFinalRaidRescueEffectBar(graphics, width, ratio, color = 0x65e6ff) {
+    if (!graphics?.clear) {
+      return;
+    }
+    const safeWidth = Math.max(36, Math.floor(Number(width) || 64));
+    const fillWidth = Math.max(0, Math.round(safeWidth * Phaser.Math.Clamp(Number(ratio) || 0, 0, 1)));
+    graphics.clear();
+    graphics.fillStyle(0x062331, 0.62);
+    graphics.fillRoundedRect(0, 11, safeWidth, 3, 2);
+    if (fillWidth > 0) {
+      graphics.fillStyle(color, 0.78);
+      graphics.fillRoundedRect(0, 11, fillWidth, 3, 2);
+    }
+  }
+
+  refreshFinalRaidRescueLinkHud() {
+    const state = this.finalRaidRescueLinkState;
+    if (!state?.container?.active) {
+      return false;
+    }
+    const layout = state.layout || this.layoutFinalRaidRescueLinkHud() || this.getFinalRaidRescueLinkHudLayout();
+    const now = this.time?.now || 0;
+    this.drawFinalRaidRescueLinkHudPanel();
+    const status = this.getFinalRaidRescueLinkStatusTexts();
+    const nodeCount = this.getFinalRaidAlliedMeshConnectedNodeCount();
+    this.setFinalRaidHudText(state.downlinkText, status.downlink);
+    this.setFinalRaidHudText(state.uplinkText, status.uplink);
+    this.setFinalRaidHudText(state.meshText, status.mesh);
+    const meshColor = state.localMesh === "maximum"
+      ? FINAL_RAID_HUD_STYLE.gold
+      : (state.localMesh === "standby" ? FINAL_RAID_HUD_STYLE.gold : FINAL_RAID_HUD_STYLE.cyan);
+    this.setFinalRaidHudColor(state.meshText, meshColor);
+    this.setFinalRaidHudText(state.nodeCountText, `LOCAL NODES ${String(nodeCount).padStart(2, "0")}/${state.expectedNodeCount || RAID_RESCUE_LINK_TOTAL_NODES}`);
+    state.supportNodeTitleText
+      ?.setVisible(true)
+      ?.setText(state.localMesh === "maximum" ? "MESH ARRAY  MAXIMUM" : "MESH ARRAY")
+      ?.setColor(state.localMesh === "maximum" ? FINAL_RAID_HUD_STYLE.gold : FINAL_RAID_HUD_STYLE.muted);
+    this.refreshFinalRaidSupportNodeArray();
+
+    const rowCount = layout.rowCount;
+    const entries = (state.entries || []).slice();
+    const visibleEntries = entries.slice(Math.max(0, entries.length - rowCount));
+    const omitted = Math.max(0, entries.length - visibleEntries.length);
+    const allEffectRows = this.getFinalRaidRescueActiveEffectRows(now);
+    const maxEffectRows = Math.max(1, Math.floor(Number(layout.effectRowCount) || 2));
+    const effectRows = allEffectRows.slice(0, maxEffectRows);
+    const hiddenEffectCount = Math.max(0, allEffectRows.length - effectRows.length);
+    if (state.activeEffectsTitleText?.active) {
+      const hasEffects = effectRows.length > 0;
+      const overflowLabel = hiddenEffectCount > 0 ? `  +${hiddenEffectCount} ACTIVE EFFECTS` : "";
+      state.activeEffectsTitleText
+        .setVisible(!state.effectToastText?.visible)
+        .setText(hasEffects ? `ACTIVE EFFECTS${overflowLabel}` : (layout.compact ? "AID STANDBY" : "ACTIVE EFFECTS  AID STANDBY"))
+        .setColor(hasEffects ? FINAL_RAID_HUD_STYLE.gold : FINAL_RAID_HUD_STYLE.muted);
+    }
+    (state.effectRows || []).forEach((row, index) => {
+      const effect = effectRows[index] || null;
+      row.effectKey = effect?.key || null;
+      row.container
+        ?.setPosition(18, layout.effectRowStartY + index * layout.effectRowHeight)
+        ?.setVisible(Boolean(effect));
+      if (!effect) {
+        row.bar?.clear?.();
+        return;
+      }
+      const display = this.formatFinalRaidRescueEffectRow(effect, layout, now);
+      row.dot?.setFillStyle?.(display.iconColor, 0.9);
+      row.nameText
+        ?.setText(display.label)
+        ?.setFontSize(layout.compact ? "7px" : "8px")
+        ?.setColor("#ecfaff");
+      row.metaText
+        ?.setPosition(layout.compact ? 102 : 132, -3)
+        ?.setText(display.meta)
+        ?.setFontSize(layout.compact ? "7px" : "8px")
+        ?.setColor(FINAL_RAID_HUD_STYLE.cyan);
+      this.drawFinalRaidRescueEffectBar(row.bar, layout.compact ? 86 : 118, display.progress, display.barColor);
+    });
+
+    state.battlefieldTitleText
+      ?.setVisible(true)
+      ?.setText(layout.compact ? "BATTLEFIELD CTRL" : "BATTLEFIELD CONTROL")
+      ?.setColor(FINAL_RAID_HUD_STYLE.gold);
+    (state.battlefieldControlRows || []).forEach((row) => {
+      const display = this.getFinalRaidBattlefieldControlDisplay(row.side);
+      row.container?.setVisible(true);
+      row.dot?.setFillStyle(display.dotColor, display.alpha);
+      row.labelText?.setColor("#ecfaff");
+      row.statusText
+        ?.setText(display.label)
+        ?.setColor(display.color);
+    });
+
+    const startY = layout.nodeStartY;
+    const rowHeight = layout.rowHeight;
+    state.rows?.forEach((row, index) => {
+      const entry = visibleEntries[index] || null;
+      const rowY = startY + index * rowHeight;
+      row.baseX = 18;
+      row.baseY = rowY;
+      row.container.setPosition(row.baseX, row.baseY);
+      row.guildId = entry?.guildId || null;
+      row.container.setVisible(Boolean(entry));
+      if (!entry) {
+        return;
+      }
+      row.dot.setFillStyle(entry.status === "sealed" ? 0xf0c463 : 0x9ffcff, 0.9);
+      row.nameText
+        .setText(entry.displayName || entry.guildId)
+        .setFontSize(layout.compact ? "9px" : "10px")
+        .setColor("#ecfaff");
+      if (entry.effectEndsAt && entry.effectEndsAt <= now) {
+        entry.effectKey = null;
+        entry.effectLabel = null;
+        entry.effectEndsAt = null;
+      }
+      const label = entry.effectLabel && entry.effectEndsAt > now
+        ? entry.effectLabel
+        : (entry.connectionLabel || "LOCAL NODE");
+      row.labelText
+        .setText(label)
+        .setFontSize(layout.compact ? "7px" : "8px")
+        .setColor(entry.effectLabel && entry.effectEndsAt > now ? "#e8fff8" : (entry.status === "sealed" ? FINAL_RAID_HUD_STYLE.gold : FINAL_RAID_HUD_STYLE.cyan));
+    });
+    if (state.omittedText) {
+      const omittedLabel = omitted > 0
+        ? (layout.compact ? `${String(omitted).padStart(2, "0")} EARLIER NODES` : `+${omitted} CONNECTED NODES`)
+        : "";
+      state.omittedText
+        .setPosition(18, layout.height - 18)
+        .setText(omittedLabel)
+        .setVisible(omitted > 0);
+    }
+    const debugSignature = [
+      state.externalDownlink,
+      state.emergencyUplink,
+      state.localMesh,
+      nodeCount,
+      visibleEntries.length,
+      omitted,
+      allEffectRows.map((effect) => `${effect.key}:${Math.ceil(Math.max(0, effect.endsAt - now) / 1000)}`).join(","),
+      ["left", "right"].map((side) => `${side}:${this.getFinalRaidBattlefieldControlStatus(side)}`).join(","),
+      layout.compact ? "compact" : "full"
+    ].join("|");
+    if (debugSignature !== state.lastHudDebugSignature) {
+      state.lastHudDebugSignature = debugSignature;
+      this.debugLogFinalRaidRescueLink("hud update", { nodes: nodeCount, visible: visibleEntries.length, omitted });
+    }
+    return true;
+  }
+
+  addFinalRaidRescueLinkTween(tween) {
+    const state = this.finalRaidRescueLinkState;
+    if (!state || !tween) {
+      return tween;
+    }
+    state.tweens = state.tweens || [];
+    state.tweens.push(tween);
+    return tween;
+  }
+
+  addFinalRaidAlliedMeshTween(tween) {
+    const state = this.finalRaidRescueLinkState;
+    if (!state || !tween) {
+      return tween;
+    }
+    state.meshTweens = state.meshTweens || [];
+    state.meshTweens.push(tween);
+    return tween;
+  }
+
+  addFinalRaidAlliedMeshTimer(timer) {
+    const state = this.finalRaidRescueLinkState;
+    if (!state || !timer) {
+      return timer;
+    }
+    state.meshTimers = state.meshTimers || [];
+    state.meshTimers.push(timer);
+    return timer;
+  }
+
+  registerFinalRaidAlliedMeshObject(object) {
+    const state = this.finalRaidRescueLinkState;
+    if (!state || !object) {
+      return object;
+    }
+    state.meshObjects = state.meshObjects || [];
+    state.meshObjects.push(object);
+    return object;
+  }
+
+  pulseFinalRaidRescueLinkHud(strong = false) {
+    const state = this.finalRaidRescueLinkState;
+    if (!state?.container?.active) {
+      return;
+    }
+    if (state.glowGraphics?.active) {
+      state.glowGraphics.setAlpha(strong ? 0.88 : 0.58);
+      this.addFinalRaidRescueLinkTween(this.tweens.add({
+        targets: state.glowGraphics,
+        alpha: 0,
+        duration: strong ? 620 : 420,
+        ease: "Sine.Out"
+      }));
+    }
+    if (strong && state.headerText?.active) {
+      state.headerText.setScale(1.08);
+      this.addFinalRaidRescueLinkTween(this.tweens.add({
+        targets: state.headerText,
+        scaleX: 1,
+        scaleY: 1,
+        duration: 360,
+        ease: "Back.Out"
+      }));
+    }
+  }
+
+  animateFinalRaidRescueLinkArrival(guildId, strong = false) {
+    const state = this.finalRaidRescueLinkState;
+    if (!state?.container?.active || !guildId) {
+      return;
+    }
+    this.pulseFinalRaidRescueLinkHud(strong);
+    const row = state.rows?.find((entry) => entry.guildId === guildId);
+    if (!row?.container?.active) {
+      return;
+    }
+    row.container.setAlpha(0).setPosition(row.baseX + 10, row.baseY);
+    this.addFinalRaidRescueLinkTween(this.tweens.add({
+      targets: row.container,
+      x: row.baseX,
+      alpha: 1,
+      duration: 260,
+      ease: "Sine.Out"
+    }));
+    this.addFinalRaidRescueLinkTween(this.tweens.add({
+      targets: row.dot,
+      alpha: 0.22,
+      duration: 150,
+      yoyo: true,
+      repeat: 3,
+      ease: "Sine.InOut",
+      onComplete: () => row.dot?.setAlpha?.(1)
+    }));
+  }
+
+  setFinalRaidMeshPhase(phase, options = {}) {
+    const state = this.getFinalRaidRescueLinkState();
+    const normalized = Object.values(RAID_ALLIED_MESH_PHASES).includes(phase)
+      ? phase
+      : RAID_ALLIED_MESH_PHASES.standby;
+    state.meshPhase = normalized;
+    const meshStateByPhase = {
+      [RAID_ALLIED_MESH_PHASES.standby]: "standby",
+      [RAID_ALLIED_MESH_PHASES.online]: "online",
+      [RAID_ALLIED_MESH_PHASES.maximumCharging]: "online",
+      [RAID_ALLIED_MESH_PHASES.maximum]: "maximum",
+      [RAID_ALLIED_MESH_PHASES.relay]: "relay",
+      [RAID_ALLIED_MESH_PHASES.relayActive]: "relay_active",
+      [RAID_ALLIED_MESH_PHASES.stable]: "stable"
+    };
+    state.localMesh = meshStateByPhase[normalized] || state.localMesh || "standby";
+    if (normalized === RAID_ALLIED_MESH_PHASES.maximum || normalized === RAID_ALLIED_MESH_PHASES.relay || normalized === RAID_ALLIED_MESH_PHASES.relayActive || normalized === RAID_ALLIED_MESH_PHASES.stable) {
+      state.supportNodeStates?.clear?.();
+    }
+    this.refreshFinalRaidRescueLinkHud();
+    this.debugLogFinalRaidAlliedMesh("phase", { reason: options.reason || "phase", phase: normalized, localMesh: state.localMesh });
+    return state;
+  }
+
+  getFinalRaidAlliedMeshOrderedGuildIds(options = {}) {
+    const state = this.finalRaidRescueLinkState;
+    const sourceStates = options.debugPreview === true && state?.debugSupportNodeStates instanceof Map
+      ? state.debugSupportNodeStates
+      : null;
+    const connectedStates = new Set([
+      RAID_ALLIED_MESH_NODE_STATES.connected,
+      RAID_ALLIED_MESH_NODE_STATES.maximum,
+      RAID_ALLIED_MESH_NODE_STATES.relay,
+      RAID_ALLIED_MESH_NODE_STATES.stable
+    ]);
+    const ids = FINAL_BOSS_RAID_CONFIG.rankingGuilds
+      .filter((entry) => sourceStates
+        ? connectedStates.has(sourceStates.get(entry.id))
+        : state?.arrivedGuildIds?.has?.(entry.id))
+      .map((entry) => entry.id);
+    if (ids.includes("guild-013")) {
+      return ids.filter((id) => id !== "guild-013").concat("guild-013");
+    }
+    return ids;
+  }
+
+  canActivateFinalRaidAlliedMeshMaximum(context = {}) {
+    const state = this.getFinalRaidRescueLinkState();
+    const expected = Math.max(1, Number(state.expectedNodeCount) || RAID_RESCUE_LINK_TOTAL_NODES);
+    if (state.alliedMeshMaximumActivated || state.alliedMeshAnimationPlayed) {
+      this.debugLogFinalRaidAlliedMesh("maximum skipped", { reason: context.reason, skipReason: "alreadyActivated" });
+      return false;
+    }
+    let connected = this.getFinalRaidAlliedMeshConnectedNodeCount();
+    if (connected < expected && context.debugPreview !== true && context.allowSync !== false) {
+      this.syncFinalRaidRescueLinkFromRanking?.("alliedMeshMaximumSync");
+      connected = this.getFinalRaidAlliedMeshConnectedNodeCount();
+    }
+    if (connected < expected) {
+      this.debugLogFinalRaidAlliedMesh("maximum blocked", { reason: context.reason, connected, expected });
+      return false;
+    }
+    return true;
+  }
+
+  tryActivateFinalRaidAlliedMeshMaximum(entryOrGuild, context = {}) {
+    const entry = this.getFinalRaidRescueGuildDescriptor(entryOrGuild || "guild-013");
+    if (entry?.id !== "guild-013") {
+      return false;
+    }
+    if (context.newlyArrived !== true && context.debugPreview !== true) {
+      return false;
+    }
+    if (!this.canActivateFinalRaidAlliedMeshMaximum(context)) {
+      return false;
+    }
+    const state = this.getFinalRaidRescueLinkState();
+    state.alliedMeshMaximumActivated = true;
+    const delayMs = this.scaleFinalRaidAlliedMeshMs(context.delayMs ?? RAID_ALLIED_MESH_CONFIG.arrivalDelayMs);
+    this.setFinalRaidMeshPhase(RAID_ALLIED_MESH_PHASES.maximumCharging, { reason: context.reason || "alliedMeshMaximum" });
+    this.addFinalRaidAlliedMeshTimer(this.time.delayedCall(delayMs, () => {
+      this.playFinalRaidAlliedMeshMaximumSequence(entry, context);
+    }));
+    this.debugLogFinalRaidAlliedMesh("maximum scheduled", {
+      reason: context.reason,
+      connected: this.getFinalRaidAlliedMeshConnectedNodeCount(),
+      expected: state.expectedNodeCount,
+      delayMs
+    });
+    return true;
+  }
+
+  pulseFinalRaidSupportNode(guildId, nodeState = RAID_ALLIED_MESH_NODE_STATES.connected, options = {}) {
+    const state = this.finalRaidRescueLinkState;
+    const visual = state?.supportNodeVisuals?.get?.(guildId);
+    if (!visual?.container?.active) {
+      return false;
+    }
+    this.setFinalRaidSupportNodeVisualState(guildId, nodeState, { ...options, animate: false });
+    visual.container.setScale(0.86).setAlpha(0.62);
+    this.addFinalRaidAlliedMeshTween(this.tweens.add({
+      targets: visual.container,
+      scaleX: 1.12,
+      scaleY: 1.12,
+      alpha: 1,
+      duration: this.scaleFinalRaidAlliedMeshMs(RAID_ALLIED_MESH_CONFIG.nodePulseMs),
+      yoyo: true,
+      ease: "Sine.InOut",
+      onComplete: () => {
+        visual.container?.setScale?.(1);
+        visual.container?.setAlpha?.(1);
+      }
+    }));
+    return true;
+  }
+
+  pulseAllFinalRaidSupportNodes(nodeState = RAID_ALLIED_MESH_NODE_STATES.maximum, options = {}) {
+    this.setAllFinalRaidSupportNodeVisualStates(nodeState, { animate: false, preview: options.preview === true });
+    const visuals = this.finalRaidRescueLinkState?.supportNodeVisuals;
+    visuals?.forEach?.((visual) => {
+      if (!visual?.container?.active) {
+        return;
+      }
+      visual.container.setScale(0.92).setAlpha(0.72);
+      this.addFinalRaidAlliedMeshTween(this.tweens.add({
+        targets: visual.container,
+        scaleX: options.strong ? 1.2 : 1.1,
+        scaleY: options.strong ? 1.2 : 1.1,
+        alpha: 1,
+        duration: this.scaleFinalRaidAlliedMeshMs(RAID_ALLIED_MESH_CONFIG.allPulseMs),
+        yoyo: true,
+        ease: "Sine.InOut",
+        onComplete: () => visual.container?.setScale?.(1)
+      }));
+    });
+    return true;
+  }
+
+  playFinalRaidAlliedMeshMaximumSequence(entryOrGuild, context = {}) {
+    const state = this.getFinalRaidRescueLinkState();
+    if (state.alliedMeshAnimationPlayed) {
+      return false;
+    }
+    state.alliedMeshAnimationPlayed = true;
+    this.createFinalRaidRescueLinkHud(context.reason || "alliedMeshMaximum");
+    this.setFinalRaidMeshPhase(RAID_ALLIED_MESH_PHASES.maximumCharging, { reason: context.reason || "alliedMeshMaximum" });
+    const guildIds = this.getFinalRaidAlliedMeshOrderedGuildIds({ debugPreview: context.debugPreview === true });
+    const expectedIds = FINAL_BOSS_RAID_CONFIG.rankingGuilds.map((entry) => entry.id);
+    const orderedIds = guildIds.length >= expectedIds.length ? guildIds : expectedIds;
+    const intervalMs = this.scaleFinalRaidAlliedMeshMs(RAID_ALLIED_MESH_CONFIG.nodeSweepIntervalMs);
+    orderedIds.forEach((guildId, index) => {
+      this.addFinalRaidAlliedMeshTimer(this.time.delayedCall(index * intervalMs, () => {
+        this.pulseFinalRaidSupportNode(guildId, RAID_ALLIED_MESH_NODE_STATES.connected, { preview: context.debugPreview === true });
+      }));
+    });
+    const finishDelayMs = orderedIds.length * intervalMs + this.scaleFinalRaidAlliedMeshMs(120);
+    this.addFinalRaidAlliedMeshTimer(this.time.delayedCall(finishDelayMs, () => {
+      state.alliedMeshMaximum = true;
+      this.setFinalRaidMeshPhase(RAID_ALLIED_MESH_PHASES.maximum, { reason: context.reason || "alliedMeshMaximum" });
+      this.pulseAllFinalRaidSupportNodes(RAID_ALLIED_MESH_NODE_STATES.maximum, { strong: true, preview: context.debugPreview === true });
+      this.showFinalRaidAlliedMeshMaximumBanner(context);
+      this.spawnFinalRaidAlliedMeshPlayerSyncRing();
+      if (!state.alliedMeshMaximumAnnounced && context.queueComms !== false) {
+        state.alliedMeshMaximumAnnounced = true;
+        this.queueFinalRaidAlliedMeshMaximumComms(entryOrGuild || "guild-013");
+      }
+      this.debugLogFinalRaidAlliedMesh("maximum played", {
+        reason: context.reason,
+        connected: this.getFinalRaidAlliedMeshConnectedNodeCount(),
+        expected: state.expectedNodeCount
+      });
+    }));
+    return true;
+  }
+
+  showFinalRaidAlliedMeshMaximumBanner(context = {}) {
+    const state = this.getFinalRaidRescueLinkState();
+    state.alliedMeshBannerContainer?.destroy?.();
+    const raidLayout = this.finalBossRaidState?.hudLayout || this.getFinalRaidHudLayout();
+    const compact = raidLayout?.compact || this.mobileControlsEnabled === true;
+    const width = compact ? 318 : 392;
+    const height = compact ? 68 : 78;
+    const y = compact ? 196 : 206;
+    const container = this.add
+      .container(GAME_WIDTH / 2, y)
+      .setScrollFactor(0)
+      .setDepth(RAID_RESCUE_LINK_HUD_STYLE.depth + 8)
+      .setAlpha(0)
+      .setScale(0.98);
+    const graphics = this.add.graphics().setScrollFactor(0);
+    this.drawGlassPanel(graphics, { x: -width / 2, y: -height / 2, width, height }, {
+      stroke: 0xf0c463,
+      strokeAlpha: 0.92,
+      alpha: 0.82,
+      innerAlpha: 0.2,
+      cut: 16,
+      headerLine: false
+    });
+    graphics.lineStyle(1, 0x9ffcff, 0.36);
+    graphics.lineBetween(-width / 2 + 22, 16, width / 2 - 22, 16);
+    const title = this.add.text(0, -14, "ALLIED MESH: MAXIMUM", {
+      fontFamily: "Consolas, Yu Gothic UI, monospace",
+      fontSize: compact ? "18px" : "22px",
+      color: "#f7d98a",
+      fontStyle: "bold",
+      align: "center",
+      stroke: "#07131c",
+      strokeThickness: 3
+    }).setOrigin(0.5).setScrollFactor(0);
+    const subtitle = this.add.text(0, 16, `${RAID_RESCUE_LINK_TOTAL_NODES} / ${RAID_RESCUE_LINK_TOTAL_NODES} LOCAL NODES SYNCHRONIZED`, {
+      fontFamily: "Consolas, Yu Gothic UI, monospace",
+      fontSize: compact ? "10px" : "11px",
+      color: FINAL_RAID_HUD_STYLE.cyan,
+      fontStyle: "bold",
+      align: "center"
+    }).setOrigin(0.5).setScrollFactor(0);
+    container.add([graphics, title, subtitle]);
+    this.uiContainer?.add(container);
+    state.alliedMeshBannerContainer = container;
+    state.alliedMeshBannerGraphics = graphics;
+    state.alliedMeshBannerTexts = [title, subtitle];
+    this.registerFinalRaidAlliedMeshObject(container);
+    const fadeInMs = this.scaleFinalRaidAlliedMeshMs(RAID_ALLIED_MESH_CONFIG.bannerFadeInMs);
+    const holdMs = this.scaleFinalRaidAlliedMeshMs(RAID_ALLIED_MESH_CONFIG.bannerHoldMs);
+    const fadeOutMs = this.scaleFinalRaidAlliedMeshMs(RAID_ALLIED_MESH_CONFIG.bannerFadeOutMs);
+    this.addFinalRaidAlliedMeshTween(this.tweens.add({
+      targets: container,
+      alpha: 1,
+      scaleX: 1,
+      scaleY: 1,
+      duration: fadeInMs,
+      ease: "Sine.Out",
+      onComplete: () => {
+        this.addFinalRaidAlliedMeshTimer(this.time.delayedCall(holdMs, () => {
+          this.addFinalRaidAlliedMeshTween(this.tweens.add({
+            targets: container,
+            alpha: 0,
+            scaleX: 0.985,
+            scaleY: 0.985,
+            duration: fadeOutMs,
+            ease: "Sine.In",
+            onComplete: () => {
+              if (state.alliedMeshBannerContainer === container) {
+                state.alliedMeshBannerContainer = null;
+                state.alliedMeshBannerGraphics = null;
+                state.alliedMeshBannerTexts = [];
+              }
+              container.destroy();
+            }
+          }));
+        }));
+      }
+    }));
+    this.debugLogFinalRaidAlliedMesh("banner", { reason: context.reason || "alliedMeshMaximum" });
+    return container;
+  }
+
+  spawnFinalRaidAlliedMeshPlayerSyncRing() {
+    if (!this.playerHitbox?.active || !this.add?.graphics) {
+      return null;
+    }
+    const ring = this.add.graphics().setDepth(this.getFinalRaidVisualDepth?.("playerBoost", 22.6) ?? 22.6);
+    ring.setPosition(this.playerHitbox.x, this.playerHitbox.y - 4);
+    ring.lineStyle(2, 0xf0c463, 0.72);
+    for (let index = 0; index < 6; index += 1) {
+      const start = Phaser.Math.DegToRad(index * 60 + 8);
+      const end = Phaser.Math.DegToRad(index * 60 + 42);
+      ring.beginPath();
+      ring.arc(0, 0, 36, start, end);
+      ring.strokePath();
+    }
+    this.robotEffectsLayer?.add?.(ring);
+    this.registerFinalRaidAlliedMeshObject(ring);
+    this.addFinalRaidAlliedMeshTween(this.tweens.add({
+      targets: ring,
+      alpha: 0,
+      scaleX: 2.15,
+      scaleY: 2.15,
+      duration: this.scaleFinalRaidAlliedMeshMs(RAID_ALLIED_MESH_CONFIG.playerPulseMs),
+      ease: "Sine.Out",
+      onComplete: () => ring.destroy()
+    }));
+    return ring;
+  }
+
+  trimCommsQueueForFinalRaidRecovery() {
+    const queue = this.commsState?.queue;
+    if (!Array.isArray(queue) || queue.length <= 0) {
+      return 0;
+    }
+    let removed = 0;
+    for (let index = queue.length - 1; index >= 0; index -= 1) {
+      const message = queue[index];
+      if (
+        message?.source === RAID_RESCUE_LINK_SOURCE &&
+        message.category === RAID_RESCUE_LINK_CATEGORY &&
+        (Number(message.priority) || 0) <= RAID_RESCUE_LINK_PRIORITY.normal
+      ) {
+        queue.splice(index, 1);
+        removed += 1;
+      }
+    }
+    if (removed > 0) {
+      this.debugLogFinalRaidAlliedMesh("recovery queue trim", { removed });
+    }
+    return removed;
+  }
+
+  beginFinalRaidCommsRecoveryBridge(context = {}) {
+    const state = this.getFinalRaidRescueLinkState();
+    if (state.recoveryBridgeStarted) {
+      return false;
+    }
+    state.recoveryBridgeStarted = true;
+    state.operationComplete = true;
+    this.trimCommsQueueForFinalRaidRecovery();
+    this.setFinalRaidMeshPhase(RAID_ALLIED_MESH_PHASES.relay, { reason: context.reason || "bossDefeated" });
+    this.setFinalRaidCommsDirectionState({
+      externalDownlink: "recovering",
+      emergencyUplink: "complete",
+      localMesh: "relay",
+      operationComplete: true
+    }, context.reason || "bossDefeated");
+    this.pulseAllFinalRaidSupportNodes(RAID_ALLIED_MESH_NODE_STATES.relay, { strong: true, preview: state.debugAlliedMeshPreviewActive });
+    this.pulseFinalRaidRescueLinkHud(true);
+    this.debugLogFinalRaidAlliedMesh("recovery bridge", { reason: context.reason || "bossDefeated" });
+    return true;
+  }
+
+  markFinalRaidExternalCarrierDetected(context = {}) {
+    const state = this.getFinalRaidRescueLinkState();
+    if (!state.recoveryBridgeStarted) {
+      this.beginFinalRaidCommsRecoveryBridge({ reason: context.reason || "carrierDetected" });
+    }
+    if (state.recoveryCarrierDetected) {
+      return false;
+    }
+    state.recoveryCarrierDetected = true;
+    state.meshPhase = RAID_ALLIED_MESH_PHASES.relayActive;
+    this.setFinalRaidCommsDirectionState({
+      externalDownlink: "degraded",
+      emergencyUplink: "complete",
+      localMesh: "relay_active",
+      operationComplete: true
+    }, context.reason || "carrierDetected");
+    this.pulseFinalRaidRescueLinkHud(true);
+    this.debugLogFinalRaidAlliedMesh("carrier detected", { reason: context.reason || "carrierDetected" });
+    return true;
+  }
+
+  completeFinalRaidExternalDownlinkRestore(context = {}) {
+    const state = this.getFinalRaidRescueLinkState();
+    if (state.externalDownlinkRestored) {
+      return false;
+    }
+    state.externalDownlinkRestored = true;
+    state.operationComplete = true;
+    this.setFinalRaidMeshPhase(RAID_ALLIED_MESH_PHASES.stable, { reason: context.reason || "releaseGate" });
+    this.setFinalRaidCommsDirectionState({
+      externalDownlink: "online",
+      emergencyUplink: "complete",
+      localMesh: "stable",
+      operationComplete: true
+    }, context.reason || "releaseGate");
+    this.pulseAllFinalRaidSupportNodes(RAID_ALLIED_MESH_NODE_STATES.stable, { preview: state.debugAlliedMeshPreviewActive });
+    this.debugLogFinalRaidAlliedMesh("downlink restored", { reason: context.reason || "releaseGate" });
+    return true;
+  }
+
+  getFinalRaidRescueMessagesForGuild(entry) {
+    const guildId = entry?.id || "";
+    const predefined = RAID_RESCUE_LINK_GUILD_COMMS[guildId];
+    if (predefined?.length) {
+      return predefined.map((message) => ({ ...message }));
+    }
+    const eventType = this.getFinalRaidRescueGuildEventType(guildId);
+    return [{
+      speaker: "SYSTEM",
+      text: `LOCAL MESH NODE CONNECTED — ${entry?.label || guildId}`,
+      variant: "system",
+      duration: 2600,
+      eventType
+    }];
+  }
+
+  trimCommsQueueForRaidRescue(requiredRoom = 1, priority = RAID_RESCUE_LINK_PRIORITY.normal) {
+    const queue = this.commsState?.queue;
+    if (!queue) {
+      return 0;
+    }
+    let removed = 0;
+    while (COMMS_UI_CONFIG.queueMax - queue.length < requiredRoom) {
+      const removableIndex = queue
+        .map((message, index) => ({ message, index }))
+        .reverse()
+        .find((entry) => {
+          const source = entry.message?.source;
+          if (source === "epilogue" || source === "story") {
+            return false;
+          }
+          if (source === RAID_RESCUE_LINK_SOURCE && (Number(entry.message?.priority) || 0) >= priority) {
+            return false;
+          }
+          return true;
+        })?.index;
+      if (!Number.isInteger(removableIndex)) {
+        break;
+      }
+      queue.splice(removableIndex, 1);
+      removed += 1;
+    }
+    return removed;
+  }
+
+  queueFinalRaidRescueMessageBatch(messages, priority, guildId, reason = "arrival") {
+    if (!Array.isArray(messages) || messages.length <= 0) {
+      return false;
+    }
+    if (!this.commsState?.container?.active) {
+      this.createCommsUi();
+    }
+    const eventType = this.getFinalRaidRescueGuildEventType(guildId);
+    const normalized = messages
+      .map((message) => this.normalizeCommsMessage({
+        ...message,
+        priority,
+        source: RAID_RESCUE_LINK_SOURCE,
+        category: message.category || RAID_RESCUE_LINK_CATEGORY,
+        channel: RAID_RESCUE_LINK_CHANNEL,
+        allowDuringFinalRaid: true,
+        finalRaid: true,
+        eventType: message.eventType || eventType,
+        guildId
+      }))
+      .filter(Boolean);
+    if (normalized.length <= 0) {
+      return false;
+    }
+    this.trimCommsQueueForRaidRescue(normalized.length, priority);
+    const queue = this.commsState.queue || [];
+    const protectedLastIndex = queue.reduce((lastIndex, message, index) => {
+      return message?.source === "epilogue" || message?.source === "story" ? index : lastIndex;
+    }, -1);
+    const lowerPriorityIndex = queue.findIndex((message, index) => {
+      return index > protectedLastIndex && (Number(message?.priority) || 0) < priority;
+    });
+    const insertIndex = lowerPriorityIndex >= 0 ? lowerPriorityIndex : queue.length;
+    queue.splice(insertIndex, 0, ...normalized);
+    while (queue.length > COMMS_UI_CONFIG.queueMax) {
+      const removableIndex = queue
+        .map((message, index) => ({ message, index }))
+        .reverse()
+        .find((entry) => entry.message?.source !== "epilogue" && entry.message?.source !== "story")?.index;
+      if (!Number.isInteger(removableIndex)) {
+        break;
+      }
+      queue.splice(removableIndex, 1);
+    }
+    this.tryShowNextCommsMessage();
+    this.debugLogFinalRaidRescueLink("queued", { reason, guildId, count: normalized.length, priority });
+    return true;
+  }
+
+  getFinalRaidRescueCommsPriority(entry) {
+    if (entry?.id === "guild-013") {
+      return RAID_RESCUE_LINK_PRIORITY.excalion;
+    }
+    if (["guild-010", "guild-011", "guild-012"].includes(entry?.id)) {
+      return RAID_RESCUE_LINK_PRIORITY.major;
+    }
+    if (entry?.id === "guild-001") {
+      return RAID_RESCUE_LINK_PRIORITY.first;
+    }
+    return RAID_RESCUE_LINK_PRIORITY.normal;
+  }
+
+  queueFinalRaidGuildArrivalComms(entry, context = {}) {
+    if (context.sync === true) {
+      return false;
+    }
+    const messages = this.getFinalRaidRescueMessagesForGuild(entry);
+    return this.queueFinalRaidRescueMessageBatch(
+      messages,
+      this.getFinalRaidRescueCommsPriority(entry),
+      entry?.id,
+      context.reason || "guildArrival"
+    );
+  }
+
+  addFinalRaidRescueLinkNode(entry, context = {}) {
+    const state = this.getFinalRaidRescueLinkState();
+    const guildId = entry?.id;
+    if (!guildId || state.arrivedGuildIds.has(guildId)) {
+      this.debugLogFinalRaidRescueLink("duplicate skipped", { guildId, label: entry?.label, reason: context.reason });
+      return false;
+    }
+    state.arrivedGuildIds.add(guildId);
+    const firstNode = state.entries.length === 0;
+    if (firstNode) {
+      state.firstNodeConnected = true;
+      this.setFinalRaidCommsDirectionState({ localMesh: "online" }, "firstGuildArrival");
+    }
+    const restraintLabel = RAID_RESCUE_LINK_RESTRAINT_LABELS[guildId];
+    const restraintReady = restraintLabel && this.finalBossRaidState?.giantWeaponRestrainedIds?.[restraintLabel.weaponId];
+    const rescueEntry = {
+      guildId,
+      displayName: entry.label || guildId,
+      connectionLabel: restraintReady ? restraintLabel.label : this.getFinalRaidRescueEntryLabel(entry),
+      status: restraintReady ? "sealed" : "connected",
+      arrivedAtMs: Math.max(0, Math.floor(Number(entry.joinMs ?? this.finalBossRaidState?.elapsedMs) || 0)),
+      effectKey: null,
+      effectLabel: null,
+      effectEndsAt: null
+    };
+    state.entries.push(rescueEntry);
+    this.createFinalRaidRescueLinkHud(context.reason || "arrival");
+    this.setFinalRaidSupportNodeVisualState(guildId, RAID_ALLIED_MESH_NODE_STATES.connected, { animate: context.sync !== true });
+    this.refreshFinalRaidRescueLinkHud();
+    this.animateFinalRaidRescueLinkArrival(guildId, firstNode);
+    this.debugLogFinalRaidRescueLink("arrival", { guildId, displayName: rescueEntry.displayName, sync: context.sync === true });
+    return true;
+  }
+
+  updateFinalRaidRescueLinkEntry(guildId, patch = {}, reason = "update") {
+    const state = this.finalRaidRescueLinkState;
+    const entry = state?.entries?.find((candidate) => candidate.guildId === guildId);
+    if (!entry) {
+      return false;
+    }
+    Object.assign(entry, patch);
+    this.refreshFinalRaidRescueLinkHud();
+    this.debugLogFinalRaidRescueLink("entry updated", { guildId, label: entry.connectionLabel, reason });
+    return true;
+  }
+
+  initFinalRaidRescueEffects(reason = "init") {
+    const state = this.getFinalRaidRescueLinkState();
+    state.activeEffects = state.activeEffects instanceof Map ? state.activeEffects : new Map();
+    state.reliefAppliedGuildIds = state.reliefAppliedGuildIds instanceof Set ? state.reliefAppliedGuildIds : new Set();
+    state.effectTimers = Array.isArray(state.effectTimers) ? state.effectTimers : [];
+    state.effectTweens = Array.isArray(state.effectTweens) ? state.effectTweens : [];
+    state.rescueShieldHp = 0;
+    state.rescueShieldMaxHp = 0;
+    state.rescueShieldEndsAt = 0;
+    state.rescueShieldSourceGuildId = null;
+    state.rescueBeaconDeployed = false;
+    state.rescueBeaconActive = false;
+    state.rescueBeaconState = null;
+    state.debugEffectPreviewQueued = false;
+    state.guildSupportAppliedIds = state.guildSupportAppliedIds instanceof Set ? state.guildSupportAppliedIds : new Set();
+    state.guildDamageReductions = state.guildDamageReductions instanceof Map ? state.guildDamageReductions : new Map();
+    state.guildSlowImmunities = state.guildSlowImmunities instanceof Map ? state.guildSlowImmunities : new Map();
+    state.guildSupportTimers = Array.isArray(state.guildSupportTimers) ? state.guildSupportTimers : [];
+    state.guildSupportTweens = Array.isArray(state.guildSupportTweens) ? state.guildSupportTweens : [];
+    state.guildSupportObjects = Array.isArray(state.guildSupportObjects) ? state.guildSupportObjects : [];
+    state.guildSupportAppliedIds.clear();
+    state.guildDamageReductions.clear();
+    state.guildSlowImmunities.clear();
+    state.debuffWard = null;
+    state.legendGuard = null;
+    state.safehouseLinkActive = false;
+    state.debugGuildEffectPreviewQueued = false;
+    state.debugGuildEffectHitQueued = false;
+    state.debugBattlefieldControlHudQueued = false;
+    state.battlefieldControlPreview = null;
+    state.effectHudLastUpdateAt = 0;
+    this.debugLogFinalRaidRescueEffect("initialized", { reason });
+    return state;
+  }
+
+  shouldApplyFinalRaidRescueEffects(context = {}) {
+    if (this.isFinalRaidRescueNoEffectsDebugEnabled?.()) {
+      return false;
+    }
+    if (!this.isFinalBossRaidActive?.() || this.gameOver || this.extractionComplete) {
+      return false;
+    }
+    if (this.finalRaidRescueLinkState?.operationComplete || this.finalBossRaidState?.bossDefeated) {
+      return false;
+    }
+    if (context.sync === true) {
+      this.debugLogFinalRaidRescueEffect("retroactive effect skipped", { reason: context.reason });
+      return false;
+    }
+    if (context.debugPreview === true && !this.isFinalRaidRescueEffectsDebugEnabled?.()) {
+      return false;
+    }
+    return true;
+  }
+
+  getFinalRaidRescueMaxHp() {
+    return Math.max(1, Math.round(Number(this.stats?.maxHp) || 1));
+  }
+
+  shouldApplyFinalRaidGuildSupportEffects(context = {}) {
+    if (this.isFinalRaidRescueNoEffectsDebugEnabled?.()) {
+      return false;
+    }
+    if (!this.isFinalBossRaidActive?.() || this.gameOver || this.extractionComplete) {
+      return false;
+    }
+    if (this.finalRaidRescueLinkState?.operationComplete || this.finalBossRaidState?.bossDefeated) {
+      return false;
+    }
+    if (context.sync === true) {
+      this.debugLogFinalRaidGuildEffect("retroactive guild effect skipped", { reason: context.reason });
+      return false;
+    }
+    if (context.debugPreview === true && !this.isFinalRaidGuildEffectsDebugEnabled?.()) {
+      return false;
+    }
+    return true;
+  }
+
+  getFinalRaidGuildSupportConfig(entryOrGuildId) {
+    const guildId = typeof entryOrGuildId === "string" ? entryOrGuildId : entryOrGuildId?.id;
+    return FINAL_RAID_GUILD_SUPPORT_BY_ID[guildId] || null;
+  }
+
+  grantFinalRaidGuildRecovery(entry, budgetRatio, label = "GUILD AID", context = {}) {
+    if (!this.shouldApplyFinalRaidGuildSupportEffects(context) || !this.stats || this.stats.hp <= 0) {
+      return false;
+    }
+    const now = this.time?.now || 0;
+    const maxHp = this.getFinalRaidRescueMaxHp();
+    const budget = Math.max(1, Math.round(maxHp * Math.max(0, Number(budgetRatio) || 0)));
+    const beforeHp = Math.max(0, Math.round(Number(this.stats.hp) || 0));
+    const missingHp = Math.max(0, maxHp - beforeHp);
+    const healed = Math.min(missingHp, budget);
+    if (healed > 0) {
+      this.stats.hp = Math.min(maxHp, beforeHp + healed);
+      this.spawnPlayerHealNumber?.(healed);
+      this.updateHud?.();
+      this.updateFinalBossRaidHud?.();
+    }
+    const shieldGain = Math.max(0, budget - healed);
+    if (shieldGain > 0) {
+      this.grantFinalRaidRescueShield(shieldGain, this.scaleFinalRaidGuildEffectMs(FINAL_RAID_RESCUE_EFFECTS.reliefShieldDurationMs), {
+        ...context,
+        guildId: entry?.id
+      });
+    }
+    if (entry?.id) {
+      this.updateFinalRaidRescueLinkEntry(entry.id, {
+        effectKey: shieldGain > 0 ? FINAL_RAID_RESCUE_EFFECT_KEYS.shield : "guild_recovery",
+        effectLabel: shieldGain > 0 ? `${label} SHIELD +${shieldGain}` : `${label} HP +${healed}`,
+        effectEndsAt: shieldGain > 0 ? this.finalRaidRescueLinkState?.rescueShieldEndsAt : now + this.scaleFinalRaidGuildEffectMs(FINAL_RAID_RESCUE_EFFECTS.instantEffectLabelDurationMs)
+      }, label);
+    }
+    this.showFinalRaidRescueEffectToast(`${label}  ${healed > 0 ? `HP +${healed}` : ""}${healed > 0 && shieldGain > 0 ? " / " : ""}${shieldGain > 0 ? `SHIELD +${shieldGain}` : ""}`.trim());
+    this.spawnFinalRaidGuildSupportPulse(label, healed > 0 ? 0x9ffcff : 0x65e6ff);
+    return { healed, shieldGain, budget };
+  }
+
+  restoreFinalRaidGuildStamina(entry, ratio = 1, label = "STAMINA RESTORED", context = {}) {
+    if (!this.shouldApplyFinalRaidGuildSupportEffects(context) || !this.stats) {
+      return 0;
+    }
+    const maxStamina = Math.max(1, Number(this.stats.maxStamina) || 1);
+    const before = Math.max(0, Number(this.stats.stamina) || 0);
+    const gain = ratio >= 1
+      ? Math.max(0, maxStamina - before)
+      : Math.max(0, maxStamina * Phaser.Math.Clamp(Number(ratio) || 0, 0, 1));
+    this.stats.stamina = Math.min(maxStamina, before + gain);
+    this.updateHud?.();
+    this.updateFinalBossRaidHud?.();
+    if (entry?.id) {
+      this.updateFinalRaidRescueLinkEntry(entry.id, {
+        effectLabel: label,
+        effectEndsAt: (this.time?.now || 0) + this.scaleFinalRaidGuildEffectMs(FINAL_RAID_RESCUE_EFFECTS.instantEffectLabelDurationMs)
+      }, label);
+    }
+    if (gain > 0 && this.playerHitbox?.active) {
+      this.showOverflowRewardText(`STAMINA +${Math.round(gain)}`, this.playerHitbox.x, this.playerHitbox.y - 70, "#9ffcff");
+    }
+    return gain;
+  }
+
+  refreshFinalRaidRescueShieldDuration(durationMs, context = {}) {
+    const state = this.finalRaidRescueLinkState;
+    const shieldHp = Math.max(0, Math.round(Number(state?.rescueShieldHp) || 0));
+    if (!state || shieldHp <= 0) {
+      return false;
+    }
+    const now = this.time?.now || 0;
+    state.rescueShieldEndsAt = now + Math.max(1, Math.round(Number(durationMs) || FINAL_RAID_RESCUE_EFFECTS.reliefShieldDurationMs));
+    state.rescueShieldSourceGuildId = context.guildId || state.rescueShieldSourceGuildId || null;
+    this.updateFinalRaidRescueEffectEntry(FINAL_RAID_RESCUE_EFFECT_KEYS.shield, {
+      key: FINAL_RAID_RESCUE_EFFECT_KEYS.shield,
+      label: "RELIEF SHIELD",
+      startedAt: now,
+      endsAt: state.rescueShieldEndsAt,
+      durationMs: Math.max(1, state.rescueShieldEndsAt - now)
+    });
+    this.refreshFinalRaidRescueEffectsHud(true);
+    return true;
+  }
+
+  grantFinalRaidFamilyShelter(entry, context = {}) {
+    if (!this.shouldApplyFinalRaidGuildSupportEffects(context)) {
+      return false;
+    }
+    const state = this.getFinalRaidRescueLinkState();
+    const maxHp = this.getFinalRaidRescueMaxHp();
+    const shieldMax = Math.max(1, Math.round(maxHp * FINAL_RAID_GUILD_SUPPORT_EFFECTS.familyShelterShieldRatio));
+    const before = Math.max(0, Math.round(Number(state.rescueShieldHp) || 0));
+    const shieldGain = Math.max(0, shieldMax - before);
+    if (shieldGain > 0) {
+      this.grantFinalRaidRescueShield(shieldGain, this.scaleFinalRaidGuildEffectMs(FINAL_RAID_RESCUE_EFFECTS.reliefShieldDurationMs), {
+        ...context,
+        guildId: entry?.id
+      });
+    } else {
+      this.refreshFinalRaidRescueShieldDuration(this.scaleFinalRaidGuildEffectMs(FINAL_RAID_RESCUE_EFFECTS.reliefShieldDurationMs), { guildId: entry?.id });
+    }
+    if (entry?.id) {
+      this.updateFinalRaidRescueLinkEntry(entry.id, {
+        effectKey: FINAL_RAID_RESCUE_EFFECT_KEYS.shield,
+        effectLabel: shieldGain > 0 ? `FAMILY SHELTER +${shieldGain}` : "FAMILY SHELTER REFRESH",
+        effectEndsAt: this.finalRaidRescueLinkState?.rescueShieldEndsAt || (this.time?.now || 0)
+      }, "familyShelter");
+    }
+    this.showFinalRaidRescueEffectToast(shieldGain > 0 ? `FAMILY SHELTER  SHIELD +${shieldGain}` : "FAMILY SHELTER  SHIELD REFRESH");
+    this.spawnFinalRaidGuildSupportPulse("FAMILY SHELTER", 0xf0c463);
+    return true;
+  }
+
+  setFinalRaidGuildDamageReduction(effectKey, label, ratio, durationMs, context = {}) {
+    if (!this.shouldApplyFinalRaidGuildSupportEffects(context) || !effectKey) {
+      return false;
+    }
+    const state = this.getFinalRaidRescueLinkState();
+    const now = this.time?.now || 0;
+    const safeRatio = Phaser.Math.Clamp(Number(ratio) || 0, 0, FINAL_RAID_GUILD_SUPPORT_EFFECTS.damageReductionCapRatio);
+    const scaledDuration = this.scaleFinalRaidGuildEffectMs(durationMs);
+    const effect = {
+      key: effectKey,
+      label,
+      ratio: safeRatio,
+      startedAt: now,
+      endsAt: now + scaledDuration,
+      durationMs: scaledDuration,
+      sourceGuildId: context.guildId || null
+    };
+    state.guildDamageReductions.set(effectKey, effect);
+    this.updateFinalRaidRescueEffectEntry(effectKey, effect);
+    return effect;
+  }
+
+  setFinalRaidSlowImmunity(effectKey, label, durationMs, context = {}) {
+    if (!this.shouldApplyFinalRaidGuildSupportEffects(context) || !effectKey) {
+      return false;
+    }
+    const state = this.getFinalRaidRescueLinkState();
+    const now = this.time?.now || 0;
+    const scaledDuration = this.scaleFinalRaidGuildEffectMs(durationMs);
+    const effect = {
+      key: effectKey,
+      label,
+      startedAt: now,
+      endsAt: now + scaledDuration,
+      durationMs: scaledDuration,
+      sourceGuildId: context.guildId || null
+    };
+    state.guildSlowImmunities.set(effectKey, effect);
+    this.updateFinalRaidRescueEffectEntry(effectKey, {
+      ...effect,
+      key: effectKey,
+      label
+    });
+    return effect;
+  }
+
+  clearFinalRaidMovementDebuffs(reason = "guildSupport") {
+    const state = this.finalBossRaidState;
+    if (!state) {
+      return false;
+    }
+    const hadSlow = (Number(state.playerSlowUntil) || 0) > (this.time?.now || 0) || (Number(state.playerSlowMultiplier) || 1) < 1;
+    state.playerSlowUntil = 0;
+    state.playerSlowMultiplier = 1;
+    if (hadSlow) {
+      this.setLastPickupNotice("FINAL RAID SLOW CLEARED");
+      this.debugLogFinalRaidGuildEffect("slow cleared", { reason });
+    }
+    return hadSlow;
+  }
+
+  setFinalRaidDebuffWard(entry, config, context = {}) {
+    if (!this.shouldApplyFinalRaidGuildSupportEffects(context)) {
+      return false;
+    }
+    const state = this.getFinalRaidRescueLinkState();
+    const now = this.time?.now || 0;
+    const durationMs = this.scaleFinalRaidGuildEffectMs(config.slowImmunityMs || FINAL_RAID_GUILD_SUPPORT_EFFECTS.debuffWardDurationMs);
+    state.debuffWard = {
+      charges: Math.max(1, Math.floor(Number(config.charges) || 1)),
+      startedAt: now,
+      endsAt: now + durationMs,
+      durationMs,
+      sourceGuildId: entry?.id || null
+    };
+    this.clearFinalRaidMovementDebuffs("debuffWard");
+    this.updateFinalRaidRescueEffectEntry(FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.debuffWard, {
+      key: FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.debuffWard,
+      label: "DEBUFF WARD",
+      startedAt: now,
+      endsAt: now + durationMs,
+      durationMs,
+      charges: state.debuffWard.charges
+    });
+    return true;
+  }
+
+  consumeFinalRaidDebuffWard(reason = "slowBlock") {
+    const state = this.finalRaidRescueLinkState;
+    const ward = state?.debuffWard;
+    const now = this.time?.now || 0;
+    if (!ward || ward.endsAt <= now || ward.charges <= 0) {
+      return false;
+    }
+    ward.charges = Math.max(0, ward.charges - 1);
+    this.clearFinalRaidMovementDebuffs(reason);
+    this.showFinalRaidRescueEffectToast("DEBUFF WARD  SLOW BLOCKED");
+    this.spawnFinalRaidGuildSupportPulse("DEBUFF WARD", 0xdfffff);
+    if (ward.charges <= 0) {
+      state.debuffWard = null;
+      this.removeFinalRaidRescueEffectEntry(FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.debuffWard, "consumed");
+    } else {
+      this.updateFinalRaidRescueEffectEntry(FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.debuffWard, { charges: ward.charges });
+    }
+    this.debugLogFinalRaidGuildEffect("debuff ward consumed", { reason });
+    return true;
+  }
+
+  hasFinalRaidSlowImmunity() {
+    const now = this.time?.now || 0;
+    const state = this.finalRaidRescueLinkState;
+    if (this.isFinalRaidSafehouseActive()) {
+      return true;
+    }
+    if (state?.debuffWard && state.debuffWard.endsAt > now && state.debuffWard.charges > 0) {
+      return true;
+    }
+    const immunities = state?.guildSlowImmunities instanceof Map ? Array.from(state.guildSlowImmunities.values()) : [];
+    return immunities.some((effect) => (Number(effect?.endsAt) || 0) > now);
+  }
+
+  tryApplyFinalRaidSlow(data = {}) {
+    const state = this.finalBossRaidState;
+    if (!state?.active) {
+      return false;
+    }
+    const now = this.time?.now || 0;
+    if (this.isFinalRaidSafehouseActive()) {
+      this.debugLogFinalRaidGuildEffect("slow blocked", { source: data.source, by: "safehouse" });
+      return false;
+    }
+    if (this.consumeFinalRaidDebuffWard("slowBlock")) {
+      return false;
+    }
+    const activeImmunity = Array.from(this.finalRaidRescueLinkState?.guildSlowImmunities?.values?.() || [])
+      .find((effect) => (Number(effect?.endsAt) || 0) > now);
+    if (activeImmunity) {
+      this.debugLogFinalRaidGuildEffect("slow blocked", { source: data.source, by: activeImmunity.key });
+      return false;
+    }
+    const slowMs = Math.max(0, Math.round(Number(data.slowMs) || 0));
+    if (slowMs <= 0) {
+      return false;
+    }
+    state.playerSlowUntil = Math.max(state.playerSlowUntil || 0, now + slowMs);
+    state.playerSlowMultiplier = Math.min(
+      Phaser.Math.Clamp(Number(state.playerSlowMultiplier) || 1, 0.3, 1),
+      Phaser.Math.Clamp(Number(data.slowMultiplier) || 0.54, 0.3, 1)
+    );
+    this.setLastPickupNotice("FINAL RAID FREEZE FIELD");
+    return true;
+  }
+
+  setFinalRaidLegendGuard(entry, config, context = {}) {
+    if (!this.shouldApplyFinalRaidGuildSupportEffects(context)) {
+      return false;
+    }
+    const state = this.getFinalRaidRescueLinkState();
+    const now = this.time?.now || 0;
+    const durationMs = this.scaleFinalRaidGuildEffectMs(config.durationMs || FINAL_RAID_GUILD_SUPPORT_EFFECTS.legendGuardDurationMs);
+    state.legendGuard = {
+      charges: Math.max(1, Math.floor(Number(config.charges) || 1)),
+      reductionRatio: Phaser.Math.Clamp(Number(config.reductionRatio) || FINAL_RAID_GUILD_SUPPORT_EFFECTS.legendGuardReductionRatio, 0, 0.9),
+      startedAt: now,
+      endsAt: now + durationMs,
+      durationMs,
+      sourceGuildId: entry?.id || null
+    };
+    this.updateFinalRaidRescueEffectEntry(FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.legendGuard, {
+      key: FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.legendGuard,
+      label: "LEGEND GUARD",
+      startedAt: now,
+      endsAt: now + durationMs,
+      durationMs,
+      charges: state.legendGuard.charges
+    });
+    return true;
+  }
+
+  consumeFinalRaidLegendGuard(damage, context = {}) {
+    const incoming = Math.max(0, Math.round(Number(damage) || 0));
+    const state = this.finalRaidRescueLinkState;
+    const guard = state?.legendGuard;
+    const now = this.time?.now || 0;
+    if (incoming <= 0 || !guard || guard.endsAt <= now || guard.charges <= 0) {
+      return { remainingDamage: incoming, reducedDamage: 0, consumed: false };
+    }
+    const ratio = Phaser.Math.Clamp(Number(guard.reductionRatio) || 0, 0, 0.9);
+    const remainingDamage = Math.max(0, Math.round(incoming * (1 - ratio)));
+    const reducedDamage = Math.max(0, incoming - remainingDamage);
+    guard.charges = 0;
+    state.legendGuard = null;
+    this.removeFinalRaidRescueEffectEntry(FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.legendGuard, "consumed");
+    if (reducedDamage > 0 && this.playerHitbox?.active) {
+      this.showOverflowRewardText(`LEGEND -${reducedDamage}`, this.playerHitbox.x, this.playerHitbox.y - 62, "#f0c463");
+    }
+    this.spawnFinalRaidGuildSupportPulse("LEGEND GUARD", 0xf0c463);
+    this.debugLogFinalRaidGuildEffect("legend guard consumed", { incoming, remainingDamage, reducedDamage, context });
+    return { remainingDamage, reducedDamage, consumed: true, reductionRatio: ratio };
+  }
+
+  applyFinalRaidGuildDamageReduction(damage, context = {}) {
+    const incoming = Math.max(0, Math.round(Number(damage) || 0));
+    if (incoming <= 0 || !this.isFinalBossRaidActive?.()) {
+      return { remainingDamage: incoming, reducedDamage: 0, reductionRatio: 0, sourceKey: null };
+    }
+    const now = this.time?.now || 0;
+    const state = this.finalRaidRescueLinkState;
+    let best = null;
+    if (state?.guildDamageReductions instanceof Map) {
+      state.guildDamageReductions.forEach((effect, key) => {
+        if ((Number(effect?.endsAt) || 0) > now) {
+          const ratio = Phaser.Math.Clamp(Number(effect.ratio) || 0, 0, FINAL_RAID_GUILD_SUPPORT_EFFECTS.damageReductionCapRatio);
+          if (!best || ratio > best.ratio) {
+            best = { key, ratio, label: effect.label || key };
+          }
+        }
+      });
+    }
+    if (this.isFinalRaidSafehouseActive()) {
+      const safeRatio = Phaser.Math.Clamp(FINAL_RAID_GUILD_SUPPORT_EFFECTS.safehouseReductionRatio, 0, FINAL_RAID_GUILD_SUPPORT_EFFECTS.damageReductionCapRatio);
+      if (!best || safeRatio > best.ratio) {
+        best = { key: "safehouse_link", ratio: safeRatio, label: "SAFEHOUSE LINK" };
+      }
+    }
+    if (!best || best.ratio <= 0) {
+      return { remainingDamage: incoming, reducedDamage: 0, reductionRatio: 0, sourceKey: null };
+    }
+    const remainingDamage = Math.max(0, Math.round(incoming * (1 - best.ratio)));
+    const reducedDamage = Math.max(0, incoming - remainingDamage);
+    if (reducedDamage > 0 && this.playerHitbox?.active) {
+      this.showOverflowRewardText(`GUARD -${reducedDamage}`, this.playerHitbox.x, this.playerHitbox.y - 52, "#9ffcff");
+    }
+    this.debugLogFinalRaidGuildEffect("damage reduced", { incoming, remainingDamage, reducedDamage, source: best });
+    return { remainingDamage, reducedDamage, reductionRatio: best.ratio, sourceKey: best.key };
+  }
+
+  startFinalRaidHopeRegen(entry, config, context = {}) {
+    if (!this.shouldApplyFinalRaidGuildSupportEffects(context)) {
+      return false;
+    }
+    const state = this.getFinalRaidRescueLinkState();
+    const now = this.time?.now || 0;
+    const durationMs = this.scaleFinalRaidGuildEffectMs(config.durationMs || FINAL_RAID_GUILD_SUPPORT_EFFECTS.hopeRegenDurationMs);
+    const pulseCount = Math.max(1, Math.floor(Number(config.pulseCount) || FINAL_RAID_GUILD_SUPPORT_EFFECTS.hopeRegenPulseCount));
+    const intervalMs = this.scaleFinalRaidGuildEffectMs(config.pulseIntervalMs || FINAL_RAID_GUILD_SUPPORT_EFFECTS.hopeRegenPulseIntervalMs);
+    this.updateFinalRaidRescueEffectEntry(FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.hopeRegen, {
+      key: FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.hopeRegen,
+      label: "HOPE REGEN",
+      startedAt: now,
+      endsAt: now + durationMs,
+      durationMs,
+      pulseIndex: 0,
+      pulseCount
+    });
+    for (let pulse = 1; pulse <= pulseCount; pulse += 1) {
+      const timer = this.time.delayedCall((pulse - 1) * intervalMs, () => {
+        this.pulseFinalRaidHopeRegen(pulse, pulseCount, Number(config.healRatio) || FINAL_RAID_GUILD_SUPPORT_EFFECTS.hopeRegenHealRatio);
+      });
+      state.guildSupportTimers.push(timer);
+    }
+    if (entry?.id) {
+      this.updateFinalRaidRescueLinkEntry(entry.id, {
+        effectKey: FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.hopeRegen,
+        effectLabel: "HOPE REGEN",
+        effectEndsAt: now + durationMs
+      }, "hopeRegen");
+    }
+    return true;
+  }
+
+  pulseFinalRaidHopeRegen(pulseNumber = 1, pulseCount = 5, healRatio = FINAL_RAID_GUILD_SUPPORT_EFFECTS.hopeRegenHealRatio) {
+    const state = this.finalRaidRescueLinkState;
+    if (!state || state.operationComplete || !this.isFinalBossRaidActive?.() || this.gameOver || !this.stats || this.stats.hp <= 0) {
+      return false;
+    }
+    const maxHp = this.getFinalRaidRescueMaxHp();
+    const healAmount = Math.max(1, Math.round(maxHp * Math.max(0, Number(healRatio) || 0)));
+    let healed = 0;
+    if (this.stats.hp < maxHp) {
+      const before = this.stats.hp;
+      this.stats.hp = Math.min(maxHp, before + healAmount);
+      healed = this.stats.hp - before;
+      if (healed > 0) {
+        this.spawnPlayerHealNumber?.(healed);
+        this.updateHud?.();
+        this.updateFinalBossRaidHud?.();
+      }
+    }
+    this.updateFinalRaidRescueEffectEntry(FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.hopeRegen, {
+      pulseIndex: Math.max(0, Math.floor(Number(pulseNumber) || 0)),
+      pulseCount
+    });
+    this.spawnFinalRaidGuildSupportPulse("HOPE REGEN", 0xffd98a);
+    this.debugLogFinalRaidGuildEffect("hope regen pulse", { pulse: pulseNumber, pulseCount, healed });
+    return true;
+  }
+
+  setFinalRaidSafehouseLink(entry, context = {}) {
+    if (!this.shouldApplyFinalRaidGuildSupportEffects(context)) {
+      return false;
+    }
+    const state = this.getFinalRaidRescueLinkState();
+    state.safehouseLinkActive = true;
+    if (entry?.id) {
+      this.updateFinalRaidRescueLinkEntry(entry.id, {
+        effectLabel: "SAFEHOUSE LINK",
+        effectEndsAt: Number.MAX_SAFE_INTEGER
+      }, "safehouseLink");
+    }
+    this.showFinalRaidRescueEffectToast("SAFEHOUSE LINK  BEACON ZONE ENHANCED");
+    return true;
+  }
+
+  queueFinalRaidAlliedMeshMaximumComms(entry) {
+    return this.queueFinalRaidRescueMessageBatch([{
+      speaker: "SYSTEM",
+      text: "ALLIED MESH: MAXIMUM",
+      variant: "system",
+      duration: 3000,
+      category: "mesh_maximum",
+      eventType: "allied_mesh_maximum"
+    }], RAID_RESCUE_LINK_PRIORITY.mesh, entry?.id || "guild-013", "alliedMeshMaximum");
+  }
+
+  spawnFinalRaidGuildSupportPulse(label = "GUILD SUPPORT", color = 0x9ffcff) {
+    if (!this.playerHitbox?.active || !this.add?.graphics) {
+      return null;
+    }
+    const ring = this.add.graphics().setDepth(this.getFinalRaidVisualDepth?.("playerBoost", 22.4) ?? 22.4);
+    ring.setPosition(this.playerHitbox.x, this.playerHitbox.y - 4);
+    ring.lineStyle(2, color, 0.64);
+    ring.strokeCircle(0, 0, 30);
+    this.robotEffectsLayer?.add?.(ring);
+    const tween = this.tweens.add({
+      targets: ring,
+      alpha: 0,
+      scaleX: 1.9,
+      scaleY: 1.9,
+      duration: 420,
+      ease: "Sine.Out",
+      onComplete: () => ring.destroy()
+    });
+    this.addFinalRaidRescueEffectTween(tween);
+    const state = this.getFinalRaidRescueLinkState();
+    state.guildSupportObjects = state.guildSupportObjects || [];
+    state.guildSupportObjects.push(ring);
+    if (label && this.playerHitbox?.active) {
+      this.showOverflowRewardText(label, this.playerHitbox.x, this.playerHitbox.y - 84, "#eaffff");
+    }
+    return ring;
+  }
+
+  applyFinalRaidGuildSpecificSupport(entry, context = {}) {
+    const state = this.getFinalRaidRescueLinkState();
+    const guildId = entry?.id;
+    const config = this.getFinalRaidGuildSupportConfig(entry);
+    if (!guildId || !config || !this.shouldApplyFinalRaidGuildSupportEffects(context)) {
+      return false;
+    }
+    if (state.guildSupportAppliedIds?.has?.(guildId)) {
+      this.debugLogFinalRaidGuildEffect("duplicate skipped", { guildId, label: entry?.label, reason: context.reason });
+      return false;
+    }
+    state.guildSupportAppliedIds.add(guildId);
+    const effectContext = { ...context, guildId };
+    let applied = false;
+
+    if (config.recoveryBudgetRatio) {
+      applied = Boolean(this.grantFinalRaidGuildRecovery(entry, config.recoveryBudgetRatio, config.label, effectContext)) || applied;
+    }
+    if (config.shieldFillRatio) {
+      applied = this.grantFinalRaidFamilyShelter(entry, effectContext) || applied;
+    }
+    if (config.safehouseLink) {
+      applied = this.setFinalRaidSafehouseLink(entry, effectContext) || applied;
+    }
+    if (guildId === "guild-002") {
+      applied = this.setFinalRaidDebuffWard(entry, config, effectContext) || applied;
+    }
+    if (guildId === "guild-004") {
+      applied = this.startFinalRaidHopeRegen(entry, config, effectContext) || applied;
+    }
+    if (guildId === "guild-005") {
+      this.clearFinalRaidMovementDebuffs("windRelease");
+      this.restoreFinalRaidGuildStamina(entry, config.staminaRatio, "WIND RELEASE", effectContext);
+      applied = this.setFinalRaidSlowImmunity(config.key, config.label, config.slowImmunityMs, effectContext) || applied;
+    }
+    if (guildId === "guild-006") {
+      applied = this.setFinalRaidLegendGuard(entry, config, effectContext) || applied;
+    }
+    if (guildId === "guild-009") {
+      this.clearFinalRaidMovementDebuffs("sanctuaryLink");
+      this.setFinalRaidSlowImmunity(config.key, config.label, config.slowImmunityMs, effectContext);
+      applied = Boolean(this.setFinalRaidGuildDamageReduction(config.key, config.label, config.reductionRatio, config.durationMs, effectContext)) || applied;
+    }
+    if (guildId === "guild-010") {
+      applied = Boolean(this.setFinalRaidGuildDamageReduction(config.key, config.label, config.reductionRatio, config.durationMs, effectContext)) || applied;
+    }
+    if (guildId === "guild-003") {
+      applied = Boolean(this.setFinalRaidGuildDamageReduction(config.key, config.label, config.reductionRatio, config.durationMs, effectContext)) || applied;
+    }
+    if (guildId === "guild-013") {
+      this.clearFinalRaidMovementDebuffs("alliedMeshMaximum");
+      this.restoreFinalRaidGuildStamina(entry, 1, "STAMINA FULL", effectContext);
+      this.setFinalRaidSlowImmunity(config.key, config.label, config.slowImmunityMs, effectContext);
+      applied = Boolean(this.setFinalRaidGuildDamageReduction(config.key, config.label, config.reductionRatio, config.durationMs, effectContext)) || applied;
+    }
+
+    if (applied) {
+      const durationMs = this.scaleFinalRaidGuildEffectMs(config.durationMs || config.slowImmunityMs || FINAL_RAID_RESCUE_EFFECTS.instantEffectLabelDurationMs);
+      if (entry?.id && !["guild-001", "guild-004", "guild-007", "guild-008"].includes(guildId)) {
+        this.updateFinalRaidRescueLinkEntry(entry.id, {
+          effectKey: config.key || "guild_support",
+          effectLabel: config.label,
+          effectEndsAt: (this.time?.now || 0) + durationMs
+        }, "guildSupport");
+      }
+      this.showFinalRaidRescueEffectToast(config.label || "GUILD SUPPORT");
+      this.spawnFinalRaidGuildSupportPulse(config.label, guildId === "guild-010" ? 0xff9aa2 : 0x9ffcff);
+    }
+    this.debugLogFinalRaidGuildEffect("guild support applied", { guildId, label: entry?.label, effect: config.label, applied, reason: context.reason });
+    return applied;
+  }
+
+  applyFinalRaidGuildArrivalAid(entry, context = {}) {
+    const state = this.getFinalRaidRescueLinkState();
+    const guildId = entry?.id;
+    if (!guildId || !state.arrivedGuildIds?.has?.(guildId)) {
+      return false;
+    }
+    if (!this.shouldApplyFinalRaidRescueEffects(context)) {
+      return false;
+    }
+    if (state.reliefAppliedGuildIds?.has?.(guildId)) {
+      this.debugLogFinalRaidRescueEffect("duplicate skipped", { guildId, label: entry?.label, reason: context.reason });
+      return false;
+    }
+    state.reliefAppliedGuildIds.add(guildId);
+    const reliefResult = this.grantFinalRaidReliefPacket(entry, context);
+    const guildSupportResult = this.applyFinalRaidGuildSpecificSupport(entry, context);
+    if ((state.arrivedGuildIds?.size || 0) >= FINAL_RAID_RESCUE_EFFECTS.beaconTriggerNodeCount) {
+      this.deployFinalRaidRescueBeacon({ ...context, reason: context.reason || "guildArrival", triggerGuildId: guildId });
+    }
+    return reliefResult || guildSupportResult;
+  }
+
+  grantFinalRaidReliefPacket(entry, context = {}) {
+    if (!this.shouldApplyFinalRaidRescueEffects(context)) {
+      return false;
+    }
+    if (!this.stats || this.stats.hp <= 0 || this.gameOver) {
+      return false;
+    }
+    const now = this.time?.now || 0;
+    const maxHp = this.getFinalRaidRescueMaxHp();
+    const budget = Math.max(1, Math.round(maxHp * FINAL_RAID_RESCUE_EFFECTS.reliefBudgetRatio));
+    const beforeHp = Math.max(0, Math.round(Number(this.stats.hp) || 0));
+    const missingHp = Math.max(0, maxHp - beforeHp);
+    const healed = Math.min(missingHp, budget);
+    if (healed > 0) {
+      this.stats.hp = Math.min(maxHp, beforeHp + healed);
+      this.spawnPlayerHealNumber?.(healed);
+      this.updateHud?.();
+      this.updateFinalBossRaidHud?.();
+    }
+    const shieldGain = Math.max(0, budget - healed);
+    if (shieldGain > 0) {
+      this.grantFinalRaidRescueShield(shieldGain, this.scaleFinalRaidRescueEffectMs(FINAL_RAID_RESCUE_EFFECTS.reliefShieldDurationMs), {
+        ...context,
+        guildId: entry?.id
+      });
+    }
+    const entryPatch = shieldGain > 0
+      ? {
+        effectKey: "relief_shield",
+        effectLabel: `SHIELD +${shieldGain}`,
+        effectEndsAt: this.finalRaidRescueLinkState?.rescueShieldEndsAt || now
+      }
+      : {
+        effectKey: "relief_heal",
+        effectLabel: `RECOVERY +${healed}`,
+        effectEndsAt: now + this.scaleFinalRaidRescueEffectMs(FINAL_RAID_RESCUE_EFFECTS.instantEffectLabelDurationMs)
+      };
+    if (entry?.id) {
+      this.updateFinalRaidRescueLinkEntry(entry.id, entryPatch, "reliefPacket");
+    }
+    const toastParts = [];
+    if (healed > 0) {
+      toastParts.push(`HP +${healed}`);
+    }
+    if (shieldGain > 0) {
+      toastParts.push(`SHIELD +${shieldGain}${healed <= 0 ? " / 12s" : ""}`);
+    }
+    this.showFinalRaidRescueEffectToast(`RELIEF PACKET  ${toastParts.join(" / ") || "AID READY"}`);
+    this.debugLogFinalRaidRescueEffect("relief", {
+      guild: entry?.label || entry?.id || "debug",
+      heal: healed,
+      shield: shieldGain,
+      budget
+    });
+    return { healed, shieldGain, budget };
+  }
+
+  grantFinalRaidRescueShield(amount, durationMs, context = {}) {
+    const state = this.getFinalRaidRescueLinkState();
+    if (!this.isFinalBossRaidActive?.() || state.operationComplete) {
+      return false;
+    }
+    const shieldAdd = Math.max(0, Math.round(Number(amount) || 0));
+    if (shieldAdd <= 0) {
+      return false;
+    }
+    const now = this.time?.now || 0;
+    const maxHp = this.getFinalRaidRescueMaxHp();
+    const shieldMax = Math.max(1, Math.round(maxHp * FINAL_RAID_RESCUE_EFFECTS.reliefShieldCapRatio));
+    const before = Math.max(0, Math.round(Number(state.rescueShieldHp) || 0));
+    state.rescueShieldMaxHp = shieldMax;
+    state.rescueShieldHp = Math.min(shieldMax, before + shieldAdd);
+    state.rescueShieldEndsAt = now + Math.max(1, Math.round(Number(durationMs) || FINAL_RAID_RESCUE_EFFECTS.reliefShieldDurationMs));
+    state.rescueShieldSourceGuildId = context.guildId || state.rescueShieldSourceGuildId || null;
+    this.updateFinalRaidRescueEffectEntry(FINAL_RAID_RESCUE_EFFECT_KEYS.shield, {
+      key: FINAL_RAID_RESCUE_EFFECT_KEYS.shield,
+      label: "RELIEF SHIELD",
+      startedAt: now,
+      endsAt: state.rescueShieldEndsAt,
+      durationMs: Math.max(1, state.rescueShieldEndsAt - now)
+    });
+    this.updateFinalRaidRescueShieldVisual(true);
+    this.refreshFinalRaidRescueEffectsHud(true);
+    this.debugLogFinalRaidRescueEffect("shield granted", {
+      added: shieldAdd,
+      shieldHp: state.rescueShieldHp,
+      max: shieldMax,
+      endsAt: state.rescueShieldEndsAt
+    });
+    return true;
+  }
+
+  consumeFinalRaidRescueShield(damage, context = {}) {
+    const incoming = Math.max(0, Math.round(Number(damage) || 0));
+    const state = this.finalRaidRescueLinkState;
+    if (incoming <= 0 || !state || !this.isFinalBossRaidActive?.() || state.operationComplete) {
+      return { remainingDamage: incoming, absorbedDamage: 0, shieldHp: Math.max(0, Math.round(Number(state?.rescueShieldHp) || 0)), depleted: false };
+    }
+    const now = this.time?.now || 0;
+    if ((Number(state.rescueShieldEndsAt) || 0) <= now) {
+      this.expireFinalRaidRescueShield("expired");
+      return { remainingDamage: incoming, absorbedDamage: 0, shieldHp: 0, depleted: false };
+    }
+    const shieldHp = Math.max(0, Math.round(Number(state.rescueShieldHp) || 0));
+    if (shieldHp <= 0) {
+      this.expireFinalRaidRescueShield("depleted");
+      return { remainingDamage: incoming, absorbedDamage: 0, shieldHp: 0, depleted: true };
+    }
+    const absorbedDamage = Math.min(shieldHp, incoming);
+    const remainingDamage = Math.max(0, incoming - absorbedDamage);
+    state.rescueShieldHp = Math.max(0, shieldHp - absorbedDamage);
+    const depleted = state.rescueShieldHp <= 0;
+    this.spawnFinalRaidRescueShieldImpact(absorbedDamage, depleted);
+    if (depleted) {
+      this.expireFinalRaidRescueShield("depleted");
+    } else {
+      this.refreshFinalRaidRescueEffectsHud(true);
+    }
+    this.debugLogFinalRaidRescueEffect("shield absorbed", {
+      absorbed: absorbedDamage,
+      remainingDamage,
+      shieldHp: state.rescueShieldHp,
+      context
+    });
+    return { remainingDamage, absorbedDamage, shieldHp: state.rescueShieldHp, depleted };
+  }
+
+  expireFinalRaidRescueShield(reason = "expired") {
+    const state = this.finalRaidRescueLinkState;
+    if (!state) {
+      return false;
+    }
+    state.rescueShieldHp = 0;
+    state.rescueShieldEndsAt = 0;
+    state.rescueShieldSourceGuildId = null;
+    this.removeFinalRaidRescueEffectEntry(FINAL_RAID_RESCUE_EFFECT_KEYS.shield, reason);
+    this.destroyFinalRaidRescueShieldVisual();
+    this.refreshFinalRaidRescueEffectsHud(true);
+    this.debugLogFinalRaidRescueEffect("shield expired", { reason });
+    return true;
+  }
+
+  updateFinalRaidRescueShieldVisual(force = false) {
+    const state = this.finalRaidRescueLinkState;
+    const shieldHp = Math.max(0, Math.round(Number(state?.rescueShieldHp) || 0));
+    const now = this.time?.now || 0;
+    if (!state || !this.playerHitbox?.active || shieldHp <= 0 || (Number(state.rescueShieldEndsAt) || 0) <= now) {
+      this.destroyFinalRaidRescueShieldVisual();
+      return;
+    }
+    if (!state.rescueShieldGraphics?.active) {
+      state.rescueShieldGraphics = this.add.graphics().setDepth(this.getFinalRaidVisualDepth?.("playerBoost", 22) ?? 22);
+      this.robotEffectsLayer?.add?.(state.rescueShieldGraphics);
+    }
+    const graphics = state.rescueShieldGraphics;
+    const radius = 34 + Math.min(10, shieldHp);
+    const pulse = 0.5 + Math.sin(now * 0.008) * 0.5;
+    graphics.clear();
+    graphics.setPosition(this.playerHitbox.x, this.playerHitbox.y - 4);
+    graphics.lineStyle(2, 0x65e6ff, 0.38 + pulse * 0.14);
+    const points = [];
+    for (let index = 0; index < 6; index += 1) {
+      const angle = -Math.PI / 2 + index * Math.PI / 3;
+      points.push({ x: Math.cos(angle) * radius, y: Math.sin(angle) * radius });
+    }
+    points.forEach((point, index) => {
+      const next = points[(index + 1) % points.length];
+      graphics.lineBetween(point.x, point.y, next.x, next.y);
+    });
+    graphics.lineStyle(1, 0x9ffcff, 0.2);
+    graphics.strokeCircle(0, 0, radius * 0.68);
+  }
+
+  destroyFinalRaidRescueShieldVisual() {
+    const state = this.finalRaidRescueLinkState;
+    if (!state?.rescueShieldGraphics) {
+      return;
+    }
+    this.tweens?.killTweensOf?.(state.rescueShieldGraphics);
+    state.rescueShieldGraphics.destroy();
+    state.rescueShieldGraphics = null;
+  }
+
+  spawnFinalRaidRescueShieldImpact(absorbedDamage = 0, depleted = false) {
+    if (!this.playerHitbox?.active) {
+      return;
+    }
+    if (absorbedDamage > 0) {
+      this.showOverflowRewardText(`SHIELD -${Math.round(absorbedDamage)}`, this.playerHitbox.x, this.playerHitbox.y - 58, "#9ffcff");
+    }
+    const ring = this.add.graphics().setDepth(this.getFinalRaidVisualDepth?.("playerBoost", 22.2) ?? 22.2);
+    ring.setPosition(this.playerHitbox.x, this.playerHitbox.y - 4);
+    ring.lineStyle(depleted ? 3 : 2, depleted ? 0xf0c463 : 0x9ffcff, depleted ? 0.78 : 0.62);
+    ring.strokeCircle(0, 0, depleted ? 48 : 38);
+    this.robotEffectsLayer?.add?.(ring);
+    const tween = this.tweens.add({
+      targets: ring,
+      alpha: 0,
+      scaleX: depleted ? 1.55 : 1.3,
+      scaleY: depleted ? 1.55 : 1.3,
+      duration: depleted ? 420 : 260,
+      ease: "Sine.Out",
+      onComplete: () => ring.destroy()
+    });
+    this.addFinalRaidRescueEffectTween(tween);
+  }
+
+  deployFinalRaidRescueBeacon(context = {}) {
+    const state = this.getFinalRaidRescueLinkState();
+    if (!this.shouldApplyFinalRaidRescueEffects(context) || state.rescueBeaconDeployed) {
+      if (state.rescueBeaconDeployed) {
+        this.debugLogFinalRaidRescueEffect("beacon duplicate skipped", { reason: context.reason });
+      }
+      return false;
+    }
+    const now = this.time?.now || 0;
+    const position = this.findFinalRaidRescueBeaconPosition();
+    const durationMs = this.scaleFinalRaidRescueEffectMs(FINAL_RAID_RESCUE_EFFECTS.beaconDurationMs);
+    const intervalMs = this.scaleFinalRaidRescueEffectMs(FINAL_RAID_RESCUE_EFFECTS.beaconPulseIntervalMs);
+    state.rescueBeaconDeployed = true;
+    state.rescueBeaconActive = true;
+    state.rescueBeaconState = {
+      x: position.x,
+      y: position.y,
+      radius: FINAL_RAID_RESCUE_EFFECTS.beaconRadius,
+      startedAt: now,
+      endsAt: now + durationMs,
+      durationMs,
+      pulseIndex: 0,
+      pulseCount: FINAL_RAID_RESCUE_EFFECTS.beaconPulseCount,
+      pulseHealTotal: 0
+    };
+    this.createFinalRaidRescueBeaconVisual(state.rescueBeaconState);
+    this.updateFinalRaidRescueEffectEntry(FINAL_RAID_RESCUE_EFFECT_KEYS.beacon, {
+      key: FINAL_RAID_RESCUE_EFFECT_KEYS.beacon,
+      label: "RESCUE BEACON",
+      startedAt: now,
+      endsAt: now + durationMs,
+      durationMs,
+      pulseIndex: 0,
+      pulseCount: FINAL_RAID_RESCUE_EFFECTS.beaconPulseCount
+    });
+    this.queueFinalRaidRescueBeaconComms();
+    this.pulseFinalRaidRescueBeacon(1);
+    for (let pulse = 2; pulse <= FINAL_RAID_RESCUE_EFFECTS.beaconPulseCount; pulse += 1) {
+      const timer = this.time.delayedCall((pulse - 1) * intervalMs, () => this.pulseFinalRaidRescueBeacon(pulse));
+      state.effectTimers.push(timer);
+    }
+    const expireTimer = this.time.delayedCall(durationMs, () => this.destroyFinalRaidRescueBeacon("expired"));
+    state.effectTimers.push(expireTimer);
+    this.showFinalRaidRescueEffectToast("RESCUE BEACON DEPLOYED");
+    this.refreshFinalRaidRescueEffectsHud(true);
+    this.debugLogFinalRaidRescueEffect("beacon deployed", { x: position.x, y: position.y, durationMs, intervalMs });
+    return true;
+  }
+
+  queueFinalRaidRescueBeaconComms() {
+    const queueLength = this.commsState?.queue?.length || 0;
+    const messages = queueLength >= Math.max(2, COMMS_UI_CONFIG.queueMax - 2)
+      ? [{
+        speaker: "SYSTEM",
+        text: "LOCAL MESH RELIEF CHANNEL ONLINE — RESCUE BEACON DEPLOYED",
+        variant: "system",
+        duration: 3600,
+        category: "rescue_effect",
+        eventType: "rescue_beacon_deployed"
+      }]
+      : [
+        {
+          speaker: "SYSTEM",
+          text: "LOCAL MESH 07/13 — RELIEF CHANNEL SYNCHRONIZED",
+          variant: "system",
+          duration: 3000,
+          category: "rescue_effect",
+          eventType: "rescue_beacon_ready"
+        },
+        {
+          speaker: "SYSTEM",
+          text: "RESCUE BEACON DEPLOYED",
+          variant: "system",
+          duration: 3200,
+          category: "rescue_effect",
+          eventType: "rescue_beacon_deployed"
+        }
+      ];
+    return this.queueFinalRaidRescueMessageBatch(
+      messages,
+      RAID_RESCUE_LINK_PRIORITY.effect,
+      "rescue_beacon",
+      "rescueBeacon"
+    );
+  }
+
+  findFinalRaidRescueBeaconPosition() {
+    const playerX = this.playerHitbox?.x || this.getFinalBossRaidBossPosition?.().x || WORLD_WIDTH * 0.5;
+    const playerY = this.playerHitbox?.y || this.getFinalBossRaidBossPosition?.().y || WORLD_HEIGHT * 0.5;
+    const radius = FINAL_RAID_RESCUE_EFFECTS.beaconRadius;
+    const offsets = [
+      { x: 0, y: 0 },
+      { x: 120, y: 0 },
+      { x: -120, y: 0 },
+      { x: 0, y: 120 },
+      { x: 0, y: -120 },
+      { x: 104, y: 104 },
+      { x: -104, y: 104 },
+      { x: 104, y: -104 },
+      { x: -104, y: -104 }
+    ];
+    let fallback = null;
+    let best = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    offsets.forEach((offset) => {
+      const candidate = this.clampBossAttackPoint(playerX + offset.x, playerY + offset.y, radius * 0.5);
+      fallback = fallback || candidate;
+      if (!this.isFinalRaidRescueBeaconCandidateSafe(candidate, radius)) {
+        return;
+      }
+      const distance = Phaser.Math.Distance.Squared(playerX, playerY, candidate.x, candidate.y);
+      if (distance < bestDistance) {
+        best = candidate;
+        bestDistance = distance;
+      }
+    });
+    return best || fallback || { x: playerX, y: playerY };
+  }
+
+  isFinalRaidRescueBeaconCandidateSafe(point, radius = FINAL_RAID_RESCUE_EFFECTS.beaconRadius) {
+    if (!point) {
+      return false;
+    }
+    const polygon = this.getFinalBossRaidMovementPolygon?.(PLAYER_HITBOX_RADIUS);
+    if (polygon?.length >= 3 && !this.isPointInsidePolygon(point.x, point.y, polygon)) {
+      return false;
+    }
+    const boss = this.getFinalBossRaidBossPosition?.();
+    if (boss && Phaser.Math.Distance.Between(point.x, point.y, boss.x, boss.y) < radius + 80) {
+      return false;
+    }
+    return this.isFinalBossRaidFieldPointClear?.(point, radius * 0.72) !== false;
+  }
+
+  createFinalRaidRescueBeaconVisual(beacon) {
+    if (!beacon) {
+      return null;
+    }
+    this.destroyFinalRaidRescueBeaconVisualOnly();
+    const container = this.add.container(beacon.x, beacon.y).setDepth(this.getFinalRaidVisualDepth?.("playerShadow", 15) + 0.6);
+    const graphics = this.add.graphics();
+    const label = this.add.text(0, -beacon.radius - 24, "RESCUE BEACON", {
+      fontFamily: "Consolas, Yu Gothic UI, monospace",
+      fontSize: "12px",
+      color: "#dfffff",
+      fontStyle: "bold"
+    }).setOrigin(0.5, 0.5).setShadow(0, 0, "#65e6ff", 5, false, true);
+    container.add([graphics, label]);
+    this.finalRaidRescueLinkState.rescueBeaconContainer = container;
+    this.finalRaidRescueLinkState.rescueBeaconGraphics = graphics;
+    this.finalRaidRescueLinkState.rescueBeaconLabel = label;
+    this.drawFinalRaidRescueBeaconVisual();
+    return container;
+  }
+
+  drawFinalRaidRescueBeaconVisual() {
+    const state = this.finalRaidRescueLinkState;
+    const beacon = state?.rescueBeaconState;
+    const graphics = state?.rescueBeaconGraphics;
+    if (!beacon || !graphics?.clear) {
+      return;
+    }
+    const now = this.time?.now || 0;
+    const remainingMs = Math.max(0, (Number(beacon.endsAt) || 0) - now);
+    const pulse = 0.5 + Math.sin(now * 0.004) * 0.5;
+    graphics.clear();
+    graphics.fillStyle(0x65e6ff, 0.055 + pulse * 0.02);
+    graphics.fillCircle(0, 0, beacon.radius);
+    graphics.lineStyle(2, 0x9ffcff, 0.34 + pulse * 0.18);
+    graphics.strokeCircle(0, 0, beacon.radius);
+    graphics.lineStyle(1, 0xdfffff, 0.22);
+    graphics.strokeCircle(0, 0, beacon.radius * 0.62);
+    for (let index = 0; index < 6; index += 1) {
+      const angle = index * Math.PI / 3;
+      graphics.lineBetween(0, 0, Math.cos(angle) * 18, Math.sin(angle) * 18);
+    }
+    graphics.lineStyle(1, 0x9ffcff, 0.26);
+    graphics.lineBetween(0, -beacon.radius, 0, -beacon.radius - 38);
+    state.rescueBeaconLabel?.setText(`RESCUE BEACON ${Math.max(0, remainingMs / 1000).toFixed(1)}s`);
+  }
+
+  pulseFinalRaidRescueBeacon(pulseNumber = 1) {
+    const state = this.finalRaidRescueLinkState;
+    const beacon = state?.rescueBeaconState;
+    if (!state?.rescueBeaconActive || !beacon || state.operationComplete || this.gameOver) {
+      return false;
+    }
+    const maxHp = this.getFinalRaidRescueMaxHp();
+    const healAmount = Math.max(1, Math.round(maxHp * FINAL_RAID_RESCUE_EFFECTS.beaconHealRatioPerPulse));
+    const inside = this.playerHitbox?.active
+      && Phaser.Math.Distance.Between(this.playerHitbox.x, this.playerHitbox.y, beacon.x, beacon.y) <= beacon.radius + PLAYER_HITBOX_RADIUS;
+    let healed = 0;
+    if (inside && this.stats?.hp > 0 && this.stats.hp < maxHp) {
+      const before = this.stats.hp;
+      this.stats.hp = Math.min(maxHp, this.stats.hp + healAmount);
+      healed = this.stats.hp - before;
+      if (healed > 0) {
+        this.spawnPlayerHealNumber?.(healed);
+        this.updateHud?.();
+        this.updateFinalBossRaidHud?.();
+      }
+    }
+    beacon.pulseIndex = Math.max(beacon.pulseIndex || 0, pulseNumber);
+    beacon.pulseHealTotal = Math.min(maxHp * 0.12, (Number(beacon.pulseHealTotal) || 0) + healed);
+    this.updateFinalRaidRescueEffectEntry(FINAL_RAID_RESCUE_EFFECT_KEYS.beacon, {
+      pulseIndex: beacon.pulseIndex,
+      pulseCount: beacon.pulseCount
+    });
+    this.spawnFinalRaidRescueBeaconPulse(inside, healed);
+    this.debugLogFinalRaidRescueEffect("beacon pulse", { pulse: pulseNumber, healed, inside });
+    return true;
+  }
+
+  spawnFinalRaidRescueBeaconPulse(inside = false, healed = 0) {
+    const state = this.finalRaidRescueLinkState;
+    const beacon = state?.rescueBeaconState;
+    if (!beacon) {
+      return;
+    }
+    const ring = this.add.graphics().setDepth(this.getFinalRaidVisualDepth?.("playerShadow", 15) + 0.8);
+    ring.setPosition(beacon.x, beacon.y);
+    ring.lineStyle(2, inside ? 0xdfffff : 0x65e6ff, inside ? 0.58 : 0.38);
+    ring.strokeCircle(0, 0, beacon.radius * 0.18);
+    const tween = this.tweens.add({
+      targets: ring,
+      alpha: 0,
+      scaleX: 5.2,
+      scaleY: 5.2,
+      duration: 540,
+      ease: "Sine.Out",
+      onComplete: () => ring.destroy()
+    });
+    this.addFinalRaidRescueEffectTween(tween);
+    if (inside && healed > 0 && this.playerHitbox?.active) {
+      const beam = this.add.graphics().setDepth(this.getFinalRaidVisualDepth?.("playerBoost", 22) ?? 22);
+      beam.lineStyle(2, 0x9ffcff, 0.52);
+      beam.lineBetween(beacon.x, beacon.y, this.playerHitbox.x, this.playerHitbox.y);
+      const beamTween = this.tweens.add({
+        targets: beam,
+        alpha: 0,
+        duration: 260,
+        ease: "Sine.Out",
+        onComplete: () => beam.destroy()
+      });
+      this.addFinalRaidRescueEffectTween(beamTween);
+    }
+  }
+
+  destroyFinalRaidRescueBeacon(reason = "cleanup") {
+    const state = this.finalRaidRescueLinkState;
+    if (!state) {
+      return false;
+    }
+    state.rescueBeaconActive = false;
+    state.rescueBeaconState = null;
+    this.removeFinalRaidRescueEffectEntry(FINAL_RAID_RESCUE_EFFECT_KEYS.beacon, reason);
+    this.destroyFinalRaidRescueBeaconVisualOnly();
+    this.refreshFinalRaidRescueEffectsHud(true);
+    this.debugLogFinalRaidRescueEffect("beacon expired", { reason });
+    return true;
+  }
+
+  destroyFinalRaidRescueBeaconVisualOnly() {
+    const state = this.finalRaidRescueLinkState;
+    if (!state) {
+      return;
+    }
+    const objects = [state.rescueBeaconContainer, state.rescueBeaconGraphics, state.rescueBeaconLabel].filter(Boolean);
+    if (objects.length > 0) {
+      this.tweens?.killTweensOf?.(objects);
+    }
+    state.rescueBeaconContainer?.destroy?.();
+    state.rescueBeaconContainer = null;
+    state.rescueBeaconGraphics = null;
+    state.rescueBeaconLabel = null;
+  }
+
+  showFinalRaidRescueEffectToast(text) {
+    const state = this.finalRaidRescueLinkState;
+    if (!state?.effectToastText?.active) {
+      return false;
+    }
+    state.effectToastText
+      .setText(text)
+      .setVisible(true)
+      .setAlpha(0)
+      .setColor("#eaffff");
+    state.activeEffectsTitleText?.setVisible(false);
+    this.tweens?.killTweensOf?.(state.effectToastText);
+    const tweenIn = this.tweens.add({
+      targets: state.effectToastText,
+      alpha: 1,
+      duration: 120,
+      ease: "Sine.Out",
+      onComplete: () => {
+        const timer = this.time.delayedCall(this.scaleFinalRaidRescueEffectMs(FINAL_RAID_RESCUE_EFFECTS.instantEffectLabelDurationMs), () => {
+          if (!state.effectToastText?.active) {
+            return;
+          }
+          const tweenOut = this.tweens.add({
+            targets: state.effectToastText,
+            alpha: 0,
+            duration: 180,
+            ease: "Sine.Out",
+            onComplete: () => {
+              state.effectToastText?.setVisible(false);
+              this.refreshFinalRaidRescueLinkHud();
+            }
+          });
+          this.addFinalRaidRescueEffectTween(tweenOut);
+        });
+        state.effectTimers.push(timer);
+      }
+    });
+    this.addFinalRaidRescueEffectTween(tweenIn);
+    return true;
+  }
+
+  createFinalRaidRescueEffectsHud() {
+    return this.createFinalRaidRescueLinkHud("effectsHud");
+  }
+
+  refreshFinalRaidRescueEffectsHud(force = false) {
+    const state = this.finalRaidRescueLinkState;
+    if (!state?.container?.active) {
+      return false;
+    }
+    const now = this.time?.now || 0;
+    if (!force && now - (Number(state.effectHudLastUpdateAt) || 0) < FINAL_RAID_RESCUE_EFFECTS.effectHudUpdateIntervalMs) {
+      return false;
+    }
+    state.effectHudLastUpdateAt = now;
+    return this.refreshFinalRaidRescueLinkHud();
+  }
+
+  updateFinalRaidRescueEffectEntry(effectKey, patch = {}) {
+    const state = this.getFinalRaidRescueLinkState();
+    if (!(state.activeEffects instanceof Map)) {
+      state.activeEffects = new Map();
+    }
+    const key = effectKey || patch.key;
+    if (!key) {
+      return false;
+    }
+    const current = state.activeEffects.get(key) || { key };
+    state.activeEffects.set(key, { ...current, ...patch, key });
+    this.refreshFinalRaidRescueEffectsHud(true);
+    return true;
+  }
+
+  removeFinalRaidRescueEffectEntry(effectKey, reason = "remove") {
+    const state = this.finalRaidRescueLinkState;
+    if (!state?.activeEffects || !effectKey) {
+      return false;
+    }
+    const removed = state.activeEffects.delete(effectKey);
+    if (removed) {
+      this.refreshFinalRaidRescueEffectsHud(true);
+      this.debugLogFinalRaidRescueEffect("effect removed", { effectKey, reason });
+    }
+    return removed;
+  }
+
+  addFinalRaidRescueEffectTween(tween) {
+    const state = this.finalRaidRescueLinkState;
+    if (!state || !tween) {
+      return tween;
+    }
+    state.effectTweens = state.effectTweens || [];
+    state.effectTweens.push(tween);
+    return tween;
+  }
+
+  updateFinalRaidGuildSupportEffects(time = this.time?.now || 0) {
+    const state = this.finalRaidRescueLinkState;
+    if (!state) {
+      return false;
+    }
+    if (state.guildDamageReductions instanceof Map) {
+      state.guildDamageReductions.forEach((effect, key) => {
+        if ((Number(effect?.endsAt) || 0) <= time) {
+          state.guildDamageReductions.delete(key);
+          this.removeFinalRaidRescueEffectEntry(key, "expired");
+        }
+      });
+    }
+    if (state.guildSlowImmunities instanceof Map) {
+      state.guildSlowImmunities.forEach((effect, key) => {
+        if ((Number(effect?.endsAt) || 0) <= time) {
+          state.guildSlowImmunities.delete(key);
+          if (!state.guildDamageReductions?.has?.(key)) {
+            this.removeFinalRaidRescueEffectEntry(key, "expired");
+          }
+        }
+      });
+    }
+    if (state.debuffWard && ((Number(state.debuffWard.endsAt) || 0) <= time || (Number(state.debuffWard.charges) || 0) <= 0)) {
+      state.debuffWard = null;
+      this.removeFinalRaidRescueEffectEntry(FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.debuffWard, "expired");
+    }
+    if (state.legendGuard && ((Number(state.legendGuard.endsAt) || 0) <= time || (Number(state.legendGuard.charges) || 0) <= 0)) {
+      state.legendGuard = null;
+      this.removeFinalRaidRescueEffectEntry(FINAL_RAID_GUILD_SUPPORT_EFFECT_KEYS.legendGuard, "expired");
+    }
+    if (state.activeEffects instanceof Map) {
+      state.activeEffects.forEach((effect, key) => {
+        if (key !== FINAL_RAID_RESCUE_EFFECT_KEYS.shield && key !== FINAL_RAID_RESCUE_EFFECT_KEYS.beacon && (Number(effect?.endsAt) || 0) <= time) {
+          state.activeEffects.delete(key);
+        }
+      });
+    }
+    return true;
+  }
+
+  updateFinalRaidRescueEffects(delta = 0, time = this.time?.now || 0) {
+    const state = this.finalRaidRescueLinkState;
+    if (!state) {
+      return;
+    }
+    this.updateFinalRaidGuildSupportEffects(time);
+    if (state.rescueShieldHp > 0 && state.rescueShieldEndsAt > 0 && state.rescueShieldEndsAt <= time) {
+      this.expireFinalRaidRescueShield("expired");
+    } else {
+      this.updateFinalRaidRescueShieldVisual();
+    }
+    if (state.rescueBeaconActive && state.rescueBeaconState) {
+      if ((Number(state.rescueBeaconState.endsAt) || 0) <= time) {
+        this.destroyFinalRaidRescueBeacon("expired");
+      } else {
+        this.drawFinalRaidRescueBeaconVisual();
+      }
+    }
+    this.refreshFinalRaidRescueEffectsHud(false);
+  }
+
+  cleanupFinalRaidRescueEffects(reason = "cleanup", options = {}) {
+    const state = this.finalRaidRescueLinkState;
+    if (!state) {
+      return false;
+    }
+    (state.effectTimers || []).forEach((timer) => timer?.remove?.(false));
+    state.effectTimers = [];
+    (state.effectTweens || []).forEach((tween) => {
+      tween?.stop?.();
+      tween?.remove?.();
+    });
+    state.effectTweens = [];
+    (state.guildSupportTimers || []).forEach((timer) => timer?.remove?.(false));
+    state.guildSupportTimers = [];
+    (state.guildSupportTweens || []).forEach((tween) => {
+      tween?.stop?.();
+      tween?.remove?.();
+    });
+    state.guildSupportTweens = [];
+    const guildSupportObjects = (state.guildSupportObjects || []).filter(Boolean);
+    if (guildSupportObjects.length > 0) {
+      this.tweens?.killTweensOf?.(guildSupportObjects);
+      guildSupportObjects.forEach((object) => object?.destroy?.());
+    }
+    state.guildSupportObjects = [];
+    this.destroyFinalRaidRescueShieldVisual();
+    this.destroyFinalRaidRescueBeaconVisualOnly();
+    state.activeEffects?.clear?.();
+    state.reliefAppliedGuildIds?.clear?.();
+    state.guildSupportAppliedIds?.clear?.();
+    state.guildDamageReductions?.clear?.();
+    state.guildSlowImmunities?.clear?.();
+    state.rescueShieldHp = 0;
+    state.rescueShieldMaxHp = 0;
+    state.rescueShieldEndsAt = 0;
+    state.rescueShieldSourceGuildId = null;
+    state.rescueBeaconActive = false;
+    state.rescueBeaconState = null;
+    state.rescueBeaconDeployed = false;
+    state.debuffWard = null;
+    state.legendGuard = null;
+    state.safehouseLinkActive = false;
+    this.clearFinalRaidMovementDebuffs?.(reason);
+    state.debugEffectPreviewQueued = false;
+    state.debugGuildEffectPreviewQueued = false;
+    state.debugGuildEffectHitQueued = false;
+    state.effectRows?.forEach((row) => {
+      row.container?.setVisible?.(false);
+      row.bar?.clear?.();
+    });
+    state.effectToastText?.setVisible(false)?.setAlpha?.(0);
+    if (options.keepHud !== false) {
+      this.refreshFinalRaidRescueLinkHud();
+    }
+    if (!options.silent) {
+      this.debugLogFinalRaidRescueEffect("cleaned", { reason });
+    }
+    return true;
+  }
+
+  handleFinalRaidGuildArrival(entryOrGuild, context = {}) {
+    const entry = this.getFinalRaidRescueGuildDescriptor(entryOrGuild);
+    if (!entry?.id || entry.type === "player") {
+      return false;
+    }
+    const added = this.addFinalRaidRescueLinkNode(entry, context);
+    if (!added) {
+      return false;
+    }
+    this.applyFinalRaidGuildArrivalAid(entry, context);
+    if (context.queueComms !== false) {
+      this.queueFinalRaidGuildArrivalComms(entry, context);
+    }
+    if (entry.id === "guild-013" && context.sync !== true) {
+      this.tryActivateFinalRaidAlliedMeshMaximum(entry, {
+        ...context,
+        newlyArrived: true,
+        reason: context.reason || "excalionArrival"
+      });
+    }
+    return true;
+  }
+
+  syncFinalRaidRescueLinkFromRanking(reason = "sync") {
+    const raidState = this.finalBossRaidState;
+    if (!raidState?.active || !Array.isArray(raidState.rankingEntries)) {
+      return false;
+    }
+    let synced = 0;
+    raidState.rankingEntries
+      .filter((entry) => entry?.type === "guild" && entry.joined)
+      .sort((left, right) => (left.joinMs || 0) - (right.joinMs || 0))
+      .forEach((entry) => {
+        if (this.handleFinalRaidGuildArrival(entry, { reason, sync: true, queueComms: false })) {
+          synced += 1;
+        }
+      });
+    if (synced > 0) {
+      this.debugLogFinalRaidRescueLink("synced", { reason, synced });
+    }
+    return synced > 0;
+  }
+
+  markFinalRaidRescueLinkOperationComplete(reason = "bossDefeated") {
+    this.cleanupFinalRaidRescueEffects?.(reason, { keepHud: true });
+    this.beginFinalRaidCommsRecoveryBridge?.({ reason });
+  }
+
+  getDebugFinalRaidRescueGuildEntries() {
+    const raw = this.getDebugFinalRaidRescueGuildParam();
+    if (!raw) {
+      return [];
+    }
+    if (raw.toLowerCase() === "all") {
+      return FINAL_BOSS_RAID_CONFIG.rankingGuilds.slice();
+    }
+    const normalizedNumber = raw.match(/^\d+$/)
+      ? String(Math.max(1, Math.min(13, Number(raw)))).padStart(3, "0")
+      : raw;
+    const entry = FINAL_BOSS_RAID_CONFIG.rankingGuilds.find((guild) => {
+      return guild.id === raw || guild.code === raw || guild.code === normalizedNumber || guild.label === raw;
+    });
+    return entry ? [entry] : [];
+  }
+
+  tryQueueDebugFinalRaidRescuePreviewIfNeeded(reason = "debug") {
+    const state = this.getFinalRaidRescueLinkState();
+    const wantsHud = this.isFinalRaidRescueHudDebugEnabled();
+    const guildEntries = this.getDebugFinalRaidRescueGuildEntries();
+    if (!wantsHud && guildEntries.length <= 0) {
+      return false;
+    }
+    if (this.isFinalBossRaidDebugStartDepthTarget?.() && !this.isFinalBossRaidActive?.()) {
+      return false;
+    }
+    if (this.shopActive || this.gameOver || this.extractionComplete) {
+      return false;
+    }
+    if (!state.debugHudPreviewCreated && wantsHud) {
+      this.createFinalRaidRescueLinkHud(reason);
+      state.debugHudPreviewCreated = true;
+    }
+    if (state.debugPreviewQueued || guildEntries.length <= 0) {
+      return false;
+    }
+    state.debugPreviewQueued = true;
+    this.createFinalRaidRescueLinkHud(reason);
+    if (guildEntries.length === 1) {
+      this.handleFinalRaidGuildArrival(guildEntries[0], { reason: "debugPreview", debugPreview: true });
+      return true;
+    }
+    guildEntries.forEach((entry, index) => {
+      const timer = this.time.delayedCall(index * 3200, () => {
+        if (!this.finalRaidRescueLinkState || this.shopActive || this.gameOver || this.extractionComplete) {
+          return;
+        }
+        this.handleFinalRaidGuildArrival(entry, { reason: "debugPreviewAll", debugPreview: true });
+      });
+      state.timers.push(timer);
+    });
+    this.debugLogFinalRaidRescueLink("debug preview scheduled", { reason, count: guildEntries.length });
+    return true;
+  }
+
+  tryQueueDebugFinalRaidRescueEffectPreviewIfNeeded(reason = "debugEffect") {
+    if (!this.isFinalRaidRescueEffectsDebugEnabled?.() || this.isFinalRaidRescueNoEffectsDebugEnabled?.()) {
+      return false;
+    }
+    const raw = this.getDebugFinalRaidRescueEffectParam?.();
+    if (!raw) {
+      return false;
+    }
+    const state = this.getFinalRaidRescueLinkState();
+    if (state.debugEffectPreviewQueued) {
+      return false;
+    }
+    if (this.isFinalBossRaidDebugStartDepthTarget?.() && !this.isFinalBossRaidActive?.()) {
+      return false;
+    }
+    if (!this.isFinalBossRaidActive?.() || this.shopActive || this.gameOver || this.extractionComplete) {
+      return false;
+    }
+    const requested = String(raw)
+      .split(",")
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean);
+    const wantsAll = requested.includes("all");
+    const wantsHeal = wantsAll || requested.includes("heal");
+    const wantsShield = wantsAll || requested.includes("shield");
+    const wantsBeacon = wantsAll || requested.includes("beacon");
+    if (!wantsHeal && !wantsShield && !wantsBeacon) {
+      this.debugLogFinalRaidRescueEffect("debug preview skipped", { reason, raw });
+      return false;
+    }
+
+    state.debugEffectPreviewQueued = true;
+    this.createFinalRaidRescueLinkHud(reason);
+    const maxHp = this.getFinalRaidRescueMaxHp();
+    const updateHpForPreview = (ratio) => {
+      if (!this.stats) {
+        return;
+      }
+      this.stats.hp = Math.max(1, Math.min(maxHp, Math.round(maxHp * ratio)));
+      this.updateHud?.();
+      this.updateFinalBossRaidHud?.();
+    };
+    const previewRelief = (id, label) => {
+      this.grantFinalRaidReliefPacket({ id, label }, { reason: id, debugPreview: true });
+    };
+
+    if (wantsAll) {
+      updateHpForPreview(1);
+      previewRelief("debug-relief-shield", "DEBUG RELIEF SHIELD");
+      const timer = this.time.delayedCall(this.scaleFinalRaidRescueEffectMs(500), () => {
+        this.deployFinalRaidRescueBeacon({ reason: "debugEffectBeacon", debugPreview: true });
+      });
+      state.effectTimers.push(timer);
+      this.debugLogFinalRaidRescueEffect("debug preview queued", { reason, effect: "all" });
+      return true;
+    }
+
+    if (wantsHeal) {
+      updateHpForPreview(0.7);
+      previewRelief("debug-relief-heal", "DEBUG RELIEF HEAL");
+    }
+    if (wantsShield) {
+      updateHpForPreview(1);
+      previewRelief("debug-relief-shield", "DEBUG RELIEF SHIELD");
+    }
+    if (wantsBeacon) {
+      this.deployFinalRaidRescueBeacon({ reason: "debugEffectBeacon", debugPreview: true });
+    }
+    this.debugLogFinalRaidRescueEffect("debug preview queued", { reason, effect: raw });
+    return true;
+  }
+
+  getDebugFinalRaidGuildEffectEntries() {
+    const raw = this.getDebugFinalRaidGuildEffectParam();
+    if (!raw) {
+      return [];
+    }
+    if (raw === "all") {
+      return FINAL_BOSS_RAID_CONFIG.rankingGuilds.slice();
+    }
+    const aliases = {
+      vanguard: "guild-001",
+      otome: "guild-001",
+      ward: "guild-002",
+      debuff_ward: "guild-002",
+      silentangel: "guild-002",
+      bulwark: "guild-003",
+      earth: "guild-003",
+      regen: "guild-004",
+      hope: "guild-004",
+      wind: "guild-005",
+      release: "guild-005",
+      legend: "guild-006",
+      guard: "guild-006",
+      safehouse: "guild-007",
+      dolls: "guild-007",
+      shelter: "guild-008",
+      family: "guild-008",
+      sanctuary: "guild-009",
+      frontline: "guild-010",
+      redwolf: "guild-010",
+      coven: "guild-011",
+      left: "guild-011",
+      hitoribocchi: "guild-012",
+      right: "guild-012",
+      excalion: "guild-013",
+      allied: "guild-013",
+      mesh: "guild-013",
+      maximum: "guild-013"
+    };
+    const requested = raw
+      .split(",")
+      .map((token) => token.trim().toLowerCase())
+      .filter(Boolean)
+      .map((token) => {
+        if (aliases[token]) {
+          return aliases[token];
+        }
+        if (/^\d+$/.test(token)) {
+          return `guild-${String(Math.max(1, Math.min(13, Number(token)))).padStart(3, "0")}`;
+        }
+        return token;
+      });
+    return FINAL_BOSS_RAID_CONFIG.rankingGuilds.filter((guild) => requested.includes(guild.id) || requested.includes(guild.code) || requested.includes(String(guild.label || "").toLowerCase()));
+  }
+
+  applyDebugFinalRaidGuildEffectPreview(entry, reason = "debugGuildEffect") {
+    if (!entry?.id || !this.finalRaidRescueLinkState) {
+      return false;
+    }
+    this.createFinalRaidRescueLinkHud(reason);
+    if (!this.finalRaidRescueLinkState.arrivedGuildIds?.has?.(entry.id)) {
+      this.addFinalRaidRescueLinkNode(entry, { reason, debugPreview: true });
+    }
+    if (entry.id === "guild-011" || entry.id === "guild-012") {
+      const side = entry.id === "guild-011" ? "left" : "right";
+      this.finalRaidRescueLinkState.battlefieldControlPreview = {
+        ...(this.finalRaidRescueLinkState.battlefieldControlPreview || {}),
+        [side]: "sealed"
+      };
+      const rescueLabel = RAID_RESCUE_LINK_RESTRAINT_LABELS[entry.id];
+      if (rescueLabel?.label) {
+        this.updateFinalRaidRescueLinkEntry(entry.id, {
+          connectionLabel: rescueLabel.label,
+          status: "sealed"
+        }, "debugBattlefieldControl");
+      }
+      this.refreshFinalRaidRescueLinkHud();
+      this.debugLogFinalRaidGuildEffect("battlefield preview", { guildId: entry.id, side });
+      return true;
+    }
+    const applied = this.applyFinalRaidGuildSpecificSupport(entry, { reason, debugPreview: true });
+    this.debugLogFinalRaidGuildEffect("debug preview applied", { guildId: entry.id, label: entry.label, applied });
+    return applied;
+  }
+
+  queueDebugFinalRaidGuildEffectHit(delayMs = 520) {
+    const state = this.finalRaidRescueLinkState;
+    if (!state || state.debugGuildEffectHitQueued || !this.getDebugFinalRaidGuildEffectHitEnabled?.()) {
+      return false;
+    }
+    state.debugGuildEffectHitQueued = true;
+    const timer = this.time.delayedCall(Math.max(1, Math.round(delayMs)), () => {
+      if (!this.isFinalBossRaidActive?.() || this.shopActive || this.gameOver || this.extractionComplete) {
+        return;
+      }
+      this.applyDamageToPlayer(20);
+      this.debugLogFinalRaidGuildEffect("debug hit applied", { damage: 20 });
+    });
+    state.guildSupportTimers = state.guildSupportTimers || [];
+    state.guildSupportTimers.push(timer);
+    return true;
+  }
+
+  tryQueueDebugFinalRaidGuildEffectPreviewIfNeeded(reason = "debugGuildEffect") {
+    if (!this.isFinalRaidGuildEffectsDebugEnabled?.() || this.isFinalRaidRescueNoEffectsDebugEnabled?.()) {
+      return false;
+    }
+    const raw = this.getDebugFinalRaidGuildEffectParam();
+    if (!raw) {
+      return false;
+    }
+    const state = this.getFinalRaidRescueLinkState();
+    if (state.debugGuildEffectPreviewQueued) {
+      return false;
+    }
+    if (this.isFinalBossRaidDebugStartDepthTarget?.() && !this.isFinalBossRaidActive?.()) {
+      return false;
+    }
+    if (!this.isFinalBossRaidActive?.() || this.shopActive || this.gameOver || this.extractionComplete) {
+      return false;
+    }
+    const entries = this.getDebugFinalRaidGuildEffectEntries();
+    if (entries.length <= 0) {
+      this.debugLogFinalRaidGuildEffect("debug preview skipped", { reason, raw });
+      return false;
+    }
+    state.debugGuildEffectPreviewQueued = true;
+    this.createFinalRaidRescueLinkHud(reason);
+    if (raw === "all" || entries.length > 1) {
+      entries.forEach((entry, index) => {
+        const timer = this.time.delayedCall(this.scaleFinalRaidGuildEffectMs(index * 720), () => {
+          if (!this.finalRaidRescueLinkState || !this.isFinalBossRaidActive?.() || this.shopActive || this.gameOver || this.extractionComplete) {
+            return;
+          }
+          this.applyDebugFinalRaidGuildEffectPreview(entry, "debugGuildEffectAll");
+        });
+        state.guildSupportTimers.push(timer);
+      });
+      this.queueDebugFinalRaidGuildEffectHit(this.scaleFinalRaidGuildEffectMs(entries.length * 720 + 520));
+    } else {
+      this.applyDebugFinalRaidGuildEffectPreview(entries[0], reason);
+      this.queueDebugFinalRaidGuildEffectHit(this.scaleFinalRaidGuildEffectMs(520));
+    }
+    this.debugLogFinalRaidGuildEffect("debug preview queued", { reason, effect: raw, count: entries.length });
+    return true;
+  }
+
+  tryApplyDebugFinalRaidBattlefieldControlHudPreviewIfNeeded(reason = "debugBattlefieldControl") {
+    const raw = this.getDebugFinalRaidBattlefieldControlHudParam?.();
+    if (!raw) {
+      return false;
+    }
+    const state = this.getFinalRaidRescueLinkState();
+    if (state.debugBattlefieldControlHudQueued) {
+      return false;
+    }
+    if (this.isFinalBossRaidDebugStartDepthTarget?.() && !this.isFinalBossRaidActive?.()) {
+      return false;
+    }
+    if (this.shopActive || this.gameOver || this.extractionComplete) {
+      return false;
+    }
+    state.debugBattlefieldControlHudQueued = true;
+    this.createFinalRaidRescueLinkHud(reason);
+    if (raw === "reset") {
+      state.battlefieldControlPreview = null;
+      this.refreshFinalRaidRescueLinkHud();
+      return true;
+    }
+    state.battlefieldControlPreview = {};
+    if (raw === "left" || raw === "both") {
+      state.battlefieldControlPreview.left = "sealed";
+    }
+    if (raw === "right" || raw === "both") {
+      state.battlefieldControlPreview.right = "sealed";
+    }
+    if (!state.battlefieldControlPreview.left) {
+      state.battlefieldControlPreview.left = "hostile";
+    }
+    if (!state.battlefieldControlPreview.right) {
+      state.battlefieldControlPreview.right = "hostile";
+    }
+    this.refreshFinalRaidRescueLinkHud();
+    this.debugLogFinalRaidGuildEffect("battlefield hud preview", { reason, raw, preview: state.battlefieldControlPreview });
+    return true;
+  }
+
+  setDebugFinalRaidAlliedMeshNodePreview(count = RAID_RESCUE_LINK_TOTAL_NODES, nodeState = RAID_ALLIED_MESH_NODE_STATES.connected) {
+    const state = this.getFinalRaidRescueLinkState();
+    this.createFinalRaidRescueLinkHud("debugAlliedMesh");
+    state.debugAlliedMeshPreviewActive = true;
+    state.debugSupportNodeStates = new Map();
+    const safeCount = Phaser.Math.Clamp(Math.floor(Number(count) || 0), 0, RAID_RESCUE_LINK_TOTAL_NODES);
+    FINAL_BOSS_RAID_CONFIG.rankingGuilds.forEach((entry, index) => {
+      const displayState = index < safeCount ? nodeState : RAID_ALLIED_MESH_NODE_STATES.pending;
+      state.debugSupportNodeStates.set(entry.id, this.normalizeFinalRaidSupportNodeState(displayState));
+    });
+    state.debugConnectedNodeCount = safeCount;
+    this.refreshFinalRaidRescueLinkHud();
+    return state;
+  }
+
+  tryQueueDebugFinalRaidAlliedMeshPreviewIfNeeded(reason = "debugAlliedMesh") {
+    if (!this.isFinalRaidAlliedMeshDebugEnabled?.()) {
+      return false;
+    }
+    const phase = this.getDebugFinalRaidAlliedMeshPhaseParam?.() || "";
+    if (!phase) {
+      this.createFinalRaidRescueLinkHud(reason);
+      return false;
+    }
+    const allowed = new Set(["arrival", "maximum", "recovery", "restored", "all"]);
+    if (!allowed.has(phase)) {
+      this.debugLogFinalRaidAlliedMesh("debug skipped", { reason, phase, skipReason: "unknownPhase" });
+      return false;
+    }
+    const state = this.getFinalRaidRescueLinkState();
+    if (state.debugAlliedMeshPreviewQueued) {
+      return false;
+    }
+    if (this.isFinalBossRaidDebugStartDepthTarget?.() && !this.isFinalBossRaidActive?.()) {
+      return false;
+    }
+    if (this.shopActive || this.gameOver || this.extractionComplete) {
+      return false;
+    }
+    state.debugAlliedMeshPreviewQueued = true;
+    this.createFinalRaidRescueLinkHud(reason);
+    const excalionEntry = this.getFinalRaidRescueGuildDescriptor("guild-013");
+    const schedule = (delayMs, callback) => {
+      this.addFinalRaidAlliedMeshTimer(this.time.delayedCall(this.scaleFinalRaidAlliedMeshMs(delayMs), callback));
+    };
+    const playArrival = () => {
+      this.setDebugFinalRaidAlliedMeshNodePreview(12, RAID_ALLIED_MESH_NODE_STATES.connected);
+      this.setFinalRaidMeshPhase(RAID_ALLIED_MESH_PHASES.online, { reason: "debugArrival" });
+      schedule(420, () => {
+        this.setFinalRaidSupportNodeVisualState("guild-013", RAID_ALLIED_MESH_NODE_STATES.connected, { preview: true, animate: true });
+        state.debugConnectedNodeCount = RAID_RESCUE_LINK_TOTAL_NODES;
+        this.refreshFinalRaidRescueLinkHud();
+        this.tryActivateFinalRaidAlliedMeshMaximum(excalionEntry, {
+          reason: "debugArrival",
+          debugPreview: true,
+          newlyArrived: true,
+          allowSync: false,
+          delayMs: 220
+        });
+      });
+    };
+    const playMaximum = () => {
+      const nodeCount = this.isFinalRaidAlliedMeshIncompleteDebugEnabled?.() ? RAID_RESCUE_LINK_TOTAL_NODES - 1 : RAID_RESCUE_LINK_TOTAL_NODES;
+      this.setDebugFinalRaidAlliedMeshNodePreview(nodeCount, RAID_ALLIED_MESH_NODE_STATES.connected);
+      this.tryActivateFinalRaidAlliedMeshMaximum(excalionEntry, {
+        reason: "debugMaximum",
+        debugPreview: true,
+        newlyArrived: true,
+        allowSync: false,
+        delayMs: 160
+      });
+    };
+    const playRecovery = () => {
+      this.setDebugFinalRaidAlliedMeshNodePreview(RAID_RESCUE_LINK_TOTAL_NODES, RAID_ALLIED_MESH_NODE_STATES.maximum);
+      this.setFinalRaidMeshPhase(RAID_ALLIED_MESH_PHASES.maximum, { reason: "debugRecoveryPrep" });
+      schedule(360, () => this.beginFinalRaidCommsRecoveryBridge({ reason: "debugRecovery" }));
+    };
+    const playRestored = () => {
+      this.setDebugFinalRaidAlliedMeshNodePreview(RAID_RESCUE_LINK_TOTAL_NODES, RAID_ALLIED_MESH_NODE_STATES.stable);
+      this.completeFinalRaidExternalDownlinkRestore({ reason: "debugRestored" });
+    };
+    if (phase === "arrival") {
+      playArrival();
+    } else if (phase === "maximum") {
+      playMaximum();
+    } else if (phase === "recovery") {
+      playRecovery();
+    } else if (phase === "restored") {
+      playRestored();
+    } else if (phase === "all") {
+      playArrival();
+      schedule(RAID_ALLIED_MESH_CONFIG.debugSequenceGapMs * 3, playRecovery);
+      schedule(RAID_ALLIED_MESH_CONFIG.debugSequenceGapMs * 5, playRestored);
+    }
+    this.debugLogFinalRaidAlliedMesh("debug queued", { reason, phase });
+    return true;
+  }
+
+  cleanupFinalRaidAlliedMeshPresentation(reason = "cleanup") {
+    const state = this.finalRaidRescueLinkState;
+    if (!state) {
+      return false;
+    }
+    (state.meshTimers || []).forEach((timer) => timer?.remove?.(false));
+    state.meshTimers = [];
+    (state.meshTweens || []).forEach((tween) => {
+      tween?.stop?.();
+      tween?.remove?.();
+    });
+    state.meshTweens = [];
+    const meshObjects = (state.meshObjects || []).filter(Boolean);
+    if (meshObjects.length > 0) {
+      this.tweens?.killTweensOf?.(meshObjects);
+      meshObjects.forEach((object) => object?.destroy?.());
+    }
+    state.meshObjects = [];
+    state.alliedMeshBannerContainer?.destroy?.();
+    state.alliedMeshBannerContainer = null;
+    state.alliedMeshBannerGraphics = null;
+    state.alliedMeshBannerTexts = [];
+    state.supportNodeVisuals?.clear?.();
+    state.supportNodeStates?.clear?.();
+    state.debugSupportNodeStates = null;
+    state.debugConnectedNodeCount = null;
+    state.debugAlliedMeshPreviewActive = false;
+    state.debugAlliedMeshPreviewQueued = false;
+    state.meshPhase = RAID_ALLIED_MESH_PHASES.standby;
+    state.alliedMeshMaximumActivated = false;
+    state.alliedMeshMaximumAnnounced = false;
+    state.alliedMeshAnimationPlayed = false;
+    state.recoveryBridgeStarted = false;
+    state.recoveryCarrierDetected = false;
+    state.externalDownlinkRestored = false;
+    this.debugLogFinalRaidAlliedMesh("cleaned", { reason });
+    return true;
+  }
+
+  cleanupFinalRaidRescueLink(reason = "cleanup", options = {}) {
+    const state = this.finalRaidRescueLinkState;
+    if (!state) {
+      return false;
+    }
+    this.cleanupFinalRaidRescueEffects?.(reason, { silent: true, keepHud: false });
+    this.cleanupFinalRaidAlliedMeshPresentation?.(reason);
+    (state.timers || []).forEach((timer) => timer?.remove?.(false));
+    state.timers = [];
+    (state.tweens || []).forEach((tween) => {
+      tween?.stop?.();
+      tween?.remove?.();
+    });
+    state.tweens = [];
+    const targets = [
+      state.container,
+      state.graphics,
+      state.glowGraphics,
+      state.headerText,
+      state.downlinkText,
+      state.uplinkText,
+      state.meshText,
+      state.nodeCountText,
+      state.omittedText,
+      state.supportNodeTitleText,
+      state.supportNodeContainer,
+      state.activeEffectsTitleText,
+      state.battlefieldTitleText,
+      state.effectToastText,
+      ...(state.effectRows || []).flatMap((row) => [row.container, row.dot, row.nameText, row.metaText, row.bar]),
+      ...(state.battlefieldControlRows || []).flatMap((row) => [row.container, row.dot, row.labelText, row.statusText]),
+      ...(state.rows || []).flatMap((row) => [row.container, row.dot, row.nameText, row.labelText])
+    ].filter(Boolean);
+    if (targets.length > 0) {
+      this.tweens?.killTweensOf?.(targets);
+    }
+    state.container?.destroy?.();
+    state.arrivedGuildIds?.clear?.();
+    state.entries = [];
+    state.rows = [];
+    state.container = null;
+    state.graphics = null;
+    state.glowGraphics = null;
+    state.headerText = null;
+    state.downlinkText = null;
+    state.uplinkText = null;
+    state.meshText = null;
+    state.nodeCountText = null;
+    state.omittedText = null;
+    state.supportNodeTitleText = null;
+    state.supportNodeContainer = null;
+    state.supportNodeVisuals = new Map();
+    state.supportNodeStates = new Map();
+    state.debugSupportNodeStates = null;
+    state.debugConnectedNodeCount = null;
+    state.activeEffectsTitleText = null;
+    state.battlefieldTitleText = null;
+    state.battlefieldControlRows = [];
+    state.effectToastText = null;
+    state.effectRows = [];
+    state.battlefieldControlPreview = null;
+    state.debugBattlefieldControlHudQueued = false;
+    state.externalDownlink = "lost";
+    state.emergencyUplink = "active";
+    state.localMesh = "standby";
+    state.meshPhase = RAID_ALLIED_MESH_PHASES.standby;
+    state.firstNodeConnected = false;
+    state.operationComplete = false;
+    if (!options.silent) {
+      this.debugLogFinalRaidRescueLink("cleaned", { reason });
+    }
+    return true;
   }
 
   getFinalBossRaidSupportBannerDelayMs(entry, voiceDurationMs = 0) {
@@ -12059,6 +15960,8 @@ class SurvivalScene extends Phaser.Scene {
     state.thirdPhaseCombatStarted = true;
     state.nextThirdSpellAt = elapsedMs + Math.max(500, Math.round((config.initialSpellDelayMs || 4200) * timeScale));
     state.thirdSpellIndex = 0;
+    state.thirdSpellTargetHistory = [];
+    state.thirdSpellPlan = null;
     this.setLastPickupNotice("ULTIMATE FORM SPELLCAST ONLINE");
   }
 
@@ -12161,12 +16064,15 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    const spellKind = (state.thirdSpellIndex || 0) % 2 === 0 ? "fire" : "ice";
-    state.thirdSpellIndex = (state.thirdSpellIndex || 0) + 1;
+    const spellIndex = state.thirdSpellIndex || 0;
+    const spellKind = spellIndex % 2 === 0 ? "fire" : "ice";
+    state.thirdSpellIndex = spellIndex + 1;
     const config = FINAL_BOSS_RAID_CONFIG.thirdPhaseCombat || {};
     const radius = spellKind === "fire" ? (config.fireRadius || 245) : (config.iceRadius || 175);
     const warningMs = this.getFinalBossRaidScaledThirdPhaseMs("spellWarningMs", 1200);
-    const point = this.getFinalBossRaidSpellTargetPoint(spellKind, radius);
+    state.thirdSpellPlan = null;
+    const point = this.getFinalBossRaidSpellTargetPoint(spellKind, radius, spellIndex);
+    this.recordFinalBossRaidThirdSpellTarget(spellKind, point, radius);
 
     this.playFinalBossRaidBossAttackMotion(spellKind);
     this.createFinalBossRaidSpellTelegraph(spellKind, point, radius, warningMs);
@@ -12179,11 +16085,341 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
-  getFinalBossRaidSpellTargetPoint(spellKind, radius) {
+  getFinalBossRaidSpellTargetPoint(spellKind, radius, spellIndex = 0) {
+    const tacticalPoint = this.getFinalBossRaidTacticalSpellTargetPoint(spellKind, radius, spellIndex);
+    if (tacticalPoint) {
+      return tacticalPoint;
+    }
+
     return this.getFinalBossRaidFieldAttackPoint({
       kind: spellKind,
       targetMode: spellKind === "fire" ? "playerClose" : "playerTight"
     }, radius);
+  }
+
+  getFinalBossRaidTacticalSpellConfig() {
+    const config = FINAL_BOSS_RAID_CONFIG.thirdPhaseCombat?.tacticalTargeting || {};
+    return config.enabled === false ? null : config;
+  }
+
+  getNormalizedFinalRaidVector(dx, dy, fallback = { x: 1, y: 0 }) {
+    const length = Math.hypot(Number(dx) || 0, Number(dy) || 0);
+    if (length <= 0.001) {
+      return {
+        x: Number.isFinite(Number(fallback?.x)) ? Number(fallback.x) : 1,
+        y: Number.isFinite(Number(fallback?.y)) ? Number(fallback.y) : 0
+      };
+    }
+    return { x: dx / length, y: dy / length };
+  }
+
+  getFinalBossRaidPlayerThreatVector(playerPoint, bossPosition) {
+    const velocity = this.playerHitbox?.body?.velocity;
+    const velocitySpeed = Math.hypot(Number(velocity?.x) || 0, Number(velocity?.y) || 0);
+    const outward = this.getNormalizedFinalRaidVector(
+      playerPoint.x - bossPosition.x,
+      playerPoint.y - bossPosition.y,
+      { x: 0, y: 1 }
+    );
+    const history = this.finalBossRaidState?.thirdSpellTargetHistory || [];
+    const previous = history.length > 0 ? history[history.length - 1] : null;
+    const awayFromPrevious = previous?.point
+      ? this.getNormalizedFinalRaidVector(
+        playerPoint.x - previous.point.x,
+        playerPoint.y - previous.point.y,
+        outward
+      )
+      : outward;
+
+    if (velocitySpeed >= 18) {
+      const move = this.getNormalizedFinalRaidVector(velocity.x, velocity.y, outward);
+      return this.getNormalizedFinalRaidVector(
+        move.x * 0.62 + outward.x * 0.24 + awayFromPrevious.x * 0.14,
+        move.y * 0.62 + outward.y * 0.24 + awayFromPrevious.y * 0.14,
+        outward
+      );
+    }
+
+    return this.getNormalizedFinalRaidVector(
+      outward.x * 0.64 + awayFromPrevious.x * 0.36,
+      outward.y * 0.64 + awayFromPrevious.y * 0.36,
+      outward
+    );
+  }
+
+  buildFinalBossRaidTacticalSpellCandidates(spellKind, radius, spellIndex, context) {
+    const config = context.config || {};
+    const player = context.player;
+    const threatVector = context.threatVector || { x: 1, y: 0 };
+    const outward = context.outward || threatVector;
+    const angles = Math.max(8, Math.floor(Number(config.candidateAngles) || 14));
+    const ratios = spellKind === "ice"
+      ? (Array.isArray(config.iceDistanceRatios) ? config.iceDistanceRatios : [0.18, 0.54, 0.88])
+      : (Array.isArray(config.fireDistanceRatios) ? config.fireDistanceRatios : [0.62, 0.98, 1.34]);
+    const distances = ratios
+      .map((ratio) => Math.max(0, Number(ratio) || 0) * Math.max(1, radius))
+      .filter((distance) => Number.isFinite(distance));
+    const candidates = [];
+    const seen = new Set();
+    const addCandidate = (x, y) => {
+      const point = this.clampBossAttackPoint(x, y, radius + 24);
+      const key = `${Math.round(point.x / 12)}:${Math.round(point.y / 12)}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        candidates.push(point);
+      }
+    };
+
+    addCandidate(player.x, player.y);
+    const offset = ((Number(spellIndex) || 0) % angles) * 0.23;
+    distances.forEach((distance) => {
+      for (let index = 0; index < angles; index += 1) {
+        const angle = offset + (Math.PI * 2 * index) / angles;
+        addCandidate(
+          player.x + Math.cos(angle) * distance,
+          player.y + Math.sin(angle) * distance
+        );
+      }
+    });
+
+    const sideVector = { x: -threatVector.y, y: threatVector.x };
+    const tacticalVectors = [
+      threatVector,
+      outward,
+      this.getNormalizedFinalRaidVector(threatVector.x + outward.x, threatVector.y + outward.y, threatVector),
+      sideVector,
+      { x: -sideVector.x, y: -sideVector.y }
+    ];
+    tacticalVectors.forEach((vector, vectorIndex) => {
+      const normalized = this.getNormalizedFinalRaidVector(vector.x, vector.y, threatVector);
+      distances.forEach((distance) => {
+        const scale = vectorIndex <= 2 ? 1.08 : 0.88;
+        addCandidate(
+          player.x + normalized.x * distance * scale,
+          player.y + normalized.y * distance * scale
+        );
+      });
+    });
+
+    return candidates;
+  }
+
+  getFinalBossRaidEscapeProbePoints(playerPoint, config = {}) {
+    const probeAngles = Math.max(8, Math.floor(Number(config.escapeProbeAngles) || 16));
+    const distance = Math.max(160, Number(config.escapeProbeDistance) || 340);
+    const points = [];
+    const seen = new Set();
+    for (let index = 0; index < probeAngles; index += 1) {
+      const angle = (Math.PI * 2 * index) / probeAngles;
+      const point = this.clampBossAttackPoint(
+        playerPoint.x + Math.cos(angle) * distance,
+        playerPoint.y + Math.sin(angle) * distance,
+        PLAYER_HITBOX_RADIUS + 18
+      );
+      const key = `${Math.round(point.x / 18)}:${Math.round(point.y / 18)}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        points.push(point);
+      }
+    }
+    return points;
+  }
+
+  isFinalBossRaidPointInsideField(point, field, padding = 0) {
+    if (!point || !field?.floor?.active) {
+      return false;
+    }
+
+    const safePadding = Math.max(0, Number(padding) || 0);
+    if (field.fieldShape === "half") {
+      const bounds = field.bounds;
+      if (!bounds) {
+        return false;
+      }
+      if (point.y < bounds.top - safePadding || point.y > bounds.bottom + safePadding) {
+        return false;
+      }
+      return field.side === "right"
+        ? point.x >= bounds.splitX - safePadding
+        : point.x <= bounds.splitX + safePadding;
+    }
+
+    return Phaser.Math.Distance.Between(point.x, point.y, field.x, field.y)
+      <= Math.max(1, Number(field.radius) || 1) + safePadding;
+  }
+
+  isFinalBossRaidPointThreatened(point, pendingField = null, padding = PLAYER_HITBOX_RADIUS) {
+    if (!point) {
+      return false;
+    }
+
+    const fields = this.finalBossRaidState?.activeSpellFields || [];
+    if (fields.some((field) => this.isFinalBossRaidPointInsideField(point, field, padding))) {
+      return true;
+    }
+    if (pendingField) {
+      return Phaser.Math.Distance.Between(point.x, point.y, pendingField.x, pendingField.y)
+        <= Math.max(1, Number(pendingField.radius) || 1) + Math.max(0, Number(padding) || 0);
+    }
+    return false;
+  }
+
+  getFinalBossRaidSafeEscapeSummary(playerPoint, pendingField, config = {}) {
+    const probes = this.getFinalBossRaidEscapeProbePoints(playerPoint, config);
+    const openBefore = probes.filter((point) => !this.isFinalBossRaidPointThreatened(point, null, PLAYER_HITBOX_RADIUS));
+    const openAfter = openBefore.filter((point) => !this.isFinalBossRaidPointThreatened(point, pendingField, PLAYER_HITBOX_RADIUS));
+    return {
+      total: probes.length,
+      before: openBefore.length,
+      after: openAfter.length,
+      covered: Math.max(0, openBefore.length - openAfter.length)
+    };
+  }
+
+  getFinalBossRaidActiveHalfFieldSides() {
+    const sides = new Set();
+    (this.finalBossRaidState?.activeSpellFields || []).forEach((field) => {
+      if (field?.floor?.active && field.fieldShape === "half" && (field.side === "left" || field.side === "right")) {
+        sides.add(field.side);
+      }
+    });
+    return sides;
+  }
+
+  scoreFinalBossRaidTacticalSpellCandidate(candidate, context) {
+    const spellKind = context.spellKind;
+    const radius = Math.max(1, Number(context.radius) || 1);
+    const player = context.player;
+    const config = context.config || {};
+    const threatVector = context.threatVector || { x: 1, y: 0 };
+    const outward = context.outward || threatVector;
+    const dx = candidate.x - player.x;
+    const dy = candidate.y - player.y;
+    const distance = Math.hypot(dx, dy);
+    const ahead = dx * threatVector.x + dy * threatVector.y;
+    const outwardScore = dx * outward.x + dy * outward.y;
+    const pendingField = { x: candidate.x, y: candidate.y, radius };
+    const safeSummary = this.getFinalBossRaidSafeEscapeSummary(player, pendingField, config);
+    const requiredSafe = Math.min(
+      Math.max(1, Math.floor(Number(config.minimumSafeExits) || 2)),
+      Math.max(1, safeSummary.before - 1)
+    );
+    const idealSafe = Math.max(requiredSafe, Math.floor(Number(config.idealSafeExits) || 4));
+    let score = 0;
+
+    if (!this.isFinalBossRaidFieldPointClear(candidate, radius)) {
+      score -= 260;
+    }
+    if (safeSummary.after < requiredSafe) {
+      score -= 5200 + (requiredSafe - safeSummary.after) * 950;
+    }
+    score += safeSummary.covered * (spellKind === "fire" ? 210 : 145);
+    score -= Math.abs(safeSummary.after - idealSafe) * (spellKind === "fire" ? 36 : 28);
+    if (safeSummary.covered <= 0 && safeSummary.before > requiredSafe) {
+      score -= spellKind === "fire" ? 150 : 80;
+    }
+
+    if (spellKind === "fire") {
+      const idealDistance = radius * 0.95;
+      score += Math.max(0, 250 - Math.abs(distance - idealDistance) * 0.78);
+      score += Phaser.Math.Clamp(ahead, -160, radius * 1.55) * 0.5;
+      score += Phaser.Math.Clamp(outwardScore, -130, radius * 1.3) * 0.24;
+      if (distance < radius * 0.34) {
+        score -= 190;
+      }
+      if (distance > radius * 1.85) {
+        score -= (distance - radius * 1.85) * 0.5;
+      }
+    } else {
+      const idealDistance = radius * 0.58;
+      score += Math.max(0, 230 - Math.abs(distance - idealDistance) * 1.0);
+      score += Phaser.Math.Clamp(ahead, -90, radius * 1.15) * 0.32;
+      score += Phaser.Math.Clamp(outwardScore, -100, radius * 0.85) * 0.14;
+      if (distance > radius * 1.45) {
+        score -= (distance - radius * 1.45) * 0.8;
+      }
+    }
+
+    const bounds = this.getFinalBossRaidMovementBounds(PLAYER_HITBOX_RADIUS);
+    const activeHalfSides = this.getFinalBossRaidActiveHalfFieldSides();
+    if (activeHalfSides.size === 1) {
+      const dangerousSide = activeHalfSides.has("left") ? "left" : "right";
+      const safeSide = dangerousSide === "left" ? "right" : "left";
+      const candidateSide = candidate.x >= bounds.centerX ? "right" : "left";
+      if (candidateSide === safeSide) {
+        score += spellKind === "fire" ? 160 : 100;
+      } else {
+        score -= 120;
+      }
+    }
+
+    const repeatRadius = Math.max(60, Number(config.repeatPenaltyRadius) || 190);
+    const history = this.finalBossRaidState?.thirdSpellTargetHistory || [];
+    history.slice(-4).forEach((entry, index) => {
+      if (!entry?.point) {
+        return;
+      }
+      const historyDistance = Phaser.Math.Distance.Between(candidate.x, candidate.y, entry.point.x, entry.point.y);
+      if (historyDistance < repeatRadius) {
+        score -= (repeatRadius - historyDistance) * (0.65 + index * 0.12);
+      }
+    });
+
+    return { score, safeSummary };
+  }
+
+  getFinalBossRaidTacticalSpellTargetPoint(spellKind, radius, spellIndex = 0) {
+    const config = this.getFinalBossRaidTacticalSpellConfig();
+    const state = this.finalBossRaidState;
+    if (!config || !state?.active || state.currentPhase?.id !== "third" || !this.playerHitbox?.active) {
+      return null;
+    }
+
+    const bossPosition = this.getFinalBossRaidBossPosition();
+    const player = { x: this.playerHitbox.x, y: this.playerHitbox.y };
+    const outward = this.getNormalizedFinalRaidVector(player.x - bossPosition.x, player.y - bossPosition.y, { x: 0, y: 1 });
+    const threatVector = this.getFinalBossRaidPlayerThreatVector(player, bossPosition);
+    const context = { spellKind, radius, config, player, bossPosition, outward, threatVector };
+    const candidates = this.buildFinalBossRaidTacticalSpellCandidates(spellKind, radius, spellIndex, context);
+    if (!candidates.length) {
+      return null;
+    }
+
+    let best = null;
+    candidates.forEach((candidate) => {
+      const evaluation = this.scoreFinalBossRaidTacticalSpellCandidate(candidate, context);
+      if (!best || evaluation.score > best.score) {
+        best = { point: candidate, score: evaluation.score, safeSummary: evaluation.safeSummary };
+      }
+    });
+
+    if (!best?.point) {
+      return null;
+    }
+    state.thirdSpellPlan = {
+      spellKind,
+      score: Math.round(best.score),
+      safeSummary: best.safeSummary
+    };
+    return best.point;
+  }
+
+  recordFinalBossRaidThirdSpellTarget(spellKind, point, radius) {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !point) {
+      return;
+    }
+    state.thirdSpellTargetHistory = Array.isArray(state.thirdSpellTargetHistory)
+      ? state.thirdSpellTargetHistory
+      : [];
+    state.thirdSpellTargetHistory.push({
+      spellKind,
+      point: { x: point.x, y: point.y },
+      radius,
+      elapsedMs: Math.max(0, Number(state.elapsedMs) || 0),
+      plan: state.thirdSpellPlan || null
+    });
+    state.thirdSpellTargetHistory = state.thirdSpellTargetHistory.slice(-8);
   }
 
   updateFinalBossRaidGiantWeaponCombat(delta, time = this.time?.now || 0) {
@@ -13043,12 +17279,12 @@ class SurvivalScene extends Phaser.Scene {
     this.applyDamageToPlayer(Math.max(1, Math.floor(Number(field.tickDamage) || 1)));
     field.lastHit = true;
     if (field.spellKind === "ice" && field.slowMs > 0) {
-      state.playerSlowUntil = Math.max(state.playerSlowUntil || 0, (this.time?.now || 0) + field.slowMs);
-      state.playerSlowMultiplier = Math.min(
-        Phaser.Math.Clamp(Number(state.playerSlowMultiplier) || 1, 0.3, 1),
-        Phaser.Math.Clamp(Number(field.slowMultiplier) || 0.54, 0.3, 1)
-      );
-      this.setLastPickupNotice("FINAL RAID FREEZE FIELD");
+      this.tryApplyFinalRaidSlow({
+        source: "iceField",
+        field,
+        slowMs: field.slowMs,
+        slowMultiplier: field.slowMultiplier
+      });
     }
     return true;
   }
@@ -13217,6 +17453,9 @@ class SurvivalScene extends Phaser.Scene {
 
   getFinalBossRaidPlayerMoveMultiplier() {
     const state = this.finalBossRaidState;
+    if (state?.active && this.hasFinalRaidSlowImmunity?.()) {
+      return 1;
+    }
     if (!state?.active || (this.time?.now || 0) >= (state.playerSlowUntil || 0)) {
       if (state) {
         state.playerSlowMultiplier = 1;
@@ -13883,6 +18122,7 @@ class SurvivalScene extends Phaser.Scene {
     this.updateFinalBossRaidGiantWeaponCombat(progressDelta, time);
     this.updateFinalBossRaidMinionPhaseCombat(progressDelta, time);
     this.updateFinalBossRaidThirdPhaseCombat(progressDelta, time);
+    this.updateFinalRaidRescueEffects?.(progressDelta, time);
     this.updateFinalBossRaidHud();
     this.updateFinalBossRaidVisuals(time);
   }
@@ -14025,6 +18265,7 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     this.awardFinalBossRaidClearRewards(reason);
+    this.completeFinalRaidExternalDownlinkRestore?.({ reason: reason || "liberationGate" });
     this.tryQueueDepth10EpilogueComms?.("depth10_release_gate_epilogue", reason);
     const config = FINAL_BOSS_RAID_CONFIG.liberationGate || {};
     state.liberationGateActive = true;
@@ -14224,6 +18465,7 @@ class SurvivalScene extends Phaser.Scene {
       messageLines.push(resultParts.join(" / "));
     }
     this.setPendingShopEpilogueComms?.("depth10_shop_return_epilogue", "liberationReturn");
+    this.cleanupFinalRaidRescueLink?.("liberationReturn");
     this.returnToOpeningShop(messageLines.join("\n"), { showMobileLaunchGate: true });
   }
 
@@ -20718,6 +24960,7 @@ class SurvivalScene extends Phaser.Scene {
 
   handleCommsUiResize() {
     this.layoutCommsUi();
+    this.layoutFinalRaidRescueLinkHud?.();
   }
 
   getCommsUiLayout() {
@@ -20839,6 +25082,13 @@ class SurvivalScene extends Phaser.Scene {
       variant: this.normalizeCommsVariant(options.variant),
       priority,
       source: options.source || null,
+      channel: options.channel || null,
+      category: options.category || null,
+      eventType: options.eventType || null,
+      allowDuringFinalRaid: options.allowDuringFinalRaid === true,
+      finalRaid: options.finalRaid === true,
+      guildId: options.guildId || null,
+      commsStateTransition: options.commsStateTransition || null,
       storySequenceId: options.storySequenceId || null,
       epilogueSequenceId: options.epilogueSequenceId || null,
       genericEventType: options.genericEventType || null,
@@ -20849,6 +25099,22 @@ class SurvivalScene extends Phaser.Scene {
 
   showCommsMessage(messageOrOptions) {
     return this.queueCommsMessage(messageOrOptions);
+  }
+
+  canQueueCommsMessageDuringFinalRaid(message) {
+    if (!message) {
+      return false;
+    }
+    if (message.source === "epilogue") {
+      return true;
+    }
+    if (message.source === "story") {
+      return message.storySequenceId === "depth10_first";
+    }
+    if (message.source === RAID_RESCUE_LINK_SOURCE) {
+      return [RAID_RESCUE_LINK_CHANNEL, RAID_ALLIED_MESH_RELAY_CHANNEL].includes(message.channel) && (message.allowDuringFinalRaid || message.finalRaid);
+    }
+    return message.finalRaid === true && message.allowDuringFinalRaid === true;
   }
 
   queueCommsMessage(messageOrOptions) {
@@ -20862,6 +25128,9 @@ class SurvivalScene extends Phaser.Scene {
     const state = this.commsState;
     const message = this.normalizeCommsMessage(messageOrOptions);
     if (!message) {
+      return false;
+    }
+    if (this.isFinalBossRaidActive?.() && !this.canQueueCommsMessageDuringFinalRaid(message)) {
       return false;
     }
 
@@ -20944,6 +25213,16 @@ class SurvivalScene extends Phaser.Scene {
     if (!state?.container?.active || state.activeMessage || state.transitioning || state.queue.length <= 0) {
       return false;
     }
+    while (
+      this.isFinalBossRaidActive?.() &&
+      state.queue.length > 0 &&
+      !this.canQueueCommsMessageDuringFinalRaid(state.queue[0])
+    ) {
+      state.queue.shift();
+    }
+    if (state.queue.length <= 0) {
+      return false;
+    }
     const message = state.queue[0];
     if (!this.canDisplayCommsMessage(message)) {
       return false;
@@ -20952,6 +25231,20 @@ class SurvivalScene extends Phaser.Scene {
     state.queue.shift();
     this.displayCommsMessage(message);
     return true;
+  }
+
+  handleCommsMessageStarted(message) {
+    if (!message?.commsStateTransition) {
+      return false;
+    }
+    if (message.commsStateTransition === "external_carrier_detected") {
+      return this.markFinalRaidExternalCarrierDetected?.({
+        reason: "commsMessageStarted",
+        messageId: message.id,
+        sequenceId: message.epilogueSequenceId || null
+      }) || false;
+    }
+    return false;
   }
 
   bringCommsUiToTop() {
@@ -20974,13 +25267,14 @@ class SurvivalScene extends Phaser.Scene {
     state.activeMessage = message;
     state.visible = true;
     state.transitioning = true;
-    if (message.source === "epilogue") {
+    this.handleCommsMessageStarted(message);
+    if (message.source === "epilogue" || message.epilogueSequenceId) {
       this.bringCommsUiToTop();
     }
     const layout = this.layoutCommsUi() || this.getCommsUiLayout();
     const palette = this.getCommsVariantPalette(message.variant);
     state.container
-      .setDepth(message.source === "epilogue" ? COMMS_UI_CONFIG.epilogueDepth : COMMS_UI_CONFIG.depth)
+      .setDepth(message.source === "epilogue" || message.epilogueSequenceId ? COMMS_UI_CONFIG.epilogueDepth : COMMS_UI_CONFIG.depth)
       .setPosition(layout.x - COMMS_UI_CONFIG.slideOffsetX, layout.y)
       .setAlpha(0)
       .setVisible(true);
@@ -20988,7 +25282,7 @@ class SurvivalScene extends Phaser.Scene {
       ?.setFillStyle(palette.glow, 0.94)
       .setAlpha(0.48);
     state.linkText
-      ?.setText(palette.label)
+      ?.setText(message.source === RAID_RESCUE_LINK_SOURCE ? (message.channel === RAID_ALLIED_MESH_RELAY_CHANNEL ? "MESH RELAY" : "LOCAL MESH") : palette.label)
       .setColor(palette.accent);
     state.statusText
       ?.setText(message.variant === "normal" ? "ONLINE" : message.variant.toUpperCase())
@@ -21575,7 +25869,8 @@ class SurvivalScene extends Phaser.Scene {
     const queue = this.commsState?.queue || [];
     return Boolean(
       this.commsState?.activeMessage?.source === "epilogue" ||
-      queue.some((message) => message?.source === "epilogue")
+      this.commsState?.activeMessage?.epilogueSequenceId ||
+      queue.some((message) => message?.source === "epilogue" || message?.epilogueSequenceId)
     );
   }
 
@@ -21590,7 +25885,7 @@ class SurvivalScene extends Phaser.Scene {
       const removableIndex = state.queue
         .map((message, index) => ({ message, index }))
         .reverse()
-        .find((entry) => entry.message?.source !== "epilogue")?.index;
+        .find((entry) => entry.message?.source !== "epilogue" && !entry.message?.epilogueSequenceId)?.index;
       if (!Number.isInteger(removableIndex)) {
         break;
       }
@@ -21643,12 +25938,17 @@ class SurvivalScene extends Phaser.Scene {
     this.trimCommsQueueForEpilogue(Math.min(sequence.messages.length, COMMS_UI_CONFIG.queueMax));
     const messages = sequence.messages.slice(0, COMMS_UI_CONFIG.queueMax);
     const normalizedMessages = messages
-      .map((message) => this.normalizeCommsMessage({
-        ...message,
-        priority: COMMS_EPILOGUE_PRIORITY,
-        source: "epilogue",
-        epilogueSequenceId: sequence.id
-      }))
+      .map((message) => {
+        const source = message.source || "epilogue";
+        return this.normalizeCommsMessage({
+          ...message,
+          priority: Number.isFinite(Number(message.priority)) ? Number(message.priority) : COMMS_EPILOGUE_PRIORITY,
+          source,
+          allowDuringFinalRaid: message.allowDuringFinalRaid === true || source === RAID_RESCUE_LINK_SOURCE,
+          finalRaid: message.finalRaid === true || source === RAID_RESCUE_LINK_SOURCE,
+          epilogueSequenceId: sequence.id
+        });
+      })
       .filter(Boolean);
     if (normalizedMessages.length <= 0) {
       this.debugLogCommsEpilogue("skip", { reason, sequenceId: sequence.id, skipReason: "normalizeFailed" });
@@ -21663,7 +25963,15 @@ class SurvivalScene extends Phaser.Scene {
       : 0;
     state.queue.splice(insertIndex, 0, ...normalizedMessages);
     this.trimCommsQueueForEpilogue(0);
-    this.tryShowNextCommsMessage();
+    const activeMessage = state.activeMessage;
+    if (
+      activeMessage?.source === RAID_RESCUE_LINK_SOURCE &&
+      (Number(activeMessage.priority) || 0) < COMMS_EPILOGUE_PRIORITY
+    ) {
+      this.hideCurrentCommsMessage("epiloguePriority", { immediate: true, showNext: true });
+    } else {
+      this.tryShowNextCommsMessage();
+    }
 
     const queuedAny = normalizedMessages.length > 0;
 
@@ -22394,9 +26702,11 @@ class SurvivalScene extends Phaser.Scene {
       activeSource === "epilogue" ||
       activeSource === "generic" ||
       activeSource === "banter" ||
+      activeSource === RAID_RESCUE_LINK_SOURCE ||
       this.hasCommsEpilogueTraffic?.() ||
       this.hasCommsStoryTraffic?.() ||
       this.hasGenericCommsTraffic?.() ||
+      queue.some((message) => message?.source === RAID_RESCUE_LINK_SOURCE) ||
       queue.length >= COMMS_BANTER_DEFAULTS.queueBusyLimit
     );
   }
@@ -31510,11 +35820,16 @@ class SurvivalScene extends Phaser.Scene {
     this.tryQueueDebugGenericCommsEventIfNeeded("update");
     this.flushPendingGenericComms("update");
     this.tryQueueDebugCommsBanterNowIfNeeded("update");
+    this.tryQueueDebugFinalRaidRescuePreviewIfNeeded("update");
+    this.tryQueueDebugFinalRaidAlliedMeshPreviewIfNeeded("update");
     this.tryShowNextCommsMessage();
     this.tryOpenPendingSkillMutationSelection();
     this.tryOpenQueuedLostArmsEvolutionSelection();
     this.tryOpenPendingOverdriveModSelection();
     this.tryStartFinalBossRaidFromDebugStart("update");
+    this.tryQueueDebugFinalRaidRescueEffectPreviewIfNeeded("update");
+    this.tryQueueDebugFinalRaidGuildEffectPreviewIfNeeded("update");
+    this.tryApplyDebugFinalRaidBattlefieldControlHudPreviewIfNeeded("update");
     this.tryOpenPendingDepthDirectiveSelection();
 
     if (this.gameOver) {
@@ -37210,7 +41525,25 @@ class SurvivalScene extends Phaser.Scene {
     this.invincibleUntil = this.time.now + 900;
     const finalAmount = Math.max(0, Math.round((Number(amount) || 0) * this.getOverdriveModDamageTakenMultiplier()));
     const barrierResult = this.applyRobotBarrierToIncomingDamage(finalAmount);
-    const hpDamage = Math.max(0, Math.round(barrierResult.hpDamage || 0));
+    const guildReductionResult = this.applyFinalRaidGuildDamageReduction?.(barrierResult.hpDamage || 0, {
+      source: "playerDamage",
+      incomingDamage: finalAmount,
+      robotBarrierAbsorbed: barrierResult.absorbed || 0
+    }) || { remainingDamage: barrierResult.hpDamage || 0, reducedDamage: 0, reductionRatio: 0 };
+    const rescueShieldResult = this.consumeFinalRaidRescueShield?.(guildReductionResult.remainingDamage || 0, {
+      source: "playerDamage",
+      incomingDamage: finalAmount,
+      robotBarrierAbsorbed: barrierResult.absorbed || 0,
+      guildReducedDamage: guildReductionResult.reducedDamage || 0
+    }) || { remainingDamage: guildReductionResult.remainingDamage || 0, absorbedDamage: 0 };
+    const legendGuardResult = this.consumeFinalRaidLegendGuard?.(rescueShieldResult.remainingDamage || 0, {
+      source: "playerDamage",
+      incomingDamage: finalAmount,
+      robotBarrierAbsorbed: barrierResult.absorbed || 0,
+      guildReducedDamage: guildReductionResult.reducedDamage || 0,
+      rescueShieldAbsorbed: rescueShieldResult.absorbedDamage || 0
+    }) || { remainingDamage: rescueShieldResult.remainingDamage || 0, reducedDamage: 0 };
+    const hpDamage = Math.max(0, Math.round(legendGuardResult.remainingDamage || 0));
     this.stats.hp = Math.max(0, this.stats.hp - hpDamage);
     this.handleDepthDirectivePlayerDamage(hpDamage);
     if (hpDamage > 0 && this.stats.hp > 0) {
@@ -37225,7 +41558,10 @@ class SurvivalScene extends Phaser.Scene {
 
     this.tweens.add({
       targets: this.damageFlash,
-      alpha: { from: barrierResult.absorbed > 0 && hpDamage <= 0 ? 0.12 : 0.28, to: 0 },
+      alpha: {
+        from: ((barrierResult.absorbed > 0 || rescueShieldResult.absorbedDamage > 0 || guildReductionResult.reducedDamage > 0 || legendGuardResult.reducedDamage > 0) && hpDamage <= 0) ? 0.12 : 0.28,
+        to: 0
+      },
       duration: 220,
       ease: "Quad.Out"
     });

@@ -52,6 +52,23 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - `?debugCommsStoryReset=1`: デバッグ用。起動時に通信ストーリーの再生済み保存を削除します。
 - `?debugCommsStoryDepth=1`: デバッグ用。`1` / `3` / `6` / `8` / `9` / `10` の指定Depth通信を `GAME START` 後にテスト再生します。
 - `?debugStartDepth=10&debugFinalRaid=1&debugFinalRaidScale=0.1&debugFinalRaidPhase=third&debugSkipOpeningBoost=1`: デバッグ用。Depth10 Final Raid を短縮タイマーの第三形態付近から確認します。
+- `?debugRaidRescueLink=1`: デバッグ用。Depth10 Final Raid の RESCUE LINK 初期化、ギルド到着、HUD更新、cleanup を console に出します。
+- `?debugRaidRescueGuild=10`: デバッグ用。指定ギルド番号 / `guild-010` / `all` の RESCUE LINK 到着通信とHUD登録だけをプレビューします。
+- `?debugRaidRescueHud=1`: デバッグ用。RESCUE LINK HUD を Final Raid 外でもプレビュー表示できます。
+- `?debugRaidRescueCompact=1`: デバッグ用。PCでもモバイル相当のコンパクト RESCUE LINK HUD を確認します。
+- `?debugRaidRescueEffects=1`: デバッグ用。Depth10 Final Raid の救援効果ログを console に出し、debugプレビュー時だけ効果適用を許可します。
+- `?debugRaidRescueEffect=heal|shield|beacon|all`: デバッグ用。Final Raid開始後にRELIEF PACKET / RESCUE BEACONを単体プレビューします。`debugRaidRescueEffects=1` と併用します。
+- `?debugRaidRescueEffectScale=0.25`: デバッグ用。`debugRaidRescueEffects=1` 時だけ、救援シールド時間、BEACON持続、パルス間隔、toast表示時間を短縮・延長します。回復量やシールド量は変わりません。
+- `?debugRaidRescueNoEffects=1`: デバッグ用。ギルド到着通信とRESCUE LINK HUDだけを確認し、RELIEF PACKET / RESCUE BEACONを無効化します。
+- `?debugRaidGuildEffects=1`: デバッグ用。Depth10 Final Raid のギルド固有支援効果ログを console に出し、debugプレビュー時だけ効果適用を許可します。
+- `?debugRaidGuildEffect=vanguard|ward|bulwark|regen|wind|legend|safehouse|shelter|sanctuary|frontline|excalion|all`: デバッグ用。Final Raid開始後にギルド固有支援効果を単体または一括でプレビューします。`debugRaidGuildEffects=1` と併用します。
+- `?debugRaidGuildEffectScale=0.25`: デバッグ用。`debugRaidGuildEffects=1` 時だけ、ギルド固有支援の持続時間やパルス間隔を短縮・延長します。回復量、軽減率、シールド量は変わりません。
+- `?debugRaidGuildEffectHit=1`: デバッグ用。ギルド固有支援プレビュー後に小ダメージを1回入れ、Robot Barrier / ギルド軽減 / RELIEF SHIELD / LEGEND GUARD の順序を確認します。
+- `?debugRaidBattlefieldControlHud=left|right|both|reset`: デバッグ用。BATTLEFIELD CONTROL HUD の左右兵器状態だけをプレビューします。実際の巨大兵器拘束処理は発動しません。
+- `?debugRaidAlliedMesh=1`: デバッグ用。ALLIED MESH 最終救援演出の schedule / skip / phase を console に出し、RESCUE LINK HUD をプレビューできます。
+- `?debugRaidAlliedMeshPhase=arrival|maximum|recovery|restored|all`: デバッグ用。エクスカリオン到着、全ノードMAXIMUM、通信復旧中継、外部回線復旧の各表示を単体または連続で確認します。ランキング、支援効果、報酬は変更しません。
+- `?debugRaidAlliedMeshScale=0.25`: デバッグ用。`debugRaidAlliedMesh=1` 時だけ、ALLIED MESH 表示演出の時間を短縮・延長します。戦闘効果やタイムラインは変わりません。
+- `?debugRaidAlliedMeshIncomplete=1`: デバッグ用。`debugRaidAlliedMeshPhase=maximum` と併用すると12/13ノード不足状態を作り、MAXIMUMが発動しないことを確認できます。
 - `?debugMaxBuild=1`: デバッグ用。攻撃スキル全種を最終Stage、ROBOTをLv.20/Tune Lv.20、HPを300、移動速度を+100にします。
 - `?debugStartDepth=10&debugFinalRaid=1&debugFinalRaidScale=0.05&debugFinalRaidPhase=third&debugMaxBuild=1&debugSkipOpeningBoost=1`: デバッグ用。強化済み状態でDepth10 Final Raidを確認します。
 - `?debugRecoveryFieldScale=1`: デバッグ用。Recovery Field の選択画像、表示サイズ、alpha、angle / rotation、depth、表示モードを console に出します。
@@ -78,11 +95,17 @@ Final Raid のボスフィールドでは `DOLL FIELD JAMMING` により LOST AR
 
 Final Raid のボスに対するプレイヤー攻撃は、通常のダメージ計算を行わず軽いヒット演出と疑似ダメージ数値だけを発生させます。スキル種別、強化状況、ダメージ倍率によるボス HP や支援ランキングへの影響はありません。ギルド救援もボス HP への実ダメージ計算は行わず、ボス HP と支援ランキングは時刻ベースのストーリー演出として進行します。開始直後はボス HP バーを満タンで安定表示し、最初の救援開始後からHPバー演出が進みます。ボス HP の数値、パーセント、BREAK、REVIVE、RAID SIGNAL、OBJECTIVE 表示は行いません。支援ランキングにはギルドだけを表示し、プレイヤーは表示しません。
 
-第1形態と第2形態では短い予兆付きフィールド攻撃が発生し、Final Raid 専用の被ダメージ値で通常フィールドより緊張感を高めています。第3形態では爆炎/氷結が約3秒残る持続フィールドになり、氷結フィールド命中時は一時的に移動速度が低下します。既存4体の通常モンスター Add は第2形態専用で出現し、高耐久の Elite 扱いとして短い予兆付きの小フィールド攻撃を行います。Final Raid の Add に表示されるダメージ数値は実ダメージ計算ではなく疑似数値ですが、出現直後の保護時間、残存数、撃破上限を満たした場合だけ、攻撃ヒット時に低確率で撃破されます。撃破時は通常ドロップや XP 報酬には混ざらず、Heal アイテムだけを落とします。
+第1形態と第2形態では短い予兆付きフィールド攻撃が発生し、Final Raid 専用の被ダメージ値で通常フィールドより緊張感を高めています。第3形態では爆炎/氷結が約3秒残る持続フィールドになり、氷結フィールド命中時は一時的に移動速度が低下します。第3形態の爆炎/氷結はプレイヤー位置、移動方向、直近の魔法着弾点、既存の危険床、左右巨大兵器の半面床を見て候補点を評価し、完全封鎖を避けつつ逃げ道を段階的に狭める詰め将棋型の配置になります。既存4体の通常モンスター Add は第2形態専用で出現し、高耐久の Elite 扱いとして短い予兆付きの小フィールド攻撃を行います。Final Raid の Add に表示されるダメージ数値は実ダメージ計算ではなく疑似数値ですが、出現直後の保護時間、残存数、撃破上限を満たした場合だけ、攻撃ヒット時に低確率で撃破されます。撃破時は通常ドロップや XP 報酬には混ざらず、Heal アイテムだけを落とします。
 
 浮遊型巨大機械兵器 2 体は背景とフィールドの間に表示され、通常スキルや接触ではターゲットになりません。随伴ロボットのミサイルだけが届き、命中時は実 HP を持たない疑似ダメージ数値とヒット演出だけを表示します。巨大機械兵器は第3形態から、左兵器はフィールド左半面、右兵器はフィールド右半面に持続型ダメージ床を順番に展開します。Coven が救援参加すると左の巨大機械兵器が拘束され、左半面ダメージ床とそのターゲット判定が停止します。ひとりぼっちの が救援参加すると右の巨大機械兵器が拘束され、右半面ダメージ床とそのターゲット判定が停止します。HP 低下中はボス本体の危険フィールドと巨大兵器半面床が短時間に重なりすぎないよう、巨大兵器側が短く発動を遅らせます。ボス討伐時には、左右の巨大機械兵器本体、拘束演出、ターゲット判定、残っているダメージ床をまとめて削除します。
 
 支援ランキングは終盤まで REDWOLF が上位に残り、残り 1:45 でエクスカリオンが救援参加します。エクスカリオンは 5 位から 4 位、3 位、2 位へ段階的に上がり、残り 1:10 で 1 位になる演出です。REDWOLF は最終的に 2 位でレイドを終えます。ランキング数値は表示用の演出値で、リアルタイムのボス HP 計算には使いません。残り 2:00 で TIMELIMIT パネルが赤色に変化し、残り 0:40 でボス HP が 0 になってボス表示、当たり判定、左右の浮遊型巨大機械兵器とそのターゲット判定が消え、ランキング更新も停止します。600 秒到達後に `ドールを解放する` ゲートで討伐報酬を保存して Opening Shop へ帰還します。
+
+Final Raid 中は `DOLL FIELD JAMMING` により福音領域外から内部への `EXTERNAL DOWNLINK` が遮断されます。一方で内部から外部への `EMERGENCY UPLINK` は有効で、救援に到着したギルドとは `LOCAL MESH` で短距離通信できます。到着済みギルドは支援ランキングとは別に `RESCUE LINK` HUDへ到着順で表示されます。各ギルド初到着時は最大HP4%分の `RELIEF PACKET` が届き、HP不足分を回復し、余剰分は12秒間の `RELIEF SHIELD` へ変換されます。RELIEF SHIELD の上限は最大HP8%で、既存 Robot Barrier Field の後、HPダメージ前にだけ吸収します。7番目の `LOCAL MESH` 接続時には1回だけ `RESCUE BEACON` が展開され、10秒間に4回、範囲内のプレイヤーを最大HP3%ずつ回復します。これらはFinal Raidラン内限定の生存補助で、既存Robot Recovery Field / Barrier Fieldとは別系統です。ボスHP、支援ランキング、ギルド参戦時刻、報酬、GEEK、ANJU MEMORY、Run Archive、Firebaseには影響しません。
+
+各ギルド初到着時には、共通の `RELIEF PACKET` に加えてラン内限定のギルド固有支援が1回だけ発動します。乙女の牙はHP不足分優先の `VANGUARD AID`、SilentAngelは氷結スローを1回防ぐ `DEBUFF WARD`、アースクリエイターは10秒間10%軽減の `EARTHEN BULWARK`、Dream_Happyは短い分割回復の `HOPE REGEN`、千の風はスロー解除とスタミナ回復の `WIND RELEASE`、JGGLegendsは次のHPダメージを50%軽減する `LEGEND GUARD`、Doll'sHouseはBEACON内だけ10%軽減とスロー無効になる `SAFEHOUSE LINK`、シルバニアファミリーはRELIEF SHIELDを上限まで補充する `FAMILY SHELTER`、アークエンジェルズは10秒間12%軽減とスロー無効の `SANCTUARY LINK`、REDWOLFは12秒間15%軽減の `FRONTLINE GUARD`、エクスカリオンは回復・シールド・スロー解除・スタミナ全回復・15%軽減をまとめた `ALLIED MESH MAXIMUM` を付与します。軽減効果は加算せず、同時有効中の最大値だけを採用し、上限は15%です。Coven / ひとりぼっちの は既存の左右巨大兵器拘束を担当し、RESCUE LINK HUD 内の `BATTLEFIELD CONTROL` で左右兵器の `STANDBY` / `HOSTILE` / `LOCKING` / `SEALED` / `OFFLINE` 状態を確認できます。
+
+エクスカリオン初到着時に13ギルド全ノードが接続済みなら、RESCUE LINK HUD 内の `MESH ARRAY` が順番に点灯し、全13ノードが `ALLIED MESH: MAXIMUM` として同期します。この同期表示はネットワーク状態の演出であり、エクスカリオン到着時の既存支援効果を再適用、延長、強化しません。ボス撃破後はALLIED MESHが中継回線となり、HUDは `ALLIED MESH: RELAY MODE`、後日談通信の復旧ログ表示時は `VOICE CARRIER DETECTED`、専用帰還ゲート出現時は `ALLIED MESH: STABLE` へ段階的に変化します。
 
 ## GEEK 仕様
 
