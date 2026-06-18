@@ -819,7 +819,15 @@ const FINAL_RAID_ASSIST_RANKING_SCRIPT = {
   preFinalLeaderGuildId: "guild-010",
   preFinalLeaderLeadDamage: 480000,
   preFinalLeaderLeadRatio: 1.04,
-  finalPushBurstDelayMs: FINAL_RAID_TIMELINE_CONFIG.finalPushBurstDelayMs
+  finalPushBurstDelayMs: FINAL_RAID_TIMELINE_CONFIG.finalPushBurstDelayMs,
+  finalPushRankSteps: [
+    { remainingMs: 105000, rank: 5 },
+    { remainingMs: 95000, rank: 4 },
+    { remainingMs: 85000, rank: 3 },
+    { remainingMs: 78000, rank: 2 },
+    { remainingMs: 70000, rank: 1 }
+  ],
+  rankDamageGap: 12000
 };
 const FINAL_RAID_CAMERA_CONFIG = {
   zoom: 0.48,
@@ -921,6 +929,20 @@ const FINAL_RAID_GIANT_WEAPON_CONFIG = {
     }
   ]
 };
+const FINAL_RAID_GIANT_WEAPON_RESTRAINTS = {
+  "guild-011": {
+    weaponId: "left",
+    label: "COVEN BIND",
+    tint: 0xa980ff,
+    textColor: "#d9c7ff"
+  },
+  "guild-012": {
+    weaponId: "right",
+    label: "LONELY SEAL",
+    tint: 0xff9ed4,
+    textColor: "#ffd2ec"
+  }
+};
 const FINAL_RAID_PSEUDO_DAMAGE_CONFIG = {
   boss: {
     base: 88888,
@@ -991,11 +1013,12 @@ const FINAL_BOSS_RAID_CONFIG = {
     movementHeight: 1040,
     movementOffsetY: 160,
     movementPolygon: [
-      { xRatio: 0.08, yRatio: 0.62 },
-      { xRatio: 0.44, yRatio: 0.36 },
-      { xRatio: 0.56, yRatio: 0.36 },
-      { xRatio: 0.92, yRatio: 0.62 },
-      { xRatio: 0.5, yRatio: 0.86 }
+      { xRatio: 0.32, yRatio: 0.42 },
+      { xRatio: 0.68, yRatio: 0.42 },
+      { xRatio: 0.90, yRatio: 0.62 },
+      { xRatio: 0.68, yRatio: 0.82 },
+      { xRatio: 0.32, yRatio: 0.82 },
+      { xRatio: 0.10, yRatio: 0.62 }
     ]
   },
   phases: [
@@ -1174,12 +1197,17 @@ const FINAL_RAID_VISUAL_CONFIG = {
   bossVisualScaleByPhase: {
     first: 1.04,
     second: 1.18,
-    third: 1.62
+    third: 0.81
   },
-  bossPositionOffsetByPhase: {
+  bossHitTargetOffsetByPhase: {
     first: { x: 0, y: 0 },
     second: { x: 0, y: 0 },
     third: { x: 0, y: 0 }
+  },
+  bossPositionOffsetByPhase: {
+    first: { x: 0, y: -118 },
+    second: { x: 0, y: -156 },
+    third: { x: 0, y: -184 }
   },
   bossDepthByPhase: {
     first: 21.8,
@@ -1189,6 +1217,7 @@ const FINAL_RAID_VISUAL_CONFIG = {
   bossDepthPlayerBehind: 22.35,
   bossDepthPlayerFront: 20.35,
   bossDepthSwitchOffsetY: 118,
+  skillFrontEffectsDepth: 23.55,
   bossAlphaByPhase: {
     first: 0.95,
     second: 0.96,
@@ -1313,8 +1342,9 @@ const SUPPORT_ATTACK_BGM_DUCK_VOLUME = 0.34;
 const SUPPORT_ATTACK_BGM_MUTE_VOLUME = 0;
 const SUPPORT_ATTACK_BGM_DUCK_IN_MS = 260;
 const SUPPORT_ATTACK_BGM_DUCK_OUT_MS = 520;
-const SUPPORT_ITEM_DROP_CHANCE = 0.02;
-const SUPPORT_ITEM_ELITE_BONUS_CHANCE = 0.04;
+const SUPPORT_JAMMED_DEPTH = 9;
+const SUPPORT_ITEM_DROP_CHANCE = 0.006;
+const SUPPORT_ITEM_ELITE_BONUS_CHANCE = 0.014;
 const SUPPORT_ATTACK_WEIGHT_NORMAL = 10;
 const SUPPORT_ATTACK_WEIGHT_RARE = 3;
 const SUPPORT_ATTACK_WEIGHT_SUPER_RARE = 1;
@@ -5774,6 +5804,7 @@ class SurvivalScene extends Phaser.Scene {
       giantWeaponTargets: null,
       giantWeaponCollider: null,
       giantWeaponObjects: [],
+      giantWeaponRestrainedIds: {},
       pseudoDamageCounter: 0,
       activeSpellObjects: [],
       activeSpellFields: [],
@@ -5786,6 +5817,7 @@ class SurvivalScene extends Phaser.Scene {
       fieldBackground: null,
       fieldArenaImage: null,
       fieldGiantWeaponSprites: [],
+      fieldGiantWeaponRestraintObjects: [],
       fieldImage: null,
       fieldFallbackGraphics: null,
       fieldFallbackText: null,
@@ -5888,6 +5920,16 @@ class SurvivalScene extends Phaser.Scene {
     return this.getFinalRaidVisualNumber(key, fallbackDepth, -10, 200);
   }
 
+  getFinalRaidSkillFrontEffectsDepth() {
+    const configuredDepth = this.getFinalRaidVisualNumber("skillFrontEffectsDepth", 23.55, -10, 200);
+    if (!this.isFinalBossRaidActive?.()) {
+      return configuredDepth;
+    }
+
+    const bossDepth = this.getFinalRaidDynamicBossDepth?.(this.finalBossRaidState?.currentPhaseId) ?? configuredDepth;
+    return Math.max(configuredDepth, bossDepth + 0.35);
+  }
+
   getFinalRaidBossAlpha(phaseOrId = null) {
     return this.getFinalRaidVisualPhaseNumber("bossAlphaByPhase", phaseOrId, 0.95, 0, 1);
   }
@@ -5907,6 +5949,15 @@ class SurvivalScene extends Phaser.Scene {
   getFinalRaidBossVisualOffset(phaseOrId = null) {
     const phaseId = this.getFinalRaidVisualPhaseId(phaseOrId);
     const offset = this.getFinalRaidVisualConfig()?.bossPositionOffsetByPhase?.[phaseId] || {};
+    return {
+      x: Number.isFinite(Number(offset.x)) ? Number(offset.x) : 0,
+      y: Number.isFinite(Number(offset.y)) ? Number(offset.y) : 0
+    };
+  }
+
+  getFinalRaidBossHitTargetOffset(phaseOrId = null) {
+    const phaseId = this.getFinalRaidVisualPhaseId(phaseOrId);
+    const offset = this.getFinalRaidVisualConfig()?.bossHitTargetOffsetByPhase?.[phaseId] || {};
     return {
       x: Number.isFinite(Number(offset.x)) ? Number(offset.x) : 0,
       y: Number.isFinite(Number(offset.y)) ? Number(offset.y) : 0
@@ -8897,6 +8948,7 @@ class SurvivalScene extends Phaser.Scene {
       giantWeaponTargets: null,
       giantWeaponCollider: null,
       giantWeaponObjects: [],
+      giantWeaponRestrainedIds: {},
       pseudoDamageCounter: 0,
       activeSpellObjects: [],
       activeSpellFields: [],
@@ -8909,6 +8961,7 @@ class SurvivalScene extends Phaser.Scene {
       fieldBackground: null,
       fieldArenaImage: null,
       fieldGiantWeaponSprites: [],
+      fieldGiantWeaponRestraintObjects: [],
       fieldImage: null,
       fieldFallbackGraphics: null,
       fieldFallbackText: null,
@@ -8950,6 +9003,7 @@ class SurvivalScene extends Phaser.Scene {
     this.setFinalBossRaidStandardHudSuppressed(true);
     this.applyFinalRaidVisualScales("start");
     this.createFinalBossRaidObjects();
+    this.applyFinalBossRaidJoinedGiantWeaponRestraints("finalBossRaidStart");
     this.setFinalBossRaidPhase(this.getFinalBossRaidPhaseForElapsed(startElapsedMs), "start");
     this.positionFinalBossRaidPlayerStart("start");
     this.updateFinalBossRaidRankingEntries();
@@ -9154,6 +9208,10 @@ class SurvivalScene extends Phaser.Scene {
       if (weaponConfig.flipX || weaponConfig.flipY) {
         sprite.setFlip(Boolean(weaponConfig.flipX), Boolean(weaponConfig.flipY));
       }
+      sprite.finalRaidWeaponId = weaponConfig.id || "";
+      sprite.finalRaidWeaponLabel = weaponConfig.label || weaponConfig.id || "FLOATING ARSENAL";
+      sprite.finalRaidBaseX = sprite.x;
+      sprite.finalRaidBaseY = sprite.y;
       giantWeaponSprites.push(sprite);
     });
 
@@ -9217,6 +9275,7 @@ class SurvivalScene extends Phaser.Scene {
     state.fieldBackground = backgroundImage;
     state.fieldArenaImage = fieldImage;
     state.fieldGiantWeaponSprites = giantWeaponSprites;
+    state.fieldGiantWeaponRestraintObjects = [];
     state.fieldImage = fieldImage;
     state.fieldFallbackGraphics = fallbackGraphics;
     state.fieldFallbackText = fallbackText;
@@ -9289,10 +9348,29 @@ class SurvivalScene extends Phaser.Scene {
         return;
       }
       const bob = Math.sin((this.time?.now || 0) / 1180 + index * 1.7) * 8;
-      sprite.setY((sprite.finalRaidBaseY ?? sprite.y) + bob);
       if (!Number.isFinite(sprite.finalRaidBaseY)) {
         sprite.finalRaidBaseY = sprite.y - bob;
       }
+      sprite.setY((sprite.finalRaidBaseY ?? sprite.y) + bob);
+      if (sprite.finalRaidRestrained) {
+        sprite.setAlpha(0.42 + Math.sin((this.time?.now || 0) / 520 + index) * 0.04);
+      }
+    });
+    (state.fieldGiantWeaponRestraintObjects || []).forEach((container, index) => {
+      if (!container?.active) {
+        return;
+      }
+      const source = (state.fieldGiantWeaponSprites || []).find((sprite) => {
+        return sprite?.active && sprite.finalRaidWeaponId === container.finalRaidWeaponId;
+      });
+      if (!source) {
+        return;
+      }
+      container.setPosition(
+        source.x + (Number(container.finalRaidOffsetX) || 0),
+        source.y + (Number(container.finalRaidOffsetY) || 0)
+      );
+      container.setRotation(Math.sin((this.time?.now || 0) / 760 + index) * 0.08);
     });
     state.fieldPhaseWash?.setFillStyle(phaseColor, isResolution
       ? (Number.isFinite(fieldConfig.resolutionPhaseWashAlpha) ? fieldConfig.resolutionPhaseWashAlpha : 0.07)
@@ -10513,7 +10591,8 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     state.bossHitTarget?.destroy();
-    const position = this.getFinalBossRaidBossVisualPosition();
+    const phase = state.currentPhase || this.getFinalBossRaidPhaseForElapsed(state.elapsedMs);
+    const position = this.getFinalBossRaidBossHitTargetPosition(phase);
     const target = this.add.circle(
       position.x,
       position.y,
@@ -10534,6 +10613,7 @@ class SurvivalScene extends Phaser.Scene {
     target.moveSpeed = 0;
     target.baseTint = 0xffffff;
     target.visualPulseOffset = 0;
+    target.finalRaidVisualHeight = this.getFinalBossRaidBossVisualHeight(phase);
     target.body?.setAllowGravity?.(false);
     target.body?.setImmovable?.(true);
     target.body?.setCircle?.(116, 0, 0);
@@ -10549,9 +10629,11 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    const position = this.getFinalBossRaidBossVisualPosition(state.currentPhase);
+    const phase = state.currentPhase || this.getFinalBossRaidPhaseForElapsed(state.elapsedMs);
+    const position = this.getFinalBossRaidBossHitTargetPosition(phase);
     target.setPosition(position.x, position.y);
     target.setDepth?.(this.getFinalRaidVisualDepth("bossHitTarget", 17));
+    target.finalRaidVisualHeight = this.getFinalBossRaidBossVisualHeight(phase);
     target.body?.setVelocity?.(0, 0);
     target.body?.updateFromGameObject?.();
   }
@@ -10573,17 +10655,30 @@ class SurvivalScene extends Phaser.Scene {
     };
   }
 
-  getFinalBossRaidBossVisualPosition(phase = null) {
+  getFinalBossRaidBossHitTargetPosition(phase = null) {
     const basePosition = this.getFinalBossRaidBossPosition();
     const throneOffset = this.getFinalRaidBossThroneOffset();
+    const targetOffset = this.getFinalRaidBossHitTargetOffset(phase);
+    return {
+      x: basePosition.x + throneOffset.x + targetOffset.x,
+      y: basePosition.y + throneOffset.y + targetOffset.y
+    };
+  }
+
+  getFinalBossRaidBossVisualPosition(phase = null) {
+    const targetPosition = this.getFinalBossRaidBossHitTargetPosition(phase);
     const offset = this.getFinalRaidBossVisualOffset(phase);
     const position = {
-      x: basePosition.x + throneOffset.x + offset.x,
-      y: basePosition.y + throneOffset.y + offset.y
+      x: targetPosition.x + offset.x,
+      y: targetPosition.y + offset.y
     };
     return this.getFinalRaidVisualConfig()?.bossClampToHudSafeArea
       ? this.clampFinalRaidVisualPointToHudSafeArea(position)
       : position;
+  }
+
+  getFinalBossRaidBossVisualHeight(phase = null) {
+    return Math.max(24, this.getFinalRaidBossDisplaySize(phase) * this.getFinalRaidBossVisualScale(phase));
   }
 
   getFinalBossRaidPlayerStartOffset() {
@@ -10595,7 +10690,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getFinalBossRaidPlayerStartPosition(phase = null) {
-    const bossPosition = this.getFinalBossRaidBossVisualPosition(phase);
+    const bossPosition = this.getFinalBossRaidBossHitTargetPosition(phase);
     const offset = this.getFinalBossRaidPlayerStartOffset();
     const worldBounds = this.getStageWorldBounds(this.currentStage);
     const bounds = this.getStageMovementBounds(this.currentStage, 96)
@@ -10607,7 +10702,11 @@ class SurvivalScene extends Phaser.Scene {
         bottom: worldBounds.bottom - 96
       };
     const point = this.clampPointToBounds(bossPosition.x + offset.x, bossPosition.y + offset.y, bounds);
-    return this.getSafeDropPoint(point.x, point.y, 48);
+    const polygon = this.getFinalBossRaidMovementPolygon?.(96);
+    const clampedPoint = polygon?.length >= 3
+      ? this.clampPointToPolygon(point.x, point.y, polygon)
+      : point;
+    return this.getSafeDropPoint(clampedPoint.x, clampedPoint.y, 48);
   }
 
   positionFinalBossRaidPlayerStart(reason = "start") {
@@ -11054,7 +11153,11 @@ class SurvivalScene extends Phaser.Scene {
     const group = this.physics.add.group({ allowGravity: false, immovable: true });
     const arena = this.getFinalBossRaidArenaMetrics();
     const targets = FINAL_RAID_GIANT_WEAPON_CONFIG.targets || [];
+    const restrainedIds = state.giantWeaponRestrainedIds || {};
     targets.forEach((weaponConfig) => {
+      if (restrainedIds[weaponConfig.id]) {
+        return;
+      }
       const x = arena.left + arena.displayWidth * Phaser.Math.Clamp(Number(weaponConfig.xRatio) || 0.5, -0.2, 1.2)
         + (Number(weaponConfig.attackOriginOffsetX) || 0);
       const y = arena.top + arena.displayHeight * Phaser.Math.Clamp(Number(weaponConfig.yRatio) || 0.5, -0.2, 1.2)
@@ -11098,6 +11201,220 @@ class SurvivalScene extends Phaser.Scene {
     state.giantWeaponTargets?.destroy?.();
     state.giantWeaponTargets = null;
     state.giantWeaponObjects = [];
+  }
+
+  destroyFinalBossRaidGiantWeaponTargetById(weaponId, reason = "restraint") {
+    const state = this.finalBossRaidState;
+    if (!state?.giantWeaponTargets || !weaponId) {
+      return false;
+    }
+
+    const group = state.giantWeaponTargets;
+    const targets = (group.getChildren?.() || []).filter((target) => {
+      return target?.active && target.weaponId === weaponId;
+    });
+    if (targets.length <= 0) {
+      return false;
+    }
+
+    targets.forEach((target) => {
+      this.tweens?.killTweensOf?.(target);
+      if (target.body) {
+        target.body.enable = false;
+        target.body.setVelocity?.(0, 0);
+      }
+      group.remove?.(target, true, true);
+      if (target?.active) {
+        target.destroy();
+      }
+    });
+
+    if ((group.getChildren?.() || []).length <= 0) {
+      state.giantWeaponCollider?.destroy?.();
+      state.giantWeaponCollider = null;
+      group.destroy?.();
+      state.giantWeaponTargets = null;
+    }
+
+    if (state.debug) {
+      console.log("[FINAL BOSS RAID] giant weapon target removed", { reason, weaponId });
+    }
+    return true;
+  }
+
+  getFinalBossRaidGiantWeaponConfig(weaponId) {
+    return (FINAL_RAID_GIANT_WEAPON_CONFIG.targets || []).find((weaponConfig) => {
+      return weaponConfig?.id === weaponId;
+    }) || null;
+  }
+
+  getFinalBossRaidGiantWeaponSprite(weaponId) {
+    return (this.finalBossRaidState?.fieldGiantWeaponSprites || []).find((sprite) => {
+      return sprite?.active && sprite.finalRaidWeaponId === weaponId;
+    }) || null;
+  }
+
+  createFinalBossRaidGiantWeaponRestraintVisual(weaponId, entry, restraint = {}) {
+    const state = this.finalBossRaidState;
+    const sprite = this.getFinalBossRaidGiantWeaponSprite(weaponId);
+    if (!state?.active || !sprite?.active) {
+      return false;
+    }
+    if (sprite.finalRaidRestrained) {
+      return false;
+    }
+
+    const weaponConfig = this.getFinalBossRaidGiantWeaponConfig(weaponId) || {};
+    const tint = restraint.tint ?? 0x9ffcff;
+    const textColor = restraint.textColor || "#c8ffff";
+    const offsetX = Number(weaponConfig.attackOriginOffsetX) || 0;
+    const offsetY = Number(weaponConfig.attackOriginOffsetY) || 0;
+    sprite.finalRaidRestrained = true;
+    sprite.setTint(tint);
+    sprite.setAlpha(0.46);
+
+    const container = this.add
+      .container(sprite.x + offsetX, sprite.y + offsetY)
+      .setDepth(Math.max((sprite.depth || 9) + 0.38, 16.8))
+      .setAlpha(0)
+      .setScale(0.82);
+    container.finalRaidWeaponId = weaponId;
+    container.finalRaidOffsetX = offsetX;
+    container.finalRaidOffsetY = offsetY;
+
+    const graphics = this.add.graphics();
+    graphics.lineStyle(5, tint, 0.78);
+    graphics.strokeCircle(0, 0, 154);
+    graphics.lineBetween(-128, -104, 128, 104);
+    graphics.lineBetween(-128, 104, 128, -104);
+    graphics.lineStyle(2, 0xffffff, 0.36);
+    graphics.strokeCircle(0, 0, 188);
+
+    const glowKey = this.textures.exists("skill-hit-glow") ? "skill-hit-glow" : null;
+    const ringKey = this.textures.exists("skill-hit-ring") ? "skill-hit-ring" : glowKey;
+    const objects = [graphics];
+    if (glowKey) {
+      objects.unshift(this.add
+        .image(0, 0, glowKey)
+        .setDisplaySize(420, 320)
+        .setTint(tint)
+        .setAlpha(0.24)
+        .setBlendMode(Phaser.BlendModes.ADD));
+    }
+    if (ringKey) {
+      objects.push(
+        this.add
+          .image(0, 0, ringKey)
+          .setDisplaySize(330, 330)
+          .setTint(tint)
+          .setAlpha(0.72)
+          .setBlendMode(Phaser.BlendModes.ADD),
+        this.add
+          .image(0, 0, ringKey)
+          .setDisplaySize(440, 240)
+          .setTint(0xffffff)
+          .setAlpha(0.34)
+          .setAngle(90)
+          .setBlendMode(Phaser.BlendModes.ADD)
+      );
+    }
+    objects.push(this.add.text(0, -204, `${restraint.label || "ARSENAL BIND"}\n${entry?.label || ""}`, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "30px",
+      color: textColor,
+      fontStyle: "bold",
+      align: "center",
+      stroke: "#050810",
+      strokeThickness: 8
+    }).setOrigin(0.5));
+
+    container.add(objects);
+    state.fieldGiantWeaponRestraintObjects = state.fieldGiantWeaponRestraintObjects || [];
+    state.fieldGiantWeaponRestraintObjects.push(container);
+    state.fieldObjects = state.fieldObjects || [];
+    state.fieldObjects.push(container);
+    this.tweens?.add({
+      targets: container,
+      alpha: 0.94,
+      scaleX: 1,
+      scaleY: 1,
+      duration: 360,
+      ease: "Back.Out"
+    });
+    return true;
+  }
+
+  restrainFinalBossRaidGiantWeapon(weaponId, entry, restraint = {}, reason = "guildSupport") {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !weaponId) {
+      return false;
+    }
+
+    state.giantWeaponRestrainedIds = state.giantWeaponRestrainedIds || {};
+    if (state.giantWeaponRestrainedIds[weaponId]) {
+      return false;
+    }
+
+    state.giantWeaponRestrainedIds[weaponId] = entry?.id || true;
+    const removedTarget = this.destroyFinalBossRaidGiantWeaponTargetById(weaponId, reason);
+    const createdVisual = this.createFinalBossRaidGiantWeaponRestraintVisual(weaponId, entry, restraint);
+    state.nextGiantWeaponAttackAt = 0;
+
+    const weaponConfig = this.getFinalBossRaidGiantWeaponConfig(weaponId);
+    this.setLastPickupNotice(`${entry?.label || restraint.label || "GUILD"} RESTRAINS ${weaponConfig?.label || weaponId}`);
+    if (state.debug) {
+      console.log("[FINAL BOSS RAID] giant weapon restrained", {
+        reason,
+        guildId: entry?.id,
+        guildLabel: entry?.label,
+        weaponId,
+        removedTarget,
+        createdVisual
+      });
+    }
+    return removedTarget || createdVisual;
+  }
+
+  applyFinalBossRaidGuildGiantWeaponRestraint(entry, reason = "guildJoined") {
+    const restraint = FINAL_RAID_GIANT_WEAPON_RESTRAINTS[entry?.id];
+    if (!restraint) {
+      return false;
+    }
+    return this.restrainFinalBossRaidGiantWeapon(restraint.weaponId, entry, restraint, reason);
+  }
+
+  applyFinalBossRaidJoinedGiantWeaponRestraints(reason = "syncJoinedGuilds") {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !Array.isArray(state.rankingEntries)) {
+      return;
+    }
+    state.rankingEntries.forEach((entry) => {
+      if (entry?.joined) {
+        this.applyFinalBossRaidGuildGiantWeaponRestraint(entry, reason);
+      }
+    });
+  }
+
+  destroyFinalBossRaidGiantWeaponVisuals(reason = "cleanup") {
+    const state = this.finalBossRaidState;
+    if (!state) {
+      return;
+    }
+
+    const sprites = (state.fieldGiantWeaponSprites || []).filter(Boolean);
+    const restraintObjects = (state.fieldGiantWeaponRestraintObjects || []).filter(Boolean);
+    const objects = [...sprites, ...restraintObjects];
+    this.tweens?.killTweensOf?.(objects);
+    objects.forEach((object) => object?.destroy?.());
+    if (Array.isArray(state.fieldObjects) && objects.length > 0) {
+      state.fieldObjects = state.fieldObjects.filter((object) => !objects.includes(object));
+    }
+    state.fieldGiantWeaponSprites = [];
+    state.fieldGiantWeaponRestraintObjects = [];
+
+    if (state.debug) {
+      console.log("[FINAL BOSS RAID] giant weapon visuals cleared", { reason, count: objects.length });
+    }
   }
 
   getFinalBossRaidGiantWeaponTargets() {
@@ -11190,7 +11507,10 @@ class SurvivalScene extends Phaser.Scene {
     }
     enemy[lastKey] = now;
 
-    const enemyHeight = Math.max(enemy.displayHeight || enemy.body?.height || (kind === "boss" ? 220 : 42), 24);
+    const enemyHeight = Math.max(
+      enemy.finalRaidVisualHeight || enemy.displayHeight || enemy.body?.height || (kind === "boss" ? 220 : 42),
+      24
+    );
     return this.spawnFloatingCombatText(
       enemy.x + Phaser.Math.Between(-12, 12),
       enemy.y - enemyHeight * (kind === "boss" ? 0.42 : 0.58) - 8,
@@ -11269,6 +11589,8 @@ class SurvivalScene extends Phaser.Scene {
     state.rankingDamageFrozen = true;
 
     this.cleanupFinalBossRaidThirdPhaseCombat(reason, { clearMinions: true });
+    this.destroyFinalBossRaidGiantWeaponTargets(reason);
+    this.destroyFinalBossRaidGiantWeaponVisuals(reason);
     (state.attackMotionTimers || []).forEach((timer) => timer?.remove?.(false));
     state.attackMotionTimers = [];
 
@@ -11341,6 +11663,7 @@ class SurvivalScene extends Phaser.Scene {
     this.cleanupFinalBossRaidSupportEffects(reason);
     this.cleanupFinalBossRaidThirdPhaseCombat(reason, { clearMinions: true });
     this.destroyFinalBossRaidGiantWeaponTargets(reason);
+    this.destroyFinalBossRaidGiantWeaponVisuals(reason);
     this.tweens?.killTweensOf?.(state.fieldContainer);
     this.tweens?.killTweensOf?.(state.fieldObjects || []);
     this.destroyFinalRaidHud(reason);
@@ -11361,6 +11684,7 @@ class SurvivalScene extends Phaser.Scene {
     state.fieldBackground = null;
     state.fieldArenaImage = null;
     state.fieldGiantWeaponSprites = [];
+    state.fieldGiantWeaponRestraintObjects = [];
     state.fieldImage = null;
     state.fieldFallbackGraphics = null;
     state.fieldFallbackText = null;
@@ -11391,6 +11715,7 @@ class SurvivalScene extends Phaser.Scene {
     state.bossBaseVisualScale = 1;
     state.bossDisplaySize = 330;
     state.bossHitTarget = null;
+    state.giantWeaponRestrainedIds = {};
 
     if (state.debug) {
       console.log("[FINAL BOSS RAID] objects destroyed", { reason });
@@ -11409,6 +11734,7 @@ class SurvivalScene extends Phaser.Scene {
     const bannerDelayMs = this.getFinalBossRaidSupportBannerDelayMs(entry, voiceDurationMs);
     this.queueFinalBossRaidSupportBanner(entry, bannerDelayMs);
     this.setLastPickupNotice(entry.finalPush ? `${entry.label} FINAL PUSH` : `${entry.label} RAID SUPPORT`);
+    this.applyFinalBossRaidGuildGiantWeaponRestraint(entry, "guildJoined");
 
     if (state.debug) {
       console.log("[FINAL BOSS RAID] guild joined", {
@@ -12689,6 +13015,95 @@ class SurvivalScene extends Phaser.Scene {
     return Math.floor(Math.max(0, Number(value) || 0) / step) * step;
   }
 
+  getFinalBossRaidScriptScaledMs(value, fallback = 0) {
+    const timeScale = Phaser.Math.Clamp(Number(this.finalBossRaidState?.timeScale) || 1, 0.02, 1);
+    return Math.max(0, Math.round((Number(value) || fallback) * timeScale));
+  }
+
+  getFinalBossRaidFinalPushTargetRank(elapsedMs = 0, script = FINAL_RAID_ASSIST_RANKING_SCRIPT) {
+    const state = this.finalBossRaidState;
+    const finalEntry = this.getFinalBossRaidFinalSupportEntry();
+    if (!state?.active || !finalEntry?.joined) {
+      return null;
+    }
+
+    const remainingMs = Math.max(0, Math.round((Number(state.durationMs) || 0) - Math.max(0, Number(elapsedMs) || 0)));
+    const steps = Array.isArray(script?.finalPushRankSteps) ? [...script.finalPushRankSteps] : [];
+    let targetRank = null;
+    steps
+      .map((step) => ({
+        remainingMs: this.getFinalBossRaidScriptScaledMs(step?.remainingMs, 0),
+        rank: Phaser.Math.Clamp(Math.floor(Number(step?.rank) || 0), 1, 5)
+      }))
+      .filter((step) => step.remainingMs > 0 && step.rank > 0)
+      .sort((left, right) => right.remainingMs - left.remainingMs)
+      .forEach((step) => {
+        if (remainingMs <= step.remainingMs) {
+          targetRank = step.rank;
+        }
+      });
+
+    return targetRank || 5;
+  }
+
+  applyFinalBossRaidLeaderDamageScript(leader, finalEntry, script = FINAL_RAID_ASSIST_RANKING_SCRIPT) {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !leader?.joined) {
+      return;
+    }
+
+    const topDamage = state.rankingEntries.reduce((maxDamage, entry) => {
+      if (
+        !entry?.joined
+        || entry.id === leader.id
+        || entry.id === finalEntry?.id
+        || entry.type !== "guild"
+      ) {
+        return maxDamage;
+      }
+      return Math.max(maxDamage, Math.max(0, Number(entry.damage) || 0));
+    }, 0);
+    const leadRatio = Math.max(1, Number(script.preFinalLeaderLeadRatio) || 1.04);
+    const leadDamage = Math.max(0, Number(script.preFinalLeaderLeadDamage) || 0);
+    leader.damage = Math.max(
+      Math.max(0, Math.floor(Number(leader.damage) || 0)),
+      Math.ceil(topDamage * leadRatio + leadDamage)
+    );
+  }
+
+  applyFinalBossRaidFinalPushRankScript(finalEntry, targetRank, script = FINAL_RAID_ASSIST_RANKING_SCRIPT) {
+    const state = this.finalBossRaidState;
+    if (!state?.active || !finalEntry?.joined || !targetRank) {
+      return;
+    }
+
+    const gap = Math.max(1, Math.floor(Number(script.rankDamageGap) || 12000));
+    const rank = Phaser.Math.Clamp(Math.floor(Number(targetRank) || 5), 1, 5);
+    const otherGuilds = state.rankingEntries
+      .filter((entry) => entry?.type === "guild" && entry.joined && entry.id !== finalEntry.id)
+      .sort((left, right) => (right.damage || 0) - (left.damage || 0));
+
+    if (rank <= 1) {
+      const topDamage = Math.max(0, Number(otherGuilds[0]?.damage) || 0);
+      finalEntry.damage = Math.ceil(topDamage + gap);
+      return;
+    }
+
+    const upperDamage = Math.max(0, Number(otherGuilds[rank - 2]?.damage) || 0);
+    const lowerDamage = Math.max(0, Number(otherGuilds[rank - 1]?.damage) || 0);
+    if (upperDamage <= 0) {
+      finalEntry.damage = Math.max(0, Number(finalEntry.damage) || 0);
+      return;
+    }
+
+    let targetDamage = Math.floor((upperDamage + lowerDamage) * 0.5);
+    targetDamage = Math.max(lowerDamage + 1, Math.min(upperDamage - 1, targetDamage));
+    if (targetDamage <= lowerDamage || targetDamage >= upperDamage) {
+      targetDamage = Math.max(0, upperDamage - 1);
+    }
+    finalEntry.damage = Math.max(0, targetDamage);
+  }
+
   applyFinalBossRaidRankingScript(elapsedMs = 0) {
     const state = this.finalBossRaidState;
     if (!state?.active || !Array.isArray(state.rankingEntries)) {
@@ -12703,27 +13118,9 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     const normalizedElapsed = Math.max(0, Number(elapsedMs) || 0);
-    const burstDelayMs = Math.max(0, Math.round(
-      (Number(script.finalPushBurstDelayMs) || 0) * Phaser.Math.Clamp(Number(state.timeScale) || 1, 0.02, 1)
-    ));
-    const finalBurstActive = finalEntry.joined
-      && normalizedElapsed >= Math.max(0, Number(finalEntry.joinMs) || 0) + burstDelayMs;
-    if (finalBurstActive) {
-      return;
-    }
-
-    const topDamage = state.rankingEntries.reduce((maxDamage, entry) => {
-      if (!entry?.joined || entry.id === leader.id || entry.type !== "guild") {
-        return maxDamage;
-      }
-      return Math.max(maxDamage, Math.max(0, Number(entry.damage) || 0));
-    }, 0);
-    const leadRatio = Math.max(1, Number(script.preFinalLeaderLeadRatio) || 1.04);
-    const leadDamage = Math.max(0, Number(script.preFinalLeaderLeadDamage) || 0);
-    leader.damage = Math.max(
-      Math.max(0, Math.floor(Number(leader.damage) || 0)),
-      Math.ceil(topDamage * leadRatio + leadDamage)
-    );
+    const finalPushTargetRank = this.getFinalBossRaidFinalPushTargetRank(normalizedElapsed, script);
+    this.applyFinalBossRaidLeaderDamageScript(leader, finalEntry, script);
+    this.applyFinalBossRaidFinalPushRankScript(finalEntry, finalPushTargetRank, script);
   }
 
   getFinalBossRaidProjectedGuildDamage(entry, elapsedMs, phase = null, timeScaleOverride = null) {
@@ -19637,9 +20034,53 @@ class SurvivalScene extends Phaser.Scene {
     this.updateOverflowHud();
   }
 
+  isSupportAttackJammed(depth = this.stageDepth) {
+    return Math.max(1, Math.floor(Number(depth) || 1)) === SUPPORT_JAMMED_DEPTH;
+  }
+
+  cleanupSupportAttacksForJamming(reason = "supportJammed") {
+    let cleaned = false;
+
+    if (this.gensoKnightsEvent && !this.gensoKnightsEvent.ended) {
+      this.cleanupGensoKnightsEvent(this.gensoKnightsEvent, true);
+      cleaned = true;
+    }
+
+    if (this.activeSupportAttacks?.length) {
+      const supports = this.activeSupportAttacks.slice();
+      this.activeSupportAttacks = [];
+      supports.forEach((support) => this.finishSupportAttack(support, true));
+      cleaned = true;
+    }
+
+    if (this.activeSupportAttackBgm) {
+      this.stopSupportAttackBgmOverride(null, true, true);
+      cleaned = true;
+    }
+
+    if (this.supportAttackBgmDuckingCount > 0) {
+      this.supportAttackBgmDuckingCount = 0;
+      this.supportAttackBgmDuckingVolume = SUPPORT_ATTACK_BGM_DUCK_VOLUME;
+      this.restoreNormalBgmVolume(SUPPORT_ATTACK_BGM_DUCK_OUT_MS);
+      cleaned = true;
+    }
+
+    return cleaned;
+  }
+
+  applySupportJammingForDepth(depth = this.stageDepth, reason = "depthStart") {
+    if (!this.isSupportAttackJammed(depth)) {
+      return false;
+    }
+    return this.cleanupSupportAttacksForJamming(reason);
+  }
+
   canApplySupportReward(definition) {
     if (definition?.effectType !== "bomb") {
       return true;
+    }
+    if (this.isSupportAttackJammed()) {
+      return false;
     }
     if (this.isGensoKnightsEventActive() || this.isTimingCoinSupportAttackActive()) {
       return false;
@@ -23333,6 +23774,7 @@ class SurvivalScene extends Phaser.Scene {
     this.pickupEffectsLayer = this.add.layer().setDepth(11);
     this.skillEffectsLayer = this.add.layer().setDepth(21);
     this.robotEffectsLayer = this.add.layer().setDepth(22);
+    this.finalRaidSkillEffectsLayer = this.add.layer().setDepth(this.getFinalRaidSkillFrontEffectsDepth?.() ?? 23.55);
     this.supportEffectsLayer = this.add.layer().setDepth(24);
     this.combatTextLayer = this.add.layer().setDepth(30);
     this.floatingCombatTextCount = 0;
@@ -24506,6 +24948,41 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
+  shouldRenderSkillAboveFinalRaidBoss(skillId) {
+    return skillId === "tornadoSkill" && Boolean(this.isFinalBossRaidActive?.());
+  }
+
+  getSkillEffectsLayerForSkill(skillId = null) {
+    if (this.shouldRenderSkillAboveFinalRaidBoss(skillId) && this.finalRaidSkillEffectsLayer) {
+      this.finalRaidSkillEffectsLayer.setDepth(this.getFinalRaidSkillFrontEffectsDepth?.() ?? 23.55);
+      return this.finalRaidSkillEffectsLayer;
+    }
+
+    return this.skillEffectsLayer;
+  }
+
+  getSkillOrbitalVisualDepths(skillStateOrId = null) {
+    const skillId = typeof skillStateOrId === "string" ? skillStateOrId : skillStateOrId?.id;
+    if (this.shouldRenderSkillAboveFinalRaidBoss(skillId)) {
+      const spriteDepth = this.getFinalRaidSkillFrontEffectsDepth?.() ?? 23.55;
+      return {
+        aura: spriteDepth - 0.18,
+        sprite: spriteDepth
+      };
+    }
+
+    return {
+      aura: 18,
+      sprite: 19
+    };
+  }
+
+  syncSkillOrbitalVisualDepth(skillState, orbital) {
+    const depths = this.getSkillOrbitalVisualDepths(skillState);
+    orbital.aura?.setDepth(depths.aura);
+    orbital.sprite?.setDepth(depths.sprite);
+  }
+
   createPlayerSkills() {
     Object.values(this.playerSkills).forEach((skillState) => {
       this.applySkillStage(skillState, true);
@@ -24564,6 +25041,7 @@ class SurvivalScene extends Phaser.Scene {
       orbital.aura.setVisible(Boolean(stageData.pulseSpeed) || skillState.definition.behavior === "screenHoming");
       orbital.aura.setAlpha(0);
       orbital.sprite.setAlpha(stageData.pulseSpeed ? 0.82 : 0.94);
+      this.syncSkillOrbitalVisualDepth(skillState, orbital);
       orbital.trailTimer = 0;
       this.resizeSkillHitbox(orbital.hitbox, stageData.hitRadius);
 
@@ -29623,6 +30101,7 @@ class SurvivalScene extends Phaser.Scene {
     this.gateInstabilityStacks = Math.max(0, Math.floor(Number(transition?.nextInstabilityStacks) || 0));
     this.updateAnjuMemoryDepthProgress(this.stageDepth);
     this.syncPlayerLevelXpRequirement();
+    this.applySupportJammingForDepth(this.stageDepth, "depthTransition");
     this.resetGateCycleForNextDepth();
     const dataCacheCount = this.spawnDataCacheDrops(transition?.dataCachePayload);
     this.gateChoiceActive = false;
@@ -31474,6 +31953,7 @@ class SurvivalScene extends Phaser.Scene {
     orbital.hitbox.body.updateFromGameObject();
     orbital.aura.setPosition(x, y);
     orbital.sprite.setPosition(x, y);
+    this.syncSkillOrbitalVisualDepth(skillState, orbital);
     orbital.spinAngle += stageData.spinSpeed * spinMultiplier * (delta / 1000);
     orbital.frameTimer = (orbital.frameTimer || 0) + (alignToDash ? 0 : delta);
     orbital.sprite.setTexture(this.getSkillOrbitalFrameTextureKey(stageData, orbital));
@@ -31666,6 +32146,7 @@ class SurvivalScene extends Phaser.Scene {
 
   spawnTornadoTrailEffect(x, y, stageData, pulseProgress = 0, movementAngle = 0, speedRatio = 0, skillId = null) {
     const mutationStyle = this.getSkillMutationVisualStyle(skillId);
+    const effectsLayer = this.getSkillEffectsLayerForSkill(skillId);
     const trail = this.add
       .image(x, y, "skill-hit-glow")
       .setDepth(17)
@@ -31674,7 +32155,7 @@ class SurvivalScene extends Phaser.Scene {
       .setAlpha((mutationStyle ? 0.2 : 0.14) + pulseProgress * 0.12)
       .setBlendMode(Phaser.BlendModes.ADD);
 
-    this.skillEffectsLayer.add(trail);
+    effectsLayer?.add(trail);
     this.tweens.add({
       targets: trail,
       scaleX: trail.scaleX * 1.28,
@@ -31703,7 +32184,7 @@ class SurvivalScene extends Phaser.Scene {
         .setAlpha(0.24 + speedRatio * 0.18)
         .setBlendMode(Phaser.BlendModes.ADD);
 
-      this.skillEffectsLayer.add(streak);
+      effectsLayer?.add(streak);
       this.tweens.add({
         targets: streak,
         x: streak.x - Math.cos(movementAngle) * (18 + speedRatio * 12),
@@ -32676,6 +33157,13 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   clampBossAttackPoint(x, y, padding = 0) {
+    if (this.isFinalBossRaidActive?.()) {
+      const polygon = this.getFinalBossRaidMovementPolygon?.(Math.max(0, padding));
+      if (polygon?.length >= 3) {
+        return this.clampPointToPolygon(x, y, polygon);
+      }
+    }
+
     const bounds = this.getStageMovementBounds(this.currentStage, Math.max(0, padding));
     if (!bounds) {
       return { x, y };
@@ -36737,7 +37225,7 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     const dropOrder = [
-      SPECIAL_ITEM_DEFINITIONS.bomb,
+      ...(this.isSupportAttackJammed() ? [] : [SPECIAL_ITEM_DEFINITIONS.bomb]),
       SPECIAL_ITEM_DEFINITIONS.magnet,
       SPECIAL_ITEM_DEFINITIONS.heal
     ];
@@ -37914,6 +38402,10 @@ class SurvivalScene extends Phaser.Scene {
 
   applyBombItemEffect(definition) {
     this.spawnSpecialItemPickupEffect(this.playerHitbox.x, this.playerHitbox.y - 10, definition);
+    if (this.isSupportAttackJammed()) {
+      this.setLastPickupNotice(`SUPPORT JAMMED DEPTH ${SUPPORT_JAMMED_DEPTH}`);
+      return;
+    }
     if (this.isGensoKnightsEventActive()) {
       this.setLastPickupNotice("GENSO KNIGHTS ACTIVE");
       return;
@@ -37977,6 +38469,10 @@ class SurvivalScene extends Phaser.Scene {
     if (!definition) {
       return;
     }
+    if (this.isSupportAttackJammed()) {
+      this.setLastPickupNotice(`SUPPORT JAMMED DEPTH ${SUPPORT_JAMMED_DEPTH}`);
+      return;
+    }
 
     if (definition.type === "gensoKnights") {
       this.triggerGensoKnightsSupportAttack(definition);
@@ -38006,6 +38502,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   triggerTimingCoinSupportAttack(definition) {
+    if (this.isSupportAttackJammed()) {
+      this.setLastPickupNotice(`SUPPORT JAMMED DEPTH ${SUPPORT_JAMMED_DEPTH}`);
+      return;
+    }
     if (this.isGensoKnightsEventActive()) {
       return;
     }
@@ -38128,6 +38628,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   triggerGensoKnightsSupportAttack(definition = GENSO_KNIGHTS_SUPPORT_DEFINITION) {
+    if (this.isSupportAttackJammed()) {
+      this.setLastPickupNotice(`SUPPORT JAMMED DEPTH ${SUPPORT_JAMMED_DEPTH}`);
+      return;
+    }
     if (this.isGensoKnightsEventActive()) {
       return;
     }
@@ -43792,6 +44296,23 @@ class SurvivalScene extends Phaser.Scene {
     };
     this.hudConsumableSlots?.forEach((slot) => {
       const key = slot.effectType;
+      const supportJammed = key === "bomb" && this.isSupportAttackJammed();
+      if (supportJammed) {
+        slot.panel.setAlpha(0.62);
+        slot.icon.setAlpha(0.2);
+        slot.icon.setTint?.(0x7fa8b8);
+        slot.label
+          .setText("SUP\nJAMMED")
+          .setFontSize("9px")
+          .setColor("#7fa8b8")
+          .setLineSpacing(-2);
+        return;
+      }
+      slot.icon.clearTint?.();
+      slot.label
+        .setFontSize("10px")
+        .setColor(HUD_STYLE.muted)
+        .setLineSpacing(0);
       slot.panel.setAlpha(specialCounts[key] > 0 ? 0.95 : 0.58);
       slot.icon.setAlpha(specialCounts[key] > 0 ? 0.95 : 0.38);
       slot.label.setText(`${slot.baseLabel} ${specialCounts[key]}`);
