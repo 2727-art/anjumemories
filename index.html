@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-title" content="ラスメモヴァンサバ">
   <title>ラスメモヴァンサバゲーム</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./style.css?v=shop-loading-ui">
 </head>
 <body>
   <div id="mobile-start-gate" class="mobile-start-gate" role="dialog" aria-modal="true" aria-labelledby="mobile-start-title" hidden>
@@ -24,12 +24,70 @@
     </div>
   </div>
 
-  <div id="shop-loading-screen" class="shop-loading-screen" role="status" aria-live="polite" aria-hidden="true" hidden>
-    <div class="shop-loading-panel">
-      <div class="shop-loading-emblem" aria-hidden="true">G</div>
-      <p class="shop-loading-kicker">LAST MEMORIES</p>
-      <h2 id="shop-loading-title">ショップ準備中</h2>
-      <div class="shop-loading-bar" aria-hidden="true"><span></span></div>
+  <div id="shop-loading-screen" class="shop-loading-screen" role="status" aria-hidden="true" hidden>
+    <div class="shop-loading-panel" aria-labelledby="shop-loading-title">
+      <div class="shop-loading-header">
+        <p class="shop-loading-kicker" data-shop-loading-kicker>OPENING SHOP SYSTEM</p>
+        <p class="shop-loading-channel" data-shop-loading-channel>NODE 01/05</p>
+      </div>
+      <div class="shop-loading-visual" aria-hidden="true">
+        <div class="shop-loading-geek-core">
+          <span class="shop-loading-geek-ring"></span>
+          <span class="shop-loading-geek-mark">G</span>
+        </div>
+        <div class="shop-loading-network-core">
+          <span class="shop-loading-network-line line-a"></span>
+          <span class="shop-loading-network-line line-b"></span>
+          <span class="shop-loading-network-line line-c"></span>
+          <span class="shop-loading-network-node node-main"></span>
+          <span class="shop-loading-network-node node-a"></span>
+          <span class="shop-loading-network-node node-b"></span>
+          <span class="shop-loading-network-node node-c"></span>
+        </div>
+      </div>
+      <h2 id="shop-loading-title" aria-live="polite">ショップ準備中</h2>
+      <p class="shop-loading-copy" data-shop-loading-copy>ショップモジュールを同期しています</p>
+      <p class="shop-loading-amount" data-shop-loading-amount hidden></p>
+      <p class="shop-loading-total" data-shop-loading-total hidden></p>
+      <div class="shop-loading-flow shop-loading-geek-flow" aria-hidden="true">
+        <div class="shop-loading-flow-line"></div>
+        <div class="shop-loading-flow-node" data-geek-node="run">
+          <span class="shop-loading-node-dot"></span>
+          <span class="shop-loading-node-label">RUN DATA</span>
+        </div>
+        <div class="shop-loading-flow-node" data-geek-node="wallet">
+          <span class="shop-loading-node-dot"></span>
+          <span class="shop-loading-node-label">GEEK WALLET</span>
+        </div>
+        <div class="shop-loading-flow-node" data-geek-node="shop">
+          <span class="shop-loading-node-dot"></span>
+          <span class="shop-loading-node-label">SHOP LINK</span>
+        </div>
+      </div>
+      <div class="shop-loading-modules" aria-hidden="true">
+        <div class="shop-loading-module" data-shop-module="cd">
+          <span class="shop-loading-node-dot"></span>
+          <span class="shop-loading-module-label" data-label="CDSHOP" data-short-label="CD">CDSHOP</span>
+        </div>
+        <div class="shop-loading-module" data-shop-module="geek">
+          <span class="shop-loading-node-dot"></span>
+          <span class="shop-loading-module-label" data-label="GEEKSHOP" data-short-label="GEEK">GEEKSHOP</span>
+        </div>
+        <div class="shop-loading-module" data-shop-module="robot">
+          <span class="shop-loading-node-dot"></span>
+          <span class="shop-loading-module-label" data-label="ROBOT CUSTOM" data-short-label="ROBOT">ROBOT CUSTOM</span>
+        </div>
+        <div class="shop-loading-module" data-shop-module="anju">
+          <span class="shop-loading-node-dot"></span>
+          <span class="shop-loading-module-label" data-label="ANJU MEMORY" data-short-label="AM">ANJU MEMORY</span>
+        </div>
+        <div class="shop-loading-module" data-shop-module="archive">
+          <span class="shop-loading-node-dot"></span>
+          <span class="shop-loading-module-label" data-label="ARCHIVE" data-short-label="ARCHIVE">ARCHIVE</span>
+        </div>
+      </div>
+      <p class="shop-loading-status" data-shop-loading-status>CDSHOP SYNC...</p>
+      <div class="shop-loading-ready-sweep" aria-hidden="true"></div>
     </div>
   </div>
 
@@ -42,6 +100,6 @@
   <script src="./vendor/phaser.min.js"></script>
   <script src="./skillDefinitions.js"></script>
   <script src="./stageDefinitions.js"></script>
-  <script src="./game.js"></script>
+  <script src="./game.js?v=shop-loading-ui"></script>
 </body>
 </html>

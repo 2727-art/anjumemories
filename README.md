@@ -82,6 +82,7 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - `?debugRecoveryFieldScale=1`: デバッグ用。Recovery Field の選択画像、表示サイズ、alpha、angle / rotation、depth、表示モードを console に出します。
 - `?debugDollTrace=1`: デバッグ用。通常 Depth の外周停滞検知 `DOLL TRACE` の更新、ハンター出現、cleanup を console に出し、HUD に詳細行を表示します。
 - `?debugDollTraceFast=1`: デバッグ用。`DOLL TRACE` の蓄積と減衰を早めます。`debugDollTrace=1` と併用すると確認しやすくなります。
+- `?debugShopLoading=geek|shop|sequence`: デバッグ用。保存データを書き換えず、ショップローディングの GEEK 確定、ショップ起動、連続遷移を表示確認します。`debugShopLoadingAmount=12340` で表示額だけ指定できます。
 
 ## ゲーム進行
 

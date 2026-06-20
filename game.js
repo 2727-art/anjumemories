@@ -349,8 +349,16 @@ const MOBILE_DASH_BUTTON_Y = 350;
 const MOBILE_DASH_BUTTON_RADIUS = 58;
 const MOBILE_FINAL_RAID_DASH_BUTTON_Y = GAME_HEIGHT - MOBILE_DASH_BUTTON_RADIUS - 34;
 const SHOP_LOADING_MIN_VISIBLE_MS = 650;
+const SHOP_LOADING_GEEK_STEP_MS = 110;
+const SHOP_LOADING_GEEK_COMPLETE_MS = 320;
+const SHOP_LOADING_GEEK_TO_SHOP_MS = 640;
+const SHOP_LOADING_DEBUG_GEEK_TO_SHOP_MS = 1250;
+const SHOP_LOADING_SHOP_NODE_MS = 170;
+const SHOP_LOADING_COMPLETE_HOLD_MS = 320;
 const SHOP_RETURN_RELOAD_DELAY_MS = 720;
 const SHOP_RETURN_WATCHDOG_MS = 6500;
+const SHOP_LOADING_DEBUG_QUERY_PARAM = "debugShopLoading";
+const SHOP_LOADING_DEBUG_AMOUNT_QUERY_PARAM = "debugShopLoadingAmount";
 const MOBILE_FULLSCREEN_RESUME_PROMPT_DELAY_MS = 260;
 const MOBILE_FULLSCREEN_RESUME_MONITOR_MS = 30000;
 const MOBILE_FULLSCREEN_RESUME_MONITOR_INTERVAL_MS = 300;
@@ -6219,6 +6227,7 @@ class SurvivalScene extends Phaser.Scene {
     this.remoteRankingRequestId = 0;
     this.gameOverRecordState = null;
     this.pendingShopReturnMessage = "";
+    this.pendingShopLoadingOptions = null;
     this.pendingDeepExtractionResultPayload = null;
     this.deepExtractionResultDebugShown = false;
     this.deepExtractionResultState = this.createDeepExtractionResultState();
@@ -19561,7 +19570,10 @@ class SurvivalScene extends Phaser.Scene {
     }
     this.setPendingShopEpilogueComms?.("depth10_shop_return_epilogue", "liberationReturn");
     this.cleanupFinalRaidRescueLink?.("liberationReturn");
-    this.returnToOpeningShop(messageLines.join("\n"), { showMobileLaunchGate: true });
+    this.returnToOpeningShop(messageLines.join("\n"), {
+      showMobileLaunchGate: true,
+      shopLoading: this.buildExtractionShopLoadingOptions(result)
+    });
   }
 
   completeFinalBossRaidTimer() {
@@ -38170,7 +38182,8 @@ class SurvivalScene extends Phaser.Scene {
       lostCoins: result.lost,
       lostArmsMessage,
       anjuMemoryText,
-      returnMessage
+      returnMessage,
+      shopLoadingOptions: this.buildExtractionShopLoadingOptions(result)
     });
     const deepResultPayload = this.storeDeepExtractionResultPayload(this.buildDeepExtractionResultPayload({
       result,
@@ -38193,7 +38206,31 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
+  buildExtractionShopLoadingOptions(result) {
+    const secured = this.normalizeCoinAmount(result?.secured);
+    if (secured <= 0) {
+      return null;
+    }
+
+    return {
+      mode: "geek",
+      amount: secured,
+      total: this.normalizeCoinAmount(this.coins),
+      autoShop: true
+    };
+  }
+
+  getPendingShopLoadingOptions() {
+    const options = this.pendingShopLoadingOptions;
+    if (!options || this.normalizeCoinAmount(options.amount) <= 0) {
+      return null;
+    }
+
+    return { ...options };
+  }
+
   prepareExtractionRankingEntry(recordState, context = {}) {
+    this.pendingShopLoadingOptions = context.shopLoadingOptions || null;
     if (!recordState?.currentRecord || !recordState?.bestRecord) {
       this.pendingShopReturnMessage = context.returnMessage || "";
       return;
@@ -38223,7 +38260,10 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     if (!this.pendingRankingRecord || !this.gameOverRecordState?.currentRecord) {
-      this.returnToOpeningShop(this.pendingShopReturnMessage || "", { showMobileLaunchGate: true });
+      this.returnToOpeningShop(this.pendingShopReturnMessage || "", {
+        showMobileLaunchGate: true,
+        shopLoading: this.getPendingShopLoadingOptions()
+      });
       return;
     }
 
@@ -51008,7 +51048,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   continueToOpeningShopFromRanking() {
-    this.returnToOpeningShop(this.pendingShopReturnMessage || "", { showMobileLaunchGate: true });
+    this.returnToOpeningShop(this.pendingShopReturnMessage || "", {
+      showMobileLaunchGate: true,
+      shopLoading: this.getPendingShopLoadingOptions()
+    });
   }
 
   setRankingDisplayMode(mode) {
@@ -51067,6 +51110,10 @@ class SurvivalScene extends Phaser.Scene {
     const useMobileInPageReset = shouldUseMobileInPageShopReset();
     const wantsFullscreenOnReturn = wantsMobileLandscapeFullscreen();
     const shopReturnOptions = { ...options };
+    const shopLoadingOptions = shopReturnOptions.shopLoading && this.normalizeCoinAmount(shopReturnOptions.shopLoading.amount) > 0
+      ? { ...shopReturnOptions.shopLoading }
+      : null;
+    delete shopReturnOptions.shopLoading;
     if (wantsFullscreenOnReturn) {
       shopReturnOptions.showMobileLaunchGate = true;
     }
@@ -51078,7 +51125,8 @@ class SurvivalScene extends Phaser.Scene {
       requestLandscapeFullscreen();
     }
 
-    showShopLoadingScreen(message ? "GEEK 確定中" : "ショップへ戻っています");
+    showShopLoadingScreen(shopLoadingOptions || { mode: "shop" });
+    this.pendingShopLoadingOptions = null;
     this.restartInProgress = true;
     this.remoteRankingRequestId += 1;
     this.gameOver = false;
@@ -53099,96 +53147,360 @@ function peekPendingOpeningShopMessage() {
 }
 
 function getShopLoadingTitleForMessage(message = "") {
-  return String(message || "") ? "GEEK 確定中" : "ショップ準備中";
+  return "ショップ準備中";
 }
 
-function assignShopLoadingStyles(element, styles) {
+const SHOP_LOADING_SHOP_MODULES = [
+  { id: "cd", label: "CDSHOP" },
+  { id: "geek", label: "GEEKSHOP" },
+  { id: "robot", label: "ROBOT CUSTOM" },
+  { id: "anju", label: "ANJU MEMORY" },
+  { id: "archive", label: "ARCHIVE" }
+];
+
+const SHOP_LOADING_GEEK_NODES = [
+  { id: "run", label: "RUN DATA", status: "RUN DATA TRANSFER..." },
+  { id: "wallet", label: "GEEK WALLET", status: "GEEK WALLET SYNC..." },
+  { id: "shop", label: "SHOP LINK", status: "SHOP LINK HANDOFF..." }
+];
+
+function formatShopLoadingAmount(value) {
+  const amount = Math.max(0, Math.floor(Number(value) || 0));
+  return amount.toLocaleString();
+}
+
+function getShopLoadingElements(screen) {
+  return {
+    kicker: screen?.querySelector("[data-shop-loading-kicker]"),
+    channel: screen?.querySelector("[data-shop-loading-channel]"),
+    title: screen?.querySelector("#shop-loading-title"),
+    copy: screen?.querySelector("[data-shop-loading-copy]"),
+    amount: screen?.querySelector("[data-shop-loading-amount]"),
+    total: screen?.querySelector("[data-shop-loading-total]"),
+    status: screen?.querySelector("[data-shop-loading-status]"),
+    geekNodes: SHOP_LOADING_GEEK_NODES.map((node) => screen?.querySelector(`[data-geek-node="${node.id}"]`)).filter(Boolean),
+    shopModules: SHOP_LOADING_SHOP_MODULES.map((module) => screen?.querySelector(`[data-shop-module="${module.id}"]`)).filter(Boolean)
+  };
+}
+
+function getShopLoadingRuntime() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  if (!window.__SURVIVAL_SHOP_LOADING_STATE__) {
+    window.__SURVIVAL_SHOP_LOADING_STATE__ = {
+      token: 0,
+      timers: [],
+      mode: "shop",
+      startedAt: 0,
+      completed: false,
+      debugActive: false,
+      pendingHideOptions: null
+    };
+  }
+
+  return window.__SURVIVAL_SHOP_LOADING_STATE__;
+}
+
+function clearShopLoadingTimers() {
+  const state = getShopLoadingRuntime();
+  if (!state || typeof window === "undefined") {
+    return;
+  }
+
+  state.timers.forEach((timerId) => window.clearTimeout(timerId));
+  state.timers = [];
+}
+
+function scheduleShopLoadingTimer(callback, delayMs, token) {
+  const state = getShopLoadingRuntime();
+  if (!state || typeof window === "undefined") {
+    return null;
+  }
+
+  const activeToken = Number.isFinite(token) ? token : state.token;
+  const timerId = window.setTimeout(() => {
+    state.timers = state.timers.filter((id) => id !== timerId);
+    if (state.token !== activeToken) {
+      return;
+    }
+    callback();
+  }, Math.max(0, Math.floor(Number(delayMs) || 0)));
+  state.timers.push(timerId);
+  return timerId;
+}
+
+function setShopLoadingText(element, text = "") {
+  if (element) {
+    element.textContent = text;
+  }
+}
+
+function setShopLoadingHidden(element, hidden) {
   if (!element) {
     return;
   }
 
-  Object.assign(element.style, styles);
+  if (hidden) {
+    element.hidden = true;
+    element.textContent = "";
+  } else {
+    element.hidden = false;
+  }
 }
 
-function applyShopLoadingInlineStyles(screen) {
+function setShopLoadingNodeClass(node, state) {
+  if (!node) {
+    return;
+  }
+
+  node.classList.toggle("is-complete", state === "complete");
+  node.classList.toggle("is-active", state === "active");
+  node.classList.toggle("is-pending", state === "pending");
+  node.setAttribute("data-state", state);
+}
+
+function updateShopLoadingGeekNodes(screen, activeIndex = 0, completeAll = false) {
+  const elements = getShopLoadingElements(screen);
+  elements.geekNodes.forEach((node, index) => {
+    const state = completeAll ? "complete" : index < activeIndex ? "complete" : index === activeIndex ? "active" : "pending";
+    setShopLoadingNodeClass(node, state);
+  });
+  const status = completeAll
+    ? "SHOP LINK READY"
+    : SHOP_LOADING_GEEK_NODES[Math.min(SHOP_LOADING_GEEK_NODES.length - 1, Math.max(0, activeIndex))]?.status;
+  setShopLoadingText(elements.status, status || "");
+}
+
+function updateShopLoadingModules(screen, activeIndex = 0, completeAll = false) {
+  const runtime = getShopLoadingRuntime();
+  if (runtime?.completed && !completeAll) {
+    return;
+  }
+
+  const elements = getShopLoadingElements(screen);
+  elements.shopModules.forEach((node, index) => {
+    const state = completeAll ? "complete" : index < activeIndex ? "complete" : index === activeIndex ? "active" : "pending";
+    setShopLoadingNodeClass(node, state);
+  });
+
+  const currentIndex = Math.min(SHOP_LOADING_SHOP_MODULES.length - 1, Math.max(0, activeIndex));
+  const module = SHOP_LOADING_SHOP_MODULES[currentIndex];
+  setShopLoadingText(elements.channel, completeAll ? "READY" : `NODE ${String(currentIndex + 1).padStart(2, "0")}/05`);
+  setShopLoadingText(elements.status, completeAll ? "ALL MODULES ONLINE" : `${module.label} SYNC...`);
+}
+
+function beginShopLoadingModuleCycle(screen, token) {
+  updateShopLoadingModules(screen, 0, false);
+  SHOP_LOADING_SHOP_MODULES.slice(1).forEach((module, index) => {
+    scheduleShopLoadingTimer(() => {
+      updateShopLoadingModules(screen, index + 1, false);
+    }, SHOP_LOADING_SHOP_NODE_MS * (index + 1), token);
+  });
+}
+
+function resetShopLoadingInlineStyles(screen) {
   syncMobileViewportFrame();
-  const panel = screen?.querySelector(".shop-loading-panel");
-  const emblem = screen?.querySelector(".shop-loading-emblem");
-  const kicker = screen?.querySelector(".shop-loading-kicker");
-  const title = screen?.querySelector("#shop-loading-title");
-  const bar = screen?.querySelector(".shop-loading-bar");
-  const barFill = screen?.querySelector(".shop-loading-bar span");
-
-  assignShopLoadingStyles(screen, {
-    position: "fixed",
-    inset: "0",
-    width: "auto",
-    height: "auto",
-    minHeight: "0",
-    zIndex: "9500",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-    padding: "18px",
-    background: "linear-gradient(180deg, rgba(2, 6, 11, 0.98), rgba(3, 9, 16, 0.995))",
-    opacity: "1",
-    touchAction: "none"
-  });
-  assignShopLoadingStyles(panel, {
-    width: "min(420px, calc(100vw - 36px))",
-    maxHeight: "calc(100dvh - 36px)",
-    overflow: "auto",
-    padding: "26px 24px 24px",
-    border: "1px solid rgba(111, 207, 255, 0.36)",
-    borderRadius: "8px",
-    background: "rgba(7, 18, 30, 0.96)",
-    boxShadow: "0 22px 58px rgba(0, 0, 0, 0.52)",
-    textAlign: "center"
-  });
-  assignShopLoadingStyles(emblem, {
-    display: "grid",
-    width: "58px",
-    height: "58px",
-    margin: "0 auto 14px",
-    placeItems: "center",
-    border: "2px solid rgba(111, 207, 255, 0.78)",
-    borderRadius: "50%",
-    color: "#ecf7ff",
-    font: "800 28px/1 Segoe UI, Yu Gothic UI, sans-serif"
-  });
-  assignShopLoadingStyles(kicker, {
-    margin: "0 0 8px",
-    color: "#6fcfff",
-    fontSize: "12px",
-    fontWeight: "800"
-  });
-  assignShopLoadingStyles(title, {
-    margin: "0",
-    color: "#ecf7ff",
-    fontSize: "24px",
-    lineHeight: "1.35",
-    fontWeight: "700"
-  });
-  assignShopLoadingStyles(bar, {
-    position: "relative",
-    height: "5px",
-    marginTop: "22px",
-    overflow: "hidden",
-    borderRadius: "999px",
-    background: "rgba(111, 207, 255, 0.16)"
-  });
-  assignShopLoadingStyles(barFill, {
-    position: "absolute",
-    inset: "0 auto 0 0",
-    width: "38%",
-    borderRadius: "inherit",
-    background: "linear-gradient(90deg, rgba(111, 207, 255, 0.12), rgba(111, 207, 255, 0.92), rgba(240, 196, 99, 0.84))",
-    animation: "shop-loading-sweep 1.05s ease-in-out infinite"
-  });
+  screen?.removeAttribute("style");
+  screen?.querySelectorAll(".shop-loading-panel, .shop-loading-geek-core, .shop-loading-network-core, .shop-loading-flow, .shop-loading-modules")
+    .forEach((element) => element.removeAttribute("style"));
 }
 
-function showShopLoadingScreen(title = "ショップ準備中") {
+function normalizeShopLoadingOptions(input, options = {}) {
+  if (input && typeof input === "object" && !Array.isArray(input)) {
+    return { mode: "shop", ...input };
+  }
+
+  const title = typeof input === "string" ? input : "";
+  const merged = { ...options };
+  if (!merged.mode && /GEEK/i.test(title)) {
+    merged.mode = "geek";
+  }
+  return {
+    mode: merged.mode || "shop",
+    title: merged.title || title || "",
+    ...merged
+  };
+}
+
+function setShopLoadingMode(screen, rawOptions = {}, token = getShopLoadingRuntime()?.token) {
+  if (!screen) {
+    return;
+  }
+
+  const runtime = getShopLoadingRuntime();
+  const options = normalizeShopLoadingOptions(rawOptions);
+  const mode = options.mode === "geek" ? "geek" : "shop";
+  const elements = getShopLoadingElements(screen);
+  runtime.mode = mode;
+  runtime.completed = false;
+
+  screen.classList.remove("is-mode-geek", "is-mode-shop", "is-geek-complete", "is-shop-complete");
+  screen.classList.add(mode === "geek" ? "is-mode-geek" : "is-mode-shop");
+
+  setShopLoadingHidden(elements.amount, true);
+  setShopLoadingHidden(elements.total, true);
+
+  if (mode === "geek") {
+    const securedAmount = Math.max(0, Math.floor(Number(options.amount) || 0));
+    setShopLoadingText(elements.kicker, "EXTRACTION PROTOCOL");
+    setShopLoadingText(elements.channel, "SECURE CHANNEL");
+    setShopLoadingText(elements.title, options.title || "GEEK 確定中");
+    setShopLoadingText(elements.copy, "未確定データをウォレットへ転送しています");
+    if (securedAmount > 0) {
+      setShopLoadingHidden(elements.amount, false);
+      setShopLoadingText(elements.amount, `+${formatShopLoadingAmount(securedAmount)} GEEK`);
+    }
+    updateShopLoadingGeekNodes(screen, 0, false);
+    scheduleShopLoadingTimer(() => updateShopLoadingGeekNodes(screen, 1, false), SHOP_LOADING_GEEK_STEP_MS, token);
+    scheduleShopLoadingTimer(() => updateShopLoadingGeekNodes(screen, 2, false), SHOP_LOADING_GEEK_STEP_MS * 2, token);
+    scheduleShopLoadingTimer(() => completeShopLoadingGeekMode(screen, options), SHOP_LOADING_GEEK_COMPLETE_MS, token);
+    if (options.autoShop !== false) {
+      const toShopMs = Math.max(
+        SHOP_LOADING_GEEK_COMPLETE_MS,
+        Math.floor(Number(options.toShopMs) || SHOP_LOADING_GEEK_TO_SHOP_MS)
+      );
+      scheduleShopLoadingTimer(() => setShopLoadingMode(screen, { mode: "shop" }, token), toShopMs, token);
+    }
+    return;
+  }
+
+  setShopLoadingText(elements.kicker, "OPENING SHOP SYSTEM");
+  setShopLoadingText(elements.title, options.title || "ショップ準備中");
+  setShopLoadingText(elements.copy, "ショップモジュールを同期しています");
+  beginShopLoadingModuleCycle(screen, token);
+}
+
+function completeShopLoadingGeekMode(screen, options = {}) {
+  const runtime = getShopLoadingRuntime();
+  if (!screen || runtime?.mode !== "geek") {
+    return;
+  }
+
+  const elements = getShopLoadingElements(screen);
+  screen.classList.add("is-geek-complete");
+  setShopLoadingText(elements.channel, "SECURED");
+  setShopLoadingText(elements.title, "GEEK SECURED");
+  setShopLoadingText(elements.copy, "未確定データをウォレットへ転送しました");
+  updateShopLoadingGeekNodes(screen, 0, true);
+
+  const total = Math.max(0, Math.floor(Number(options.total) || 0));
+  if (total > 0) {
+    setShopLoadingHidden(elements.total, false);
+    setShopLoadingText(elements.total, `TOTAL ${formatShopLoadingAmount(total)}`);
+  }
+}
+
+function completeShopLoadingShopMode(screen) {
+  if (!screen) {
+    return;
+  }
+
+  const runtime = getShopLoadingRuntime();
+  const elements = getShopLoadingElements(screen);
+  runtime.mode = "shop";
+  runtime.completed = true;
+  screen.classList.remove("is-mode-geek", "is-geek-complete");
+  screen.classList.add("is-mode-shop", "is-shop-complete");
+  setShopLoadingHidden(elements.amount, true);
+  setShopLoadingHidden(elements.total, true);
+  setShopLoadingText(elements.kicker, "OPENING SHOP SYSTEM");
+  setShopLoadingText(elements.channel, "READY");
+  setShopLoadingText(elements.title, "SHOP ONLINE");
+  setShopLoadingText(elements.copy, "SYSTEM READY");
+  updateShopLoadingModules(screen, 0, true);
+}
+
+function getShopLoadingDebugMode() {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  try {
+    const mode = (new URLSearchParams(window.location.search).get(SHOP_LOADING_DEBUG_QUERY_PARAM) || "").toLowerCase();
+    return ["geek", "shop", "sequence"].includes(mode) ? mode : "";
+  } catch (error) {
+    return "";
+  }
+}
+
+function getShopLoadingDebugAmount() {
+  if (typeof window === "undefined") {
+    return 12340;
+  }
+
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const amount = Math.max(0, Math.floor(Number(params.get(SHOP_LOADING_DEBUG_AMOUNT_QUERY_PARAM)) || 0));
+    return amount > 0 ? amount : 12340;
+  } catch (error) {
+    return 12340;
+  }
+}
+
+function getShopLoadingDebugOptions() {
+  const mode = getShopLoadingDebugMode();
+  if (!mode || window.__SURVIVAL_SHOP_LOADING_DEBUG_PREVIEW_STARTED__) {
+    return null;
+  }
+
+  const amount = getShopLoadingDebugAmount();
+  if (mode === "shop") {
+    return { mode: "shop", debugMode: mode, debugPreview: true };
+  }
+
+  return {
+    mode: "geek",
+    amount,
+    total: amount,
+    autoShop: mode === "sequence",
+    toShopMs: mode === "sequence" ? SHOP_LOADING_DEBUG_GEEK_TO_SHOP_MS : SHOP_LOADING_GEEK_TO_SHOP_MS,
+    debugMode: mode,
+    debugPreview: true
+  };
+}
+
+function finishShopLoadingDebugPreview(skipShopComplete = false) {
+  const runtime = getShopLoadingRuntime();
+  if (!runtime) {
+    return;
+  }
+
+  runtime.debugActive = false;
+  const pendingHideOptions = runtime.pendingHideOptions;
+  runtime.pendingHideOptions = null;
+  if (pendingHideOptions) {
+    hideShopLoadingScreen({ ...pendingHideOptions, skipShopComplete });
+  }
+}
+
+function scheduleShopLoadingDebugPreview(screen, options = {}, token) {
+  const runtime = getShopLoadingRuntime();
+  if (!runtime || !options.debugPreview) {
+    return;
+  }
+
+  runtime.debugActive = true;
+  runtime.pendingHideOptions = null;
+  window.__SURVIVAL_SHOP_LOADING_DEBUG_PREVIEW_STARTED__ = true;
+
+  if (options.debugMode === "geek") {
+    scheduleShopLoadingTimer(() => finishShopLoadingDebugPreview(true), SHOP_LOADING_GEEK_COMPLETE_MS + SHOP_LOADING_COMPLETE_HOLD_MS, token);
+    return;
+  }
+
+  const toShopMs = Math.max(SHOP_LOADING_GEEK_COMPLETE_MS, Math.floor(Number(options.toShopMs) || SHOP_LOADING_GEEK_TO_SHOP_MS));
+  const completeDelay = options.debugMode === "sequence"
+    ? toShopMs + (SHOP_LOADING_SHOP_NODE_MS * SHOP_LOADING_SHOP_MODULES.length) + 140
+    : (SHOP_LOADING_SHOP_NODE_MS * SHOP_LOADING_SHOP_MODULES.length) + 140;
+  scheduleShopLoadingTimer(() => {
+    completeShopLoadingShopMode(screen);
+    scheduleShopLoadingTimer(() => finishShopLoadingDebugPreview(false), SHOP_LOADING_COMPLETE_HOLD_MS, token);
+  }, completeDelay, token);
+}
+
+function showShopLoadingScreen(input = "ショップ準備中", options = {}) {
   if (typeof document === "undefined") {
     return;
   }
@@ -53202,23 +53514,30 @@ function showShopLoadingScreen(title = "ショップ準備中") {
     return;
   }
 
-  applyShopLoadingInlineStyles(screen);
-  const titleElement = document.getElementById("shop-loading-title");
-  if (titleElement) {
-    titleElement.textContent = title || "ショップ準備中";
-  }
+  clearShopLoadingTimers();
+  resetShopLoadingInlineStyles(screen);
+  const runtime = getShopLoadingRuntime();
+  const normalizedOptions = normalizeShopLoadingOptions(input, options);
 
   window.scrollTo?.(0, 0);
-  window.__SURVIVAL_SHOP_LOADING_TOKEN__ = (window.__SURVIVAL_SHOP_LOADING_TOKEN__ || 0) + 1;
-  window.__SURVIVAL_SHOP_LOADING_STARTED_AT__ = performance?.now?.() ?? Date.now();
+  runtime.token += 1;
+  runtime.startedAt = performance?.now?.() ?? Date.now();
+  runtime.completed = false;
+  runtime.debugActive = normalizedOptions.debugPreview === true;
+  runtime.pendingHideOptions = null;
+  window.__SURVIVAL_SHOP_LOADING_TOKEN__ = runtime.token;
+  window.__SURVIVAL_SHOP_LOADING_STARTED_AT__ = runtime.startedAt;
   screen.classList.remove("is-hiding");
   screen.style.pointerEvents = "auto";
   screen.hidden = false;
   screen.setAttribute("aria-hidden", "false");
   document.body?.classList.add("shop-loading-active");
+  setShopLoadingMode(screen, normalizedOptions, runtime.token);
+  scheduleShopLoadingDebugPreview(screen, normalizedOptions, runtime.token);
 }
 
 function finishShopLoadingHide(screen) {
+  clearShopLoadingTimers();
   if (!screen) {
     document.body?.classList.remove("shop-loading-active");
     return;
@@ -53228,7 +53547,7 @@ function finishShopLoadingHide(screen) {
   screen.style.display = "none";
   screen.style.opacity = "";
   screen.style.pointerEvents = "none";
-  screen.classList.remove("is-hiding");
+  screen.classList.remove("is-hiding", "is-mode-geek", "is-mode-shop", "is-geek-complete", "is-shop-complete");
   screen.setAttribute("aria-hidden", "true");
   document.body?.classList.remove("shop-loading-active");
 }
@@ -53239,6 +53558,7 @@ function hideShopLoadingScreen(options = {}) {
   }
 
   const screen = document.getElementById("shop-loading-screen");
+  const runtime = getShopLoadingRuntime();
   if (!screen || screen.hidden) {
     if (screen) {
       screen.style.pointerEvents = "none";
@@ -53250,31 +53570,42 @@ function hideShopLoadingScreen(options = {}) {
 
   const immediate = options === true || options?.immediate === true;
   if (immediate) {
-    window.__SURVIVAL_SHOP_LOADING_TOKEN__ = (window.__SURVIVAL_SHOP_LOADING_TOKEN__ || 0) + 1;
+    runtime.token += 1;
+    window.__SURVIVAL_SHOP_LOADING_TOKEN__ = runtime.token;
     finishShopLoadingHide(screen);
     return;
   }
 
-  const token = window.__SURVIVAL_SHOP_LOADING_TOKEN__ || 0;
-  const startedAt = window.__SURVIVAL_SHOP_LOADING_STARTED_AT__ || 0;
-  const now = performance?.now?.() ?? Date.now();
-  const waitMs = Math.max(0, SHOP_LOADING_MIN_VISIBLE_MS - (now - startedAt));
+  if (runtime.debugActive && options?.forceDebugHide !== true) {
+    runtime.pendingHideOptions = options && typeof options === "object" ? { ...options } : {};
+    return;
+  }
 
-  window.setTimeout(() => {
-    if ((window.__SURVIVAL_SHOP_LOADING_TOKEN__ || 0) !== token) {
+  if (options?.skipShopComplete !== true) {
+    completeShopLoadingShopMode(screen);
+  }
+
+  const token = runtime.token || window.__SURVIVAL_SHOP_LOADING_TOKEN__ || 0;
+  const startedAt = runtime.startedAt || window.__SURVIVAL_SHOP_LOADING_STARTED_AT__ || 0;
+  const now = performance?.now?.() ?? Date.now();
+  const minVisibleWaitMs = Math.max(0, SHOP_LOADING_MIN_VISIBLE_MS - (now - startedAt));
+  const waitMs = Math.max(SHOP_LOADING_COMPLETE_HOLD_MS, minVisibleWaitMs);
+
+  scheduleShopLoadingTimer(() => {
+    if ((getShopLoadingRuntime()?.token || 0) !== token) {
       return;
     }
 
     screen.classList.add("is-hiding");
     screen.style.opacity = "0";
     screen.style.pointerEvents = "none";
-    window.setTimeout(() => {
-      if ((window.__SURVIVAL_SHOP_LOADING_TOKEN__ || 0) !== token) {
+    scheduleShopLoadingTimer(() => {
+      if ((getShopLoadingRuntime()?.token || 0) !== token) {
         return;
       }
       finishShopLoadingHide(screen);
-    }, 180);
-  }, waitMs);
+    }, 180, token);
+  }, waitMs, token);
 }
 
 function startSurvivalGame(loadingTitle = "ショップ準備中") {
@@ -53285,7 +53616,7 @@ function startSurvivalGame(loadingTitle = "ショップ準備中") {
   if (isMobilePlayEnvironment()) {
     prepareMobileViewport();
   }
-  showShopLoadingScreen(loadingTitle);
+  showShopLoadingScreen(getShopLoadingDebugOptions() || loadingTitle);
   window.__SURVIVAL_GAME__ = new Phaser.Game(config);
   scheduleMobileLayoutRefresh();
 }
