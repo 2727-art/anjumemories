@@ -45,12 +45,16 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - `?mobileGate=0`: スマートフォン開始ゲートを無効化します。
 - `?mobileControls=1`: PC ブラウザでもモバイル操作 UI を表示します。
 - `?mobileControls=0`: モバイル操作 UI を無効化します。
-- `?debugStartDepth=10`: デバッグ用。`GAME START` 後のランを Depth10 から開始します。
+- `?debugStartDepth=10`: デバッグ用。`GAME START` 後のランを Depth10 から開始します。`11` 以上を指定すると通常深層として開始し、Final Raid には入りません。
 - `?debugSkipOpeningBoost=1`: デバッグ用。`GAME START` 後の Opening Boost 選択をスキップします。
 - `?debugComms=1`: デバッグ用。戦闘中の通信UIテスト文を表示します。
 - `?debugCommsStory=1`: デバッグ用。通信ストーリーの保存済みフラグを無視し、このランでは再生済み保存を行いません。
 - `?debugCommsStoryReset=1`: デバッグ用。起動時に通信ストーリーの再生済み保存を削除します。
 - `?debugCommsStoryDepth=1`: デバッグ用。`1` / `3` / `6` / `8` / `9` / `10` の指定Depth通信を `GAME START` 後にテスト再生します。
+- `?debugEndlessVoidBgm=1`: デバッグ用。Depth11 以降の専用 BGM 切替ログを console に出します。
+- `?debugScrambledComms=1`: デバッグ用。Depth11 以降のスクランブル通信ログを console に出します。この指定だけでは発生間隔は短縮しません。
+- `?debugScrambledCommsInterval=5`: デバッグ用。スクランブル通信の再試行 / ランダム発生間隔を秒数で固定します。最低 5 秒です。
+- `?debugScrambledCommsIntro=1`: デバッグ用。Depth11 以降の導入スクランブル通信を確認しやすくします。
 - `?debugStartDepth=10&debugFinalRaid=1&debugFinalRaidScale=0.1&debugFinalRaidPhase=third&debugSkipOpeningBoost=1`: デバッグ用。Depth10 Final Raid を短縮タイマーの第三形態付近から確認します。
 - `?debugRaidRescueLink=1`: デバッグ用。Depth10 Final Raid の RESCUE LINK 初期化、ギルド到着、HUD更新、cleanup を console に出します。
 - `?debugRaidRescueGuild=10`: デバッグ用。指定ギルド番号 / `guild-010` / `all` の RESCUE LINK 到着通信とHUD登録だけをプレビューします。
@@ -83,7 +87,10 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 6. Stage Gate では次の Depth へ進むか、未確定 GEEK を確定してショップへ帰還します。
 7. `NEXT STAGE` / `FORCE BREAKTHROUGH` で次 Depth へ進むと、地面に残った一部報酬が DATA CACHE に圧縮されます。
 8. Depth10 初回未討伐時は通常フィールドではなく Depth10 Final Raid に入り、残り 40 秒でボス HP が 0 になった後、600 秒到達時に専用の `ドールを解放する` ゲートだけが出現します。このゲートは Depth11 へ進まず、討伐報酬を保存して Opening Shop へ帰還します。
-9. 帰還、ゲームオーバー、Gate 崩壊後はローディング表示を挟んで Opening Shop に戻ります。
+9. Depth10 Final Raid 討伐後に通常プレイで Depth10 へ到達した場合は通常 Depth として進行し、CDSHOP で選択中の BGM を維持します。
+10. Depth11 以降は Endless Void 領域になり、選択 CD を保存変更せずラン中だけ `音声/bgm/ENDLESSVOIDAMBIENCE.mp3` へ上書きします。Depth12 以降へ進んでも同じ BGM を継続し、Depth ごとに先頭から再生し直しません。
+11. Depth11 以降は外部通信、味方通信、通常 Depth 通信、Final Raid 後日談通信を遮断し、既存通信 UI の `SCRAMBLED SIGNAL` 表示で短いスクランブル受信だけが低頻度で発生します。スクランブル通信はラン内一時状態で、`lastmemoVansabaCommsStoryState` には保存しません。
+12. 帰還、ゲームオーバー、Gate 崩壊後はローディング表示を挟んで Opening Shop に戻ります。
 
 ## Depth10 Final Raid
 
@@ -475,6 +482,14 @@ Support アイテムを拾うとサポート攻撃が発動します。Support �
 
 いしでんのタイミング報酬でも Bronze / Silver / Gold が出現します。元素騎士イベント中、またはいしでんのサポート攻撃中など Support が通常発動できない状態で Support アイテムを拾った場合は、STABILIZE と未確定 GEEK に変換されます。
 
+SUPPORT LINK SYSTEM:
+
+- Opening Shop の GEEKSHOP で 60,000 GEEK を支払うとインストールされ、`LINK Lv.1` になります。
+- インストール後、Support アイテム取得でサポートアタックが正常発動した累計回数だけが `ACTIVATIONS` として保存されます。Depth9 の JAMMED や、元素騎士 / いしでん中などで STABILIZE 変換された Support はカウントされません。
+- LINK は GEEK を追加消費せず、累計正常発動数で Lv.6 まで自動成長します。必要累計発動数は Lv1: 0、Lv2: 15、Lv3: 30、Lv4: 60、Lv5: 100、Lv6: 160 です。
+- 効果は `Support combat effect` で、Support 起点のダメージ、Support 回復、Support の状態異常 / time stop 持続に適用されます。Lv1 から +5% / +8% / +12% / +16% / +21% / +25% です。
+- GEEKSHOP では現在 Lv、累計正常発動回数、次 Lv までの進捗バー、現在効果を表示します。SUP HUD にはインストール後 `L1` から `MAX` までの短縮表示が付きます。
+
 ## ロボット
 
 随伴ロボットはラン開始時からプレイヤーについてきます。初期状態は Missile Lv.1 / Field Lv.1 です。
@@ -510,11 +525,14 @@ ROBOT SYNC DRIVE:
 
 Opening Shop では `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY` をタブで切り替えます。CDSHOP は CD 購入と BGM 選択専用です。GEEKSHOP と ROBOT CUSTOM では確定 GEEK を使用します。GEEKSHOP は Weapon / Armor / Shoes と回収ロボの永続強化、ROBOT CUSTOM はラン中Lvを直接購入する画面ではなく、Missile / Recovery のLv上限と Lv11+ EX 機能を解放する画面です。CD は BGM 選択と永続ボーナスを兼ねており、購入済み CD の永続効果は選択中 BGM に関係なく常時発動します。
 
+ラン中 BGM は Depth1〜9 と Final Raid 討伐後の通常 Depth10 では CDSHOP の選択 CD を再生します。初回未討伐の Depth10 Final Raid だけ Final Raid 専用 BGM に切り替わり、Depth11 以降では `./音声/bgm/ENDLESSVOIDAMBIENCE.mp3` をラン中だけ一時上書きします。この専用 BGM は CD として購入・選択・保存されず、`lastmemoVansabaShopState` の CD 選択値も変更しません。
+
 GEEKSHOP:
 
 - Weapon: 最大 Lv.10、攻撃力 +6% / Lv
 - Armor: 最大 Lv.10、最大 HP +10 / Lv
 - Shoes: 最大 Lv.10、移動速度 +8 / Lv
+- SUPPORT LINK SYSTEM: 60,000 GEEK でインストール。インストール後は Support の正常発動累計で `LINK Lv.1-6` まで自動成長し、Support combat effect が +5% から最大 +25% になります。
 - 回収ロボ: 最大 Lv.10。必要 GEEK は 100,000 / 150,000 / 230,000 / 350,000 / 520,000 / 780,000 / 1,150,000 / 1,700,000 / 2,500,000 / 3,600,000。
 
 ROBOT CUSTOM:
@@ -610,6 +628,7 @@ localStorage キー:
 - `lastmemoVansabaBestRecord`: ベスト記録。`bestDepth` と `bestExtractedGeek` も保存します。
 - `lastmemoVansabaKillRanking`: ローカルランキング。各 entry は `bestDepth`、`extractedGeek`、`extractMode`、`extractionSucceeded`、`submittedAt`、`version` を持ち、古い entry にフィールドがない場合は `bestDepth = 1`、`extractedGeek = 0`、`extractMode = none` に補完します。
 - `lastmemoVansabaCoins`: 確定 GEEK
+- `lastmemoVansabaSupportLinkState`: SUPPORT LINK SYSTEM のインストール状態、LINK Lv、累計正常発動回数
 - `lastmemoVansabaShopState`: CD 所持、選択 BGM、永続強化状態、回収ロボ `cleaningRobotLevel`、`robotCustom`。`cleaningRobotLevel` は古い保存データに無い場合 Lv0 へ補完します。`robotCustom` は `missileCapTier`、`recoveryCapTier`、`napalmUnlocked`、`barrierUnlocked` を持ち、古い保存データに無い場合は初期値へ補完します。
 - `lastmemoVansabaLostArmsState`: LOST ARMS 永続 Lv と pity
 - `lastmemoVansabaAnjuMemoryState`: ANJU MEMORY 残高、購入済み報酬、選択中スキン/称号/バッジ、チケット、到達済みマイルストーン
@@ -665,6 +684,7 @@ http://127.0.0.1:4173/?debugGeekMilestone=1
 http://127.0.0.1:4173/?debugRankingDepth=1
 http://127.0.0.1:4173/?debugRunArchive=1
 http://127.0.0.1:4173/?debugRobotSync=1
+http://127.0.0.1:4173/?debugStartDepth=11&debugSkipOpeningBoost=1&debugEndlessVoidBgm=1&debugScrambledComms=1&debugScrambledCommsInterval=5
 http://127.0.0.1:4173/?debugRecoveryFieldScale=1
 http://127.0.0.1:4173/?debugSkillMutation=1
 http://127.0.0.1:4173/?debugSkillMutation=1&debugSkillMutationSkill=basicSkill

@@ -163,6 +163,10 @@ const COMMS_EPILOGUE_DEBUG_SEQUENCE_QUERY_PARAM = "debugCommsEpilogueSequence";
 const COMMS_EPILOGUE_DEBUG_SHOP_QUERY_PARAM = "debugCommsEpilogueShop";
 const COMMS_EPILOGUE_DEBUG_FORCE_PENDING_QUERY_PARAM = "debugCommsEpilogueForcePending";
 const COMMS_EPILOGUE_PENDING_SESSION_KEY = "lastmemoVansabaPendingCommsEpilogue";
+const ENDLESS_VOID_BGM_DEBUG_QUERY_PARAM = "debugEndlessVoidBgm";
+const SCRAMBLED_COMMS_DEBUG_QUERY_PARAM = "debugScrambledComms";
+const SCRAMBLED_COMMS_DEBUG_INTERVAL_QUERY_PARAM = "debugScrambledCommsInterval";
+const SCRAMBLED_COMMS_DEBUG_INTRO_QUERY_PARAM = "debugScrambledCommsIntro";
 const RAID_RESCUE_LINK_DEBUG_QUERY_PARAM = "debugRaidRescueLink";
 const RAID_RESCUE_LINK_DEBUG_GUILD_QUERY_PARAM = "debugRaidRescueGuild";
 const RAID_RESCUE_LINK_DEBUG_HUD_QUERY_PARAM = "debugRaidRescueHud";
@@ -1573,6 +1577,18 @@ const FIREBASE_CONFIG = {
 };
 const DEFAULT_CD_ID = "anju";
 const DEFAULT_BGM_VOLUME = 0.52;
+const RUN_BGM_MODES = {
+  cd: "cd",
+  endlessVoid: "endlessVoid",
+  finalRaid: "finalRaid"
+};
+const ENDLESS_VOID_BGM_CONFIG = {
+  unlockDepth: 11,
+  audioKey: "bgm-endless-void-ambience",
+  audioPath: "./音声/bgm/ENDLESSVOIDAMBIENCE.mp3",
+  fadeMs: 800,
+  volume: DEFAULT_BGM_VOLUME
+};
 const SUPPORT_ATTACK_BGM_DUCK_VOLUME = 0.34;
 const SUPPORT_ATTACK_BGM_MUTE_VOLUME = 0;
 const SUPPORT_ATTACK_BGM_DUCK_IN_MS = 260;
@@ -1583,6 +1599,24 @@ const SUPPORT_ITEM_ELITE_BONUS_CHANCE = 0.014;
 const SUPPORT_ATTACK_WEIGHT_NORMAL = 10;
 const SUPPORT_ATTACK_WEIGHT_RARE = 3;
 const SUPPORT_ATTACK_WEIGHT_SUPER_RARE = 1;
+const SUPPORT_LINK_STORAGE_KEY = "lastmemoVansabaSupportLinkState";
+const SUPPORT_LINK_INSTALL_COST = 60000;
+const SUPPORT_LINK_MAX_LEVEL = 6;
+const SUPPORT_LINK_STATE_VERSION = 1;
+const SUPPORT_LINK_LEVEL_CONFIGS = [
+  { level: 1, activationRequirement: 0, combatBonus: 0.05 },
+  { level: 2, activationRequirement: 15, combatBonus: 0.08 },
+  { level: 3, activationRequirement: 30, combatBonus: 0.12 },
+  { level: 4, activationRequirement: 60, combatBonus: 0.16 },
+  { level: 5, activationRequirement: 100, combatBonus: 0.21 },
+  { level: 6, activationRequirement: 160, combatBonus: 0.25 }
+];
+const DEFAULT_SUPPORT_LINK_STATE = {
+  version: SUPPORT_LINK_STATE_VERSION,
+  installed: false,
+  level: 0,
+  activations: 0
+};
 const GENSO_KNIGHTS_INTRO_MS = 13000;
 const GENSO_KNIGHTS_ATTACK_END_MS = 75000;
 const GENSO_KNIGHTS_EVENT_END_MS = 77000;
@@ -2245,7 +2279,117 @@ const COMMS_UI_VARIANT_PALETTES = {
     body: "#dbeeff",
     speaker: "#f2ecff",
     label: "SIGNAL NOISE"
+  },
+  scrambled: {
+    stroke: 0x8bc6ff,
+    glow: 0xc6f2ff,
+    accent: "#d9f6ff",
+    body: "#d8ecf2",
+    speaker: "#f3fbff",
+    label: "SCRAMBLED SIGNAL"
   }
+};
+const SCRAMBLED_COMMS_CONFIG = {
+  unlockDepth: ENDLESS_VOID_BGM_CONFIG.unlockDepth,
+  source: "scrambled",
+  category: "endless_void",
+  linkLabel: "SCRAMBLED SIGNAL",
+  statusLabel: "CORRUPTED",
+  introDelayMs: 650,
+  introDollDelayMs: 1600,
+  retryDelayMs: { min: 8000, max: 15000 },
+  repeatDelayMs: { min: 75000, max: 140000 },
+  debugMinIntervalMs: 5000,
+  historyLimit: 3,
+  voiceVolume: 0.88,
+  intro: [
+    { id: "void_intro_lost", speaker: "SYSTEM", text: "SIGNAL INTERRUPTED", duration: 2600, weight: 1 },
+    { id: "void_intro_offline", speaker: "SYSTEM", text: "EXTERNAL LINK OFFLINE", duration: 2800, weight: 1 },
+    { id: "void_intro_open", speaker: "SYSTEM", text: "SCRAMBLED CHANNEL OPEN", duration: 3000, weight: 1 },
+    {
+      id: "doll_echo_01",
+      speaker: "UNKNOWN SOURCE",
+      text: "……まだ、聞こえてる？",
+      corruptedText: "……まだ……聞こえ……る？",
+      voiceKey: "scrambled_doll_01",
+      duration: 5200,
+      weight: 1
+    }
+  ],
+  lines: [
+    {
+      id: "doll_echo_01",
+      speaker: "UNKNOWN SOURCE",
+      text: "……まだ、聞こえてる？",
+      corruptedText: "……まだ……聞こえ……る？",
+      voiceKey: "scrambled_doll_01",
+      duration: 5200,
+      weight: 1
+    },
+    {
+      id: "doll_echo_02",
+      speaker: "DOLL RESIDUAL ECHO",
+      text: "……解放された、はずなのに",
+      corruptedText: "……解放……された……はず……",
+      voiceKey: "scrambled_doll_02",
+      duration: 5200,
+      weight: 1
+    },
+    {
+      id: "doll_echo_03",
+      speaker: "UNKNOWN SOURCE",
+      text: "ここから先は……記録がない",
+      corruptedText: "ここから……先……記録が……ない",
+      voiceKey: "scrambled_doll_03",
+      duration: 5200,
+      weight: 1
+    },
+    {
+      id: "doll_echo_04",
+      speaker: "DOLL RESIDUAL ECHO",
+      text: "私たちの声……届いてる？",
+      corruptedText: "私たちの……声……届い……てる？",
+      voiceKey: "scrambled_doll_04",
+      duration: 5000,
+      weight: 1
+    },
+    {
+      id: "doll_echo_05",
+      speaker: "UNKNOWN SOURCE",
+      text: "Depthが……終わらない",
+      corruptedText: "Depthが……終わ……らない",
+      voiceKey: "scrambled_doll_05",
+      duration: 5000,
+      weight: 1
+    },
+    {
+      id: "doll_echo_06",
+      speaker: "DOLL RESIDUAL ECHO",
+      text: "戦いが終わった音が、しない",
+      corruptedText: "戦いが……終わった音が……しない",
+      voiceKey: "scrambled_doll_06",
+      duration: 5400,
+      weight: 1
+    },
+    {
+      id: "doll_echo_07",
+      speaker: "UNKNOWN SOURCE",
+      text: "お願い……忘れないで",
+      corruptedText: "お願い……忘れ……ないで",
+      voiceKey: "scrambled_doll_07",
+      duration: 5000,
+      weight: 1
+    },
+    {
+      id: "doll_echo_08",
+      speaker: "DOLL RESIDUAL ECHO",
+      text: "帰還座標……見つからない",
+      corruptedText: "帰還座標……見つか……らない",
+      voiceKey: "scrambled_doll_08",
+      duration: 5200,
+      weight: 1
+    }
+  ]
 };
 const COMMS_STORY_VERSION = 1;
 const COMMS_STORY_STORAGE_KEY = "lastmemoVansabaCommsStoryState";
@@ -4905,12 +5049,18 @@ class SurvivalScene extends Phaser.Scene {
 
   preloadShopAssets() {
     this.loadImageIfNeeded(OPENING_SHOP_BACKGROUND_TEXTURE_KEY, OPENING_SHOP_BACKGROUND_PATH);
+    this.loadAudioIfNeeded(ENDLESS_VOID_BGM_CONFIG.audioKey, ENDLESS_VOID_BGM_CONFIG.audioPath);
     CD_CATALOG.forEach((cd) => {
       this.loadImageIfNeeded(cd.jacketTextureKey, cd.jacketPath);
       if (cd.lockedJacketTextureKey && cd.lockedJacketPath) {
         this.loadImageIfNeeded(cd.lockedJacketTextureKey, cd.lockedJacketPath);
       }
       this.loadAudioIfNeeded(cd.audioKey, cd.audioPath);
+    });
+    [...SCRAMBLED_COMMS_CONFIG.intro, ...SCRAMBLED_COMMS_CONFIG.lines].forEach((entry) => {
+      if (entry.voiceKey && entry.voicePath) {
+        this.loadAudioIfNeeded(entry.voiceKey, entry.voicePath);
+      }
     });
   }
 
@@ -5794,6 +5944,7 @@ class SurvivalScene extends Phaser.Scene {
   createState() {
     this.shopState = this.loadShopState();
     this.anjuMemoryState = this.loadAnjuMemoryState();
+    this.supportLinkState = this.loadSupportLinkState();
     this.finalBossState = this.loadFinalBossState();
     this.syncFinalBossUnlocksToShopState("createState", { save: false });
     this.shopViewMode = "cd";
@@ -5926,7 +6077,11 @@ class SurvivalScene extends Phaser.Scene {
     this.nextDropLimitCleanupAt = 0;
     this.activeBgm = null;
     this.activeBgmCdId = null;
+    this.activeBgmAudioKey = null;
+    this.activeRunBgmMode = null;
     this.bgmVolumeTween = null;
+    this.endlessVoidBgmUnavailable = false;
+    this.endlessVoidBgmMissingWarned = false;
     this.activeFinalBossRaidBgm = null;
     this.activeFinalBossRaidBgmPhaseId = null;
     this.finalBossRaidBgmTween = null;
@@ -5935,6 +6090,7 @@ class SurvivalScene extends Phaser.Scene {
     this.activeSupportAttackBgm = null;
     this.activeSupportAttackBgmDefinitionId = null;
     this.supportAttackBgmOverrideTween = null;
+    this.initializeScrambledCommsState();
   }
 
   initializeDepthRunState() {
@@ -8772,6 +8928,203 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
+  getSupportLinkConfigForLevel(level) {
+    const safeLevel = Phaser.Math.Clamp(Math.floor(Number(level) || 0), 0, SUPPORT_LINK_MAX_LEVEL);
+    return SUPPORT_LINK_LEVEL_CONFIGS.find((config) => config.level === safeLevel) || null;
+  }
+
+  getSupportLinkLevelForActivationCount(activations) {
+    const safeActivations = this.normalizeCoinAmount(activations);
+    let level = 1;
+    SUPPORT_LINK_LEVEL_CONFIGS.forEach((config) => {
+      if (safeActivations >= config.activationRequirement) {
+        level = Math.max(level, config.level);
+      }
+    });
+    return Phaser.Math.Clamp(level, 1, SUPPORT_LINK_MAX_LEVEL);
+  }
+
+  normalizeSupportLinkState(record) {
+    const installed = record?.installed === true || Math.floor(Number(record?.level) || 0) > 0;
+    if (!installed) {
+      return { ...DEFAULT_SUPPORT_LINK_STATE };
+    }
+
+    const activations = this.normalizeCoinAmount(record?.activations);
+    const recordedLevel = Phaser.Math.Clamp(
+      Math.floor(Number(record?.level) || 1),
+      1,
+      SUPPORT_LINK_MAX_LEVEL
+    );
+    const earnedLevel = this.getSupportLinkLevelForActivationCount(activations);
+    const level = Phaser.Math.Clamp(Math.max(recordedLevel, earnedLevel), 1, SUPPORT_LINK_MAX_LEVEL);
+
+    return {
+      version: SUPPORT_LINK_STATE_VERSION,
+      installed: true,
+      level,
+      activations
+    };
+  }
+
+  loadSupportLinkState() {
+    let rawState = null;
+
+    try {
+      rawState = window.localStorage?.getItem(SUPPORT_LINK_STORAGE_KEY) || null;
+    } catch (error) {
+      rawState = null;
+    }
+
+    if (!rawState) {
+      return this.normalizeSupportLinkState(DEFAULT_SUPPORT_LINK_STATE);
+    }
+
+    try {
+      return this.normalizeSupportLinkState(JSON.parse(rawState));
+    } catch (error) {
+      return this.normalizeSupportLinkState(DEFAULT_SUPPORT_LINK_STATE);
+    }
+  }
+
+  saveSupportLinkState() {
+    this.supportLinkState = this.normalizeSupportLinkState(this.supportLinkState);
+
+    try {
+      window.localStorage?.setItem(SUPPORT_LINK_STORAGE_KEY, JSON.stringify(this.supportLinkState));
+    } catch (error) {
+      // Support Link progress is permanent, but storage failures should not stop the current run.
+    }
+  }
+
+  isSupportLinkInstalled() {
+    return this.supportLinkState?.installed === true;
+  }
+
+  getSupportLinkLevel() {
+    if (!this.isSupportLinkInstalled()) {
+      return 0;
+    }
+    return Phaser.Math.Clamp(
+      Math.floor(Number(this.supportLinkState?.level) || 1),
+      1,
+      SUPPORT_LINK_MAX_LEVEL
+    );
+  }
+
+  getSupportLinkProgressInfo() {
+    const installed = this.isSupportLinkInstalled();
+    const level = this.getSupportLinkLevel();
+    const activations = this.normalizeCoinAmount(this.supportLinkState?.activations);
+    const maxed = installed && level >= SUPPORT_LINK_MAX_LEVEL;
+    const nextConfig = installed && !maxed
+      ? this.getSupportLinkConfigForLevel(level + 1)
+      : null;
+    const target = maxed
+      ? activations
+      : Math.max(1, nextConfig?.activationRequirement || SUPPORT_LINK_LEVEL_CONFIGS[1]?.activationRequirement || 1);
+
+    return {
+      installed,
+      level,
+      activations,
+      target,
+      maxed,
+      ratio: maxed ? 1 : Phaser.Math.Clamp(activations / Math.max(1, target), 0, 1)
+    };
+  }
+
+  getSupportLinkCombatBonus(level = this.getSupportLinkLevel()) {
+    if (!this.isSupportLinkInstalled()) {
+      return 0;
+    }
+    return Math.max(0, Number(this.getSupportLinkConfigForLevel(level)?.combatBonus) || 0);
+  }
+
+  getSupportLinkCombatMultiplier() {
+    return 1 + this.getSupportLinkCombatBonus();
+  }
+
+  applySupportLinkCombatMultiplier(amount) {
+    const value = Math.max(0, Number(amount) || 0);
+    if (value <= 0 || !this.isSupportLinkInstalled()) {
+      return value;
+    }
+    return value * this.getSupportLinkCombatMultiplier();
+  }
+
+  scaleSupportLinkCombatDuration(durationMs) {
+    const value = Math.max(0, Number(durationMs) || 0);
+    if (value <= 0 || !this.isSupportLinkInstalled()) {
+      return value;
+    }
+    return Math.max(1, Math.round(value * this.getSupportLinkCombatMultiplier()));
+  }
+
+  scaleSupportLinkCombatRecovery(amount) {
+    const value = Math.max(0, Number(amount) || 0);
+    if (value <= 0 || !this.isSupportLinkInstalled()) {
+      return value;
+    }
+    return Math.max(1, Math.round(value * this.getSupportLinkCombatMultiplier()));
+  }
+
+  formatSupportLinkEffectText(level = this.getSupportLinkLevel()) {
+    const config = this.getSupportLinkConfigForLevel(level);
+    const bonusPercent = Math.round((Number(config?.combatBonus) || 0) * 100);
+    return `Support combat effect +${bonusPercent}%`;
+  }
+
+  recordSupportLinkActivation(definition) {
+    if (!this.isSupportLinkInstalled()) {
+      return false;
+    }
+
+    this.supportLinkState = this.normalizeSupportLinkState(this.supportLinkState);
+    const beforeLevel = this.getSupportLinkLevel();
+    this.supportLinkState.activations = this.normalizeCoinAmount(this.supportLinkState.activations) + 1;
+    const earnedLevel = this.getSupportLinkLevelForActivationCount(this.supportLinkState.activations);
+    this.supportLinkState.level = Phaser.Math.Clamp(
+      Math.max(beforeLevel, earnedLevel),
+      1,
+      SUPPORT_LINK_MAX_LEVEL
+    );
+    this.saveSupportLinkState();
+
+    const progress = this.getSupportLinkProgressInfo();
+    const supportLabel = definition?.label || "Support";
+    if (progress.level > beforeLevel) {
+      this.setLastPickupNotice(`SUPPORT ${supportLabel} / LINK Lv.${progress.level}`);
+    } else if (progress.maxed) {
+      this.setLastPickupNotice(`SUPPORT ${supportLabel} / LINK MAX`);
+    } else {
+      this.setLastPickupNotice(`SUPPORT ${supportLabel} / LINK ${progress.activations}/${progress.target}`);
+    }
+    this.updateHud();
+    return true;
+  }
+
+  purchaseSupportLinkSystem() {
+    this.supportLinkState = this.normalizeSupportLinkState(this.supportLinkState);
+    if (this.isSupportLinkInstalled()) {
+      this.showPreGameShop(`SUPPORT LINK SYSTEM: LINK Lv.${this.getSupportLinkLevel()} installed`);
+      return;
+    }
+    if (!this.spendCoins(SUPPORT_LINK_INSTALL_COST)) {
+      this.showPreGameShop("SUPPORT LINK SYSTEM: GEEK不足");
+      return;
+    }
+
+    this.supportLinkState = {
+      version: SUPPORT_LINK_STATE_VERSION,
+      installed: true,
+      level: 1,
+      activations: 0
+    };
+    this.saveSupportLinkState();
+    this.showPreGameShop("SUPPORT LINK SYSTEM installed / LINK Lv.1");
+  }
+
   isFinalBossBossCdUnlocked() {
     return Boolean(this.finalBossState?.cleared || this.finalBossState?.unlockedBossCd);
   }
@@ -11201,7 +11554,7 @@ class SurvivalScene extends Phaser.Scene {
     this.activeFinalBossRaidBgmPhaseId = null;
     const restore = () => {
       if (restoreNormalBgm && !this.gameOver && !this.extractionComplete && !this.shopActive) {
-        this.playSelectedBgm();
+        this.syncDepthBgmForCurrentDepth("finalRaidBgmRestore", { fadeMs: ENDLESS_VOID_BGM_CONFIG.fadeMs });
       }
     };
 
@@ -19310,32 +19663,259 @@ class SurvivalScene extends Phaser.Scene {
     return CD_CATALOG.find((cd) => this.isCdOwned(cd.id)) || null;
   }
 
-  playSelectedBgm() {
+  isEndlessVoidDepth(depth = this.stageDepth) {
+    return Math.max(1, Math.floor(Number(depth) || 1)) >= ENDLESS_VOID_BGM_CONFIG.unlockDepth;
+  }
+
+  isEndlessVoidBgmActive() {
+    return Boolean(
+      this.activeBgm &&
+      (
+        this.activeBgmAudioKey === ENDLESS_VOID_BGM_CONFIG.audioKey ||
+        this.activeRunBgmMode === RUN_BGM_MODES.endlessVoid
+      )
+    );
+  }
+
+  clearEndlessVoidBgmOverride(reason = "clearEndlessVoid") {
+    if (!this.isEndlessVoidBgmActive()) {
+      return false;
+    }
+    this.debugLogEndlessVoidBgm("cleared", { reason, depth: this.stageDepth });
+    this.stopBgm();
+    return true;
+  }
+
+  getDesiredRunBgmMode(depth = this.stageDepth) {
+    if (this.isFinalBossRaidActive?.()) {
+      return RUN_BGM_MODES.finalRaid;
+    }
+    return this.isEndlessVoidDepth(depth) ? RUN_BGM_MODES.endlessVoid : RUN_BGM_MODES.cd;
+  }
+
+  isEndlessVoidBgmDebugEnabled() {
+    const value = this.getUrlStageParam(ENDLESS_VOID_BGM_DEBUG_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  debugLogEndlessVoidBgm(action, payload = {}) {
+    if (this.isEndlessVoidBgmDebugEnabled?.()) {
+      console.log(`[ENDLESS VOID BGM] ${action}`, payload);
+    }
+  }
+
+  getSelectedCdBgmDescriptor() {
     const cd = this.getSelectedCdDefinition();
     if (!cd?.audioKey || !this.cache.audio.exists(cd.audioKey)) {
+      return null;
+    }
+    return {
+      mode: RUN_BGM_MODES.cd,
+      audioKey: cd.audioKey,
+      cdId: cd.id,
+      volume: DEFAULT_BGM_VOLUME
+    };
+  }
+
+  getEndlessVoidBgmDescriptor() {
+    return {
+      mode: RUN_BGM_MODES.endlessVoid,
+      audioKey: ENDLESS_VOID_BGM_CONFIG.audioKey,
+      cdId: null,
+      volume: ENDLESS_VOID_BGM_CONFIG.volume
+    };
+  }
+
+  warnEndlessVoidBgmMissing(reason = "missing") {
+    if (this.endlessVoidBgmMissingWarned) {
       return;
     }
+    this.endlessVoidBgmMissingWarned = true;
+    console.warn("[ENDLESS VOID BGM] audio not loaded; keeping selected CD BGM", {
+      reason,
+      audioKey: ENDLESS_VOID_BGM_CONFIG.audioKey,
+      audioPath: ENDLESS_VOID_BGM_CONFIG.audioPath
+    });
+  }
 
-    if (this.activeBgm && this.activeBgmCdId === cd.id) {
+  isRunBgmDescriptorActive(descriptor) {
+    if (!descriptor || !this.activeBgm) {
+      return false;
+    }
+    if (this.activeRunBgmMode !== descriptor.mode || this.activeBgmAudioKey !== descriptor.audioKey) {
+      return false;
+    }
+    if (descriptor.mode === RUN_BGM_MODES.cd) {
+      return this.activeBgmCdId === descriptor.cdId;
+    }
+    return this.activeBgmCdId === null;
+  }
+
+  ensureActiveBgmPlaying() {
+    if (!this.activeBgm) {
+      return false;
+    }
+    if (!this.activeBgm.isPlaying) {
+      if (this.activeBgm.isPaused && typeof this.activeBgm.resume === "function") {
+        this.activeBgm.resume();
+      } else {
+        this.activeBgm.play({ loop: true, volume: this.activeBgm.volume ?? this.getBgmTargetVolume() });
+      }
+    }
+    return true;
+  }
+
+  setActiveRunBgmCache(descriptor, bgm) {
+    this.activeBgm = bgm || null;
+    this.activeRunBgmMode = descriptor?.mode || null;
+    this.activeBgmAudioKey = descriptor?.audioKey || null;
+    this.activeBgmCdId = descriptor?.mode === RUN_BGM_MODES.cd ? descriptor.cdId : null;
+  }
+
+  playRunBgmDescriptor(descriptor, reason = "sync", options = {}) {
+    if (!descriptor?.audioKey || !this.cache.audio.exists(descriptor.audioKey)) {
+      return false;
+    }
+
+    const targetVolume = Phaser.Math.Clamp(
+      Number.isFinite(Number(descriptor.volume)) ? Number(descriptor.volume) : this.getBgmTargetVolume(),
+      0,
+      1
+    );
+    const fadeMs = Math.max(0, Math.floor(Number(options.fadeMs ?? 0) || 0));
+
+    if (this.isRunBgmDescriptorActive(descriptor)) {
       if (!this.activeBgm.isPlaying) {
         if (this.activeBgm.isPaused && typeof this.activeBgm.resume === "function") {
           this.activeBgm.resume();
         } else {
-          this.activeBgm.play();
+          this.activeBgm.play({ loop: true, volume: this.activeBgm.volume ?? targetVolume });
         }
       }
-      this.fadeBgmToVolume(this.getBgmTargetVolume(), 0);
-      return;
+      this.fadeBgmToVolume(this.getBgmTargetVolume(), fadeMs);
+      this.debugLogEndlessVoidBgm("already aligned", {
+        reason,
+        mode: descriptor.mode,
+        audioKey: descriptor.audioKey,
+        depth: this.stageDepth
+      });
+      return true;
     }
 
-    this.stopBgm();
-    const bgmVolume = this.getBgmTargetVolume();
-    this.activeBgm = this.sound.add(cd.audioKey, {
-      loop: true,
-      volume: bgmVolume
+    if (this.bgmVolumeTween) {
+      this.bgmVolumeTween.stop();
+      this.bgmVolumeTween = null;
+    }
+
+    const previousBgm = this.activeBgm;
+    const startNewBgm = () => {
+      if (previousBgm) {
+        try {
+          previousBgm.stop();
+          previousBgm.destroy();
+        } catch (error) {
+          // Ignore audio cleanup failures; the next BGM should still be allowed to start.
+        }
+      }
+
+      const initialVolume = fadeMs > 0 ? 0 : this.getBgmTargetVolume();
+      const bgm = this.sound.add(descriptor.audioKey, {
+        loop: true,
+        volume: initialVolume
+      });
+      this.setActiveRunBgmCache(descriptor, bgm);
+      bgm.play({ loop: true, volume: initialVolume });
+      this.debugLogEndlessVoidBgm("started", {
+        reason,
+        mode: descriptor.mode,
+        audioKey: descriptor.audioKey,
+        cdId: descriptor.cdId,
+        depth: this.stageDepth
+      });
+      if (fadeMs > 0) {
+        this.fadeBgmToVolume(this.getBgmTargetVolume(), fadeMs);
+      }
+    };
+
+    if (previousBgm && fadeMs > 0) {
+      const volumeState = {
+        volume: Number.isFinite(previousBgm.volume) ? previousBgm.volume : DEFAULT_BGM_VOLUME
+      };
+      this.bgmVolumeTween = this.tweens.add({
+        targets: volumeState,
+        volume: 0,
+        duration: fadeMs,
+        ease: "Sine.InOut",
+        onUpdate: () => {
+          if (this.activeBgm === previousBgm) {
+            previousBgm.setVolume(volumeState.volume);
+          }
+        },
+        onComplete: () => {
+          if (this.activeBgm === previousBgm) {
+            this.bgmVolumeTween = null;
+            this.activeBgm = null;
+            this.activeBgmCdId = null;
+            this.activeBgmAudioKey = null;
+            this.activeRunBgmMode = null;
+            startNewBgm();
+          }
+        }
+      });
+      this.debugLogEndlessVoidBgm("fading out previous", {
+        reason,
+        fromMode: this.activeRunBgmMode,
+        toMode: descriptor.mode,
+        fadeMs,
+        depth: this.stageDepth
+      });
+      return true;
+    }
+
+    this.activeBgm = null;
+    this.activeBgmCdId = null;
+    this.activeBgmAudioKey = null;
+    this.activeRunBgmMode = null;
+    startNewBgm();
+    return true;
+  }
+
+  playSelectedBgm(options = {}) {
+    const descriptor = this.getSelectedCdBgmDescriptor();
+    if (!descriptor) {
+      return false;
+    }
+    return this.playRunBgmDescriptor(descriptor, "selectedCd", options);
+  }
+
+  syncDepthBgmForCurrentDepth(reason = "sync", options = {}) {
+    const desiredMode = this.getDesiredRunBgmMode();
+    if (desiredMode === RUN_BGM_MODES.finalRaid) {
+      this.debugLogEndlessVoidBgm("skip final raid", { reason, depth: this.stageDepth });
+      return false;
+    }
+
+    if (desiredMode === RUN_BGM_MODES.endlessVoid) {
+      if (this.endlessVoidBgmUnavailable || !this.cache.audio.exists(ENDLESS_VOID_BGM_CONFIG.audioKey)) {
+        this.endlessVoidBgmUnavailable = true;
+        this.warnEndlessVoidBgmMissing(reason);
+        if (!this.activeBgm) {
+          return this.playSelectedBgm({ fadeMs: 0 });
+        }
+        return false;
+      }
+      return this.playRunBgmDescriptor(this.getEndlessVoidBgmDescriptor(), reason, {
+        fadeMs: options.fadeMs ?? ENDLESS_VOID_BGM_CONFIG.fadeMs
+      });
+    }
+
+    const descriptor = this.getSelectedCdBgmDescriptor();
+    if (!descriptor) {
+      return false;
+    }
+    return this.playRunBgmDescriptor(descriptor, reason, {
+      fadeMs: options.fadeMs ?? 0
     });
-    this.activeBgmCdId = cd.id;
-    this.activeBgm.play({ loop: true, volume: bgmVolume });
   }
 
   stopBgm() {
@@ -19345,6 +19925,9 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     if (!this.activeBgm) {
+      this.activeBgmCdId = null;
+      this.activeBgmAudioKey = null;
+      this.activeRunBgmMode = null;
       return;
     }
 
@@ -19352,6 +19935,8 @@ class SurvivalScene extends Phaser.Scene {
     this.activeBgm.destroy();
     this.activeBgm = null;
     this.activeBgmCdId = null;
+    this.activeBgmAudioKey = null;
+    this.activeRunBgmMode = null;
   }
 
   getBgmTargetVolume() {
@@ -19406,24 +19991,7 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    const cd = this.getSelectedCdDefinition();
-    if (!cd?.audioKey || !this.cache.audio.exists(cd.audioKey)) {
-      return;
-    }
-
-    if (!this.activeBgm || this.activeBgmCdId !== cd.id) {
-      this.playSelectedBgm();
-      return;
-    }
-
-    if (!this.activeBgm.isPlaying) {
-      if (this.activeBgm.isPaused && typeof this.activeBgm.resume === "function") {
-        this.activeBgm.resume();
-      } else {
-        this.activeBgm.play();
-      }
-    }
-    this.fadeBgmToVolume(this.getBgmTargetVolume(), durationMs);
+    this.syncDepthBgmForCurrentDepth("restoreNormalBgm", { fadeMs: durationMs });
   }
 
   getSupportAttackNormalBgmVolume(definition, fallbackValue = null) {
@@ -19454,7 +20022,7 @@ class SurvivalScene extends Phaser.Scene {
     this.supportAttackBgmDuckingCount = Math.max(0, (this.supportAttackBgmDuckingCount || 0) - 1);
     if (this.supportAttackBgmDuckingCount === 0) {
       this.supportAttackBgmDuckingVolume = SUPPORT_ATTACK_BGM_DUCK_VOLUME;
-      this.fadeBgmToVolume(DEFAULT_BGM_VOLUME, SUPPORT_ATTACK_BGM_DUCK_OUT_MS);
+      this.restoreNormalBgmVolume(SUPPORT_ATTACK_BGM_DUCK_OUT_MS);
     } else {
       this.fadeBgmToVolume(this.getBgmTargetVolume(), SUPPORT_ATTACK_BGM_DUCK_OUT_MS);
     }
@@ -25107,7 +25675,12 @@ class SurvivalScene extends Phaser.Scene {
       epilogueSequenceId: options.epilogueSequenceId || null,
       genericEventType: options.genericEventType || null,
       banterEntryId: options.banterEntryId || null,
-      banterCategory: options.banterCategory || null
+      banterCategory: options.banterCategory || null,
+      linkLabel: options.linkLabel || null,
+      statusLabel: options.statusLabel || null,
+      voiceKey: options.voiceKey || null,
+      voiceVolume: Number.isFinite(Number(options.voiceVolume)) ? Number(options.voiceVolume) : null,
+      scrambledLineId: options.scrambledLineId || null
     };
   }
 
@@ -25131,6 +25704,47 @@ class SurvivalScene extends Phaser.Scene {
     return message.finalRaid === true && message.allowDuringFinalRaid === true;
   }
 
+  isExternalCommsBlocked() {
+    return Boolean(
+      this.runArchiveStarted &&
+      !this.shopActive &&
+      !this.gameOver &&
+      !this.extractionComplete &&
+      !this.isFinalBossRaidActive?.() &&
+      this.isEndlessVoidDepth?.(this.stageDepth)
+    );
+  }
+
+  isScrambledCommsMessage(message) {
+    return message?.source === SCRAMBLED_COMMS_CONFIG.source || message?.category === SCRAMBLED_COMMS_CONFIG.category;
+  }
+
+  isExternalCommsMessage(message) {
+    if (!message || this.isScrambledCommsMessage(message)) {
+      return false;
+    }
+    const source = String(message.source || "").trim();
+    const category = String(message.category || "").trim();
+    return [
+      "story",
+      "generic",
+      "banter",
+      "epilogue",
+      "ally",
+      "guild",
+      RAID_RESCUE_LINK_SOURCE
+    ].includes(source) || [
+      "depth_story",
+      "comms_recovery",
+      "ally",
+      "guild"
+    ].includes(category);
+  }
+
+  shouldBlockExternalCommsMessage(message) {
+    return this.isExternalCommsBlocked() && this.isExternalCommsMessage(message);
+  }
+
   queueCommsMessage(messageOrOptions) {
     if (!this.commsState) {
       this.commsState = this.createCommsState();
@@ -25142,6 +25756,16 @@ class SurvivalScene extends Phaser.Scene {
     const state = this.commsState;
     const message = this.normalizeCommsMessage(messageOrOptions);
     if (!message) {
+      return false;
+    }
+    if (this.shouldBlockExternalCommsMessage(message)) {
+      this.debugLogScrambledComms?.("blocked external", {
+        source: message.source,
+        category: message.category,
+        storySequenceId: message.storySequenceId,
+        epilogueSequenceId: message.epilogueSequenceId,
+        depth: this.stageDepth
+      });
       return false;
     }
     if (this.isFinalBossRaidActive?.() && !this.canQueueCommsMessageDuringFinalRaid(message)) {
@@ -25228,9 +25852,11 @@ class SurvivalScene extends Phaser.Scene {
       return false;
     }
     while (
-      this.isFinalBossRaidActive?.() &&
       state.queue.length > 0 &&
-      !this.canQueueCommsMessageDuringFinalRaid(state.queue[0])
+      (
+        (this.isFinalBossRaidActive?.() && !this.canQueueCommsMessageDuringFinalRaid(state.queue[0])) ||
+        this.shouldBlockExternalCommsMessage(state.queue[0])
+      )
     ) {
       state.queue.shift();
     }
@@ -25278,6 +25904,9 @@ class SurvivalScene extends Phaser.Scene {
 
     this.removeCommsTimer();
     this.stopCommsTweens();
+    if (!this.isScrambledCommsMessage(message)) {
+      this.stopScrambledCommsVoice?.("nonScrambledMessage");
+    }
     state.activeMessage = message;
     state.visible = true;
     state.transitioning = true;
@@ -25296,10 +25925,10 @@ class SurvivalScene extends Phaser.Scene {
       ?.setFillStyle(palette.glow, 0.94)
       .setAlpha(0.48);
     state.linkText
-      ?.setText(message.source === RAID_RESCUE_LINK_SOURCE ? (message.channel === RAID_ALLIED_MESH_RELAY_CHANNEL ? "MESH RELAY" : "LOCAL MESH") : palette.label)
+      ?.setText(message.linkLabel || (message.source === RAID_RESCUE_LINK_SOURCE ? (message.channel === RAID_ALLIED_MESH_RELAY_CHANNEL ? "MESH RELAY" : "LOCAL MESH") : palette.label))
       .setColor(palette.accent);
     state.statusText
-      ?.setText(message.variant === "normal" ? "ONLINE" : message.variant.toUpperCase())
+      ?.setText(message.statusLabel || (message.variant === "normal" ? "ONLINE" : message.variant.toUpperCase()))
       .setColor(palette.accent);
     state.speakerText
       ?.setText(message.speaker)
@@ -25309,6 +25938,7 @@ class SurvivalScene extends Phaser.Scene {
       .setColor(palette.body)
       .setWordWrapWidth(layout.textWidth, true);
     this.drawCommsUiPanel(palette);
+    this.playScrambledCommsVoice?.(message);
 
     this.addCommsTween({
       targets: state.container,
@@ -25342,6 +25972,9 @@ class SurvivalScene extends Phaser.Scene {
     this.removeCommsTimer();
     this.stopCommsTweens();
     const finish = () => {
+      if (this.isScrambledCommsMessage(state.activeMessage)) {
+        this.stopScrambledCommsVoice?.(reason);
+      }
       state.container?.setVisible(false).setAlpha(0);
       state.activeMessage = null;
       state.visible = false;
@@ -25427,10 +26060,427 @@ class SurvivalScene extends Phaser.Scene {
     this.resetCommsEpilogueRunState?.(reason);
     this.resetGenericCommsState?.(reason);
     this.resetCommsBanterForRun?.(reason);
+    this.cleanupScrambledComms?.(reason);
     state.container?.setVisible(false).setAlpha(0);
     if (this.isCommsDebugEnabled?.()) {
       console.log("[COMMS] reset", { reason });
     }
+  }
+
+  createScrambledCommsState() {
+    return {
+      introPlayed: false,
+      started: false,
+      timer: null,
+      pending: false,
+      recentLineIds: [],
+      currentVoice: null,
+      lastPlayedAt: 0,
+      nextAttemptAt: 0,
+      debugIntroQueued: false
+    };
+  }
+
+  initializeScrambledCommsState(reason = "initialize") {
+    this.cleanupScrambledComms?.(reason);
+    this.scrambledCommsState = this.createScrambledCommsState();
+    return this.scrambledCommsState;
+  }
+
+  cleanupScrambledComms(reason = "cleanup") {
+    const state = this.scrambledCommsState;
+    if (state?.timer?.remove) {
+      state.timer.remove(false);
+    }
+    this.stopScrambledCommsVoice?.(reason);
+    if (state) {
+      state.timer = null;
+      state.pending = false;
+      state.currentVoice = null;
+      state.nextAttemptAt = 0;
+    }
+    this.scrambledCommsState = this.createScrambledCommsState();
+    this.debugLogScrambledComms?.("cleanup", { reason });
+    return this.scrambledCommsState;
+  }
+
+  isScrambledCommsDebugEnabled() {
+    const value = this.getUrlStageParam(SCRAMBLED_COMMS_DEBUG_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  isScrambledCommsIntroDebugEnabled() {
+    const value = this.getUrlStageParam(SCRAMBLED_COMMS_DEBUG_INTRO_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  getScrambledCommsDebugIntervalMs() {
+    const rawValue = this.getUrlStageParam(SCRAMBLED_COMMS_DEBUG_INTERVAL_QUERY_PARAM);
+    const seconds = Number(rawValue);
+    return Number.isFinite(seconds) && seconds > 0
+      ? Math.max(SCRAMBLED_COMMS_CONFIG.debugMinIntervalMs, Math.floor(seconds * 1000))
+      : 0;
+  }
+
+  debugLogScrambledComms(action, payload = {}) {
+    if (this.isScrambledCommsDebugEnabled?.()) {
+      console.log(`[SCRAMBLED COMMS] ${action}`, payload);
+    }
+  }
+
+  getScrambledCommsNow() {
+    return Math.max(0, Number(this.time?.now) || 0);
+  }
+
+  getScrambledCommsDelayMs(range) {
+    const safeRange = range || SCRAMBLED_COMMS_CONFIG.repeatDelayMs;
+    const min = Math.max(0, Math.floor(Number(safeRange.min) || 0));
+    const max = Math.max(min, Math.floor(Number(safeRange.max) || min));
+    return Phaser.Math.Between(min, max);
+  }
+
+  getScrambledCommsRepeatDelayMs(reason = "repeat") {
+    const debugIntervalMs = this.getScrambledCommsDebugIntervalMs();
+    const range = debugIntervalMs > 0
+      ? { min: debugIntervalMs, max: debugIntervalMs }
+      : SCRAMBLED_COMMS_CONFIG.repeatDelayMs;
+    const delayMs = this.getScrambledCommsDelayMs(range);
+    this.debugLogScrambledComms("repeatDelay", { reason, delayMs });
+    return delayMs;
+  }
+
+  getScrambledCommsRetryDelayMs(reason = "retry") {
+    const debugIntervalMs = this.getScrambledCommsDebugIntervalMs();
+    const range = debugIntervalMs > 0
+      ? { min: debugIntervalMs, max: debugIntervalMs }
+      : SCRAMBLED_COMMS_CONFIG.retryDelayMs;
+    const delayMs = this.getScrambledCommsDelayMs(range);
+    this.debugLogScrambledComms("retryDelay", { reason, delayMs });
+    return delayMs;
+  }
+
+  hasScrambledCommsTraffic() {
+    const queue = this.commsState?.queue || [];
+    return Boolean(
+      this.isScrambledCommsMessage(this.commsState?.activeMessage) ||
+      queue.some((message) => this.isScrambledCommsMessage(message)) ||
+      this.scrambledCommsState?.pending ||
+      this.scrambledCommsState?.currentVoice
+    );
+  }
+
+  hasBlockingOverlayForScrambledComms() {
+    return Boolean(
+      (this.startingUpgradeSelectionsRemaining || 0) > 0 ||
+      this.levelUpActive ||
+      this.gateChoiceActive ||
+      this.overlayContainer?.visible ||
+      this.stageGate?.container?.active ||
+      (this.gateState?.status && this.gateState.status !== "closed") ||
+      this.anomalyContractState?.selectionOpen ||
+      this.depthDirectiveState?.pendingSelection ||
+      this.depthDirectiveState?.selectionOpen ||
+      this.overdriveModState?.pendingSelection ||
+      this.overdriveModState?.selectionOpen ||
+      this.stabilizeProtocolState?.overlayOpen ||
+      this.lostArmsResonanceSelectionActive ||
+      this.lostArmsResonanceState?.selectionOpen ||
+      this.skillMutationState?.selectionOpen ||
+      (this.skillMutationState?.pendingQueue?.length || 0) > 0
+    );
+  }
+
+  canQueueScrambledComms(options = {}) {
+    if (
+      !this.runArchiveStarted ||
+      this.shopActive ||
+      this.gameOver ||
+      this.extractionComplete ||
+      this.isFinalBossRaidActive?.() ||
+      !this.isEndlessVoidDepth?.(this.stageDepth)
+    ) {
+      return { ok: false, reason: "inactive" };
+    }
+    if (this.hasBlockingOverlayForScrambledComms() && options.ignoreOverlay !== true) {
+      return { ok: false, reason: "overlay" };
+    }
+    if (!this.commsState?.container?.active) {
+      this.createCommsUi();
+    }
+    if (!this.canDisplayCommsMessage({ source: SCRAMBLED_COMMS_CONFIG.source, category: SCRAMBLED_COMMS_CONFIG.category, variant: "scrambled" })) {
+      return { ok: false, reason: "commsHidden" };
+    }
+    if (this.hasScrambledCommsTraffic()) {
+      return { ok: false, reason: "busy" };
+    }
+    const queueLength = Math.max(0, this.commsState?.queue?.length || 0);
+    if (queueLength >= COMMS_UI_CONFIG.queueMax) {
+      return { ok: false, reason: "queueFull" };
+    }
+    return { ok: true, reason: "ready" };
+  }
+
+  normalizeScrambledCommsEntry(entry = {}) {
+    if (!entry?.id || !entry.text) {
+      return null;
+    }
+    return {
+      id: entry.id,
+      speaker: entry.speaker || "UNKNOWN SOURCE",
+      text: entry.corruptedText || entry.text,
+      variant: "scrambled",
+      source: SCRAMBLED_COMMS_CONFIG.source,
+      category: SCRAMBLED_COMMS_CONFIG.category,
+      duration: entry.duration || COMMS_UI_CONFIG.defaultDurationMs,
+      priority: 0,
+      linkLabel: entry.linkLabel || SCRAMBLED_COMMS_CONFIG.linkLabel,
+      statusLabel: entry.statusLabel || SCRAMBLED_COMMS_CONFIG.statusLabel,
+      voiceKey: entry.voiceKey || null,
+      voiceVolume: Number.isFinite(Number(entry.voiceVolume)) ? Number(entry.voiceVolume) : SCRAMBLED_COMMS_CONFIG.voiceVolume,
+      scrambledLineId: entry.id
+    };
+  }
+
+  queueScrambledCommsEntry(entry, reason = "scrambled") {
+    const message = this.normalizeScrambledCommsEntry(entry);
+    if (!message) {
+      return false;
+    }
+    const queued = this.queueCommsMessage(message);
+    if (queued) {
+      this.debugLogScrambledComms("queued", {
+        reason,
+        id: message.scrambledLineId,
+        speaker: message.speaker,
+        depth: this.stageDepth
+      });
+    }
+    return queued;
+  }
+
+  pickScrambledCommsLine() {
+    const state = this.scrambledCommsState || this.initializeScrambledCommsState("pick");
+    const history = state.recentLineIds || [];
+    let pool = SCRAMBLED_COMMS_CONFIG.lines.filter((line) => !history.includes(line.id));
+    if (pool.length <= 0) {
+      pool = SCRAMBLED_COMMS_CONFIG.lines.slice();
+    }
+    if (pool.length <= 0) {
+      return null;
+    }
+    const total = pool.reduce((sum, line) => sum + Math.max(0.1, Number(line.weight) || 1), 0);
+    let roll = Math.random() * total;
+    for (const line of pool) {
+      roll -= Math.max(0.1, Number(line.weight) || 1);
+      if (roll <= 0) {
+        return line;
+      }
+    }
+    return pool[pool.length - 1] || null;
+  }
+
+  markScrambledCommsLineQueued(line) {
+    if (!line?.id) {
+      return;
+    }
+    const state = this.scrambledCommsState || this.initializeScrambledCommsState("mark");
+    state.recentLineIds = [line.id, ...(state.recentLineIds || []).filter((id) => id !== line.id)]
+      .slice(0, SCRAMBLED_COMMS_CONFIG.historyLimit);
+    state.lastPlayedAt = this.getScrambledCommsNow();
+  }
+
+  scheduleNextScrambledComms(delayMs, reason = "schedule", options = {}) {
+    const state = this.scrambledCommsState || this.initializeScrambledCommsState("schedule");
+    if (options.replace !== false && state.timer?.remove) {
+      state.timer.remove(false);
+      state.timer = null;
+    }
+    if (state.timer?.remove) {
+      this.debugLogScrambledComms("schedule kept", { reason });
+      return true;
+    }
+    if (!this.time?.delayedCall || this.shopActive || this.gameOver || this.extractionComplete || !this.isEndlessVoidDepth?.(this.stageDepth)) {
+      return false;
+    }
+
+    const safeDelay = Math.max(250, Math.floor(Number(delayMs) || 0));
+    state.nextAttemptAt = this.getScrambledCommsNow() + safeDelay;
+    state.timer = this.time.delayedCall(safeDelay, () => {
+      if (this.scrambledCommsState) {
+        this.scrambledCommsState.timer = null;
+      }
+      if (!this.isEndlessVoidDepth?.(this.stageDepth)) {
+        return;
+      }
+      if (options.intro === true) {
+        this.tryQueueScrambledCommsIntro("timer");
+        return;
+      }
+      this.tryQueueScrambledCommsRandom("timer");
+    });
+    this.debugLogScrambledComms("schedule", { reason, delayMs: safeDelay, intro: options.intro === true });
+    return true;
+  }
+
+  tryQueueScrambledCommsIntro(reason = "intro") {
+    const state = this.scrambledCommsState || this.initializeScrambledCommsState("intro");
+    const debugIntro = this.isScrambledCommsIntroDebugEnabled();
+    if (state.introPlayed && (!debugIntro || state.debugIntroQueued)) {
+      this.scheduleNextScrambledComms(this.getScrambledCommsRepeatDelayMs(reason), `${reason}:afterIntro`, { replace: true });
+      return false;
+    }
+
+    const decision = this.canQueueScrambledComms();
+    if (!decision.ok) {
+      this.debugLogScrambledComms("introRetry", { reason, skipReason: decision.reason });
+      this.scheduleNextScrambledComms(this.getScrambledCommsRetryDelayMs(reason), `${reason}:retry`, { intro: true, replace: true });
+      return false;
+    }
+
+    let queuedAny = false;
+    SCRAMBLED_COMMS_CONFIG.intro.forEach((entry) => {
+      queuedAny = this.queueScrambledCommsEntry(entry, reason) || queuedAny;
+      if (entry.id === SCRAMBLED_COMMS_CONFIG.intro[SCRAMBLED_COMMS_CONFIG.intro.length - 1]?.id) {
+        this.markScrambledCommsLineQueued(entry);
+      }
+    });
+    if (!queuedAny) {
+      this.scheduleNextScrambledComms(this.getScrambledCommsRetryDelayMs(reason), `${reason}:queueRetry`, { intro: true, replace: true });
+      return false;
+    }
+
+    state.introPlayed = true;
+    if (debugIntro) {
+      state.debugIntroQueued = true;
+    }
+    state.pending = false;
+    this.tryShowNextCommsMessage();
+    this.scheduleNextScrambledComms(this.getScrambledCommsRepeatDelayMs(reason), `${reason}:repeat`, { replace: true });
+    return true;
+  }
+
+  tryQueueScrambledCommsRandom(reason = "random") {
+    const state = this.scrambledCommsState || this.initializeScrambledCommsState("random");
+    const decision = this.canQueueScrambledComms();
+    if (!decision.ok) {
+      this.debugLogScrambledComms("randomRetry", { reason, skipReason: decision.reason });
+      this.scheduleNextScrambledComms(this.getScrambledCommsRetryDelayMs(reason), `${reason}:retry`, { replace: true });
+      return false;
+    }
+
+    const line = this.pickScrambledCommsLine();
+    if (!line) {
+      return false;
+    }
+    const queued = this.queueScrambledCommsEntry(line, reason);
+    if (!queued) {
+      this.scheduleNextScrambledComms(this.getScrambledCommsRetryDelayMs(reason), `${reason}:queueRetry`, { replace: true });
+      return false;
+    }
+
+    this.markScrambledCommsLineQueued(line);
+    state.pending = false;
+    this.tryShowNextCommsMessage();
+    this.scheduleNextScrambledComms(this.getScrambledCommsRepeatDelayMs(reason), `${reason}:repeat`, { replace: true });
+    return true;
+  }
+
+  ensureScrambledCommsScheduler(reason = "ensure") {
+    if (!this.isEndlessVoidDepth?.(this.stageDepth) || this.shopActive || this.gameOver || this.extractionComplete || this.isFinalBossRaidActive?.()) {
+      return false;
+    }
+    const state = this.scrambledCommsState || this.initializeScrambledCommsState("ensure");
+    const debugIntro = this.isScrambledCommsIntroDebugEnabled();
+    state.started = true;
+    if (state.timer?.remove) {
+      this.debugLogScrambledComms("ensureActive", { reason });
+      return true;
+    }
+    if (!state.introPlayed || (debugIntro && !state.debugIntroQueued)) {
+      return this.scheduleNextScrambledComms(SCRAMBLED_COMMS_CONFIG.introDelayMs, reason, { intro: true, replace: false });
+    }
+    return this.scheduleNextScrambledComms(this.getScrambledCommsRepeatDelayMs(reason), reason, { replace: false });
+  }
+
+  cleanupExternalCommsForEndlessVoid(reason = "endlessVoid") {
+    const state = this.commsState;
+    if (state?.queue?.length) {
+      const before = state.queue.length;
+      state.queue = state.queue.filter((message) => this.isScrambledCommsMessage(message));
+      this.debugLogScrambledComms("external queue cleared", { reason, removed: before - state.queue.length });
+    }
+    if (state?.activeMessage && this.isExternalCommsMessage(state.activeMessage)) {
+      this.hideCurrentCommsMessage(`${reason}:externalCut`, { immediate: true, showNext: false });
+    }
+    if (this.commsStoryRunState) {
+      this.commsStoryRunState.pendingSequences = [];
+    }
+    if (this.genericCommsState) {
+      this.genericCommsState.pending = [];
+    }
+    this.cleanupCommsEpilogueTimers?.(reason);
+    this.cleanupCommsBanter?.(reason);
+  }
+
+  handleEndlessVoidDepthStarted(depth = this.stageDepth, reason = "depthStart") {
+    if (!this.isEndlessVoidDepth?.(depth)) {
+      return false;
+    }
+    this.cleanupExternalCommsForEndlessVoid(reason);
+    this.ensureScrambledCommsScheduler(reason);
+    return true;
+  }
+
+  playScrambledCommsVoice(message) {
+    if (!this.isScrambledCommsMessage(message) || !message?.voiceKey) {
+      return false;
+    }
+    const state = this.scrambledCommsState || this.initializeScrambledCommsState("voice");
+    if (state.currentVoice?.isPlaying) {
+      return false;
+    }
+    if (!this.cache.audio.exists(message.voiceKey)) {
+      this.debugLogScrambledComms("voice missing", { key: message.voiceKey, lineId: message.scrambledLineId });
+      return false;
+    }
+
+    const volume = Phaser.Math.Clamp(
+      Number.isFinite(Number(message.voiceVolume)) ? Number(message.voiceVolume) : SCRAMBLED_COMMS_CONFIG.voiceVolume,
+      0,
+      1
+    );
+    const voice = this.sound.add(message.voiceKey, { loop: false, volume });
+    state.currentVoice = voice;
+    voice.once("complete", () => {
+      if (state.currentVoice === voice) {
+        state.currentVoice = null;
+      }
+      voice.destroy();
+    });
+    voice.once("stop", () => {
+      if (state.currentVoice === voice) {
+        state.currentVoice = null;
+      }
+    });
+    voice.play({ loop: false, volume });
+    return true;
+  }
+
+  stopScrambledCommsVoice(reason = "stop") {
+    const state = this.scrambledCommsState;
+    const voice = state?.currentVoice;
+    if (!voice) {
+      return false;
+    }
+    state.currentVoice = null;
+    try {
+      voice.stop();
+      voice.destroy();
+    } catch (error) {
+      // Voice clips are optional; cleanup failures should not affect gameplay.
+    }
+    this.debugLogScrambledComms?.("voice stop", { reason });
+    return true;
   }
 
   destroyCommsUi(reason = "destroy") {
@@ -25595,6 +26645,9 @@ class SurvivalScene extends Phaser.Scene {
     if (!sequence?.messages?.length) {
       return false;
     }
+    if (this.isExternalCommsBlocked?.()) {
+      return false;
+    }
     if (!this.commsState?.container?.active) {
       this.createCommsUi();
     }
@@ -25635,6 +26688,11 @@ class SurvivalScene extends Phaser.Scene {
     if (!state?.pendingSequences?.length) {
       return false;
     }
+    if (this.isExternalCommsBlocked?.()) {
+      state.pendingSequences = [];
+      this.debugLogScrambledComms?.("story pending cleared", { reason });
+      return false;
+    }
 
     const pending = state.pendingSequences.slice();
     state.pendingSequences = [];
@@ -25662,6 +26720,10 @@ class SurvivalScene extends Phaser.Scene {
       ? sequenceOrId
       : this.getCommsStorySequence(sequenceOrId);
     if (!sequence?.id || !sequence.messages?.length) {
+      return false;
+    }
+    if (this.isExternalCommsBlocked?.()) {
+      this.debugLogScrambledComms?.("story blocked", { reason, sequenceId: sequence.id, depth: this.stageDepth });
       return false;
     }
     if (!this.commsStoryRunState) {
@@ -25708,6 +26770,10 @@ class SurvivalScene extends Phaser.Scene {
     if (!sequence?.id || !sequence.messages?.length) {
       return false;
     }
+    if (this.isExternalCommsBlocked?.()) {
+      this.debugLogScrambledComms?.("story trigger blocked", { reason, sequenceId: sequence.id, depth: this.stageDepth });
+      return false;
+    }
     if (!this.commsStoryRunState) {
       this.initializeCommsStoryRunState();
     }
@@ -25739,6 +26805,9 @@ class SurvivalScene extends Phaser.Scene {
 
   tryQueueDebugCommsStoryDepthIfNeeded(reason = "debugCommsStoryDepth") {
     if (!this.runArchiveStarted || this.shopActive) {
+      return false;
+    }
+    if (this.isExternalCommsBlocked?.()) {
       return false;
     }
 
@@ -25913,6 +26982,9 @@ class SurvivalScene extends Phaser.Scene {
     if (!sequence?.messages?.length) {
       return false;
     }
+    if (this.isExternalCommsBlocked?.()) {
+      return false;
+    }
     if (!this.commsState?.container?.active) {
       this.createCommsUi();
     }
@@ -25939,6 +27011,10 @@ class SurvivalScene extends Phaser.Scene {
       : this.getCommsEpilogueSequence(sequenceIdOrAlias);
     if (!sequence?.id || !sequence.messages?.length) {
       this.debugLogCommsEpilogue("skip", { reason, sequenceId: sequenceIdOrAlias, skipReason: "unknownSequence" });
+      return false;
+    }
+    if (this.isExternalCommsBlocked?.()) {
+      this.debugLogCommsEpilogue("skip", { reason, sequenceId: sequence.id, skipReason: "endlessVoidBlocked" });
       return false;
     }
     if (!this.commsEpilogueRunState) {
@@ -26013,6 +27089,10 @@ class SurvivalScene extends Phaser.Scene {
     this.debugLogCommsEpilogue("trigger", { reason, sequenceId: sequenceIdOrAlias, resolvedId: sequence?.id || null });
     if (!sequence?.id) {
       this.debugLogCommsEpilogue("skip", { reason, sequenceId: sequenceIdOrAlias, skipReason: "unknownSequence" });
+      return false;
+    }
+    if (this.isExternalCommsBlocked?.()) {
+      this.debugLogCommsEpilogue("skip", { reason, sequenceId: sequence.id, skipReason: "endlessVoidBlocked" });
       return false;
     }
     if (!this.commsEpilogueRunState) {
@@ -26264,6 +27344,9 @@ class SurvivalScene extends Phaser.Scene {
     if (!this.runArchiveStarted || this.shopActive || this.gameOver || this.extractionComplete) {
       return { ok: false, reason: "runInactive" };
     }
+    if (this.isExternalCommsBlocked?.()) {
+      return { ok: false, reason: "endlessVoidBlocked" };
+    }
     if (context.isFinalRaid) {
       return { ok: false, reason: "finalRaidSuppressed" };
     }
@@ -26464,6 +27547,11 @@ class SurvivalScene extends Phaser.Scene {
     if (!state?.pending?.length) {
       return false;
     }
+    if (this.isExternalCommsBlocked?.()) {
+      state.pending = [];
+      this.debugLogScrambledComms?.("generic pending cleared", { reason });
+      return false;
+    }
 
     const now = this.getGenericCommsNow();
     const pending = state.pending.slice();
@@ -26513,6 +27601,9 @@ class SurvivalScene extends Phaser.Scene {
 
   tryQueueDebugGenericCommsEventIfNeeded(reason = "debugCommsGenericEvent") {
     if (!this.runArchiveStarted || this.shopActive) {
+      return false;
+    }
+    if (this.isExternalCommsBlocked?.()) {
       return false;
     }
     const events = this.getDebugGenericCommsEvents();
@@ -26591,6 +27682,11 @@ class SurvivalScene extends Phaser.Scene {
     const state = this.commsBanterState || this.initializeCommsBanterState();
     const safeDepth = Math.max(1, Math.floor(Number(depth) || 1));
     state.perDepthCount[safeDepth] = 0;
+    if (this.isEndlessVoidDepth?.(safeDepth)) {
+      this.cleanupCommsBanter(reason);
+      this.debugLogCommsBanter("depthResetBlocked", { depth: safeDepth, reason });
+      return state;
+    }
     this.scheduleNextCommsBanter(this.getCommsBanterInitialDelayMs(reason, safeDepth), reason);
     this.debugLogCommsBanter("depthReset", { depth: safeDepth, reason });
     return state;
@@ -26666,7 +27762,7 @@ class SurvivalScene extends Phaser.Scene {
       state.timer.remove(false);
     }
     state.timer = null;
-    if (!this.time?.delayedCall || this.shopActive || this.gameOver || this.extractionComplete) {
+    if (!this.time?.delayedCall || this.shopActive || this.gameOver || this.extractionComplete || this.isExternalCommsBlocked?.()) {
       return false;
     }
 
@@ -26750,6 +27846,9 @@ class SurvivalScene extends Phaser.Scene {
     const relaxSafety = options.relaxSafety === true && this.isCommsBanterDebugEnabled();
     if (!this.runArchiveStarted || this.shopActive || this.gameOver || this.extractionComplete) {
       return { ok: false, reason: "runInactive" };
+    }
+    if (this.isExternalCommsBlocked?.()) {
+      return { ok: false, reason: "endlessVoidBlocked" };
     }
     if (context.isFinalRaid || this.isCommsOfflineForBanter()) {
       return { ok: false, reason: "offlineOrFinalRaid" };
@@ -26950,6 +28049,9 @@ class SurvivalScene extends Phaser.Scene {
     if (!this.isCommsBanterDebugNowEnabled() || !this.runArchiveStarted || this.shopActive) {
       return false;
     }
+    if (this.isExternalCommsBlocked?.()) {
+      return false;
+    }
     const state = this.commsBanterState || this.initializeCommsBanterState();
     if (state.debugNowQueued) {
       return false;
@@ -26974,6 +28076,9 @@ class SurvivalScene extends Phaser.Scene {
   queueDebugCommsMessagesIfNeeded(reason = "debugComms") {
     const state = this.commsState;
     if (!state || state.debugMessagesQueued || !this.isCommsDebugEnabled()) {
+      return false;
+    }
+    if (this.isExternalCommsBlocked?.()) {
       return false;
     }
     if (!this.canDisplayCommsMessage()) {
@@ -31545,13 +32650,14 @@ class SurvivalScene extends Phaser.Scene {
       color: "#f0c463",
       fontStyle: "bold"
     });
-    this.createOverlayText(-530, -188, "確定GEEKで永続強化と回収ロボを強化します。ラン中の未確定GEEKは直接消費しません。", {
+    this.createOverlayText(-530, -188, "確定GEEKで永続強化、SUPPORT LINK、回収ロボを強化します。ラン中の未確定GEEKは直接消費しません。", {
       fontSize: "12px",
       color: "#9ab7cc",
       wordWrap: { width: 760 }
     });
 
-    this.renderPermanentUpgradeCards(-530, -150);
+    this.renderPermanentUpgradeCards(-530, -150, 360, 92, 14);
+    this.renderSupportLinkShopCard(-530, 168, 360, 128);
     this.renderCleaningRobotShopPanel(-116, -150, 622, 362);
   }
 
@@ -31577,6 +32683,110 @@ class SurvivalScene extends Phaser.Scene {
       color: "#ecf7ff",
       fontStyle: "bold"
     });
+  }
+
+  renderSupportLinkShopCard(x, y, width, height) {
+    const progress = this.getSupportLinkProgressInfo();
+    const installed = progress.installed;
+    const affordable = installed || this.normalizeCoinAmount(this.coins) >= SUPPORT_LINK_INSTALL_COST;
+    const fill = installed ? 0x102332 : 0x101b2a;
+    const stroke = installed ? 0x77f0b4 : 0x9ffcff;
+    const panel = this.addOverlayChild(
+      this.add
+        .rectangle(x, y, width, height, fill, 0.94)
+        .setOrigin(0, 0)
+        .setStrokeStyle(installed ? 2 : 1, stroke, installed ? 0.68 : 0.38)
+    );
+
+    panel.setInteractive({ useHandCursor: !installed });
+    panel.on("pointerover", () => panel.setFillStyle(installed ? fill : 0x182940, 0.98));
+    panel.on("pointerout", () => panel.setFillStyle(fill, 0.94));
+    if (!installed) {
+      this.addOverlayAction(panel, () => this.purchaseSupportLinkSystem(), true, 8);
+    }
+
+    this.createOverlayText(x + 18, y + 12, "SUPPORT LINK SYSTEM", {
+      fontSize: "18px",
+      color: "#ecf7ff",
+      fontStyle: "bold"
+    });
+
+    if (!installed) {
+      this.createOverlayText(x + width - 18, y + 14, "NOT INSTALLED", {
+        fontSize: "13px",
+        color: "#ffb0a8",
+        fontStyle: "bold",
+        align: "right",
+        origin: { x: 1, y: 0 }
+      });
+      this.createOverlayText(x + 18, y + 38, "Supportを発動して永続成長", {
+        fontSize: "12px",
+        color: "#b8d4e8"
+      });
+      this.createOverlayText(x + 18, y + 58, "INSTALLで LINK Lv.1", {
+        fontSize: "12px",
+        color: "#9ffcff",
+        fontStyle: "bold"
+      });
+      this.createOverlayText(x + 18, y + 76, "初期効果: Support combat effect +5%", {
+        fontSize: "12px",
+        color: "#ecf7ff"
+      });
+      this.createOverlayText(x + width - 18, y + height - 30, `INSTALL ${SUPPORT_LINK_INSTALL_COST.toLocaleString()} GEEK`, {
+        fontSize: "15px",
+        color: affordable ? "#f0c463" : "#ff8a8a",
+        fontStyle: "bold",
+        align: "right",
+        origin: { x: 1, y: 0 }
+      });
+      return;
+    }
+
+    const levelLabel = progress.maxed ? "LINK MAX" : `LINK Lv.${progress.level}`;
+    const progressText = progress.maxed
+      ? `${progress.activations.toLocaleString()} ACTIVATIONS / MAX`
+      : `${progress.activations.toLocaleString()} / ${progress.target.toLocaleString()} ACTIVATIONS`;
+    this.createOverlayText(x + width - 18, y + 14, levelLabel, {
+      fontSize: "15px",
+      color: progress.maxed ? "#77f0b4" : "#f0c463",
+      fontStyle: "bold",
+      align: "right",
+      origin: { x: 1, y: 0 }
+    });
+    this.createOverlayText(x + 18, y + 40, progressText, {
+      fontSize: "15px",
+      color: "#ecf7ff",
+      fontStyle: "bold"
+    });
+    this.drawSupportLinkProgressBar(x + 18, y + 64, width - 36, 12, progress.ratio, progress.maxed);
+    this.createOverlayText(x + 18, y + 84, this.formatSupportLinkEffectText(progress.level), {
+      fontSize: "12px",
+      color: "#b8d4e8"
+    });
+    this.createOverlayText(x + width - 18, y + 84, progress.maxed ? "MAX" : `NEXT Lv.${progress.level + 1}`, {
+      fontSize: "12px",
+      color: progress.maxed ? "#77f0b4" : "#9ffcff",
+      fontStyle: "bold",
+      align: "right",
+      origin: { x: 1, y: 0 }
+    });
+  }
+
+  drawSupportLinkProgressBar(x, y, width, height, ratio, maxed = false) {
+    const graphics = this.addOverlayChild(this.add.graphics());
+    const safeRatio = Phaser.Math.Clamp(Number(ratio) || 0, 0, 1);
+    graphics.fillStyle(0x06101a, 0.92);
+    graphics.fillRoundedRect(x, y, width, height, 3);
+    graphics.lineStyle(1, maxed ? 0x77f0b4 : 0x446b7a, 0.76);
+    graphics.strokeRoundedRect(x, y, width, height, 3);
+    const fillWidth = Math.max(0, (width - 4) * safeRatio);
+    if (fillWidth > 0) {
+      graphics.fillStyle(maxed ? 0x77f0b4 : 0x55d9ff, maxed ? 0.9 : 0.82);
+      graphics.fillRoundedRect(x + 2, y + 2, fillWidth, Math.max(1, height - 4), 2);
+    }
+    graphics.lineStyle(1, 0xecf7ff, maxed ? 0.24 : 0.18);
+    graphics.lineBetween(x + 4, y + 3, x + width - 4, y + 3);
+    return graphics;
   }
 
   renderCleaningRobotShopPanel(x, y, width, height) {
@@ -32872,9 +34082,9 @@ class SurvivalScene extends Phaser.Scene {
     return graphics;
   }
 
-  renderPermanentUpgradeCards(originX, originY) {
+  renderPermanentUpgradeCards(originX, originY, cardWidth = 360, cardHeight = 110, gapY = 18) {
     Object.values(SHOP_UPGRADE_DEFINITIONS).forEach((definition, index) => {
-      this.createPermanentUpgradeCard(definition, originX, originY + index * 128, 360, 110);
+      this.createPermanentUpgradeCard(definition, originX, originY + index * (cardHeight + gapY), cardWidth, cardHeight);
     });
   }
 
@@ -32972,7 +34182,7 @@ class SurvivalScene extends Phaser.Scene {
     this.runArchiveSaved = false;
     this.restoreGameplayInputAfterOverlay();
     this.hideOverlay();
-    this.playSelectedBgm();
+    this.syncDepthBgmForCurrentDepth("gameStart", { fadeMs: 0 });
     const forceSkillMutationDebugPreset = this.isSkillMutationDebugEnabled()
       && Boolean(this.getSkillMutationDebugParam("debugSkillMutationCore") || this.getSkillMutationDebugParam("debugSkillMutationFinal"));
     const queueSkillMutationDebugPreset = this.isSkillMutationDebugEnabled()
@@ -33002,6 +34212,10 @@ class SurvivalScene extends Phaser.Scene {
     if (!debugStartFinalBossRaidPending) {
       this.onDepthStartedForNemesis(this.stageDepth, "gameStart");
     }
+    const gameStartsInEndlessVoid = !debugStartFinalBossRaidPending && this.isEndlessVoidDepth?.(this.stageDepth);
+    if (gameStartsInEndlessVoid) {
+      this.cleanupExternalCommsForEndlessVoid?.("gameStart");
+    }
     this.queueDebugCommsMessagesIfNeeded("gameStart");
     if (pendingShopEpilogue === "depth10_shop_return_epilogue") {
       this.clearPendingShopEpilogueComms?.("nextRunFallback");
@@ -33014,7 +34228,9 @@ class SurvivalScene extends Phaser.Scene {
       this.tryQueueDepthComms(1, "gameStart");
     }
     this.resetCommsBanterForRun("gameStart");
-    if (!debugStartFinalBossRaidPending) {
+    if (gameStartsInEndlessVoid) {
+      this.handleEndlessVoidDepthStarted?.(this.stageDepth, "gameStart");
+    } else if (!debugStartFinalBossRaidPending) {
       this.scheduleNextCommsBanter(this.getCommsBanterInitialDelayMs("gameStart", this.stageDepth), "gameStart");
     }
     if (!this.levelUpActive) {
@@ -34878,8 +36094,19 @@ class SurvivalScene extends Phaser.Scene {
       this.beginFinalBossRaid(transition, { dataCacheCount });
       return;
     }
+    const enteredEndlessVoid = this.isEndlessVoidDepth?.(targetDepth) === true;
+    if (enteredEndlessVoid) {
+      this.cleanupExternalCommsForEndlessVoid?.("endlessVoidEnter");
+    }
+    this.syncDepthBgmForCurrentDepth("depthTransition", {
+      fadeMs: enteredEndlessVoid ? ENDLESS_VOID_BGM_CONFIG.fadeMs : 0
+    });
     this.queueDepthDirectiveSelection(targetDepth, "depthTransition");
     this.onDepthStartedForNemesis(targetDepth, "depthTransition");
+    if (enteredEndlessVoid) {
+      this.handleEndlessVoidDepthStarted?.(targetDepth, "depthTransition");
+      return;
+    }
     this.tryQueueDepthComms(targetDepth, "depthTransition");
     this.resetCommsBanterForDepth(targetDepth, "depthTransition");
   }
@@ -34930,6 +36157,7 @@ class SurvivalScene extends Phaser.Scene {
     this.resetFinalBossRaidState(emergency ? "emergencyExtract" : "extract");
     this.resetCommsUi(emergency ? "emergencyExtract" : "extract");
     this.resetOverflowRewardState();
+    this.clearEndlessVoidBgmOverride(emergency ? "emergencyExtract" : "extract");
     this.destroyStageGate();
     this.hideOverlay();
     this.clearActiveLostArmEffects();
@@ -41527,6 +42755,9 @@ class SurvivalScene extends Phaser.Scene {
       finalDamage *= Phaser.Math.Clamp(Number(enemy.lostArmsVulnerableMult) || 1, 1, 1.5);
     }
     finalDamage = this.applyOverdriveModHunterDamageModifier(enemy, finalDamage, impact);
+    if (impact?.supportDamage || impact?.supportFinisher) {
+      finalDamage = this.applySupportLinkCombatMultiplier(finalDamage);
+    }
     enemy.hp -= finalDamage;
     this.spawnEnemyDamageNumber(enemy, finalDamage);
     this.applyEnemyImpact(enemy, impact);
@@ -43193,7 +44424,10 @@ class SurvivalScene extends Phaser.Scene {
       this.setLastPickupNotice("ISHIDEN ACTIVE");
       return;
     }
-    this.triggerSupportAttack(this.pickSupportAttackDefinition());
+    const selectedSupport = this.pickSupportAttackDefinition();
+    if (this.triggerSupportAttack(selectedSupport)) {
+      this.recordSupportLinkActivation(selectedSupport);
+    }
   }
 
   getAvailableSupportAttackDefinitions() {
@@ -43246,25 +44480,23 @@ class SurvivalScene extends Phaser.Scene {
 
   triggerSupportAttack(definition) {
     if (!definition) {
-      return;
+      return false;
     }
     if (this.isSupportAttackJammed()) {
       this.setLastPickupNotice(`SUPPORT JAMMED DEPTH ${SUPPORT_JAMMED_DEPTH}`);
-      return;
+      return false;
     }
 
     if (definition.type === "gensoKnights") {
-      this.triggerGensoKnightsSupportAttack(definition);
-      return;
+      return this.triggerGensoKnightsSupportAttack(definition);
     }
 
     if (definition.type === "timingCoin") {
-      this.triggerTimingCoinSupportAttack(definition);
-      return;
+      return this.triggerTimingCoinSupportAttack(definition);
     }
 
     if (this.isGensoKnightsEventActive()) {
-      return;
+      return false;
     }
 
     this.lastSupportAttackId = definition.id;
@@ -43278,15 +44510,16 @@ class SurvivalScene extends Phaser.Scene {
       depth: this.stageDepth,
       supportType: definition.id
     });
+    return true;
   }
 
   triggerTimingCoinSupportAttack(definition) {
     if (this.isSupportAttackJammed()) {
       this.setLastPickupNotice(`SUPPORT JAMMED DEPTH ${SUPPORT_JAMMED_DEPTH}`);
-      return;
+      return false;
     }
     if (this.isGensoKnightsEventActive()) {
-      return;
+      return false;
     }
 
     this.lastSupportAttackId = definition.id;
@@ -43306,6 +44539,7 @@ class SurvivalScene extends Phaser.Scene {
       depth: this.stageDepth,
       supportType: definition.id
     });
+    return true;
   }
 
   playSupportAttackCutinVoice(definition) {
@@ -43409,10 +44643,10 @@ class SurvivalScene extends Phaser.Scene {
   triggerGensoKnightsSupportAttack(definition = GENSO_KNIGHTS_SUPPORT_DEFINITION) {
     if (this.isSupportAttackJammed()) {
       this.setLastPickupNotice(`SUPPORT JAMMED DEPTH ${SUPPORT_JAMMED_DEPTH}`);
-      return;
+      return false;
     }
     if (this.isGensoKnightsEventActive()) {
-      return;
+      return false;
     }
 
     if (this.activeSupportAttacks?.length) {
@@ -43446,6 +44680,7 @@ class SurvivalScene extends Phaser.Scene {
       supportType: definition.id,
       isGensoKnightsSupport: true
     });
+    return true;
   }
 
   playGensoKnightsBgm(definition) {
@@ -45288,13 +46523,19 @@ class SurvivalScene extends Phaser.Scene {
 
       if (definition.statusType === "freeze") {
         const wasFrozen = now < (enemy.freezeUntil || 0);
-        enemy.freezeUntil = Math.max(enemy.freezeUntil || 0, now + (definition.statusHoldMs || 240));
+        enemy.freezeUntil = Math.max(
+          enemy.freezeUntil || 0,
+          now + this.scaleSupportLinkCombatDuration(definition.statusHoldMs || 240)
+        );
         if (!wasFrozen) {
           newlyAffectedCount += 1;
         }
       } else {
         const wasSleeping = now < (enemy.sleepUntil || 0);
-        enemy.sleepUntil = Math.max(enemy.sleepUntil || 0, now + (definition.statusHoldMs || 240));
+        enemy.sleepUntil = Math.max(
+          enemy.sleepUntil || 0,
+          now + this.scaleSupportLinkCombatDuration(definition.statusHoldMs || 240)
+        );
         if (!wasSleeping) {
           newlyAffectedCount += 1;
         }
@@ -45335,7 +46576,10 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     const previousHp = this.stats.hp;
-    this.stats.hp = Math.min(this.stats.maxHp, this.stats.hp + (definition.healAmount || 6));
+    this.stats.hp = Math.min(
+      this.stats.maxHp,
+      this.stats.hp + this.scaleSupportLinkCombatRecovery(definition.healAmount || 6)
+    );
     const healedAmount = this.stats.hp - previousHp;
     if (healedAmount > 0) {
       this.playSupportAttackSe(definition.healTickSeKey, definition.healTickSeVolume ?? 0.72);
@@ -45476,7 +46720,10 @@ class SurvivalScene extends Phaser.Scene {
         return;
       }
 
-      enemy.timeStopUntil = Math.max(enemy.timeStopUntil || 0, now + (definition.statusHoldMs || 180));
+      enemy.timeStopUntil = Math.max(
+        enemy.timeStopUntil || 0,
+        now + this.scaleSupportLinkCombatDuration(definition.statusHoldMs || 180)
+      );
       enemy.body?.setVelocity(0, 0);
     });
   }
@@ -45734,7 +46981,8 @@ class SurvivalScene extends Phaser.Scene {
       sourceX: support.x,
       sourceY: support.y,
       force: definition.knockbackForce || 220,
-      recoverMs: 90
+      recoverMs: 90,
+      supportDamage: true
     });
   }
 
@@ -46021,7 +47269,10 @@ class SurvivalScene extends Phaser.Scene {
       }
 
       if (spellKind === "ice") {
-        enemy.freezeUntil = Math.max(enemy.freezeUntil || 0, now + (definition.iceFreezeHoldMs || 820));
+        enemy.freezeUntil = Math.max(
+          enemy.freezeUntil || 0,
+          now + this.scaleSupportLinkCombatDuration(definition.iceFreezeHoldMs || 820)
+        );
         enemy.body?.setVelocity(0, 0);
       }
 
@@ -46224,7 +47475,10 @@ class SurvivalScene extends Phaser.Scene {
       }
 
       hitEnemies.add(enemy);
-      enemy.stunUntil = Math.max(enemy.stunUntil || 0, now + (definition.stunHoldMs || 600));
+      enemy.stunUntil = Math.max(
+        enemy.stunUntil || 0,
+        now + this.scaleSupportLinkCombatDuration(definition.stunHoldMs || 600)
+      );
       enemy.body?.setVelocity(0, 0);
       this.applyDamageToEnemy(enemy, definition.damageAmount || 14, definition.glowTint, {
         sourceX: x,
@@ -46398,7 +47652,8 @@ class SurvivalScene extends Phaser.Scene {
         sourceX: support.x,
         sourceY: support.y,
         force: definition.knockbackForce || 260,
-        recoverMs: 90
+        recoverMs: 90,
+        supportDamage: true
       });
       this.spawnSupportDashHitEffect(enemy.x, enemy.y, definition);
     });
@@ -47621,7 +48876,9 @@ class SurvivalScene extends Phaser.Scene {
     this.clearActiveLostArmEffects();
     this.cleanupGensoKnightsEvent(this.gensoKnightsEvent, true);
     this.stopSupportAttackBgmOverride(null, false, true);
-    this.fadeBgmToVolume(DEFAULT_BGM_VOLUME, SUPPORT_ATTACK_BGM_DUCK_OUT_MS);
+    if (!this.clearEndlessVoidBgmOverride(reason)) {
+      this.fadeBgmToVolume(DEFAULT_BGM_VOLUME, SUPPORT_ATTACK_BGM_DUCK_OUT_MS);
+    }
     this.cancelActiveEnemyBeamCharges();
     this.physics.world.pause();
     this.gameOverRecordState = recordState;
@@ -47772,6 +49029,7 @@ class SurvivalScene extends Phaser.Scene {
     this.cleanupGeekMilestoneNotice("returnToOpeningShop");
     this.resetCommsUi("returnToOpeningShop");
     this.resetOverflowRewardState();
+    this.clearEndlessVoidBgmOverride("returnToOpeningShop");
     this.skipShopReturnSceneShutdownCleanup = true;
     this.overlayActions = [];
     this.releaseMobileControlPointers?.();
@@ -49094,7 +50352,17 @@ class SurvivalScene extends Phaser.Scene {
         .setLineSpacing(0);
       slot.panel.setAlpha(specialCounts[key] > 0 ? 0.95 : 0.58);
       slot.icon.setAlpha(specialCounts[key] > 0 ? 0.95 : 0.38);
-      slot.label.setText(`${slot.baseLabel} ${specialCounts[key]}`);
+      if (key === "bomb" && this.isSupportLinkInstalled()) {
+        const linkLabel = this.getSupportLinkLevel() >= SUPPORT_LINK_MAX_LEVEL
+          ? "MAX"
+          : `L${this.getSupportLinkLevel()}`;
+        slot.label
+          .setFontSize("9px")
+          .setLineSpacing(-2)
+          .setText(`${slot.baseLabel} ${specialCounts[key]}\n${linkLabel}`);
+      } else {
+        slot.label.setText(`${slot.baseLabel} ${specialCounts[key]}`);
+      }
     });
 
     this.setHudBarFill(this.hpBarFill, hpRatio);
