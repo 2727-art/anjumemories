@@ -1269,7 +1269,7 @@ const FINAL_BOSS_RAID_CONFIG = {
     description: [
       "ラスボスCD「ドールを解放せし者」解放",
       "ラスボスサポート攻撃 解放",
-      "Opening Shopへ帰還"
+      "OPERATIONS HUBへ帰還"
     ],
     notice: "DOLL LIBERATION READY"
   },
@@ -34291,6 +34291,29 @@ class SurvivalScene extends Phaser.Scene {
     return this.addOverlayChild(label);
   }
 
+  fitOverlayTextToWidth(text, maxWidth, minFontSize = 9) {
+    if (!text || maxWidth <= 0) {
+      return;
+    }
+
+    let fontSize = Math.max(minFontSize, parseInt(text.style?.fontSize, 10) || 12);
+    while (text.width > maxWidth && fontSize > minFontSize) {
+      fontSize -= 1;
+      text.setFontSize(`${fontSize}px`);
+    }
+
+    if (text.width <= maxWidth) {
+      return;
+    }
+
+    const source = String(text.text || "");
+    let next = source;
+    while (next.length > 1 && text.width > maxWidth) {
+      next = `${next.slice(0, Math.max(1, next.length - 2))}...`;
+      text.setText(next);
+    }
+  }
+
   renderShopHeaderBalances() {
     const coinIconKey = this.textures.exists(ITEM_IMAGE_ASSETS.coin.textureKey)
       ? ITEM_IMAGE_ASSETS.coin.textureKey
@@ -34329,11 +34352,13 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   renderShopModeTabs() {
-    this.createShopModeTab(-272, -286, 92, "CDSHOP", "cd");
-    this.createShopModeTab(-168, -286, 104, "GEEKSHOP", "geek");
-    this.createShopModeTab(-45, -286, 130, "ROBOT CUSTOM", "robotCustom");
-    this.createShopModeTab(85, -286, 122, "ANJU MEMORY", "anjuMemory");
-    this.createShopModeTab(208, -286, 112, "ARCHIVE", "runArchive");
+    const tabY = -236;
+    this.createShopModeTab(-272, tabY, 92, "CDSHOP", "cd");
+    this.createShopModeTab(-168, tabY, 104, "GEEKSHOP", "geek");
+    this.createShopModeTab(-45, tabY, 130, "ROBOT CUSTOM", "robotCustom");
+    this.renderShopTabGroupDivider(32, tabY, 27);
+    this.createShopModeTab(100, tabY, 122, "ANJU MEMORY", "anjuMemory");
+    this.createShopModeTab(226, tabY, 112, "ARCHIVE", "runArchive");
   }
 
   createShopModeTab(centerX, centerY, width, label, mode) {
@@ -34357,6 +34382,52 @@ class SurvivalScene extends Phaser.Scene {
       align: "center",
       origin: { x: 0.5, y: 0 }
       });
+  }
+
+  renderShopTabGroupDivider(x, y, height = 28) {
+    const divider = this.addOverlayChild(this.add.graphics());
+    const top = y - height / 2;
+    const bottom = y + height / 2;
+    divider.lineStyle(1, 0x263e59, 0.5);
+    divider.lineBetween(x + 1, top, x + 1, bottom);
+    divider.lineStyle(1, 0x6fcfff, 0.32);
+    divider.lineBetween(x, top, x, bottom);
+    return divider;
+  }
+
+  isShopNoticeWarning(message = "") {
+    return /不足|LOCK|ロック|未解放|準備中|必要|上限|失敗|failed|required|max/i.test(String(message || ""));
+  }
+
+  renderHubNotice() {
+    const message = String(this.shopStatusMessage || "").trim();
+    if (!message) {
+      return;
+    }
+
+    const warning = this.isShopNoticeWarning(message);
+    const width = 560;
+    const height = 26;
+    const x = -36;
+    const y = -270;
+    const left = x - width / 2;
+    const top = y - height / 2;
+    const accent = warning ? 0xf0c463 : 0x6fcfff;
+    const textColor = warning ? "#ffd98a" : "#b8fbff";
+    const graphics = this.addOverlayChild(this.add.graphics());
+    graphics.fillStyle(0x06111d, 0.9);
+    graphics.fillRoundedRect(left, top, width, height, 4);
+    graphics.lineStyle(1, accent, warning ? 0.62 : 0.48);
+    graphics.strokeRoundedRect(left + 0.5, top + 0.5, width - 1, height - 1, 4);
+    graphics.lineStyle(1, 0xecf7ff, 0.12);
+    graphics.lineBetween(left + 12, top + 5, left + width - 12, top + 5);
+
+    const text = this.createOverlayText(left + 14, y - 7, `SYSTEM NOTICE  /  ${message}`, {
+      fontSize: "12px",
+      color: textColor,
+      fontStyle: "bold"
+    });
+    this.fitOverlayTextToWidth(text, width - 28, 9);
   }
 
   renderGeekShopContent() {
@@ -35518,7 +35589,7 @@ class SurvivalScene extends Phaser.Scene {
     this.physics.world.pause();
 
     this.clearOverlayButtons();
-    this.configureOverlayPanel(1160, 650);
+    this.configureOverlayPanel(1160, 674);
     this.overlayPanel
       .setFillStyle(0x01060c, 0.18)
       .setStrokeStyle(2, 0x6fcfff, 0.35);
@@ -35526,33 +35597,32 @@ class SurvivalScene extends Phaser.Scene {
     this.overlayTitle
       .setStyle({
         fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
-        fontSize: "32px",
+        fontSize: "30px",
         color: "#ecf7ff",
         fontStyle: "bold",
         align: "left"
       })
       .setOrigin(0, 0.5)
-      .setPosition(-530, -286)
-      .setText("Opening Shop");
+      .setPosition(-530, -302)
+      .setText("OPERATIONS HUB");
     this.overlayBody
       .setStyle({
         fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
-        fontSize: "16px",
-        color: this.shopStatusMessage ? "#f3c06b" : "#9ab7cc",
+        fontSize: "14px",
+        color: "#b8eaff",
         align: "left"
       })
       .setOrigin(0, 0.5)
-      .setPosition(-530, -248)
-      .setText(this.shopStatusMessage || "ショップ準備完了");
+      .setPosition(-530, -270)
+      .setText("作戦拠点 / 強化・カスタム・記録");
 
     this.renderShopHeaderBalances();
+    this.renderHubNotice();
     this.renderShopModeTabs();
 
     if (this.shopViewMode === "runArchive") {
       this.renderRunArchiveShopContent();
-      this.createShopButton(392, 280, 318, 62, "GAME START", "開始前強化へ", () => {
-        this.startGameFromShop();
-      }, 0x174766, 0x236b92);
+      this.renderShopStartCta();
 
       this.overlayBackdrop.setAlpha(1).setVisible(true);
       this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
@@ -35564,9 +35634,7 @@ class SurvivalScene extends Phaser.Scene {
 
     if (this.shopViewMode === "anjuMemory") {
       this.renderAnjuMemoryShopContent();
-      this.createShopButton(392, 280, 318, 62, "GAME START", "開始前強化へ", () => {
-        this.startGameFromShop();
-      }, 0x174766, 0x236b92);
+      this.renderShopStartCta();
 
       this.overlayBackdrop.setAlpha(1).setVisible(true);
       this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
@@ -35578,9 +35646,7 @@ class SurvivalScene extends Phaser.Scene {
 
     if (this.shopViewMode === "robotCustom") {
       this.renderRobotCustomShopContent();
-      this.createShopButton(392, 280, 318, 62, "GAME START", "開始前強化へ", () => {
-        this.startGameFromShop();
-      }, 0x174766, 0x236b92);
+      this.renderShopStartCta();
 
       this.overlayBackdrop.setAlpha(1).setVisible(true);
       this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
@@ -35597,9 +35663,7 @@ class SurvivalScene extends Phaser.Scene {
       this.renderCdShopContent();
     }
 
-    this.createShopButton(392, 280, 318, 62, "GAME START", "開始前強化へ", () => {
-      this.startGameFromShop();
-    }, 0x174766, 0x236b92);
+    this.renderShopStartCta();
 
     this.overlayBackdrop.setAlpha(1).setVisible(true);
     this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
@@ -35610,7 +35674,7 @@ class SurvivalScene extends Phaser.Scene {
 
   renderOpeningShopBackground() {
     const width = 1148;
-    const height = 638;
+    const height = 662;
     const bgObjects = [];
 
     if (this.textures.exists(OPENING_SHOP_BACKGROUND_TEXTURE_KEY)) {
@@ -36126,7 +36190,44 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
-  createShopButton(centerX, centerY, width, height, title, description, onSelect, fill, hoverFill) {
+  renderShopStartCta() {
+    this.renderShopPhaseProgress(392, 256, 318);
+    this.createShopButton(392, 298, 318, 64, "SORTIE PREP", "開始前強化を選択", () => {
+      this.startGameFromShop();
+    }, 0x174766, 0x236b92, { kicker: "NEXT PHASE" });
+  }
+
+  renderShopPhaseProgress(centerX, centerY, width = 318) {
+    const height = 22;
+    const left = centerX - width / 2;
+    const top = centerY - height / 2;
+    const graphics = this.addOverlayChild(this.add.graphics());
+    graphics.fillStyle(0x06111d, 0.82);
+    graphics.fillRoundedRect(left, top, width, height, 4);
+    graphics.lineStyle(1, 0x6fcfff, 0.2);
+    graphics.strokeRoundedRect(left + 0.5, top + 0.5, width - 1, height - 1, 4);
+    graphics.lineStyle(1, 0x6fcfff, 0.34);
+    graphics.lineBetween(left + 12, centerY, left + 74, centerY);
+    graphics.lineBetween(left + width - 74, centerY, left + width - 12, centerY);
+
+    const parts = [
+      { text: "HUB READY", x: centerX - 120, color: "#66f0ff", fontStyle: "bold", alpha: 1 },
+      { text: "›", x: centerX - 51, color: "#6f91a6", fontStyle: "", alpha: 0.72 },
+      { text: "OPENING BOOST", x: centerX - 32, color: "#ecf7ff", fontStyle: "bold", alpha: 0.94 },
+      { text: "›", x: centerX + 87, color: "#6f91a6", fontStyle: "", alpha: 0.66 },
+      { text: "DEPLOY", x: centerX + 106, color: "#6f7d89", fontStyle: "bold", alpha: 0.56 }
+    ];
+
+    parts.forEach((part) => {
+      this.createOverlayText(part.x, centerY - 7, part.text, {
+        fontSize: "11px",
+        color: part.color,
+        fontStyle: part.fontStyle
+      }).setAlpha(part.alpha);
+    });
+  }
+
+  createShopButton(centerX, centerY, width, height, title, description, onSelect, fill, hoverFill, options = {}) {
     const panel = this.addOverlayChild(
       this.add
         .rectangle(centerX, centerY, width, height, fill, 0.96)
@@ -36142,24 +36243,40 @@ class SurvivalScene extends Phaser.Scene {
     });
     this.addOverlayAction(panel, onSelect, true, 18);
 
-    this.createOverlayText(centerX, centerY - 14, title, {
-      fontSize: "24px",
+    if (options.kicker) {
+      this.createOverlayText(centerX, centerY - 22, options.kicker, {
+        fontSize: "11px",
+        color: "#9ffcff",
+        fontStyle: "bold",
+        align: "center",
+        origin: { x: 0.5, y: 0.5 }
+      });
+    }
+
+    const titleText = this.createOverlayText(centerX, centerY - (options.kicker ? 3 : 14), title, {
+      fontSize: options.kicker ? "25px" : "24px",
       color: "#ecf7ff",
       fontStyle: "bold",
       align: "center",
       origin: { x: 0.5, y: 0.5 }
     });
-    this.createOverlayText(centerX, centerY + 16, description, {
+    this.fitOverlayTextToWidth(titleText, width - 36, 18);
+    const descriptionText = this.createOverlayText(centerX, centerY + (options.kicker ? 20 : 16), description, {
       fontSize: "13px",
       color: "#b8d4e8",
       align: "center",
       origin: { x: 0.5, y: 0.5 }
     });
+    this.fitOverlayTextToWidth(descriptionText, width - 36, 10);
 
     return panel;
   }
 
   startGameFromShop() {
+    if (!this.shopActive) {
+      return;
+    }
+
     const pendingShopEpilogue = this.peekPendingShopEpilogueComms?.() || "";
     this.cleanupCommsEpilogueTimers?.("gameStart");
     this.shopActive = false;
@@ -51335,7 +51452,7 @@ class SurvivalScene extends Phaser.Scene {
       this.createGameOverRankingButton(-156, 274, 280, 64, "ENTRY", "ランキングへ登録する", () => {
         this.submitPendingRankingEntry();
       });
-      this.createGameOverRankingButton(156, 274, 280, 64, isExtractionResult ? "Opening Shop" : "Restart", isExtractionResult ? "登録せずショップへ帰還" : "登録せず最初からプレイ", () => {
+      this.createGameOverRankingButton(156, 274, 280, 64, isExtractionResult ? "OPERATIONS HUB" : "Restart", isExtractionResult ? "登録せず拠点へ帰還" : "登録せず最初からプレイ", () => {
         if (isExtractionResult) {
           this.continueToOpeningShopFromRanking();
           return;
@@ -51343,7 +51460,7 @@ class SurvivalScene extends Phaser.Scene {
         this.restartGame();
       });
     } else {
-      this.createGameOverRankingButton(0, 274, 320, 64, isExtractionResult ? "Opening Shop" : "Restart", isExtractionResult ? "ショップへ帰還する" : "最初からもう一度プレイする", () => {
+      this.createGameOverRankingButton(0, 274, 320, 64, isExtractionResult ? "OPERATIONS HUB" : "Restart", isExtractionResult ? "拠点へ帰還する" : "最初からもう一度プレイする", () => {
         if (isExtractionResult) {
           this.continueToOpeningShopFromRanking();
           return;
@@ -52474,7 +52591,7 @@ class SurvivalScene extends Phaser.Scene {
       const raidState = this.finalBossRaidState || {};
       const phase = raidState.currentPhase || this.getFinalBossRaidPhaseForElapsed(raidState.elapsedMs);
       const raidObjective = raidState.liberationGateActive || raidState.timerComplete
-        ? "ドールを解放する  Opening Shopへ帰還"
+        ? "ドールを解放する  OPERATIONS HUBへ帰還"
         : `${phase?.label || "FINAL RAID"}  Gate disabled`;
       this.hudObjectiveText.setText(`${FINAL_BOSS_RAID_CONFIG.title}\n${raidObjective}`);
     } else {
@@ -53147,7 +53264,7 @@ function peekPendingOpeningShopMessage() {
 }
 
 function getShopLoadingTitleForMessage(message = "") {
-  return "ショップ準備中";
+  return "拠点準備中";
 }
 
 const SHOP_LOADING_SHOP_MODULES = [
@@ -53161,7 +53278,7 @@ const SHOP_LOADING_SHOP_MODULES = [
 const SHOP_LOADING_GEEK_NODES = [
   { id: "run", label: "RUN DATA", status: "RUN DATA TRANSFER..." },
   { id: "wallet", label: "GEEK WALLET", status: "GEEK WALLET SYNC..." },
-  { id: "shop", label: "SHOP LINK", status: "SHOP LINK HANDOFF..." }
+  { id: "shop", label: "HUB LINK", status: "HUB LINK HANDOFF..." }
 ];
 
 function formatShopLoadingAmount(value) {
@@ -53268,7 +53385,7 @@ function updateShopLoadingGeekNodes(screen, activeIndex = 0, completeAll = false
     setShopLoadingNodeClass(node, state);
   });
   const status = completeAll
-    ? "SHOP LINK READY"
+    ? "HUB LINK READY"
     : SHOP_LOADING_GEEK_NODES[Math.min(SHOP_LOADING_GEEK_NODES.length - 1, Math.max(0, activeIndex))]?.status;
   setShopLoadingText(elements.status, status || "");
 }
@@ -53366,9 +53483,9 @@ function setShopLoadingMode(screen, rawOptions = {}, token = getShopLoadingRunti
     return;
   }
 
-  setShopLoadingText(elements.kicker, "OPENING SHOP SYSTEM");
-  setShopLoadingText(elements.title, options.title || "ショップ準備中");
-  setShopLoadingText(elements.copy, "ショップモジュールを同期しています");
+  setShopLoadingText(elements.kicker, "OPERATIONS HUB SYSTEM");
+  setShopLoadingText(elements.title, options.title || "拠点準備中");
+  setShopLoadingText(elements.copy, "拠点モジュールを同期しています");
   beginShopLoadingModuleCycle(screen, token);
 }
 
@@ -53405,9 +53522,9 @@ function completeShopLoadingShopMode(screen) {
   screen.classList.add("is-mode-shop", "is-shop-complete");
   setShopLoadingHidden(elements.amount, true);
   setShopLoadingHidden(elements.total, true);
-  setShopLoadingText(elements.kicker, "OPENING SHOP SYSTEM");
+  setShopLoadingText(elements.kicker, "OPERATIONS HUB SYSTEM");
   setShopLoadingText(elements.channel, "READY");
-  setShopLoadingText(elements.title, "SHOP ONLINE");
+  setShopLoadingText(elements.title, "HUB ONLINE");
   setShopLoadingText(elements.copy, "SYSTEM READY");
   updateShopLoadingModules(screen, 0, true);
 }
@@ -53500,7 +53617,7 @@ function scheduleShopLoadingDebugPreview(screen, options = {}, token) {
   }, completeDelay, token);
 }
 
-function showShopLoadingScreen(input = "ショップ準備中", options = {}) {
+function showShopLoadingScreen(input = "拠点準備中", options = {}) {
   if (typeof document === "undefined") {
     return;
   }
@@ -53608,7 +53725,7 @@ function hideShopLoadingScreen(options = {}) {
   }, waitMs, token);
 }
 
-function startSurvivalGame(loadingTitle = "ショップ準備中") {
+function startSurvivalGame(loadingTitle = "拠点準備中") {
   if (window.__SURVIVAL_GAME__) {
     return;
   }

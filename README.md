@@ -35,7 +35,7 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 
 スマートフォンで接続すると、開始前に横向きフルスクリーン開始ゲートが表示されます。対応ブラウザではフルスクリーン化と画面向きロックをリクエストし、未対応環境では通常表示で開始できます。
 
-スマートフォンのショップ帰還ではページリロードを避け、同じページ内で Opening Shop へ戻ることで横向きフルスクリーンを維持します。ブラウザ制限などで帰還処理中またはショップ上でフルスクリーンが解除された場合は、横向きフルスクリーン復帰ゲートを表示し、タップ操作で再度フルスクリーンと画面回転をリクエストします。端末側の制限でページ再読み込みへフォールバックした場合も、以前に横向きフルスクリーンを選んでいれば開始ゲートをスキップせず再表示します。
+スマートフォンのショップ帰還ではページリロードを避け、同じページ内で OPERATIONS HUB（従来のOpening Shop）へ戻ることで横向きフルスクリーンを維持します。ブラウザ制限などで帰還処理中またはショップ上でフルスクリーンが解除された場合は、横向きフルスクリーン復帰ゲートを表示し、タップ操作で再度フルスクリーンと画面回転をリクエストします。端末側の制限でページ再読み込みへフォールバックした場合も、以前に横向きフルスクリーンを選んでいれば開始ゲートをスキップせず再表示します。
 
 モバイル操作は左側の仮想スティックと右側の DASH ボタンです。ショップ、開始前強化、Gate 選択、ランキング入力もタップ操作に対応しています。
 
@@ -45,12 +45,12 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - `?mobileGate=0`: スマートフォン開始ゲートを無効化します。
 - `?mobileControls=1`: PC ブラウザでもモバイル操作 UI を表示します。
 - `?mobileControls=0`: モバイル操作 UI を無効化します。
-- `?debugStartDepth=10`: デバッグ用。`GAME START` 後のランを Depth10 から開始します。`11` 以上を指定すると通常深層として開始し、Final Raid には入りません。
-- `?debugSkipOpeningBoost=1`: デバッグ用。`GAME START` 後の Opening Boost 選択をスキップします。
+- `?debugStartDepth=10`: デバッグ用。`SORTIE PREP` 後のランを Depth10 から開始します。`11` 以上を指定すると通常深層として開始し、Final Raid には入りません。
+- `?debugSkipOpeningBoost=1`: デバッグ用。`SORTIE PREP` 後の Opening Boost 選択をスキップします。
 - `?debugComms=1`: デバッグ用。戦闘中の通信UIテスト文を表示します。
 - `?debugCommsStory=1`: デバッグ用。通信ストーリーの保存済みフラグを無視し、このランでは再生済み保存を行いません。
 - `?debugCommsStoryReset=1`: デバッグ用。起動時に通信ストーリーの再生済み保存を削除します。
-- `?debugCommsStoryDepth=1`: デバッグ用。`1` / `3` / `6` / `8` / `9` / `10` の指定Depth通信を `GAME START` 後にテスト再生します。
+- `?debugCommsStoryDepth=1`: デバッグ用。`1` / `3` / `6` / `8` / `9` / `10` の指定Depth通信を `SORTIE PREP` 後にテスト再生します。
 - `?debugEndlessVoidBgm=1`: デバッグ用。Depth11 以降の専用 BGM 切替ログを console に出します。
 - `?debugScrambledComms=1`: デバッグ用。Depth11 以降のスクランブル通信ログを console に出します。この指定だけでは発生間隔は短縮しません。
 - `?debugScrambledCommsInterval=5`: デバッグ用。スクランブル通信の再試行 / ランダム発生間隔を秒数で固定します。最低 5 秒です。
@@ -77,7 +77,7 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - `?debugTriadMatrix=1`: デバッグ用。TRIAD MATRIX の再計算、状態遷移、完成 buildId を console に出します。
 - `?debugTriadCore=assault|control|reactor|trinity`: デバッグ用。3攻撃スキルのStage4 Coreをラン内注入します。`trinity` は3種1個ずつになります。
 - `?debugTriadFinal=execution|prism|singularity|adaptive`: デバッグ用。3攻撃スキルのStage8 Finalをラン内注入します。`adaptive` は3種1個ずつになります。
-- `?debugMutationAtlas=1`: デバッグ用。Opening Shop の `ARCHIVE` 内 `MUTATION ATLAS` をサンプル状態で開き、保存データは変更しません。
+- `?debugMutationAtlas=1`: デバッグ用。OPERATIONS HUB の `ARCHIVE` 内 `MUTATION ATLAS` をサンプル状態で開き、保存データは変更しません。
 - `?debugStartDepth=10&debugFinalRaid=1&debugFinalRaidScale=0.05&debugFinalRaidPhase=third&debugMaxBuild=1&debugSkipOpeningBoost=1`: デバッグ用。強化済み状態でDepth10 Final Raidを確認します。
 - `?debugRecoveryFieldScale=1`: デバッグ用。Recovery Field の選択画像、表示サイズ、alpha、angle / rotation、depth、表示モードを console に出します。
 - `?debugDollTrace=1`: デバッグ用。通常 Depth の外周停滞検知 `DOLL TRACE` の更新、ハンター出現、cleanup を console に出し、HUD に詳細行を表示します。
@@ -86,18 +86,18 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 
 ## ゲーム進行
 
-1. Opening Shop の `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY`、`ARCHIVE` で CD、BGM、永続強化、ロボット系解放、戦闘ログ、MUTATION ATLAS 閲覧を行います。
-2. `GAME START` で出撃し、Opening Boost として開始前に 3 回ぶんの強化を選択します。ANJU MEMORY の +1 チケットを持っている場合、最初の Opening Boost だけ 4 択になります。
-3. 敵を倒して XP、未確定 GEEK、Support、Robot、LOST ARMS アイテムを集めます。
+1. OPERATIONS HUB の `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY`、`ARCHIVE` で CD、BGM、永続強化、ロボット系解放、戦闘ログ、MUTATION ATLAS 閲覧を行います。
+2. `SORTIE PREP` から Opening Boost 選択へ進み、開始前に 3 回ぶんの強化を選択します。ANJU MEMORY の +1 チケットを持っている場合、最初の Opening Boost だけ 4 択になります。
+3. Opening Boost 完了後に戦闘へ出撃し、敵を倒して XP、未確定 GEEK、Support、Robot、LOST ARMS アイテムを集めます。
 4. レベルアップ時はスキル解放、スキル強化、パッシブ強化から 3 択で 1 つ選びます。
 5. 各 Depth の開始から 120 秒で Stage Gate が開きます。
 6. Stage Gate では次の Depth へ進むか、未確定 GEEK を確定してショップへ帰還します。
 7. `NEXT STAGE` / `FORCE BREAKTHROUGH` で次 Depth へ進むと、地面に残った一部報酬が DATA CACHE に圧縮されます。
-8. Depth10 初回未討伐時は通常フィールドではなく Depth10 Final Raid に入り、残り 40 秒でボス HP が 0 になった後、600 秒到達時に専用の `ドールを解放する` ゲートだけが出現します。このゲートは Depth11 へ進まず、討伐報酬を保存して Opening Shop へ帰還します。
+8. Depth10 初回未討伐時は通常フィールドではなく Depth10 Final Raid に入り、残り 40 秒でボス HP が 0 になった後、600 秒到達時に専用の `ドールを解放する` ゲートだけが出現します。このゲートは Depth11 へ進まず、討伐報酬を保存して OPERATIONS HUB へ帰還します。
 9. Depth10 Final Raid 討伐後に通常プレイで Depth10 へ到達した場合は通常 Depth として進行し、CDSHOP で選択中の BGM を維持します。
 10. Depth11 以降は Endless Void 領域になり、選択 CD を保存変更せずラン中だけ `音声/bgm/ENDLESSVOIDAMBIENCE.mp3` へ上書きします。Depth12 以降へ進んでも同じ BGM を継続し、Depth ごとに先頭から再生し直しません。
 11. Depth11 以降は外部通信、味方通信、通常 Depth 通信、Final Raid 後日談通信を遮断し、既存通信 UI の `SCRAMBLED SIGNAL` 表示で短いスクランブル受信だけが低頻度で発生します。スクランブル通信はラン内一時状態で、`lastmemoVansabaCommsStoryState` には保存しません。
-12. 帰還、ゲームオーバー、Gate 崩壊後はローディング表示を挟んで Opening Shop に戻ります。
+12. 帰還、ゲームオーバー、Gate 崩壊後はローディング表示を挟んで OPERATIONS HUB に戻ります。
 
 ## 通常 Depth の外周停滞対策
 
@@ -121,7 +121,7 @@ Final Raid のボスに対するプレイヤー攻撃は、通常のダメージ
 
 浮遊型巨大機械兵器 2 体は背景とフィールドの間に表示され、通常スキルや接触ではターゲットになりません。随伴ロボットのミサイルだけが届き、命中時は実 HP を持たない疑似ダメージ数値とヒット演出だけを表示します。巨大機械兵器は第3形態から、左兵器はフィールド左半面、右兵器はフィールド右半面に持続型ダメージ床を順番に展開します。Coven が救援参加すると左の巨大機械兵器が拘束され、左半面ダメージ床とそのターゲット判定が停止します。ひとりぼっちの が救援参加すると右の巨大機械兵器が拘束され、右半面ダメージ床とそのターゲット判定が停止します。HP 低下中はボス本体の危険フィールドと巨大兵器半面床が短時間に重なりすぎないよう、巨大兵器側が短く発動を遅らせます。ボス討伐時には、左右の巨大機械兵器本体、拘束演出、ターゲット判定、残っているダメージ床をまとめて削除します。
 
-支援ランキングは終盤まで REDWOLF が上位に残り、残り 1:45 でエクスカリオンが救援参加します。エクスカリオンは 5 位から 4 位、3 位、2 位へ段階的に上がり、残り 1:10 で 1 位になる演出です。REDWOLF は最終的に 2 位でレイドを終えます。ランキング数値は表示用の演出値で、リアルタイムのボス HP 計算には使いません。残り 2:00 で TIMELIMIT パネルが赤色に変化し、残り 0:40 でボス HP が 0 になってボス表示、当たり判定、左右の浮遊型巨大機械兵器とそのターゲット判定が消え、ランキング更新も停止します。600 秒到達後に `ドールを解放する` ゲートで討伐報酬を保存して Opening Shop へ帰還します。
+支援ランキングは終盤まで REDWOLF が上位に残り、残り 1:45 でエクスカリオンが救援参加します。エクスカリオンは 5 位から 4 位、3 位、2 位へ段階的に上がり、残り 1:10 で 1 位になる演出です。REDWOLF は最終的に 2 位でレイドを終えます。ランキング数値は表示用の演出値で、リアルタイムのボス HP 計算には使いません。残り 2:00 で TIMELIMIT パネルが赤色に変化し、残り 0:40 でボス HP が 0 になってボス表示、当たり判定、左右の浮遊型巨大機械兵器とそのターゲット判定が消え、ランキング更新も停止します。600 秒到達後に `ドールを解放する` ゲートで討伐報酬を保存して OPERATIONS HUB へ帰還します。
 
 Final Raid 中は `DOLL FIELD JAMMING` により福音領域外から内部への `EXTERNAL DOWNLINK` が遮断されます。一方で内部から外部への `EMERGENCY UPLINK` は有効で、救援に到着したギルドとは `LOCAL MESH` で短距離通信できます。到着済みギルドは支援ランキングとは別に `RESCUE LINK` HUDへ到着順で表示されます。各ギルド初到着時は最大HP4%分の `RELIEF PACKET` が届き、HP不足分を回復し、余剰分は12秒間の `RELIEF SHIELD` へ変換されます。RELIEF SHIELD の上限は最大HP8%で、既存 Robot Barrier Field の後、HPダメージ前にだけ吸収します。7番目の `LOCAL MESH` 接続時には1回だけ `RESCUE BEACON` が展開され、10秒間に4回、範囲内のプレイヤーを最大HP3%ずつ回復します。これらはFinal Raidラン内限定の生存補助で、既存Robot Recovery Field / Barrier Fieldとは別系統です。ボスHP、支援ランキング、ギルド参戦時刻、報酬、GEEK、ANJU MEMORY、Run Archive、Firebaseには影響しません。
 
@@ -259,7 +259,7 @@ TRIAD MATRIX の戦闘効果は、3 攻撃スキルと既存 SKILL MUTATION 効�
 - `SINGULARITY LINK I` / `SINGULARITY DOMAIN`: 既存SINGULARITY Mutationのフィールド半径、持続、吸引/制圧系の値 x1.06 / x1.12。
 - `ADAPTIVE FORM`: Execution対象ダメージ x1.05、PRISM副次攻撃ダメージ x1.06、SINGULARITY系の値 x1.06。
 
-`MUTATION ATLAS` は Opening Shop の `ARCHIVE` タブ内サブビューから確認できます。`RUN ARCHIVE` / `MUTATION ATLAS` を切り替え、4 行 x 4 列のセルで 16 種類の完成ビルドを表示します。Atlas状態は `lastmemoVansabaMutationAtlasState` に保存され、GEEK、ANJU MEMORY本体計算、RUN ARCHIVE、ランキング、Firebaseには混ざりません。破損JSONや古い保存データでも 16 セルを初期化して起動します。
+`MUTATION ATLAS` は OPERATIONS HUB の `ARCHIVE` タブ内サブビューから確認できます。`RUN ARCHIVE` / `MUTATION ATLAS` を切り替え、4 行 x 4 列のセルで 16 種類の完成ビルドを表示します。Atlas状態は `lastmemoVansabaMutationAtlasState` に保存され、GEEK、ANJU MEMORY本体計算、RUN ARCHIVE、ランキング、Firebaseには混ざりません。破損JSONや古い保存データでも 16 セルを初期化して起動します。
 
 Atlas進捗:
 
@@ -274,7 +274,7 @@ Depth 6 以上の `DEEP EXTRACTION RESULT` では、完成ビルドがある場�
 
 Depth10初回 Final Raid 中は TRIAD HUD、TRIAD戦闘効果、Atlas記録、PRESERVED、Research Target、Atlas報酬をすべて無効化します。Final Raid のボス、Add、巨大兵器、救援、タイマー、報酬、帰還ゲートには影響しません。Final Raid討伐後に後続ランで通常Depth10へ到達した場合は通常ランとしてTRIAD MATRIX / MUTATION ATLASの対象になります。
 
-検証用に `?debugTriadMatrix=1` を付けるとTRIAD再計算、状態遷移、完成 buildId を console に出します。`?debugTriadCore=assault|control|reactor|trinity` と `?debugTriadFinal=execution|prism|singularity|adaptive` は3スキルへラン内Mutationを注入します。この注入ランではAtlas保存、ANJU MEMORY報酬、Reroll Ticket報酬、Research完了、実RUN ARCHIVEへのTRIADビルド保存を行いません。`?debugMutationAtlas=1` はOpening Shop起動時に保存を書き換えないサンプルAtlasを表示します。
+検証用に `?debugTriadMatrix=1` を付けるとTRIAD再計算、状態遷移、完成 buildId を console に出します。`?debugTriadCore=assault|control|reactor|trinity` と `?debugTriadFinal=execution|prism|singularity|adaptive` は3スキルへラン内Mutationを注入します。この注入ランではAtlas保存、ANJU MEMORY報酬、Reroll Ticket報酬、Research完了、実RUN ARCHIVEへのTRIADビルド保存を行いません。`?debugMutationAtlas=1` はOPERATIONS HUB起動時に保存を書き換えないサンプルAtlasを表示します。
 
 通常のレベルアップ強化は Lv.25 までを基準にし、Depth 6 以降で Lv.25 に到達している場合は `DEEP LEVEL` 成長に切り替わります。`DEEP LEVEL` は Lv.99 まで上昇し、カード選択を出さずに 1 レベルごとに Lv.25 時点の最大 HP 基準で約 1% の最大 HP と同量の現在 HP を加算します。Depth 6 未満では `DEEP LEVEL` は解禁されません。
 
@@ -358,9 +358,9 @@ Depth6、8、10、12、15 に入ると `GEEK MILESTONE` 通知が短く表示さ
 
 Depth 6 以降に通常 `EXTRACT` または `EMERGENCY EXTRACT` が成功すると、ランキング入力やショップ復帰の前に `DEEP EXTRACTION RESULT` が表示されます。通常抽出では `DEEP EXTRACTION RESULT`、緊急抽出では `EMERGENCY DEEP EXTRACTION / Partial data secured` として、到達 Depth、確定 GEEK、生存時間、撃破数、Elite / Boss、Instability、GEEK 最大倍率、ANJU MEMORY、LOST ARMS、NEMESIS、DEPTH DIRECTIVE、TRIAD BUILD / MUTATION ATLAS、ベスト更新、Grade を表示します。
 
-この画面は演出と集計表示だけです。`secureRunCoins()` の確定額、緊急脱出の保護率、`lastmemoVansabaCoins`、`lastmemoVansabaExtractionMessage`、ランキング、Firebase 送信値は変更しません。Continue、Enter、Space、タップで既存のランキング入力または Opening Shop 復帰へ進みます。
+この画面は演出と集計表示だけです。`secureRunCoins()` の確定額、緊急脱出の保護率、`lastmemoVansabaCoins`、`lastmemoVansabaExtractionMessage`、ランキング、Firebase 送信値は変更しません。Continue、Enter、Space、タップで既存のランキング入力または OPERATIONS HUB 復帰へ進みます。
 
-検証用に `?debugDeepResult=1` を付けると、Opening Shop 起動直後に保存なしのプレビュー結果画面を表示し、Depth 6 未満の抽出でも結果画面の発生条件を確認できます。デバッグ指定は表示条件だけを緩和し、GEEK / ANJU MEMORY / ランキング保存値は増やしません。
+検証用に `?debugDeepResult=1` を付けると、OPERATIONS HUB 起動直後に保存なしのプレビュー結果画面を表示し、Depth 6 未満の抽出でも結果画面の発生条件を確認できます。デバッグ指定は表示条件だけを緩和し、GEEK / ANJU MEMORY / ランキング保存値は増やしません。
 
 ## ANOMALY CONTRACT
 
@@ -430,13 +430,13 @@ NEMESIS は Gate が近すぎる場合、Gate が開いている場合、Gate �
 - マイルストーンは保存された報酬が 1 AM 以上のときだけ達成済みにします。緊急抽出でも 1 AM 以上を獲得した場合は、そのランで到達した未達マイルストーンを消費します。
 - MUTATION ATLAS の初回 `PRESERVED` 報酬は `ATLAS PRESERVE BONUS +1 AM` として別枠で加算されます。既存の三角数計算、マイルストーン、不安定度補正、ランキング/Firebase送信値には含めません。
 
-Opening Shop の `ANJU MEMORY` タブでは、AM 残高、累計獲得、最高抽出 Depth、チケット所持数を確認できます。HUD では Depth 6 以降に `ANJU MEMORY +n? / Extract to preserve` として未確定の見込み値を表示します。
+OPERATIONS HUB の `ANJU MEMORY` タブでは、AM 残高、累計獲得、最高抽出 Depth、チケット所持数を確認できます。HUD では Depth 6 以降に `ANJU MEMORY +n? / Extract to preserve` として未確定の見込み値を表示します。
 
 ANJU MEMORY ショップ報酬:
 
 - Deep CD: `ANJU ECHO` は Depth6+ の STABILIZE 獲得量 +5%、`VOID SIGNAL` は Depth6+ の LOST ARMS 抽選率 +0.005、`GATE REFRAIN` は Depth6+ の Gate 安定時間 +2 秒です。購入後は選択不要で常時有効ですが、効果は Depth6+ のみです。
 - HUD / Gate / LOST ARMS スキン: 購入して選択します。見た目だけを変え、性能には影響しません。
-- Opening Boost +1 Ticket: 次ラン開始時、最初の Opening Boost だけ候補数を +1 し、表示直前に 1 枚消費します。
+- Opening Boost +1 Ticket: 次ラン開始時、`SORTIE PREP` 後の最初の Opening Boost だけ候補数を +1 し、表示直前に 1 枚消費します。
 - Opening Boost Reroll Ticket: Opening Boost 画面に `REROLL` を表示し、1 ラン 1 回だけ候補を引き直します。押した時点で 1 枚消費します。
 - Title / Badge: 購入して選択すると HUD やランキング表示に反映されます。
 - Memory Log: 購入後、ANJU MEMORY ショップ内で本文を読めます。
@@ -550,7 +550,7 @@ Support アイテムを拾うとサポート攻撃が発動します。Support �
 
 SUPPORT LINK SYSTEM:
 
-- Opening Shop の GEEKSHOP で 60,000 GEEK を支払うとインストールされ、`LINK Lv.1` になります。
+- OPERATIONS HUB の GEEKSHOP で 60,000 GEEK を支払うとインストールされ、`LINK Lv.1` になります。
 - インストール後、Support アイテム取得でサポートアタックが正常発動した累計回数だけが `ACTIVATIONS` として保存されます。Depth9 の JAMMED や、元素騎士 / いしでん中などで STABILIZE 変換された Support はカウントされません。
 - LINK は GEEK を追加消費せず、累計正常発動数で Lv.6 まで自動成長します。必要累計発動数は Lv1: 0、Lv2: 15、Lv3: 30、Lv4: 60、Lv5: 100、Lv6: 160 です。
 - 効果は `Support combat effect` で、Support 起点のダメージ、Support 回復、Support の状態異常 / time stop 持続に適用されます。Lv1 から +5% / +8% / +12% / +16% / +21% / +25% です。
@@ -567,7 +567,7 @@ SUPPORT LINK SYSTEM:
 
 GEEKSHOP の `回収ロボ` は、確定 GEEK で Lv.1-10 まで永続強化する別系統の非ダメージサポートです。出撃中はキャラクター周辺のドロップを探してロボット自身が拾いに行き、回収後はプレイヤー付近へ戻ります。Lv が上がるとサーチ範囲、移動速度、回収対象が広がり、Lv2 以降は周囲の敵を押し戻す掃除パルス、Lv4 以降は短い鈍足補助も発生します。対象は Lv1 で XP / Bronze / Silver / Gold、Lv2 で DATA CACHE、Lv3 で Heal / Magnet、Lv5 で Robot / Support / LOST ARMS まで広がります。画像は `./画像/robot/cleaning_robot_lv1.png` から `cleaning_robot_lv10.png` を使用し、未読み込み時は既存ロボット画像へフォールバックします。
 
-ミサイルと回復フィールドの本体レベルは通常 Lv.10 が上限です。Opening Shop の `ROBOT CUSTOM` で確定 GEEK を使ってLv上限を段階解放すると、各系統ごとに Lv.12 / 14 / 16 / 18 / 20 まで伸ばせます。チューニングは Rapid Launcher、Warhead Boost、Field Cycle、Care Output があり、それぞれ最大 Lv.20 です。
+ミサイルと回復フィールドの本体レベルは通常 Lv.10 が上限です。OPERATIONS HUB の `ROBOT CUSTOM` で確定 GEEK を使ってLv上限を段階解放すると、各系統ごとに Lv.12 / 14 / 16 / 18 / 20 まで伸ばせます。チューニングは Rapid Launcher、Warhead Boost、Field Cycle、Care Output があり、それぞれ最大 Lv.20 です。
 
 ミサイル命中、撃破、回復パルスでもロボット経験値が入り、Lv1-10までは既存テンポで本体レベルが上がります。Lv10以降は自動経験値では上がらず、Missile / Recovery Core を複数取得して `CORE x/y` を満たすと1レベル上がります。必要Core数は Lv10->11:2、Lv11->12:2、Lv12->13:3、Lv13->14:3、Lv14->15:4、Lv15->16:5、Lv16->17:6、Lv17->18:7、Lv18->19:8、Lv19->20:10 です。すでに現在の上限に達した Robot 報酬を拾った場合は、STABILIZE と未確定 GEEK に変換されます。
 
@@ -587,9 +587,9 @@ ROBOT SYNC DRIVE:
 - `SYNC` はラン内一時状態です。ショップ復帰、抽出、ゲームオーバー、リスタートでリセットされ、localStorage / sessionStorage には保存されません。
 - 検証用に `?debugRobotSync=1` を付けると、初期 `SYNC` ゲージが高い状態になり、ゲージ獲得量が増えて発動確認しやすくなります。
 
-## ショップ
+## OPERATIONS HUB / 拠点
 
-Opening Shop では `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY` をタブで切り替えます。CDSHOP は CD 購入と BGM 選択専用です。GEEKSHOP と ROBOT CUSTOM では確定 GEEK を使用します。GEEKSHOP は Weapon / Armor / Shoes と回収ロボの永続強化、ROBOT CUSTOM はラン中Lvを直接購入する画面ではなく、Missile / Recovery のLv上限と Lv11+ EX 機能を解放する画面です。CD は BGM 選択と永続ボーナスを兼ねており、購入済み CD の永続効果は選択中 BGM に関係なく常時発動します。
+OPERATIONS HUB では `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY`、`ARCHIVE` をタブで切り替えます。CDSHOP は CD 購入と BGM 選択専用です。GEEKSHOP と ROBOT CUSTOM では確定 GEEK を使用します。GEEKSHOP は Weapon / Armor / Shoes と回収ロボの永続強化、ROBOT CUSTOM はラン中Lvを直接購入する画面ではなく、Missile / Recovery のLv上限と Lv11+ EX 機能を解放する画面です。ANJU MEMORY では深層メタ報酬の購入・選択、ARCHIVE では RUN ARCHIVE と MUTATION ATLAS を確認します。CD は BGM 選択と永続ボーナスを兼ねており、購入済み CD の永続効果は選択中 BGM に関係なく常時発動します。
 
 ラン中 BGM は Depth1〜9 と Final Raid 討伐後の通常 Depth10 では CDSHOP の選択 CD を再生します。初回未討伐の Depth10 Final Raid だけ Final Raid 専用 BGM に切り替わり、Depth11 以降では `./音声/bgm/ENDLESSVOIDAMBIENCE.mp3` をラン中だけ一時上書きします。この専用 BGM は CD として購入・選択・保存されず、`lastmemoVansabaShopState` の CD 選択値も変更しません。
 
@@ -617,7 +617,7 @@ CD:
 - いっちゃいな: 100,000 GEEK / 弾速 +8%、移動速度 +12
 - ドールを解放せし者: Depth10 Final Raid 討伐報酬 / 最大 HP +100、最大スタミナ +50。討伐前は CDSHOP でロック表示、討伐後は BGM として選択できます。
 
-CDSHOP では通常 CD を 3 列 x 2 段、`ドールを解放せし者` を大型ジャケットカードとして表示します。右側の HUD には購入・解放済み CD の合計ステータスボーナス、ACTIVE CDS、Opening Shop 全体の強化を表示専用に評価した TOTAL BONUS SCORE を表示します。
+CDSHOP では通常 CD を 3 列 x 2 段、`ドールを解放せし者` を大型ジャケットカードとして表示します。右側の HUD には購入・解放済み CD の合計ステータスボーナス、ACTIVE CDS、OPERATIONS HUB 全体の強化を表示専用に評価した TOTAL BONUS SCORE を表示します。
 
 永続強化の価格は基礎 1,000 GEEK からレベルに応じて増加し、100 GEEK 単位に丸められます。ショップ表示前、帰還後、ゲーム再生成時には `shop-loading-screen` が表示されます。
 
@@ -674,7 +674,7 @@ Best Depth はそのランで実際に到達した最大 Depth です。Extracte
 
 ## RUN ARCHIVE / 戦闘ログ
 
-Opening Shop の `ARCHIVE` タブから、`RUN ARCHIVE` と `MUTATION ATLAS` を切り替えられます。`RUN ARCHIVE` では直近 20 件のラン結果を新しい順に閲覧できます。各ログはローカル保存専用で、GEEK 残高、ANJU MEMORY 残高、ランキング、Firebase 送信値、ゲームバランスには影響しません。
+OPERATIONS HUB の `ARCHIVE` タブから、`RUN ARCHIVE` と `MUTATION ATLAS` を切り替えられます。`RUN ARCHIVE` では直近 20 件のラン結果を新しい順に閲覧できます。各ログはローカル保存専用で、GEEK 残高、ANJU MEMORY 残高、ランキング、Firebase 送信値、ゲームバランスには影響しません。
 
 保存対象は通常 `EXTRACT`、`EMERGENCY EXTRACT`、通常ゲームオーバー、Depth 5 までの Gate Collapse です。Depth10 Final Raid の `ドールを解放する` 帰還は通常抽出相当として保存されます。`?debugDeepResult=1` のプレビュー、ゲーム開始前、手動でページを閉じただけの中断は保存されません。1 ランにつき保存は 1 件だけで、21 件目以降は古いログから削除されます。
 
@@ -686,7 +686,7 @@ Opening Shop の `ARCHIVE` タブから、`RUN ARCHIVE` と `MUTATION ATLAS` を
 - スキル、パッシブ、LOST ARMS、RESONANCE / Evolution、Robot Lv / SYNC
 - ANOMALY CONTRACT、DEPTH DIRECTIVE、OVERDRIVE MOD、STABILIZE PROTOCOL、NEMESIS
 
-保存済みログがない場合は `NO RUN ARCHIVE` を表示します。`?debugRunArchive=1` を付けると、保存は行わず Opening Shop 上でサンプルログを表示でき、実保存時には console に `[RUN ARCHIVE] saved` を出します。
+保存済みログがない場合は `NO RUN ARCHIVE` を表示します。`?debugRunArchive=1` を付けると、保存は行わず OPERATIONS HUB 上でサンプルログを表示でき、実保存時には console に `[RUN ARCHIVE] saved` を出します。
 
 ## 保存データ
 
@@ -707,7 +707,7 @@ localStorage キー:
 
 sessionStorage キー:
 
-- `lastmemoVansabaExtractionMessage`: 帰還後に Opening Shop へ表示する一時メッセージ
+- `lastmemoVansabaExtractionMessage`: 帰還後に OPERATIONS HUB へ表示する一時メッセージ
 
 保存データを初期化したい場合は、ブラウザの DevTools から該当キーを削除してください。
 
