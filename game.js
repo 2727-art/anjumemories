@@ -130,6 +130,115 @@ const SKILL_MUTATION_FINAL_VISUALS = {
     shape: "field"
   }
 };
+const TRIAD_MATRIX_DEBUG_QUERY_PARAM = "debugTriadMatrix";
+const TRIAD_MATRIX_DEBUG_CORE_QUERY_PARAM = "debugTriadCore";
+const TRIAD_MATRIX_DEBUG_FINAL_QUERY_PARAM = "debugTriadFinal";
+const MUTATION_ATLAS_STORAGE_KEY = "lastmemoVansabaMutationAtlasState";
+const MUTATION_ATLAS_DEBUG_QUERY_PARAM = "debugMutationAtlas";
+const MUTATION_ATLAS_VERSION = 1;
+const TRIAD_MATRIX_CORE_DEFINITIONS = {
+  assault: {
+    linkId: "assault_link_i",
+    linkName: "ASSAULT LINK I",
+    linkShort: "ASLT-I",
+    matrixId: "assault_array",
+    matrixName: "ASSAULT ARRAY",
+    matrixShort: "ASLT-II",
+    atlasLabel: "ASSAULT ARRAY",
+    targetShort: "ASLT"
+  },
+  control: {
+    linkId: "control_link_i",
+    linkName: "CONTROL LINK I",
+    linkShort: "CTRL-I",
+    matrixId: "control_grid",
+    matrixName: "CONTROL GRID",
+    matrixShort: "CTRL-II",
+    atlasLabel: "CONTROL GRID",
+    targetShort: "CTRL"
+  },
+  reactor: {
+    linkId: "reactor_link_i",
+    linkName: "REACTOR LINK I",
+    linkShort: "RCTR-I",
+    matrixId: "reactor_loop",
+    matrixName: "REACTOR LOOP",
+    matrixShort: "RCTR-II",
+    atlasLabel: "REACTOR LOOP",
+    targetShort: "RCTR"
+  }
+};
+const TRIAD_MATRIX_CORE_MIXED_DEFINITION = {
+  matrixId: "trinity_core",
+  matrixName: "TRINITY CORE",
+  matrixShort: "TRIN-II",
+  atlasLabel: "TRINITY CORE",
+  targetShort: "TRIN"
+};
+const TRIAD_MATRIX_FINAL_DEFINITIONS = {
+  execution: {
+    linkId: "execution_link_i",
+    linkName: "EXECUTION LINK I",
+    linkShort: "EXEC-I",
+    matrixId: "execution_protocol",
+    matrixName: "EXECUTION PROTOCOL",
+    matrixShort: "EXEC-II",
+    atlasLabel: "EXECUTION PROTOCOL",
+    targetShort: "EXEC"
+  },
+  prism: {
+    linkId: "prism_link_i",
+    linkName: "PRISM LINK I",
+    linkShort: "PRSM-I",
+    matrixId: "prism_cascade",
+    matrixName: "PRISM CASCADE",
+    matrixShort: "PRSM-II",
+    atlasLabel: "PRISM CASCADE",
+    targetShort: "PRSM"
+  },
+  singularity: {
+    linkId: "singularity_link_i",
+    linkName: "SINGULARITY LINK I",
+    linkShort: "SING-I",
+    matrixId: "singularity_domain",
+    matrixName: "SINGULARITY DOMAIN",
+    matrixShort: "SING-II",
+    atlasLabel: "SINGULARITY DOMAIN",
+    targetShort: "SING"
+  }
+};
+const TRIAD_MATRIX_FINAL_MIXED_DEFINITION = {
+  matrixId: "adaptive_form",
+  matrixName: "ADAPTIVE FORM",
+  matrixShort: "ADPT-II",
+  atlasLabel: "ADAPTIVE FORM",
+  targetShort: "ADPT"
+};
+const MUTATION_ATLAS_CORE_ROWS = [
+  { id: "assault_array", label: "ASSAULT ARRAY", shortLabel: "ASLT", axisId: "assault" },
+  { id: "control_grid", label: "CONTROL GRID", shortLabel: "CTRL", axisId: "control" },
+  { id: "reactor_loop", label: "REACTOR LOOP", shortLabel: "RCTR", axisId: "reactor" },
+  { id: "trinity_core", label: "TRINITY CORE", shortLabel: "TRIN", axisId: "trinity" }
+];
+const MUTATION_ATLAS_FINAL_COLUMNS = [
+  { id: "execution_protocol", label: "EXECUTION PROTOCOL", shortLabel: "EXEC", axisId: "execution" },
+  { id: "prism_cascade", label: "PRISM CASCADE", shortLabel: "PRSM", axisId: "prism" },
+  { id: "singularity_domain", label: "SINGULARITY DOMAIN", shortLabel: "SING", axisId: "singularity" },
+  { id: "adaptive_form", label: "ADAPTIVE FORM", shortLabel: "ADPT", axisId: "adaptive" }
+];
+const MUTATION_ATLAS_BUILD_IDS = MUTATION_ATLAS_CORE_ROWS.flatMap((core) =>
+  MUTATION_ATLAS_FINAL_COLUMNS.map((final) => `${core.id}__${final.id}`)
+);
+const TRIAD_MATRIX_IDENTITY_MODIFIERS = {
+  skillDamageMultiplier: 1,
+  controlMultiplier: 1,
+  overdriveGaugeMultiplier: 1,
+  robotSyncGaugeMultiplier: 1,
+  dashStaminaDrainMultiplier: 1,
+  executionDamageMultiplier: 1,
+  prismDamageMultiplier: 1,
+  singularityMultiplier: 1
+};
 const STAGE_DEFINITIONS = window.stageDefinitions || {};
 const ACTIVE_STAGE_ID = "shibuyaStage1";
 const DEBUG_STAGE_ID = null;
@@ -5512,8 +5621,14 @@ class SurvivalScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetLostArmsResonanceState("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetDepthDirectiveState("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetDepthDirectiveState("sceneDestroy"));
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetSkillMutationState("sceneShutdown")));
-    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetSkillMutationState("sceneDestroy"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => {
+      this.resetTriadMatrixRunState("sceneShutdown");
+      this.resetSkillMutationState("sceneShutdown");
+    }));
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => {
+      this.resetTriadMatrixRunState("sceneDestroy");
+      this.resetSkillMutationState("sceneDestroy");
+    });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetNemesisBossState("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetNemesisBossState("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetDollTraceState("sceneShutdown")));
@@ -5987,14 +6102,17 @@ class SurvivalScene extends Phaser.Scene {
   createState() {
     this.shopState = this.loadShopState();
     this.anjuMemoryState = this.loadAnjuMemoryState();
+    this.mutationAtlasState = this.loadMutationAtlasState();
     this.supportLinkState = this.loadSupportLinkState();
     this.finalBossState = this.loadFinalBossState();
     this.syncFinalBossUnlocksToShopState("createState", { save: false });
-    this.shopViewMode = "cd";
+    this.shopViewMode = this.isMutationAtlasDebugEnabled() ? "runArchive" : "cd";
     this.anjuMemoryShopTab = "deepCd";
     this.anjuMemoryReadLogId = null;
+    this.runArchiveSubView = this.isMutationAtlasDebugEnabled() ? "mutationAtlas" : "runArchive";
     this.runArchiveSelectedEntryId = null;
     this.runArchivePage = 0;
+    this.mutationAtlasSelectedBuildId = this.getValidMutationAtlasBuildId(this.mutationAtlasState?.selectedTargetId) || MUTATION_ATLAS_BUILD_IDS[0];
     this.rebuildStartingStats();
 
     this.survivalTime = 0;
@@ -6009,6 +6127,7 @@ class SurvivalScene extends Phaser.Scene {
     this.initializeStabilizeProtocolState();
     this.initializeDepthDirectiveState();
     this.initializeSkillMutationState();
+    this.initializeTriadMatrixRunState("createState");
     this.initializeNemesisBossState();
     this.initializeDollTraceState();
     if (this.isStabilizeProtocolDebugEnabled()) {
@@ -9100,16 +9219,17 @@ class SurvivalScene extends Phaser.Scene {
       return { triggered: false, gaugeAdded: 0 };
     }
     const state = this.ensureOverflowRewardState();
-    state.overdriveGauge = Math.max(0, Number(state.overdriveGauge) || 0) + gaugeAmount;
+    const gaugeAdded = gaugeAmount * this.getTriadOverdriveGaugeMultiplier();
+    state.overdriveGauge = Math.max(0, Number(state.overdriveGauge) || 0) + gaugeAdded;
     let result = { triggered: false, queuedMod: false, extended: false, activeSeconds: 0 };
     while (state.overdriveGauge >= OVERFLOW_REWARD_CONFIG.overdrive.gaugeMax) {
       state.overdriveGauge -= OVERFLOW_REWARD_CONFIG.overdrive.gaugeMax;
       result = this.triggerOverdriveFromGauge("depthDirective", this.playerHitbox?.x, this.playerHitbox?.y - 44);
     }
-    this.setLastPickupNotice(result.triggered ? "DIRECTIVE -> OVERDRIVE" : `DIRECTIVE OD +${Math.round(gaugeAmount)}%`);
-    this.showOverflowRewardText(`OVERDRIVE +${Math.round(gaugeAmount)}%`, this.playerHitbox?.x, this.playerHitbox?.y - 44, "#91f6ff");
+    this.setLastPickupNotice(result.triggered ? "DIRECTIVE -> OVERDRIVE" : `DIRECTIVE OD +${Math.round(gaugeAdded)}%`);
+    this.showOverflowRewardText(`OVERDRIVE +${Math.round(gaugeAdded)}%`, this.playerHitbox?.x, this.playerHitbox?.y - 44, "#91f6ff");
     this.updateOverflowHud();
-    return { ...result, gaugeAdded: gaugeAmount };
+    return { ...result, gaugeAdded };
   }
 
   grantDepthDirectiveLostArmsResonance(reward = {}) {
@@ -19897,6 +20017,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   awardAnjuMemoryOnExtraction(mode = "normal") {
+    if (this.triadMatrixState?.debugInjected) {
+      this.clearPendingAnjuMemory("triadDebugInjected");
+      return null;
+    }
     if (!this.runAnjuMemoryState || this.runAnjuMemoryState.awarded) {
       return this.runAnjuMemoryState?.pendingAward || null;
     }
@@ -22936,6 +23060,21 @@ class SurvivalScene extends Phaser.Scene {
     }, {});
   }
 
+  normalizeRunArchiveTriadBuild(record = null) {
+    const meta = this.getMutationAtlasBuildMeta(record?.buildId);
+    if (!meta) {
+      return null;
+    }
+    return {
+      buildId: meta.buildId,
+      coreId: meta.coreId,
+      coreName: meta.coreName,
+      finalId: meta.finalId,
+      finalName: meta.finalName,
+      displayName: meta.displayName
+    };
+  }
+
   normalizeRunArchiveOutcome(value) {
     const outcome = String(value || "unknown");
     return ["normal_extract", "emergency_extract", "game_over", "gate_collapse", "unknown"].includes(outcome)
@@ -23003,6 +23142,7 @@ class SurvivalScene extends Phaser.Scene {
         rabbitThunderSkill: Math.max(0, Math.floor(Number(skills.rabbitThunderSkill) || 0))
       },
       skillMutations: this.normalizeRunArchiveSkillMutations(skillMutations),
+      triadBuild: this.normalizeRunArchiveTriadBuild(entry.triadBuild),
       passives: {
         overchargeBolt: Math.max(0, Math.floor(Number(passives.overchargeBolt) || 0)),
         rapidSigil: Math.max(0, Math.floor(Number(passives.rapidSigil) || 0)),
@@ -23300,6 +23440,7 @@ class SurvivalScene extends Phaser.Scene {
       stageName: stage.name || stage.areaLabel || "",
       skills: this.getRunArchiveSkillLevels(),
       skillMutations: this.getRunArchiveSkillMutationSnapshot(),
+      triadBuild: this.getTriadRunArchiveBuildSnapshot(outcomeOptions.context || {}),
       passives: this.getRunArchivePassiveLevels(),
       lostArms: this.getRunArchiveLostArmsSnapshot(),
       robot: this.getRunArchiveRobotSnapshot(),
@@ -23914,6 +24055,7 @@ class SurvivalScene extends Phaser.Scene {
     entry.core = coreId;
     entry.stage4Selected = true;
     entry.stage4Queued = false;
+    this.refreshTriadMatrixSnapshot?.(`core:${skillId}`);
     return true;
   }
 
@@ -23926,6 +24068,7 @@ class SurvivalScene extends Phaser.Scene {
     entry.finalFormId = `${entry.core}_${finalId}`;
     entry.stage8Selected = true;
     entry.stage8Queued = false;
+    this.refreshTriadMatrixSnapshot?.(`final:${skillId}`);
     return true;
   }
 
@@ -23944,6 +24087,813 @@ class SurvivalScene extends Phaser.Scene {
       ...(coreStyle || {}),
       ...(finalStyle || {})
     };
+  }
+
+  isTriadMatrixDebugEnabled() {
+    return ["1", "true", "yes", "on"].includes(String(this.getUrlStageParam?.(TRIAD_MATRIX_DEBUG_QUERY_PARAM) || "").toLowerCase());
+  }
+
+  isMutationAtlasDebugEnabled() {
+    return ["1", "true", "yes", "on"].includes(String(this.getUrlStageParam?.(MUTATION_ATLAS_DEBUG_QUERY_PARAM) || "").toLowerCase());
+  }
+
+  getTriadMatrixDebugParam(name) {
+    return String(this.getUrlStageParam?.(name) || "").trim().toLowerCase();
+  }
+
+  isTriadMatrixDebugInjectionRequested() {
+    return Boolean(
+      this.getTriadMatrixDebugParam(TRIAD_MATRIX_DEBUG_CORE_QUERY_PARAM) ||
+      this.getTriadMatrixDebugParam(TRIAD_MATRIX_DEBUG_FINAL_QUERY_PARAM)
+    );
+  }
+
+  createDefaultMutationAtlasEntry() {
+    return {
+      discovered: false,
+      preserved: false,
+      preserveRewardClaimed: false,
+      researchCompleted: false,
+      researchRewardClaimed: false,
+      bestDepth: 0
+    };
+  }
+
+  createDefaultMutationAtlasState() {
+    return {
+      version: MUTATION_ATLAS_VERSION,
+      selectedTargetId: null,
+      entries: MUTATION_ATLAS_BUILD_IDS.reduce((entries, buildId) => {
+        entries[buildId] = this.createDefaultMutationAtlasEntry();
+        return entries;
+      }, {})
+    };
+  }
+
+  getValidMutationAtlasBuildId(buildId) {
+    const normalized = String(buildId || "");
+    return MUTATION_ATLAS_BUILD_IDS.includes(normalized) ? normalized : null;
+  }
+
+  normalizeMutationAtlasEntry(entry = {}) {
+    const defaults = this.createDefaultMutationAtlasEntry();
+    return {
+      ...defaults,
+      discovered: Boolean(entry.discovered),
+      preserved: Boolean(entry.preserved),
+      preserveRewardClaimed: Boolean(entry.preserveRewardClaimed),
+      researchCompleted: Boolean(entry.researchCompleted),
+      researchRewardClaimed: Boolean(entry.researchRewardClaimed),
+      bestDepth: Math.max(0, Math.floor(Number(entry.bestDepth) || 0))
+    };
+  }
+
+  normalizeMutationAtlasState(record = {}) {
+    const defaults = this.createDefaultMutationAtlasState();
+    const sourceEntries = record?.entries || {};
+    const entries = {};
+    MUTATION_ATLAS_BUILD_IDS.forEach((buildId) => {
+      entries[buildId] = this.normalizeMutationAtlasEntry(sourceEntries[buildId]);
+    });
+    return {
+      version: MUTATION_ATLAS_VERSION,
+      selectedTargetId: this.getValidMutationAtlasBuildId(record?.selectedTargetId),
+      entries
+    };
+  }
+
+  loadMutationAtlasState() {
+    try {
+      const rawState = window.localStorage?.getItem(MUTATION_ATLAS_STORAGE_KEY);
+      if (!rawState) {
+        return this.normalizeMutationAtlasState(this.createDefaultMutationAtlasState());
+      }
+      return this.normalizeMutationAtlasState(JSON.parse(rawState));
+    } catch (error) {
+      return this.normalizeMutationAtlasState(this.createDefaultMutationAtlasState());
+    }
+  }
+
+  saveMutationAtlasState() {
+    this.mutationAtlasState = this.normalizeMutationAtlasState(this.mutationAtlasState);
+    try {
+      window.localStorage?.setItem(MUTATION_ATLAS_STORAGE_KEY, JSON.stringify(this.mutationAtlasState));
+    } catch (error) {
+      // MUTATION ATLAS is a local meta log. Storage failure must not break a run.
+    }
+    return this.mutationAtlasState;
+  }
+
+  getMutationAtlasBuildMeta(buildId) {
+    const validBuildId = this.getValidMutationAtlasBuildId(buildId);
+    if (!validBuildId) {
+      return null;
+    }
+    const [coreId, finalId] = validBuildId.split("__");
+    const core = MUTATION_ATLAS_CORE_ROWS.find((row) => row.id === coreId) || null;
+    const final = MUTATION_ATLAS_FINAL_COLUMNS.find((column) => column.id === finalId) || null;
+    if (!core || !final) {
+      return null;
+    }
+    return {
+      buildId: validBuildId,
+      coreId,
+      coreName: core.label,
+      coreShort: core.shortLabel,
+      finalId,
+      finalName: final.label,
+      finalShort: final.shortLabel,
+      displayName: `${core.label} / ${final.label}`,
+      targetLabel: `${core.shortLabel} / ${final.shortLabel}`
+    };
+  }
+
+  createTriadMatrixRunState() {
+    return {
+      snapshot: null,
+      lastSignature: "",
+      lastHudText: "",
+      lastCompletedBuildId: null,
+      runResearchTargetId: null,
+      debugInjected: false,
+      atlasPreserveBonus: null,
+      researchReward: null,
+      atlasStatus: null,
+      noticeContainer: null,
+      noticeTweens: [],
+      noticeTimer: null
+    };
+  }
+
+  initializeTriadMatrixRunState(reason = "init") {
+    this.cleanupTriadMatrixNotice(reason);
+    this.triadMatrixState = this.createTriadMatrixRunState();
+    this.updateTriadMatrixHud?.();
+  }
+
+  resetTriadMatrixRunState(reason = "reset") {
+    this.cleanupTriadMatrixNotice(reason);
+    this.triadMatrixState = this.createTriadMatrixRunState();
+    this.updateTriadMatrixHud?.();
+    if (this.isTriadMatrixDebugEnabled?.()) {
+      console.log("[TRIAD MATRIX] reset", { reason });
+    }
+  }
+
+  startTriadMatrixRun(reason = "gameStart") {
+    this.resetTriadMatrixRunState(reason);
+    if (!this.triadMatrixState) {
+      this.triadMatrixState = this.createTriadMatrixRunState();
+    }
+    this.mutationAtlasState = this.normalizeMutationAtlasState(this.mutationAtlasState || this.loadMutationAtlasState());
+    this.triadMatrixState.runResearchTargetId = this.getValidMutationAtlasBuildId(this.mutationAtlasState.selectedTargetId);
+    if (this.isTriadMatrixDebugInjectionRequested()) {
+      this.applyTriadMatrixDebugPreset(reason);
+    }
+    this.refreshTriadMatrixSnapshot(reason, { notify: false });
+    this.updateTriadMatrixHud();
+  }
+
+  isTriadMatrixFinalRaidSuppressed(context = {}) {
+    return Boolean(
+      context.finalRaid === true ||
+      context.isFinalRaid === true ||
+      this.isFinalBossRaidActive?.() === true ||
+      this.finalBossRaidState?.active === true
+    );
+  }
+
+  shouldBlockMutationAtlasPersistence(context = {}) {
+    return Boolean(
+      context.debugPreview === true ||
+      this.triadMatrixState?.debugInjected ||
+      this.isTriadMatrixFinalRaidSuppressed(context)
+    );
+  }
+
+  getTriadMatrixDebugCorePattern() {
+    const value = this.getTriadMatrixDebugParam(TRIAD_MATRIX_DEBUG_CORE_QUERY_PARAM);
+    if (value === "trinity") {
+      return {
+        basicSkill: "assault",
+        tornadoSkill: "control",
+        rabbitThunderSkill: "reactor"
+      };
+    }
+    if (SKILL_MUTATION_CORE_IDS.includes(value)) {
+      return {
+        basicSkill: value,
+        tornadoSkill: value,
+        rabbitThunderSkill: value
+      };
+    }
+    return null;
+  }
+
+  getTriadMatrixDebugFinalPattern() {
+    const value = this.getTriadMatrixDebugParam(TRIAD_MATRIX_DEBUG_FINAL_QUERY_PARAM);
+    if (value === "adaptive") {
+      return {
+        basicSkill: "execution",
+        tornadoSkill: "prism",
+        rabbitThunderSkill: "singularity"
+      };
+    }
+    if (SKILL_MUTATION_FINAL_IDS.includes(value)) {
+      return {
+        basicSkill: value,
+        tornadoSkill: value,
+        rabbitThunderSkill: value
+      };
+    }
+    return null;
+  }
+
+  applyTriadMatrixDebugPreset(reason = "debugTriad") {
+    if (!this.skillMutationState) {
+      this.initializeSkillMutationState();
+    }
+    const corePattern = this.getTriadMatrixDebugCorePattern() || {
+      basicSkill: "assault",
+      tornadoSkill: "assault",
+      rabbitThunderSkill: "assault"
+    };
+    const finalPattern = this.getTriadMatrixDebugFinalPattern();
+    if (!this.triadMatrixState) {
+      this.triadMatrixState = this.createTriadMatrixRunState();
+    }
+    this.triadMatrixState.debugInjected = true;
+    SKILL_MUTATION_SKILL_IDS.forEach((skillId) => {
+      const definition = SKILL_DEFINITIONS[skillId];
+      if (!definition?.stages?.length) {
+        return;
+      }
+      if (!this.playerSkills[skillId]) {
+        this.playerSkills[skillId] = this.createSkillState(definition);
+      }
+      const skillState = this.playerSkills[skillId];
+      if (!skillState) {
+        return;
+      }
+      skillState.stageIndex = Phaser.Math.Clamp(SKILL_MUTATION_CONFIG.stage8 - 1, 0, definition.stages.length - 1);
+      this.applySkillStage(skillState, true);
+      this.setSkillMutationCore(skillId, corePattern[skillId] || "assault");
+      if (finalPattern?.[skillId]) {
+        this.setSkillMutationFinal(skillId, finalPattern[skillId]);
+      }
+      this.applySkillStage(skillState, true);
+    });
+    this.skillMutationState.pendingQueue = [];
+    this.skillMutationState.currentChoices = [];
+    this.skillMutationState.selectionOpen = false;
+    this.skillMutationState.selectionLocked = false;
+    this.skillMutationState.debugPresetApplied = true;
+    this.updateHud?.();
+    if (this.isTriadMatrixDebugEnabled()) {
+      console.log("[TRIAD MATRIX] debug injection", {
+        reason,
+        corePattern,
+        finalPattern,
+        atlasPersistenceBlocked: true
+      });
+    }
+    return true;
+  }
+
+  resolveTriadMatrixAxis(selectedValues, axis = "core") {
+    const ids = axis === "final" ? SKILL_MUTATION_FINAL_IDS : SKILL_MUTATION_CORE_IDS;
+    const definitions = axis === "final" ? TRIAD_MATRIX_FINAL_DEFINITIONS : TRIAD_MATRIX_CORE_DEFINITIONS;
+    const mixed = axis === "final" ? TRIAD_MATRIX_FINAL_MIXED_DEFINITION : TRIAD_MATRIX_CORE_MIXED_DEFINITION;
+    const values = (selectedValues || []).filter((value) => ids.includes(value));
+    const counts = ids.reduce((accumulator, id) => {
+      accumulator[id] = values.filter((value) => value === id).length;
+      return accumulator;
+    }, {});
+    const selectedCount = values.length;
+    const uniqueCount = ids.filter((id) => counts[id] > 0).length;
+    const allThreeSelected = selectedCount >= 3;
+    if (allThreeSelected && uniqueCount === ids.length && ids.every((id) => counts[id] === 1)) {
+      return {
+        axis,
+        type: "matrix",
+        level: 2,
+        id: mixed.matrixId,
+        matrixId: mixed.matrixId,
+        displayName: mixed.matrixName,
+        shortLabel: mixed.matrixShort,
+        sourceId: "mixed",
+        complete: true,
+        counts
+      };
+    }
+    const tripleId = ids.find((id) => counts[id] >= 3);
+    if (tripleId) {
+      const definition = definitions[tripleId];
+      return {
+        axis,
+        type: "matrix",
+        level: 2,
+        id: definition.matrixId,
+        matrixId: definition.matrixId,
+        displayName: definition.matrixName,
+        shortLabel: definition.matrixShort,
+        sourceId: tripleId,
+        complete: true,
+        counts
+      };
+    }
+    const pairId = ids.find((id) => counts[id] >= 2);
+    if (pairId) {
+      const definition = definitions[pairId];
+      return {
+        axis,
+        type: "link",
+        level: 1,
+        id: definition.linkId,
+        displayName: definition.linkName,
+        shortLabel: definition.linkShort,
+        sourceId: pairId,
+        complete: false,
+        counts
+      };
+    }
+    return {
+      axis,
+      type: "standby",
+      level: 0,
+      id: null,
+      displayName: "",
+      shortLabel: "",
+      sourceId: null,
+      complete: false,
+      counts
+    };
+  }
+
+  buildTriadMatrixCombatModifiers(coreAxis, finalAxis) {
+    const modifiers = { ...TRIAD_MATRIX_IDENTITY_MODIFIERS };
+    if (this.isTriadMatrixFinalRaidSuppressed()) {
+      return modifiers;
+    }
+    if (coreAxis?.type === "link") {
+      if (coreAxis.sourceId === "assault") {
+        modifiers.skillDamageMultiplier *= 1.04;
+      } else if (coreAxis.sourceId === "control") {
+        modifiers.controlMultiplier *= 1.06;
+      } else if (coreAxis.sourceId === "reactor") {
+        modifiers.overdriveGaugeMultiplier *= 1.06;
+        modifiers.robotSyncGaugeMultiplier *= 1.06;
+        modifiers.dashStaminaDrainMultiplier *= 0.97;
+      }
+    } else if (coreAxis?.type === "matrix") {
+      if (coreAxis.matrixId === "assault_array") {
+        modifiers.skillDamageMultiplier *= 1.08;
+      } else if (coreAxis.matrixId === "control_grid") {
+        modifiers.controlMultiplier *= 1.12;
+      } else if (coreAxis.matrixId === "reactor_loop") {
+        modifiers.overdriveGaugeMultiplier *= 1.12;
+        modifiers.robotSyncGaugeMultiplier *= 1.12;
+        modifiers.dashStaminaDrainMultiplier *= 0.94;
+      } else if (coreAxis.matrixId === "trinity_core") {
+        modifiers.skillDamageMultiplier *= 1.03;
+        modifiers.controlMultiplier *= 1.05;
+        modifiers.overdriveGaugeMultiplier *= 1.05;
+        modifiers.robotSyncGaugeMultiplier *= 1.05;
+        modifiers.dashStaminaDrainMultiplier *= 0.97;
+      }
+    }
+    if (finalAxis?.type === "link") {
+      if (finalAxis.sourceId === "execution") {
+        modifiers.executionDamageMultiplier *= 1.06;
+      } else if (finalAxis.sourceId === "prism") {
+        modifiers.prismDamageMultiplier *= 1.08;
+      } else if (finalAxis.sourceId === "singularity") {
+        modifiers.singularityMultiplier *= 1.06;
+      }
+    } else if (finalAxis?.type === "matrix") {
+      if (finalAxis.matrixId === "execution_protocol") {
+        modifiers.executionDamageMultiplier *= 1.12;
+      } else if (finalAxis.matrixId === "prism_cascade") {
+        modifiers.prismDamageMultiplier *= 1.15;
+      } else if (finalAxis.matrixId === "singularity_domain") {
+        modifiers.singularityMultiplier *= 1.12;
+      } else if (finalAxis.matrixId === "adaptive_form") {
+        modifiers.executionDamageMultiplier *= 1.05;
+        modifiers.prismDamageMultiplier *= 1.06;
+        modifiers.singularityMultiplier *= 1.06;
+      }
+    }
+    return modifiers;
+  }
+
+  createTriadMatrixSnapshot() {
+    const selections = SKILL_MUTATION_SKILL_IDS.reduce((accumulator, skillId) => {
+      accumulator[skillId] = {
+        core: this.getSkillMutationCore(skillId),
+        final: this.getSkillMutationFinal(skillId)
+      };
+      return accumulator;
+    }, {});
+    const coreAxis = this.resolveTriadMatrixAxis(Object.values(selections).map((entry) => entry.core), "core");
+    const finalAxis = this.resolveTriadMatrixAxis(Object.values(selections).map((entry) => entry.final), "final");
+    const completeBuild = coreAxis.complete && finalAxis.complete
+      ? this.getMutationAtlasBuildMeta(`${coreAxis.matrixId}__${finalAxis.matrixId}`)
+      : null;
+    const suppressed = this.isTriadMatrixFinalRaidSuppressed();
+    const hudParts = [coreAxis.shortLabel, finalAxis.shortLabel].filter(Boolean);
+    return {
+      selections,
+      core: coreAxis,
+      final: finalAxis,
+      completeBuild,
+      buildId: completeBuild?.buildId || null,
+      displayName: completeBuild?.displayName || [coreAxis.displayName, finalAxis.displayName].filter(Boolean).join(" / "),
+      hudText: hudParts.length > 0 ? `TRIAD: ${hudParts.join(" / ")}` : "TRIAD: STANDBY",
+      modifiers: suppressed ? { ...TRIAD_MATRIX_IDENTITY_MODIFIERS } : this.buildTriadMatrixCombatModifiers(coreAxis, finalAxis),
+      suppressed
+    };
+  }
+
+  getTriadMatrixSnapshot(options = {}) {
+    if (!this.triadMatrixState) {
+      this.triadMatrixState = this.createTriadMatrixRunState();
+    }
+    if (!this.triadMatrixState.snapshot || options.refresh) {
+      this.triadMatrixState.snapshot = this.createTriadMatrixSnapshot();
+    }
+    return this.triadMatrixState.snapshot;
+  }
+
+  getTriadMatrixSnapshotSignature(snapshot = this.getTriadMatrixSnapshot()) {
+    return [
+      snapshot?.core?.id || "core0",
+      snapshot?.final?.id || "final0",
+      snapshot?.buildId || "build0",
+      snapshot?.suppressed ? "suppressed" : "active"
+    ].join("|");
+  }
+
+  refreshTriadMatrixSnapshot(reason = "refresh", options = {}) {
+    if (!this.triadMatrixState) {
+      this.triadMatrixState = this.createTriadMatrixRunState();
+    }
+    const previous = this.triadMatrixState.snapshot;
+    const previousSignature = this.triadMatrixState.lastSignature || this.getTriadMatrixSnapshotSignature(previous);
+    const snapshot = this.createTriadMatrixSnapshot();
+    const signature = this.getTriadMatrixSnapshotSignature(snapshot);
+    this.triadMatrixState.snapshot = snapshot;
+    this.triadMatrixState.lastSignature = signature;
+    if (this.isTriadMatrixDebugEnabled()) {
+      console.log("[TRIAD MATRIX] snapshot", {
+        reason,
+        core: snapshot.core?.id,
+        final: snapshot.final?.id,
+        buildId: snapshot.buildId,
+        suppressed: snapshot.suppressed,
+        debugInjected: this.triadMatrixState.debugInjected === true
+      });
+    }
+    if (!snapshot.suppressed) {
+      this.updateMutationAtlasProgressFromSnapshot(snapshot, reason);
+    }
+    if (options.notify !== false && signature !== previousSignature && previous) {
+      this.showTriadMatrixChangeNotice(snapshot, previous);
+    }
+    this.updateTriadMatrixHud();
+    return snapshot;
+  }
+
+  getTriadMatrixModifier(key, fallbackValue = 1) {
+    const snapshot = this.getTriadMatrixSnapshot();
+    if (snapshot?.suppressed) {
+      return fallbackValue;
+    }
+    const value = snapshot?.modifiers?.[key];
+    return Number.isFinite(Number(value)) ? Number(value) : fallbackValue;
+  }
+
+  getTriadSkillDamageMultiplier(skillId, context = {}) {
+    if (!this.isSkillMutationTargetSkill(skillId)) {
+      return 1;
+    }
+    let multiplier = this.getTriadMatrixModifier("skillDamageMultiplier", 1);
+    if (context.enemy && this.isHighValueMutationTarget(context.enemy)) {
+      multiplier *= this.getTriadMatrixModifier("executionDamageMultiplier", 1);
+    }
+    return multiplier;
+  }
+
+  getTriadControlMultiplier() {
+    return this.getTriadMatrixModifier("controlMultiplier", 1);
+  }
+
+  getTriadPrismDamageMultiplier() {
+    return this.getTriadMatrixModifier("prismDamageMultiplier", 1);
+  }
+
+  getTriadSingularityMultiplier() {
+    return this.getTriadMatrixModifier("singularityMultiplier", 1);
+  }
+
+  getTriadOverdriveGaugeMultiplier() {
+    return this.getTriadMatrixModifier("overdriveGaugeMultiplier", 1);
+  }
+
+  getTriadRobotSyncGaugeMultiplier() {
+    return this.getTriadMatrixModifier("robotSyncGaugeMultiplier", 1);
+  }
+
+  getTriadDashStaminaDrainMultiplier() {
+    return this.getTriadMatrixModifier("dashStaminaDrainMultiplier", 1);
+  }
+
+  updateMutationAtlasProgressFromSnapshot(snapshot = this.getTriadMatrixSnapshot(), reason = "progress") {
+    const buildId = snapshot?.buildId;
+    if (!buildId || this.shouldBlockMutationAtlasPersistence()) {
+      return null;
+    }
+    if (!this.mutationAtlasState) {
+      this.mutationAtlasState = this.loadMutationAtlasState();
+    }
+    this.mutationAtlasState = this.normalizeMutationAtlasState(this.mutationAtlasState);
+    const entry = this.mutationAtlasState.entries[buildId] || this.createDefaultMutationAtlasEntry();
+    const maxDepth = this.normalizeDepthValue(
+      Math.max(
+        Number(this.runAnjuMemoryState?.maxDepthReached) || 1,
+        Number(this.runRankingStats?.maxDepthReached) || 1,
+        Number(this.stageDepth) || 1
+      ),
+      1
+    );
+    const wasDiscovered = entry.discovered === true;
+    const previousBestDepth = Math.max(0, Math.floor(Number(entry.bestDepth) || 0));
+    let changed = false;
+    if (!entry.discovered) {
+      entry.discovered = true;
+      changed = true;
+    }
+    if (maxDepth > previousBestDepth) {
+      entry.bestDepth = maxDepth;
+      changed = true;
+    }
+    if (!changed) {
+      return null;
+    }
+    this.mutationAtlasState.entries[buildId] = this.normalizeMutationAtlasEntry(entry);
+    this.saveMutationAtlasState();
+    const meta = this.getMutationAtlasBuildMeta(buildId);
+    const status = {
+      buildId,
+      displayName: meta?.displayName || buildId,
+      discovered: !wasDiscovered,
+      bestDepthUpdated: maxDepth > previousBestDepth,
+      bestDepth: entry.bestDepth,
+      reason
+    };
+    this.triadMatrixState.atlasStatus = status;
+    if (!wasDiscovered) {
+      this.showTriadMatrixNotice("MUTATION ATLAS UPDATED", `${status.displayName}\nDISCOVERED`);
+    }
+    return status;
+  }
+
+  addAnjuMemoryAmount(amount = 0, reason = "bonus") {
+    const normalized = this.normalizeAnjuMemoryAmount(amount);
+    if (normalized <= 0) {
+      return 0;
+    }
+    this.anjuMemoryState = this.normalizeAnjuMemoryState(this.anjuMemoryState || this.loadAnjuMemoryState());
+    this.anjuMemoryState.amount = this.normalizeAnjuMemoryAmount(this.anjuMemoryState.amount + normalized);
+    this.anjuMemoryState.totalEarned = this.normalizeAnjuMemoryAmount(this.anjuMemoryState.totalEarned + normalized);
+    this.saveAnjuMemoryState();
+    if (this.isAnjuMemoryDebugEnabled?.() || this.isTriadMatrixDebugEnabled?.()) {
+      console.log("[ANJU MEMORY] bonus", { reason, amount: normalized });
+    }
+    return normalized;
+  }
+
+  addOpeningBoostRerollTicket(count = 1, reason = "mutationAtlasResearch") {
+    const normalized = this.normalizeAnjuMemoryAmount(count);
+    if (normalized <= 0) {
+      return 0;
+    }
+    this.anjuMemoryState = this.normalizeAnjuMemoryState(this.anjuMemoryState || this.loadAnjuMemoryState());
+    this.anjuMemoryState.consumables.openingBoostReroll = this.getAnjuMemoryConsumableCount("openingBoostReroll") + normalized;
+    this.saveAnjuMemoryState();
+    if (this.isTriadMatrixDebugEnabled?.()) {
+      console.log("[MUTATION ATLAS] reroll ticket bonus", { reason, count: normalized });
+    }
+    return normalized;
+  }
+
+  completeMutationAtlasExtractionProgress(options = {}) {
+    const mode = options.emergency ? "emergency" : "normal";
+    const snapshot = this.refreshTriadMatrixSnapshot("extractProgress", { notify: false });
+    const buildId = snapshot?.buildId;
+    if (!buildId || this.shouldBlockMutationAtlasPersistence(options)) {
+      return {
+        build: snapshot?.completeBuild || null,
+        atlasStatus: null,
+        atlasBonusAnju: 0,
+        researchCompleted: false,
+        researchRerollTicket: 0
+      };
+    }
+    this.mutationAtlasState = this.normalizeMutationAtlasState(this.mutationAtlasState || this.loadMutationAtlasState());
+    const entry = this.mutationAtlasState.entries[buildId] || this.createDefaultMutationAtlasEntry();
+    const maxDepthReached = this.normalizeDepthValue(options.maxDepthReached ?? this.getRunMaxDepthReachedForResult(this.runRankingStats), 1);
+    if (maxDepthReached > (entry.bestDepth || 0)) {
+      entry.bestDepth = maxDepthReached;
+    }
+    if (!entry.discovered) {
+      entry.discovered = true;
+    }
+
+    let atlasStatus = entry.preserved ? "PRESERVED" : "DISCOVERED";
+    let atlasBonusAnju = 0;
+    if (mode === "normal" && maxDepthReached >= ANJU_MEMORY_CONFIG.unlockDepth && !entry.preserved) {
+      entry.preserved = true;
+      atlasStatus = "PRESERVED";
+      if (!entry.preserveRewardClaimed) {
+        atlasBonusAnju = this.addAnjuMemoryAmount(1, "mutationAtlasPreserved");
+        entry.preserveRewardClaimed = true;
+      }
+    }
+
+    let researchCompleted = false;
+    let researchRerollTicket = 0;
+    const runTargetId = this.getValidMutationAtlasBuildId(this.triadMatrixState?.runResearchTargetId);
+    if (
+      mode === "normal" &&
+      runTargetId === buildId &&
+      maxDepthReached >= 8 &&
+      !entry.researchCompleted
+    ) {
+      entry.researchCompleted = true;
+      researchCompleted = true;
+      if (!entry.researchRewardClaimed) {
+        researchRerollTicket = this.addOpeningBoostRerollTicket(1, "mutationAtlasResearch");
+        entry.researchRewardClaimed = true;
+      }
+      if (this.mutationAtlasState.selectedTargetId === buildId) {
+        this.mutationAtlasState.selectedTargetId = null;
+      }
+    }
+
+    this.mutationAtlasState.entries[buildId] = this.normalizeMutationAtlasEntry(entry);
+    this.saveMutationAtlasState();
+    const meta = this.getMutationAtlasBuildMeta(buildId);
+    const result = {
+      build: meta,
+      atlasStatus,
+      bestDepth: entry.bestDepth,
+      atlasBonusAnju,
+      researchCompleted,
+      researchRerollTicket
+    };
+    if (this.triadMatrixState) {
+      this.triadMatrixState.atlasPreserveBonus = atlasBonusAnju > 0 ? result : null;
+      this.triadMatrixState.researchReward = researchCompleted ? result : null;
+      this.triadMatrixState.atlasStatus = result;
+    }
+    return result;
+  }
+
+  formatMutationAtlasExtractionLines(result = null) {
+    if (!result?.build?.buildId) {
+      return [];
+    }
+    const lines = [
+      `TRIAD BUILD ${result.build.displayName}`,
+      result.atlasStatus ? `ATLAS: ${result.atlasStatus}` : "",
+      Number.isFinite(Number(result.bestDepth)) ? `BEST DEPTH D${Math.max(0, Math.floor(Number(result.bestDepth) || 0))}` : "",
+      result.atlasBonusAnju > 0 ? `ATLAS PRESERVE BONUS +${result.atlasBonusAnju} AM` : "",
+      result.researchCompleted ? "RESEARCH TARGET COMPLETE" : "",
+      result.researchRerollTicket > 0 ? `OPENING BOOST REROLL +${result.researchRerollTicket}` : ""
+    ];
+    return lines.filter(Boolean);
+  }
+
+  normalizeMutationAtlasBuildPayload(raw = null) {
+    const meta = this.getMutationAtlasBuildMeta(raw?.buildId || raw?.id);
+    if (meta) {
+      return {
+        buildId: meta.buildId,
+        coreId: meta.coreId,
+        coreName: meta.coreName,
+        finalId: meta.finalId,
+        finalName: meta.finalName,
+        displayName: meta.displayName
+      };
+    }
+    return null;
+  }
+
+  getTriadRunArchiveBuildSnapshot(context = {}) {
+    if (this.shouldBlockMutationAtlasPersistence(context)) {
+      return null;
+    }
+    const build = this.getTriadMatrixSnapshot()?.completeBuild || null;
+    if (!build?.buildId) {
+      return null;
+    }
+    return {
+      buildId: build.buildId,
+      coreId: build.coreId,
+      coreName: build.coreName,
+      finalId: build.finalId,
+      finalName: build.finalName,
+      displayName: build.displayName
+    };
+  }
+
+  cleanupTriadMatrixNotice(reason = "cleanup") {
+    const state = this.triadMatrixState;
+    if (!state) {
+      return;
+    }
+    state.noticeTimer?.remove?.(false);
+    (state.noticeTweens || []).forEach((tween) => tween?.remove?.());
+    state.noticeContainer?.destroy?.();
+    state.noticeTimer = null;
+    state.noticeTweens = [];
+    state.noticeContainer = null;
+  }
+
+  showTriadMatrixNotice(title, detail = "") {
+    if (!this.add || !this.uiContainer || this.isTriadMatrixFinalRaidSuppressed()) {
+      return;
+    }
+    if (!this.triadMatrixState) {
+      this.triadMatrixState = this.createTriadMatrixRunState();
+    }
+    this.cleanupTriadMatrixNotice("replace");
+    const container = this.add.container(GAME_WIDTH / 2, 206).setScrollFactor(0).setDepth(220);
+    const width = 410;
+    const height = detail ? 76 : 54;
+    const bg = this.add.graphics();
+    bg.fillStyle(0x051321, 0.92);
+    bg.fillRoundedRect(-width / 2, -height / 2, width, height, 8);
+    bg.lineStyle(2, 0x6ff7ff, 0.58);
+    bg.strokeRoundedRect(-width / 2, -height / 2, width, height, 8);
+    bg.fillStyle(0x6ff7ff, 0.12);
+    bg.fillRect(-width / 2 + 10, -height / 2 + 8, width - 20, 18);
+    const titleText = this.add.text(0, detail ? -25 : -11, title, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "14px",
+      color: "#ecfaff",
+      fontStyle: "bold",
+      align: "center"
+    }).setOrigin(0.5, 0);
+    const detailText = this.add.text(0, -3, detail, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "12px",
+      color: "#9ffcff",
+      fontStyle: "bold",
+      align: "center",
+      lineSpacing: 2
+    }).setOrigin(0.5, 0);
+    container.add([bg, titleText, detailText]);
+    this.uiContainer.add(container);
+    container.setAlpha(0).setScale(0.96);
+    const inTween = this.tweens.add({
+      targets: container,
+      alpha: 1,
+      scale: 1,
+      duration: 160,
+      ease: "Sine.easeOut"
+    });
+    const timer = this.time.delayedCall(2200, () => {
+      const outTween = this.tweens.add({
+        targets: container,
+        alpha: 0,
+        y: container.y - 10,
+        duration: 220,
+        ease: "Sine.easeIn",
+        onComplete: () => this.cleanupTriadMatrixNotice("expired")
+      });
+      this.triadMatrixState?.noticeTweens?.push(outTween);
+    });
+    this.triadMatrixState.noticeContainer = container;
+    this.triadMatrixState.noticeTweens = [inTween];
+    this.triadMatrixState.noticeTimer = timer;
+  }
+
+  showTriadMatrixChangeNotice(snapshot, previous = null) {
+    if (!snapshot || snapshot.suppressed) {
+      return;
+    }
+    if (snapshot.buildId && snapshot.buildId !== previous?.buildId) {
+      this.showTriadMatrixNotice("TRIAD MATRIX ONLINE", snapshot.displayName || "");
+      return;
+    }
+    const hadCore = previous?.core?.level > 0;
+    const hadFinal = previous?.final?.level > 0;
+    const hasCore = snapshot.core?.level > 0;
+    const hasFinal = snapshot.final?.level > 0;
+    if ((hasCore && !hadCore) || (hasFinal && !hadFinal)) {
+      this.showTriadMatrixNotice("TRIAD LINK ESTABLISHED", [snapshot.core?.displayName, snapshot.final?.displayName].filter(Boolean).join(" / "));
+    }
   }
 
   getEnemyHpRatio(enemy) {
@@ -23986,7 +24936,8 @@ class SurvivalScene extends Phaser.Scene {
       multiplier *= 1.04;
     }
 
-    return Phaser.Math.Clamp(multiplier, 0.72, 1.55);
+    multiplier *= this.getTriadSkillDamageMultiplier(skillId, context);
+    return Phaser.Math.Clamp(multiplier, 0.72, 1.9);
   }
 
   getSkillMutationCooldownMultiplier(skillId, context = {}) {
@@ -24016,18 +24967,22 @@ class SurvivalScene extends Phaser.Scene {
     return Math.max(70, Math.round((Number(baseTickMs) || 160) * this.getSkillMutationCooldownMultiplier(skillId, context)));
   }
 
-  applySkillMutationSlow(enemy, multiplier = 0.84, durationMs = 520) {
+  applySkillMutationSlow(enemy, multiplier = 0.84, durationMs = 520, context = {}) {
     if (!enemy?.active || enemy.isDying) {
       return;
     }
     const now = this.time?.now || 0;
-    enemy.skillMutationSlowUntil = Math.max(enemy.skillMutationSlowUntil || 0, now + Math.max(80, durationMs));
+    const controlMultiplier = context.ignoreTriad ? 1 : this.getTriadControlMultiplier();
+    const baseMultiplier = Phaser.Math.Clamp(Number(multiplier) || 0.84, 0.48, 1);
+    const strengthenedMultiplier = 1 - ((1 - baseMultiplier) * controlMultiplier);
+    const effectiveDurationMs = Math.max(80, Math.round((Number(durationMs) || 520) * controlMultiplier));
+    enemy.skillMutationSlowUntil = Math.max(enemy.skillMutationSlowUntil || 0, now + effectiveDurationMs);
     enemy.skillMutationSlowMultiplier = Math.min(
       Number(enemy.skillMutationSlowMultiplier) || 1,
-      Phaser.Math.Clamp(Number(multiplier) || 0.84, 0.48, 1)
+      Phaser.Math.Clamp(strengthenedMultiplier, 0.42, 1)
     );
     enemy.suctionVisualUntil = Math.max(enemy.suctionVisualUntil || 0, now + 140);
-    enemy.suctionVisualStrength = Math.max(enemy.suctionVisualStrength || 0, 0.42);
+    enemy.suctionVisualStrength = Math.max(enemy.suctionVisualStrength || 0, 0.42 * controlMultiplier);
   }
 
   getEnemySkillMutationSlowMultiplier(enemy) {
@@ -24040,14 +24995,15 @@ class SurvivalScene extends Phaser.Scene {
     return Phaser.Math.Clamp(Number(enemy.skillMutationSlowMultiplier) || 1, 0.48, 1);
   }
 
-  applySkillMutationPush(enemy, sourceX, sourceY, force = 120, recoverMs = 90) {
+  applySkillMutationPush(enemy, sourceX, sourceY, force = 120, recoverMs = 90, context = {}) {
     if (!enemy?.body || enemy.isDying) {
       return;
     }
+    const controlMultiplier = context.ignoreTriad ? 1 : this.getTriadControlMultiplier();
     this.applyEnemyImpact(enemy, {
       sourceX,
       sourceY,
-      force,
+      force: Math.round((Number(force) || 0) * controlMultiplier),
       recoverMs
     });
   }
@@ -24160,32 +25116,37 @@ class SurvivalScene extends Phaser.Scene {
 
   applySkillMutationAreaPulse(skillId, x, y, radius, baseDamage, options = {}) {
     const style = this.getSkillMutationVisualStyle(skillId) || {};
+    const singularityMultiplier = options.singularity ? this.getTriadSingularityMultiplier() : 1;
+    const effectiveRadius = Math.max(1, Math.round((Number(radius) || 0) * singularityMultiplier));
     const targets = this.findSkillMutationTargets(
       x,
       y,
-      radius,
+      effectiveRadius,
       options.maxTargets ?? SKILL_MUTATION_CONFIG.maxMutationTargets,
       options.excludeEnemy || null,
       { highValueOnly: options.highValueOnly }
     );
     targets.forEach((target) => {
       const distance = Phaser.Math.Distance.Between(x, y, target.x, target.y);
-      const falloff = Phaser.Math.Clamp(1 - distance / Math.max(1, radius), 0, 1);
+      const falloff = Phaser.Math.Clamp(1 - distance / Math.max(1, effectiveRadius), 0, 1);
       const damage = Math.max(1, Math.round((Number(baseDamage) || 1) * (0.72 + falloff * 0.34)));
       this.applyDamageToEnemy(target, damage, style.damageTint || 0xecffff, {
         sourceX: x,
         sourceY: y,
-        force: options.force ?? 95,
+        force: Math.round((options.force ?? 95) * singularityMultiplier),
         recoverMs: options.recoverMs ?? 95
       });
       if (options.slowMultiplier) {
-        this.applySkillMutationSlow(target, options.slowMultiplier, options.slowMs || 520);
+        this.applySkillMutationSlow(target, options.slowMultiplier, Math.round((options.slowMs || 520) * singularityMultiplier), {
+          skillId,
+          source: "areaPulse"
+        });
       }
     });
-    this.spawnSkillMutationRing(x, y, radius, style.primaryTint || 0x91f6ff, {
+    this.spawnSkillMutationRing(x, y, effectiveRadius, style.primaryTint || 0x91f6ff, {
       alpha: options.alpha ?? 0.58,
       endScale: options.endScale ?? 1.45,
-      duration: options.duration ?? 280,
+      duration: Math.round((options.duration ?? 280) * singularityMultiplier),
       glowTint: style.secondaryTint || style.primaryTint
     });
     return targets.length;
@@ -24232,7 +25193,7 @@ class SurvivalScene extends Phaser.Scene {
       SKILL_MUTATION_CONFIG.prismBranchTargets,
       enemy
     );
-    const branchDamage = Math.max(1, Math.round((Number(baseDamage) || 1) * (skillId === "rabbitThunderSkill" ? 0.46 : 0.42)));
+    const branchDamage = Math.max(1, Math.round((Number(baseDamage) || 1) * (skillId === "rabbitThunderSkill" ? 0.46 : 0.42) * this.getTriadPrismDamageMultiplier()));
     targets.forEach((target) => {
       this.applyDamageToEnemy(target, branchDamage, style.damageTint || 0xd9ffff, {
         sourceX: originX,
@@ -24246,7 +25207,7 @@ class SurvivalScene extends Phaser.Scene {
         duration: 150
       });
       if (this.getSkillMutationCore(skillId) === "control") {
-        this.applySkillMutationSlow(target, 0.78, 620);
+        this.applySkillMutationSlow(target, 0.78, 620, { skillId, source: "prismBranch" });
       }
     });
 
@@ -24315,7 +25276,8 @@ class SurvivalScene extends Phaser.Scene {
       slowMultiplier: this.getSkillMutationCore(skillId) === "control" ? 0.72 : 0.84,
       force: this.getSkillMutationCore(skillId) === "control" ? 62 : 118,
       alpha: this.getSkillMutationCore(skillId) === "assault" ? 0.68 : 0.54,
-      endScale: this.getSkillMutationCore(skillId) === "reactor" ? 1.28 : 1.55
+      endScale: this.getSkillMutationCore(skillId) === "reactor" ? 1.28 : 1.55,
+      singularity: true
     });
     return targets > 0;
   }
@@ -24382,9 +25344,9 @@ class SurvivalScene extends Phaser.Scene {
     }
     if (coreId === "control") {
       const slow = enemy.isBoss || this.isNemesisBoss?.(enemy) ? 0.9 : 0.78;
-      this.applySkillMutationSlow(enemy, slow, skillId === "tornadoSkill" ? 760 : 520);
+      this.applySkillMutationSlow(enemy, slow, skillId === "tornadoSkill" ? 760 : 520, { skillId, source: "coreControl" });
       if (skillId === "basicSkill" || skillId === "rabbitThunderSkill") {
-        this.applySkillMutationPush(enemy, hitbox.x, hitbox.y, enemy.isBoss ? 55 : 105, 65);
+        this.applySkillMutationPush(enemy, hitbox.x, hitbox.y, enemy.isBoss ? 55 : 105, 65, { skillId, source: "coreControl" });
       }
     } else if (coreId === "reactor" && (this.isDashing || this.isOverdriveActive?.() || this.isRobotSyncActive?.())) {
       this.spawnSkillMutationRing(hitbox.x, hitbox.y, 34, SKILL_MUTATION_CORE_VISUALS.reactor.secondaryTint, {
@@ -24689,6 +25651,7 @@ class SurvivalScene extends Phaser.Scene {
     }
     this.skillMutationState.debugPresetApplied = true;
     this.updateHud();
+    this.refreshTriadMatrixSnapshot?.("skillMutationDebugPreset", { notify: false });
     console.log("[SKILL MUTATION] debug preset", {
       skillId,
       core: this.getSkillMutationCore(skillId),
@@ -25626,7 +26589,7 @@ class SurvivalScene extends Phaser.Scene {
 
     const state = this.ensureOverflowRewardState();
     const config = OVERFLOW_REWARD_CONFIG.overdrive;
-    const gaugeGain = amount * config.xpToGaugeRate * this.getAnomalyOverdriveGainMultiplier();
+    const gaugeGain = amount * config.xpToGaugeRate * this.getAnomalyOverdriveGainMultiplier() * this.getTriadOverdriveGaugeMultiplier();
     const geekBase = Math.floor(amount * config.xpToGeekRate);
     const geek = this.addOverflowUnsecuredGeek(this.getOverflowGeekAmount(geekBase));
     state.overdriveGauge = Phaser.Math.Clamp((state.overdriveGauge || 0) + gaugeGain, 0, config.gaugeMax);
@@ -31010,7 +31973,7 @@ class SurvivalScene extends Phaser.Scene {
       return { gaugeAdded: 0, triggered: false };
     }
 
-    const gaugeAdded = Math.max(0, Number(amount) || 0) * this.getRobotSyncGaugeMultiplier();
+    const gaugeAdded = Math.max(0, Number(amount) || 0) * this.getRobotSyncGaugeMultiplier() * this.getTriadRobotSyncGaugeMultiplier();
     if (gaugeAdded <= 0) {
       return { gaugeAdded: 0, triggered: false };
     }
@@ -32080,6 +33043,21 @@ class SurvivalScene extends Phaser.Scene {
         labelColor: "#f0c463"
       }));
     }
+    this.hudTriadPanel = this.createHudPanel(12, this.hudUsesFrameAsset ? 214 : 224, 374, 50, {
+      forceShape: true,
+      depth: 203,
+      alpha: this.hudUsesFrameAsset ? 0.46 : 0.62,
+      strokeAlpha: 0.24
+    });
+    this.hudTriadText = this.createHudText(24, this.hudUsesFrameAsset ? 222 : 232, "", {
+      fontSize: "11px",
+      color: "#9ffcff",
+      fontStyle: "bold",
+      depth: 204,
+      wordWrap: { width: 350 }
+    });
+    this.hudTriadPanel.setVisible(false);
+    this.hudTriadText.setVisible(false);
 
     this.createHudPanel(GAME_WIDTH / 2 - 84, 10, 168, 56);
     this.hudTimerLabel = this.createHudText(GAME_WIDTH / 2, 16, "TIMER", {
@@ -34028,6 +35006,10 @@ class SurvivalScene extends Phaser.Scene {
     return lines.join(" / ") || "-";
   }
 
+  getRunArchiveTriadBuildSummary(entry) {
+    return entry?.triadBuild?.displayName || "-";
+  }
+
   getRunArchiveLostArmsSummary(entry) {
     const arms = entry?.lostArms || {};
     const abyss = arms.abyssRailEvolution
@@ -34042,6 +35024,7 @@ class SurvivalScene extends Phaser.Scene {
   getRunArchiveBuildSummary(entry) {
     const odMods = entry?.overdrive?.modsSelected || [];
     return [
+      this.getRunArchiveTriadBuildSummary(entry) !== "-" ? `BUILD: ${this.getRunArchiveTriadBuildSummary(entry)}` : "",
       this.getRunArchiveSkillSummary(entry),
       this.getRunArchiveSkillMutationSummary(entry) !== "-" ? `MUT: ${this.getRunArchiveSkillMutationSummary(entry)}` : "",
       this.getRunArchiveLostArmsSummary(entry),
@@ -34137,7 +35120,8 @@ class SurvivalScene extends Phaser.Scene {
       `RESULT: ${this.getRunArchiveOutcomeLabel(entry.outcome)} / ${entry.extractionSucceeded ? "SUCCESS" : "FAILED"} / MODE ${entry.extractMode} / DEATH ${entry.deathReason}`,
       `RUN: Depth ${entry.maxDepthReached} / TIME ${this.formatRunArchiveDuration(entry.survivalMs)} / Lv.${entry.level} / KILLS ${entry.kills.toLocaleString()} / ELITE ${entry.eliteKills} / BOSS ${entry.bossKills}`,
       `GEEK: EXTRACTED ${this.formatRunArchiveGeek(entry.extractedGeek)} / FINAL UNCONFIRMED ${this.formatRunArchiveGeek(entry.unconfirmedGeekFinal)} / MAX x${entry.geekMultiplierMax.toFixed(2)} / INSTABILITY ${entry.instability}`,
-      `BUILD: ${this.getRunArchiveSkillSummary(entry)}`,
+      `BUILD: ${this.getRunArchiveTriadBuildSummary(entry)}`,
+      `SKILLS: ${this.getRunArchiveSkillSummary(entry)}`,
       `MUTATION: ${this.getRunArchiveSkillMutationSummary(entry)}`,
       `PASSIVE: BOLT ${passives.overchargeBolt} / RAPID ${passives.rapidSigil} / STEP ${passives.swiftStep} / STAMINA ${passives.staminaCore} / VITAL ${passives.vitalBloom}`,
       `LOST ARMS: ${this.getRunArchiveLostArmsSummary(entry)}`,
@@ -34169,7 +35153,272 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
+  createArchiveSubViewTab(centerX, centerY, width, label, subView) {
+    const active = this.runArchiveSubView === subView;
+    const panel = this.addOverlayChild(
+      this.add
+        .rectangle(centerX, centerY, width, 34, active ? 0x1b3a54 : 0x0e1c2c, 0.96)
+        .setStrokeStyle(1, active ? 0x77f0ff : 0x5aa7d8, active ? 0.64 : 0.24)
+        .setInteractive({ useHandCursor: true })
+    );
+    panel.on("pointerover", () => panel.setFillStyle(active ? 0x214863 : 0x142a42, 0.98));
+    panel.on("pointerout", () => panel.setFillStyle(active ? 0x1b3a54 : 0x0e1c2c, 0.96));
+    this.addOverlayAction(panel, () => {
+      this.runArchiveSubView = subView;
+      this.showPreGameShop(this.shopStatusMessage);
+    }, true, 5);
+    this.createOverlayText(centerX, centerY - 8, label, {
+      fontSize: "12px",
+      color: active ? "#ecfaff" : "#9ab7cc",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+  }
+
+  renderArchiveSubViewTabs() {
+    this.createArchiveSubViewTab(266, -210, 136, "RUN ARCHIVE", "runArchive");
+    this.createArchiveSubViewTab(416, -210, 158, "MUTATION ATLAS", "mutationAtlas");
+  }
+
+  createDebugMutationAtlasState() {
+    const state = this.createDefaultMutationAtlasState();
+    const sampleIds = [
+      "assault_array__execution_protocol",
+      "control_grid__prism_cascade",
+      "reactor_loop__singularity_domain",
+      "trinity_core__adaptive_form"
+    ];
+    sampleIds.forEach((buildId, index) => {
+      state.entries[buildId] = {
+        ...state.entries[buildId],
+        discovered: true,
+        preserved: index >= 1,
+        preserveRewardClaimed: index >= 1,
+        researchCompleted: index >= 2,
+        researchRewardClaimed: index >= 2,
+        bestDepth: 6 + index * 2
+      };
+    });
+    state.selectedTargetId = "assault_array__prism_cascade";
+    return state;
+  }
+
+  getMutationAtlasDisplayState() {
+    if (this.isMutationAtlasDebugEnabled()) {
+      return this.normalizeMutationAtlasState(this.createDebugMutationAtlasState());
+    }
+    this.mutationAtlasState = this.normalizeMutationAtlasState(this.mutationAtlasState || this.loadMutationAtlasState());
+    return this.mutationAtlasState;
+  }
+
+  setMutationAtlasResearchTarget(buildId) {
+    const validBuildId = this.getValidMutationAtlasBuildId(buildId);
+    if (!validBuildId || this.isMutationAtlasDebugEnabled()) {
+      return false;
+    }
+    this.mutationAtlasState = this.normalizeMutationAtlasState(this.mutationAtlasState || this.loadMutationAtlasState());
+    const entry = this.mutationAtlasState.entries[validBuildId] || this.createDefaultMutationAtlasEntry();
+    if (entry.researchCompleted) {
+      return false;
+    }
+    this.mutationAtlasState.selectedTargetId = this.mutationAtlasState.selectedTargetId === validBuildId ? null : validBuildId;
+    this.saveMutationAtlasState();
+    return true;
+  }
+
+  createMutationAtlasCell(buildId, x, y, width, height, state) {
+    const entry = state.entries[buildId] || this.createDefaultMutationAtlasEntry();
+    const meta = this.getMutationAtlasBuildMeta(buildId);
+    const selected = this.mutationAtlasSelectedBuildId === buildId;
+    const targeted = state.selectedTargetId === buildId;
+    const researched = entry.researchCompleted;
+    const preserved = entry.preserved;
+    const discovered = entry.discovered;
+    const stroke = selected ? 0xfff2a8 : (targeted ? 0x6ff7ff : (preserved ? 0xf0c463 : (discovered ? 0x7ad8ff : 0x42586c)));
+    const fill = selected ? 0x16314a : (discovered ? 0x0e2234 : 0x07111d);
+    const panel = this.addOverlayChild(
+      this.add
+        .rectangle(x, y, width, height, fill, discovered ? 0.96 : 0.78)
+        .setOrigin(0, 0)
+        .setStrokeStyle(selected ? 2 : 1, stroke, selected || targeted ? 0.72 : 0.34)
+        .setInteractive({ useHandCursor: true })
+    );
+    panel.on("pointerover", () => panel.setFillStyle(discovered ? 0x17314a : 0x0d1a29, 0.98));
+    panel.on("pointerout", () => panel.setFillStyle(fill, discovered ? 0.96 : 0.78));
+    this.addOverlayAction(panel, () => {
+      if (!this.isMutationAtlasDebugEnabled() && targeted && this.mutationAtlasSelectedBuildId === buildId && !researched) {
+        this.setMutationAtlasResearchTarget(buildId);
+      }
+      this.mutationAtlasSelectedBuildId = buildId;
+      this.showPreGameShop(this.shopStatusMessage);
+    }, true, 5);
+
+    const status = researched
+      ? "RESEARCHED"
+      : (preserved ? "PRESERVED" : (discovered ? "DISCOVERED" : "UNKNOWN"));
+    this.createOverlayText(x + 10, y + 8, status, {
+      fontSize: "10px",
+      color: discovered ? "#ecfaff" : "#617484",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(x + 10, y + 25, discovered ? `${meta.coreShort}/${meta.finalShort}` : "???? / ????", {
+      fontSize: "13px",
+      color: discovered ? "#9ffcff" : "#617484",
+      fontStyle: "bold",
+      wordWrap: { width: width - 20 }
+    });
+    this.createOverlayText(x + 10, y + 47, `BEST D${entry.bestDepth || 0}`, {
+      fontSize: "10px",
+      color: discovered ? "#f0c463" : "#506474",
+      fontStyle: "bold"
+    });
+    if (targeted) {
+      this.createOverlayText(x + width - 10, y + 8, "TARGET", {
+        fontSize: "9px",
+        color: "#07131d",
+        fontStyle: "bold",
+        backgroundColor: "#6ff7ff",
+        padding: { left: 5, right: 5, top: 2, bottom: 2 },
+        align: "right",
+        origin: { x: 1, y: 0 }
+      });
+    }
+    if (researched) {
+      const mark = this.add.graphics();
+      mark.lineStyle(3, 0x9ffcff, 0.88);
+      mark.beginPath();
+      mark.moveTo(x + width - 30, y + height - 22);
+      mark.lineTo(x + width - 20, y + height - 12);
+      mark.lineTo(x + width - 8, y + height - 32);
+      mark.strokePath();
+      this.addOverlayChild(mark);
+    }
+  }
+
+  renderMutationAtlasDetailPanel(buildId, x, y, width, height, state) {
+    const meta = this.getMutationAtlasBuildMeta(buildId) || this.getMutationAtlasBuildMeta(MUTATION_ATLAS_BUILD_IDS[0]);
+    const entry = state.entries[meta.buildId] || this.createDefaultMutationAtlasEntry();
+    const targeted = state.selectedTargetId === meta.buildId;
+    const canSetTarget = !entry.researchCompleted && !this.isMutationAtlasDebugEnabled();
+    this.addOverlayChild(
+      this.add
+        .rectangle(x, y, width, height, 0x0a1422, 0.92)
+        .setOrigin(0, 0)
+        .setStrokeStyle(1, targeted ? 0x6ff7ff : 0x6fcfff, targeted ? 0.54 : 0.3)
+    );
+    const status = entry.researchCompleted
+      ? "RESEARCHED"
+      : (entry.preserved ? "PRESERVED" : (entry.discovered ? "DISCOVERED" : "UNKNOWN"));
+    const rewardLines = [
+      entry.preserved && entry.preserveRewardClaimed ? "Preserve reward claimed" : "Preserve reward: +1 AM",
+      entry.researchCompleted && entry.researchRewardClaimed ? "Research reward claimed" : "Research reward: Opening Boost Reroll +1"
+    ];
+    const lines = [
+      `CORE: ${meta.coreName}`,
+      `FINAL: ${meta.finalName}`,
+      `STATE: ${status}${targeted ? " / TARGET" : ""}`,
+      `BEST DEPTH: D${entry.bestDepth || 0}`,
+      "PRESERVED: D6+ NORMAL EXTRACT with this build",
+      "RESEARCH: D8+ NORMAL EXTRACT with selected target snapshot",
+      `REWARD: ${rewardLines.join(" / ")}`
+    ];
+    this.createOverlayText(x + 18, y + 16, "ATLAS DETAIL", {
+      fontSize: "14px",
+      color: "#9ffcff",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(x + 18, y + 46, meta.displayName, {
+      fontSize: "19px",
+      color: "#ecfaff",
+      fontStyle: "bold",
+      wordWrap: { width: width - 36 }
+    });
+    this.createOverlayText(x + 18, y + 100, lines.join("\n"), {
+      fontSize: "12px",
+      color: "#c7ddea",
+      lineSpacing: 5,
+      wordWrap: { width: width - 36 }
+    });
+
+    const label = this.isMutationAtlasDebugEnabled()
+      ? "DEBUG SAMPLE"
+      : (entry.researchCompleted ? "RESEARCH COMPLETE" : (targeted ? "CLEAR TARGET" : "SET RESEARCH TARGET"));
+    this.createRunArchiveSmallButton(x + width / 2, y + height - 36, Math.min(260, width - 44), label, canSetTarget || targeted, () => {
+      this.setMutationAtlasResearchTarget(meta.buildId);
+      this.mutationAtlasSelectedBuildId = meta.buildId;
+      this.showPreGameShop(this.shopStatusMessage);
+    });
+  }
+
+  renderMutationAtlasShopContent() {
+    const state = this.getMutationAtlasDisplayState();
+    const selectedBuildId = this.getValidMutationAtlasBuildId(this.mutationAtlasSelectedBuildId)
+      || this.getValidMutationAtlasBuildId(state.selectedTargetId)
+      || MUTATION_ATLAS_BUILD_IDS[0];
+    this.mutationAtlasSelectedBuildId = selectedBuildId;
+    this.createOverlayText(-530, -210, "MUTATION ATLAS", {
+      fontSize: "15px",
+      color: "#9ffcff",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(-530, -188, "TRIAD MATRIX完成ビルド16種類の発見、保存、研究目標をローカル保存します。ランキングとFirebase送信値は変更しません。", {
+      fontSize: "12px",
+      color: "#9ab7cc",
+      wordWrap: { width: 760 }
+    });
+    if (this.isMutationAtlasDebugEnabled()) {
+      this.createOverlayText(420, -188, "DEBUG SAMPLE / not saved", {
+        fontSize: "11px",
+        color: "#f0c463",
+        fontStyle: "bold",
+        align: "right",
+        origin: { x: 1, y: 0 }
+      });
+    }
+
+    const gridX = -530;
+    const gridY = -144;
+    const labelWidth = 116;
+    const cellWidth = 120;
+    const cellHeight = 72;
+    const gap = 8;
+    this.addOverlayChild(
+      this.add
+        .rectangle(gridX, gridY, labelWidth + MUTATION_ATLAS_FINAL_COLUMNS.length * (cellWidth + gap) + 10, 402, 0x07111d, 0.86)
+        .setOrigin(0, 0)
+        .setStrokeStyle(1, 0x6fcfff, 0.24)
+    );
+    MUTATION_ATLAS_FINAL_COLUMNS.forEach((column, columnIndex) => {
+      this.createOverlayText(gridX + labelWidth + columnIndex * (cellWidth + gap) + cellWidth / 2, gridY + 10, column.shortLabel, {
+        fontSize: "11px",
+        color: "#9ffcff",
+        fontStyle: "bold",
+        align: "center",
+        origin: { x: 0.5, y: 0 }
+      });
+    });
+    MUTATION_ATLAS_CORE_ROWS.forEach((row, rowIndex) => {
+      const y = gridY + 34 + rowIndex * (cellHeight + gap);
+      this.createOverlayText(gridX + 14, y + 18, row.shortLabel, {
+        fontSize: "12px",
+        color: "#f0c463",
+        fontStyle: "bold"
+      });
+      MUTATION_ATLAS_FINAL_COLUMNS.forEach((column, columnIndex) => {
+        const x = gridX + labelWidth + columnIndex * (cellWidth + gap);
+        this.createMutationAtlasCell(`${row.id}__${column.id}`, x, y, cellWidth, cellHeight, state);
+      });
+    });
+    this.renderMutationAtlasDetailPanel(selectedBuildId, 76, -144, 454, 402, state);
+  }
+
   renderRunArchiveShopContent() {
+    this.renderArchiveSubViewTabs();
+    if (this.runArchiveSubView === "mutationAtlas") {
+      this.renderMutationAtlasShopContent();
+      return;
+    }
     this.createOverlayText(-530, -210, "RUN ARCHIVE", {
       fontSize: "15px",
       color: "#9ffcff",
@@ -34919,6 +36168,7 @@ class SurvivalScene extends Phaser.Scene {
     } else if (queueSkillMutationDebugPreset) {
       this.applySkillMutationDebugPreset({ prepareOnly: true });
     }
+    this.startTriadMatrixRun("gameStart");
     if (!this.skipOpeningBoostDraftForDebug("gameStart")) {
       this.beginStartingUpgradeDraft();
     }
@@ -34930,6 +36180,7 @@ class SurvivalScene extends Phaser.Scene {
     } else if (!forceSkillMutationDebugPreset) {
       this.applySkillMutationDebugPreset();
     }
+    this.refreshTriadMatrixSnapshot("gameStartMutationReady", { notify: false });
     const debugStartFinalBossRaidPending = this.isFinalBossRaidDebugStartDepthTarget();
     if (!debugStartFinalBossRaidPending) {
       this.queueDepthDirectiveSelection(this.stageDepth, "gameStart");
@@ -36807,6 +38058,11 @@ class SurvivalScene extends Phaser.Scene {
       this.anomalyContractState.selectionLocked = false;
     }
     const enterFinalBossRaid = this.shouldEnterFinalBossRaid(targetDepth, mode);
+    if (enterFinalBossRaid) {
+      this.updateTriadMatrixHud?.();
+    } else {
+      this.refreshTriadMatrixSnapshot("depthTransition", { notify: false });
+    }
     this.hideOverlay();
     if (!enterFinalBossRaid) {
       this.resumeGameplayAfterBlockingOverlay("depthTransition");
@@ -36856,6 +38112,15 @@ class SurvivalScene extends Phaser.Scene {
   completeExtraction(result, emergency, lostArmsMessage = "") {
     const deepExtractionContext = this.captureDeepExtractionResultContext(result, emergency, lostArmsMessage);
     const anjuMemoryAward = this.awardAnjuMemoryOnExtraction(emergency ? "emergency" : "normal");
+    const atlasMaxDepthReached = Math.max(
+      this.normalizeDepthValue(this.runRankingStats?.maxDepthReached, 1),
+      this.normalizeDepthValue(this.runAnjuMemoryState?.maxDepthReached, 1),
+      this.normalizeDepthValue(this.stageDepth, 1)
+    );
+    const mutationAtlasResult = this.completeMutationAtlasExtractionProgress({
+      emergency,
+      maxDepthReached: atlasMaxDepthReached
+    });
     this.setRunRankingExtractionStats(emergency ? "emergency" : "normal", result?.secured, true);
     const recordState = this.saveBestRecordIfNeeded();
     this.saveRunArchiveEntryOnce({
@@ -36869,7 +38134,10 @@ class SurvivalScene extends Phaser.Scene {
       anjuMemoryAward,
       lostArmsMessage,
       recordState,
-      context: deepExtractionContext
+      context: {
+        ...deepExtractionContext,
+        mutationAtlasResult
+      }
     });
     this.extractionComplete = true;
     this.gateChoiceActive = false;
@@ -36879,6 +38147,7 @@ class SurvivalScene extends Phaser.Scene {
     this.resetLostArmsResonanceState(emergency ? "emergencyExtract" : "extract");
     this.resetOverdriveModState(emergency ? "emergencyExtract" : "extract");
     this.resetDepthDirectiveState(emergency ? "emergencyExtract" : "extract");
+    this.resetTriadMatrixRunState(emergency ? "emergencyExtract" : "extract");
     this.resetSkillMutationState(emergency ? "emergencyExtract" : "extract");
     this.resetNemesisBossState(emergency ? "emergencyExtract" : "extract");
     this.resetDollTraceState(emergency ? "emergencyExtract" : "extract");
@@ -36893,7 +38162,8 @@ class SurvivalScene extends Phaser.Scene {
     const securedText = `${result.secured.toLocaleString()} GEEK SECURED`;
     const lostText = result.lost > 0 ? ` / LOST ${result.lost.toLocaleString()}` : "";
     const anjuMemoryText = this.formatAnjuMemoryAwardLine(anjuMemoryAward);
-    const returnMessage = [`作戦成功 ${securedText}${lostText}`, lostArmsMessage, anjuMemoryText].filter(Boolean).join("\n");
+    const mutationAtlasText = this.formatMutationAtlasExtractionLines(mutationAtlasResult).join("\n");
+    const returnMessage = [`作戦成功 ${securedText}${lostText}`, lostArmsMessage, anjuMemoryText, mutationAtlasText].filter(Boolean).join("\n");
     this.prepareExtractionRankingEntry(recordState, {
       reason: emergency ? "emergencyExtract" : "extract",
       securedCoins: result.secured,
@@ -36907,6 +38177,7 @@ class SurvivalScene extends Phaser.Scene {
       emergency,
       lostArmsMessage,
       anjuMemoryAward,
+      mutationAtlasResult,
       recordState,
       context: deepExtractionContext,
       returnMessage
@@ -36916,7 +38187,7 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
     this.consumeDeepExtractionResultPayload();
-    this.showExtractionCompleteOverlay(result, emergency, lostArmsMessage, anjuMemoryAward);
+    this.showExtractionCompleteOverlay(result, emergency, lostArmsMessage, anjuMemoryAward, mutationAtlasResult);
     this.time.delayedCall(1800, () => {
       this.showExtractionRankingOverlayOrReturn();
     });
@@ -37081,6 +38352,7 @@ class SurvivalScene extends Phaser.Scene {
     const maxDepthReached = this.getRunMaxDepthReachedForResult(rankingStats, context);
     const milestone = this.getGeekMilestoneForDepth(maxDepthReached);
     const extractedGeek = this.getExtractedGeekThisRun(result);
+    const mutationAtlasResult = options.mutationAtlasResult || context.mutationAtlasResult || null;
     const previousBestDepth = previousBest ? this.getRecordBestDepth(previousBest) : 1;
     const previousBestGeek = previousBest
       ? this.normalizeCoinAmount(previousBest.bestExtractedGeek ?? previousBest.extractedGeek)
@@ -37107,6 +38379,12 @@ class SurvivalScene extends Phaser.Scene {
       lostArmsLostLines: context.lostArmsLostLines,
       anjuMemoryEarned: this.normalizeAnjuMemoryAmount(options.anjuMemoryAward?.amount),
       anjuMemoryText: this.formatAnjuMemoryAwardLine(options.anjuMemoryAward),
+      triadBuild: mutationAtlasResult?.build || null,
+      atlasStatus: mutationAtlasResult?.atlasStatus || "",
+      atlasBestDepth: mutationAtlasResult?.bestDepth || 0,
+      atlasBonusAnju: mutationAtlasResult?.atlasBonusAnju || 0,
+      researchCompleted: Boolean(mutationAtlasResult?.researchCompleted),
+      researchRerollTicket: mutationAtlasResult?.researchRerollTicket || 0,
       instabilityStacks: context.instabilityStacks,
       peakGeekMultiplier: context.peakGeekMultiplier,
       geekMilestoneTitle: milestone?.title || "",
@@ -37144,6 +38422,12 @@ class SurvivalScene extends Phaser.Scene {
       lostArmsLostLines: Array.isArray(raw.lostArmsLostLines) ? raw.lostArmsLostLines.filter(Boolean).slice(0, DEEP_EXTRACTION_RESULT_CONFIG.maxRewardLines) : [],
       anjuMemoryEarned: this.normalizeAnjuMemoryAmount(raw.anjuMemoryEarned),
       anjuMemoryText: String(raw.anjuMemoryText || ""),
+      triadBuild: this.normalizeMutationAtlasBuildPayload(raw.triadBuild),
+      atlasStatus: ["DISCOVERED", "PRESERVED"].includes(String(raw.atlasStatus || "")) ? String(raw.atlasStatus || "") : "",
+      atlasBestDepth: Math.max(0, Math.floor(Number(raw.atlasBestDepth) || 0)),
+      atlasBonusAnju: this.normalizeAnjuMemoryAmount(raw.atlasBonusAnju),
+      researchCompleted: Boolean(raw.researchCompleted),
+      researchRerollTicket: this.normalizeAnjuMemoryAmount(raw.researchRerollTicket),
       instabilityStacks: Math.max(0, Math.floor(Number(raw.instabilityStacks) || 0)),
       peakGeekMultiplier: Math.max(1, Number(raw.peakGeekMultiplier) || 1),
       geekMilestoneTitle: String(raw.geekMilestoneTitle || ""),
@@ -37209,6 +38493,12 @@ class SurvivalScene extends Phaser.Scene {
     if (payload.anjuMemoryEarned > 0) {
       highlights.push(`ANJU MEMORY +${payload.anjuMemoryEarned}`);
     }
+    if (payload.triadBuild?.displayName) {
+      highlights.push("TRIAD BUILD SECURED");
+    }
+    if (payload.researchCompleted) {
+      highlights.push("RESEARCH TARGET COMPLETE");
+    }
     if (payload.geekMilestoneTitle) {
       highlights.push(`GEEK MILESTONE: ${payload.geekMilestoneTitle}`);
     }
@@ -37268,6 +38558,22 @@ class SurvivalScene extends Phaser.Scene {
     }
     if (payload.anjuMemoryEarned > 0) {
       rows.push({ label: "ANJU MEMORY", value: `+${payload.anjuMemoryEarned}` });
+    }
+    if (payload.triadBuild?.displayName) {
+      rows.push({ label: "TRIAD BUILD", value: payload.triadBuild.displayName });
+      rows.push({
+        label: "MUTATION ATLAS",
+        value: `${payload.atlasStatus || "DISCOVERED"} / BEST D${payload.atlasBestDepth || payload.maxDepthReached}`
+      });
+    }
+    if (payload.atlasBonusAnju > 0) {
+      rows.push({ label: "ATLAS PRESERVE BONUS", value: `+${payload.atlasBonusAnju} AM` });
+    }
+    if (payload.researchCompleted) {
+      rows.push({
+        label: "RESEARCH TARGET COMPLETE",
+        value: payload.researchRerollTicket > 0 ? `OPENING BOOST REROLL +${payload.researchRerollTicket}` : "COMPLETED"
+      });
     }
     if (payload.nemesisKills > 0) {
       rows.push({ label: "NEMESIS KILLS", value: `${payload.nemesisKills}` });
@@ -37701,12 +39007,13 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
-  showExtractionCompleteOverlay(result, emergency, lostArmsMessage = "", anjuMemoryAward = null) {
+  showExtractionCompleteOverlay(result, emergency, lostArmsMessage = "", anjuMemoryAward = null, mutationAtlasResult = null) {
     const framePalette = anjuMemoryAward?.amount > 0 ? this.getAnjuResultFramePalette() : {};
     const strokeColor = framePalette.stroke || (emergency ? 0xff5bba : 0x6fcfff);
     const fillColor = framePalette.fill || 0x07131d;
     const titleColor = framePalette.title || "#ecfaff";
     const anjuMemoryText = this.formatAnjuMemoryAwardLine(anjuMemoryAward);
+    const mutationAtlasText = this.formatMutationAtlasExtractionLines(mutationAtlasResult).join("\n");
     const rankingStats = this.normalizeRunRankingStats(this.runRankingStats);
     const resultStatsText = `BEST DEPTH ${rankingStats.maxDepthReached}\nEXTRACTED GEEK ${rankingStats.extractedGeek.toLocaleString()}`;
     this.clearOverlayButtons();
@@ -37735,7 +39042,7 @@ class SurvivalScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setPosition(0, -68)
-      .setText(`${result.secured.toLocaleString()} GEEK SECURED\n${result.lost > 0 ? `${result.lost.toLocaleString()} GEEK LOST\n` : ""}${resultStatsText}\n${anjuMemoryText ? `${anjuMemoryText}\n` : ""}作戦成功${lostArmsMessage ? `\n\n${lostArmsMessage}` : ""}`);
+      .setText(`${result.secured.toLocaleString()} GEEK SECURED\n${result.lost > 0 ? `${result.lost.toLocaleString()} GEEK LOST\n` : ""}${resultStatsText}\n${anjuMemoryText ? `${anjuMemoryText}\n` : ""}${mutationAtlasText ? `${mutationAtlasText}\n` : ""}作戦成功${lostArmsMessage ? `\n\n${lostArmsMessage}` : ""}`);
     const glow = this.add
       .image(0, 118, "skill-hit-glow")
       .setScale(1.5)
@@ -37923,7 +39230,7 @@ class SurvivalScene extends Phaser.Scene {
     const shouldDash = dashKeyDown && isMoving && !this.dashLockedUntilRelease && canStartDash && stamina > 0;
 
     if (shouldDash) {
-      const nextStamina = Math.max(0, stamina - DASH_STAMINA_DRAIN_PER_SECOND * (delta / 1000));
+      const nextStamina = Math.max(0, stamina - DASH_STAMINA_DRAIN_PER_SECOND * this.getTriadDashStaminaDrainMultiplier() * (delta / 1000));
       this.stats.stamina = nextStamina;
       this.isDashing = nextStamina > 0;
       this.dashRegenBlockedUntil = this.time.now + DASH_STAMINA_REGEN_DELAY_MS;
@@ -49623,6 +50930,7 @@ class SurvivalScene extends Phaser.Scene {
     this.resetLostArmsResonanceState(reason);
     this.resetOverdriveModState(reason);
     this.resetDepthDirectiveState(reason);
+    this.resetTriadMatrixRunState(reason);
     this.resetSkillMutationState(reason);
     this.resetNemesisBossState(reason);
     this.resetDollTraceState(reason);
@@ -49785,6 +51093,7 @@ class SurvivalScene extends Phaser.Scene {
     this.resetLostArmsResonanceState("returnToOpeningShop");
     this.resetOverdriveModState("returnToOpeningShop");
     this.resetDepthDirectiveState("returnToOpeningShop");
+    this.resetTriadMatrixRunState("returnToOpeningShop");
     this.resetSkillMutationState("returnToOpeningShop");
     this.resetNemesisBossState("returnToOpeningShop");
     this.resetDollTraceState("returnToOpeningShop");
@@ -51053,6 +52362,45 @@ class SurvivalScene extends Phaser.Scene {
     this.updateAnjuMemoryHud();
   }
 
+  getTriadResearchHudLine() {
+    const targetId = this.getValidMutationAtlasBuildId(this.triadMatrixState?.runResearchTargetId);
+    if (!targetId) {
+      return "";
+    }
+    const meta = this.getMutationAtlasBuildMeta(targetId);
+    if (!meta) {
+      return "";
+    }
+    return `RESEARCH: ${meta.targetLabel}  D8+ NORMAL EXTRACT`;
+  }
+
+  updateTriadMatrixHud() {
+    if (!this.hudTriadPanel || !this.hudTriadText) {
+      return;
+    }
+    if (this.isTriadMatrixFinalRaidSuppressed()) {
+      this.hudTriadPanel.setVisible(false);
+      this.hudTriadText.setVisible(false);
+      return;
+    }
+    const snapshot = this.getTriadMatrixSnapshot({ refresh: true });
+    const researchLine = this.getTriadResearchHudLine();
+    const hasTriadState = (snapshot?.core?.level || 0) > 0 || (snapshot?.final?.level || 0) > 0;
+    const visible = hasTriadState || Boolean(researchLine);
+    this.hudTriadPanel.setVisible(visible);
+    this.hudTriadText.setVisible(visible);
+    if (!visible) {
+      return;
+    }
+    const lines = [
+      hasTriadState ? snapshot.hudText : "TRIAD: STANDBY",
+      researchLine
+    ].filter(Boolean);
+    this.hudTriadText
+      .setText(lines.join("\n"))
+      .setColor(snapshot?.buildId ? "#fff2a8" : "#9ffcff");
+  }
+
   updateHud() {
     const timeLabel = this.formatTimeMs(this.survivalTime);
     const wave = this.getCurrentWaveDefinition();
@@ -51090,6 +52438,7 @@ class SurvivalScene extends Phaser.Scene {
     this.updateOverflowHud();
     this.updateAnomalyContractHud();
     this.updateDepthDirectiveHud();
+    this.updateTriadMatrixHud();
     this.updateNemesisBossHud();
     this.updateDollTraceHud();
 

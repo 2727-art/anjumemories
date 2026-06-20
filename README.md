@@ -74,6 +74,10 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - `?debugRaidAlliedMeshScale=0.25`: デバッグ用。`debugRaidAlliedMesh=1` 時だけ、ALLIED MESH 表示演出の時間を短縮・延長します。戦闘効果やタイムラインは変わりません。
 - `?debugRaidAlliedMeshIncomplete=1`: デバッグ用。`debugRaidAlliedMeshPhase=maximum` と併用すると12/13ノード不足状態を作り、MAXIMUMが発動しないことを確認できます。
 - `?debugMaxBuild=1`: デバッグ用。攻撃スキル全種を最終Stage、ROBOTをLv.20/Tune Lv.20、HPを300、移動速度を+100にします。
+- `?debugTriadMatrix=1`: デバッグ用。TRIAD MATRIX の再計算、状態遷移、完成 buildId を console に出します。
+- `?debugTriadCore=assault|control|reactor|trinity`: デバッグ用。3攻撃スキルのStage4 Coreをラン内注入します。`trinity` は3種1個ずつになります。
+- `?debugTriadFinal=execution|prism|singularity|adaptive`: デバッグ用。3攻撃スキルのStage8 Finalをラン内注入します。`adaptive` は3種1個ずつになります。
+- `?debugMutationAtlas=1`: デバッグ用。Opening Shop の `ARCHIVE` 内 `MUTATION ATLAS` をサンプル状態で開き、保存データは変更しません。
 - `?debugStartDepth=10&debugFinalRaid=1&debugFinalRaidScale=0.05&debugFinalRaidPhase=third&debugMaxBuild=1&debugSkipOpeningBoost=1`: デバッグ用。強化済み状態でDepth10 Final Raidを確認します。
 - `?debugRecoveryFieldScale=1`: デバッグ用。Recovery Field の選択画像、表示サイズ、alpha、angle / rotation、depth、表示モードを console に出します。
 - `?debugDollTrace=1`: デバッグ用。通常 Depth の外周停滞検知 `DOLL TRACE` の更新、ハンター出現、cleanup を console に出し、HUD に詳細行を表示します。
@@ -81,7 +85,7 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 
 ## ゲーム進行
 
-1. Opening Shop の `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY`、`ARCHIVE` で CD、BGM、永続強化、ロボット系解放、戦闘ログ閲覧を行います。
+1. Opening Shop の `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY`、`ARCHIVE` で CD、BGM、永続強化、ロボット系解放、戦闘ログ、MUTATION ATLAS 閲覧を行います。
 2. `GAME START` で出撃し、Opening Boost として開始前に 3 回ぶんの強化を選択します。ANJU MEMORY の +1 チケットを持っている場合、最初の Opening Boost だけ 4 択になります。
 3. 敵を倒して XP、未確定 GEEK、Support、Robot、LOST ARMS アイテムを集めます。
 4. レベルアップ時はスキル解放、スキル強化、パッシブ強化から 3 択で 1 つ選びます。
@@ -221,6 +225,56 @@ mutation は抽出、緊急抽出、ゲームオーバー、Gate 崩壊、ショ
 
 検証用に `?debugSkillMutation=1` を付けると選択ログが console に出ます。`?debugSkillMutationSkill=basicSkill` のように対象スキルを指定すると Stage4 選択を早期確認できます。`?debugSkillMutationCore=assault&debugSkillMutationFinal=prism` を併用すると指定 finalForm をラン内だけでプレビューできます。
 
+### TRIAD MATRIX / MUTATION ATLAS
+
+`basicSkill`、`tornadoSkill`、`rabbitThunderSkill` の選択済み Mutation を横断し、ラン内の `TRIAD MATRIX` 状態を算出します。Core 軸は `assault` / `control` / `reactor`、Final 軸は `execution` / `prism` / `singularity` を使い、既存 mutation 値はリネームしません。
+
+Core / Final とも、同じカテゴリが 2 個揃うと `LINK I` になります。3 スキルすべて同じカテゴリなら `MATRIX II`、3 種が 1 個ずつなら混成 `MATRIX II` です。3 個選択済みでも 2:1 構成は `LINK I` のままで、Atlas対象の完成ビルドにはなりません。
+
+Core完成分類:
+
+- `ASSAULT ARRAY`
+- `CONTROL GRID`
+- `REACTOR LOOP`
+- `TRINITY CORE`
+
+Final完成分類:
+
+- `EXECUTION PROTOCOL`
+- `PRISM CASCADE`
+- `SINGULARITY DOMAIN`
+- `ADAPTIVE FORM`
+
+Core と Final の両方が `MATRIX II` になった場合だけ、`assault_array__execution_protocol` のような安定 buildId を持つ完成ビルドになります。組み合わせは 4 x 4 の合計 16 種類です。HUD には `TRIAD: ASLT-I / PRSM-II`、`TRIAD: TRIN-II / ADPT-II` のような短縮表示が出ます。状態変化時だけ `TRIAD LINK ESTABLISHED` や `TRIAD MATRIX ONLINE` の短い通知が表示されます。
+
+TRIAD MATRIX の戦闘効果は、3 攻撃スキルと既存 SKILL MUTATION 効果だけへ適用されます。Support、Robot 本体/ミサイル/回復フィールド、LOST ARMS、NEMESIS固有報酬、GEEK報酬、ANJU MEMORY報酬、環境ダメージには適用しません。
+
+- `ASSAULT LINK I` / `ASSAULT ARRAY`: 3 攻撃スキルの実ダメージ x1.04 / x1.08。
+- `CONTROL LINK I` / `CONTROL GRID`: 既存 Mutation 由来の鈍足、持続、押し戻し、制圧フィールド系の制御性能 x1.06 / x1.12。
+- `REACTOR LINK I` / `REACTOR LOOP`: OVERDRIVEゲージ獲得量とROBOT SYNCゲージ獲得量 x1.06 / x1.12、DASH中スタミナ消費 x0.97 / x0.94。
+- `TRINITY CORE`: 実ダメージ x1.03、制御性能 x1.05、OVERDRIVE/ROBOT SYNCゲージ x1.05、DASH中スタミナ消費 x0.97。
+- `EXECUTION LINK I` / `EXECUTION PROTOCOL`: 既存のBoss / Elite / 高HP通常敵判定への3攻撃スキル対象ダメージ x1.06 / x1.12。
+- `PRISM LINK I` / `PRISM CASCADE`: 既存PRISM Mutationの分岐・連鎖・副次攻撃ダメージ x1.08 / x1.15。分岐数や同時存在数は増えません。
+- `SINGULARITY LINK I` / `SINGULARITY DOMAIN`: 既存SINGULARITY Mutationのフィールド半径、持続、吸引/制圧系の値 x1.06 / x1.12。
+- `ADAPTIVE FORM`: Execution対象ダメージ x1.05、PRISM副次攻撃ダメージ x1.06、SINGULARITY系の値 x1.06。
+
+`MUTATION ATLAS` は Opening Shop の `ARCHIVE` タブ内サブビューから確認できます。`RUN ARCHIVE` / `MUTATION ATLAS` を切り替え、4 行 x 4 列のセルで 16 種類の完成ビルドを表示します。Atlas状態は `lastmemoVansabaMutationAtlasState` に保存され、GEEK、ANJU MEMORY本体計算、RUN ARCHIVE、ランキング、Firebaseには混ざりません。破損JSONや古い保存データでも 16 セルを初期化して起動します。
+
+Atlas進捗:
+
+- `DISCOVERED`: 完成ビルド成立時に記録します。Depth制限はなく、ゲームオーバーでも保持されます。報酬はありません。
+- `BEST DEPTH`: 完成ビルド成立後、そのランの最大到達 Depth が既存値を超えた場合だけ更新します。
+- `PRESERVED`: 完成ビルド成立、最大到達 Depth 6 以上、通常 `EXTRACT` 成功時だけ記録します。`EMERGENCY EXTRACT`、ゲームオーバー、Gate Collapse、初回Depth10 Final Raid帰還では記録しません。
+- 初回 `PRESERVED` 報酬として、既存ANJU MEMORYへ別枠の `ATLAS PRESERVE BONUS +1 AM` を 1 回だけ付与します。既存のANJU MEMORY三角数計算、マイルストーン、不安定度補正、ランキング/Firebase送信値には含めません。
+
+`MUTATION ATLAS` では 16 セルから `RESEARCH TARGET` を 1 つ選べます。未発見セルも対象にできます。選択中セルをもう一度押すか詳細パネルの `CLEAR TARGET` で解除できます。出撃開始時の `selectedTargetId` をラン内に snapshot するため、出撃中にショップ保存値が変わってもそのランの目標は変わりません。研究達成条件は、出撃開始時の targetId と完成ビルドIDが一致し、最大到達 Depth 8 以上で通常 `EXTRACT` 成功することです。達成時は `researchCompleted` を保存し、既存の Opening Boost Reroll Ticket を 1 枚だけ付与します。
+
+Depth 6 以上の `DEEP EXTRACTION RESULT` では、完成ビルドがある場合に `TRIAD BUILD`、`ATLAS: DISCOVERED / PRESERVED`、`BEST DEPTH`、`ATLAS PRESERVE BONUS +1 AM`、`RESEARCH TARGET COMPLETE`、`OPENING BOOST REROLL +1` を別行で表示します。通常の抽出GEEK、緊急抽出保護率、既存ANJU MEMORY計算、ランキング登録、Firebase送信値は変更しません。RUN ARCHIVE 詳細にも `BUILD: CONTROL GRID / PRISM CASCADE` のように完成ビルドを保存・表示します。
+
+Depth10初回 Final Raid 中は TRIAD HUD、TRIAD戦闘効果、Atlas記録、PRESERVED、Research Target、Atlas報酬をすべて無効化します。Final Raid のボス、Add、巨大兵器、救援、タイマー、報酬、帰還ゲートには影響しません。Final Raid討伐後に後続ランで通常Depth10へ到達した場合は通常ランとしてTRIAD MATRIX / MUTATION ATLASの対象になります。
+
+検証用に `?debugTriadMatrix=1` を付けるとTRIAD再計算、状態遷移、完成 buildId を console に出します。`?debugTriadCore=assault|control|reactor|trinity` と `?debugTriadFinal=execution|prism|singularity|adaptive` は3スキルへラン内Mutationを注入します。この注入ランではAtlas保存、ANJU MEMORY報酬、Reroll Ticket報酬、Research完了、実RUN ARCHIVEへのTRIADビルド保存を行いません。`?debugMutationAtlas=1` はOpening Shop起動時に保存を書き換えないサンプルAtlasを表示します。
+
 通常のレベルアップ強化は Lv.25 までを基準にし、Depth 6 以降で Lv.25 に到達している場合は `DEEP LEVEL` 成長に切り替わります。`DEEP LEVEL` は Lv.99 まで上昇し、カード選択を出さずに 1 レベルごとに Lv.25 時点の最大 HP 基準で約 1% の最大 HP と同量の現在 HP を加算します。Depth 6 未満では `DEEP LEVEL` は解禁されません。
 
 すべてのスキル候補とパッシブ候補が上限に達した後の XP は `OVERDRIVE` に変換されます。
@@ -301,7 +355,7 @@ Depth6、8、10、12、15 に入ると `GEEK MILESTONE` 通知が短く表示さ
 
 ### DEEP EXTRACTION RESULT
 
-Depth 6 以降に通常 `EXTRACT` または `EMERGENCY EXTRACT` が成功すると、ランキング入力やショップ復帰の前に `DEEP EXTRACTION RESULT` が表示されます。通常抽出では `DEEP EXTRACTION RESULT`、緊急抽出では `EMERGENCY DEEP EXTRACTION / Partial data secured` として、到達 Depth、確定 GEEK、生存時間、撃破数、Elite / Boss、Instability、GEEK 最大倍率、ANJU MEMORY、LOST ARMS、NEMESIS、DEPTH DIRECTIVE、ベスト更新、Grade を表示します。
+Depth 6 以降に通常 `EXTRACT` または `EMERGENCY EXTRACT` が成功すると、ランキング入力やショップ復帰の前に `DEEP EXTRACTION RESULT` が表示されます。通常抽出では `DEEP EXTRACTION RESULT`、緊急抽出では `EMERGENCY DEEP EXTRACTION / Partial data secured` として、到達 Depth、確定 GEEK、生存時間、撃破数、Elite / Boss、Instability、GEEK 最大倍率、ANJU MEMORY、LOST ARMS、NEMESIS、DEPTH DIRECTIVE、TRIAD BUILD / MUTATION ATLAS、ベスト更新、Grade を表示します。
 
 この画面は演出と集計表示だけです。`secureRunCoins()` の確定額、緊急脱出の保護率、`lastmemoVansabaCoins`、`lastmemoVansabaExtractionMessage`、ランキング、Firebase 送信値は変更しません。Continue、Enter、Space、タップで既存のランキング入力または Opening Shop 復帰へ進みます。
 
@@ -373,6 +427,7 @@ NEMESIS は Gate が近すぎる場合、Gate が開いている場合、Gate �
 - 通常抽出は `floor(raw * 1.0)`、Depth 6 以上なら最低 1 AM です。
 - 緊急抽出は `floor(raw * 0.35)` で、raw が 1 以上なら最低 1 AM です。
 - マイルストーンは保存された報酬が 1 AM 以上のときだけ達成済みにします。緊急抽出でも 1 AM 以上を獲得した場合は、そのランで到達した未達マイルストーンを消費します。
+- MUTATION ATLAS の初回 `PRESERVED` 報酬は `ATLAS PRESERVE BONUS +1 AM` として別枠で加算されます。既存の三角数計算、マイルストーン、不安定度補正、ランキング/Firebase送信値には含めません。
 
 Opening Shop の `ANJU MEMORY` タブでは、AM 残高、累計獲得、最高抽出 Depth、チケット所持数を確認できます。HUD では Depth 6 以降に `ANJU MEMORY +n? / Extract to preserve` として未確定の見込み値を表示します。
 
@@ -618,7 +673,7 @@ Best Depth はそのランで実際に到達した最大 Depth です。Extracte
 
 ## RUN ARCHIVE / 戦闘ログ
 
-Opening Shop の `ARCHIVE` タブから、直近 20 件のラン結果を新しい順に閲覧できます。各ログはローカル保存専用で、GEEK 残高、ANJU MEMORY 残高、ランキング、Firebase 送信値、ゲームバランスには影響しません。
+Opening Shop の `ARCHIVE` タブから、`RUN ARCHIVE` と `MUTATION ATLAS` を切り替えられます。`RUN ARCHIVE` では直近 20 件のラン結果を新しい順に閲覧できます。各ログはローカル保存専用で、GEEK 残高、ANJU MEMORY 残高、ランキング、Firebase 送信値、ゲームバランスには影響しません。
 
 保存対象は通常 `EXTRACT`、`EMERGENCY EXTRACT`、通常ゲームオーバー、Depth 5 までの Gate Collapse です。Depth10 Final Raid の `ドールを解放する` 帰還は通常抽出相当として保存されます。`?debugDeepResult=1` のプレビュー、ゲーム開始前、手動でページを閉じただけの中断は保存されません。1 ランにつき保存は 1 件だけで、21 件目以降は古いログから削除されます。
 
@@ -626,6 +681,7 @@ Opening Shop の `ARCHIVE` タブから、直近 20 件のラン結果を新し�
 
 - 到達 Depth、抽出結果、Extracted GEEK、生存時間、撃破数、Elite / Boss
 - ANJU MEMORY 獲得量、Grade、Stage
+- TRIAD BUILD。完成ビルドがある通常ランでは `BUILD: CONTROL GRID / PRISM CASCADE` のように表示します。
 - スキル、パッシブ、LOST ARMS、RESONANCE / Evolution、Robot Lv / SYNC
 - ANOMALY CONTRACT、DEPTH DIRECTIVE、OVERDRIVE MOD、STABILIZE PROTOCOL、NEMESIS
 
@@ -642,6 +698,7 @@ localStorage キー:
 - `lastmemoVansabaShopState`: CD 所持、選択 BGM、永続強化状態、回収ロボ `cleaningRobotLevel`、`robotCustom`。`cleaningRobotLevel` は古い保存データに無い場合 Lv0 へ補完します。`robotCustom` は `missileCapTier`、`recoveryCapTier`、`napalmUnlocked`、`barrierUnlocked` を持ち、古い保存データに無い場合は初期値へ補完します。
 - `lastmemoVansabaLostArmsState`: LOST ARMS 永続 Lv と pity
 - `lastmemoVansabaAnjuMemoryState`: ANJU MEMORY 残高、購入済み報酬、選択中スキン/称号/バッジ、チケット、到達済みマイルストーン
+- `lastmemoVansabaMutationAtlasState`: MUTATION ATLAS の 16 ビルド発見/保存/研究状態、Best Depth、選択中 Research Target
 - `lastmemoVansabaRunArchive`: 直近 20 件の RUN ARCHIVE / 戦闘ログ。ローカル閲覧専用でランキングや Firebase には送信しません。
 - `lastmemoVansabaFinalBossState`: Depth10 Final Raid 討伐済み、ラスボスCD、ラスボスサポート解禁状態
 - `lastmemoVansabaCommsStoryState`: Depth 初回通信の再生済みフラグ
@@ -700,6 +757,9 @@ http://127.0.0.1:4173/?debugSkillMutation=1
 http://127.0.0.1:4173/?debugSkillMutation=1&debugSkillMutationSkill=basicSkill
 http://127.0.0.1:4173/?debugSkillMutation=1&debugSkillMutationSkill=tornadoSkill
 http://127.0.0.1:4173/?debugSkillMutation=1&debugSkillMutationSkill=rabbitThunderSkill
+http://127.0.0.1:4173/?debugMaxBuild=1&debugTriadMatrix=1&debugTriadCore=assault&debugTriadFinal=prism
+http://127.0.0.1:4173/?debugMaxBuild=1&debugTriadMatrix=1&debugTriadCore=trinity&debugTriadFinal=adaptive
+http://127.0.0.1:4173/?debugMutationAtlas=1
 http://127.0.0.1:4173/?debug=stage
 ```
 
