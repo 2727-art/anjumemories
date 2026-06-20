@@ -76,6 +76,8 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - `?debugMaxBuild=1`: デバッグ用。攻撃スキル全種を最終Stage、ROBOTをLv.20/Tune Lv.20、HPを300、移動速度を+100にします。
 - `?debugStartDepth=10&debugFinalRaid=1&debugFinalRaidScale=0.05&debugFinalRaidPhase=third&debugMaxBuild=1&debugSkipOpeningBoost=1`: デバッグ用。強化済み状態でDepth10 Final Raidを確認します。
 - `?debugRecoveryFieldScale=1`: デバッグ用。Recovery Field の選択画像、表示サイズ、alpha、angle / rotation、depth、表示モードを console に出します。
+- `?debugDollTrace=1`: デバッグ用。通常 Depth の外周停滞検知 `DOLL TRACE` の更新、ハンター出現、cleanup を console に出し、HUD に詳細行を表示します。
+- `?debugDollTraceFast=1`: デバッグ用。`DOLL TRACE` の蓄積と減衰を早めます。`debugDollTrace=1` と併用すると確認しやすくなります。
 
 ## ゲーム進行
 
@@ -91,6 +93,14 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 10. Depth11 以降は Endless Void 領域になり、選択 CD を保存変更せずラン中だけ `音声/bgm/ENDLESSVOIDAMBIENCE.mp3` へ上書きします。Depth12 以降へ進んでも同じ BGM を継続し、Depth ごとに先頭から再生し直しません。
 11. Depth11 以降は外部通信、味方通信、通常 Depth 通信、Final Raid 後日談通信を遮断し、既存通信 UI の `SCRAMBLED SIGNAL` 表示で短いスクランブル受信だけが低頻度で発生します。スクランブル通信はラン内一時状態で、`lastmemoVansabaCommsStoryState` には保存しません。
 12. 帰還、ゲームオーバー、Gate 崩壊後はローディング表示を挟んで Opening Shop に戻ります。
+
+## 通常 Depth の外周停滞対策
+
+通常 Depth では、通常攻撃のターゲット探索はプレイヤーから最大 1050、随伴ロボットのミサイルはロボットから最大 1350 の範囲に制限されます。これは通常 Depth の敵ターゲット選択だけに使い、Support、LOST ARMS、Depth10 Final Raid の疑似ダメージ、救援処理、巨大兵器ターゲットには適用しません。
+
+マップ角や外周付近に留まり、直近 20 秒の移動量が少ない場合は HUD に `DOLL TRACE` が表示され、`STATIC SIGNAL` として蓄積します。40% で `STATIC SIGNAL DETECTED`、70% で `HUNTER SIGNAL APPROACHING`、100% で `DOLL TRACE HUNTER` が 1 体だけ展開されます。ハンターは通常敵ウェーブ、ボス進行、ランキング撃破数、DEPTH DIRECTIVE、XP / GEEK / Robot / Support / LOST ARMS / DATA CACHE ドロップには混ざりません。
+
+外周から離れて中央へ動くと `DOLL TRACE` は減衰し、20% 未満かつ外周付近でなければ展開中のハンターは撤退します。Gate、レベルアップ、Opening Boost、ANOMALY CONTRACT、OVERDRIVE MOD、STABILIZE PROTOCOL、LOST ARMS RESONANCE などの選択 overlay 表示中は蓄積しません。Depth10 Final Raid では無効化され、Depth 遷移、抽出、ゲームオーバー、ショップ復帰、Scene shutdown でラン内状態を破棄します。
 
 ## Depth10 Final Raid
 
