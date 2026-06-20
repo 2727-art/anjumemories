@@ -5035,7 +5035,7 @@ const GENSO_KNIGHTS_SUPPORT_DEFINITION = {
   cutinTextureKey: "support-genso-knights-cutin",
   cutinPath: "./画像/support/gensoKnights/cutin.png",
   bgmKey: "support-genso-knights-bgm",
-  bgmPath: "./音声/support/gensoKnights/gensobgm.wav",
+  bgmPath: "./音声/support/gensoKnights/gensobgm.mp3",
   bgmVolume: 0.74,
   characters: [
     {

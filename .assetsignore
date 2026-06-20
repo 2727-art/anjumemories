@@ -1,0 +1,13 @@
+# Cloudflare Workers static assets should not upload repository metadata.
+.git
+.git/**
+
+# Local/generated folders are not runtime assets.
+.wrangler
+.wrangler/**
+node_modules
+node_modules/**
+.codex-remote-attachments
+.codex-remote-attachments/**
+.tmp_*
+.tmp_*/**
