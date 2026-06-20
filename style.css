@@ -97,25 +97,53 @@ body {
   max-height: calc(100dvh - 28px);
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 24px;
+  padding: 28px 24px;
   border: 1px solid rgba(111, 207, 255, 0.36);
   border-radius: 8px;
-  background: rgba(8, 19, 31, 0.96);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.46);
+  background:
+    linear-gradient(135deg, rgba(111, 207, 255, 0.1), transparent 34%),
+    linear-gradient(180deg, rgba(8, 19, 31, 0.98), rgba(4, 11, 20, 0.96));
+  box-shadow:
+    0 0 24px rgba(111, 207, 255, 0.14),
+    0 18px 48px rgba(0, 0, 0, 0.46);
 }
 
 .mobile-start-kicker {
-  margin: 0 0 8px;
+  margin: 0 0 12px;
   color: var(--accent);
   font-size: 13px;
   font-weight: 700;
 }
 
-.mobile-start-panel h1 {
+.mobile-start-logo {
   margin: 0;
+  color: #e9fbff;
+  font-size: 36px;
+  font-weight: 900;
+  line-height: 1.08;
+  letter-spacing: 0;
+  text-shadow:
+    0 0 12px rgba(111, 207, 255, 0.62),
+    0 0 26px rgba(31, 121, 184, 0.42);
+  overflow-wrap: normal;
+}
+
+.mobile-start-subtitle {
+  margin: 10px 0 0;
+  color: #9fe8ff;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.mobile-start-prompt {
+  margin: 26px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid rgba(111, 207, 255, 0.22);
   color: var(--text-main);
-  font-size: 24px;
-  line-height: 1.35;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.55;
   letter-spacing: 0;
 }
 
@@ -890,8 +918,19 @@ body.mobile-session #game-root canvas {
     font-size: 21px;
   }
 
-  .mobile-start-panel h1 {
-    font-size: 21px;
+  .mobile-start-logo {
+    font-size: 30px;
+  }
+
+  .mobile-start-subtitle {
+    margin-top: 6px;
+    font-size: 14px;
+  }
+
+  .mobile-start-prompt {
+    margin-top: 14px;
+    padding-top: 12px;
+    font-size: 16px;
   }
 
   .mobile-start-copy,
@@ -899,7 +938,36 @@ body.mobile-session #game-root canvas {
     margin-top: 10px;
   }
 
+  .mobile-start-copy {
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .mobile-start-note {
+    display: none;
+  }
+
   .mobile-start-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     margin-top: 16px;
+  }
+}
+
+@media (max-width: 380px) {
+  .mobile-start-panel {
+    padding: 22px 18px;
+  }
+
+  .mobile-start-logo {
+    font-size: 28px;
+  }
+
+  .mobile-start-subtitle {
+    font-size: 14px;
+  }
+
+  .mobile-start-prompt {
+    margin-top: 18px;
+    font-size: 16px;
   }
 }
