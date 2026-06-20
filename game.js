@@ -242,47 +242,6 @@ const TRIAD_MATRIX_IDENTITY_MODIFIERS = {
 const STAGE_DEFINITIONS = window.stageDefinitions || {};
 const ACTIVE_STAGE_ID = "shibuyaStage1";
 const DEBUG_STAGE_ID = null;
-const NORMAL_ATTACK_TARGET_MAX_DISTANCE = 1050;
-const ROBOT_MISSILE_TARGET_MAX_DISTANCE = 1350;
-const ROBOT_MISSILE_MAX_TRAVEL_DISTANCE = ROBOT_MISSILE_TARGET_MAX_DISTANCE + 360;
-const DOLL_TRACE_DEBUG_QUERY_PARAM = "debugDollTrace";
-const DOLL_TRACE_FAST_DEBUG_QUERY_PARAM = "debugDollTraceFast";
-const DOLL_TRACE_CONFIG = {
-  enabled: true,
-  sampleWindowMs: 20000,
-  sampleIntervalMs: 250,
-  minMoveDistance: 450,
-  edgeMargin: 420,
-  cornerMargin: 700,
-  warnThreshold: 40,
-  pressureThreshold: 70,
-  hunterThreshold: 100,
-  baseGainPerSec: 10,
-  depthGainPerSec: 1.6,
-  cornerGainMultiplier: 1.5,
-  decayPerSec: 24,
-  centerMoveDecayPerSec: 55,
-  maxValue: 100,
-  hunterWarningMs: 620,
-  hunterDespawnThreshold: 20,
-  hunterRearmCooldownMs: 8000,
-  debugFastGainMultiplier: 4,
-  debugFastDecayMultiplier: 2
-};
-const DOLL_TRACE_HUNTER_CONFIG = {
-  baseType: "dash",
-  lowDepthType: "chaser",
-  hpMultiplierBase: 2.5,
-  hpMultiplierPerDepth: 0.35,
-  speedMultiplierBase: 1.05,
-  speedMultiplierPerDepth: 0.045,
-  damageMultiplierBase: 0.9,
-  damageMultiplierPerDepth: 0.08,
-  maxSpeedMultiplier: 1.55,
-  maxDamageMultiplier: 1.75,
-  tint: 0xff4b6a,
-  auraTint: 0xff153e
-};
 const STARTING_UPGRADE_CHOICES = 3;
 const DASH_SPEED_MULTIPLIER = 1.68;
 const DASH_STAMINA_DRAIN_PER_SECOND = 38;
@@ -512,6 +471,7 @@ const DEBUG_MAX_BUILD_CONFIG = {
   maxHp: 300,
   moveSpeedAdd: 100
 };
+const DEBUG_ROBOT_MISSILE_LEVEL_QUERY_PARAM = "debugRobotMissileLevel";
 const DEBUG_SKIP_OPENING_BOOST_QUERY_PARAM = "debugSkipOpeningBoost";
 const DEBUG_SKIP_OPENING_BOOST_ALIAS_QUERY_PARAM = "skipOpeningBoost";
 const RANKING_DEBUG_QUERY_PARAM = "debugRankingDepth";
@@ -5365,6 +5325,15 @@ class SurvivalScene extends Phaser.Scene {
     ].some((value) => enabledValues.includes(String(value || "").toLowerCase()));
   }
 
+  getDebugRobotMissileLevelOverride() {
+    const rawLevel = this.getUrlStageParam(DEBUG_ROBOT_MISSILE_LEVEL_QUERY_PARAM);
+    const level = Math.floor(Number(rawLevel));
+    if (!Number.isFinite(level) || level <= 0) {
+      return null;
+    }
+    return Phaser.Math.Clamp(level, 1, ROBOT_MAX_LEVEL);
+  }
+
   isDebugSkipOpeningBoostEnabled() {
     const enabledValues = ["1", "true", "yes", "on"];
     return [
@@ -5639,8 +5608,6 @@ class SurvivalScene extends Phaser.Scene {
     });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetNemesisBossState("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetNemesisBossState("sceneDestroy"));
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetDollTraceState("sceneShutdown")));
-    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetDollTraceState("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetFinalBossRaidState("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetFinalBossRaidState("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.destroyCommsUi("sceneShutdown"));
@@ -6137,7 +6104,6 @@ class SurvivalScene extends Phaser.Scene {
     this.initializeSkillMutationState();
     this.initializeTriadMatrixRunState("createState");
     this.initializeNemesisBossState();
-    this.initializeDollTraceState();
     if (this.isStabilizeProtocolDebugEnabled()) {
       this.overflowRewardState.stabilizeCharges = OVERFLOW_REWARD_CONFIG.stabilize.maxCharges;
       this.overflowRewardState.stabilizeGauge = 0;
@@ -6192,6 +6158,7 @@ class SurvivalScene extends Phaser.Scene {
       this.robotState.syncGauge = ROBOT_SYNC_CONFIG.debugInitialGauge;
     }
     this.applyDebugMaxBuildPreset("createState");
+    this.applyDebugRobotMissileLevelOverride("createState");
     this.activeSupportAttacks = [];
     this.lastSupportAttackId = null;
     this.gensoKnightsEvent = null;
@@ -6716,570 +6683,6 @@ class SurvivalScene extends Phaser.Scene {
     this.initFinalRaidRescueLinkState(reason);
     this.resetFinalRaidVisualScales?.(reason);
     this.setFinalBossRaidStandardHudSuppressed(false);
-  }
-
-  initializeDollTraceState() {
-    this.dollTraceState = {
-      value: 0,
-      samples: [],
-      recentMoveDistance: 0,
-      lastSampleAt: 0,
-      lastSampleX: null,
-      lastSampleY: null,
-      lastFrameX: null,
-      lastFrameY: null,
-      nearEdge: false,
-      nearCorner: false,
-      movingTowardCenter: false,
-      movementMode: "clear",
-      statusLevel: "clear",
-      rearmAt: 0,
-      hunter: null,
-      hunterSpawnPending: false,
-      hunterSpawnTimer: null,
-      pendingSpawnPoint: null,
-      warningObjects: [],
-      debugLastLogAt: 0,
-      lastDebugMode: "clear"
-    };
-  }
-
-  resetDollTraceState(reason = "reset") {
-    const state = this.dollTraceState;
-    if (state?.hunterSpawnTimer) {
-      state.hunterSpawnTimer.remove(false);
-      state.hunterSpawnTimer = null;
-    }
-    this.clearDollTraceWarningObjects();
-    if (state?.hunter?.active) {
-      this.cleanupDollTraceHunter(state.hunter, reason, { setCooldown: false, silent: true });
-    }
-    this.initializeDollTraceState();
-    this.updateDollTraceHud?.();
-    this.debugLogDollTrace("reset", { reason });
-  }
-
-  isDollTraceDebugEnabled() {
-    return String(this.getUrlStageParam?.(DOLL_TRACE_DEBUG_QUERY_PARAM) || "") === "1";
-  }
-
-  isDollTraceFastDebugEnabled() {
-    return String(this.getUrlStageParam?.(DOLL_TRACE_FAST_DEBUG_QUERY_PARAM) || "") === "1";
-  }
-
-  debugLogDollTrace(message, payload = {}) {
-    if (!this.isDollTraceDebugEnabled?.()) {
-      return;
-    }
-    console.log("[DOLL TRACE]", message, payload);
-  }
-
-  getDollTraceBounds() {
-    const worldBounds = this.getStageWorldBounds?.(this.currentStage) || {
-      left: 0,
-      top: 0,
-      right: WORLD_WIDTH,
-      bottom: WORLD_HEIGHT
-    };
-    const bounds = this.getStageMovementBounds?.(this.currentStage, 0)
-      || this.getStagePlayBounds?.(this.currentStage, 0)
-      || worldBounds;
-
-    return {
-      left: Number.isFinite(bounds.left) ? bounds.left : 0,
-      top: Number.isFinite(bounds.top) ? bounds.top : 0,
-      right: Number.isFinite(bounds.right) ? bounds.right : WORLD_WIDTH,
-      bottom: Number.isFinite(bounds.bottom) ? bounds.bottom : WORLD_HEIGHT
-    };
-  }
-
-  getDollTracePositionFlags(bounds = this.getDollTraceBounds()) {
-    const x = this.playerHitbox?.x || 0;
-    const y = this.playerHitbox?.y || 0;
-    const leftDistance = Math.max(0, x - bounds.left);
-    const rightDistance = Math.max(0, bounds.right - x);
-    const topDistance = Math.max(0, y - bounds.top);
-    const bottomDistance = Math.max(0, bounds.bottom - y);
-    const horizontalEdgeDistance = Math.min(leftDistance, rightDistance);
-    const verticalEdgeDistance = Math.min(topDistance, bottomDistance);
-    const edgeDistance = Math.min(horizontalEdgeDistance, verticalEdgeDistance);
-    const centerX = (bounds.left + bounds.right) * 0.5;
-    const centerY = (bounds.top + bounds.bottom) * 0.5;
-
-    return {
-      x,
-      y,
-      centerX,
-      centerY,
-      edgeDistance,
-      nearEdge: edgeDistance <= DOLL_TRACE_CONFIG.edgeMargin,
-      nearCorner: horizontalEdgeDistance <= DOLL_TRACE_CONFIG.cornerMargin
-        && verticalEdgeDistance <= DOLL_TRACE_CONFIG.cornerMargin,
-      centerDistanceSq: Phaser.Math.Distance.Squared(x, y, centerX, centerY)
-    };
-  }
-
-  sampleDollTraceMovement(time, flags) {
-    const state = this.dollTraceState;
-    if (!state) {
-      return {
-        frameMoveDistance: 0,
-        movingTowardCenter: false,
-        recentMoveDistance: 0
-      };
-    }
-
-    const x = flags?.x ?? this.playerHitbox?.x ?? 0;
-    const y = flags?.y ?? this.playerHitbox?.y ?? 0;
-    const previousFrameDistanceSq = state.lastFrameX === null || state.lastFrameY === null
-      ? null
-      : Phaser.Math.Distance.Squared(state.lastFrameX, state.lastFrameY, flags.centerX, flags.centerY);
-    const frameMoveDistance = state.lastFrameX === null || state.lastFrameY === null
-      ? 0
-      : Phaser.Math.Distance.Between(x, y, state.lastFrameX, state.lastFrameY);
-    const movingTowardCenter = previousFrameDistanceSq !== null
-      && flags.centerDistanceSq < previousFrameDistanceSq - 16
-      && frameMoveDistance > 0.35;
-
-    state.lastFrameX = x;
-    state.lastFrameY = y;
-
-    if (!state.lastSampleAt || time - state.lastSampleAt >= DOLL_TRACE_CONFIG.sampleIntervalMs) {
-      if (state.lastSampleX !== null && state.lastSampleY !== null) {
-        state.samples.push({
-          at: time,
-          distance: Phaser.Math.Distance.Between(x, y, state.lastSampleX, state.lastSampleY)
-        });
-      }
-      state.lastSampleAt = time;
-      state.lastSampleX = x;
-      state.lastSampleY = y;
-    }
-
-    const sampleCutoff = time - DOLL_TRACE_CONFIG.sampleWindowMs;
-    state.samples = (state.samples || []).filter((sample) => sample.at >= sampleCutoff);
-    state.recentMoveDistance = state.samples.reduce((sum, sample) => sum + Math.max(0, Number(sample.distance) || 0), 0);
-    state.movingTowardCenter = movingTowardCenter;
-
-    return {
-      frameMoveDistance,
-      movingTowardCenter,
-      recentMoveDistance: state.recentMoveDistance
-    };
-  }
-
-  hasBlockingDollTraceOverlay() {
-    return Boolean(
-      this.levelUpActive ||
-      this.gateChoiceActive ||
-      this.extractionComplete ||
-      this.overlayContainer?.visible ||
-      this.anomalyContractState?.selectionOpen ||
-      this.depthDirectiveState?.selectionOpen ||
-      this.overdriveModState?.selectionOpen ||
-      this.stabilizeProtocolState?.overlayOpen ||
-      this.lostArmsResonanceSelectionActive ||
-      this.lostArmsResonanceState?.selectionOpen ||
-      this.skillMutationState?.selectionOpen
-    );
-  }
-
-  shouldUpdateDollTrace() {
-    return Boolean(
-      DOLL_TRACE_CONFIG.enabled !== false &&
-      this.playerHitbox?.active &&
-      !this.gameOver &&
-      !this.shopActive &&
-      !this.isFinalBossRaidActive?.() &&
-      !this.hasBlockingDollTraceOverlay()
-    );
-  }
-
-  getDollTraceStatusLevel(value = this.dollTraceState?.value || 0) {
-    if (value >= DOLL_TRACE_CONFIG.hunterThreshold) {
-      return "hunter";
-    }
-    if (value >= DOLL_TRACE_CONFIG.pressureThreshold) {
-      return "pressure";
-    }
-    if (value >= DOLL_TRACE_CONFIG.warnThreshold) {
-      return "warn";
-    }
-    if (value > 0.5) {
-      return "trace";
-    }
-    return "clear";
-  }
-
-  getDollTraceStatusText(value = this.dollTraceState?.value || 0) {
-    const state = this.dollTraceState;
-    if (state?.hunter?.active) {
-      return "HUNTER DEPLOYED";
-    }
-    if (state?.hunterSpawnPending || value >= DOLL_TRACE_CONFIG.hunterThreshold) {
-      return "HUNTER DEPLOYED";
-    }
-    if (value >= DOLL_TRACE_CONFIG.pressureThreshold) {
-      return "HUNTER SIGNAL APPROACHING";
-    }
-    if (value >= DOLL_TRACE_CONFIG.warnThreshold) {
-      return "STATIC SIGNAL DETECTED";
-    }
-    if (value > 0.5 || state?.nearEdge || state?.nearCorner) {
-      return "STATIC SIGNAL";
-    }
-    return "TRACE CLEAR";
-  }
-
-  handleDollTraceStatusNotice(previousLevel, nextLevel) {
-    if (previousLevel === nextLevel || nextLevel === "clear" || nextLevel === "trace") {
-      return;
-    }
-
-    const message = nextLevel === "hunter"
-      ? "DOLL TRACE HUNTER DEPLOYED"
-      : (nextLevel === "pressure" ? "HUNTER SIGNAL APPROACHING" : "STATIC SIGNAL DETECTED");
-    this.setLastPickupNotice(message);
-  }
-
-  updateDollTrace(delta, time) {
-    const state = this.dollTraceState;
-    if (!state) {
-      return;
-    }
-
-    if (this.isFinalBossRaidActive?.()) {
-      if (state.value > 0 || state.hunter?.active || state.hunterSpawnPending || state.warningObjects.length > 0) {
-        this.resetDollTraceState("finalRaid");
-      }
-      return;
-    }
-
-    if (!this.shouldUpdateDollTrace()) {
-      this.updateDollTraceHud?.();
-      return;
-    }
-
-    const deltaSeconds = Math.max(0, Math.min(0.1, (Number(delta) || 0) / 1000));
-    const flags = this.getDollTracePositionFlags();
-    const movement = this.sampleDollTraceMovement(time, flags);
-    const previousValue = state.value;
-    const previousLevel = state.statusLevel || this.getDollTraceStatusLevel(previousValue);
-    const lowMovementAtEdge = flags.nearEdge && movement.recentMoveDistance < DOLL_TRACE_CONFIG.minMoveDistance;
-    const gainMultiplier = this.isDollTraceFastDebugEnabled() ? DOLL_TRACE_CONFIG.debugFastGainMultiplier : 1;
-    const decayMultiplier = this.isDollTraceFastDebugEnabled() ? DOLL_TRACE_CONFIG.debugFastDecayMultiplier : 1;
-
-    state.nearEdge = flags.nearEdge;
-    state.nearCorner = flags.nearCorner;
-    state.movementMode = lowMovementAtEdge
-      ? (flags.nearCorner ? "cornerStatic" : "edgeStatic")
-      : (movement.movingTowardCenter ? "centerMove" : (flags.nearEdge ? "edgeMove" : "clear"));
-
-    if (lowMovementAtEdge) {
-      const depth = Math.max(1, Math.floor(Number(this.stageDepth) || 1));
-      const depthGain = depth * DOLL_TRACE_CONFIG.depthGainPerSec;
-      const cornerMultiplier = flags.nearCorner ? DOLL_TRACE_CONFIG.cornerGainMultiplier : 1;
-      const gainPerSecond = (DOLL_TRACE_CONFIG.baseGainPerSec + depthGain) * cornerMultiplier * gainMultiplier;
-      state.value = Math.min(DOLL_TRACE_CONFIG.maxValue, state.value + gainPerSecond * deltaSeconds);
-    } else {
-      const centerDecay = movement.movingTowardCenter || (!flags.nearEdge && movement.frameMoveDistance > 0.2);
-      const decayPerSecond = centerDecay
-        ? DOLL_TRACE_CONFIG.centerMoveDecayPerSec
-        : DOLL_TRACE_CONFIG.decayPerSec;
-      state.value = Math.max(0, state.value - decayPerSecond * decayMultiplier * deltaSeconds);
-    }
-
-    const nextLevel = this.getDollTraceStatusLevel(state.value);
-    state.statusLevel = nextLevel;
-    this.handleDollTraceStatusNotice(previousLevel, nextLevel);
-
-    const hunter = this.getActiveDollTraceHunter();
-    if (
-      state.value >= DOLL_TRACE_CONFIG.hunterThreshold &&
-      !hunter &&
-      !state.hunterSpawnPending &&
-      time >= (state.rearmAt || 0)
-    ) {
-      this.queueDollTraceHunterSpawn();
-    } else if (
-      hunter &&
-      state.value < DOLL_TRACE_CONFIG.hunterDespawnThreshold &&
-      !flags.nearEdge
-    ) {
-      this.despawnDollTraceHunter("traceDecay");
-    }
-
-    this.updateDollTraceHud?.();
-
-    if (this.isDollTraceDebugEnabled?.()) {
-      const modeChanged = state.lastDebugMode !== state.movementMode;
-      const crossedWholePercent = Math.abs(Math.floor(previousValue) - Math.floor(state.value)) >= 5;
-      if (modeChanged || crossedWholePercent || time - (state.debugLastLogAt || 0) > 1600) {
-        state.debugLastLogAt = time;
-        state.lastDebugMode = state.movementMode;
-        this.debugLogDollTrace("update", {
-          value: Math.round(state.value),
-          mode: state.movementMode,
-          nearEdge: state.nearEdge,
-          nearCorner: state.nearCorner,
-          recentMoveDistance: Math.round(state.recentMoveDistance),
-          hunter: Boolean(state.hunter?.active),
-          pending: state.hunterSpawnPending
-        });
-      }
-    }
-  }
-
-  clearDollTraceWarningObjects() {
-    const state = this.dollTraceState;
-    (state?.warningObjects || []).forEach((object) => {
-      this.tweens?.killTweensOf?.(object);
-      object?.destroy?.();
-    });
-    if (state) {
-      state.warningObjects = [];
-    }
-  }
-
-  getActiveDollTraceHunter() {
-    const state = this.dollTraceState;
-    if (state?.hunter?.active && !state.hunter.isDying) {
-      return state.hunter;
-    }
-    if (state) {
-      state.hunter = null;
-    }
-    return null;
-  }
-
-  getDollTraceHunterType() {
-    const depth = Math.max(1, Math.floor(Number(this.stageDepth) || 1));
-    return depth <= 3 ? DOLL_TRACE_HUNTER_CONFIG.lowDepthType : DOLL_TRACE_HUNTER_CONFIG.baseType;
-  }
-
-  getDollTraceHunterMultipliers(depth = this.stageDepth || 1) {
-    const normalizedDepth = Math.max(1, Math.floor(Number(depth) || 1));
-    const hp = DOLL_TRACE_HUNTER_CONFIG.hpMultiplierBase + normalizedDepth * DOLL_TRACE_HUNTER_CONFIG.hpMultiplierPerDepth;
-    const speed = Math.min(
-      DOLL_TRACE_HUNTER_CONFIG.maxSpeedMultiplier,
-      DOLL_TRACE_HUNTER_CONFIG.speedMultiplierBase + normalizedDepth * DOLL_TRACE_HUNTER_CONFIG.speedMultiplierPerDepth
-    );
-    const damage = Math.min(
-      DOLL_TRACE_HUNTER_CONFIG.maxDamageMultiplier,
-      DOLL_TRACE_HUNTER_CONFIG.damageMultiplierBase + normalizedDepth * DOLL_TRACE_HUNTER_CONFIG.damageMultiplierPerDepth
-    );
-
-    if (normalizedDepth <= 3) {
-      return {
-        hp: Math.min(hp, 2.35),
-        speed: Math.min(speed, 1.16),
-        damage: Math.min(damage, 1.05)
-      };
-    }
-
-    return { hp, speed, damage };
-  }
-
-  getDollTraceHunterSpawnPoint() {
-    const point = this.getEnemySpawnPoint?.(180) || {
-      x: this.playerHitbox?.x || WORLD_WIDTH * 0.5,
-      y: this.playerHitbox?.y || WORLD_HEIGHT * 0.5
-    };
-    const bounds = this.getEnemySpawnBounds?.(24) || this.getDollTraceBounds();
-    return this.clampPointToBounds?.(point.x, point.y, bounds) || point;
-  }
-
-  queueDollTraceHunterSpawn() {
-    const state = this.dollTraceState;
-    if (!state || state.hunterSpawnPending || this.getActiveDollTraceHunter()) {
-      return;
-    }
-
-    state.hunterSpawnPending = true;
-    state.pendingSpawnPoint = this.getDollTraceHunterSpawnPoint();
-    this.spawnDollTraceHunterWarning(state.pendingSpawnPoint);
-    this.setLastPickupNotice("DOLL TRACE HUNTER DEPLOYED");
-    this.debugLogDollTrace("hunter warning", {
-      point: state.pendingSpawnPoint,
-      value: Math.round(state.value)
-    });
-
-    state.hunterSpawnTimer = this.time.delayedCall(DOLL_TRACE_CONFIG.hunterWarningMs, () => {
-      const currentState = this.dollTraceState;
-      if (!currentState) {
-        return;
-      }
-      currentState.hunterSpawnTimer = null;
-      currentState.hunterSpawnPending = false;
-      if (!this.shouldUpdateDollTrace() || this.getActiveDollTraceHunter()) {
-        this.debugLogDollTrace("hunter spawn canceled", { reason: "blocked" });
-        return;
-      }
-      if (currentState.value < DOLL_TRACE_CONFIG.pressureThreshold && !currentState.nearEdge) {
-        this.debugLogDollTrace("hunter spawn canceled", {
-          reason: "decayed",
-          value: Math.round(currentState.value)
-        });
-        return;
-      }
-      this.spawnDollTraceHunter(currentState.pendingSpawnPoint);
-    });
-  }
-
-  spawnDollTraceHunterWarning(point) {
-    if (!point) {
-      return;
-    }
-    const state = this.dollTraceState;
-    const ring = this.add
-      .image(point.x, point.y, "skill-hit-ring")
-      .setDepth(19.5)
-      .setScale(0.52)
-      .setTint(DOLL_TRACE_HUNTER_CONFIG.tint)
-      .setAlpha(0.8)
-      .setBlendMode(Phaser.BlendModes.ADD);
-    const core = this.add
-      .image(point.x, point.y, "skill-hit-glow")
-      .setDepth(19.4)
-      .setScale(0.78)
-      .setTint(DOLL_TRACE_HUNTER_CONFIG.auraTint)
-      .setAlpha(0.34)
-      .setBlendMode(Phaser.BlendModes.ADD);
-    this.skillEffectsLayer?.add?.([ring, core]);
-    state?.warningObjects?.push(ring, core);
-
-    this.tweens.add({
-      targets: [ring, core],
-      scaleX: "+=0.72",
-      scaleY: "+=0.72",
-      alpha: 0,
-      duration: DOLL_TRACE_CONFIG.hunterWarningMs,
-      ease: "Quad.Out",
-      onComplete: () => {
-        ring.destroy();
-        core.destroy();
-        if (state?.warningObjects) {
-          state.warningObjects = state.warningObjects.filter((object) => object !== ring && object !== core);
-        }
-      }
-    });
-  }
-
-  spawnDollTraceHunter(spawnPoint = null) {
-    const state = this.dollTraceState;
-    if (!state || this.getActiveDollTraceHunter()) {
-      return null;
-    }
-
-    const depth = Math.max(1, Math.floor(Number(this.stageDepth) || 1));
-    const enemy = this.spawnEnemy(this.getDollTraceHunterType(), {
-      spawnPoint: spawnPoint || this.getDollTraceHunterSpawnPoint(),
-      isElite: depth >= 4,
-      isDollTraceHunter: true,
-      suppressRewards: true,
-      suppressGuaranteedDrops: true
-    });
-
-    state.hunter = enemy;
-    state.pendingSpawnPoint = null;
-    this.setLastPickupNotice("DOLL TRACE HUNTER DEPLOYED");
-    this.debugLogDollTrace("hunter spawned", {
-      depth,
-      type: enemy?.enemyTypeId,
-      hp: enemy?.hp,
-      speed: Math.round(enemy?.moveSpeed || 0),
-      damage: enemy?.contactDamage
-    });
-    return enemy;
-  }
-
-  configureDollTraceHunterEnemy(enemy) {
-    if (!enemy) {
-      return;
-    }
-
-    const multipliers = this.getDollTraceHunterMultipliers();
-    enemy.isDollTraceHunter = true;
-    enemy.suppressRewards = true;
-    enemy.suppressGuaranteedDrops = true;
-    enemy.xpValue = 0;
-    enemy.maxHp = Math.max(1, Math.round(enemy.maxHp * multipliers.hp));
-    enemy.hp = enemy.maxHp;
-    enemy.moveSpeed *= multipliers.speed;
-    enemy.contactDamage = Math.max(1, Math.round(enemy.contactDamage * multipliers.damage));
-    enemy.baseTint = DOLL_TRACE_HUNTER_CONFIG.tint;
-    enemy.setTint(DOLL_TRACE_HUNTER_CONFIG.tint);
-
-    if (Number.isFinite(enemy.burstSpeed)) {
-      enemy.burstSpeed *= multipliers.speed;
-    }
-    if (Number.isFinite(enemy.beamDamage)) {
-      enemy.beamDamage = Math.max(1, Math.round(enemy.beamDamage * multipliers.damage));
-    }
-    if (Number.isFinite(enemy.attackDamage)) {
-      enemy.attackDamage = Math.max(1, Math.round(enemy.attackDamage * multipliers.damage));
-    }
-    enemy.eliteAura?.setTint?.(DOLL_TRACE_HUNTER_CONFIG.auraTint);
-    enemy.eliteRing?.setTint?.(DOLL_TRACE_HUNTER_CONFIG.tint);
-  }
-
-  onDollTraceHunterDefeated(enemy) {
-    const state = this.dollTraceState;
-    if (!state || state.hunter !== enemy) {
-      return;
-    }
-    state.hunter = null;
-    state.rearmAt = (this.time?.now || 0) + DOLL_TRACE_CONFIG.hunterRearmCooldownMs;
-    state.value = Math.min(state.value, Math.max(0, DOLL_TRACE_CONFIG.warnThreshold - 2));
-    state.statusLevel = this.getDollTraceStatusLevel(state.value);
-    this.setLastPickupNotice("DOLL TRACE HUNTER SILENCED");
-    this.debugLogDollTrace("hunter defeated", { rearmAt: state.rearmAt });
-  }
-
-  cleanupDollTraceHunter(enemy, reason = "cleanup", options = {}) {
-    if (!enemy) {
-      return;
-    }
-
-    this.tweens?.killTweensOf?.(enemy);
-    this.tweens?.killTweensOf?.(enemy.eliteAura);
-    this.tweens?.killTweensOf?.(enemy.eliteRing);
-    this.clearDashEnemyWarning?.(enemy);
-    this.destroyEnemyBeamTelegraph?.(enemy);
-    this.cancelBossAttack?.(enemy);
-    enemy.eliteAura?.destroy?.();
-    enemy.eliteRing?.destroy?.();
-    if (enemy.body) {
-      enemy.body.enable = false;
-      enemy.body.setVelocity(0, 0);
-    }
-    if (options.effect !== false && enemy.active) {
-      this.spawnEnemyDefeatEffect?.(enemy.x, enemy.y);
-    }
-    this.enemies?.remove?.(enemy, true, true);
-    if (enemy.active) {
-      enemy.destroy();
-    }
-
-    const state = this.dollTraceState;
-    if (state?.hunter === enemy) {
-      state.hunter = null;
-    }
-    if (state && options.setCooldown !== false) {
-      state.rearmAt = (this.time?.now || 0) + DOLL_TRACE_CONFIG.hunterRearmCooldownMs;
-    }
-    if (!options.silent) {
-      this.debugLogDollTrace("hunter cleanup", { reason });
-    }
-  }
-
-  despawnDollTraceHunter(reason = "traceDecay") {
-    const hunter = this.getActiveDollTraceHunter();
-    if (!hunter) {
-      return;
-    }
-    this.cleanupDollTraceHunter(hunter, reason, { setCooldown: true });
-    this.setLastPickupNotice("DOLL TRACE LOST");
   }
 
   initializeAnomalyContractState() {
@@ -9456,6 +8859,31 @@ class SurvivalScene extends Phaser.Scene {
     this.robotState.barrierHp = this.getRobotBarrierMaxHp(ROBOT_MAX_LEVEL);
     this.robotState.barrierCooldownMs = 0;
     this.robotState.barrierLastStandCooldownMs = 0;
+  }
+
+  applyDebugRobotMissileLevelOverride(reason = "debugRobotMissileLevel") {
+    const level = this.getDebugRobotMissileLevelOverride();
+    if (!level) {
+      return false;
+    }
+    if (!this.robotState) {
+      this.robotState = this.createRobotState();
+    }
+
+    this.robotState.missileLevel = level;
+    this.robotState.missileXp = 0;
+    this.robotState.missileCoreExp = 0;
+    this.robotState.missileTimer = 0;
+    this.robotState.visualLevel = this.getRobotVisualLevel();
+    this.updateRobotVisualLevel?.(true);
+    this.updateHudRobotPanel?.();
+
+    console.log("[DEBUG ROBOT MISSILE LEVEL] applied", {
+      reason,
+      missileLevel: this.robotState.missileLevel,
+      missileCap: this.getRobotLevelCap("missile")
+    });
+    return true;
   }
 
   createCleaningRobotState() {
@@ -12528,9 +11956,11 @@ class SurvivalScene extends Phaser.Scene {
       if (restrainedIds[weaponConfig.id]) {
         return;
       }
-      const x = arena.left + arena.displayWidth * Phaser.Math.Clamp(Number(weaponConfig.xRatio) || 0.5, -0.2, 1.2)
+      const visualX = arena.left + arena.displayWidth * Phaser.Math.Clamp(Number(weaponConfig.xRatio) || 0.5, -0.2, 1.2);
+      const visualY = arena.top + arena.displayHeight * Phaser.Math.Clamp(Number(weaponConfig.yRatio) || 0.5, -0.2, 1.2);
+      const x = visualX
         + (Number(weaponConfig.attackOriginOffsetX) || 0);
-      const y = arena.top + arena.displayHeight * Phaser.Math.Clamp(Number(weaponConfig.yRatio) || 0.5, -0.2, 1.2)
+      const y = visualY
         + (Number(weaponConfig.attackOriginOffsetY) || 0);
       const radius = Math.max(48, Number(weaponConfig.targetRadius) || 160);
       const target = this.add
@@ -20099,11 +19529,16 @@ class SurvivalScene extends Phaser.Scene {
       return ROBOT_MAX_LEVEL;
     }
     const tier = this.getRobotCapTier(type);
-    return Phaser.Math.Clamp(
+    const cap = Phaser.Math.Clamp(
       ROBOT_CUSTOM_BASE_LEVEL_CAP + tier * ROBOT_CUSTOM_LEVELS_PER_TIER,
       ROBOT_CUSTOM_BASE_LEVEL_CAP,
       ROBOT_CUSTOM_EXTENDED_LEVEL_CAP
     );
+    if (type === "missile") {
+      const debugMissileLevel = this.getDebugRobotMissileLevelOverride?.() || 0;
+      return Math.max(cap, debugMissileLevel);
+    }
+    return cap;
   }
 
   getRobotCustomCapCost(nextTier) {
@@ -33296,7 +32731,6 @@ class SurvivalScene extends Phaser.Scene {
 
     this.createRobotHudPanel();
     this.createDashStaminaGauge();
-    this.createDollTraceHud();
 
     const supportItemDefinition = SPECIAL_ITEM_DEFINITIONS.bomb;
     this.hudConsumableSlots = [
@@ -33351,122 +32785,6 @@ class SurvivalScene extends Phaser.Scene {
     this.standardHudVisibilityBeforeFinalRaid = null;
     this.standardHudSuppressed = false;
     this.setFinalBossRaidStandardHudSuppressed(this.isFinalBossRaidActive?.() === true);
-  }
-
-  createDollTraceHud() {
-    const panelX = GAME_WIDTH - 246;
-    const panelY = this.hudUsesFrameAsset ? 170 : 168;
-    const panelWidth = 232;
-    const panelHeight = this.isDollTraceDebugEnabled?.() ? 88 : 72;
-    const panel = this.createHudPanel(panelX, panelY, panelWidth, panelHeight, {
-      forceShape: true,
-      depth: 203,
-      alpha: this.hudUsesFrameAsset ? 0.5 : 0.68,
-      stroke: 0xff6f7f,
-      strokeAlpha: 0.32
-    });
-    const title = this.createHudText(panelX + 14, panelY + 10, "DOLL TRACE", {
-      fontSize: "12px",
-      color: "#ffd1d8",
-      fontStyle: "bold",
-      depth: 204
-    });
-    const valueText = this.createHudText(panelX + panelWidth - 14, panelY + 10, "TRACE 0%", {
-      fontSize: "12px",
-      color: "#ecf7ff",
-      fontStyle: "bold",
-      align: "right",
-      depth: 204
-    }).setOrigin(1, 0);
-    const statusText = this.createHudText(panelX + 14, panelY + 31, "TRACE CLEAR", {
-      fontSize: "11px",
-      color: "#9ab7cc",
-      fontStyle: "bold",
-      depth: 204
-    });
-    const barBack = this.registerUiObject(
-      this.add
-        .rectangle(panelX + 14, panelY + 56, panelWidth - 28, 7, 0x1a1017, 0.96)
-        .setOrigin(0, 0.5)
-        .setStrokeStyle(1, 0xff6f7f, 0.24)
-        .setScrollFactor(0)
-        .setDepth(204)
-    );
-    const barFill = this.registerUiObject(
-      this.add
-        .rectangle(panelX + 14, panelY + 56, panelWidth - 28, 7, DOLL_TRACE_HUNTER_CONFIG.tint, 0.94)
-        .setOrigin(0, 0.5)
-        .setScrollFactor(0)
-        .setDepth(205)
-    );
-    barFill.maxWidth = panelWidth - 28;
-    const debugText = this.isDollTraceDebugEnabled?.()
-      ? this.createHudText(panelX + 14, panelY + 66, "", {
-        fontSize: "9px",
-        color: "#ffc7d0",
-        fontStyle: "bold",
-        depth: 204
-      })
-      : null;
-
-    this.hudDollTrace = {
-      panel,
-      title,
-      valueText,
-      statusText,
-      barBack,
-      barFill,
-      debugText,
-      objects: [panel, title, valueText, statusText, barBack, barFill, debugText].filter(Boolean)
-    };
-    this.setDollTraceHudVisible(false);
-  }
-
-  setDollTraceHudVisible(visible) {
-    this.hudDollTrace?.objects?.forEach((object) => {
-      object?.setVisible?.(visible);
-    });
-  }
-
-  updateDollTraceHud() {
-    const hud = this.hudDollTrace;
-    if (!hud) {
-      return;
-    }
-
-    const state = this.dollTraceState;
-    const value = Phaser.Math.Clamp(Number(state?.value) || 0, 0, DOLL_TRACE_CONFIG.maxValue);
-    const visible = !this.isFinalBossRaidActive?.() && !this.gameOver && (
-      this.isDollTraceDebugEnabled?.() ||
-      value > 0.5 ||
-      state?.nearEdge ||
-      state?.nearCorner ||
-      state?.hunter?.active ||
-      state?.hunterSpawnPending
-    );
-    this.setDollTraceHudVisible(visible);
-    if (!visible) {
-      return;
-    }
-
-    const status = this.getDollTraceStatusText(value);
-    const statusColor = value >= DOLL_TRACE_CONFIG.pressureThreshold || state?.hunter?.active || state?.hunterSpawnPending
-      ? "#ff9fb0"
-      : (value >= DOLL_TRACE_CONFIG.warnThreshold ? "#ffd1d8" : "#9ab7cc");
-    const fillColor = value >= DOLL_TRACE_CONFIG.pressureThreshold || state?.hunter?.active || state?.hunterSpawnPending
-      ? 0xff4b6a
-      : (value >= DOLL_TRACE_CONFIG.warnThreshold ? 0xffa24f : 0x6fcfff);
-    hud.statusText.setText(status);
-    hud.statusText.setColor(statusColor);
-    hud.valueText.setText(`TRACE ${Math.round(value)}%`);
-    hud.barFill.setFillStyle(fillColor, 0.94);
-    this.setHudBarFill(hud.barFill, value / DOLL_TRACE_CONFIG.maxValue);
-
-    if (hud.debugText) {
-      hud.debugText.setText(
-        `${state?.movementMode || "clear"} / move ${Math.round(state?.recentMoveDistance || 0)} / edge ${state?.nearEdge ? "Y" : "N"} corner ${state?.nearCorner ? "Y" : "N"}`
-      );
-    }
   }
 
   createRobotHudPanel() {
@@ -36283,7 +35601,6 @@ class SurvivalScene extends Phaser.Scene {
     this.shopStatusMessage = "";
     this.runArchiveStarted = true;
     this.runArchiveSaved = false;
-    this.resetDollTraceState("gameStart");
     this.restoreGameplayInputAfterOverlay();
     this.hideOverlay();
     this.syncDepthBgmForCurrentDepth("gameStart", { fadeMs: 0 });
@@ -38171,7 +37488,6 @@ class SurvivalScene extends Phaser.Scene {
     this.clearActiveAnomalyContract("depthTransition", { silent: true, keepPending: true });
     this.clearActiveDepthDirective("depthTransition", { silent: true });
     this.cleanupNemesisBoss("depthTransition");
-    this.resetDollTraceState("depthTransition");
     this.stageDepth = targetDepth;
     this.updateRunRankingDepthProgress(this.stageDepth);
     this.gateInstabilityStacks = Math.max(0, Math.floor(Number(transition?.nextInstabilityStacks) || 0));
@@ -38279,7 +37595,6 @@ class SurvivalScene extends Phaser.Scene {
     this.resetTriadMatrixRunState(emergency ? "emergencyExtract" : "extract");
     this.resetSkillMutationState(emergency ? "emergencyExtract" : "extract");
     this.resetNemesisBossState(emergency ? "emergencyExtract" : "extract");
-    this.resetDollTraceState(emergency ? "emergencyExtract" : "extract");
     this.resetFinalBossRaidState(emergency ? "emergencyExtract" : "extract");
     this.resetCommsUi(emergency ? "emergencyExtract" : "extract");
     this.resetOverflowRewardState();
@@ -39331,7 +38646,6 @@ class SurvivalScene extends Phaser.Scene {
     if (finalBossRaidActive) {
       this.updateFinalBossRaidCamera();
     }
-    this.updateDollTrace(delta, time);
     this.checkStageGateEntry();
     if (this.gateChoiceActive) {
       return;
@@ -43029,7 +42343,7 @@ class SurvivalScene extends Phaser.Scene {
   getActiveEnemyCount() {
     let count = 0;
     this.enemies.children.each((enemy) => {
-      if (enemy.active && !enemy.isDying && !enemy.isFinalBossRaidBoss && !enemy.isDollTraceHunter) {
+      if (enemy.active && !enemy.isDying && !enemy.isFinalBossRaidBoss) {
         count += 1;
       }
     });
@@ -43372,12 +42686,7 @@ class SurvivalScene extends Phaser.Scene {
     const definition = ENEMY_DEFINITIONS[typeId] || ENEMY_DEFINITIONS.chaser;
     const wave = options.waveDefinition || this.getCurrentWaveDefinition();
     const enemyScaling = this.getCurrentEnemyScaling();
-    const spawnPoint = options.spawnPoint
-      ? {
-        x: Math.round(Number(options.spawnPoint.x) || 0),
-        y: Math.round(Number(options.spawnPoint.y) || 0)
-      }
-      : this.getEnemySpawnPoint(options.isElite ? 150 : 120);
+    const spawnPoint = this.getEnemySpawnPoint(options.isElite ? 150 : 120);
     const eliteHpMultiplier = options.isElite ? (options.isBoss ? 5 : 4) : 1;
     const eliteSpeedMultiplier = options.isElite ? 1.12 : 1;
     const textureKey = this.getEnemyTextureKey(definition);
@@ -43410,9 +42719,6 @@ class SurvivalScene extends Phaser.Scene {
     enemy.isDying = false;
     enemy.isElite = Boolean(options.isElite);
     enemy.isBoss = Boolean(options.isBoss);
-    enemy.isDollTraceHunter = Boolean(options.isDollTraceHunter);
-    enemy.suppressRewards = Boolean(options.suppressRewards || enemy.isDollTraceHunter);
-    enemy.suppressGuaranteedDrops = Boolean(options.suppressGuaranteedDrops || enemy.suppressGuaranteedDrops || enemy.isDollTraceHunter);
     enemy.visualPulseOffset = Phaser.Math.FloatBetween(0, Math.PI * 2);
     enemy.suctionVisualUntil = 0;
     enemy.suctionVisualStrength = 0;
@@ -43489,17 +42795,12 @@ class SurvivalScene extends Phaser.Scene {
       this.spawnEliteSpawnEffect(enemy.x, enemy.y);
     }
 
-    if (enemy.isDollTraceHunter) {
-      this.configureDollTraceHunterEnemy(enemy, options);
-    }
-
     this.enemies.add(enemy);
     return enemy;
   }
   fireAtClosestEnemy(time) {
     const shotCount = this.getBasicAttackShotCount();
-    const targetRange = this.isFinalBossRaidActive?.() ? Infinity : NORMAL_ATTACK_TARGET_MAX_DISTANCE;
-    const targets = this.findClosestEnemiesFrom(this.playerHitbox.x, this.playerHitbox.y, shotCount, targetRange);
+    const targets = this.findClosestEnemiesFrom(this.playerHitbox.x, this.playerHitbox.y, shotCount);
 
     if (!targets.length) {
       return;
@@ -43567,12 +42868,12 @@ class SurvivalScene extends Phaser.Scene {
   findRobotMissileTargets(originX, originY, maxCount, maxRange = Infinity) {
     const rankedTargets = [];
     const maxDistanceSq = Number.isFinite(maxRange) ? maxRange * maxRange : Infinity;
-    const addTarget = (target, priorityBias = 0, options = {}) => {
+    const addTarget = (target, priorityBias = 0) => {
       if (!target?.active || target.isDying) {
         return;
       }
       const distanceSq = Phaser.Math.Distance.Squared(target.x, target.y, originX, originY);
-      if (!options.ignoreRange && distanceSq > maxDistanceSq) {
+      if (distanceSq > maxDistanceSq) {
         return;
       }
       rankedTargets.push({
@@ -43586,7 +42887,7 @@ class SurvivalScene extends Phaser.Scene {
         addTarget(enemy);
       }
     });
-    this.getFinalBossRaidGiantWeaponTargets?.().forEach((target) => addTarget(target, 120000, { ignoreRange: true }));
+    this.getFinalBossRaidGiantWeaponTargets?.().forEach((target) => addTarget(target, 120000));
     rankedTargets.sort((left, right) => left.distanceSq - right.distanceSq);
     return rankedTargets.slice(0, maxCount).map((entry) => entry.target);
   }
@@ -43669,13 +42970,7 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    const targetRange = this.isFinalBossRaidActive?.() ? Infinity : ROBOT_MISSILE_TARGET_MAX_DISTANCE;
-    const targets = this.findRobotMissileTargets(
-      this.robotState.x,
-      this.robotState.y,
-      this.getRobotMissileShotCount(),
-      targetRange
-    );
+    const targets = this.findRobotMissileTargets(this.robotState.x, this.robotState.y, this.getRobotMissileShotCount(), 1120);
     if (!targets.length) {
       this.robotState.missileTimer = interval;
       return;
@@ -43723,6 +43018,9 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   spawnRobotMissile(target, shotIndex, shotCount) {
+    if (!this.robotState || !target?.active || target.isDying) {
+      return;
+    }
     const startX = this.robotState.x + Phaser.Math.Between(-8, 8);
     const startY = this.robotState.y + Phaser.Math.Between(-8, 8);
     const spread = shotCount > 1 ? shotIndex - (shotCount - 1) * 0.5 : 0;
@@ -43738,9 +43036,6 @@ class SurvivalScene extends Phaser.Scene {
     missile.damage = this.getRobotMissileDamage();
     missile.splashRadius = 42 + (this.robotState?.missileLevel || 1) * 2;
     missile.expireAt = this.time.now + 2300;
-    missile.originX = startX;
-    missile.originY = startY;
-    missile.maxTravelDistance = ROBOT_MISSILE_MAX_TRAVEL_DISTANCE;
     missile.frameTimer = shotIndex * 32;
     missile.bombardment = false;
     this.scaleRobotMissileSprite(missile, false);
@@ -43840,15 +43135,6 @@ class SurvivalScene extends Phaser.Scene {
           missile.destroy();
         }
         return;
-      }
-
-      if (!missile.bombardment && Number.isFinite(missile.maxTravelDistance)) {
-        const originX = Number.isFinite(missile.originX) ? missile.originX : missile.x;
-        const originY = Number.isFinite(missile.originY) ? missile.originY : missile.y;
-        if (Phaser.Math.Distance.Squared(missile.x, missile.y, originX, originY) > missile.maxTravelDistance * missile.maxTravelDistance) {
-          missile.destroy();
-          return;
-        }
       }
 
       missile.frameTimer += delta;
@@ -45098,8 +44384,7 @@ class SurvivalScene extends Phaser.Scene {
     enemy.isDying = true;
     const isNemesis = this.isNemesisBoss(enemy);
     const suppressRaidMinionRewards = enemy.isFinalBossRaidMinion === true;
-    const suppressRewards = suppressRaidMinionRewards || enemy.suppressRewards || enemy.isDollTraceHunter === true;
-    if (!suppressRewards) {
+    if (!suppressRaidMinionRewards) {
       this.runStats.kills += 1;
       if (enemy.isElite) {
         this.runStats.eliteKills += 1;
@@ -45112,8 +44397,8 @@ class SurvivalScene extends Phaser.Scene {
       this.spawnXpOrb(enemy.x, enemy.y, enemy.xpValue);
     }
     this.spawnEnemyDefeatEffect(enemy.x, enemy.y);
-    const guaranteedDropsSpawned = suppressRewards || enemy.suppressGuaranteedDrops ? true : this.spawnGuaranteedEnemyDrops(enemy);
-    if (!suppressRewards) {
+    const guaranteedDropsSpawned = suppressRaidMinionRewards || enemy.suppressGuaranteedDrops ? true : this.spawnGuaranteedEnemyDrops(enemy);
+    if (!suppressRaidMinionRewards) {
       if (!guaranteedDropsSpawned) {
         this.trySpawnRareItem(enemy);
       }
@@ -45123,10 +44408,7 @@ class SurvivalScene extends Phaser.Scene {
         this.trySpawnLostArmDrop(enemy);
       }
     }
-    if (enemy.isDollTraceHunter) {
-      this.onDollTraceHunterDefeated(enemy);
-    }
-    if (isNemesis && !suppressRewards) {
+    if (isNemesis && !suppressRaidMinionRewards) {
       this.handleNemesisBossDefeated(enemy);
     }
     enemy.clearTint();
@@ -51090,7 +50372,6 @@ class SurvivalScene extends Phaser.Scene {
     this.resetTriadMatrixRunState(reason);
     this.resetSkillMutationState(reason);
     this.resetNemesisBossState(reason);
-    this.resetDollTraceState(reason);
     this.resetFinalBossRaidState(reason);
     this.resetRobotSyncState(reason);
     this.resetRobotBarrierState(reason);
@@ -51261,7 +50542,6 @@ class SurvivalScene extends Phaser.Scene {
     this.resetTriadMatrixRunState("returnToOpeningShop");
     this.resetSkillMutationState("returnToOpeningShop");
     this.resetNemesisBossState("returnToOpeningShop");
-    this.resetDollTraceState("returnToOpeningShop");
     this.resetFinalBossRaidState("returnToOpeningShop");
     this.resetRobotSyncState("returnToOpeningShop");
     this.resetRobotBarrierState("returnToOpeningShop");
@@ -52605,7 +51885,6 @@ class SurvivalScene extends Phaser.Scene {
     this.updateDepthDirectiveHud();
     this.updateTriadMatrixHud();
     this.updateNemesisBossHud();
-    this.updateDollTraceHud();
 
     const specialCounts = {
       heal: this.countActiveSpecialItems("heal"),

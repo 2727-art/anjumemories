@@ -74,14 +74,13 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - `?debugRaidAlliedMeshScale=0.25`: デバッグ用。`debugRaidAlliedMesh=1` 時だけ、ALLIED MESH 表示演出の時間を短縮・延長します。戦闘効果やタイムラインは変わりません。
 - `?debugRaidAlliedMeshIncomplete=1`: デバッグ用。`debugRaidAlliedMeshPhase=maximum` と併用すると12/13ノード不足状態を作り、MAXIMUMが発動しないことを確認できます。
 - `?debugMaxBuild=1`: デバッグ用。攻撃スキル全種を最終Stage、ROBOTをLv.20/Tune Lv.20、HPを300、移動速度を+100にします。
+- `?debugRobotMissileLevel=10`: デバッグ用。ラン開始時のROBOT Missile Lvだけを指定値にします。値は1〜20で、Lv10の通常ミサイル確認には `debugSkipOpeningBoost=1` と併用できます。
 - `?debugTriadMatrix=1`: デバッグ用。TRIAD MATRIX の再計算、状態遷移、完成 buildId を console に出します。
 - `?debugTriadCore=assault|control|reactor|trinity`: デバッグ用。3攻撃スキルのStage4 Coreをラン内注入します。`trinity` は3種1個ずつになります。
 - `?debugTriadFinal=execution|prism|singularity|adaptive`: デバッグ用。3攻撃スキルのStage8 Finalをラン内注入します。`adaptive` は3種1個ずつになります。
 - `?debugMutationAtlas=1`: デバッグ用。OPERATIONS HUB の `ARCHIVE` 内 `MUTATION ATLAS` をサンプル状態で開き、保存データは変更しません。
 - `?debugStartDepth=10&debugFinalRaid=1&debugFinalRaidScale=0.05&debugFinalRaidPhase=third&debugMaxBuild=1&debugSkipOpeningBoost=1`: デバッグ用。強化済み状態でDepth10 Final Raidを確認します。
 - `?debugRecoveryFieldScale=1`: デバッグ用。Recovery Field の選択画像、表示サイズ、alpha、angle / rotation、depth、表示モードを console に出します。
-- `?debugDollTrace=1`: デバッグ用。通常 Depth の外周停滞検知 `DOLL TRACE` の更新、ハンター出現、cleanup を console に出し、HUD に詳細行を表示します。
-- `?debugDollTraceFast=1`: デバッグ用。`DOLL TRACE` の蓄積と減衰を早めます。`debugDollTrace=1` と併用すると確認しやすくなります。
 - `?debugShopLoading=geek|shop|sequence`: デバッグ用。保存データを書き換えず、ショップローディングの GEEK 確定、ショップ起動、連続遷移を表示確認します。`debugShopLoadingAmount=12340` で表示額だけ指定できます。
 
 ## ゲーム進行
@@ -98,14 +97,6 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 10. Depth11 以降は Endless Void 領域になり、選択 CD を保存変更せずラン中だけ `音声/bgm/ENDLESSVOIDAMBIENCE.mp3` へ上書きします。Depth12 以降へ進んでも同じ BGM を継続し、Depth ごとに先頭から再生し直しません。
 11. Depth11 以降は外部通信、味方通信、通常 Depth 通信、Final Raid 後日談通信を遮断し、既存通信 UI の `SCRAMBLED SIGNAL` 表示で短いスクランブル受信だけが低頻度で発生します。スクランブル通信はラン内一時状態で、`lastmemoVansabaCommsStoryState` には保存しません。
 12. 帰還、ゲームオーバー、Gate 崩壊後はローディング表示を挟んで OPERATIONS HUB に戻ります。
-
-## 通常 Depth の外周停滞対策
-
-通常 Depth では、通常攻撃のターゲット探索はプレイヤーから最大 1050、随伴ロボットのミサイルはロボットから最大 1350 の範囲に制限されます。これは通常 Depth の敵ターゲット選択だけに使い、Support、LOST ARMS、Depth10 Final Raid の疑似ダメージ、救援処理、巨大兵器ターゲットには適用しません。
-
-マップ角や外周付近に留まり、直近 20 秒の移動量が少ない場合は HUD に `DOLL TRACE` が表示され、`STATIC SIGNAL` として蓄積します。40% で `STATIC SIGNAL DETECTED`、70% で `HUNTER SIGNAL APPROACHING`、100% で `DOLL TRACE HUNTER` が 1 体だけ展開されます。ハンターは通常敵ウェーブ、ボス進行、ランキング撃破数、DEPTH DIRECTIVE、XP / GEEK / Robot / Support / LOST ARMS / DATA CACHE ドロップには混ざりません。
-
-外周から離れて中央へ動くと `DOLL TRACE` は減衰し、20% 未満かつ外周付近でなければ展開中のハンターは撤退します。Gate、レベルアップ、Opening Boost、ANOMALY CONTRACT、OVERDRIVE MOD、STABILIZE PROTOCOL、LOST ARMS RESONANCE などの選択 overlay 表示中は蓄積しません。Depth10 Final Raid では無効化され、Depth 遷移、抽出、ゲームオーバー、ショップ復帰、Scene shutdown でラン内状態を破棄します。
 
 ## Depth10 Final Raid
 
@@ -565,6 +556,8 @@ SUPPORT LINK SYSTEM:
 - Golden Tune Vase: ミサイル系チューニングを 2 択で選びます。
 - Silver Tune Vase: フィールド系チューニングを 2 択で選びます。
 
+通常ミサイルはロボットから最大 1120 の範囲にいる敵を狙い、Lv1-2で1発、Lv3-4で2発、Lv5-6で3発、Lv7-8で4発、Lv9で5発、Lv10以降で6発を短い連続発射として撃ちます。Lv10以降は通常ミサイルに加えて、上空からの大きい爆撃ミサイルも同じ発射サイクル内で発生します。
+
 GEEKSHOP の `回収ロボ` は、確定 GEEK で Lv.1-10 まで永続強化する別系統の非ダメージサポートです。出撃中はキャラクター周辺のドロップを探してロボット自身が拾いに行き、回収後はプレイヤー付近へ戻ります。Lv が上がるとサーチ範囲、移動速度、回収対象が広がり、Lv2 以降は周囲の敵を押し戻す掃除パルス、Lv4 以降は短い鈍足補助も発生します。対象は Lv1 で XP / Bronze / Silver / Gold、Lv2 で DATA CACHE、Lv3 で Heal / Magnet、Lv5 で Robot / Support / LOST ARMS まで広がります。画像は `./画像/robot/cleaning_robot_lv1.png` から `cleaning_robot_lv10.png` を使用し、未読み込み時は既存ロボット画像へフォールバックします。
 
 ミサイルと回復フィールドの本体レベルは通常 Lv.10 が上限です。OPERATIONS HUB の `ROBOT CUSTOM` で確定 GEEK を使ってLv上限を段階解放すると、各系統ごとに Lv.12 / 14 / 16 / 18 / 20 まで伸ばせます。チューニングは Rapid Launcher、Warhead Boost、Field Cycle、Care Output があり、それぞれ最大 Lv.20 です。
@@ -752,6 +745,7 @@ http://127.0.0.1:4173/?debugGeekMilestone=1
 http://127.0.0.1:4173/?debugRankingDepth=1
 http://127.0.0.1:4173/?debugRunArchive=1
 http://127.0.0.1:4173/?debugRobotSync=1
+http://127.0.0.1:4173/?debugRobotMissileLevel=10&debugSkipOpeningBoost=1
 http://127.0.0.1:4173/?debugStartDepth=11&debugSkipOpeningBoost=1&debugEndlessVoidBgm=1&debugScrambledComms=1&debugScrambledCommsInterval=5
 http://127.0.0.1:4173/?debugRecoveryFieldScale=1
 http://127.0.0.1:4173/?debugSkillMutation=1
