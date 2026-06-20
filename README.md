@@ -623,7 +623,7 @@ CDSHOP では通常 CD を 3 列 x 2 段、`ドールを解放せし者` を大�
 
 ## ステージ
 
-通常プレイでは `stageDefinitions.js` の `tokyoRandomStages` から 10 種類の東京ステージがランダム選択されます。指定ステージが見つからない場合はランダム東京ステージへフォールバックし、ランダム定義がない場合は `shibuyaStage1` を使用します。
+通常プレイでは `stageDefinitions.js` の `tokyoRandomStages` から 10 種類の東京ステージがランダム選択されます。指定ステージが見つからない場合はランダム東京ステージへフォールバックします。旧 `shibuyaStage1` ID は互換用に残し、軽量な `Tokyo 01: Scramble Crossing` 定義を使用します。
 
 東京ランダムステージ:
 
