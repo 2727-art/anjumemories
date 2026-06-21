@@ -42959,6 +42959,15 @@ class SurvivalScene extends Phaser.Scene {
     return Math.max(1, Math.round(baseDamage * this.getRobotSyncMissileDamageMultiplier()));
   }
 
+  getRobotMissileTargetRange() {
+    return Math.floor(Number(this.stageDepth) || 1) === 10 ? Infinity : 1120;
+  }
+
+  getRobotMissileLifetimeMs() {
+    const baseLifetimeMs = 2300;
+    return Math.floor(Number(this.stageDepth) || 1) === 10 ? baseLifetimeMs * 2 : baseLifetimeMs;
+  }
+
   updateRobotCombat(time, delta) {
     if (!this.robotState || !this.robotSprite) {
       return;
@@ -42970,7 +42979,12 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    const targets = this.findRobotMissileTargets(this.robotState.x, this.robotState.y, this.getRobotMissileShotCount(), 1120);
+    const targets = this.findRobotMissileTargets(
+      this.robotState.x,
+      this.robotState.y,
+      this.getRobotMissileShotCount(),
+      this.getRobotMissileTargetRange()
+    );
     if (!targets.length) {
       this.robotState.missileTimer = interval;
       return;
@@ -43035,7 +43049,7 @@ class SurvivalScene extends Phaser.Scene {
     missile.speed = 620 + Math.min(90, (this.robotState?.fireRateLevel || 0) * 7);
     missile.damage = this.getRobotMissileDamage();
     missile.splashRadius = 42 + (this.robotState?.missileLevel || 1) * 2;
-    missile.expireAt = this.time.now + 2300;
+    missile.expireAt = this.time.now + this.getRobotMissileLifetimeMs();
     missile.frameTimer = shotIndex * 32;
     missile.bombardment = false;
     this.scaleRobotMissileSprite(missile, false);
