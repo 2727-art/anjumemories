@@ -1857,11 +1857,72 @@ const NEMESIS_BOSS_CONFIG = {
     }
   ]
 };
+const VOID_HUNTER_DEBUG_QUERY_PARAM = "debugVoidHunter";
+const VOID_HUNTER_TRACE_QUERY_PARAM = "debugVoidHunterTrace";
+const VOID_HUNTER_ASSET_BASE_PATH = "./画像/hunter";
+const VOID_HUNTER_FRAME_ASSETS = Array.from({ length: 15 }, (_, index) => {
+  const frameNumber = String(index + 1).padStart(2, "0");
+  return {
+    textureKey: `void-hunter-attack-${frameNumber}`,
+    imagePath: `${VOID_HUNTER_ASSET_BASE_PATH}/hunter_attack_motion${frameNumber}.png`
+  };
+});
+const VOID_HUNTER_SKILL_EFFECT_ASSET = {
+  textureKey: "void-hunter-skill-effect",
+  imagePath: `${VOID_HUNTER_ASSET_BASE_PATH}/hunter_skill_effect.png`
+};
+const VOID_HUNTER_CONFIG = {
+  unlockDepth: 11,
+  debugUnlockDepth: 1,
+  stationarySummonMs: 40000,
+  debugStationarySummonMs: 4000,
+  warningMs: 25000,
+  debugWarningMs: 1600,
+  lockedWarningMs: 35000,
+  debugLockedWarningMs: 3000,
+  traceIntervalMs: 5000,
+  spawnWarningMs: 900,
+  debugHpMultiplier: 0.035,
+  spawnDistance: 720,
+  spawnMargin: 190,
+  displayLongestSide: 1240,
+  hitRadius: 126,
+  hitboxCenterY: 0.56,
+  baseHp: 9000000,
+  hpPerDepthMultiplier: 1.22,
+  moveSpeed: 34,
+  contactDamage: 42,
+  attackDamage: 145,
+  attackRadius: 148,
+  attackIntervalMs: 5600,
+  attackInitialDelayMs: 2400,
+  attackChargeMs: 3000,
+  attackPointCount: 3,
+  attackPointForwardOffset: 185,
+  attackPointSideOffset: 170,
+  attackPointBackOffset: 82,
+  attackCenterTrackMs: 1000,
+  attackCenterTrackIntervalMs: 50,
+  attackCenterTrackLerp: 0.28,
+  attackDetonateDelayMs: 115,
+  attackEffectDurationMs: 2000,
+  jammingDurationMs: 6500,
+  preferredRange: 620,
+  effectTint: 0xc55bff,
+  accentTint: 0xff5cff,
+  warningTint: 0xff4ed8,
+  shadowTint: 0x06000c,
+  targetMarkScaleMultiplier: 0.3,
+  holdFrameIndex: 11,
+  frameMs: 82,
+  defeatSupportUnlock: true
+};
 const DAMAGE_TEXT_FONT_SIZE_MULTIPLIER = 2;
 const CD_SHOP_SLOT_COUNT = 10;
 const CD_PURCHASE_PRICE = 100000;
 const FINAL_BOSS_CD_ID = "finalBossLiberator";
 const FINAL_BOSS_SUPPORT_ID = "finalBossLiberatorSupport";
+const VOID_HUNTER_SUPPORT_ID = "voidHunterSupport";
 const OPENING_SHOP_BACKGROUND_TEXTURE_KEY = "opening-shop-bg";
 const OPENING_SHOP_BACKGROUND_PATH = "./画像/ui/opening_shop_bg.jpg";
 const DEFAULT_BEST_RECORD = {
@@ -4959,6 +5020,44 @@ const SUPPORT_ATTACK_DEFINITIONS = [
     spellFieldDurationMs: 3000,
     spellFieldTickMs: 600,
     maxSpellFields: 4
+  },
+  {
+    id: VOID_HUNTER_SUPPORT_ID,
+    label: "虚無を狩る者",
+    noticeLabel: "VOID HUNTER",
+    type: "voidHunterSupport",
+    requiresVoidHunterSupportUnlock: true,
+    supportWeight: SUPPORT_ATTACK_WEIGHT_SUPER_RARE,
+    tint: 0xc55bff,
+    glowTint: 0xff5cff,
+    frameCount: VOID_HUNTER_FRAME_ASSETS.length,
+    frameMs: VOID_HUNTER_CONFIG.frameMs,
+    useCustomAnimation: true,
+    cutinTextureKey: "support-void-hunter-cutin",
+    cutinPath: `${VOID_HUNTER_ASSET_BASE_PATH}/cutin.png`,
+    animationFrames: VOID_HUNTER_FRAME_ASSETS,
+    showFieldVisual: false,
+    supportOffsetX: 520,
+    supportOffsetY: -92,
+    supportShadowOffsetY: 172,
+    supportShadowWidth: 360,
+    supportShadowHeight: 88,
+    supportShadowAlpha: 0.34,
+    spriteLongestSide: VOID_HUNTER_CONFIG.displayLongestSide,
+    durationMs: 40000,
+    moveSpeed: VOID_HUNTER_CONFIG.moveSpeed,
+    preferredRange: VOID_HUNTER_CONFIG.preferredRange,
+    targetRadius: 1160,
+    targetPadding: 220,
+    attackInitialDelayMs: VOID_HUNTER_CONFIG.attackInitialDelayMs,
+    attackIntervalMs: VOID_HUNTER_CONFIG.attackIntervalMs,
+    attackChargeMs: VOID_HUNTER_CONFIG.attackChargeMs,
+    attackRadius: VOID_HUNTER_CONFIG.attackRadius,
+    attackDamageAmount: 42,
+    bossDamageMultiplier: 0.62,
+    nemesisDamageMultiplier: 0.46,
+    knockbackForce: 420,
+    maxAttackFields: 9
   }
 ].map((definition) => ({
   ...definition,
@@ -5086,6 +5185,7 @@ class SurvivalScene extends Phaser.Scene {
     this.preloadStageAssets();
     this.preloadEnemyAssets();
     this.preloadBossAttackEffectAssets();
+    this.preloadVoidHunterAssets();
     this.preloadFinalBossRaidAssets();
     this.preloadSupportAttackAssets();
     this.preloadGensoKnightsSupportAssets();
@@ -5216,6 +5316,13 @@ class SurvivalScene extends Phaser.Scene {
     Object.values(BOSS_ATTACK_EFFECT_ASSETS).forEach((asset) => {
       this.loadImageIfNeeded(asset.textureKey, asset.imagePath);
     });
+  }
+
+  preloadVoidHunterAssets() {
+    VOID_HUNTER_FRAME_ASSETS.forEach((asset) => {
+      this.loadImageIfNeeded(asset.textureKey, asset.imagePath);
+    });
+    this.loadImageIfNeeded(VOID_HUNTER_SKILL_EFFECT_ASSET.textureKey, VOID_HUNTER_SKILL_EFFECT_ASSET.imagePath);
   }
 
   preloadFinalBossRaidAssets() {
@@ -5608,6 +5715,8 @@ class SurvivalScene extends Phaser.Scene {
     });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetNemesisBossState("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetNemesisBossState("sceneDestroy"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetVoidHunterState("sceneShutdown")));
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetVoidHunterState("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetFinalBossRaidState("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetFinalBossRaidState("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.destroyCommsUi("sceneShutdown"));
@@ -6104,6 +6213,7 @@ class SurvivalScene extends Phaser.Scene {
     this.initializeSkillMutationState();
     this.initializeTriadMatrixRunState("createState");
     this.initializeNemesisBossState();
+    this.initializeVoidHunterState();
     if (this.isStabilizeProtocolDebugEnabled()) {
       this.overflowRewardState.stabilizeCharges = OVERFLOW_REWARD_CONFIG.stabilize.maxCharges;
       this.overflowRewardState.stabilizeGauge = 0;
@@ -6174,6 +6284,7 @@ class SurvivalScene extends Phaser.Scene {
       eliteKills: 0,
       bossKills: 0,
       nemesisKills: 0,
+      voidHunterKills: 0,
       depthDirectiveCompletions: 0,
       depthDirectiveCompletedTitles: [],
       peakGeekMultiplier: 1
@@ -8447,24 +8558,1103 @@ class SurvivalScene extends Phaser.Scene {
     this.updateOverflowHud?.();
   }
 
+  initializeVoidHunterState() {
+    this.voidHunterState = {
+      currentDepth: this.stageDepth || 0,
+      stationaryMs: 0,
+      warningLevel: 0,
+      spawnedThisDepth: false,
+      defeatedThisDepth: false,
+      pendingSpawn: false,
+      spawnTimer: null,
+      pendingPoint: null,
+      activeBoss: null,
+      warningObjects: [],
+      jammingUntil: 0,
+      totalSpawned: 0,
+      totalDefeated: 0,
+      lastSkipReason: "",
+      traceLastKey: "",
+      traceLastAt: 0,
+      traceStationaryBucket: -1
+    };
+  }
+
+  resetVoidHunterState(reason = "reset") {
+    this.cleanupVoidHunterBoss(reason);
+    this.initializeVoidHunterState();
+    this.updateNemesisBossHud?.();
+  }
+
+  getVoidHunterJammingRemainingMs(now = this.time?.now || 0) {
+    return Math.max(0, Math.round((Number(this.voidHunterState?.jammingUntil) || 0) - (Number(now) || 0)));
+  }
+
+  isVoidHunterJammingActive(now = this.time?.now || 0) {
+    return this.getVoidHunterJammingRemainingMs(now) > 0;
+  }
+
+  applyVoidHunterJamming(durationMs = VOID_HUNTER_CONFIG.jammingDurationMs) {
+    if (!this.voidHunterState) {
+      this.initializeVoidHunterState();
+    }
+    const now = Number(this.time?.now) || 0;
+    const duration = Math.max(0, Number(durationMs) || 0);
+    if (duration <= 0) {
+      return;
+    }
+    this.voidHunterState.jammingUntil = Math.max(Number(this.voidHunterState.jammingUntil) || 0, now + duration);
+    this.setLastPickupNotice("VOID JAMMING / FIELD DISRUPTED");
+    if (this.playerHitbox?.active) {
+      this.showOverflowRewardText("VOID JAMMING", this.playerHitbox.x, this.playerHitbox.y - 72, "#ff9cff");
+    }
+  }
+
+  isVoidHunterDebugEnabled() {
+    if (typeof window === "undefined") {
+      return false;
+    }
+    try {
+      const params = new URLSearchParams(window.location?.search || "");
+      return params.get(VOID_HUNTER_DEBUG_QUERY_PARAM) === "1";
+    } catch (error) {
+      return false;
+    }
+  }
+
+  isVoidHunterTraceEnabled() {
+    if (typeof window === "undefined") {
+      return false;
+    }
+    try {
+      const params = new URLSearchParams(window.location?.search || "");
+      const value = String(params.get(VOID_HUNTER_TRACE_QUERY_PARAM) || "").toLowerCase();
+      return ["1", "true", "yes", "on"].includes(value);
+    } catch (error) {
+      return false;
+    }
+  }
+
+  logVoidHunterTrace(event, payload = {}, options = {}) {
+    if (!this.isVoidHunterTraceEnabled()) {
+      return;
+    }
+    if (!this.voidHunterState) {
+      this.initializeVoidHunterState();
+    }
+    const state = this.voidHunterState;
+    const sceneNow = Number(this.time?.now);
+    const now = Number.isFinite(sceneNow) ? Math.max(0, sceneNow) : Date.now();
+    const intervalMs = Math.max(0, Math.floor(Number(options.intervalMs ?? 1200) || 0));
+    const key = options.key || `${event}:${payload.reason || ""}:${payload.depth ?? this.stageDepth ?? ""}`;
+    if (!options.force && state.traceLastKey === key && now - (state.traceLastAt || 0) < intervalMs) {
+      return;
+    }
+    state.traceLastKey = key;
+    state.traceLastAt = now;
+    console.log("[VOID HUNTER TRACE]", {
+      event,
+      depth: Math.max(1, Math.floor(Number(this.stageDepth) || 1)),
+      stationaryMs: Math.round(Number(state.stationaryMs) || 0),
+      summonMs: this.getVoidHunterStationarySummonMs(),
+      debugVoidHunter: this.isVoidHunterDebugEnabled(),
+      finalBossState: {
+        cleared: this.finalBossState?.cleared === true,
+        unlockedBossCd: this.finalBossState?.unlockedBossCd === true,
+        unlockedFinalBossSupport: this.finalBossState?.unlockedFinalBossSupport === true,
+        voidHunterDefeated: this.finalBossState?.voidHunterDefeated === true,
+        unlockedVoidHunterSupport: this.finalBossState?.unlockedVoidHunterSupport === true
+      },
+      ...payload
+    });
+  }
+
+  getVoidHunterUnlockDepth() {
+    return this.isVoidHunterDebugEnabled()
+      ? VOID_HUNTER_CONFIG.debugUnlockDepth
+      : VOID_HUNTER_CONFIG.unlockDepth;
+  }
+
+  getVoidHunterStationarySummonMs() {
+    return this.isVoidHunterDebugEnabled()
+      ? VOID_HUNTER_CONFIG.debugStationarySummonMs
+      : VOID_HUNTER_CONFIG.stationarySummonMs;
+  }
+
+  getVoidHunterWarningThresholdMs(level = 1) {
+    if (level >= 2) {
+      return this.isVoidHunterDebugEnabled()
+        ? VOID_HUNTER_CONFIG.debugLockedWarningMs
+        : VOID_HUNTER_CONFIG.lockedWarningMs;
+    }
+    return this.isVoidHunterDebugEnabled()
+      ? VOID_HUNTER_CONFIG.debugWarningMs
+      : VOID_HUNTER_CONFIG.warningMs;
+  }
+
+  isVoidHunterBoss(enemy) {
+    return Boolean(enemy?.isVoidHunterBoss);
+  }
+
+  getActiveVoidHunterBoss() {
+    const boss = this.voidHunterState?.activeBoss;
+    if (boss?.active && !boss.isDying) {
+      return boss;
+    }
+    if (this.voidHunterState) {
+      this.voidHunterState.activeBoss = null;
+    }
+    return null;
+  }
+
+  onDepthStartedForVoidHunter(depth = this.stageDepth, reason = "depthStart") {
+    if (!this.voidHunterState) {
+      this.initializeVoidHunterState();
+    }
+    const totalSpawned = this.voidHunterState.totalSpawned || 0;
+    const totalDefeated = this.voidHunterState.totalDefeated || 0;
+    this.cleanupVoidHunterBoss(reason);
+    Object.assign(this.voidHunterState, {
+      currentDepth: Math.max(1, Math.floor(Number(depth) || 1)),
+      stationaryMs: 0,
+      warningLevel: 0,
+      spawnedThisDepth: false,
+      defeatedThisDepth: false,
+      pendingSpawn: false,
+      spawnTimer: null,
+      pendingPoint: null,
+      activeBoss: null,
+      warningObjects: [],
+      jammingUntil: 0,
+      totalSpawned,
+      totalDefeated,
+      lastSkipReason: reason || "",
+      traceLastKey: "",
+      traceLastAt: 0,
+      traceStationaryBucket: -1
+    });
+    this.updateNemesisBossHud?.();
+  }
+
+  getVoidHunterStationaryTrackState() {
+    const depth = Math.max(1, Math.floor(Number(this.stageDepth) || 1));
+    const base = {
+      allowed: false,
+      depth,
+      unlockDepth: this.getVoidHunterUnlockDepth(),
+      endlessVoidDepth: this.isEndlessVoidDepth?.(depth) === true,
+      gateStatus: this.gateState?.status || "unknown",
+      stageGateActive: this.stageGate?.container?.active === true,
+      overlayVisible: this.overlayContainer?.visible === true,
+      activeVoidHunter: Boolean(this.getActiveVoidHunterBoss()),
+      activeNemesis: Boolean(this.getActiveNemesisBoss()),
+      activeWaveBoss: Boolean(this.getActiveWaveBoss()),
+      gensoKnightsActive: this.isGensoKnightsEventActive() === true,
+      voidHunterSupportActive: this.isVoidHunterSupportAttackActive() === true
+    };
+    if (this.gameOver || this.shopActive || this.extractionComplete || this.isFinalBossRaidActive?.()) {
+      return {
+        ...base,
+        reason: "gameInactive",
+        gameOver: this.gameOver === true,
+        shopActive: this.shopActive === true,
+        extractionComplete: this.extractionComplete === true,
+        finalBossRaidActive: this.isFinalBossRaidActive?.() === true
+      };
+    }
+    if (this.levelUpActive || this.gateChoiceActive || this.overlayContainer?.visible) {
+      return {
+        ...base,
+        reason: "blockingUi",
+        levelUpActive: this.levelUpActive === true,
+        gateChoiceActive: this.gateChoiceActive === true,
+        overlayVisible: this.overlayContainer?.visible === true
+      };
+    }
+    if (this.stageGate?.container?.active || this.gateState?.status !== "closed") {
+      return { ...base, reason: "gateOpenOrUnstable" };
+    }
+    if (!this.isVoidHunterDebugEnabled() && !this.isFinalBossRaidCleared()) {
+      return { ...base, reason: "finalBossRaidNotCleared" };
+    }
+    if (depth < this.getVoidHunterUnlockDepth()) {
+      return { ...base, reason: "depthBelowUnlock" };
+    }
+    if (!this.isVoidHunterDebugEnabled() && !this.isEndlessVoidDepth?.(depth)) {
+      return { ...base, reason: "notEndlessVoidDepth" };
+    }
+    if (this.voidHunterState?.spawnedThisDepth || this.voidHunterState?.defeatedThisDepth || this.voidHunterState?.pendingSpawn) {
+      return {
+        ...base,
+        reason: "depthAlreadyUsed",
+        spawnedThisDepth: this.voidHunterState?.spawnedThisDepth === true,
+        defeatedThisDepth: this.voidHunterState?.defeatedThisDepth === true,
+        pendingSpawn: this.voidHunterState?.pendingSpawn === true
+      };
+    }
+    if (this.getActiveVoidHunterBoss() || this.getActiveNemesisBoss() || this.isGensoKnightsEventActive() || this.isVoidHunterSupportAttackActive()) {
+      return { ...base, reason: "encounterConflict" };
+    }
+    return { ...base, allowed: true, reason: "tracking" };
+  }
+
+  shouldTrackVoidHunterStationarySummon() {
+    return this.getVoidHunterStationaryTrackState().allowed;
+  }
+
+  updateVoidHunterStationarySummon(delta, isMoving) {
+    if (!this.voidHunterState) {
+      this.initializeVoidHunterState();
+    }
+    const state = this.voidHunterState;
+    const trackState = this.getVoidHunterStationaryTrackState();
+    if (!trackState.allowed) {
+      this.logVoidHunterTrace("blocked", trackState, {
+        key: `blocked:${trackState.reason}:${trackState.depth}:${trackState.gateStatus}:${trackState.stageGateActive}`,
+        intervalMs: VOID_HUNTER_CONFIG.traceIntervalMs
+      });
+      if (!state.pendingSpawn && !this.getActiveVoidHunterBoss()) {
+        if (state.stationaryMs > 0 || state.warningLevel > 0) {
+          this.logVoidHunterTrace("timerReset", { reason: trackState.reason, depth: trackState.depth }, { force: true });
+        }
+        state.stationaryMs = 0;
+        state.warningLevel = 0;
+        state.traceStationaryBucket = -1;
+        this.clearVoidHunterWarningVisuals();
+      }
+      return;
+    }
+
+    if (isMoving || this.isDashing) {
+      if (state.stationaryMs > 0 || state.warningLevel > 0) {
+        this.logVoidHunterTrace("timerReset", {
+          reason: isMoving ? "playerInputMoving" : "dashActive",
+          isMoving: isMoving === true,
+          isDashing: this.isDashing === true
+        }, { force: true });
+      }
+      state.stationaryMs = 0;
+      state.warningLevel = 0;
+      state.traceStationaryBucket = -1;
+      this.clearVoidHunterWarningVisuals();
+      return;
+    }
+
+    state.stationaryMs += Math.max(0, Number(delta) || 0);
+    const traceBucket = Math.floor(state.stationaryMs / Math.max(1000, VOID_HUNTER_CONFIG.traceIntervalMs || 5000));
+    if (state.traceStationaryBucket !== traceBucket) {
+      state.traceStationaryBucket = traceBucket;
+      this.logVoidHunterTrace("tracking", {
+        depth: trackState.depth,
+        stationaryMs: Math.round(state.stationaryMs),
+        remainingMs: Math.max(0, Math.round(this.getVoidHunterStationarySummonMs() - state.stationaryMs)),
+        warningLevel: state.warningLevel
+      }, { key: `tracking:${trackState.depth}:${traceBucket}`, force: true });
+    }
+    if (state.warningLevel < 1 && state.stationaryMs >= this.getVoidHunterWarningThresholdMs(1)) {
+      state.warningLevel = 1;
+      this.logVoidHunterTrace("warning", { level: 1, thresholdMs: this.getVoidHunterWarningThresholdMs(1) }, { force: true });
+      this.showVoidHunterStationaryWarning(1);
+    }
+    if (state.warningLevel < 2 && state.stationaryMs >= this.getVoidHunterWarningThresholdMs(2)) {
+      state.warningLevel = 2;
+      this.logVoidHunterTrace("warning", { level: 2, thresholdMs: this.getVoidHunterWarningThresholdMs(2) }, { force: true });
+      this.showVoidHunterStationaryWarning(2);
+    }
+    if (state.stationaryMs >= this.getVoidHunterStationarySummonMs()) {
+      this.logVoidHunterTrace("summonThresholdReached", {
+        depth: trackState.depth,
+        stationaryMs: Math.round(state.stationaryMs)
+      }, { force: true });
+      this.beginVoidHunterSpawnSequence();
+    }
+  }
+
+  showVoidHunterStationaryWarning(level = 1) {
+    if (!this.playerHitbox?.active) {
+      return;
+    }
+    const state = this.voidHunterState;
+    const strong = level >= 2;
+    const tint = strong ? VOID_HUNTER_CONFIG.accentTint : VOID_HUNTER_CONFIG.warningTint;
+    const label = strong ? "VOID SIGNATURE LOCKED" : "VOID SIGNATURE DETECTED";
+    const x = this.playerHitbox.x;
+    const y = this.playerHitbox.y;
+    const ring = this.add
+      .image(x, y + 8, "skill-hit-ring")
+      .setDepth(24.6)
+      .setScale(strong ? 2.4 : 1.8, strong ? 1.08 : 0.82)
+      .setTint(tint)
+      .setAlpha(strong ? 0.74 : 0.48)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const text = this.add
+      .text(x, y - 82, label, {
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: strong ? "18px" : "15px",
+        color: strong ? "#ffd6ff" : "#dcb8ff",
+        fontStyle: "bold",
+        align: "center",
+        stroke: "#14001e",
+        strokeThickness: 4
+      })
+      .setOrigin(0.5)
+      .setDepth(25.2);
+    const objects = [ring, text];
+    state.warningObjects.push(...objects);
+    this.skillEffectsLayer?.add(objects);
+    this.tweens.add({
+      targets: ring,
+      scaleX: ring.scaleX * 1.4,
+      scaleY: ring.scaleY * 1.24,
+      alpha: 0,
+      duration: strong ? 900 : 720,
+      ease: "Cubic.Out",
+      onComplete: () => ring.destroy()
+    });
+    this.tweens.add({
+      targets: text,
+      y: text.y - 14,
+      alpha: 0,
+      delay: strong ? 620 : 520,
+      duration: 360,
+      ease: "Quad.In",
+      onComplete: () => text.destroy()
+    });
+    this.cameras.main.shake(strong ? 180 : 110, strong ? 0.0022 : 0.0012);
+    this.setLastPickupNotice(label);
+  }
+
+  clearVoidHunterWarningVisuals() {
+    const state = this.voidHunterState;
+    if (!state) {
+      return;
+    }
+    state.spawnTimer?.remove?.(false);
+    state.spawnTimer = null;
+    this.tweens?.killTweensOf(state.warningObjects || []);
+    (state.warningObjects || []).forEach((object) => object?.destroy?.());
+    state.warningObjects = [];
+  }
+
+  beginVoidHunterSpawnSequence() {
+    const state = this.voidHunterState;
+    if (!state || state.pendingSpawn || state.spawnedThisDepth) {
+      return false;
+    }
+    const point = this.getVoidHunterSpawnPoint();
+    state.pendingSpawn = true;
+    state.pendingPoint = point;
+    state.spawnedThisDepth = true;
+    this.logVoidHunterTrace("spawnSequenceStarted", {
+      depth: state.currentDepth || this.stageDepth,
+      point: {
+        x: Math.round(point.x),
+        y: Math.round(point.y)
+      }
+    }, { force: true });
+    this.showVoidHunterSpawnMarker(point);
+    state.spawnTimer = this.time.delayedCall(VOID_HUNTER_CONFIG.spawnWarningMs, () => {
+      if (this.voidHunterState) {
+        this.voidHunterState.spawnTimer = null;
+      }
+      const spawnState = this.getVoidHunterSpawnCheckState();
+      if (!spawnState.allowed) {
+        state.pendingSpawn = false;
+        state.spawnedThisDepth = false;
+        state.lastSkipReason = spawnState.reason || "spawnBlocked";
+        this.logVoidHunterTrace("spawnBlocked", spawnState, { force: true });
+        this.clearVoidHunterWarningVisuals();
+        this.updateNemesisBossHud?.();
+        return;
+      }
+      this.spawnVoidHunterBoss(state.currentDepth || this.stageDepth, state.pendingPoint || point);
+    });
+    return true;
+  }
+
+  showVoidHunterSpawnMarker(point) {
+    const state = this.voidHunterState;
+    if (!point || !state) {
+      return;
+    }
+    this.clearVoidHunterWarningVisuals();
+    const tint = VOID_HUNTER_CONFIG.accentTint;
+    const glow = this.add
+      .image(point.x, point.y, "skill-hit-glow")
+      .setDepth(19.05)
+      .setScale(4.4)
+      .setTint(tint)
+      .setAlpha(0.26)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const ring = this.add
+      .image(point.x, point.y + 18, "skill-hit-ring")
+      .setDepth(19.2)
+      .setScale(3.2, 1.36)
+      .setTint(tint)
+      .setAlpha(0.84)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const text = this.add
+      .text(point.x, point.y - 138, "VOID HUNTER", {
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "22px",
+        color: "#ffd6ff",
+        fontStyle: "bold",
+        align: "center",
+        stroke: "#14001e",
+        strokeThickness: 5
+      })
+      .setOrigin(0.5)
+      .setDepth(25.2);
+    state.warningObjects.push(glow, ring, text);
+    this.skillEffectsLayer?.add([glow, ring, text]);
+    this.tweens.add({
+      targets: [glow, ring],
+      scaleX: "*=1.34",
+      scaleY: "*=1.22",
+      alpha: { from: 0.86, to: 0.18 },
+      duration: VOID_HUNTER_CONFIG.spawnWarningMs,
+      ease: "Sine.InOut"
+    });
+    this.cameras.main.flash(130, 120, 32, 160, false, null, null, this);
+    this.cameras.main.shake(220, 0.0026);
+    this.setLastPickupNotice("VOID HUNTER SUMMONED");
+  }
+
+  getVoidHunterSpawnCheckState() {
+    const depth = Math.max(1, Math.floor(Number(this.stageDepth) || 1));
+    const base = {
+      allowed: false,
+      depth,
+      gateStatus: this.gateState?.status || "unknown",
+      stageGateActive: this.stageGate?.container?.active === true,
+      overlayVisible: this.overlayContainer?.visible === true,
+      activeVoidHunter: Boolean(this.getActiveVoidHunterBoss()),
+      activeNemesis: Boolean(this.getActiveNemesisBoss()),
+      activeWaveBoss: Boolean(this.getActiveWaveBoss()),
+      gensoKnightsActive: this.isGensoKnightsEventActive() === true,
+      voidHunterSupportActive: this.isVoidHunterSupportAttackActive() === true
+    };
+    if (this.gameOver || this.shopActive || this.extractionComplete || this.isFinalBossRaidActive?.()) {
+      return {
+        ...base,
+        reason: "gameInactive",
+        gameOver: this.gameOver === true,
+        shopActive: this.shopActive === true,
+        extractionComplete: this.extractionComplete === true,
+        finalBossRaidActive: this.isFinalBossRaidActive?.() === true
+      };
+    }
+    if (this.levelUpActive || this.gateChoiceActive || this.overlayContainer?.visible) {
+      return {
+        ...base,
+        reason: "blockingUi",
+        levelUpActive: this.levelUpActive === true,
+        gateChoiceActive: this.gateChoiceActive === true,
+        overlayVisible: this.overlayContainer?.visible === true
+      };
+    }
+    if (this.stageGate?.container?.active || this.gateState?.status !== "closed") {
+      return { ...base, reason: "gateOpenOrUnstable" };
+    }
+    if (this.getActiveVoidHunterBoss() || this.getActiveNemesisBoss() || this.isGensoKnightsEventActive() || this.isVoidHunterSupportAttackActive()) {
+      return { ...base, reason: "encounterConflict" };
+    }
+    return { ...base, allowed: true, reason: "spawnAllowed" };
+  }
+
+  canSpawnVoidHunterNow() {
+    return this.getVoidHunterSpawnCheckState().allowed;
+  }
+
+  getVoidHunterSpawnPoint() {
+    const bounds = this.getStageMovementBounds(this.currentStage, VOID_HUNTER_CONFIG.spawnMargin) || this.getStageWorldBounds(this.currentStage);
+    const playerX = this.playerHitbox?.x ?? bounds.centerX;
+    const playerY = this.playerHitbox?.y ?? bounds.centerY;
+    const view = this.cameras.main.worldView;
+    const distance = Math.max(260, Number(VOID_HUNTER_CONFIG.spawnDistance) || 720);
+    const aimAngle = Number.isFinite(this.playerAimAngle) ? this.playerAimAngle : 0;
+    const candidateAngles = [
+      Phaser.Math.Angle.Between(view.centerX, view.centerY, playerX, playerY),
+      aimAngle + Math.PI,
+      aimAngle + Math.PI * 0.72,
+      aimAngle - Math.PI * 0.72,
+      Phaser.Math.FloatBetween(-Math.PI, Math.PI)
+    ];
+    let best = null;
+    candidateAngles.forEach((angle) => {
+      const point = this.clampPointToBounds(
+        playerX + Math.cos(angle) * distance,
+        playerY + Math.sin(angle) * distance,
+        bounds
+      );
+      const distSq = Phaser.Math.Distance.Squared(point.x, point.y, playerX, playerY);
+      if (!best || distSq > best.distSq) {
+        best = { point, distSq };
+      }
+    });
+    return best?.point || { x: bounds.centerX, y: bounds.centerY };
+  }
+
+  calculateVoidHunterHp(depth = this.stageDepth || 1) {
+    const normalizedDepth = Math.max(this.getVoidHunterUnlockDepth(), Math.floor(Number(depth) || this.getVoidHunterUnlockDepth()));
+    const depthSteps = Math.max(0, normalizedDepth - VOID_HUNTER_CONFIG.unlockDepth);
+    const multiplier = Math.pow(Math.max(1, VOID_HUNTER_CONFIG.hpPerDepthMultiplier || 1), depthSteps);
+    const debugMultiplier = this.isVoidHunterDebugEnabled() ? VOID_HUNTER_CONFIG.debugHpMultiplier : 1;
+    return Math.max(1, Math.round((VOID_HUNTER_CONFIG.baseHp || 1) * multiplier * debugMultiplier));
+  }
+
+  spawnVoidHunterBoss(depth, point) {
+    const state = this.voidHunterState;
+    if (!state || !point) {
+      return null;
+    }
+    this.clearVoidHunterWarningVisuals();
+    state.pendingSpawn = false;
+    state.pendingPoint = null;
+    state.totalSpawned += 1;
+    const firstFrameKey = VOID_HUNTER_FRAME_ASSETS[0]?.textureKey;
+    const textureKey = this.textures.exists(firstFrameKey) ? firstFrameKey : "skill-hit-glow";
+    const enemy = this.physics.add.sprite(point.x, point.y, textureKey).setDepth(18.95);
+    enemy.body.setAllowGravity(false);
+    enemy.body.setCollideWorldBounds(true);
+    enemy.enemyTypeId = "voidHunter";
+    enemy.enemyDefinition = {
+      id: "voidHunter",
+      label: "VOID HUNTER",
+      textureKey,
+      hitRadius: VOID_HUNTER_CONFIG.hitRadius,
+      hitboxCenterY: VOID_HUNTER_CONFIG.hitboxCenterY
+    };
+    enemy.aiBehavior = "voidHunter";
+    enemy.isVoidHunterBoss = true;
+    enemy.isBoss = true;
+    enemy.isElite = false;
+    enemy.isDying = false;
+    enemy.voidHunterDepth = Math.max(1, Math.floor(Number(depth) || this.stageDepth || 1));
+    enemy.voidHunterRewardClaimed = false;
+    enemy.baseTint = 0xffffff;
+    enemy.depthEnemyScaling = this.getCurrentEnemyScaling();
+    enemy.maxHp = this.calculateVoidHunterHp(enemy.voidHunterDepth);
+    enemy.hp = enemy.maxHp;
+    enemy.moveSpeed = VOID_HUNTER_CONFIG.moveSpeed;
+    enemy.contactDamage = VOID_HUNTER_CONFIG.contactDamage;
+    enemy.attackDamage = VOID_HUNTER_CONFIG.attackDamage;
+    enemy.attackRadius = VOID_HUNTER_CONFIG.attackRadius;
+    enemy.attackIntervalMs = VOID_HUNTER_CONFIG.attackIntervalMs;
+    enemy.attackChargeMs = VOID_HUNTER_CONFIG.attackChargeMs;
+    enemy.nextVoidHunterAttackAt = this.time.now + VOID_HUNTER_CONFIG.attackInitialDelayMs;
+    enemy.bossAttackId = 0;
+    enemy.bossAttackObjects = [];
+    enemy.bossAttackEvents = [];
+    enemy.isChargingBossAttack = false;
+    enemy.knockbackResist = 0.96;
+    enemy.xpValue = 0;
+    enemy.suppressGuaranteedDrops = true;
+    this.scaleWorldImageToFit(enemy, VOID_HUNTER_CONFIG.displayLongestSide);
+    enemy.baseScale = enemy.scaleX;
+    enemy.effectScale = Math.max(2.2, Math.max(enemy.displayWidth || 0, enemy.displayHeight || 0) / 170);
+    this.configureEnemyBody(enemy, enemy.enemyDefinition, false);
+    this.createVoidHunterVisuals(enemy);
+    this.enemies.add(enemy);
+    state.activeBoss = enemy;
+    this.setLastPickupNotice(`VOID HUNTER DEPTH ${enemy.voidHunterDepth}`);
+    this.showOverflowRewardText("VOID HUNTER", enemy.x, enemy.y - Math.max(150, enemy.displayHeight * 0.5), "#ffd6ff");
+    this.updateNemesisBossHud?.();
+    this.logVoidHunterTrace("spawned", {
+      depth: enemy.voidHunterDepth,
+      hp: enemy.hp,
+      maxHp: enemy.maxHp,
+      x: Math.round(enemy.x),
+      y: Math.round(enemy.y),
+      totalSpawned: state.totalSpawned
+    }, { force: true });
+    if (this.isVoidHunterDebugEnabled()) {
+      console.log("[VOID HUNTER] spawned", {
+        depth: enemy.voidHunterDepth,
+        hp: enemy.maxHp,
+        point
+      });
+    }
+    return enemy;
+  }
+
+  createVoidHunterVisuals(enemy) {
+    const tint = VOID_HUNTER_CONFIG.accentTint;
+    const targetMarkScale = this.getVoidHunterTargetMarkScale();
+    enemy.voidHunterGlow = this.add
+      .image(enemy.x, enemy.y + 18, "skill-hit-glow")
+      .setDepth(17.35)
+      .setScale((enemy.effectScale || 2) * 1.15 * targetMarkScale)
+      .setTint(tint)
+      .setAlpha(0.2)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    enemy.voidHunterRing = this.add
+      .image(enemy.x, enemy.y + 56, "skill-hit-ring")
+      .setDepth(17.45)
+      .setScale(
+        (enemy.effectScale || 2) * 0.72 * targetMarkScale,
+        (enemy.effectScale || 2) * 0.32 * targetMarkScale
+      )
+      .setTint(tint)
+      .setAlpha(0.32)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    enemy.voidHunterMarker = this.add
+      .text(enemy.x, enemy.y - Math.max(120, enemy.displayHeight * 0.52), "VOID HUNTER", {
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "15px",
+        color: "#ffd6ff",
+        fontStyle: "bold",
+        align: "center",
+        stroke: "#14001e",
+        strokeThickness: 4
+      })
+      .setOrigin(0.5)
+      .setDepth(24.2);
+    this.skillEffectsLayer?.add([enemy.voidHunterGlow, enemy.voidHunterRing, enemy.voidHunterMarker]);
+    this.tweens.add({
+      targets: [enemy.voidHunterGlow, enemy.voidHunterRing],
+      alpha: { from: 0.18, to: 0.44 },
+      scaleX: "*=1.08",
+      scaleY: "*=1.08",
+      duration: 760,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.InOut"
+    });
+  }
+
+  updateVoidHunterBossVisuals(enemy, time = this.time?.now || 0) {
+    if (!enemy?.active) {
+      return;
+    }
+    const pulse = (Math.sin(time / 155) + 1) * 0.5;
+    const effectScale = enemy.effectScale || 2;
+    const targetMarkScale = this.getVoidHunterTargetMarkScale();
+    enemy.voidHunterGlow
+      ?.setPosition(enemy.x, enemy.y + 18)
+      .setScale(effectScale * (1.08 + pulse * 0.2) * targetMarkScale);
+    enemy.voidHunterRing
+      ?.setPosition(enemy.x, enemy.y + 56)
+      .setScale(
+        effectScale * (0.66 + pulse * 0.1) * targetMarkScale,
+        effectScale * (0.28 + pulse * 0.05) * targetMarkScale
+      );
+    enemy.voidHunterMarker?.setPosition(enemy.x, enemy.y - Math.max(120, enemy.displayHeight * 0.52) - pulse * 5);
+  }
+
+  getVoidHunterTargetMarkScale() {
+    const multiplier = Number(VOID_HUNTER_CONFIG.targetMarkScaleMultiplier);
+    if (!Number.isFinite(multiplier) || multiplier <= 0) {
+      return 1;
+    }
+    return Phaser.Math.Clamp(multiplier, 0.05, 1);
+  }
+
+  cleanupVoidHunterVisuals(enemy) {
+    if (!enemy) {
+      return;
+    }
+    const objects = [enemy.voidHunterGlow, enemy.voidHunterRing, enemy.voidHunterMarker].filter(Boolean);
+    this.tweens?.killTweensOf(objects);
+    objects.forEach((object) => object?.destroy?.());
+    enemy.voidHunterGlow = null;
+    enemy.voidHunterRing = null;
+    enemy.voidHunterMarker = null;
+  }
+
+  cleanupVoidHunterBoss(reason = "cleanup") {
+    const state = this.voidHunterState;
+    if (!state) {
+      return;
+    }
+    state.spawnTimer?.remove?.(false);
+    state.spawnTimer = null;
+    this.clearVoidHunterWarningVisuals();
+    const boss = state.activeBoss;
+    if (boss?.active && !boss.isDying) {
+      this.cancelBossAttack(boss);
+      this.tweens?.killTweensOf(boss);
+      this.cleanupVoidHunterVisuals(boss);
+      this.enemies?.remove?.(boss, false, false);
+      if (boss.body) {
+        boss.body.enable = false;
+        boss.body.setVelocity(0, 0);
+      }
+      boss.destroy();
+      if (reason === "depthTransition") {
+        this.setLastPickupNotice("VOID HUNTER LOST / NO CLEAR");
+      }
+    } else {
+      this.cleanupVoidHunterVisuals(boss);
+    }
+    state.activeBoss = null;
+    state.pendingSpawn = false;
+    state.pendingPoint = null;
+    state.stationaryMs = 0;
+    state.warningLevel = 0;
+    state.lastSkipReason = reason;
+    this.updateNemesisBossHud?.();
+  }
+
+  updateVoidHunterBossEnemy(enemy, angleToPlayer, distanceToPlayer, delta) {
+    const now = this.time.now;
+    this.updateVoidHunterBossVisuals(enemy, now);
+    enemy.setFlipX(this.playerHitbox.x > enemy.x);
+    if (enemy.isChargingBossAttack) {
+      enemy.body.setVelocity(0, 0);
+      return;
+    }
+    if (now >= (enemy.nextVoidHunterAttackAt || 0)) {
+      this.beginVoidHunterAttack(enemy);
+      return;
+    }
+    const preferredRange = VOID_HUNTER_CONFIG.preferredRange || 620;
+    let moveAngle = angleToPlayer;
+    let moveSpeed = enemy.moveSpeed || VOID_HUNTER_CONFIG.moveSpeed;
+    if (distanceToPlayer < preferredRange * 0.55) {
+      moveAngle = angleToPlayer + Math.PI;
+      moveSpeed *= 0.38;
+    } else if (distanceToPlayer < preferredRange) {
+      moveAngle = angleToPlayer + Math.PI * 0.5;
+      moveSpeed *= 0.24;
+    } else if (distanceToPlayer > preferredRange * 1.42) {
+      moveSpeed *= 1.06;
+    } else {
+      moveSpeed *= 0.55;
+    }
+    this.physics.velocityFromRotation(moveAngle, moveSpeed, enemy.body.velocity);
+  }
+
+  beginVoidHunterAttack(enemy) {
+    if (!enemy?.active || enemy.isDying || enemy.isChargingBossAttack) {
+      return;
+    }
+    const interval = enemy.attackIntervalMs || VOID_HUNTER_CONFIG.attackIntervalMs;
+    enemy.nextVoidHunterAttackAt = this.time.now + Phaser.Math.Between(
+      Math.round(interval * 0.9),
+      Math.round(interval * 1.12)
+    );
+    enemy.isChargingBossAttack = true;
+    enemy.bossAttackId = (enemy.bossAttackId || 0) + 1;
+    enemy.body?.setVelocity(0, 0);
+    const attackId = enemy.bossAttackId;
+    const radius = enemy.attackRadius || VOID_HUNTER_CONFIG.attackRadius;
+    const chargeMs = enemy.attackChargeMs || VOID_HUNTER_CONFIG.attackChargeMs;
+    const points = this.buildVoidHunterAttackPoints(enemy, radius);
+    this.playVoidHunterAttackMotion(enemy, attackId, chargeMs);
+    points.forEach((point) => this.createVoidHunterAttackTelegraph(enemy, point, radius, chargeMs, attackId));
+    this.queueBossAttackEvent(enemy, chargeMs, () => {
+      if (!this.completeBossAttackCharge(enemy, attackId)) {
+        return;
+      }
+      this.playVoidHunterAttackRecovery(enemy, attackId);
+      points.forEach((point, index) => {
+        this.queueBossAttackEvent(enemy, index * VOID_HUNTER_CONFIG.attackDetonateDelayMs, () => {
+          if (!enemy.active || enemy.isDying) {
+            return;
+          }
+          this.detonateVoidHunterAttackPoint(enemy, point.x, point.y, radius);
+        });
+      });
+    });
+  }
+
+  buildVoidHunterAttackPoints(enemy, radius) {
+    return this.buildVoidHunterPressureAttackPoints(enemy, this.playerHitbox, radius);
+  }
+
+  buildVoidHunterPressureAttackPoints(attacker, target, radius) {
+    if (!target?.active) {
+      const fallbackX = Number.isFinite(Number(attacker?.x)) ? Number(attacker.x) : 0;
+      const fallbackY = Number.isFinite(Number(attacker?.y)) ? Number(attacker.y) : 0;
+      return [{ x: fallbackX, y: fallbackY, role: "fallback" }];
+    }
+    const attackerX = Number.isFinite(Number(attacker?.x)) ? Number(attacker.x) : target.x - 1;
+    const attackerY = Number.isFinite(Number(attacker?.y)) ? Number(attacker.y) : target.y;
+    const velocity = target.body?.velocity;
+    const speed = Math.hypot(Number(velocity?.x) || 0, Number(velocity?.y) || 0);
+    const baseVector = speed > 18
+      ? { x: velocity.x / speed, y: velocity.y / speed }
+      : this.getNormalizedFinalRaidVector(target.x - attackerX, target.y - attackerY, { x: 1, y: 0 });
+    const sideVector = { x: -baseVector.y, y: baseVector.x };
+    const flankSign = (attackerX - target.x) * sideVector.x + (attackerY - target.y) * sideVector.y >= 0 ? 1 : -1;
+    const forward = VOID_HUNTER_CONFIG.attackPointForwardOffset;
+    const side = VOID_HUNTER_CONFIG.attackPointSideOffset;
+    const back = VOID_HUNTER_CONFIG.attackPointBackOffset;
+    const candidates = [
+      {
+        role: "center",
+        x: target.x,
+        y: target.y,
+        tracksTarget: true
+      },
+      {
+        role: "lead",
+        x: target.x + baseVector.x * forward,
+        y: target.y + baseVector.y * forward
+      },
+      {
+        role: "flank",
+        x: target.x + sideVector.x * side * flankSign - baseVector.x * back,
+        y: target.y + sideVector.y * side * flankSign - baseVector.y * back
+      },
+      {
+        role: "counterFlank",
+        x: target.x - sideVector.x * side * flankSign - baseVector.x * back,
+        y: target.y - sideVector.y * side * flankSign - baseVector.y * back
+      }
+    ];
+    return candidates
+      .slice(0, Math.max(1, VOID_HUNTER_CONFIG.attackPointCount || 3))
+      .map((point) => {
+        const clamped = this.clampBossAttackPoint(point.x, point.y, radius + 24);
+        return { ...point, x: clamped.x, y: clamped.y, target };
+      });
+  }
+
+  playVoidHunterAttackMotion(enemy, attackId, chargeMs) {
+    const frames = VOID_HUNTER_FRAME_ASSETS;
+    const holdIndex = Phaser.Math.Clamp(VOID_HUNTER_CONFIG.holdFrameIndex, 0, frames.length - 1);
+    const frameMs = Math.max(24, VOID_HUNTER_CONFIG.frameMs || 82);
+    for (let index = 0; index <= holdIndex; index += 1) {
+      this.queueBossAttackEvent(enemy, index * frameMs, () => {
+        if (!enemy.active || enemy.isDying || enemy.bossAttackId !== attackId) {
+          return;
+        }
+        const frameKey = frames[index]?.textureKey;
+        if (this.textures.exists(frameKey)) {
+          enemy.setTexture(frameKey);
+          this.scaleWorldImageToFit(enemy, VOID_HUNTER_CONFIG.displayLongestSide);
+          enemy.body?.updateFromGameObject?.();
+        }
+      });
+    }
+  }
+
+  playVoidHunterAttackRecovery(enemy, attackId) {
+    const frames = VOID_HUNTER_FRAME_ASSETS;
+    const holdIndex = Phaser.Math.Clamp(VOID_HUNTER_CONFIG.holdFrameIndex, 0, frames.length - 1);
+    const frameMs = Math.max(24, VOID_HUNTER_CONFIG.frameMs || 82);
+    frames.slice(holdIndex + 1).forEach((frame, index) => {
+      this.queueBossAttackEvent(enemy, index * frameMs, () => {
+        if (!enemy.active || enemy.isDying || enemy.bossAttackId !== attackId) {
+          return;
+        }
+        if (this.textures.exists(frame.textureKey)) {
+          enemy.setTexture(frame.textureKey);
+          this.scaleWorldImageToFit(enemy, VOID_HUNTER_CONFIG.displayLongestSide);
+          enemy.body?.updateFromGameObject?.();
+        }
+      });
+    });
+  }
+
+  createVoidHunterAttackTelegraph(enemy, point, radius, chargeMs, attackId) {
+    const x = point?.x ?? enemy.x;
+    const y = point?.y ?? enemy.y;
+    const fill = this.add
+      .circle(x, y, radius, VOID_HUNTER_CONFIG.warningTint, 0.15)
+      .setDepth(17.4)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const ring = this.add
+      .circle(x, y, radius, VOID_HUNTER_CONFIG.warningTint, 0)
+      .setStrokeStyle(5, 0xff6fff, 0.78)
+      .setDepth(18.1)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const effectTexture = this.textures.exists(VOID_HUNTER_SKILL_EFFECT_ASSET.textureKey)
+      ? VOID_HUNTER_SKILL_EFFECT_ASSET.textureKey
+      : "skill-hit-glow";
+    const effect = this.add
+      .image(x, y + 8, effectTexture)
+      .setDepth(17.8)
+      .setAlpha(0.18)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    effect.setDisplaySize(radius * 2.55, radius * 2.55);
+    const objects = this.registerBossAttackObjects(enemy, [fill, effect, ring]);
+    this.tweens.add({
+      targets: [fill, ring],
+      alpha: { from: 0.18, to: 0.86 },
+      duration: chargeMs,
+      ease: "Sine.In"
+    });
+    this.tweens.add({
+      targets: effect,
+      alpha: { from: 0.14, to: 0.42 },
+      scaleX: effect.scaleX * 1.06,
+      scaleY: effect.scaleY * 1.06,
+      duration: chargeMs,
+      ease: "Sine.In"
+    });
+    this.startVoidHunterAttackPointTracking({
+      owner: enemy,
+      point,
+      radius,
+      chargeMs,
+      attackId,
+      eventListKey: "bossAttackEvents",
+      objects: { fill, effect, ring },
+      getTarget: () => this.playerHitbox,
+      isOwnerValid: () => enemy.active && !enemy.isDying && enemy.isChargingBossAttack && enemy.bossAttackId === attackId
+    });
+    return objects;
+  }
+
+  startVoidHunterAttackPointTracking(options = {}) {
+    const {
+      owner,
+      point,
+      radius,
+      chargeMs,
+      attackId,
+      eventListKey,
+      objects,
+      getTarget,
+      isOwnerValid
+    } = options;
+    if (!owner || !point?.tracksTarget || !eventListKey) {
+      return null;
+    }
+    const trackingMs = Math.min(
+      Math.max(0, Number(VOID_HUNTER_CONFIG.attackCenterTrackMs) || 0),
+      Math.max(0, (Number(chargeMs) || 0) - 250)
+    );
+    if (trackingMs <= 0) {
+      return null;
+    }
+    const intervalMs = Math.max(16, Number(VOID_HUNTER_CONFIG.attackCenterTrackIntervalMs) || 50);
+    const lerp = Phaser.Math.Clamp(Number(VOID_HUNTER_CONFIG.attackCenterTrackLerp) || 0.28, 0.05, 1);
+    const startedAt = this.time.now;
+    let event = null;
+    const stopTracking = () => {
+      event?.remove(false);
+      if (owner?.[eventListKey]) {
+        owner[eventListKey] = owner[eventListKey].filter((entry) => entry !== event);
+      }
+    };
+    event = this.time.addEvent({
+      delay: intervalMs,
+      loop: true,
+      callback: () => {
+        const elapsed = this.time.now - startedAt;
+        const target = typeof getTarget === "function" ? getTarget() : point.target;
+        const visualsActive = [objects?.fill, objects?.effect, objects?.ring].some((object) => object?.active);
+        if (elapsed >= trackingMs || !visualsActive || !target?.active || (typeof isOwnerValid === "function" && !isOwnerValid())) {
+          stopTracking();
+          return;
+        }
+        const clamped = this.clampBossAttackPoint(target.x, target.y, radius + 24);
+        point.x = Phaser.Math.Linear(point.x, clamped.x, lerp);
+        point.y = Phaser.Math.Linear(point.y, clamped.y, lerp);
+        this.syncVoidHunterAttackTelegraphPosition(point, objects);
+      }
+    });
+    owner[eventListKey] = owner[eventListKey] || [];
+    owner[eventListKey].push(event);
+    return event;
+  }
+
+  syncVoidHunterAttackTelegraphPosition(point, objects = {}) {
+    objects.fill?.setPosition(point.x, point.y);
+    objects.ring?.setPosition(point.x, point.y);
+    objects.effect?.setPosition(point.x, point.y + 8);
+  }
+
+  detonateVoidHunterAttackPoint(enemy, x, y, radius) {
+    this.spawnBossAttackImage(
+      VOID_HUNTER_SKILL_EFFECT_ASSET.textureKey,
+      x,
+      y + 8,
+      radius * 2.72,
+      radius * 2.72,
+      Phaser.Math.FloatBetween(-0.16, 0.16),
+      VOID_HUNTER_CONFIG.attackEffectDurationMs
+    );
+    if (this.isPlayerInBossCircle(x, y, radius)) {
+      const tookDamage = this.applyDamageToPlayer(this.getEnemyOutgoingDamage(enemy, enemy.attackDamage || VOID_HUNTER_CONFIG.attackDamage));
+      if (tookDamage) {
+        this.applyVoidHunterJamming();
+      }
+    }
+  }
+
+  handleVoidHunterDefeated(enemy) {
+    if (!this.isVoidHunterBoss(enemy) || enemy.voidHunterRewardClaimed) {
+      return false;
+    }
+    const state = this.voidHunterState;
+    enemy.voidHunterRewardClaimed = true;
+    if (state) {
+      state.activeBoss = null;
+      state.defeatedThisDepth = true;
+      state.totalDefeated += 1;
+    }
+    this.runStats.voidHunterKills = (this.runStats.voidHunterKills || 0) + 1;
+    this.cleanupVoidHunterVisuals(enemy);
+    const wasUnlocked = this.isVoidHunterSupportUnlocked();
+    if (VOID_HUNTER_CONFIG.defeatSupportUnlock) {
+      this.markVoidHunterDefeated({
+        defeatedAt: Date.now(),
+        unlockedVoidHunterSupport: true
+      });
+    }
+    this.setLastPickupNotice(wasUnlocked ? "VOID HUNTER DOWN" : "VOID HUNTER DOWN / SUPPORT UNLOCKED");
+    this.showOverflowRewardText(
+      wasUnlocked ? "VOID HUNTER DOWN" : "VOID HUNTER SUPPORT UNLOCKED",
+      enemy.x,
+      enemy.y - Math.max(120, enemy.displayHeight * 0.48),
+      "#ffd6ff"
+    );
+    this.updateNemesisBossHud?.();
+    if (this.isVoidHunterDebugEnabled()) {
+      console.log("[VOID HUNTER] defeated", {
+        depth: enemy.voidHunterDepth,
+        supportUnlocked: this.isVoidHunterSupportUnlocked()
+      });
+    }
+    this.logVoidHunterTrace("defeated", {
+      depth: enemy.voidHunterDepth,
+      totalDefeated: state?.totalDefeated,
+      supportUnlocked: this.isVoidHunterSupportUnlocked()
+    }, { force: true });
+    return true;
+  }
+
   updateNemesisBossHud() {
     if (!this.hudNemesisPanel || !this.hudNemesisText || !this.hudNemesisBarGraphics) {
       return;
     }
     const boss = this.getActiveNemesisBoss();
+    const voidHunter = boss ? null : this.getActiveVoidHunterBoss();
     const state = this.nemesisBossState;
-    const visible = Boolean(boss);
+    const visible = Boolean(boss || voidHunter);
     this.hudNemesisPanel.setVisible(visible);
     this.hudNemesisText.setVisible(visible);
     this.hudNemesisBarGraphics.setVisible(visible);
     this.hudNemesisBarGraphics.clear();
-    if (!boss) {
+    if (!boss && !voidHunter) {
       if (this.isNemesisBossDebugEnabled() && state?.spawnTimer && !this.shopActive) {
         this.hudNemesisPanel.setVisible(true);
         this.hudNemesisText.setVisible(true);
         const remainingMs = Math.max(0, (state.nextSpawnAt || 0) - (this.time?.now || 0));
         this.hudNemesisText.setText(`NEMESIS DEBUG / ETA ${this.formatTimeMs(remainingMs)}`);
       }
+      return;
+    }
+    if (voidHunter) {
+      const ratio = Phaser.Math.Clamp((Number(voidHunter.hp) || 0) / Math.max(1, Number(voidHunter.maxHp) || 1), 0, 1);
+      const x = GAME_WIDTH / 2 - 220;
+      const y = 334;
+      const width = 440;
+      const height = 8;
+      this.hudNemesisText
+        .setColor("#ffd6ff")
+        .setText(`VOID HUNTER  D${voidHunter.voidHunterDepth || this.stageDepth}  HP ${Math.ceil(ratio * 100)}%`);
+      this.hudNemesisBarGraphics.fillStyle(0x03070d, 0.9);
+      this.hudNemesisBarGraphics.fillRoundedRect(x, y, width, height, 2);
+      this.hudNemesisBarGraphics.lineStyle(1, 0xff8cff, 0.58);
+      this.hudNemesisBarGraphics.strokeRoundedRect(x - 1, y - 1, width + 2, height + 2, 3);
+      this.hudNemesisBarGraphics.fillStyle(VOID_HUNTER_CONFIG.accentTint, 0.92);
+      this.hudNemesisBarGraphics.fillRoundedRect(x, y, Math.max(0, width * ratio), height, 2);
       return;
     }
     const definition = boss.nemesisDefinition || state?.activeDefinition || {};
@@ -9298,6 +10488,10 @@ class SurvivalScene extends Phaser.Scene {
     return Boolean(this.finalBossState?.cleared || this.finalBossState?.unlockedFinalBossSupport);
   }
 
+  isVoidHunterSupportUnlocked() {
+    return Boolean(this.finalBossState?.unlockedVoidHunterSupport || this.finalBossState?.voidHunterDefeated);
+  }
+
   isRewardLockedCd(cd) {
     if (!cd || cd.rewardUnlock !== "finalBossRaidClear") {
       return false;
@@ -9345,11 +10539,14 @@ class SurvivalScene extends Phaser.Scene {
 
   createDefaultFinalBossState() {
     return {
-      version: 1,
+      version: 2,
       cleared: false,
       clearedAt: 0,
       unlockedBossCd: false,
-      unlockedFinalBossSupport: false
+      unlockedFinalBossSupport: false,
+      voidHunterDefeated: false,
+      voidHunterDefeatedAt: 0,
+      unlockedVoidHunterSupport: false
     };
   }
 
@@ -9357,12 +10554,17 @@ class SurvivalScene extends Phaser.Scene {
     const defaults = this.createDefaultFinalBossState();
     const cleared = record?.cleared === true || record?.depth10RaidCleared === true;
     const clearedAt = Math.max(0, Math.floor(Number(record?.clearedAt ?? record?.firstClearedAt) || 0));
+    const voidHunterDefeated = record?.voidHunterDefeated === true || record?.voidHunterCleared === true;
+    const voidHunterDefeatedAt = Math.max(0, Math.floor(Number(record?.voidHunterDefeatedAt ?? record?.voidHunterClearedAt) || 0));
     return {
-      version: Math.max(1, Math.floor(Number(record?.version) || defaults.version)),
+      version: Math.max(defaults.version, Math.floor(Number(record?.version) || defaults.version)),
       cleared,
       clearedAt: cleared ? clearedAt : 0,
       unlockedBossCd: cleared || record?.unlockedBossCd === true || record?.cdUnlocked === true,
-      unlockedFinalBossSupport: cleared || record?.unlockedFinalBossSupport === true || record?.supportAttackUnlocked === true
+      unlockedFinalBossSupport: cleared || record?.unlockedFinalBossSupport === true || record?.supportAttackUnlocked === true,
+      voidHunterDefeated,
+      voidHunterDefeatedAt: voidHunterDefeated ? voidHunterDefeatedAt : 0,
+      unlockedVoidHunterSupport: voidHunterDefeated || record?.unlockedVoidHunterSupport === true || record?.voidHunterSupportUnlocked === true
     };
   }
 
@@ -9414,6 +10616,21 @@ class SurvivalScene extends Phaser.Scene {
     });
     this.saveFinalBossState();
     this.syncFinalBossUnlocksToShopState("finalBossRaidClear", { save: true });
+    return this.finalBossState;
+  }
+
+  markVoidHunterDefeated(options = {}) {
+    const defeatedAt = Math.max(
+      0,
+      Math.floor(Number(this.finalBossState?.voidHunterDefeatedAt) || Number(options.defeatedAt) || Date.now())
+    );
+    this.finalBossState = this.normalizeFinalBossState({
+      ...this.finalBossState,
+      voidHunterDefeated: true,
+      voidHunterDefeatedAt: defeatedAt,
+      unlockedVoidHunterSupport: options.unlockedVoidHunterSupport !== false
+    });
+    this.saveFinalBossState();
     return this.finalBossState;
   }
 
@@ -26348,6 +27565,12 @@ class SurvivalScene extends Phaser.Scene {
     }));
   }
 
+  isVoidHunterSupportAttackActive() {
+    return Boolean(this.activeSupportAttacks?.some((support) => {
+      return support?.definition?.id === VOID_HUNTER_SUPPORT_ID && support?.sprite?.active;
+    }));
+  }
+
   isSupportProgressionCapped() {
     return !this.canApplySupportReward(SPECIAL_ITEM_DEFINITIONS.bomb);
   }
@@ -31570,6 +32793,10 @@ class SurvivalScene extends Phaser.Scene {
     if (!this.isRobotBarrierUnlocked() || !this.robotState) {
       return;
     }
+    if (this.isVoidHunterJammingActive?.()) {
+      this.updateRobotBarrierVisual(0);
+      return;
+    }
     if ((this.robotState.barrierCooldownMs || 0) > 0) {
       this.updateRobotBarrierVisual(0);
       return;
@@ -35634,6 +36861,7 @@ class SurvivalScene extends Phaser.Scene {
     this.notifyGeekMilestoneForDepth(this.stageDepth, "gameStart");
     if (!debugStartFinalBossRaidPending) {
       this.onDepthStartedForNemesis(this.stageDepth, "gameStart");
+      this.onDepthStartedForVoidHunter(this.stageDepth, "gameStart");
     }
     const gameStartsInEndlessVoid = !debugStartFinalBossRaidPending && this.isEndlessVoidDepth?.(this.stageDepth);
     if (gameStartsInEndlessVoid) {
@@ -37488,6 +38716,7 @@ class SurvivalScene extends Phaser.Scene {
     this.clearActiveAnomalyContract("depthTransition", { silent: true, keepPending: true });
     this.clearActiveDepthDirective("depthTransition", { silent: true });
     this.cleanupNemesisBoss("depthTransition");
+    this.cleanupVoidHunterBoss("depthTransition");
     this.stageDepth = targetDepth;
     this.updateRunRankingDepthProgress(this.stageDepth);
     this.gateInstabilityStacks = Math.max(0, Math.floor(Number(transition?.nextInstabilityStacks) || 0));
@@ -37531,6 +38760,7 @@ class SurvivalScene extends Phaser.Scene {
     });
     this.queueDepthDirectiveSelection(targetDepth, "depthTransition");
     this.onDepthStartedForNemesis(targetDepth, "depthTransition");
+    this.onDepthStartedForVoidHunter(targetDepth, "depthTransition");
     if (enteredEndlessVoid) {
       this.handleEndlessVoidDepthStarted?.(targetDepth, "depthTransition");
       return;
@@ -37595,6 +38825,7 @@ class SurvivalScene extends Phaser.Scene {
     this.resetTriadMatrixRunState(emergency ? "emergencyExtract" : "extract");
     this.resetSkillMutationState(emergency ? "emergencyExtract" : "extract");
     this.resetNemesisBossState(emergency ? "emergencyExtract" : "extract");
+    this.resetVoidHunterState(emergency ? "emergencyExtract" : "extract");
     this.resetFinalBossRaidState(emergency ? "emergencyExtract" : "extract");
     this.resetCommsUi(emergency ? "emergencyExtract" : "extract");
     this.resetOverflowRewardState();
@@ -38643,6 +39874,7 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     this.updatePlayerMovement(delta);
+    this.updateVoidHunterStationarySummon(delta, this.playerRobotMotion?.isMoving === true);
     if (finalBossRaidActive) {
       this.updateFinalBossRaidCamera();
     }
@@ -38650,7 +39882,7 @@ class SurvivalScene extends Phaser.Scene {
     if (this.gateChoiceActive) {
       return;
     }
-    this.updateEnemies();
+    this.updateEnemies(delta);
     this.updateSupportAttacks(delta);
     this.updateGensoKnightsEvent(delta);
     this.applySkillEnemyForces();
@@ -39694,7 +40926,7 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
-  updateEnemies() {
+  updateEnemies(delta = this.game?.loop?.delta || 16.6667) {
     this.enemies.children.each((enemy) => {
       if (!enemy.active || enemy.isDying) {
         return;
@@ -39732,6 +40964,9 @@ class SurvivalScene extends Phaser.Scene {
           break;
         case "bossSpecial":
           this.updateBossSpecialEnemy(enemy, angleToPlayer, distanceToPlayer);
+          break;
+        case "voidHunter":
+          this.updateVoidHunterBossEnemy(enemy, angleToPlayer, distanceToPlayer, delta);
           break;
         default:
           this.physics.velocityFromRotation(angleToPlayer, enemy.moveSpeed, enemy.body.velocity);
@@ -43648,6 +44883,10 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     const interval = this.getRobotHealInterval();
+    if (this.isVoidHunterJammingActive?.()) {
+      this.robotState.healTimer = Math.min(Math.max(0, Number(this.robotState.healTimer) || 0), interval);
+      return;
+    }
     this.robotState.healTimer += delta;
     if (this.robotState.healTimer < interval) {
       return;
@@ -44397,13 +45636,15 @@ class SurvivalScene extends Phaser.Scene {
 
     enemy.isDying = true;
     const isNemesis = this.isNemesisBoss(enemy);
+    const isVoidHunter = this.isVoidHunterBoss(enemy);
     const suppressRaidMinionRewards = enemy.isFinalBossRaidMinion === true;
-    if (!suppressRaidMinionRewards) {
+    const suppressVoidHunterRewards = isVoidHunter;
+    if (!suppressRaidMinionRewards && !suppressVoidHunterRewards) {
       this.runStats.kills += 1;
       if (enemy.isElite) {
         this.runStats.eliteKills += 1;
       }
-      if (enemy.isBoss && !isNemesis) {
+      if (enemy.isBoss && !isNemesis && !isVoidHunter) {
         this.runStats.bossKills = (this.runStats.bossKills || 0) + 1;
         this.advanceWaveAfterBossKill(enemy);
       }
@@ -44412,7 +45653,7 @@ class SurvivalScene extends Phaser.Scene {
     }
     this.spawnEnemyDefeatEffect(enemy.x, enemy.y);
     const guaranteedDropsSpawned = suppressRaidMinionRewards || enemy.suppressGuaranteedDrops ? true : this.spawnGuaranteedEnemyDrops(enemy);
-    if (!suppressRaidMinionRewards) {
+    if (!suppressRaidMinionRewards && !suppressVoidHunterRewards) {
       if (!guaranteedDropsSpawned) {
         this.trySpawnRareItem(enemy);
       }
@@ -44424,6 +45665,9 @@ class SurvivalScene extends Phaser.Scene {
     }
     if (isNemesis && !suppressRaidMinionRewards) {
       this.handleNemesisBossDefeated(enemy);
+    }
+    if (isVoidHunter && !suppressRaidMinionRewards) {
+      this.handleVoidHunterDefeated(enemy);
     }
     enemy.clearTint();
     this.tweens.killTweensOf(enemy);
@@ -45959,6 +47203,9 @@ class SurvivalScene extends Phaser.Scene {
       if (definition.requiresFinalBossSupportUnlock) {
         return this.isFinalBossSupportUnlocked();
       }
+      if (definition.requiresVoidHunterSupportUnlock) {
+        return this.isVoidHunterSupportUnlocked() && !this.getActiveVoidHunterBoss?.();
+      }
       return true;
     });
   }
@@ -45967,6 +47214,7 @@ class SurvivalScene extends Phaser.Scene {
     const availableDefinitions = this.getAvailableSupportAttackDefinitions();
     const canTriggerGensoKnights = !this.isGensoKnightsEventActive()
       && !this.getActiveNemesisBoss()
+      && !this.getActiveVoidHunterBoss?.()
       && !(this.activeSupportAttacks?.length)
       && this.lastSupportAttackId !== GENSO_KNIGHTS_SUPPORT_DEFINITION.id;
 
@@ -47465,7 +48713,14 @@ class SurvivalScene extends Phaser.Scene {
     const centerX = supportX;
     const centerY = supportY + (definition.actionCenterOffsetY || 0);
     const shadow = this.add
-      .ellipse(supportX, supportY + (definition.supportShadowOffsetY || 74), 82, 22, 0x000000, 0.28)
+      .ellipse(
+        supportX,
+        supportY + (definition.supportShadowOffsetY || 74),
+        definition.supportShadowWidth || 82,
+        definition.supportShadowHeight || 22,
+        0x000000,
+        definition.supportShadowAlpha ?? 0.28
+      )
       .setDepth(15.9)
       .setAlpha(0);
     const sprite = this.add
@@ -47641,7 +48896,9 @@ class SurvivalScene extends Phaser.Scene {
       const support = this.activeSupportAttacks[index];
       const definition = support.definition;
       support.elapsedMs += delta;
-      this.updateSupportAttackAnimation(support, delta);
+      if (definition.useCustomAnimation !== true) {
+        this.updateSupportAttackAnimation(support, delta);
+      }
       this.updateSupportFieldVisuals(support, delta);
 
       if (definition.type === "pullBurst") {
@@ -47654,6 +48911,8 @@ class SurvivalScene extends Phaser.Scene {
         this.updateSupportRandomAttack(support, delta);
       } else if (definition.type === "finalBossSupport") {
         this.updateFinalBossSupportAttack(support, delta);
+      } else if (definition.type === "voidHunterSupport") {
+        this.updateVoidHunterSupportAttack(support, delta);
       } else if (definition.type === "followThunder") {
         this.updateSupportFollowThunder(support, delta);
       } else if (definition.type === "dashSlash") {
@@ -48533,26 +49792,35 @@ class SurvivalScene extends Phaser.Scene {
 
   performFinalBossSupportSpell(support, spellIndex = 0) {
     const definition = support.definition;
-    const spellKind = spellIndex % 2 === 0 ? "fire" : "ice";
+    const spellKinds = Array.isArray(definition.spellKinds) && definition.spellKinds.length > 0
+      ? definition.spellKinds
+      : ["fire", "ice"];
+    const spellKind = spellKinds[spellIndex % spellKinds.length] || "fire";
     const target = this.pickFinalBossSupportTarget(definition);
     if (!target) {
       return;
     }
 
-    const radius = spellKind === "fire"
-      ? (definition.fireRadius || 420)
-      : (definition.iceRadius || 330);
+    const radius = spellKind === "void"
+      ? (definition.voidRadius || 390)
+      : spellKind === "fire"
+        ? (definition.fireRadius || 420)
+        : (definition.iceRadius || 330);
     const center = this.clampBossAttackPoint(
       target.x + Phaser.Math.Between(-28, 28),
       target.y + Phaser.Math.Between(-22, 22),
       radius + 28
     );
-    const damage = spellKind === "fire"
-      ? (definition.fireDamageAmount || 46)
-      : (definition.iceDamageAmount || 30);
-    const knockbackForce = spellKind === "fire"
-      ? (definition.fireKnockbackForce || 520)
-      : (definition.iceKnockbackForce || 240);
+    const damage = spellKind === "void"
+      ? (definition.voidDamageAmount || 40)
+      : spellKind === "fire"
+        ? (definition.fireDamageAmount || 46)
+        : (definition.iceDamageAmount || 30);
+    const knockbackForce = spellKind === "void"
+      ? (definition.voidKnockbackForce || 360)
+      : spellKind === "fire"
+        ? (definition.fireKnockbackForce || 520)
+        : (definition.iceKnockbackForce || 240);
 
     support.sprite?.setFlipX(center.x < support.x);
     const field = this.spawnFinalBossSupportSpellField(support, center.x, center.y, radius, spellKind, definition, damage, knockbackForce);
@@ -48560,7 +49828,9 @@ class SurvivalScene extends Phaser.Scene {
     if (hitCount > 0) {
       this.cameras.main.shake(spellKind === "fire" ? 130 : 90, spellKind === "fire" ? 0.0022 : 0.0014);
     }
-    this.setLastPickupNotice(`${definition.noticeLabel} ${spellKind === "fire" ? "BLAZE FIELD" : "FREEZE FIELD"} ${hitCount} HIT`);
+    const noticeLabel = definition.spellNoticeLabels?.[spellKind]
+      || (spellKind === "fire" ? "BLAZE FIELD" : spellKind === "ice" ? "FREEZE FIELD" : `${String(spellKind).toUpperCase()} FIELD`);
+    this.setLastPickupNotice(`${definition.noticeLabel} ${noticeLabel} ${hitCount} HIT`);
   }
 
   pickFinalBossSupportTarget(definition) {
@@ -48601,30 +49871,35 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     const isFire = spellKind === "fire";
+    const isIce = spellKind === "ice";
+    const floorTint = isFire ? 0xff4e18 : isIce ? 0x4edfff : 0x9136ff;
+    const glowTint = isFire ? 0xff8a35 : isIce ? 0xa8f8ff : (definition.glowTint || 0xd05cff);
+    const ringTint = isFire ? 0xff6a33 : isIce ? definition.glowTint : (definition.tint || 0x9b5cff);
+    const floorAlpha = isFire ? 0.055 : isIce ? 0.065 : 0.08;
     const durationMs = Math.max(100, Number(definition.spellFieldDurationMs) || 3000);
     const tickMs = Math.max(80, Number(definition.spellFieldTickMs) || 600);
     const tickCount = Math.max(1, 1 + Math.floor(Math.max(0, durationMs - 1) / tickMs));
     const tickDamage = Math.max(1, Math.round((Number(totalDamage) || 1) / tickCount));
-    const fieldTextureKey = this.getFinalBossSupportSpellFieldTextureKey(spellKind);
+    const fieldTextureKey = this.getFinalBossSupportSpellFieldTextureKey(spellKind, definition);
     const fieldImageMetrics = fieldTextureKey
       ? this.getFinalBossRaidFieldImageMetrics(spellKind, radius, { support: true })
       : null;
     const floor = this.add
-      .ellipse(x, y + 18, radius * 2.25, radius * 1.02, isFire ? 0xff4e18 : 0x4edfff, isFire ? 0.055 : 0.065)
+      .ellipse(x, y + 18, radius * 2.25, radius * 1.02, floorTint, floorAlpha)
       .setDepth(19.2)
       .setBlendMode(Phaser.BlendModes.ADD);
     const glow = this.add
       .image(x, y + 10, "skill-hit-glow")
       .setDepth(19.35)
       .setScale(Math.max(0.8, radius / 58), Math.max(0.62, radius / 72))
-      .setTint(isFire ? 0xff8a35 : 0xa8f8ff)
-      .setAlpha(isFire ? 0.42 : 0.46)
+      .setTint(glowTint)
+      .setAlpha(isFire ? 0.42 : isIce ? 0.46 : 0.5)
       .setBlendMode(Phaser.BlendModes.ADD);
     const ring = this.add
       .image(x, y + 12, "skill-hit-ring")
       .setDepth(19.5)
       .setScale(radius / 36, radius / 54)
-      .setTint(isFire ? 0xff6a33 : definition.glowTint)
+      .setTint(ringTint)
       .setAlpha(0.24)
       .setBlendMode(Phaser.BlendModes.ADD);
     const fieldImage = fieldTextureKey
@@ -48653,7 +49928,8 @@ class SurvivalScene extends Phaser.Scene {
       tickMs,
       tickTimerMs: 0,
       tickDamage,
-      knockbackForce: Math.max(0, Math.round((Number(knockbackForce) || 0) * (isFire ? 0.28 : 0.34))),
+      knockbackForce: Math.max(0, Math.round((Number(knockbackForce) || 0) * (isFire ? 0.28 : isIce ? 0.34 : 0.32))),
+      floorAlphaBase: floorAlpha,
       floor,
       glow,
       ring,
@@ -48683,7 +49959,12 @@ class SurvivalScene extends Phaser.Scene {
     return field;
   }
 
-  getFinalBossSupportSpellFieldTextureKey(spellKind) {
+  getFinalBossSupportSpellFieldTextureKey(spellKind, definition = {}) {
+    const definitionTextureKey = definition.spellFieldTextureKeys?.[spellKind] || definition.spellFieldTextureKey;
+    if (definitionTextureKey && this.textures.exists(definitionTextureKey)) {
+      return definitionTextureKey;
+    }
+
     const asset = spellKind === "fire"
       ? FINAL_BOSS_RAID_CONFIG.attackAssets.fireEffect
       : FINAL_BOSS_RAID_CONFIG.attackAssets.iceEffect;
@@ -48811,6 +50092,467 @@ class SurvivalScene extends Phaser.Scene {
       hitCount += 1;
     });
     return hitCount;
+  }
+
+  initializeVoidHunterSupportAttack(support) {
+    if (!support || support.voidHunterSupportInitialized) {
+      return;
+    }
+
+    const definition = support.definition;
+    support.voidHunterSupportInitialized = true;
+    support.voidHunterAttackObjects = [];
+    support.voidHunterAttackEvents = [];
+    support.voidHunterVisualObjects = [];
+    support.voidHunterAttackId = 0;
+    support.voidHunterHitCount = 0;
+    support.isVoidHunterSupportCharging = false;
+    support.nextVoidHunterAttackAtMs = Math.max(
+      0,
+      Number(definition.attackInitialDelayMs) || VOID_HUNTER_CONFIG.attackInitialDelayMs
+    );
+    support.effectScale = Math.max(
+      2.2,
+      Math.max(support.sprite?.displayWidth || 0, support.sprite?.displayHeight || 0) / 170
+    );
+    this.clampVoidHunterSupportToStage(support);
+    this.createVoidHunterSupportVisuals(support);
+    this.syncSupportAttackPosition(support);
+  }
+
+  updateVoidHunterSupportAttack(support, delta) {
+    if (!support?.sprite?.active) {
+      return;
+    }
+
+    this.initializeVoidHunterSupportAttack(support);
+    this.updateVoidHunterSupportVisuals(support);
+    if (support.isVoidHunterSupportCharging) {
+      this.syncSupportAttackPosition(support);
+      return;
+    }
+
+    const definition = support.definition;
+    const target = this.pickVoidHunterSupportTarget(support, definition);
+    if (target && support.elapsedMs >= (support.nextVoidHunterAttackAtMs || 0)) {
+      this.beginVoidHunterSupportAttack(support, target);
+      return;
+    }
+
+    if (target) {
+      this.moveVoidHunterSupportAroundTarget(support, target, delta);
+    } else {
+      this.moveVoidHunterSupportTowardIdle(support, delta);
+    }
+  }
+
+  createVoidHunterSupportVisuals(support) {
+    const definition = support.definition;
+    const tint = definition.glowTint || VOID_HUNTER_CONFIG.accentTint;
+    const targetMarkScale = this.getVoidHunterTargetMarkScale();
+    const glow = this.add
+      .image(support.x, support.y + 18, "skill-hit-glow")
+      .setDepth(17.35)
+      .setScale((support.effectScale || 2) * 1.15 * targetMarkScale)
+      .setTint(tint)
+      .setAlpha(0.2)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const ring = this.add
+      .image(support.x, support.y + 56, "skill-hit-ring")
+      .setDepth(17.45)
+      .setScale(
+        (support.effectScale || 2) * 0.72 * targetMarkScale,
+        (support.effectScale || 2) * 0.32 * targetMarkScale
+      )
+      .setTint(tint)
+      .setAlpha(0.32)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const marker = this.add
+      .text(support.x, support.y - Math.max(120, support.sprite.displayHeight * 0.52), definition.label || "VOID HUNTER", {
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "15px",
+        color: "#ffd6ff",
+        fontStyle: "bold",
+        align: "center",
+        stroke: "#14001e",
+        strokeThickness: 4
+      })
+      .setOrigin(0.5)
+      .setDepth(24.2);
+
+    support.voidHunterGlow = glow;
+    support.voidHunterRing = ring;
+    support.voidHunterMarker = marker;
+    support.voidHunterVisualObjects = [glow, ring, marker];
+    this.skillEffectsLayer?.add(support.voidHunterVisualObjects);
+    this.tweens.add({
+      targets: [glow, ring],
+      alpha: { from: 0.18, to: 0.44 },
+      scaleX: "*=1.08",
+      scaleY: "*=1.08",
+      duration: 760,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.InOut"
+    });
+  }
+
+  updateVoidHunterSupportVisuals(support) {
+    const time = support.elapsedMs || this.time?.now || 0;
+    const pulse = (Math.sin(time / 155) + 1) * 0.5;
+    const effectScale = support.effectScale || 2;
+    const targetMarkScale = this.getVoidHunterTargetMarkScale();
+    support.voidHunterGlow
+      ?.setPosition(support.x, support.y + 18)
+      .setScale(effectScale * (1.08 + pulse * 0.2) * targetMarkScale);
+    support.voidHunterRing
+      ?.setPosition(support.x, support.y + 56)
+      .setScale(
+        effectScale * (0.66 + pulse * 0.1) * targetMarkScale,
+        effectScale * (0.28 + pulse * 0.05) * targetMarkScale
+      );
+    support.voidHunterMarker?.setPosition(support.x, support.y - Math.max(120, support.sprite?.displayHeight * 0.52 || 120) - pulse * 5);
+  }
+
+  clampVoidHunterSupportToStage(support, padding = 92) {
+    const bounds = this.getStageMovementBounds(this.currentStage, padding) || this.getStageWorldBounds(this.currentStage);
+    if (!bounds) {
+      return;
+    }
+
+    const clamped = this.clampPointToBounds(support.x, support.y, bounds);
+    support.x = clamped.x;
+    support.y = clamped.y;
+  }
+
+  pickVoidHunterSupportTarget(support, definition) {
+    const view = this.cameras.main.worldView;
+    const padding = definition.targetPadding || 220;
+    const radius = definition.targetRadius || 1160;
+    const radiusSq = radius * radius;
+    const candidates = [];
+    const fallback = [];
+
+    this.enemies.children.each((enemy) => {
+      if (!enemy.active || enemy.isDying || enemy.isFinalBossRaidBoss || enemy.isFinalBossRaidMinion || this.isVoidHunterBoss(enemy)) {
+        return;
+      }
+
+      const playerDistanceSq = Phaser.Math.Distance.Squared(enemy.x, enemy.y, this.playerHitbox.x, this.playerHitbox.y);
+      const supportDistanceSq = Phaser.Math.Distance.Squared(enemy.x, enemy.y, support.x, support.y);
+      const priority = enemy.isBoss ? 0.42 : enemy.isElite ? 0.58 : 1;
+      const score = (supportDistanceSq * 0.62 + playerDistanceSq * 0.24) * priority;
+      if (playerDistanceSq <= radiusSq || supportDistanceSq <= radiusSq) {
+        fallback.push({ enemy, score: score + radiusSq * 0.15 });
+      }
+      if (
+        enemy.x >= view.left - padding &&
+        enemy.x <= view.right + padding &&
+        enemy.y >= view.top - padding &&
+        enemy.y <= view.bottom + padding
+      ) {
+        candidates.push({ enemy, score });
+      }
+    });
+
+    const pool = candidates.length > 0 ? candidates : fallback;
+    pool.sort((left, right) => left.score - right.score);
+    return pool[0]?.enemy || null;
+  }
+
+  moveVoidHunterSupportAroundTarget(support, target, delta) {
+    const definition = support.definition;
+    const distanceToTarget = Phaser.Math.Distance.Between(support.x, support.y, target.x, target.y);
+    const angleToTarget = Phaser.Math.Angle.Between(support.x, support.y, target.x, target.y);
+    const preferredRange = definition.preferredRange || VOID_HUNTER_CONFIG.preferredRange || 620;
+    let moveAngle = angleToTarget;
+    let moveSpeed = definition.moveSpeed || VOID_HUNTER_CONFIG.moveSpeed;
+    if (distanceToTarget < preferredRange * 0.55) {
+      moveAngle = angleToTarget + Math.PI;
+      moveSpeed *= 0.38;
+    } else if (distanceToTarget < preferredRange) {
+      moveAngle = angleToTarget + Math.PI * 0.5;
+      moveSpeed *= 0.24;
+    } else if (distanceToTarget > preferredRange * 1.42) {
+      moveSpeed *= 1.06;
+    } else {
+      moveSpeed *= 0.55;
+    }
+
+    support.sprite?.setFlipX(target.x > support.x);
+    this.moveVoidHunterSupportByAngle(support, moveAngle, moveSpeed, delta);
+  }
+
+  moveVoidHunterSupportTowardIdle(support, delta) {
+    const definition = support.definition;
+    const side = this.playerSprite?.flipX ? 1 : -1;
+    const desiredX = this.playerHitbox.x + side * (definition.supportOffsetX || 520);
+    const desiredY = this.playerHitbox.y + (definition.supportOffsetY ?? -92);
+    const angle = Phaser.Math.Angle.Between(support.x, support.y, desiredX, desiredY);
+    const distance = Phaser.Math.Distance.Between(support.x, support.y, desiredX, desiredY);
+    support.sprite?.setFlipX(desiredX > support.x);
+    if (distance > 2) {
+      this.moveVoidHunterSupportByAngle(support, angle, (definition.moveSpeed || VOID_HUNTER_CONFIG.moveSpeed) * 0.82, delta);
+    } else {
+      this.syncSupportAttackPosition(support);
+    }
+  }
+
+  moveVoidHunterSupportByAngle(support, angle, speed, delta) {
+    const step = Math.max(0, Number(speed) || 0) * (Math.max(0, Number(delta) || 0) / 1000);
+    support.x += Math.cos(angle) * step;
+    support.y += Math.sin(angle) * step;
+    this.clampVoidHunterSupportToStage(support);
+    this.syncSupportAttackPosition(support);
+  }
+
+  beginVoidHunterSupportAttack(support, target) {
+    if (!support?.sprite?.active || !target?.active || support.isVoidHunterSupportCharging) {
+      return;
+    }
+
+    const definition = support.definition;
+    const interval = definition.attackIntervalMs || VOID_HUNTER_CONFIG.attackIntervalMs;
+    support.nextVoidHunterAttackAtMs = support.elapsedMs + Phaser.Math.Between(
+      Math.round(interval * 0.9),
+      Math.round(interval * 1.12)
+    );
+    support.isVoidHunterSupportCharging = true;
+    support.voidHunterAttackId = (support.voidHunterAttackId || 0) + 1;
+    const attackId = support.voidHunterAttackId;
+    const radius = definition.attackRadius || VOID_HUNTER_CONFIG.attackRadius;
+    const chargeMs = definition.attackChargeMs || VOID_HUNTER_CONFIG.attackChargeMs;
+    const points = this.buildVoidHunterSupportAttackPoints(support, target, radius);
+    support.sprite?.setFlipX(target.x > support.x);
+    this.playVoidHunterSupportAttackMotion(support, attackId);
+    points.forEach((point) => this.createVoidHunterSupportAttackTelegraph(support, point, radius, chargeMs, attackId, target));
+    this.queueVoidHunterSupportEvent(support, chargeMs, () => {
+      if (!this.completeVoidHunterSupportCharge(support, attackId)) {
+        return;
+      }
+      this.playVoidHunterSupportAttackRecovery(support, attackId);
+      points.forEach((point, index) => {
+        this.queueVoidHunterSupportEvent(support, index * VOID_HUNTER_CONFIG.attackDetonateDelayMs, () => {
+          if (!support.sprite?.active) {
+            return;
+          }
+          this.detonateVoidHunterSupportAttackPoint(support, point.x, point.y, radius);
+        });
+      });
+    });
+  }
+
+  buildVoidHunterSupportAttackPoints(support, target, radius) {
+    return this.buildVoidHunterPressureAttackPoints(support, target, radius);
+  }
+
+  playVoidHunterSupportAttackMotion(support, attackId) {
+    const frames = support.definition.animationFrames || VOID_HUNTER_FRAME_ASSETS;
+    const holdIndex = Phaser.Math.Clamp(VOID_HUNTER_CONFIG.holdFrameIndex, 0, frames.length - 1);
+    const frameMs = Math.max(24, support.definition.frameMs || VOID_HUNTER_CONFIG.frameMs || 82);
+    for (let index = 0; index <= holdIndex; index += 1) {
+      this.queueVoidHunterSupportEvent(support, index * frameMs, () => {
+        if (!support.sprite?.active || support.voidHunterAttackId !== attackId) {
+          return;
+        }
+        const frameKey = frames[index]?.textureKey;
+        if (this.textures.exists(frameKey)) {
+          support.frameIndex = index;
+          support.currentTextureIndex = index;
+          support.sprite.setTexture(frameKey);
+          this.scaleSupportCharacterSprite(support.sprite, support.definition, index);
+        }
+      });
+    }
+  }
+
+  playVoidHunterSupportAttackRecovery(support, attackId) {
+    const frames = support.definition.animationFrames || VOID_HUNTER_FRAME_ASSETS;
+    const holdIndex = Phaser.Math.Clamp(VOID_HUNTER_CONFIG.holdFrameIndex, 0, frames.length - 1);
+    const frameMs = Math.max(24, support.definition.frameMs || VOID_HUNTER_CONFIG.frameMs || 82);
+    frames.slice(holdIndex + 1).forEach((frame, index) => {
+      this.queueVoidHunterSupportEvent(support, index * frameMs, () => {
+        if (!support.sprite?.active || support.voidHunterAttackId !== attackId) {
+          return;
+        }
+        if (this.textures.exists(frame.textureKey)) {
+          const frameIndex = holdIndex + 1 + index;
+          support.frameIndex = frameIndex;
+          support.currentTextureIndex = frameIndex;
+          support.sprite.setTexture(frame.textureKey);
+          this.scaleSupportCharacterSprite(support.sprite, support.definition, frameIndex);
+        }
+      });
+    });
+  }
+
+  createVoidHunterSupportAttackTelegraph(support, point, radius, chargeMs, attackId, target) {
+    const x = point?.x ?? support.x;
+    const y = point?.y ?? support.y;
+    const fill = this.add
+      .circle(x, y, radius, VOID_HUNTER_CONFIG.warningTint, 0.15)
+      .setDepth(17.4)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const ring = this.add
+      .circle(x, y, radius, VOID_HUNTER_CONFIG.warningTint, 0)
+      .setStrokeStyle(5, 0xff6fff, 0.78)
+      .setDepth(18.1)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const effectTexture = this.textures.exists(VOID_HUNTER_SKILL_EFFECT_ASSET.textureKey)
+      ? VOID_HUNTER_SKILL_EFFECT_ASSET.textureKey
+      : "skill-hit-glow";
+    const effect = this.add
+      .image(x, y + 8, effectTexture)
+      .setDepth(17.8)
+      .setAlpha(0.18)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    effect.setDisplaySize(radius * 2.55, radius * 2.55);
+    const objects = this.registerVoidHunterSupportAttackObjects(support, [fill, effect, ring]);
+    this.tweens.add({
+      targets: [fill, ring],
+      alpha: { from: 0.18, to: 0.86 },
+      duration: chargeMs,
+      ease: "Sine.In"
+    });
+    this.tweens.add({
+      targets: effect,
+      alpha: { from: 0.14, to: 0.42 },
+      scaleX: effect.scaleX * 1.06,
+      scaleY: effect.scaleY * 1.06,
+      duration: chargeMs,
+      ease: "Sine.In"
+    });
+    this.startVoidHunterAttackPointTracking({
+      owner: support,
+      point,
+      radius,
+      chargeMs,
+      attackId,
+      eventListKey: "voidHunterAttackEvents",
+      objects: { fill, effect, ring },
+      getTarget: () => target,
+      isOwnerValid: () => support.sprite?.active && support.isVoidHunterSupportCharging && support.voidHunterAttackId === attackId
+    });
+    return objects;
+  }
+
+  detonateVoidHunterSupportAttackPoint(support, x, y, radius) {
+    this.spawnBossAttackImage(
+      VOID_HUNTER_SKILL_EFFECT_ASSET.textureKey,
+      x,
+      y + 8,
+      radius * 2.72,
+      radius * 2.72,
+      Phaser.Math.FloatBetween(-0.16, 0.16),
+      VOID_HUNTER_CONFIG.attackEffectDurationMs
+    );
+    const hitCount = this.damageVoidHunterSupportRadius(support, x, y, radius);
+    if (hitCount > 0) {
+      support.voidHunterHitCount = (support.voidHunterHitCount || 0) + hitCount;
+      this.cameras.main.shake(100, 0.0016);
+      this.setLastPickupNotice(`${support.definition.noticeLabel} VOID FIELD ${support.voidHunterHitCount} HIT`);
+    }
+  }
+
+  damageVoidHunterSupportRadius(support, x, y, radius) {
+    const definition = support.definition;
+    let hitCount = 0;
+    this.enemies.children.each((enemy) => {
+      if (!enemy.active || enemy.isDying || enemy.isFinalBossRaidBoss || enemy.isFinalBossRaidMinion || this.isVoidHunterBoss(enemy)) {
+        return;
+      }
+
+      const distance = Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y);
+      if (distance > radius) {
+        return;
+      }
+
+      const falloff = Phaser.Math.Clamp(1 - distance / Math.max(radius, 1), 0, 1);
+      const bossMultiplier = this.isNemesisBoss(enemy)
+        ? (definition.nemesisDamageMultiplier ?? 0.46)
+        : enemy.isBoss
+          ? (definition.bossDamageMultiplier ?? 0.62)
+          : 1;
+      const damage = Math.max(1, Math.round((definition.attackDamageAmount || 42) * bossMultiplier * (0.82 + falloff * 0.36)));
+      this.applyDamageToEnemy(enemy, damage, definition.glowTint || VOID_HUNTER_CONFIG.accentTint, {
+        sourceX: x,
+        sourceY: y,
+        force: definition.knockbackForce || 420,
+        recoverMs: 150,
+        supportFinisher: true
+      });
+      hitCount += 1;
+    });
+    return hitCount;
+  }
+
+  registerVoidHunterSupportAttackObjects(support, objects) {
+    const list = Array.isArray(objects) ? objects : [objects];
+    support.voidHunterAttackObjects = support.voidHunterAttackObjects || [];
+    support.voidHunterAttackObjects.push(...list);
+    this.skillEffectsLayer?.add(list);
+    const maxObjects = Math.max(3, Math.floor(Number(support.definition?.maxAttackFields) || 9) * 3);
+    while (support.voidHunterAttackObjects.length > maxObjects) {
+      support.voidHunterAttackObjects.shift()?.destroy?.();
+    }
+    return list;
+  }
+
+  queueVoidHunterSupportEvent(support, delay, callback) {
+    const event = this.time.delayedCall(delay, () => {
+      support.voidHunterAttackEvents = (support.voidHunterAttackEvents || []).filter((entry) => entry !== event);
+      callback();
+    });
+    support.voidHunterAttackEvents = support.voidHunterAttackEvents || [];
+    support.voidHunterAttackEvents.push(event);
+    return event;
+  }
+
+  completeVoidHunterSupportCharge(support, attackId) {
+    if (!support.sprite?.active || !support.isVoidHunterSupportCharging || support.voidHunterAttackId !== attackId) {
+      this.clearVoidHunterSupportAttackObjects(support);
+      return false;
+    }
+
+    this.clearVoidHunterSupportAttackObjects(support);
+    support.isVoidHunterSupportCharging = false;
+    return true;
+  }
+
+  clearVoidHunterSupportAttackObjects(support) {
+    const objects = support?.voidHunterAttackObjects || [];
+    this.tweens?.killTweensOf(objects);
+    objects.forEach((object) => {
+      if (object?.active) {
+        object.destroy();
+      }
+    });
+    if (support) {
+      support.voidHunterAttackObjects = [];
+    }
+  }
+
+  cleanupVoidHunterSupportAttack(support) {
+    if (!support) {
+      return;
+    }
+
+    support.voidHunterAttackId = (support.voidHunterAttackId || 0) + 1;
+    (support.voidHunterAttackEvents || []).forEach((event) => event?.remove(false));
+    support.voidHunterAttackEvents = [];
+    this.clearVoidHunterSupportAttackObjects(support);
+    const visualObjects = support.voidHunterVisualObjects || [support.voidHunterGlow, support.voidHunterRing, support.voidHunterMarker].filter(Boolean);
+    this.tweens?.killTweensOf(visualObjects);
+    visualObjects.forEach((object) => {
+      if (object?.active) {
+        object.destroy();
+      }
+    });
+    support.voidHunterVisualObjects = [];
+    support.voidHunterGlow = null;
+    support.voidHunterRing = null;
+    support.voidHunterMarker = null;
+    support.isVoidHunterSupportCharging = false;
   }
 
   updateSupportFollowThunder(support, delta) {
@@ -49495,6 +51237,9 @@ class SurvivalScene extends Phaser.Scene {
     }
     if (support.definition?.type === "finalBossSupport") {
       this.cleanupFinalBossSupportSpellFields(support);
+    }
+    if (support.definition?.type === "voidHunterSupport") {
+      this.cleanupVoidHunterSupportAttack(support);
     }
     this.stopSupportAttackAudio(support.definition, restoreNormalBgm);
     const objects = [support.sprite, support.shadow, ...(support.fieldObjects || [])].filter(Boolean);
@@ -50386,6 +52131,7 @@ class SurvivalScene extends Phaser.Scene {
     this.resetTriadMatrixRunState(reason);
     this.resetSkillMutationState(reason);
     this.resetNemesisBossState(reason);
+    this.resetVoidHunterState(reason);
     this.resetFinalBossRaidState(reason);
     this.resetRobotSyncState(reason);
     this.resetRobotBarrierState(reason);
@@ -50556,6 +52302,7 @@ class SurvivalScene extends Phaser.Scene {
     this.resetTriadMatrixRunState("returnToOpeningShop");
     this.resetSkillMutationState("returnToOpeningShop");
     this.resetNemesisBossState("returnToOpeningShop");
+    this.resetVoidHunterState("returnToOpeningShop");
     this.resetFinalBossRaidState("returnToOpeningShop");
     this.resetRobotSyncState("returnToOpeningShop");
     this.resetRobotBarrierState("returnToOpeningShop");

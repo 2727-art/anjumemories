@@ -55,6 +55,8 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - `?debugScrambledComms=1`: デバッグ用。Depth11 以降のスクランブル通信ログを console に出します。この指定だけでは発生間隔は短縮しません。
 - `?debugScrambledCommsInterval=5`: デバッグ用。スクランブル通信の再試行 / ランダム発生間隔を秒数で固定します。最低 5 秒です。
 - `?debugScrambledCommsIntro=1`: デバッグ用。Depth11 以降の導入スクランブル通信を確認しやすくします。
+- `?debugVoidHunter=1`: デバッグ用。Depth10 Final Raid 討伐済み判定と Depth11 条件を緩和し、約4秒の静止で低HPの `VOID HUNTER` を確認できます。
+- `?debugVoidHunterTrace=1`: デバッグ用。`VOID HUNTER` の通常出現条件は緩和せず、静止カウントのブロック理由、警告到達、スポーン直前キャンセル、出現/討伐を console に出します。
 - `?debugStartDepth=10&debugFinalRaid=1&debugFinalRaidScale=0.1&debugFinalRaidPhase=third&debugSkipOpeningBoost=1`: デバッグ用。Depth10 Final Raid を短縮タイマーの第三形態付近から確認します。
 - `?debugRaidRescueLink=1`: デバッグ用。Depth10 Final Raid の RESCUE LINK 初期化、ギルド到着、HUD更新、cleanup を console に出します。
 - `?debugRaidRescueGuild=10`: デバッグ用。指定ギルド番号 / `guild-010` / `all` の RESCUE LINK 到着通信とHUD登録だけをプレビューします。
@@ -400,6 +402,20 @@ NEMESIS は Gate が近すぎる場合、Gate が開いている場合、Gate �
 
 検証用に `?debugNemesis=1` を付けると Depth 1 から出現抽選を通し、約 10 秒後に低 HP の NEMESIS を出現させ、console に schedule / spawn / defeat ログを出します。
 
+## VOID HUNTER
+
+`VOID HUNTER` は Depth10 Final Raid 討伐後、Depth11 以降の Endless Void でだけ出会える裏ボスです。通常プレイ中の経過時間では出現せず、プレイヤーが操作可能な状態でほぼ静止し続けた時間だけを計測します。移動、DASH、Gate 選択、レベルアップ UI、各種 overlay、ショップ、Final Raid 中は計測しません。通常 Wave Boss の出現中も静止カウントと出現判定は継続しますが、NEMESIS、元素騎士イベント、敵版 `VOID HUNTER`、`虚無を狩る者` サポート中は競合回避のため停止します。
+
+Depth11 以降で 40 秒ほぼ静止すると、25 秒付近で微弱な警告、35 秒付近で強い警告が出たあと、プレイヤー付近に `VOID HUNTER` が出現します。非常に低速で追跡しますが、3 秒予告付きの3点範囲攻撃は必ずプレイヤー足元を1点含み、残り2点で移動方向先と横回避先を塞ぎます。足元予兆は最初の約1秒だけゆっくり追尾してから固定されるため、立ち止まり続けると大ダメージを受ける設計です。攻撃命中時は `VOID JAMMING` が 6.5 秒発生し、Recovery Field のHP回復と Barrier Field のフィールド由来再充填を停止します。攻撃中は `画像/hunter/hunter_attack_motion01.png` から `hunter_attack_motion15.png` を再生し、`hunter_attack_motion12.png` 付近で静止して攻撃範囲を予告します。爆発エフェクトには `画像/hunter/hunter_skill_effect.png` を使い、地面に 2 秒間残留します。
+
+`VOID HUNTER` は出現した Depth 内だけの存在です。Depth11 で出現したあと Gate から Depth12 へ移動した場合、裏ボスは消滅し、討伐フラグは立ちません。討伐する場合は Gate 出現後も同じ Depth に滞在し続け、Depth6+ の不安定度蓄積を受けながら長時間戦う必要があります。抽出、緊急抽出、ゲームオーバー、リスタート、ショップ復帰、シーン破棄でも cleanup されます。
+
+撃破時は通常ドロップ、XP、未確定 GEEK、DATA CACHE、LOST ARMS、STABILIZE には混ざらず、初回討伐時だけ `lastmemoVansabaFinalBossState` に `voidHunterDefeated` と `unlockedVoidHunterSupport` を保存します。以後、Support アイテムから低確率でサポート攻撃 `虚無を狩る者` が参戦します。`虚無を狩る者` は既存サポート攻撃と同じカットイン演出で `画像/hunter/cutin.png` を表示し、敵として出現した `VOID HUNTER` と同じスケール、低速移動、攻撃モーション、3秒予告付き3点範囲攻撃を40秒間行います。サポート版の攻撃は敵だけを対象にし、プレイヤーには命中しません。敵版 `VOID HUNTER` が出現中は `虚無を狩る者` を抽選候補から除外し、`虚無を狩る者` が active の間は敵版 `VOID HUNTER` の静止カウントを停止してリセットします。裏ボスの状態は保存済み初回討伐フラグ以外はラン内一時状態で、Depth 遷移時に持ち越しません。
+
+通常条件でも `voidHunterDefeated` 保存後に再出現します。ただし同一 Depth 内では、出現済みまたは討伐済みの場合は再出現しません。2回目以降の討伐は追加報酬なしで、初回討伐フラグとサポート解禁状態だけを維持します。
+
+検証用に `?debugVoidHunter=1` を付けると Depth 1 から条件確認でき、静止時間は約 4 秒、HP は低倍率になります。`?debugStartDepth=11&debugSkipOpeningBoost=1&debugVoidHunter=1` と併用すると Endless Void 側の確認に使えます。
+
 ## ANJU MEMORY
 
 `ANJU MEMORY` は Depth 6 以降の生還でだけ獲得できるメタ報酬通貨です。確定 GEEK、未確定 GEEK、CD/永続強化のショップ状態とは別に保存され、`lastmemoVansabaCoins` や `lastmemoVansabaShopState` には混ざりません。
@@ -530,6 +546,7 @@ Support アイテムを拾うとサポート攻撃が発動します。Support �
 - いしでん
 - アシグラ
 - ドールを解放せし者: Depth10 Final Raid 討伐後のみ低確率で抽選され、20秒間に爆炎/氷結魔法を約8回放ちます。
+- 虚無を狩る者: VOID HUNTER 討伐後のみ低確率で抽選され、敵版と同じ巨大スケールで40秒間フィールドに残り、敵群へ3秒予告付きの3点範囲攻撃を行います。
 
 元素騎士:
 
@@ -694,7 +711,7 @@ localStorage キー:
 - `lastmemoVansabaAnjuMemoryState`: ANJU MEMORY 残高、購入済み報酬、選択中スキン/称号/バッジ、チケット、到達済みマイルストーン
 - `lastmemoVansabaMutationAtlasState`: MUTATION ATLAS の 16 ビルド発見/保存/研究状態、Best Depth、選択中 Research Target
 - `lastmemoVansabaRunArchive`: 直近 20 件の RUN ARCHIVE / 戦闘ログ。ローカル閲覧専用でランキングや Firebase には送信しません。
-- `lastmemoVansabaFinalBossState`: Depth10 Final Raid 討伐済み、ラスボスCD、ラスボスサポート解禁状態
+- `lastmemoVansabaFinalBossState`: Depth10 Final Raid 討伐済み、ラスボスCD、ラスボスサポート解禁状態、VOID HUNTER 討伐済み、VOID HUNTER サポート解禁状態
 - `lastmemoVansabaCommsStoryState`: Depth 初回通信の再生済みフラグ
 - `collisionEditor:<stageId>`: 衝突判定編集モードの一時保存データ
 
