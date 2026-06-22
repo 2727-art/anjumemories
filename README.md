@@ -84,6 +84,21 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - `?debugStartDepth=10&debugFinalRaid=1&debugFinalRaidScale=0.05&debugFinalRaidPhase=third&debugMaxBuild=1&debugSkipOpeningBoost=1`: デバッグ用。強化済み状態でDepth10 Final Raidを確認します。
 - `?debugRecoveryFieldScale=1`: デバッグ用。Recovery Field の選択画像、表示サイズ、alpha、angle / rotation、depth、表示モードを console に出します。
 - `?debugShopLoading=geek|shop|sequence`: デバッグ用。保存データを書き換えず、ショップローディングの GEEK 確定、ショップ起動、連続遷移を表示確認します。`debugShopLoadingAmount=12340` で表示額だけ指定できます。
+- `?debugEquipmentState=1`: デバッグ用。装備保存状態、品質スコア境界、レアリティ別の未解析箱数を `[EQUIPMENT]` prefix で console に出します。サンプル装備や箱は追加しません。
+- `?debugEquipmentHub=1`: デバッグ用。OPERATIONS HUB の GEEKSHOP / EQUIPMENT ANALYSIS を表示専用サンプルで開きます。LEGEND未発見状態として表示し、保存データは変更しません。
+- `?debugEquipmentHub=1&debugEquipmentHubLegend=1`: デバッグ用。EQUIPMENT ANALYSIS のLEGEND発見済み表示を確認します。LEGEND装備とLEGEND箱の表示サンプルを使いますが、保存データは変更しません。
+- `?debugEquipmentAnalysis=1`: デバッグ用。実際に保存済み未解析箱を解析した時だけ、費用、無料クレジット、重複返金、保存成否、残箱数、統計を `[EQUIPMENT ANALYSIS]` prefix で console に出します。
+- `?debugEquipmentBonuses=1`: デバッグ用。出撃開始時の装備スナップショット、部位別スコア、合計品質スコア、各倍率、開始ステータスの適用前後、Final Raid攻撃系抑制を `[EQUIPMENT BONUSES]` prefix で console に出します。
+- `?debugEquipmentBonusPreset=empty|n1|ssr5|legend5|mixed`: デバッグ用。出撃開始時の `runEquipmentLoadoutSnapshot` だけを指定プリセットに差し替えます。`lastmemoVansabaEquipmentState`、未解析箱、GEEK、統計、`bestBySlot` 保存値は変更しません。通常は `debugEquipmentBonuses=1` と併用します。
+- `?debugEquipmentDrop=N|R|SR|SSR|LEGEND`: デバッグ用。`SORTIE PREP` と Opening Boost 完了後、操作可能になってから指定レアリティの装備箱を戦闘フィールドへ直接出します。これは本番ドロップの Depth 内1箱上限を消費しません。
+- `?debugEquipmentDropRank=3&debugEquipmentDropSlot=weapon&debugEquipmentDropCount=1&debugEquipmentDropDistance=180`: デバッグ用。装備箱の Rank、部位、出現数、プレイヤーからの距離を調整します。Rank は1〜5、部位は `head` / `clothes` / `shoes` / `weapon` / `accessory`、出現数は1〜10です。
+- `?debugEquipmentRun=1`: デバッグ用。装備箱のラン内初期化、スポーン、取得、マグネット吸引、Depth 遷移破棄、抽出保存、保存失敗、二重転送スキップを `[EQUIPMENT RUN]` prefix で console に出します。この指定だけでは箱は出現しません。
+- `?debugEquipmentProduction=1`: デバッグ用。本番装備箱ドロップ判定を `[EQUIPMENT DROP]` prefix で console に出します。この指定だけでは抽選率は変わりません。
+- `?debugEquipmentProductionForceDrop=1`: デバッグ用。対象敵の本番ドロップ抽選だけ成功扱いにします。対象外敵、Final Raid、Depth 内1箱上限は迂回しません。
+- `?debugEquipmentProductionForceMiss=1`: デバッグ用。対象敵の本番ドロップ抽選だけ失敗扱いにします。ただし Depth1 初回 Wave Boss 保証が優先されます。ForceDrop と併用した場合は警告を出し、通常抽選に戻します。
+- `?debugEquipmentProductionRarity=SSR&debugEquipmentProductionRank=5&debugEquipmentProductionSlot=weapon`: デバッグ用。本番ドロップで生成される箱のレアリティ、Rank、部位をラン内だけ上書きします。LEGEND は Depth11 以降かつ Final Raid LEGEND報酬獲得済み、または `debugEquipmentProduction=1&debugEquipmentProductionLegendUnlocked=1` の時だけ許可されます。
+- `?debugFinalRaidLegendReward=1`: デバッグ用。Depth10 Final Raid の初回Equipment報酬準備・保存ログを console に出します。報酬内容を通常UIへ先行公開しません。
+- `?debugFinalRaidLegendPresentation=1` / `?debugFinalRaidLegendRewardPreview=1`: デバッグ用。Final Raid の未登録Equipment信号演出だけをプレビューします。pending報酬、securedBoxes、localStorage、`finalRaidLegendRewardClaimed` は変更しません。
 
 ## ゲーム進行
 
@@ -159,10 +174,11 @@ GEEK MILESTONE BONUS:
 - Gold: 38 XP / 基礎 3,000 GEEK を獲得します。
 - DATA CACHE: Depth 遷移時に残った XP / 未確定 GEEK 報酬を圧縮した箱です。
 - Heal: HP を回復します。
-- Magnet: XP オーブ、Bronze / Silver / Gold、DATA CACHE、Robot、LOST ARMS を引き寄せます。
+- Magnet: XP オーブ、Bronze / Silver / Gold、DATA CACHE、Robot、LOST ARMS、装備箱を引き寄せます。
 - Support: サポート攻撃を発動します。
 - Robot: 随伴ロボットの本体レベルやチューニングを強化します。
 - LOST ARMS コア: レア武器のラン内仮強化です。
+- 装備箱: 通常 Wave Boss、Elite、NEMESIS、Gold Slime、Silver Slime から低確率で出現する未解析 Equipment 箱です。拾うとラン内の一時リストに入り、通常 EXTRACT で全箱、EMERGENCY EXTRACT で最高品質1箱だけ `lastmemoVansabaEquipmentState.securedBoxes` に保存されます。NEXT STAGE / FORCE BREAKTHROUGH では拾得済み箱だけ持ち越し、地面に残った箱は DATA CACHE に変換せず破棄します。
 
 Bronze / Silver / Gold の獲得 GEEK 量は Depth、Gate 不安定度、GEEK MILESTONE BONUS、ANOMALY CONTRACT で増加します。XP 成分には GEEK MILESTONE BONUS は影響しません。旧仕様の単独 GEEK オーブや、GEEK だけを直接付与する通常ピックアップは使っていません。
 
@@ -188,6 +204,8 @@ Gold Slime は Gold と Golden Tune Vase、Silver Slime は Silver と Silver Tu
 Depth 6 以降では、Bronze / Silver / Gold の表示数が実効上限に達している場合、新しい価値ドロップは新規オブジェクトを作らず、近い既存ドロップへ XP と未確定 GEEK を 100% 保持したまま統合されます。統合されたドロップは `x2` 以上のスタック表示を持ち、拾ったときは合算済みの XP / 未確定 GEEK として処理されます。この戦闘中のスタック統合は、Depth 遷移時に残ドロップを 25% で DATA CACHE 化する報酬圧縮とは別処理です。
 
 Depth 遷移時には、地面に残っている XP / Bronze / Silver / Gold / DATA CACHE の報酬量を集計し、XP と未確定 GEEK の 25% を DATA CACHE として再配置します。報酬量や元ドロップ数に応じて 1 から 3 個に分割されます。DATA CACHE は生成時点の絶対値 payload を保持するため、回収時に GEEK MILESTONE BONUS を再適用しません。
+
+装備箱は DATA CACHE 圧縮、同カテゴリ統合、汎用低価値整理の対象外です。地面に残った装備箱は NEXT STAGE / FORCE BREAKTHROUGH / ゲームオーバー / ショップ復帰 / シーン破棄で保存されず破棄され、拾得済みの箱だけがラン内一時リストとして Depth をまたぎます。地面上の装備箱は専用上限 12 個を超えた場合だけ古いものから破棄されます。
 
 ## XP、レベルアップ、Overflow 報酬
 
@@ -349,7 +367,7 @@ Depth6、8、10、12、15 に入ると `GEEK MILESTONE` 通知が短く表示さ
 
 ### DEEP EXTRACTION RESULT
 
-Depth 6 以降に通常 `EXTRACT` または `EMERGENCY EXTRACT` が成功すると、ランキング入力やショップ復帰の前に `DEEP EXTRACTION RESULT` が表示されます。通常抽出では `DEEP EXTRACTION RESULT`、緊急抽出では `EMERGENCY DEEP EXTRACTION / Partial data secured` として、到達 Depth、確定 GEEK、生存時間、撃破数、Elite / Boss、Instability、GEEK 最大倍率、ANJU MEMORY、LOST ARMS、NEMESIS、DEPTH DIRECTIVE、TRIAD BUILD / MUTATION ATLAS、ベスト更新、Grade を表示します。
+Depth 6 以降に通常 `EXTRACT` または `EMERGENCY EXTRACT` が成功すると、ランキング入力やショップ復帰の前に `DEEP EXTRACTION RESULT` が表示されます。通常抽出では `DEEP EXTRACTION RESULT`、緊急抽出では `EMERGENCY DEEP EXTRACTION / Partial data secured` として、到達 Depth、確定 GEEK、生存時間、撃破数、Elite / Boss、Instability、GEEK 最大倍率、ANJU MEMORY、LOST ARMS、装備箱の保存 / 喪失、NEMESIS、DEPTH DIRECTIVE、TRIAD BUILD / MUTATION ATLAS、ベスト更新、Grade を表示します。
 
 この画面は演出と集計表示だけです。`secureRunCoins()` の確定額、緊急脱出の保護率、`lastmemoVansabaCoins`、`lastmemoVansabaExtractionMessage`、ランキング、Firebase 送信値は変更しません。Continue、Enter、Space、タップで既存のランキング入力または OPERATIONS HUB 復帰へ進みます。
 
@@ -603,13 +621,42 @@ OPERATIONS HUB では `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY`、`
 
 ラン中 BGM は Depth1〜9 と Final Raid 討伐後の通常 Depth10 では CDSHOP の選択 CD を再生します。初回未討伐の Depth10 Final Raid だけ Final Raid 専用 BGM に切り替わり、Depth11 以降では `./音声/bgm/ENDLESSVOIDAMBIENCE.mp3` をラン中だけ一時上書きします。この専用 BGM は CD として購入・選択・保存されず、`lastmemoVansabaShopState` の CD 選択値も変更しません。
 
-GEEKSHOP:
+GEEKSHOP は `BASE CALIBRATION` と `EQUIPMENT ANALYSIS` の2つのサブビューを持ちます。`BASE CALIBRATION` は従来の確定 GEEK 永続強化画面です。`EQUIPMENT ANALYSIS` では、保存済みの未解析箱を確定 GEEK または無料解析クレジットで解析し、5部位それぞれの最高品質装備を更新できます。装備箱 GameObject、ラン内一時保持、HUD、通常 / 緊急 / Final Raid 帰還時の抽出保存、通常戦闘の本番ドロップ、Depth10 Final Raid 初回LEGEND確定箱、5部位のラン内ステータス補正まで実装済みです。
+
+GEEKSHOP / BASE CALIBRATION:
 
 - Weapon: 最大 Lv.10、攻撃力 +6% / Lv
 - Armor: 最大 Lv.10、最大 HP +10 / Lv
 - Shoes: 最大 Lv.10、移動速度 +8 / Lv
 - SUPPORT LINK SYSTEM: 60,000 GEEK でインストール。インストール後は Support の正常発動累計で `LINK Lv.1-6` まで自動成長し、Support combat effect が +5% から最大 +25% になります。
 - 回収ロボ: 最大 Lv.10。必要 GEEK は 100,000 / 150,000 / 230,000 / 350,000 / 520,000 / 780,000 / 1,150,000 / 1,700,000 / 2,500,000 / 3,600,000。
+
+GEEKSHOP / EQUIPMENT ANALYSIS:
+
+- `HEAD`、`CLOTHES`、`SHOES`、`WEAPON`、`ACCESSORY` の5部位に、保存済み `bestBySlot` のレアリティと Rank I〜V を表示します。空スロットは `NO DATA` です。
+- 未解析箱は `N`、`R`、`SR`、`SSR`、LEGEND発見後のみ `LEGEND` の個数を表示します。箱のslot、rank、sourceDepth、sourceType、id、analysisCostOverrideは表示しません。
+- `legendDiscovered=false` の間は、UI上に `LEGEND` や虹色枠を表示しません。未発見状態でLEGEND箱が内部にある場合は `UNKNOWN SIGNAL` として表示します。
+- 解析費用は `N 500`、`R 2,000`、`SR 8,000`、`SSR 30,000`、`LEGEND 100,000` GEEKです。箱に `analysisCostOverride` がある場合はそれを最優先し、override が無い場合だけ `freeAnalysisCredits` を先に消費します。override 0 は無料ですが無料解析クレジットを消費しません。
+- 解析時は開始前に `actualCost` 全額を所持している必要があります。既存bestより高品質なら `bestBySlot` を更新し、同品質以下の重複なら `Math.floor(actualCost * 0.5)` を返金扱いにして、実際の支払いは差額だけになります。無料解析の重複返金は0です。
+- 保存成功後だけ解析結果パネルを表示します。保存に失敗した場合は GEEK と Equipment 状態をロールバックし、結果パネルは出さず `ANALYSIS ABORTED / SAVE ERROR` を表示します。
+- CURRENT LOADOUT には各部位の効果を表示します。HEAD は攻撃間隔短縮、CLOTHES は最大HP、SHOES はスタミナ回復、WEAPON は3攻撃スキルの実ダメージ、ACCESSORY は最大スタミナです。解析結果パネルは更新時に効果差分、重複時に `UNCHANGED` を表示します。
+- 出撃開始時に保存済み `bestBySlot` だけから `runEquipmentLoadoutSnapshot` と `runEquipmentBonuses` を作成します。このスナップショットはラン中固定で、NEXT STAGE、FORCE BREAKTHROUGH、Depth遷移、レベルアップ、Gate、overlay、pause、ショップ保存値変更では再取得しません。次の出撃から最新の保存装備が反映されます。
+- 装備ボーナスは品質スコア `rarityIndex * 5 + rank` を使います。HEAD は攻撃間隔 -0.25% x score、CLOTHES は最大HP +3 x score、SHOES はスタミナ回復 +0.8% x score、WEAPON は `basicSkill` / `tornadoSkill` / `rabbitThunderSkill` とそれらのMutation派生ダメージ +1.2% x score、ACCESSORY は最大スタミナ +1 x score です。LEGEND Rank5 では HEAD x0.9375、CLOTHES +75、SHOES x1.20、WEAPON x1.30、ACCESSORY +25 になります。
+- CLOTHES と ACCESSORY は開始ステータス再構築時に一度だけ加算します。SHOES はダッシュ回復遅延や消費量を変えず、スタミナ回復量の最終倍率だけを変えます。HEAD は3攻撃スキルの通常攻撃間隔 / 再発動間隔だけへ掛かり、演出ディレイ、持続時間、内部Mutationクールダウン、Support、Robot、LOST ARMS、CHAIN、敵行動には掛かりません。WEAPON は3攻撃スキル由来の実ダメージだけへ掛かり、Support、Robot、Recovery、LOST ARMS、CHAIN、環境ダメージ、敵攻撃、Final Raidの疑似ダメージ、支援ランキング、ボスHPタイムラインには掛かりません。
+- Depth10 初回 Final Raid 中はボスフィールドの時刻演出とランキングを守るため、HEAD と WEAPON の有効倍率だけを 1 に抑制します。CLOTHES、SHOES、ACCESSORY は Final Raid 中も有効です。Final Raid 討伐後の通常 Depth10 ではこの抑制は発生しません。
+- `?debugEquipmentHub=1` と `?debugEquipmentHub=1&debugEquipmentHubLegend=1` は表示専用です。解析ボタンは `PREVIEW ONLY` になり、GEEK消費、無料クレジット消費、統計更新、保存は行いません。
+- 本番装備箱は通常 Wave Boss 45%、通常 Elite 15%、NEMESIS 100%、Gold Slime 35%、Silver Slime 25% で抽選します。通常敵、Final Raid ボス/Add/巨大兵器、元素騎士イベント対象、Directive Slime、VOID HUNTER、報酬抑制対象からは落ちません。
+- 本番装備箱は1 Depth につき最大1個だけ出現します。`?debugEquipmentDrop=...` の直接出現箱や Final Raid 初回確定報酬はこの上限に含めません。
+- Depth1 で Equipment 進行が完全に空の場合、最初の通常 Wave Boss だけ本番ドロップ抽選を100%にします。中身のレアリティ、Rank、部位はDepth1用テーブルで通常どおり決まります。
+- LEGEND の本番ドロップは Depth11 以降かつ `finalRaidLegendRewardClaimed=true` の時だけ解禁されます。未解禁時の LEGEND 重みは SSR に再配分され、`legendDiscovered` では解禁されません。
+- 装備箱を拾うとラン内の `runUnsecuredEquipmentBoxes` にだけ入り、拾った瞬間には `lastmemoVansabaEquipmentState`、`securedBoxes`、`legendDiscovered`、`stats`、確定 GEEK、未確定 GEEK を変更しません。
+- 通常 `EXTRACT` と Final Raid の解放帰還では、拾得済み装備箱をすべて `securedBoxes` に保存します。`EMERGENCY EXTRACT` では `rarityIndex * 5 + rank` の品質スコアが最も高い1箱だけ保存し、同点の場合は先に拾った箱を保存します。
+- Depth10 初回 Final Raid では、ボス撃破時に未登録Equipment信号を一度だけ表示し、専用の `ドールを解放する` 帰還が成功した時だけ固定ID `final-raid-equipment-reward-v1` のLEGEND未解析箱を `securedBoxes` の先頭へ保存します。Rank は Rank2 75% / Rank3 25%、slot は5部位均等、`sourceDepth=10`、`sourceType=finalRaid`、`analysisCostOverride=0` です。
+- Final Raid 確定箱は解析前に `UNKNOWN SIGNAL` として表示され、`LEGEND`、Rank、slot は解析成功時の `LEGEND CLASS CONFIRMED` で初めて公開されます。override 0 のため解析費用は無料で、初回無料解析クレジットは消費しません。
+- `finalRaidLegendRewardClaimed` は「Final Raid初回LEGEND確定箱をEquipment保存状態へ正常に確定済み」を表します。Depth10 Final Raid を装備システム実装前に討伐済みで、このフラグが false の保存データには、起動時に同じ固定ID報酬を1回だけ遡及付与します。claimed が true の場合は、箱が残っていなくても解析済みの可能性を優先して再付与しません。
+- 保存失敗時は Equipment 状態を抽出前に戻し、ラン内箱は保持したまま `EQUIPMENT SAVE FAILED` を表示します。その後ショップ復帰などでランが終了する場合、未保存箱は破棄されます。
+- 戦闘HUDには拾得済み箱のレアリティ別個数だけを `SEALED EQ` として表示します。`legendDiscovered=false` の間、LEGEND箱は `UNKNOWN SIGNAL` 扱いで、LEGEND文字、虹色枠、rank、slot、id、sourceTypeは表示しません。
+- 掃除ロボは Lv5 以上で装備箱を回収できます。Lv1〜4では対象にしません。
 
 ROBOT CUSTOM:
 
@@ -713,6 +760,7 @@ localStorage キー:
 - `lastmemoVansabaRunArchive`: 直近 20 件の RUN ARCHIVE / 戦闘ログ。ローカル閲覧専用でランキングや Firebase には送信しません。
 - `lastmemoVansabaFinalBossState`: Depth10 Final Raid 討伐済み、ラスボスCD、ラスボスサポート解禁状態、VOID HUNTER 討伐済み、VOID HUNTER サポート解禁状態
 - `lastmemoVansabaCommsStoryState`: Depth 初回通信の再生済みフラグ
+- `lastmemoVansabaEquipmentState`: Equipment 保存状態。version、LEGEND 発見フラグ、Final Raid LEGEND 初回報酬フラグ、無料解析クレジット、部位別best装備、未解析箱、opened/upgrades/duplicates統計を保存します。破損JSONや古い形式は起動時に正規化されます。
 - `collisionEditor:<stageId>`: 衝突判定編集モードの一時保存データ
 
 sessionStorage キー:
@@ -721,11 +769,20 @@ sessionStorage キー:
 
 保存データを初期化したい場合は、ブラウザの DevTools から該当キーを削除してください。
 
+### Equipment 保存データ
+
+`equipmentDefinitions.js` は装備システムの定義と純粋関数を `window.EquipmentSystem` として公開します。装備部位は `head`、`clothes`、`shoes`、`weapon`、`accessory` の5種です。レアリティは `N`、`R`、`SR`、`SSR`、`LEGEND` の5種で、各レアリティは Rank1〜5 を持ちます。品質スコアは `rarityIndex * 5 + rank` で、`N Rank5 < R Rank1 < ... < LEGEND Rank5` になるよう比較します。`createEmptyEquipmentBonuses()`、`getEquipmentBonusForItem()`、`getEquipmentBonusesFromState()`、`cloneEquipmentBonuses()` は状態を変更しない純粋関数で、補正計算では `bestBySlot` だけを参照します。
+
+保存キーは `lastmemoVansabaEquipmentState` です。初期状態は `version: 1`、`legendDiscovered: false`、`finalRaidLegendRewardClaimed: false`、`freeAnalysisCredits: 1`、5部位すべて `null` の `bestBySlot`、空の `securedBoxes`、`opened/upgrades/duplicates` が0の `stats` です。Phase 7 でも保存キーと `version` は増やしません。ラン中に拾った未抽出箱は `runUnsecuredEquipmentBoxes` の一時状態だけで持ち、通常 / 緊急 / Final Raid 解放帰還の抽出成功時にだけ `securedBoxes` へ追記して `lastmemoVansabaEquipmentState` を保存します。Depth10 Final Raid 初回確定箱はラン中箱とは別系統の自動報酬で、専用帰還成功時に固定IDで `securedBoxes` 先頭へ保存します。
+
+OPERATIONS HUB の GEEKSHOP / EQUIPMENT ANALYSIS から保存済み `securedBoxes` を解析すると、`legendDiscovered`、`freeAnalysisCredits`、`bestBySlot`、`securedBoxes`、`stats.opened/upgrades/duplicates` を更新します。`finalRaidLegendRewardClaimed` は Final Raid 初回LEGEND確定箱の保存成功、または同じ固定ID箱が既に存在する状態の修復保存成功でだけ true になります。解析、通常戦闘ドロップ、抽出保存では変更しません。ラン中のステータス補正は出撃開始時に `bestBySlot` から作る `runEquipmentLoadoutSnapshot` と `runEquipmentBonuses` だけを参照し、`lastmemoVansabaEquipmentState` 自体には保存しません。
+
 ## 主なファイル
 
 - `index.html`: DOM 構造、スマートフォン開始ゲート、ショップローディング画面、スクリプト読み込み
 - `style.css`: ページ枠、モバイル表示、スマートフォン開始ゲート、ショップローディング画面
 - `game.js`: ゲーム本体、ショップ、Gate、戦闘、ロボット、サポート、LOST ARMS、Firebase 連携
+- `equipmentDefinitions.js`: Equipment の部位、レアリティ、解析費用、本番ドロップ抽選、品質比較、ステータス補正、保存状態正規化、未解析箱管理、抽出時追記、緊急抽出用最高品質選択、解析解決の純粋関数
 - `skillDefinitions.js`: スキル定義
 - `stageDefinitions.js`: ステージ定義、東京ランダムステージ、衝突判定定義
 - `vendor/phaser.min.js`: Phaser 3 本体
@@ -765,6 +822,15 @@ http://127.0.0.1:4173/?debugRobotSync=1
 http://127.0.0.1:4173/?debugRobotMissileLevel=10&debugSkipOpeningBoost=1
 http://127.0.0.1:4173/?debugStartDepth=11&debugSkipOpeningBoost=1&debugEndlessVoidBgm=1&debugScrambledComms=1&debugScrambledCommsInterval=5
 http://127.0.0.1:4173/?debugRecoveryFieldScale=1
+http://127.0.0.1:4173/?mobileGate=0&mobileControls=0&debugEquipmentState=1
+http://127.0.0.1:4173/?mobileGate=0&mobileControls=0&debugEquipmentHub=1
+http://127.0.0.1:4173/?mobileGate=0&mobileControls=0&debugEquipmentHub=1&debugEquipmentHubLegend=1
+http://127.0.0.1:4173/?mobileGate=0&mobileControls=0&debugEquipmentAnalysis=1
+http://127.0.0.1:4173/?mobileGate=0&mobileControls=0&debugSkipOpeningBoost=1&debugEquipmentBonuses=1&debugEquipmentBonusPreset=legend5
+http://127.0.0.1:4173/?mobileGate=0&mobileControls=0&debugSkipOpeningBoost=1&debugEquipmentDrop=SR&debugEquipmentDropCount=3&debugEquipmentRun=1
+http://127.0.0.1:4173/?mobileGate=0&mobileControls=0&debugSkipOpeningBoost=1&debugEquipmentProduction=1&debugEquipmentProductionForceDrop=1
+http://127.0.0.1:4173/?mobileGate=0&mobileControls=0&debugStartDepth=11&debugSkipOpeningBoost=1&debugEquipmentProduction=1&debugEquipmentProductionForceDrop=1&debugEquipmentProductionLegendUnlocked=1&debugEquipmentProductionRarity=LEGEND
+http://127.0.0.1:4173/?mobileGate=0&mobileControls=1&debugEquipmentHub=1
 http://127.0.0.1:4173/?debugSkillMutation=1
 http://127.0.0.1:4173/?debugSkillMutation=1&debugSkillMutationSkill=basicSkill
 http://127.0.0.1:4173/?debugSkillMutation=1&debugSkillMutationSkill=tornadoSkill

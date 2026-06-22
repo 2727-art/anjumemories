@@ -923,6 +923,76 @@ const COIN_WALLET_STORAGE_KEY = "lastmemoVansabaCoins";
 const SHOP_STATE_STORAGE_KEY = "lastmemoVansabaShopState";
 const LOST_ARMS_STORAGE_KEY = "lastmemoVansabaLostArmsState";
 const FINAL_BOSS_STATE_STORAGE_KEY = "lastmemoVansabaFinalBossState";
+const EQUIPMENT_STORAGE_KEY = "lastmemoVansabaEquipmentState";
+const EQUIPMENT_DEBUG_QUERY_PARAM = "debugEquipmentState";
+const EQUIPMENT_HUB_DEBUG_QUERY_PARAM = "debugEquipmentHub";
+const EQUIPMENT_HUB_LEGEND_DEBUG_QUERY_PARAM = "debugEquipmentHubLegend";
+const EQUIPMENT_ANALYSIS_DEBUG_QUERY_PARAM = "debugEquipmentAnalysis";
+const EQUIPMENT_BONUS_DEBUG_QUERY_PARAM = "debugEquipmentBonuses";
+const EQUIPMENT_BONUS_PRESET_QUERY_PARAM = "debugEquipmentBonusPreset";
+const EQUIPMENT_RUN_DEBUG_QUERY_PARAM = "debugEquipmentRun";
+const EQUIPMENT_DROP_DEBUG_QUERY_PARAM = "debugEquipmentDrop";
+const EQUIPMENT_DROP_RANK_DEBUG_QUERY_PARAM = "debugEquipmentDropRank";
+const EQUIPMENT_DROP_SLOT_DEBUG_QUERY_PARAM = "debugEquipmentDropSlot";
+const EQUIPMENT_DROP_COUNT_DEBUG_QUERY_PARAM = "debugEquipmentDropCount";
+const EQUIPMENT_DROP_DISTANCE_DEBUG_QUERY_PARAM = "debugEquipmentDropDistance";
+const EQUIPMENT_PRODUCTION_DEBUG_QUERY_PARAM = "debugEquipmentProduction";
+const EQUIPMENT_PRODUCTION_FORCE_DROP_DEBUG_QUERY_PARAM = "debugEquipmentProductionForceDrop";
+const EQUIPMENT_PRODUCTION_FORCE_MISS_DEBUG_QUERY_PARAM = "debugEquipmentProductionForceMiss";
+const EQUIPMENT_PRODUCTION_RARITY_DEBUG_QUERY_PARAM = "debugEquipmentProductionRarity";
+const EQUIPMENT_PRODUCTION_RANK_DEBUG_QUERY_PARAM = "debugEquipmentProductionRank";
+const EQUIPMENT_PRODUCTION_SLOT_DEBUG_QUERY_PARAM = "debugEquipmentProductionSlot";
+const EQUIPMENT_PRODUCTION_LEGEND_UNLOCKED_DEBUG_QUERY_PARAM = "debugEquipmentProductionLegendUnlocked";
+const FINAL_RAID_LEGEND_REWARD_DEBUG_QUERY_PARAM = "debugFinalRaidLegendReward";
+const FINAL_RAID_LEGEND_PRESENTATION_DEBUG_QUERY_PARAM = "debugFinalRaidLegendPresentation";
+const FINAL_RAID_LEGEND_REWARD_PREVIEW_DEBUG_QUERY_PARAM = "debugFinalRaidLegendRewardPreview";
+const GEEK_SHOP_SUB_VIEW_BASE_CALIBRATION = "baseCalibration";
+const GEEK_SHOP_SUB_VIEW_EQUIPMENT_ANALYSIS = "equipmentAnalysis";
+const GEEK_SHOP_SUB_VIEWS = [
+  { id: GEEK_SHOP_SUB_VIEW_BASE_CALIBRATION, label: "BASE CALIBRATION" },
+  { id: GEEK_SHOP_SUB_VIEW_EQUIPMENT_ANALYSIS, label: "EQUIPMENT ANALYSIS" }
+];
+const EQUIPMENT_HUB_SLOT_ROWS = [
+  { slot: "head", label: "HEAD" },
+  { slot: "clothes", label: "CLOTHES" },
+  { slot: "shoes", label: "SHOES" },
+  { slot: "weapon", label: "WEAPON" },
+  { slot: "accessory", label: "ACCESSORY" }
+];
+const EQUIPMENT_HUB_RARITY_ORDER = ["N", "R", "SR", "SSR", "LEGEND"];
+const EQUIPMENT_HUB_RANK_LABELS = {
+  1: "I",
+  2: "II",
+  3: "III",
+  4: "IV",
+  5: "V"
+};
+const EQUIPMENT_HUB_RARITY_STYLES = {
+  N: { fill: 0x101923, stroke: 0x8d99a6, text: "#c5d0da", dim: "#8795a2" },
+  R: { fill: 0x0b1c32, stroke: 0x4aa3ff, text: "#88cfff", dim: "#7fa6c8" },
+  SR: { fill: 0x1a1432, stroke: 0xb184ff, text: "#d4b8ff", dim: "#aa91cf" },
+  SSR: { fill: 0x241d0c, stroke: 0xf0c463, text: "#ffe39a", dim: "#c9a85f" },
+  LEGEND: { fill: 0x18112b, stroke: 0xecf7ff, text: "#ffffff", dim: "#d7f7ff" },
+  unknown: { fill: 0x0b1a22, stroke: 0x9ffcff, text: "#ecfaff", dim: "#9ab7cc" }
+};
+const EQUIPMENT_HUB_LEGEND_FRAME_COLORS = [0xff4f45, 0xffa341, 0xffe45c, 0x72f06d, 0x55d9ff, 0xb184ff];
+const EQUIPMENT_BOX_GROUND_LIMIT = 12;
+const EQUIPMENT_DROP_DEFAULTS = {
+  rarity: "N",
+  rank: 1,
+  slot: "weapon",
+  count: 1,
+  distance: 180
+};
+const EQUIPMENT_DROP_COUNT_MAX = 10;
+const EQUIPMENT_BOX_RARITY_VISUALS = {
+  N: { tint: 0x8d99a6, text: "#d8e2ea", label: "N" },
+  R: { tint: 0x4aa3ff, text: "#9bd9ff", label: "R" },
+  SR: { tint: 0xb184ff, text: "#dfc6ff", label: "SR" },
+  SSR: { tint: 0xf0c463, text: "#ffe7a8", label: "SSR" },
+  LEGEND: { tint: 0xffffff, text: "#ffffff", label: "LEGEND" },
+  unknown: { tint: 0x9ffcff, text: "#ecfaff", label: "?" }
+};
 const FINAL_BOSS_DEBUG_QUERY_PARAM = "debugFinalBossRaid";
 const FINAL_BOSS_DEBUG_ALIAS_QUERY_PARAM = "debugFinalRaid";
 const FINAL_BOSS_DEBUG_TIME_SCALE_QUERY_PARAM = "debugFinalBossRaidScale";
@@ -2181,6 +2251,7 @@ const CLEANING_ROBOT_LEVEL_CONFIGS = [
 const CLEANING_ROBOT_DROP_PRIORITY = {
   lostArm: 110,
   dataCache: 100,
+  equipmentBox: 92,
   robot: 88,
   support: 78,
   value: 68,
@@ -5725,6 +5796,8 @@ class SurvivalScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.cleanupDeepExtractionResultOverlay("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.cleanupGeekMilestoneNotice("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.cleanupGeekMilestoneNotice("sceneDestroy"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.discardRunEquipmentBoxes("sceneShutdown")));
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.discardRunEquipmentBoxes("sceneDestroy"));
     this.setupMobileControls();
     this.configureCameras();
     this.createColliders();
@@ -6189,8 +6262,21 @@ class SurvivalScene extends Phaser.Scene {
     this.mutationAtlasState = this.loadMutationAtlasState();
     this.supportLinkState = this.loadSupportLinkState();
     this.finalBossState = this.loadFinalBossState();
+    this.equipmentState = this.loadEquipmentState();
     this.syncFinalBossUnlocksToShopState("createState", { save: false });
-    this.shopViewMode = this.isMutationAtlasDebugEnabled() ? "runArchive" : "cd";
+    this.shopViewMode = this.isMutationAtlasDebugEnabled()
+      ? "runArchive"
+      : (this.isEquipmentHubDebugEnabled() ? "geek" : "cd");
+    this.geekShopSubView = this.isEquipmentHubDebugEnabled()
+      ? GEEK_SHOP_SUB_VIEW_EQUIPMENT_ANALYSIS
+      : GEEK_SHOP_SUB_VIEW_BASE_CALIBRATION;
+    this.equipmentAnalysisBusy = false;
+    this.equipmentAnalysisResultOpen = false;
+    this.initializeFinalRaidLegendRewardState("createState");
+    if (!this.shouldSkipFinalRaidLegendRetroactiveReward("createState")) {
+      this.ensureRetroactiveFinalRaidLegendReward("createState");
+    }
+    this.initializeRunEquipmentState("createState");
     this.anjuMemoryShopTab = "deepCd";
     this.anjuMemoryReadLogId = null;
     this.runArchiveSubView = this.isMutationAtlasDebugEnabled() ? "mutationAtlas" : "runArchive";
@@ -6341,12 +6427,14 @@ class SurvivalScene extends Phaser.Scene {
     this.activeSupportAttackBgmDefinitionId = null;
     this.supportAttackBgmOverrideTween = null;
     this.initializeScrambledCommsState();
+    this.logEquipmentDebugState();
   }
 
   initializeDepthRunState() {
     const debugStartDepth = this.getDebugStartDepthOverride();
     this.stageDepth = debugStartDepth || 1;
     this.debugStartDepth = debugStartDepth || 0;
+    this.initializeEquipmentProductionDropState(this.stageDepth, "depthRunState");
     this.debugStartFinalBossRaidStarted = false;
     this.runRankingStats = this.createRunRankingStats(this.stageDepth);
     this.stageDepthElapsedMs = 0;
@@ -6787,13 +6875,19 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   resetFinalBossRaidState(reason = "reset") {
-    this.destroyFinalBossRaidObjects?.(reason);
-    this.stopFinalBossRaidBgm?.(false, true);
-    this.teardownFinalBossRaidPlaceholder(reason);
+    const sceneCleanup = reason === "sceneShutdown" || reason === "sceneDestroy";
+    this.clearFinalRaidLegendRewardRuntimeState(reason);
+    if (!sceneCleanup) {
+      this.destroyFinalBossRaidObjects?.(reason);
+      this.stopFinalBossRaidBgm?.(false, true);
+      this.teardownFinalBossRaidPlaceholder(reason);
+    }
     this.initializeFinalBossRaidState();
-    this.initFinalRaidRescueLinkState(reason);
-    this.resetFinalRaidVisualScales?.(reason);
-    this.setFinalBossRaidStandardHudSuppressed(false);
+    if (!sceneCleanup) {
+      this.initFinalRaidRescueLinkState(reason);
+      this.resetFinalRaidVisualScales?.(reason);
+      this.setFinalBossRaidStandardHudSuppressed(false);
+    }
   }
 
   initializeAnomalyContractState() {
@@ -6814,7 +6908,9 @@ class SurvivalScene extends Phaser.Scene {
   resetAnomalyContractState(reason = "reset") {
     this.teardownAnomalyContractOverlay?.();
     this.initializeAnomalyContractState();
-    this.updateAnomalyContractHud?.();
+    if (reason !== "sceneShutdown" && reason !== "sceneDestroy") {
+      this.updateAnomalyContractHud?.();
+    }
     if (this.isAnomalyContractDebugEnabled?.()) {
       console.log("[ANOMALY CONTRACT] reset", { reason });
     }
@@ -7150,7 +7246,9 @@ class SurvivalScene extends Phaser.Scene {
     }
     this.cleanupDepthDirectiveObjects?.();
     this.initializeDepthDirectiveState();
-    this.updateDepthDirectiveHud?.();
+    if (reason !== "sceneShutdown" && reason !== "sceneDestroy") {
+      this.updateDepthDirectiveHud?.();
+    }
     if (this.isDepthDirectiveDebugEnabled?.()) {
       console.log("[DEPTH DIRECTIVE] reset", { reason });
     }
@@ -7948,7 +8046,9 @@ class SurvivalScene extends Phaser.Scene {
   resetNemesisBossState(reason = "reset") {
     this.cleanupNemesisBoss(reason);
     this.initializeNemesisBossState();
-    this.updateNemesisBossHud?.();
+    if (reason !== "sceneShutdown" && reason !== "sceneDestroy") {
+      this.updateNemesisBossHud?.();
+    }
   }
 
   isNemesisBossDebugEnabled() {
@@ -8583,7 +8683,9 @@ class SurvivalScene extends Phaser.Scene {
   resetVoidHunterState(reason = "reset") {
     this.cleanupVoidHunterBoss(reason);
     this.initializeVoidHunterState();
-    this.updateNemesisBossHud?.();
+    if (reason !== "sceneShutdown" && reason !== "sceneDestroy") {
+      this.updateNemesisBossHud?.();
+    }
   }
 
   getVoidHunterJammingRemainingMs(now = this.time?.now || 0) {
@@ -10125,6 +10227,7 @@ class SurvivalScene extends Phaser.Scene {
       categories.add("robot");
       categories.add("support");
       categories.add("lostArm");
+      categories.add("equipmentBox");
     }
     return categories;
   }
@@ -10155,6 +10258,7 @@ class SurvivalScene extends Phaser.Scene {
       if (category === "support") return "SUPPORT";
       if (category === "robot") return "ROBOT";
       if (category === "lostArm") return "LOST ARMS";
+      if (category === "equipmentBox") return "SEALED EQ";
       return category.toUpperCase();
     });
     const pulseText = config.knockbackForce > 0
@@ -10191,6 +10295,7 @@ class SurvivalScene extends Phaser.Scene {
   rebuildStartingStats() {
     this.stats = this.createBasePlayerStats();
     this.applyPermanentUpgradesToStats();
+    this.applyRunEquipmentStartingStatBonuses("rebuildStartingStats");
     this.deepLevelBaseMaxHp = 0;
     this.deepLevelHpBonus = 0;
     this.syncPlayerLevelXpRequirement();
@@ -10281,6 +10386,2407 @@ class SurvivalScene extends Phaser.Scene {
     } catch (error) {
       // Ignore storage failures so the shop can still be used during this session.
     }
+  }
+
+  getEquipmentSystem() {
+    return typeof window !== "undefined" ? window.EquipmentSystem : null;
+  }
+
+  createDefaultEquipmentState() {
+    const equipmentSystem = this.getEquipmentSystem();
+    if (equipmentSystem?.createDefaultEquipmentState) {
+      return equipmentSystem.createDefaultEquipmentState();
+    }
+    return {
+      version: 1,
+      legendDiscovered: false,
+      finalRaidLegendRewardClaimed: false,
+      freeAnalysisCredits: 1,
+      bestBySlot: {
+        head: null,
+        clothes: null,
+        shoes: null,
+        weapon: null,
+        accessory: null
+      },
+      securedBoxes: [],
+      stats: {
+        opened: 0,
+        upgrades: 0,
+        duplicates: 0
+      }
+    };
+  }
+
+  normalizeEquipmentState(record) {
+    const equipmentSystem = this.getEquipmentSystem();
+    if (equipmentSystem?.normalizeEquipmentState) {
+      return equipmentSystem.normalizeEquipmentState(record);
+    }
+    return this.createDefaultEquipmentState();
+  }
+
+  isEquipmentStateEquivalent(left, right) {
+    try {
+      return JSON.stringify(left) === JSON.stringify(right);
+    } catch (error) {
+      return false;
+    }
+  }
+
+  persistEquipmentState(state) {
+    try {
+      window.localStorage?.setItem(EQUIPMENT_STORAGE_KEY, JSON.stringify(state));
+      return true;
+    } catch (error) {
+      console.warn("[EQUIPMENT] failed to save equipment state", error);
+      return false;
+    }
+  }
+
+  loadEquipmentState() {
+    let rawState = null;
+
+    try {
+      rawState = window.localStorage?.getItem(EQUIPMENT_STORAGE_KEY) || null;
+    } catch (error) {
+      console.warn("[EQUIPMENT] failed to read equipment state", error);
+      return this.normalizeEquipmentState(this.createDefaultEquipmentState());
+    }
+
+    if (!rawState) {
+      const defaultState = this.normalizeEquipmentState(this.createDefaultEquipmentState());
+      this.persistEquipmentState(defaultState);
+      return defaultState;
+    }
+
+    try {
+      const parsedState = JSON.parse(rawState);
+      const normalizedState = this.normalizeEquipmentState(parsedState);
+      if (!this.isEquipmentStateEquivalent(parsedState, normalizedState)) {
+        this.persistEquipmentState(normalizedState);
+      }
+      return normalizedState;
+    } catch (error) {
+      console.warn("[EQUIPMENT] failed to parse equipment state", error);
+      const defaultState = this.normalizeEquipmentState(this.createDefaultEquipmentState());
+      this.persistEquipmentState(defaultState);
+      return defaultState;
+    }
+  }
+
+  saveEquipmentState() {
+    this.equipmentState = this.normalizeEquipmentState(this.equipmentState);
+    return this.persistEquipmentState(this.equipmentState);
+  }
+
+  initializeFinalRaidLegendRewardState(reason = "init", options = {}) {
+    this.cleanupFinalRaidLegendRewardPresentation(reason);
+    this.pendingFinalRaidLegendRewardRecord = null;
+    this.finalRaidLegendRewardPresentationShown = false;
+    this.finalRaidLegendRewardSaving = false;
+    this.finalRaidLegendRewardPresentationContainer = null;
+    this.finalRaidLegendRewardPresentationTimer = null;
+    this.finalRaidLegendRewardPresentationTweens = [];
+    if (options.keepHubNotice !== true) {
+      this.pendingEquipmentRewardHubNotice = "";
+    }
+  }
+
+  clearFinalRaidLegendRewardRuntimeState(reason = "clear", options = {}) {
+    this.cleanupFinalRaidLegendRewardPresentation(reason);
+    this.pendingFinalRaidLegendRewardRecord = null;
+    this.finalRaidLegendRewardPresentationShown = false;
+    this.finalRaidLegendRewardSaving = false;
+    if (options.keepHubNotice !== true) {
+      this.pendingEquipmentRewardHubNotice = "";
+    }
+  }
+
+  cleanupFinalRaidLegendRewardPresentation(reason = "cleanup") {
+    this.finalRaidLegendRewardPresentationTimer?.remove?.(false);
+    this.finalRaidLegendRewardPresentationTimer = null;
+    (this.finalRaidLegendRewardPresentationTweens || []).forEach((tween) => tween?.remove?.());
+    this.finalRaidLegendRewardPresentationTweens = [];
+    this.tweens?.killTweensOf?.(this.finalRaidLegendRewardPresentationContainer);
+    this.finalRaidLegendRewardPresentationContainer?.destroy?.();
+    this.finalRaidLegendRewardPresentationContainer = null;
+    if (this.isFinalRaidLegendRewardDebugEnabled?.()) {
+      console.log("[EQUIPMENT FINAL RAID] presentation cleanup", { reason });
+    }
+  }
+
+  isFinalRaidLegendRewardDebugEnabled() {
+    const value = this.getUrlStageParam(FINAL_RAID_LEGEND_REWARD_DEBUG_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  isFinalRaidLegendPresentationDebugEnabled() {
+    const value = this.getUrlStageParam(FINAL_RAID_LEGEND_PRESENTATION_DEBUG_QUERY_PARAM);
+    const previewValue = this.getUrlStageParam(FINAL_RAID_LEGEND_REWARD_PREVIEW_DEBUG_QUERY_PARAM);
+    return [value, previewValue].some((rawValue) => (
+      ["1", "true", "yes", "on"].includes(String(rawValue || "").toLowerCase())
+    ));
+  }
+
+  createFinalRaidLegendRewardRecord(reason = "create") {
+    const equipmentSystem = this.getEquipmentSystem();
+    const rewardId = equipmentSystem?.FINAL_RAID_LEGEND_REWARD_ID || "final-raid-equipment-reward-v1";
+    const record = equipmentSystem?.createFinalRaidLegendRewardRecord?.({
+      id: rewardId,
+      rng: Math.random
+    }) || null;
+    const normalizedRecord = this.normalizeEquipmentItem(record);
+    if (!normalizedRecord && this.isFinalRaidLegendRewardDebugEnabled()) {
+      console.warn("[EQUIPMENT FINAL RAID] reward record creation failed", { reason });
+    }
+    return normalizedRecord;
+  }
+
+  getFinalRaidEquipmentRewardNoticeText(prefix = "") {
+    return [
+      prefix,
+      "UNKNOWN EQUIPMENT SIGNAL SECURED",
+      "ANALYSIS COST: FREE",
+      "GEEKSHOP > EQUIPMENT ANALYSIS"
+    ].filter(Boolean).join(" / ");
+  }
+
+  consumePendingEquipmentRewardHubNotice(message = "") {
+    const baseMessage = String(message || "");
+    const notice = String(this.pendingEquipmentRewardHubNotice || "").trim();
+    if (!notice) {
+      return baseMessage;
+    }
+    this.pendingEquipmentRewardHubNotice = "";
+    if (baseMessage.includes("UNKNOWN EQUIPMENT SIGNAL SECURED")) {
+      return baseMessage;
+    }
+    return [baseMessage, notice].filter(Boolean).join("\n");
+  }
+
+  shouldPrepareFinalRaidLegendReward() {
+    const state = this.finalBossRaidState;
+    const equipmentState = this.normalizeEquipmentState(this.equipmentState);
+    return Boolean(
+      state?.active &&
+      state.targetDepth === FINAL_BOSS_RAID_CONFIG.targetDepth &&
+      state.blockingPlaceholderActive !== true &&
+      !this.isFinalBossRaidCleared() &&
+      equipmentState.finalRaidLegendRewardClaimed !== true &&
+      !this.pendingFinalRaidLegendRewardRecord &&
+      this.finalRaidLegendRewardPresentationShown !== true
+    );
+  }
+
+  prepareFinalRaidLegendRewardOnBossDefeated(reason = "bossDefeated") {
+    if (!this.shouldPrepareFinalRaidLegendReward()) {
+      return false;
+    }
+
+    const record = this.createFinalRaidLegendRewardRecord(reason);
+    if (!record) {
+      return false;
+    }
+
+    this.pendingFinalRaidLegendRewardRecord = record;
+    this.finalRaidLegendRewardPresentationShown = true;
+    this.showFinalRaidLegendRewardPresentation(reason);
+    if (this.isFinalRaidLegendRewardDebugEnabled()) {
+      console.log("[EQUIPMENT FINAL RAID] pending reward prepared", {
+        reason,
+        reward: { ...record, id: this.getShortEquipmentBoxId(record.id) }
+      });
+    }
+    return true;
+  }
+
+  showFinalRaidLegendRewardPresentation(reason = "presentation") {
+    this.cleanupFinalRaidLegendRewardPresentation(reason);
+    if (!this.add) {
+      return false;
+    }
+
+    const width = 520;
+    const height = 154;
+    const x = GAME_WIDTH / 2;
+    const y = 132;
+    const container = this.add
+      .container(x, y)
+      .setScrollFactor(0)
+      .setDepth((FINAL_RAID_HUD_LAYOUT?.depth || 100) + 118)
+      .setAlpha(0)
+      .setScale(0.96);
+    this.finalRaidLegendRewardPresentationContainer = container;
+    this.uiContainer?.add(container);
+
+    const panel = this.add.graphics();
+    panel.fillStyle(0x030914, 0.9);
+    panel.fillRoundedRect(-width / 2, -height / 2, width, height, 10);
+    panel.lineStyle(2, 0x8cf5ff, 0.66);
+    panel.strokeRoundedRect(-width / 2 + 1, -height / 2 + 1, width - 2, height - 2, 10);
+    panel.lineStyle(1, 0xecfaff, 0.16);
+    panel.strokeRoundedRect(-width / 2 + 12, -height / 2 + 12, width - 24, height - 24, 7);
+
+    const prism = this.add.graphics();
+    const prismColors = [0xff4d6d, 0xffa13b, 0xffe36a, 0x72f07a, 0x66f7ff, 0xc07bff];
+    const stripeWidth = (width - 82) / prismColors.length;
+    prismColors.forEach((color, index) => {
+      prism.fillStyle(color, 0.58);
+      prism.fillRect(-width / 2 + 41 + index * stripeWidth, -height / 2 + 25, stripeWidth - 4, 5);
+      prism.fillRect(width / 2 - 41 - (index + 1) * stripeWidth, height / 2 - 30, stripeWidth - 4, 4);
+    });
+
+    const title = this.add.text(0, -42, "UNREGISTERED EQUIPMENT SIGNAL", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "24px",
+      color: "#ecfaff",
+      fontStyle: "bold",
+      align: "center",
+      stroke: "#06111d",
+      strokeThickness: 3
+    }).setOrigin(0.5);
+    const subtitle = this.add.text(0, -4, "UNKNOWN RARITY DETECTED", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "17px",
+      color: "#b8fbff",
+      fontStyle: "bold",
+      align: "center"
+    }).setOrigin(0.5);
+    const detail = this.add.text(0, 30, "AUTO-SECURE PENDING", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "15px",
+      color: "#f7d98a",
+      fontStyle: "bold",
+      align: "center"
+    }).setOrigin(0.5);
+    container.add([panel, prism, title, subtitle, detail]);
+
+    const inTween = this.tweens?.add({
+      targets: container,
+      alpha: 1,
+      scale: 1,
+      duration: 220,
+      ease: "Cubic.Out"
+    });
+    const pulseTween = this.tweens?.add({
+      targets: prism,
+      alpha: { from: 0.52, to: 1 },
+      duration: 360,
+      yoyo: true,
+      repeat: 3,
+      ease: "Sine.InOut"
+    });
+    this.finalRaidLegendRewardPresentationTweens = [inTween, pulseTween].filter(Boolean);
+    this.finalRaidLegendRewardPresentationTimer = this.time?.delayedCall(2400, () => {
+      if (!container?.active) {
+        return;
+      }
+      const outTween = this.tweens?.add({
+        targets: container,
+        alpha: 0,
+        scale: 0.98,
+        duration: 240,
+        ease: "Cubic.In",
+        onComplete: () => this.cleanupFinalRaidLegendRewardPresentation("presentationComplete")
+      });
+      if (outTween) {
+        this.finalRaidLegendRewardPresentationTweens.push(outTween);
+      }
+    });
+    return true;
+  }
+
+  tryShowDebugFinalRaidLegendPresentationPreview(reason = "debugPreview") {
+    if (!this.isFinalRaidLegendPresentationDebugEnabled() || this.finalRaidLegendRewardPresentationShown) {
+      return false;
+    }
+    this.finalRaidLegendRewardPresentationShown = true;
+    return this.showFinalRaidLegendRewardPresentation(reason);
+  }
+
+  secureFinalRaidLegendReward(reason = "finalRaidReturn") {
+    if (this.finalRaidLegendRewardSaving) {
+      return {
+        ok: false,
+        granted: false,
+        recoveredExisting: false,
+        reason: "saving"
+      };
+    }
+
+    const equipmentSystem = this.getEquipmentSystem();
+    if (!equipmentSystem?.grantFinalRaidLegendReward) {
+      return {
+        ok: false,
+        granted: false,
+        recoveredExisting: false,
+        reason: "equipment_system_unavailable"
+      };
+    }
+
+    const currentState = this.normalizeEquipmentState(this.equipmentState);
+    if (currentState.finalRaidLegendRewardClaimed === true) {
+      return {
+        ok: true,
+        granted: false,
+        recoveredExisting: false,
+        reason: "already_claimed"
+      };
+    }
+
+    this.finalRaidLegendRewardSaving = true;
+    const snapshot = this.normalizeEquipmentState(this.equipmentState);
+    const record = this.normalizeEquipmentItem(this.pendingFinalRaidLegendRewardRecord)
+      || this.createFinalRaidLegendRewardRecord(reason);
+    const result = equipmentSystem.grantFinalRaidLegendReward(snapshot, record);
+    if (!result?.ok) {
+      this.finalRaidLegendRewardSaving = false;
+      return {
+        ok: false,
+        granted: false,
+        recoveredExisting: false,
+        reason: result?.reason || "grant_failed"
+      };
+    }
+
+    this.equipmentState = this.normalizeEquipmentState(result.state);
+    const saveSucceeded = this.saveEquipmentState();
+    if (!saveSucceeded) {
+      this.equipmentState = snapshot;
+      this.finalRaidLegendRewardSaving = false;
+      console.warn("[EQUIPMENT FINAL RAID] reward save failed", { reason });
+      this.setLastPickupNotice("EQUIPMENT REWARD SAVE FAILED");
+      return {
+        ok: false,
+        granted: false,
+        recoveredExisting: false,
+        reason: "save_failed"
+      };
+    }
+
+    this.pendingFinalRaidLegendRewardRecord = null;
+    this.finalRaidLegendRewardSaving = false;
+    if (result.granted || result.recoveredExisting) {
+      this.pendingEquipmentRewardHubNotice = this.getFinalRaidEquipmentRewardNoticeText();
+    }
+    if (this.isFinalRaidLegendRewardDebugEnabled()) {
+      console.log("[EQUIPMENT FINAL RAID] reward secured", {
+        reason,
+        granted: result.granted,
+        recoveredExisting: result.recoveredExisting,
+        reward: result.reward ? { ...result.reward, id: this.getShortEquipmentBoxId(result.reward.id) } : null
+      });
+    }
+    return result;
+  }
+
+  shouldSkipFinalRaidLegendRetroactiveReward(reason = "startup") {
+    const pendingShopMessage = typeof peekPendingOpeningShopMessage === "function"
+      ? peekPendingOpeningShopMessage()
+      : "";
+    if (!String(pendingShopMessage || "").includes("EQUIPMENT REWARD SAVE FAILED")) {
+      return false;
+    }
+
+    if (this.isFinalRaidLegendRewardDebugEnabled()) {
+      console.log("[EQUIPMENT FINAL RAID] retroactive reward deferred until reload", {
+        reason
+      });
+    }
+    return true;
+  }
+
+  ensureRetroactiveFinalRaidLegendReward(reason = "startup") {
+    if (!this.isFinalBossRaidCleared?.()) {
+      return {
+        ok: true,
+        granted: false,
+        recoveredExisting: false,
+        reason: "not_cleared"
+      };
+    }
+
+    const equipmentState = this.normalizeEquipmentState(this.equipmentState);
+    if (equipmentState.finalRaidLegendRewardClaimed === true) {
+      return {
+        ok: true,
+        granted: false,
+        recoveredExisting: false,
+        reason: "already_claimed"
+      };
+    }
+
+    const equipmentSystem = this.getEquipmentSystem();
+    const record = this.createFinalRaidLegendRewardRecord(`${reason}:retroactive`);
+    const snapshot = this.normalizeEquipmentState(this.equipmentState);
+    const result = equipmentSystem?.grantFinalRaidLegendReward?.(snapshot, record);
+    if (!result?.ok) {
+      return {
+        ok: false,
+        granted: false,
+        recoveredExisting: false,
+        reason: result?.reason || "grant_failed"
+      };
+    }
+
+    this.equipmentState = this.normalizeEquipmentState(result.state);
+    const saveSucceeded = this.saveEquipmentState();
+    if (!saveSucceeded) {
+      this.equipmentState = snapshot;
+      console.warn("[EQUIPMENT FINAL RAID] retroactive reward save failed", { reason });
+      return {
+        ok: false,
+        granted: false,
+        recoveredExisting: false,
+        reason: "save_failed"
+      };
+    }
+
+    if (result.granted || result.recoveredExisting) {
+      this.pendingEquipmentRewardHubNotice = this.getFinalRaidEquipmentRewardNoticeText("LEGACY CLEAR RECORD VERIFIED");
+    }
+    if (this.isFinalRaidLegendRewardDebugEnabled()) {
+      console.log("[EQUIPMENT FINAL RAID] retroactive reward secured", {
+        reason,
+        granted: result.granted,
+        recoveredExisting: result.recoveredExisting
+      });
+    }
+    return result;
+  }
+
+  isEquipmentDebugEnabled() {
+    const value = this.getUrlStageParam(EQUIPMENT_DEBUG_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  logEquipmentDebugState() {
+    if (!this.isEquipmentDebugEnabled()) {
+      return;
+    }
+
+    const equipmentSystem = this.getEquipmentSystem();
+    if (!equipmentSystem) {
+      console.warn("[EQUIPMENT] EquipmentSystem is not available");
+      return;
+    }
+
+    const createItem = (rarity, rank) => ({
+      id: `${rarity}-${rank}-debug`,
+      rarity,
+      rank,
+      slot: "weapon",
+      sourceDepth: 1,
+      sourceType: "debug",
+      analysisCostOverride: null
+    });
+    const nRank5 = equipmentSystem.getEquipmentQualityScore(createItem("N", 5));
+    const rRank1 = equipmentSystem.getEquipmentQualityScore(createItem("R", 1));
+    const rRank5 = equipmentSystem.getEquipmentQualityScore(createItem("R", 5));
+    const srRank1 = equipmentSystem.getEquipmentQualityScore(createItem("SR", 1));
+    const srRank5 = equipmentSystem.getEquipmentQualityScore(createItem("SR", 5));
+    const ssrRank1 = equipmentSystem.getEquipmentQualityScore(createItem("SSR", 1));
+    const ssrRank5 = equipmentSystem.getEquipmentQualityScore(createItem("SSR", 5));
+    const legendRank1 = equipmentSystem.getEquipmentQualityScore(createItem("LEGEND", 1));
+    const legendRank5 = equipmentSystem.getEquipmentQualityScore(createItem("LEGEND", 5));
+
+    console.log("[EQUIPMENT] state", this.equipmentState);
+    console.log("[EQUIPMENT] qualityScore", {
+      nRank5,
+      rRank1,
+      ssrRank5,
+      legendRank1,
+      legendRank5
+    });
+    console.log("[EQUIPMENT] securedBoxesByRarity", equipmentSystem.countSecuredEquipmentBoxesByRarity(this.equipmentState));
+    console.assert(nRank5 < rRank1, "[EQUIPMENT] N Rank5 must be lower than R Rank1");
+    console.assert(rRank5 < srRank1, "[EQUIPMENT] R Rank5 must be lower than SR Rank1");
+    console.assert(srRank5 < ssrRank1, "[EQUIPMENT] SR Rank5 must be lower than SSR Rank1");
+    console.assert(ssrRank5 < legendRank1, "[EQUIPMENT] SSR Rank5 must be lower than LEGEND Rank1");
+    console.assert(legendRank5 === 25, "[EQUIPMENT] LEGEND Rank5 qualityScore must be 25");
+  }
+
+  createEmptyEquipmentBonuses() {
+    const equipmentSystem = this.getEquipmentSystem();
+    if (equipmentSystem?.createEmptyEquipmentBonuses) {
+      return equipmentSystem.createEmptyEquipmentBonuses();
+    }
+    return {
+      slotScores: {
+        head: 0,
+        clothes: 0,
+        shoes: 0,
+        weapon: 0,
+        accessory: 0
+      },
+      totalQualityScore: 0,
+      attackIntervalReductionRate: 0,
+      attackIntervalMultiplier: 1,
+      maxHpFlat: 0,
+      staminaRegenIncreaseRate: 0,
+      staminaRegenMultiplier: 1,
+      playerSkillDamageIncreaseRate: 0,
+      playerSkillDamageMultiplier: 1,
+      maxStaminaFlat: 0
+    };
+  }
+
+  cloneEquipmentBonuses(bonuses) {
+    const equipmentSystem = this.getEquipmentSystem();
+    if (equipmentSystem?.cloneEquipmentBonuses) {
+      return equipmentSystem.cloneEquipmentBonuses(bonuses);
+    }
+    const empty = this.createEmptyEquipmentBonuses();
+    return {
+      ...empty,
+      ...(bonuses || {}),
+      slotScores: {
+        ...empty.slotScores,
+        ...(bonuses?.slotScores || {})
+      }
+    };
+  }
+
+  isEquipmentBonusDebugEnabled() {
+    const value = this.getUrlStageParam(EQUIPMENT_BONUS_DEBUG_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  getEquipmentBonusPresetName() {
+    const value = String(this.getUrlStageParam(EQUIPMENT_BONUS_PRESET_QUERY_PARAM) || "").trim().toLowerCase();
+    return ["empty", "n1", "ssr5", "legend5", "mixed"].includes(value) ? value : "";
+  }
+
+  logEquipmentBonusDebug(event, payload = {}) {
+    if (!this.isEquipmentBonusDebugEnabled()) {
+      return;
+    }
+    let details = "";
+    try {
+      details = JSON.stringify(payload);
+    } catch (error) {
+      details = "[unserializable]";
+    }
+    console.log(`[EQUIPMENT BONUSES] ${event} ${details}`);
+  }
+
+  createEquipmentBonusPresetItem(preset, slot, rarity, rank) {
+    return this.normalizeEquipmentItem({
+      id: `debug-equipment-bonus-${preset}-${slot}`,
+      rarity,
+      rank,
+      slot,
+      sourceDepth: 1,
+      sourceType: "debug",
+      analysisCostOverride: null
+    });
+  }
+
+  createEquipmentBonusPresetState(preset) {
+    const slots = this.getEquipmentSystem()?.SLOTS || EQUIPMENT_HUB_SLOT_ROWS.map((row) => row.slot);
+    const presetName = String(preset || "").toLowerCase();
+    if (presetName === "empty") {
+      return this.normalizeEquipmentState({
+        ...this.createDefaultEquipmentState(),
+        bestBySlot: slots.reduce((bestBySlot, slot) => {
+          bestBySlot[slot] = null;
+          return bestBySlot;
+        }, {})
+      });
+    }
+
+    const uniform = {
+      n1: { rarity: "N", rank: 1 },
+      ssr5: { rarity: "SSR", rank: 5 },
+      legend5: { rarity: "LEGEND", rank: 5 }
+    }[presetName];
+    const mixed = {
+      head: { rarity: "N", rank: 1 },
+      clothes: { rarity: "R", rank: 2 },
+      shoes: { rarity: "SR", rank: 3 },
+      weapon: { rarity: "SSR", rank: 4 },
+      accessory: { rarity: "LEGEND", rank: 5 }
+    };
+    const bestBySlot = slots.reduce((result, slot) => {
+      const config = uniform || mixed[slot];
+      result[slot] = config
+        ? this.createEquipmentBonusPresetItem(presetName, slot, config.rarity, config.rank)
+        : null;
+      return result;
+    }, {});
+    return this.normalizeEquipmentState({
+      ...this.createDefaultEquipmentState(),
+      legendDiscovered: presetName === "legend5" || presetName === "mixed",
+      bestBySlot
+    });
+  }
+
+  createRunEquipmentLoadoutSnapshot(reason = "runStart") {
+    const preset = this.getEquipmentBonusPresetName();
+    const sourceState = preset
+      ? this.createEquipmentBonusPresetState(preset)
+      : this.normalizeEquipmentState(this.equipmentState);
+    const slots = this.getEquipmentSystem()?.SLOTS || EQUIPMENT_HUB_SLOT_ROWS.map((row) => row.slot);
+    const bestBySlot = slots.reduce((result, slot) => {
+      const item = this.normalizeEquipmentItem(sourceState.bestBySlot?.[slot]);
+      result[slot] = item && item.slot === slot ? item : null;
+      return result;
+    }, {});
+    const snapshot = this.normalizeEquipmentState({
+      ...this.createDefaultEquipmentState(),
+      legendDiscovered: sourceState.legendDiscovered === true,
+      bestBySlot
+    });
+    this.logEquipmentBonusDebug("snapshot created", {
+      reason,
+      preset: preset || "storage",
+      snapshot
+    });
+    return snapshot;
+  }
+
+  captureRunEquipmentBonuses(reason = "runStart") {
+    const equipmentSystem = this.getEquipmentSystem();
+    const snapshot = this.createRunEquipmentLoadoutSnapshot(reason);
+    const bonuses = equipmentSystem?.getEquipmentBonusesFromState
+      ? equipmentSystem.getEquipmentBonusesFromState(snapshot)
+      : this.createEmptyEquipmentBonuses();
+    this.runEquipmentLoadoutSnapshot = snapshot;
+    this.runEquipmentBonuses = this.cloneEquipmentBonuses(bonuses);
+    this.lastEquipmentBonusSuppressionSignature = "";
+    this.logEquipmentBonusDebug("captured", {
+      reason,
+      slotScores: { ...this.runEquipmentBonuses.slotScores },
+      totalQualityScore: this.runEquipmentBonuses.totalQualityScore,
+      attackIntervalMultiplier: this.runEquipmentBonuses.attackIntervalMultiplier,
+      staminaRegenMultiplier: this.runEquipmentBonuses.staminaRegenMultiplier,
+      playerSkillDamageMultiplier: this.runEquipmentBonuses.playerSkillDamageMultiplier,
+      maxHpFlat: this.runEquipmentBonuses.maxHpFlat,
+      maxStaminaFlat: this.runEquipmentBonuses.maxStaminaFlat,
+      finalRaidOffenseSuppressed: this.shouldSuppressRunEquipmentOffenseBonuses()
+    });
+    return this.runEquipmentBonuses;
+  }
+
+  shouldSuppressRunEquipmentOffenseBonuses() {
+    return Boolean(
+      this.isFinalBossRaidActive?.() &&
+      this.finalBossRaidState?.targetDepth === FINAL_BOSS_RAID_CONFIG.targetDepth &&
+      !this.finalBossRaidState?.blockingPlaceholderActive
+    );
+  }
+
+  logEquipmentBonusSuppressionDebug(rawBonuses, activeBonuses) {
+    if (!this.isEquipmentBonusDebugEnabled()) {
+      return;
+    }
+    const suppressed = this.shouldSuppressRunEquipmentOffenseBonuses();
+    const signature = [
+      suppressed ? "1" : "0",
+      rawBonuses?.attackIntervalMultiplier,
+      rawBonuses?.playerSkillDamageMultiplier,
+      activeBonuses?.attackIntervalMultiplier,
+      activeBonuses?.playerSkillDamageMultiplier
+    ].join("|");
+    if (signature === this.lastEquipmentBonusSuppressionSignature) {
+      return;
+    }
+    this.lastEquipmentBonusSuppressionSignature = signature;
+    this.logEquipmentBonusDebug("final raid suppression", {
+      suppressed,
+      targetDepth: this.finalBossRaidState?.targetDepth || 0,
+      active: this.isFinalBossRaidActive?.() === true,
+      raw: {
+        attackIntervalMultiplier: rawBonuses?.attackIntervalMultiplier,
+        playerSkillDamageMultiplier: rawBonuses?.playerSkillDamageMultiplier
+      },
+      effective: {
+        attackIntervalMultiplier: activeBonuses?.attackIntervalMultiplier,
+        playerSkillDamageMultiplier: activeBonuses?.playerSkillDamageMultiplier
+      }
+    });
+  }
+
+  getActiveRunEquipmentBonuses() {
+    const rawBonuses = this.cloneEquipmentBonuses(this.runEquipmentBonuses || this.createEmptyEquipmentBonuses());
+    const activeBonuses = this.cloneEquipmentBonuses(rawBonuses);
+    if (this.shouldSuppressRunEquipmentOffenseBonuses()) {
+      activeBonuses.attackIntervalReductionRate = 0;
+      activeBonuses.attackIntervalMultiplier = 1;
+      activeBonuses.playerSkillDamageIncreaseRate = 0;
+      activeBonuses.playerSkillDamageMultiplier = 1;
+    }
+    this.logEquipmentBonusSuppressionDebug(rawBonuses, activeBonuses);
+    return activeBonuses;
+  }
+
+  applyRunEquipmentStartingStatBonuses(reason = "rebuild") {
+    if (!this.stats) {
+      return;
+    }
+    const bonuses = this.getActiveRunEquipmentBonuses();
+    const before = {
+      maxHp: this.stats.maxHp,
+      hp: this.stats.hp,
+      maxStamina: this.stats.maxStamina,
+      stamina: this.stats.stamina
+    };
+    const hpAdd = Math.max(0, Math.floor(Number(bonuses.maxHpFlat) || 0));
+    const staminaAdd = Math.max(0, Math.floor(Number(bonuses.maxStaminaFlat) || 0));
+    if (hpAdd > 0) {
+      this.stats.maxHp += hpAdd;
+      this.stats.hp = this.stats.maxHp;
+    }
+    if (staminaAdd > 0) {
+      this.stats.maxStamina += staminaAdd;
+      this.stats.stamina = this.stats.maxStamina;
+    }
+    this.logEquipmentBonusDebug("starting stats", {
+      reason,
+      before,
+      after: {
+        maxHp: this.stats.maxHp,
+        hp: this.stats.hp,
+        maxStamina: this.stats.maxStamina,
+        stamina: this.stats.stamina
+      },
+      maxHpFlat: hpAdd,
+      maxStaminaFlat: staminaAdd
+    });
+  }
+
+  isRunEquipmentSkillBonusTarget(skillId) {
+    return SKILL_MUTATION_SKILL_IDS.includes(String(skillId || ""));
+  }
+
+  getRunEquipmentAttackIntervalMultiplier(skillId) {
+    if (!this.isRunEquipmentSkillBonusTarget(skillId)) {
+      return 1;
+    }
+    const multiplier = Number(this.getActiveRunEquipmentBonuses().attackIntervalMultiplier);
+    return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+  }
+
+  getRunEquipmentStaminaRegenMultiplier() {
+    const multiplier = Number(this.getActiveRunEquipmentBonuses().staminaRegenMultiplier);
+    return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+  }
+
+  applyRunEquipmentPlayerSkillDamageBonus(skillId, damage) {
+    const baseDamage = Math.max(0, Number(damage) || 0);
+    if (!this.isRunEquipmentSkillBonusTarget(skillId)) {
+      return baseDamage;
+    }
+    const multiplier = Number(this.getActiveRunEquipmentBonuses().playerSkillDamageMultiplier);
+    const effectiveMultiplier = Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+    return Math.max(1, Math.round(baseDamage * effectiveMultiplier));
+  }
+
+  getRunEquipmentAdjustedSkillIntervalMs(skillId, intervalMs, minimumMs = 1) {
+    const baseInterval = Math.max(0, Number(intervalMs) || 0);
+    const minimum = Math.max(0, Number(minimumMs) || 0);
+    return Math.max(
+      minimum,
+      Math.round(baseInterval * this.getRunEquipmentAttackIntervalMultiplier(skillId))
+    );
+  }
+
+  initializeRunEquipmentState(reason = "init") {
+    this.runUnsecuredEquipmentBoxes = [];
+    this.runEquipmentLoadoutSnapshot = this.normalizeEquipmentState(this.createDefaultEquipmentState());
+    this.runEquipmentBonuses = this.createEmptyEquipmentBonuses();
+    this.lastEquipmentBonusSuppressionSignature = "";
+    this.runEquipmentTransferCompleted = false;
+    this.lastRunEquipmentTransferResult = null;
+    this.equipmentDropSerial = 0;
+    this.debugEquipmentDropSpawned = false;
+    this.debugEquipmentDropConfigResolved = false;
+    this.debugEquipmentDropConfig = null;
+    this.equipmentProductionDropState = null;
+    this.lastRunEquipmentHudSignature = "";
+    this.logEquipmentRunDebug("init", { reason });
+    this.updateRunEquipmentHud?.(true);
+  }
+
+  initializeEquipmentProductionDropState(depth = this.stageDepth || 1, reason = "init") {
+    const normalizedDepth = Math.max(1, Math.floor(Number(depth) || 1));
+    this.equipmentProductionDropState = {
+      depth: normalizedDepth,
+      spawned: false,
+      sourceType: null,
+      itemId: null,
+      attempts: 0
+    };
+    this.logEquipmentProductionDebug("stateInit", {
+      reason,
+      depth: normalizedDepth
+    });
+    return this.equipmentProductionDropState;
+  }
+
+  ensureEquipmentProductionDropState(depth = this.stageDepth || 1) {
+    const normalizedDepth = Math.max(1, Math.floor(Number(depth) || 1));
+    if (!this.equipmentProductionDropState || this.equipmentProductionDropState.depth !== normalizedDepth) {
+      return this.initializeEquipmentProductionDropState(normalizedDepth, "ensure");
+    }
+    return this.equipmentProductionDropState;
+  }
+
+  createEquipmentDropRecordId() {
+    this.equipmentDropSerial = (this.equipmentDropSerial || 0) + 1;
+    return `run-eq-${this.stageDepth || 1}-${this.equipmentDropSerial}-${Date.now().toString(36)}`;
+  }
+
+  isEquipmentRunDebugEnabled() {
+    const value = this.getUrlStageParam(EQUIPMENT_RUN_DEBUG_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  logEquipmentRunDebug(event, payload = {}) {
+    if (!this.isEquipmentRunDebugEnabled()) {
+      return;
+    }
+    console.log("[EQUIPMENT RUN]", event, payload);
+  }
+
+  normalizeEquipmentItem(record) {
+    const equipmentSystem = this.getEquipmentSystem();
+    return equipmentSystem?.normalizeEquipmentItem?.(record) || null;
+  }
+
+  normalizeEquipmentItemList(records) {
+    const equipmentSystem = this.getEquipmentSystem();
+    if (equipmentSystem?.normalizeEquipmentItemList) {
+      return equipmentSystem.normalizeEquipmentItemList(records);
+    }
+    if (!Array.isArray(records)) {
+      return [];
+    }
+    const seenIds = new Set();
+    const items = [];
+    records.forEach((record) => {
+      const item = this.normalizeEquipmentItem(record);
+      if (!item || seenIds.has(item.id)) {
+        return;
+      }
+      seenIds.add(item.id);
+      items.push(item);
+    });
+    return items;
+  }
+
+  countEquipmentBoxesByRarity(records) {
+    const equipmentSystem = this.getEquipmentSystem();
+    if (equipmentSystem?.countEquipmentBoxesByRarity) {
+      return equipmentSystem.countEquipmentBoxesByRarity(records);
+    }
+    return EQUIPMENT_HUB_RARITY_ORDER.reduce((counts, rarity) => {
+      counts[rarity] = 0;
+      return counts;
+    }, {});
+  }
+
+  isEquipmentLegendHidden() {
+    return this.normalizeEquipmentState(this.equipmentState).legendDiscovered !== true;
+  }
+
+  getEquipmentBoxRarityVisual(box) {
+    const normalizedBox = this.normalizeEquipmentItem(box);
+    const hiddenLegend = normalizedBox?.rarity === "LEGEND" && this.isEquipmentLegendHidden();
+    return EQUIPMENT_BOX_RARITY_VISUALS[hiddenLegend ? "unknown" : normalizedBox?.rarity] || EQUIPMENT_BOX_RARITY_VISUALS.unknown;
+  }
+
+  getEquipmentBoxRarityDisplayLabel(rarity) {
+    if (rarity === "LEGEND" && this.isEquipmentLegendHidden()) {
+      return "UNKNOWN SIGNAL";
+    }
+    return EQUIPMENT_HUB_RARITY_ORDER.includes(rarity) ? rarity : "UNKNOWN SIGNAL";
+  }
+
+  formatEquipmentBoxCounts(countsOrBoxes) {
+    const counts = Array.isArray(countsOrBoxes)
+      ? this.countEquipmentBoxesByRarity(countsOrBoxes)
+      : (countsOrBoxes || {});
+    return EQUIPMENT_HUB_RARITY_ORDER
+      .map((rarity) => {
+        const count = Math.max(0, Math.floor(Number(counts[rarity]) || 0));
+        if (count <= 0) {
+          return "";
+        }
+        return `${this.getEquipmentBoxRarityDisplayLabel(rarity)} x${count}`;
+      })
+      .filter(Boolean)
+      .join(" / ");
+  }
+
+  getDebugEquipmentDropConfig() {
+    if (this.debugEquipmentDropConfigResolved) {
+      return this.debugEquipmentDropConfig;
+    }
+
+    this.debugEquipmentDropConfigResolved = true;
+    const rawRarity = this.getUrlStageParam(EQUIPMENT_DROP_DEBUG_QUERY_PARAM);
+    if (rawRarity === null || rawRarity === undefined || String(rawRarity).trim() === "") {
+      this.debugEquipmentDropConfig = null;
+      return null;
+    }
+
+    const equipmentSystem = this.getEquipmentSystem();
+    const validRarities = new Set(equipmentSystem?.RARITIES || EQUIPMENT_HUB_RARITY_ORDER);
+    const validSlots = new Set(equipmentSystem?.SLOTS || EQUIPMENT_HUB_SLOT_ROWS.map((row) => row.slot));
+    const warnings = [];
+    const normalizeIntParam = (paramName, fallback, min, max) => {
+      const rawValue = this.getUrlStageParam(paramName);
+      if (rawValue === null || rawValue === undefined || rawValue === "") {
+        return fallback;
+      }
+      const value = Math.floor(Number(rawValue));
+      if (!Number.isFinite(value)) {
+        warnings.push(`${paramName}=default`);
+        return fallback;
+      }
+      const clamped = Phaser.Math.Clamp(value, min, max);
+      if (clamped !== value) {
+        warnings.push(`${paramName}=clamped`);
+      }
+      return clamped;
+    };
+
+    let rarity = String(rawRarity || "").trim().toUpperCase();
+    if (!validRarities.has(rarity)) {
+      warnings.push(`${EQUIPMENT_DROP_DEBUG_QUERY_PARAM}=default`);
+      rarity = EQUIPMENT_DROP_DEFAULTS.rarity;
+    }
+
+    let slot = String(this.getUrlStageParam(EQUIPMENT_DROP_SLOT_DEBUG_QUERY_PARAM) || EQUIPMENT_DROP_DEFAULTS.slot).trim().toLowerCase();
+    if (!validSlots.has(slot)) {
+      warnings.push(`${EQUIPMENT_DROP_SLOT_DEBUG_QUERY_PARAM}=default`);
+      slot = EQUIPMENT_DROP_DEFAULTS.slot;
+    }
+
+    const config = {
+      rarity,
+      rank: normalizeIntParam(EQUIPMENT_DROP_RANK_DEBUG_QUERY_PARAM, EQUIPMENT_DROP_DEFAULTS.rank, 1, 5),
+      slot,
+      count: normalizeIntParam(EQUIPMENT_DROP_COUNT_DEBUG_QUERY_PARAM, EQUIPMENT_DROP_DEFAULTS.count, 1, EQUIPMENT_DROP_COUNT_MAX),
+      distance: normalizeIntParam(EQUIPMENT_DROP_DISTANCE_DEBUG_QUERY_PARAM, EQUIPMENT_DROP_DEFAULTS.distance, 32, 520)
+    };
+
+    if (warnings.length > 0) {
+      console.warn("[EQUIPMENT RUN] debug drop parameter fallback", warnings.join(", "));
+    }
+    this.debugEquipmentDropConfig = config;
+    return config;
+  }
+
+  shouldSpawnDebugEquipmentDrops(config = this.getDebugEquipmentDropConfig()) {
+    if (!config || this.debugEquipmentDropSpawned || !this.playerHitbox) {
+      return false;
+    }
+    if (
+      this.shopActive ||
+      this.gameOver ||
+      this.levelUpActive ||
+      this.gateChoiceActive ||
+      this.extractionComplete ||
+      this.startingUpgradeSelectionsRemaining > 0
+    ) {
+      return false;
+    }
+    if (this.isFinalBossRaidActive?.()) {
+      return false;
+    }
+    if (
+      (this.stageDepth || 1) === FINAL_BOSS_RAID_CONFIG.targetDepth &&
+      !this.isFinalBossRaidCleared?.()
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  trySpawnDebugEquipmentDrops() {
+    const config = this.getDebugEquipmentDropConfig();
+    if (!this.shouldSpawnDebugEquipmentDrops(config)) {
+      return false;
+    }
+
+    this.debugEquipmentDropSpawned = true;
+    const count = Math.max(1, Math.min(EQUIPMENT_DROP_COUNT_MAX, Math.floor(Number(config.count) || 1)));
+    const spread = count === 1 ? 0 : Math.min(Math.PI * 1.45, 0.34 * (count - 1));
+    const startAngle = -Math.PI / 2 - spread / 2;
+    const spawned = [];
+
+    for (let index = 0; index < count; index += 1) {
+      const angle = startAngle + (count === 1 ? 0 : (spread * index) / Math.max(1, count - 1));
+      const distance = Math.max(32, Number(config.distance) || EQUIPMENT_DROP_DEFAULTS.distance);
+      const record = this.createDebugEquipmentRecord(config);
+      const drop = this.spawnEquipmentBoxDrop(
+        this.playerHitbox.x + Math.cos(angle) * distance,
+        this.playerHitbox.y + Math.sin(angle) * distance,
+        record
+      );
+      if (drop) {
+        spawned.push(record);
+      }
+    }
+
+    this.logEquipmentRunDebug("spawn", {
+      count: spawned.length,
+      rarity: config.rarity,
+      rank: config.rank,
+      slot: config.slot,
+      sourceDepth: this.stageDepth || 1,
+      boxes: spawned.map((box) => ({
+        id: this.getShortEquipmentBoxId(box.id),
+        rarity: box.rarity,
+        rank: box.rank,
+        slot: box.slot,
+        sourceDepth: box.sourceDepth
+      }))
+    });
+    return spawned.length > 0;
+  }
+
+  createDebugEquipmentRecord(config) {
+    return {
+      id: this.createEquipmentDropRecordId(),
+      rarity: config.rarity || EQUIPMENT_DROP_DEFAULTS.rarity,
+      rank: Phaser.Math.Clamp(Math.floor(Number(config.rank) || EQUIPMENT_DROP_DEFAULTS.rank), 1, 5),
+      slot: config.slot || EQUIPMENT_DROP_DEFAULTS.slot,
+      sourceDepth: Math.max(1, Math.floor(Number(this.stageDepth) || 1)),
+      sourceType: "debug",
+      analysisCostOverride: null
+    };
+  }
+
+  isEquipmentProductionDebugFlagEnabled(paramName) {
+    const value = this.getUrlStageParam(paramName);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  isEquipmentProductionDebugEnabled() {
+    return this.isEquipmentProductionDebugFlagEnabled(EQUIPMENT_PRODUCTION_DEBUG_QUERY_PARAM);
+  }
+
+  logEquipmentProductionDebug(event, payload = {}) {
+    if (!this.isEquipmentProductionDebugEnabled()) {
+      return;
+    }
+    console.log("[EQUIPMENT DROP]", event, payload);
+  }
+
+  warnEquipmentProductionDebug(event, payload = {}) {
+    if (!this.isEquipmentProductionDebugEnabled()) {
+      return;
+    }
+    console.warn("[EQUIPMENT DROP]", event, payload);
+  }
+
+  isEquipmentProductionLegendUnlockedForDepth(depth = this.stageDepth || 1) {
+    const normalizedDepth = Math.max(1, Math.floor(Number(depth) || 1));
+    if (normalizedDepth < 11) {
+      return false;
+    }
+
+    const state = this.normalizeEquipmentState(this.equipmentState);
+    if (state.finalRaidLegendRewardClaimed === true) {
+      return true;
+    }
+
+    return this.isEquipmentProductionDebugEnabled()
+      && this.isEquipmentProductionDebugFlagEnabled(EQUIPMENT_PRODUCTION_LEGEND_UNLOCKED_DEBUG_QUERY_PARAM);
+  }
+
+  shouldGuaranteeFirstProductionEquipmentDrop(sourceType, productionState) {
+    if ((this.stageDepth || 1) !== 1 || sourceType !== "waveBoss" || productionState?.spawned) {
+      return false;
+    }
+    if (this.isFinalBossRaidActive?.()) {
+      return false;
+    }
+
+    const state = this.normalizeEquipmentState(this.equipmentState);
+    const slots = this.getEquipmentSystem()?.SLOTS || EQUIPMENT_HUB_SLOT_ROWS.map((row) => row.slot);
+    const noBestEquipment = slots.every((slot) => !state.bestBySlot?.[slot]);
+    return (state.stats?.opened || 0) === 0
+      && (state.securedBoxes?.length || 0) === 0
+      && noBestEquipment;
+  }
+
+  getProductionEquipmentDropSourceType(enemy) {
+    if (!enemy?.active || enemy.isDying || enemy.dropCleanupInProgress || enemy.cleanupInProgress) {
+      return null;
+    }
+    if (this.isFinalBossRaidActive?.()) {
+      return null;
+    }
+    if (enemy.isFinalBossRaidBoss || enemy.isFinalBossRaidMinion || enemy.isFinalBossRaidGiantWeapon) {
+      return null;
+    }
+    if (enemy.isDirectiveSlime || enemy.suppressGuaranteedDrops || enemy.suppressEquipmentProductionDrop) {
+      return null;
+    }
+    if (enemy.isSupportGeneratedTarget || enemy.supportGeneratedTarget || enemy.isSupportAttackTarget) {
+      return null;
+    }
+    if (enemy.isVoidHunterBoss || enemy.enemyTypeId === "voidHunter" || this.isVoidHunterBoss?.(enemy)) {
+      return null;
+    }
+    if (enemy.isGensoKnightsBoss || enemy.isGensoKnightsEventBoss || enemy.gensoKnightsBoss) {
+      return null;
+    }
+    if (this.isNemesisBoss?.(enemy)) {
+      return "nemesis";
+    }
+
+    const typeId = enemy.enemyTypeId || enemy.enemyDefinition?.id || "";
+    if (typeId === "gold_slime") {
+      return "goldSlime";
+    }
+    if (typeId === "silver_slime") {
+      return "silverSlime";
+    }
+    if (enemy.isWaveBoss === true) {
+      return "waveBoss";
+    }
+    if (enemy.isElite === true && enemy.isBoss !== true) {
+      return "elite";
+    }
+    return null;
+  }
+
+  resolveEquipmentProductionChanceRoll(chance, guaranteed = false) {
+    if (guaranteed) {
+      return {
+        roll: 0,
+        mode: "onboardingGuarantee"
+      };
+    }
+
+    const forceDrop = this.isEquipmentProductionDebugFlagEnabled(EQUIPMENT_PRODUCTION_FORCE_DROP_DEBUG_QUERY_PARAM);
+    const forceMiss = this.isEquipmentProductionDebugFlagEnabled(EQUIPMENT_PRODUCTION_FORCE_MISS_DEBUG_QUERY_PARAM);
+    if (forceDrop && forceMiss) {
+      this.warnEquipmentProductionDebug("forceDropAndForceMissConflict", {
+        chance
+      });
+      return {
+        roll: Math.random(),
+        mode: "normalConflict"
+      };
+    }
+    if (forceDrop) {
+      return {
+        roll: 0,
+        mode: "forceDrop"
+      };
+    }
+    if (forceMiss) {
+      return {
+        roll: 1,
+        mode: "forceMiss"
+      };
+    }
+    return {
+      roll: Math.random(),
+      mode: "normal"
+    };
+  }
+
+  resolveEquipmentProductionDebugOverrides(depth, legendUnlocked) {
+    const equipmentSystem = this.getEquipmentSystem();
+    const overrides = {
+      rarity: null,
+      rank: null,
+      slot: null
+    };
+
+    const rawRarity = this.getUrlStageParam(EQUIPMENT_PRODUCTION_RARITY_DEBUG_QUERY_PARAM);
+    if (rawRarity !== null && rawRarity !== undefined && String(rawRarity).trim() !== "") {
+      const rarity = String(rawRarity).trim().toUpperCase();
+      const validRarities = new Set(equipmentSystem?.RARITIES || EQUIPMENT_HUB_RARITY_ORDER);
+      if (!validRarities.has(rarity)) {
+        this.warnEquipmentProductionDebug("invalidRarityOverride", { rarity });
+      } else if (rarity === "LEGEND" && (depth < 11 || !legendUnlocked)) {
+        this.warnEquipmentProductionDebug("legendOverrideLocked", {
+          depth,
+          legendUnlocked
+        });
+      } else {
+        overrides.rarity = rarity;
+      }
+    }
+
+    const rawRank = this.getUrlStageParam(EQUIPMENT_PRODUCTION_RANK_DEBUG_QUERY_PARAM);
+    if (rawRank !== null && rawRank !== undefined && String(rawRank).trim() !== "") {
+      const rank = Math.floor(Number(rawRank));
+      if (!Number.isInteger(rank) || rank < 1 || rank > 5) {
+        this.warnEquipmentProductionDebug("invalidRankOverride", { rank: rawRank });
+      } else {
+        overrides.rank = rank;
+      }
+    }
+
+    const rawSlot = this.getUrlStageParam(EQUIPMENT_PRODUCTION_SLOT_DEBUG_QUERY_PARAM);
+    if (rawSlot !== null && rawSlot !== undefined && String(rawSlot).trim() !== "") {
+      const slot = String(rawSlot).trim().toLowerCase();
+      const validSlots = new Set(equipmentSystem?.SLOTS || EQUIPMENT_HUB_SLOT_ROWS.map((row) => row.slot));
+      if (!validSlots.has(slot)) {
+        this.warnEquipmentProductionDebug("invalidSlotOverride", { slot });
+      } else {
+        overrides.slot = slot;
+      }
+    }
+
+    return overrides;
+  }
+
+  createProductionEquipmentRecord(sourceType, depth = this.stageDepth || 1) {
+    const equipmentSystem = this.getEquipmentSystem();
+    if (!equipmentSystem) {
+      return null;
+    }
+
+    const sourceDepth = Math.max(1, Math.floor(Number(depth) || 1));
+    const legendUnlocked = this.isEquipmentProductionLegendUnlockedForDepth(sourceDepth);
+    const overrides = this.resolveEquipmentProductionDebugOverrides(sourceDepth, legendUnlocked);
+    const hasOverrides = overrides.rarity || overrides.rank || overrides.slot;
+    const id = this.createEquipmentDropRecordId();
+
+    if (!hasOverrides && equipmentSystem.createRandomEquipmentDropRecord) {
+      return equipmentSystem.createRandomEquipmentDropRecord({
+        id,
+        sourceDepth,
+        sourceType,
+        legendUnlocked,
+        rng: Math.random
+      });
+    }
+
+    const rarity = overrides.rarity || equipmentSystem.rollEquipmentRarityForDepth?.(sourceDepth, legendUnlocked, Math.random);
+    const rank = overrides.rank || equipmentSystem.rollEquipmentRankForDepth?.(sourceDepth, Math.random);
+    const slot = overrides.slot || equipmentSystem.rollEquipmentSlot?.(Math.random);
+    return this.normalizeEquipmentItem({
+      id,
+      rarity,
+      rank,
+      slot,
+      sourceDepth,
+      sourceType,
+      analysisCostOverride: null
+    });
+  }
+
+  trySpawnProductionEquipmentBox(enemy) {
+    if (!enemy?.active || enemy.isDying || enemy.equipmentProductionDropAttempted) {
+      return false;
+    }
+
+    const sourceType = this.getProductionEquipmentDropSourceType(enemy);
+    if (!sourceType) {
+      return false;
+    }
+
+    enemy.equipmentProductionDropAttempted = true;
+    const depth = Math.max(1, Math.floor(Number(this.stageDepth) || 1));
+    const productionState = this.ensureEquipmentProductionDropState(depth);
+    if (productionState.spawned) {
+      this.logEquipmentProductionDebug("depthCapSkip", {
+        depth,
+        sourceType,
+        existingSourceType: productionState.sourceType,
+        itemId: this.getShortEquipmentBoxId(productionState.itemId)
+      });
+      return false;
+    }
+
+    const equipmentSystem = this.getEquipmentSystem();
+    const baseChance = equipmentSystem?.getEquipmentDropChanceForSource?.(sourceType) || 0;
+    const guaranteed = this.shouldGuaranteeFirstProductionEquipmentDrop(sourceType, productionState);
+    const chance = guaranteed ? 1 : baseChance;
+    productionState.attempts = Math.max(0, Math.floor(Number(productionState.attempts) || 0)) + 1;
+
+    if (chance <= 0) {
+      this.logEquipmentProductionDebug("chanceZero", {
+        depth,
+        sourceType
+      });
+      return false;
+    }
+
+    const roll = this.resolveEquipmentProductionChanceRoll(chance, guaranteed);
+    const success = roll.roll < chance;
+    this.logEquipmentProductionDebug("attempt", {
+      depth,
+      sourceType,
+      chance,
+      roll: Number(roll.roll.toFixed?.(4) || roll.roll),
+      mode: roll.mode,
+      guaranteed,
+      success
+    });
+    if (!success) {
+      return false;
+    }
+
+    const record = this.createProductionEquipmentRecord(sourceType, depth);
+    if (!record) {
+      this.warnEquipmentProductionDebug("recordCreateFailed", {
+        depth,
+        sourceType
+      });
+      return false;
+    }
+
+    const drop = this.spawnEquipmentBoxDrop(enemy.x, enemy.y, record);
+    if (!drop) {
+      this.warnEquipmentProductionDebug("spawnFailed", {
+        depth,
+        sourceType,
+        id: this.getShortEquipmentBoxId(record.id)
+      });
+      return false;
+    }
+
+    productionState.spawned = true;
+    productionState.sourceType = sourceType;
+    productionState.itemId = record.id;
+    this.logEquipmentProductionDebug("spawned", {
+      depth,
+      sourceType,
+      id: this.getShortEquipmentBoxId(record.id),
+      rarity: record.rarity,
+      rank: record.rank,
+      slot: record.slot
+    });
+    return true;
+  }
+
+  spawnEquipmentBoxDrop(x, y, record) {
+    const equipmentRecord = this.normalizeEquipmentItem(record);
+    if (!equipmentRecord || !this.equipmentBoxItems) {
+      return null;
+    }
+
+    const dropPoint = this.getSafeDropPoint(x, y, 28);
+    const visual = this.getEquipmentBoxRarityVisual(equipmentRecord);
+    const textureKey = this.textures.exists("rare-token") ? "rare-token" : "skill-hit-ring";
+    const drop = this.physics.add.image(dropPoint.x, dropPoint.y, textureKey).setDepth(13);
+    const sourceImage = drop.texture.getSourceImage();
+    const bodyRadius = 22;
+    const bodyOffsetX = Math.max(0, (sourceImage?.width || 48) * 0.5 - bodyRadius);
+    const bodyOffsetY = Math.max(0, (sourceImage?.height || 48) * 0.5 - bodyRadius);
+    drop.body.setAllowGravity(false);
+    drop.body.setVelocity(0, 0);
+    drop.body.setCircle(bodyRadius, bodyOffsetX, bodyOffsetY);
+    drop.equipmentRecord = equipmentRecord;
+    drop.baseX = dropPoint.x;
+    drop.baseY = dropPoint.y;
+    drop.baseScale = 0.42;
+    drop.floatTimer = Phaser.Math.FloatBetween(0, Math.PI * 2);
+    drop.forcePullUntil = 0;
+    drop.forcePullSpeed = 0;
+    drop.setScale(drop.baseScale);
+    drop.setTint(visual.tint);
+    drop.setBlendMode(Phaser.BlendModes.SCREEN);
+    this.prepareDropObject(drop, "equipmentBox", "equipmentBoxItems");
+
+    drop.equipmentGlow = this.add
+      .image(dropPoint.x, dropPoint.y, "skill-hit-glow")
+      .setDepth(12)
+      .setScale(0.74)
+      .setTint(visual.tint)
+      .setAlpha(0.24)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    drop.equipmentRing = this.add
+      .image(dropPoint.x, dropPoint.y, "skill-hit-ring")
+      .setDepth(12)
+      .setScale(0.52)
+      .setTint(visual.tint)
+      .setAlpha(0.18)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    drop.equipmentLabel = this.add
+      .text(dropPoint.x, dropPoint.y - 2, visual.label, {
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: visual.label.length > 2 ? "10px" : "13px",
+        color: visual.text,
+        fontStyle: "bold",
+        stroke: "#04111c",
+        strokeThickness: 4,
+        align: "center"
+      })
+      .setOrigin(0.5)
+      .setDepth(14);
+
+    this.pickupEffectsLayer?.add?.([drop.equipmentGlow, drop.equipmentRing, drop.equipmentLabel].filter(Boolean));
+    this.equipmentBoxItems.add(drop);
+    this.enforceEquipmentBoxGroundLimit("spawnEquipmentBoxDrop");
+    return drop;
+  }
+
+  enforceEquipmentBoxGroundLimit(reason = "limit") {
+    const boxes = this.equipmentBoxItems?.getChildren?.()
+      .filter((drop) => this.isDropActive(drop)) || [];
+    if (boxes.length <= EQUIPMENT_BOX_GROUND_LIMIT) {
+      return 0;
+    }
+    const overflow = boxes
+      .sort((left, right) => (left.createdAt || 0) - (right.createdAt || 0) || (left.dropSerial || 0) - (right.dropSerial || 0))
+      .slice(0, boxes.length - EQUIPMENT_BOX_GROUND_LIMIT);
+    overflow.forEach((drop) => {
+      this.logEquipmentRunDebug("groundCapDiscard", {
+        reason,
+        id: this.getShortEquipmentBoxId(drop.equipmentRecord?.id),
+        rarity: drop.equipmentRecord?.rarity,
+        sourceDepth: drop.equipmentRecord?.sourceDepth
+      });
+      this.removeDropSafely(drop);
+    });
+    return overflow.length;
+  }
+
+  updateEquipmentBoxDrops(delta) {
+    this.equipmentBoxItems?.children?.each?.((drop) => {
+      if (!drop.active) {
+        return;
+      }
+
+      drop.floatTimer += delta / 280;
+      const pulse = (Math.sin(drop.floatTimer * 1.35) + 1) * 0.5;
+      const isForcedPull = this.time.now < (drop.forcePullUntil || 0);
+
+      if (isForcedPull && this.playerHitbox) {
+        const targetX = this.playerHitbox.x;
+        const targetY = this.playerHitbox.y - 8;
+        const deltaX = targetX - drop.baseX;
+        const deltaY = targetY - drop.baseY;
+        const distance = Math.hypot(deltaX, deltaY);
+        const maxStep = (drop.forcePullSpeed || 820) * (delta / 1000);
+        const moveRatio = distance > 0 ? Math.min(1, maxStep / distance) : 1;
+        drop.baseX += deltaX * moveRatio;
+        drop.baseY += deltaY * moveRatio;
+      }
+
+      const bob = isForcedPull ? 0 : Math.sin(drop.floatTimer) * 5;
+      drop.setPosition(drop.baseX, drop.baseY + bob);
+      drop.setScale(drop.baseScale * (0.96 + pulse * 0.1));
+      drop.setAlpha(0.9 + pulse * 0.1);
+      drop.angle = Math.sin(drop.floatTimer * 0.72) * 5;
+
+      if (drop.equipmentGlow?.active) {
+        drop.equipmentGlow
+          .setPosition(drop.x, drop.y)
+          .setScale(0.68 + pulse * 0.2)
+          .setAlpha((isForcedPull ? 0.32 : 0.18) + pulse * 0.14);
+      }
+      if (drop.equipmentRing?.active) {
+        drop.equipmentRing
+          .setPosition(drop.x, drop.y)
+          .setScale(0.48 + pulse * 0.18)
+          .setAlpha(0.12 + pulse * 0.12);
+        drop.equipmentRing.rotation += 0.018 * (delta / 16.6667);
+      }
+      if (drop.equipmentLabel?.active) {
+        drop.equipmentLabel.setPosition(drop.x, drop.y - 2);
+      }
+    });
+  }
+
+  destroyEquipmentBoxDrop(drop) {
+    if (!drop) {
+      return;
+    }
+    this.tweens?.killTweensOf?.([drop, drop.equipmentGlow, drop.equipmentRing, drop.equipmentLabel].filter(Boolean));
+    drop.equipmentGlow?.destroy?.();
+    drop.equipmentRing?.destroy?.();
+    drop.equipmentLabel?.destroy?.();
+    if (drop.active) {
+      drop.destroy();
+    }
+  }
+
+  handleEquipmentBoxPickup(drop, collectorType = "player") {
+    if (!this.isDropActive(drop) || drop.equipmentAcquired === true) {
+      return false;
+    }
+
+    const equipmentRecord = this.normalizeEquipmentItem(drop.equipmentRecord);
+    if (!equipmentRecord) {
+      this.removeDropSafely(drop);
+      return false;
+    }
+    const existingRunBoxes = this.normalizeEquipmentItemList(this.runUnsecuredEquipmentBoxes);
+    if (existingRunBoxes.some((box) => box.id === equipmentRecord.id)) {
+      drop.equipmentAcquired = true;
+      this.removeDropSafely(drop);
+      return false;
+    }
+
+    drop.equipmentAcquired = true;
+    if (drop.body) {
+      drop.body.enable = false;
+      drop.body.setVelocity?.(0, 0);
+    }
+    this.equipmentBoxItems?.remove?.(drop, false, false);
+    this.runUnsecuredEquipmentBoxes = [...existingRunBoxes, equipmentRecord];
+    this.spawnEquipmentBoxPickupEffect(drop.x, drop.y, equipmentRecord);
+    this.removeDropSafely(drop);
+    this.updateRunEquipmentHud(true);
+    this.setLastPickupNotice(`SEALED EQ ${this.getEquipmentBoxRarityDisplayLabel(equipmentRecord.rarity)}`);
+    this.logEquipmentRunDebug("pickup", {
+      collectorType,
+      id: this.getShortEquipmentBoxId(equipmentRecord.id),
+      rarity: equipmentRecord.rarity,
+      rank: equipmentRecord.rank,
+      slot: equipmentRecord.slot,
+      sourceDepth: equipmentRecord.sourceDepth,
+      runCount: this.runUnsecuredEquipmentBoxes.length
+    });
+    return true;
+  }
+
+  spawnEquipmentBoxPickupEffect(x, y, box) {
+    const visual = this.getEquipmentBoxRarityVisual(box);
+    const glow = this.add
+      .image(x, y, "skill-hit-glow")
+      .setDepth(23)
+      .setScale(0.9)
+      .setTint(visual.tint)
+      .setAlpha(0.72)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const ring = this.add
+      .image(x, y, "skill-hit-ring")
+      .setDepth(23)
+      .setScale(0.48)
+      .setTint(visual.tint)
+      .setAlpha(0.62)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.pickupEffectsLayer?.add?.([glow, ring]);
+    this.tweens.add({
+      targets: glow,
+      scale: 1.7,
+      alpha: 0,
+      duration: 280,
+      ease: "Quad.Out",
+      onComplete: () => glow.destroy()
+    });
+    this.tweens.add({
+      targets: ring,
+      scale: 1.3,
+      alpha: 0,
+      duration: 340,
+      ease: "Quad.Out",
+      onComplete: () => ring.destroy()
+    });
+  }
+
+  updateRunEquipmentHud(force = false) {
+    const runBoxes = this.normalizeEquipmentItemList(this.runUnsecuredEquipmentBoxes);
+    const counts = this.countEquipmentBoxesByRarity(runBoxes);
+    const countsText = this.formatEquipmentBoxCounts(counts);
+    const visible = runBoxes.length > 0 && !this.isFinalBossRaidActive?.();
+    const signature = `${visible ? "1" : "0"}|${countsText}`;
+    if (!force && signature === this.lastRunEquipmentHudSignature) {
+      return;
+    }
+    this.lastRunEquipmentHudSignature = signature;
+
+    this.hudEquipmentPanel?.setVisible?.(visible);
+    this.hudEquipmentText?.setVisible?.(visible);
+    if (!visible || !this.hudEquipmentText) {
+      return;
+    }
+    this.hudEquipmentText.setText(`SEALED EQ\n${countsText}`);
+  }
+
+  discardGroundEquipmentBoxes(reason = "discard") {
+    let children = [];
+    try {
+      children = this.equipmentBoxItems?.getChildren?.() || [];
+    } catch (error) {
+      children = [];
+    }
+    const boxes = children.filter((drop) => this.isDropActive(drop));
+    boxes.forEach((drop) => this.removeDropSafely(drop));
+    if (boxes.length > 0) {
+      this.logEquipmentRunDebug("groundDiscard", { reason, count: boxes.length });
+    }
+    return boxes.length;
+  }
+
+  discardRunEquipmentBoxes(reason = "discard") {
+    const sceneCleanup = reason === "sceneShutdown" || reason === "sceneDestroy";
+    const lostBoxes = this.normalizeEquipmentItemList(this.runUnsecuredEquipmentBoxes);
+    const groundDiscarded = this.discardGroundEquipmentBoxes(reason);
+    if (lostBoxes.length <= 0 && groundDiscarded <= 0) {
+      if (!sceneCleanup) {
+        this.updateRunEquipmentHud(true);
+      }
+      return {
+        ok: true,
+        mode: "discard",
+        reason,
+        securedBoxes: [],
+        lostBoxes: [],
+        securedCounts: this.countEquipmentBoxesByRarity([]),
+        lostCounts: this.countEquipmentBoxesByRarity([])
+      };
+    }
+
+    this.runUnsecuredEquipmentBoxes = [];
+    this.runEquipmentTransferCompleted = false;
+    const result = {
+      ok: true,
+      mode: "discard",
+      reason,
+      securedBoxes: [],
+      lostBoxes,
+      securedCounts: this.countEquipmentBoxesByRarity([]),
+      lostCounts: this.countEquipmentBoxesByRarity(lostBoxes)
+    };
+    this.lastRunEquipmentTransferResult = result;
+    if (!sceneCleanup) {
+      this.updateRunEquipmentHud(true);
+    }
+    this.logEquipmentRunDebug("discard", {
+      reason,
+      lostCount: lostBoxes.length,
+      groundDiscarded,
+      lostCounts: result.lostCounts
+    });
+    return result;
+  }
+
+  secureRunEquipmentBoxes(mode = "normalExtract") {
+    if (this.runEquipmentTransferCompleted) {
+      this.logEquipmentRunDebug("doubleTransferSkip", {
+        mode,
+        previousMode: this.lastRunEquipmentTransferResult?.mode || "none"
+      });
+      return this.lastRunEquipmentTransferResult || {
+        ok: true,
+        mode,
+        securedBoxes: [],
+        lostBoxes: [],
+        securedCounts: this.countEquipmentBoxesByRarity([]),
+        lostCounts: this.countEquipmentBoxesByRarity([])
+      };
+    }
+
+    const runBoxes = this.normalizeEquipmentItemList(this.runUnsecuredEquipmentBoxes);
+    if (runBoxes.length <= 0) {
+      const result = {
+        ok: true,
+        mode,
+        securedBoxes: [],
+        lostBoxes: [],
+        securedCounts: this.countEquipmentBoxesByRarity([]),
+        lostCounts: this.countEquipmentBoxesByRarity([])
+      };
+      this.runEquipmentTransferCompleted = true;
+      this.lastRunEquipmentTransferResult = result;
+      this.discardGroundEquipmentBoxes(mode);
+      this.updateRunEquipmentHud(true);
+      this.logEquipmentRunDebug("save", { mode, securedCount: 0, lostCount: 0 });
+      return result;
+    }
+
+    const emergency = mode === "emergency" || mode === "emergencyExtract";
+    const equipmentSystem = this.getEquipmentSystem();
+    let securedCandidates = runBoxes;
+    let lostBoxes = [];
+    if (emergency) {
+      const selected = equipmentSystem?.selectHighestQualityEquipmentBox?.(runBoxes);
+      const selectedBox = selected?.box || runBoxes[0];
+      securedCandidates = selectedBox ? [selectedBox] : [];
+      const selectedId = selectedBox?.id || "";
+      lostBoxes = runBoxes.filter((box) => box.id !== selectedId);
+      this.logEquipmentRunDebug("emergencySelected", {
+        id: this.getShortEquipmentBoxId(selectedId),
+        rarity: selectedBox?.rarity,
+        rank: selectedBox?.rank,
+        slot: selectedBox?.slot,
+        qualityScore: selected?.qualityScore ?? equipmentSystem?.getEquipmentQualityScore?.(selectedBox)
+      });
+    }
+
+    const previousState = this.normalizeEquipmentState(this.equipmentState);
+    const appended = equipmentSystem?.appendSecuredEquipmentBoxes
+      ? equipmentSystem.appendSecuredEquipmentBoxes(previousState, securedCandidates)
+      : {
+          state: previousState,
+          addedBoxes: [],
+          skippedBoxes: securedCandidates
+        };
+    this.equipmentState = this.normalizeEquipmentState(appended.state);
+    const saveSucceeded = this.saveEquipmentState();
+    if (!saveSucceeded) {
+      this.equipmentState = previousState;
+      this.runEquipmentTransferCompleted = false;
+      const failure = { ok: false, reason: "save_failed", mode };
+      this.lastRunEquipmentTransferResult = failure;
+      this.setLastPickupNotice("EQUIPMENT SAVE FAILED");
+      this.updateRunEquipmentHud(true);
+      console.warn("[EQUIPMENT RUN] failed to save secured boxes", { mode, count: securedCandidates.length });
+      this.logEquipmentRunDebug("saveFailure", { mode, count: securedCandidates.length });
+      return failure;
+    }
+
+    this.runUnsecuredEquipmentBoxes = [];
+    this.runEquipmentTransferCompleted = true;
+    const result = {
+      ok: true,
+      mode,
+      securedBoxes: this.normalizeEquipmentItemList(appended.addedBoxes),
+      lostBoxes,
+      skippedBoxes: this.normalizeEquipmentItemList(appended.skippedBoxes),
+      securedCounts: this.countEquipmentBoxesByRarity(appended.addedBoxes),
+      lostCounts: this.countEquipmentBoxesByRarity(lostBoxes)
+    };
+    this.lastRunEquipmentTransferResult = result;
+    this.discardGroundEquipmentBoxes(mode);
+    this.updateRunEquipmentHud(true);
+    this.logEquipmentRunDebug("saveSuccess", {
+      mode,
+      securedCount: result.securedBoxes.length,
+      skippedCount: result.skippedBoxes.length,
+      lostCount: result.lostBoxes.length,
+      securedCounts: result.securedCounts,
+      lostCounts: result.lostCounts
+    });
+    return result;
+  }
+
+  formatRunEquipmentTransferLines(result) {
+    if (!result) {
+      return [];
+    }
+    if (result.ok === false) {
+      return ["EQUIPMENT SAVE FAILED"];
+    }
+
+    const securedCount = Array.isArray(result.securedBoxes) ? result.securedBoxes.length : 0;
+    const lostCount = Array.isArray(result.lostBoxes) ? result.lostBoxes.length : 0;
+    if (securedCount <= 0 && lostCount <= 0) {
+      return [];
+    }
+
+    const lines = [];
+    const securedCountsText = this.formatEquipmentBoxCounts(result.securedCounts || result.securedBoxes || []);
+    const lostCountsText = this.formatEquipmentBoxCounts(result.lostCounts || result.lostBoxes || []);
+    if (result.mode === "emergency" || result.mode === "emergencyExtract") {
+      lines.push(`EMERGENCY EQUIPMENT SECURE: ${securedCount}`);
+      if (securedCountsText) {
+        lines.push(securedCountsText);
+      }
+      if (lostCount > 0) {
+        lines.push(`LOST SIGNALS: ${lostCount}`);
+        if (lostCountsText) {
+          lines.push(lostCountsText);
+        }
+      }
+      return lines;
+    }
+
+    lines.push(`SEALED EQUIPMENT SECURED: ${securedCount}`);
+    if (securedCountsText) {
+      lines.push(securedCountsText);
+    }
+    return lines;
+  }
+
+  isEquipmentHubDebugEnabled() {
+    const value = this.getUrlStageParam(EQUIPMENT_HUB_DEBUG_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  isEquipmentHubLegendDebugEnabled() {
+    const value = this.getUrlStageParam(EQUIPMENT_HUB_LEGEND_DEBUG_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  createEquipmentHubDebugItem(id, rarity, rank, slot) {
+    return {
+      id,
+      rarity,
+      rank,
+      slot,
+      sourceDepth: 1,
+      sourceType: "debug",
+      analysisCostOverride: null
+    };
+  }
+
+  createEquipmentHubDebugState() {
+    const legendDebug = this.isEquipmentHubLegendDebugEnabled();
+    return this.normalizeEquipmentState({
+      version: 1,
+      legendDiscovered: legendDebug,
+      finalRaidLegendRewardClaimed: false,
+      freeAnalysisCredits: 1,
+      bestBySlot: {
+        head: this.createEquipmentHubDebugItem("debug-head-n-2", "N", 2, "head"),
+        clothes: this.createEquipmentHubDebugItem("debug-clothes-r-4", "R", 4, "clothes"),
+        shoes: this.createEquipmentHubDebugItem("debug-shoes-sr-3", "SR", 3, "shoes"),
+        weapon: this.createEquipmentHubDebugItem("debug-weapon-ssr-2", "SSR", 2, "weapon"),
+        accessory: legendDebug
+          ? this.createEquipmentHubDebugItem("debug-accessory-legend-3", "LEGEND", 3, "accessory")
+          : null
+      },
+      securedBoxes: [
+        this.createEquipmentHubDebugItem("debug-box-n-1", "N", 1, "head"),
+        this.createEquipmentHubDebugItem("debug-box-n-2", "N", 4, "weapon"),
+        this.createEquipmentHubDebugItem("debug-box-r-1", "R", 2, "clothes"),
+        this.createEquipmentHubDebugItem("debug-box-sr-1", "SR", 3, "shoes"),
+        this.createEquipmentHubDebugItem("debug-box-ssr-1", "SSR", 5, "weapon"),
+        this.createEquipmentHubDebugItem("debug-box-legend-1", "LEGEND", 3, "accessory")
+      ],
+      stats: {
+        opened: 0,
+        upgrades: 0,
+        duplicates: 0
+      }
+    });
+  }
+
+  getEquipmentHubDisplayState() {
+    if (this.isEquipmentHubDebugEnabled()) {
+      return this.createEquipmentHubDebugState();
+    }
+    return this.normalizeEquipmentState(this.equipmentState);
+  }
+
+  getEquipmentHubRarityCounts(state) {
+    const equipmentSystem = this.getEquipmentSystem();
+    if (equipmentSystem?.countSecuredEquipmentBoxesByRarity) {
+      return equipmentSystem.countSecuredEquipmentBoxesByRarity(state);
+    }
+
+    const counts = EQUIPMENT_HUB_RARITY_ORDER.reduce((result, rarity) => {
+      result[rarity] = 0;
+      return result;
+    }, {});
+    this.normalizeEquipmentState(state).securedBoxes.forEach((box) => {
+      if (counts[box.rarity] !== undefined) {
+        counts[box.rarity] += 1;
+      }
+    });
+    return counts;
+  }
+
+  getEquipmentRankLabel(rank) {
+    return EQUIPMENT_HUB_RANK_LABELS[Math.floor(Number(rank) || 0)] || "?";
+  }
+
+  getEquipmentRarityStyle(rarity) {
+    return EQUIPMENT_HUB_RARITY_STYLES[rarity] || EQUIPMENT_HUB_RARITY_STYLES.unknown;
+  }
+
+  getEquipmentHubSlotRows(state) {
+    const hiddenLegend = state.legendDiscovered !== true;
+    return EQUIPMENT_HUB_SLOT_ROWS.map((entry) => {
+      const item = state.bestBySlot?.[entry.slot] || null;
+      if (!item) {
+        return {
+          ...entry,
+          item: null,
+          status: "empty",
+          displayRarity: null,
+          rankLabel: null,
+          effectLabel: ""
+        };
+      }
+      if (hiddenLegend && item.rarity === "LEGEND") {
+        return {
+          ...entry,
+          item: null,
+          status: "unregistered",
+          displayRarity: null,
+          rankLabel: null,
+          effectLabel: ""
+        };
+      }
+      return {
+        ...entry,
+        item,
+        status: "equipment",
+        displayRarity: item.rarity,
+        rankLabel: this.getEquipmentRankLabel(item.rank),
+        effectLabel: this.getEquipmentBonusEffectLabel(item)
+      };
+    });
+  }
+
+  logEquipmentHubDebugSample(state, slotRows, rarityCounts, unknownSignalCount) {
+    if (!this.isEquipmentHubDebugEnabled()) {
+      return;
+    }
+
+    const slotSummary = slotRows.map((row) => ({
+      slot: row.slot,
+      display: row.status === "equipment"
+        ? `${row.displayRarity} Rank ${row.rankLabel}`
+        : (row.status === "unregistered" ? "UNREGISTERED DATA" : "NO DATA")
+    }));
+    const signature = JSON.stringify({
+      legend: state.legendDiscovered === true,
+      slots: slotSummary,
+      counts: rarityCounts,
+      unknownSignalCount
+    });
+    if (this.lastEquipmentHubDebugLogSignature === signature) {
+      return;
+    }
+    this.lastEquipmentHubDebugLogSignature = signature;
+
+    console.log("[EQUIPMENT HUB] debug sample", this.isEquipmentHubLegendDebugEnabled() ? "legendDiscovered" : "hiddenLegend");
+    console.log("[EQUIPMENT HUB] legendDiscovered", state.legendDiscovered === true);
+    console.log("[EQUIPMENT HUB] loadout", slotSummary);
+    console.log("[EQUIPMENT HUB] sealedBoxesByRarity", rarityCounts);
+    console.log("[EQUIPMENT HUB] unknownSignalCount", unknownSignalCount);
+  }
+
+  isEquipmentAnalysisDebugEnabled() {
+    const value = this.getUrlStageParam(EQUIPMENT_ANALYSIS_DEBUG_QUERY_PARAM);
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  formatEquipmentAnalysisCost(amount) {
+    const value = this.normalizeCoinAmount(amount);
+    return value > 0 ? `${value.toLocaleString()} GEEK` : "FREE";
+  }
+
+  formatEquipmentAnalysisButtonCost(quote) {
+    if (!quote?.ok) {
+      return "";
+    }
+    if (quote.actualCost <= 0) {
+      return quote.usesFreeCredit ? "FREE CREDIT" : "FREE";
+    }
+    return this.formatEquipmentAnalysisCost(quote.actualCost);
+  }
+
+  getEquipmentSlotLabel(slot) {
+    return EQUIPMENT_HUB_SLOT_ROWS.find((entry) => entry.slot === slot)?.label || String(slot || "").toUpperCase();
+  }
+
+  getEquipmentItemSummary(item) {
+    if (!item) {
+      return "NO DATA";
+    }
+    return `${item.rarity} RANK ${this.getEquipmentRankLabel(item.rank)}`;
+  }
+
+  getEquipmentBonusEffectInfo(item) {
+    const normalizedItem = this.normalizeEquipmentItem(item);
+    if (!normalizedItem) {
+      return {
+        slot: "",
+        title: "NO EFFECT",
+        value: 0,
+        valueType: "none"
+      };
+    }
+    const bonuses = this.getEquipmentSystem()?.getEquipmentBonusForItem?.(normalizedItem) || this.createEmptyEquipmentBonuses();
+    if (normalizedItem.slot === "head") {
+      return {
+        slot: normalizedItem.slot,
+        title: "ATK INTERVAL",
+        value: Math.max(0, Number(bonuses.attackIntervalReductionRate) || 0),
+        valueType: "negativePercent"
+      };
+    }
+    if (normalizedItem.slot === "clothes") {
+      return {
+        slot: normalizedItem.slot,
+        title: "MAX HP",
+        value: Math.max(0, Math.floor(Number(bonuses.maxHpFlat) || 0)),
+        valueType: "flat"
+      };
+    }
+    if (normalizedItem.slot === "shoes") {
+      return {
+        slot: normalizedItem.slot,
+        title: "STAMINA REGEN",
+        value: Math.max(0, Number(bonuses.staminaRegenIncreaseRate) || 0),
+        valueType: "positivePercent"
+      };
+    }
+    if (normalizedItem.slot === "weapon") {
+      return {
+        slot: normalizedItem.slot,
+        title: "SKILL DMG",
+        value: Math.max(0, Number(bonuses.playerSkillDamageIncreaseRate) || 0),
+        valueType: "positivePercent"
+      };
+    }
+    if (normalizedItem.slot === "accessory") {
+      return {
+        slot: normalizedItem.slot,
+        title: "MAX STAMINA",
+        value: Math.max(0, Math.floor(Number(bonuses.maxStaminaFlat) || 0)),
+        valueType: "flat"
+      };
+    }
+    return {
+      slot: normalizedItem.slot,
+      title: "NO EFFECT",
+      value: 0,
+      valueType: "none"
+    };
+  }
+
+  formatEquipmentBonusEffectValue(info, value = info?.value || 0, options = {}) {
+    const numericValue = Number(value) || 0;
+    const forceSign = options.forceSign === true;
+    if (info?.valueType === "negativePercent") {
+      const sign = forceSign && numericValue >= 0 ? "+" : "";
+      return `${sign}${(numericValue * 100).toFixed(1)}%`;
+    }
+    if (info?.valueType === "positivePercent") {
+      const sign = numericValue >= 0 ? "+" : "";
+      return `${sign}${(numericValue * 100).toFixed(1)}%`;
+    }
+    if (info?.valueType === "flat") {
+      const sign = numericValue >= 0 ? "+" : "";
+      return `${sign}${Math.round(numericValue)}`;
+    }
+    return "-";
+  }
+
+  getEquipmentBonusEffectLabel(item) {
+    const info = this.getEquipmentBonusEffectInfo(item);
+    if (info.valueType === "none") {
+      return "NO EFFECT";
+    }
+    const value = this.formatEquipmentBonusEffectValue(info);
+    return `${info.title} ${info.valueType === "negativePercent" ? "-" : ""}${value.replace(/^\+/, "")}`;
+  }
+
+  getEquipmentAnalysisEffectDeltaLine(result) {
+    const slot = result?.box?.slot || result?.current?.slot || result?.previous?.slot || "";
+    const currentInfo = this.getEquipmentBonusEffectInfo(result?.current || (slot ? { slot } : null));
+    const previousInfo = this.getEquipmentBonusEffectInfo(result?.previous || null);
+    const currentLabel = result?.current ? this.getEquipmentBonusEffectLabel(result.current) : "NO EFFECT";
+    if (!result?.upgraded) {
+      return `EFFECT    UNCHANGED / ${currentLabel}`;
+    }
+    const previousValue = previousInfo.slot === currentInfo.slot ? Number(previousInfo.value) || 0 : 0;
+    const currentValue = Number(currentInfo.value) || 0;
+    const delta = currentValue - previousValue;
+    const deltaText = currentInfo.valueType === "none"
+      ? "-"
+      : this.formatEquipmentBonusEffectValue(currentInfo, delta, { forceSign: true });
+    return `EFFECT    ${currentLabel} (${deltaText})`;
+  }
+
+  getShortEquipmentBoxId(id) {
+    const text = String(id || "");
+    if (text.length <= 18) {
+      return text;
+    }
+    return `${text.slice(0, 8)}...${text.slice(-6)}`;
+  }
+
+  getFirstEquipmentAnalysisBoxForRarity(state, rarity) {
+    const equipmentSystem = this.getEquipmentSystem();
+    if (equipmentSystem?.findFirstSecuredEquipmentBoxByRarity) {
+      return equipmentSystem.findFirstSecuredEquipmentBoxByRarity(state, rarity);
+    }
+    return this.normalizeEquipmentState(state).securedBoxes.find((box) => box.rarity === rarity) || null;
+  }
+
+  getEquipmentAnalysisButtonState(state, rarity, count) {
+    if (this.normalizeCoinAmount(count) <= 0) {
+      return {
+        enabled: false,
+        label: "",
+        subLabel: "",
+        boxId: null
+      };
+    }
+    if (this.isEquipmentHubDebugEnabled()) {
+      return {
+        enabled: false,
+        label: "PREVIEW ONLY",
+        subLabel: "",
+        boxId: null
+      };
+    }
+    if (this.equipmentAnalysisBusy || this.equipmentAnalysisResultOpen) {
+      return {
+        enabled: false,
+        label: "BUSY",
+        subLabel: "",
+        boxId: null
+      };
+    }
+
+    const equipmentSystem = this.getEquipmentSystem();
+    const box = this.getFirstEquipmentAnalysisBoxForRarity(state, rarity);
+    const quote = equipmentSystem?.getEquipmentAnalysisQuote?.(this.equipmentState, box?.id);
+    if (!box || !quote?.ok) {
+      return {
+        enabled: false,
+        label: "SIGNAL LOST",
+        subLabel: "",
+        boxId: null
+      };
+    }
+
+    if (this.normalizeCoinAmount(this.coins) < this.normalizeCoinAmount(quote.actualCost)) {
+      return {
+        enabled: false,
+        label: "NEED",
+        subLabel: this.formatEquipmentAnalysisCost(quote.actualCost),
+        boxId: box.id
+      };
+    }
+
+    return {
+      enabled: true,
+      label: "ANALYZE",
+      subLabel: this.formatEquipmentAnalysisButtonCost(quote),
+      boxId: box.id
+    };
+  }
+
+  logEquipmentAnalysisDebug(result, details = {}) {
+    if (!this.isEquipmentAnalysisDebugEnabled() || this.isEquipmentHubDebugEnabled() || !result?.ok) {
+      return;
+    }
+
+    const state = this.normalizeEquipmentState(details.saveSucceeded ? result.state : this.equipmentState);
+    const payload = {
+      boxId: this.getShortEquipmentBoxId(result.box?.id),
+      rarity: result.box?.rarity,
+      actualCost: this.normalizeCoinAmount(result.quote?.actualCost),
+      usesFreeCredit: result.quote?.usesFreeCredit === true,
+      usesCostOverride: result.quote?.usesCostOverride === true,
+      upgraded: result.upgraded === true,
+      duplicate: result.duplicate === true,
+      refund: this.normalizeCoinAmount(result.refund),
+      netCost: this.normalizeCoinAmount(result.netCost),
+      legendDiscoveredNow: result.legendDiscoveredNow === true,
+      saveSucceeded: details.saveSucceeded === true,
+      rollback: details.rollback === true,
+      remainingBoxes: state.securedBoxes.length,
+      stats: { ...state.stats }
+    };
+
+    if (details.saveSucceeded === true) {
+      payload.slot = result.box?.slot;
+      payload.rank = result.box?.rank;
+      payload.rankLabel = this.getEquipmentRankLabel(result.box?.rank);
+    }
+    if (details.rollback === true) {
+      payload.rollbackEquipmentSaved = details.rollbackEquipmentSaved === true;
+    }
+
+    console.log("[EQUIPMENT ANALYSIS]", payload);
+  }
+
+  restoreEquipmentAnalysisRollback(previousState, previousCoins) {
+    this.equipmentState = this.normalizeEquipmentState(previousState);
+    this.coins = this.normalizeCoinAmount(previousCoins);
+    const equipmentRestored = this.saveEquipmentState();
+    this.saveCoinWallet();
+    this.updateHud();
+
+    try {
+      const savedCoins = this.normalizeCoinAmount(window.localStorage?.getItem(COIN_WALLET_STORAGE_KEY));
+      if (savedCoins !== this.coins) {
+        console.warn("[EQUIPMENT ANALYSIS] rollback coin save failed", {
+          expected: this.coins,
+          saved: savedCoins
+        });
+      }
+    } catch (error) {
+      console.warn("[EQUIPMENT ANALYSIS] rollback coin save failed", error);
+    }
+
+    if (!equipmentRestored) {
+      console.warn("[EQUIPMENT ANALYSIS] rollback equipment save failed");
+    }
+    return equipmentRestored;
+  }
+
+  analyzeSecuredEquipmentBox(boxId) {
+    if (!this.shopActive || this.shopViewMode !== "geek" || this.geekShopSubView !== GEEK_SHOP_SUB_VIEW_EQUIPMENT_ANALYSIS) {
+      return;
+    }
+    if (this.equipmentAnalysisBusy || this.equipmentAnalysisResultOpen) {
+      return;
+    }
+    if (this.isEquipmentHubDebugEnabled()) {
+      this.showPreGameShop("EQUIPMENT ANALYSIS: PREVIEW ONLY");
+      return;
+    }
+
+    const equipmentSystem = this.getEquipmentSystem();
+    const quote = equipmentSystem?.getEquipmentAnalysisQuote?.(this.equipmentState, boxId);
+    if (!quote?.ok) {
+      this.showPreGameShop("EQUIPMENT ANALYSIS: SIGNAL LOST");
+      return;
+    }
+    if (this.normalizeCoinAmount(this.coins) < this.normalizeCoinAmount(quote.actualCost)) {
+      this.showPreGameShop(`EQUIPMENT ANALYSIS: NEED ${this.formatEquipmentAnalysisCost(quote.actualCost)}`);
+      return;
+    }
+
+    const previousState = this.normalizeEquipmentState(this.equipmentState);
+    const previousCoins = this.normalizeCoinAmount(this.coins);
+    const resolved = equipmentSystem?.resolveEquipmentAnalysis?.(this.equipmentState, boxId);
+    if (!resolved?.ok) {
+      this.showPreGameShop("EQUIPMENT ANALYSIS: SIGNAL LOST");
+      return;
+    }
+
+    this.equipmentAnalysisBusy = true;
+    const netCost = this.normalizeCoinAmount(resolved.netCost);
+    if (netCost > 0 && !this.spendCoins(netCost)) {
+      this.equipmentAnalysisBusy = false;
+      this.showPreGameShop(`EQUIPMENT ANALYSIS: NEED ${this.formatEquipmentAnalysisCost(quote.actualCost)}`);
+      return;
+    }
+
+    this.equipmentState = this.normalizeEquipmentState(resolved.state);
+    const saveSucceeded = this.saveEquipmentState();
+    if (!saveSucceeded) {
+      const rollbackEquipmentSaved = this.restoreEquipmentAnalysisRollback(previousState, previousCoins);
+      this.equipmentAnalysisBusy = false;
+      this.logEquipmentAnalysisDebug(resolved, {
+        saveSucceeded: false,
+        rollback: true,
+        rollbackEquipmentSaved
+      });
+      this.showPreGameShop("ANALYSIS ABORTED / SAVE ERROR");
+      return;
+    }
+
+    this.shopStatusMessage = resolved.upgraded
+      ? "EQUIPMENT ANALYSIS: LOADOUT UPDATED"
+      : "EQUIPMENT ANALYSIS: DUPLICATE DATA REFUNDED";
+    this.equipmentAnalysisBusy = false;
+    this.logEquipmentAnalysisDebug(resolved, { saveSucceeded: true, rollback: false });
+    this.showEquipmentAnalysisResultPanel(resolved);
+  }
+
+  showEquipmentAnalysisResultPanel(result) {
+    if (!result?.ok) {
+      return;
+    }
+
+    this.equipmentAnalysisResultOpen = true;
+    this.overlayActions = [];
+
+    const blocker = this.addOverlayChild(
+      this.add
+        .rectangle(0, 0, 1160, 674, 0x01060c, 0.66)
+        .setInteractive()
+    );
+    blocker.on("pointerup", (pointer, localX, localY, event) => {
+      event?.stopPropagation?.();
+    });
+
+    const width = 540;
+    const height = 390;
+    const left = -width / 2;
+    const top = -height / 2;
+    const style = this.getEquipmentRarityStyle(result.box?.rarity);
+    const panel = this.addOverlayChild(this.add.graphics());
+    panel.fillStyle(0x07111d, 0.98);
+    panel.fillRoundedRect(left, top, width, height, 8);
+    panel.lineStyle(2, style.stroke, result.box?.rarity === "LEGEND" ? 0.86 : 0.56);
+    panel.strokeRoundedRect(left + 0.5, top + 0.5, width - 1, height - 1, 8);
+    panel.lineStyle(1, 0xecf7ff, 0.14);
+    panel.lineBetween(left + 22, top + 54, left + width - 22, top + 54);
+
+    if (result.box?.rarity === "LEGEND") {
+      this.drawStaticEquipmentLegendFrame(left + 8, top + 8, width - 16, height - 16);
+    }
+
+    const title = result.legendDiscoveredNow ? "LEGEND CLASS CONFIRMED" : "EQUIPMENT ANALYSIS COMPLETE";
+    this.createOverlayText(0, top + 22, title, {
+      fontSize: "20px",
+      color: "#ecf7ff",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+
+    const slotLabel = this.getEquipmentSlotLabel(result.box?.slot);
+    const rankLabel = this.getEquipmentRankLabel(result.box?.rank);
+    this.createOverlayText(left + 34, top + 82, slotLabel, {
+      fontSize: "13px",
+      color: "#9ab7cc",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(left + 34, top + 110, `${result.box?.rarity}  RANK ${rankLabel}`, {
+      fontSize: result.box?.rarity === "LEGEND" ? "32px" : "30px",
+      color: style.text,
+      fontStyle: "bold"
+    });
+
+    const statusText = result.upgraded ? "LOADOUT UPDATED" : "NO UPDATE / DUPLICATE DATA";
+    this.createOverlayText(left + 34, top + 154, statusText, {
+      fontSize: "16px",
+      color: result.upgraded ? "#77f0b4" : "#f0c463",
+      fontStyle: "bold"
+    });
+
+    const previousLine = `PREVIOUS  ${this.getEquipmentItemSummary(result.previous)}`;
+    const currentLine = `CURRENT   ${this.getEquipmentItemSummary(result.current)}`;
+    const effectLine = this.getEquipmentAnalysisEffectDeltaLine(result);
+    const costLine = `COST      ${this.formatEquipmentAnalysisCost(result.quote?.actualCost)}`;
+    const refundLine = result.refund > 0
+      ? `REFUND    +${this.normalizeCoinAmount(result.refund).toLocaleString()} GEEK`
+      : "REFUND    -";
+    this.createOverlayText(left + 34, top + 190, `${previousLine}\n${currentLine}\n${effectLine}\n${costLine}\n${refundLine}`, {
+      fontSize: "14px",
+      color: "#b8d8ec",
+      fontStyle: "bold",
+      lineSpacing: 7
+    });
+
+    const sourceNote = result.quote?.usesFreeCredit
+      ? "FREE ANALYSIS CREDIT CONSUMED"
+      : (result.quote?.usesCostOverride ? "SPECIAL ANALYSIS COST APPLIED" : "STANDARD ANALYSIS COST APPLIED");
+    this.createOverlayText(left + 34, top + 304, sourceNote, {
+      fontSize: "12px",
+      color: "#9ab7cc",
+      fontStyle: "bold"
+    });
+
+    const button = this.addOverlayChild(
+      this.add
+        .rectangle(0, top + 346, 218, 42, 0x18334a, 1)
+        .setStrokeStyle(2, 0x6fcfff, 0.72)
+        .setInteractive({ useHandCursor: true })
+    );
+    button.on("pointerover", () => button.setFillStyle(0x224b6c, 1));
+    button.on("pointerout", () => button.setFillStyle(0x18334a, 1));
+    this.addOverlayAction(button, () => {
+      this.closeEquipmentAnalysisResultPanel();
+    }, true, 8);
+    this.createOverlayText(0, top + 332, "CONTINUE", {
+      fontSize: "15px",
+      color: "#ecf7ff",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+  }
+
+  closeEquipmentAnalysisResultPanel() {
+    if (!this.equipmentAnalysisResultOpen) {
+      return;
+    }
+    this.equipmentAnalysisResultOpen = false;
+    this.shopViewMode = "geek";
+    this.geekShopSubView = GEEK_SHOP_SUB_VIEW_EQUIPMENT_ANALYSIS;
+    this.showPreGameShop(this.shopStatusMessage);
   }
 
   getSupportLinkConfigForLevel(level) {
@@ -11001,6 +13507,7 @@ class SurvivalScene extends Phaser.Scene {
     this.updateFinalBossRaidBossHpFromRaidProgress();
     this.updateFinalBossRaidHud();
     this.updateFinalBossRaidVisuals(this.time?.now || 0);
+    this.tryShowDebugFinalRaidLegendPresentationPreview("finalBossRaidStart");
     this.tryQueueDepthComms(FINAL_BOSS_RAID_CONFIG.targetDepth, "finalBossRaidStart");
 
     if (this.isFinalBossRaidDebugEnabled()) {
@@ -13694,6 +16201,7 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     this.tweens?.killTweensOf?.(state.bossContainer);
+    this.prepareFinalRaidLegendRewardOnBossDefeated(reason);
     state.bossContainer?.destroy?.();
     state.bossContainer = null;
     state.bossSprite = null;
@@ -20180,6 +22688,16 @@ class SurvivalScene extends Phaser.Scene {
     this.awardFinalBossRaidClearRewards("liberationReturn");
     const result = this.secureRunCoins(1);
     const lostArmsMessage = this.securePendingLostArms?.() || "";
+    const equipmentTransfer = this.secureRunEquipmentBoxes("finalRaidReturn");
+    const equipmentTransferMessage = this.formatRunEquipmentTransferLines(equipmentTransfer).join("\n");
+    const finalRaidEquipmentReward = this.secureFinalRaidLegendReward("liberationReturn");
+    const finalRaidEquipmentRewardMessage = finalRaidEquipmentReward?.ok && (
+      finalRaidEquipmentReward.granted || finalRaidEquipmentReward.recoveredExisting
+    )
+      ? this.getFinalRaidEquipmentRewardNoticeText()
+      : (finalRaidEquipmentReward?.ok === false && finalRaidEquipmentReward.reason === "save_failed"
+        ? "EQUIPMENT REWARD SAVE FAILED"
+        : "");
     const anjuMemoryAward = this.awardAnjuMemoryOnExtraction?.("normal") || null;
     this.setRunRankingExtractionStats("normal", result?.secured, true);
     const recordState = this.saveBestRecordIfNeeded();
@@ -20214,6 +22732,12 @@ class SurvivalScene extends Phaser.Scene {
     }
     if (resultParts.length > 0) {
       messageLines.push(resultParts.join(" / "));
+    }
+    if (equipmentTransferMessage) {
+      messageLines.push(equipmentTransferMessage);
+    }
+    if (finalRaidEquipmentRewardMessage) {
+      messageLines.push(finalRaidEquipmentRewardMessage);
     }
     this.setPendingShopEpilogueComms?.("depth10_shop_return_epilogue", "liberationReturn");
     this.cleanupFinalRaidRescueLink?.("liberationReturn");
@@ -21745,7 +24269,9 @@ class SurvivalScene extends Phaser.Scene {
       this.physics?.world?.resume?.();
     }
     this.initializeLostArmsResonanceState();
-    this.updateLostArmsResonanceHud();
+    if (reason !== "sceneShutdown" && reason !== "sceneDestroy") {
+      this.updateLostArmsResonanceHud();
+    }
     if (this.isLostArmsResonanceDebugEnabled?.()) {
       console.log("[LOST ARMS RESONANCE] reset", { reason });
     }
@@ -24601,7 +27127,9 @@ class SurvivalScene extends Phaser.Scene {
       this.physics?.world?.resume?.();
     }
     this.initializeSkillMutationState();
-    this.updateHud?.();
+    if (reason !== "sceneShutdown" && reason !== "sceneDestroy") {
+      this.updateHud?.();
+    }
     if (this.isSkillMutationDebugEnabled?.()) {
       console.log("[SKILL MUTATION] reset", { reason });
     }
@@ -24898,7 +27426,9 @@ class SurvivalScene extends Phaser.Scene {
   resetTriadMatrixRunState(reason = "reset") {
     this.cleanupTriadMatrixNotice(reason);
     this.triadMatrixState = this.createTriadMatrixRunState();
-    this.updateTriadMatrixHud?.();
+    if (reason !== "sceneShutdown" && reason !== "sceneDestroy") {
+      this.updateTriadMatrixHud?.();
+    }
     if (this.isTriadMatrixDebugEnabled?.()) {
       console.log("[TRIAD MATRIX] reset", { reason });
     }
@@ -25628,7 +28158,14 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getMutatedSkillContactTickMs(skillId, baseTickMs, context = {}) {
-    return Math.max(70, Math.round((Number(baseTickMs) || 160) * this.getSkillMutationCooldownMultiplier(skillId, context)));
+    return Math.max(
+      70,
+      Math.round(
+        (Number(baseTickMs) || 160) *
+        this.getSkillMutationCooldownMultiplier(skillId, context) *
+        this.getRunEquipmentAttackIntervalMultiplier(skillId)
+      )
+    );
   }
 
   applySkillMutationSlow(enemy, multiplier = 0.84, durationMs = 520, context = {}) {
@@ -26352,7 +28889,9 @@ class SurvivalScene extends Phaser.Scene {
       this.physics?.world?.resume?.();
     }
     this.initializeOverdriveModState();
-    this.updateOverdriveModHud();
+    if (reason !== "sceneShutdown" && reason !== "sceneDestroy") {
+      this.updateOverdriveModHud();
+    }
     if (this.isOverdriveModDebugEnabled?.()) {
       console.log("[OVERDRIVE MOD] reset", { reason });
     }
@@ -26760,15 +29299,22 @@ class SurvivalScene extends Phaser.Scene {
     }
     const radius = Math.max(100, Number(this.getOverdriveModModifier("activationPullRadius", 900)) || 900);
     let pulled = 0;
+    let equipmentPulled = 0;
     this.getActiveDropObjects().forEach((drop) => {
       const distance = Phaser.Math.Distance.Between(drop.x, drop.y, this.playerHitbox.x, this.playerHitbox.y);
       if (distance > radius) {
         return;
       }
       this.setPickupPullToPlayer(drop, 2600, 980);
+      if (this.getDropCategory(drop) === "equipmentBox") {
+        equipmentPulled += 1;
+      }
       pulled += 1;
     });
     this.spawnOverdriveModPulse(0x68ffc7, radius, 0.28);
+    if (equipmentPulled > 0) {
+      this.logEquipmentRunDebug("magnetPull", { count: equipmentPulled, source: "magnetStorm", radius });
+    }
     if (pulled > 0) {
       this.setLastPickupNotice(`MAGNET STORM PULL ${pulled}`);
     }
@@ -26854,7 +29400,9 @@ class SurvivalScene extends Phaser.Scene {
   resetStabilizeProtocolState(reason = "reset") {
     this.teardownStabilizeProtocolOverlay?.();
     this.initializeStabilizeProtocolState();
-    this.updateDepthHud?.();
+    if (reason !== "sceneShutdown" && reason !== "sceneDestroy") {
+      this.updateDepthHud?.();
+    }
     if (this.isStabilizeProtocolDebugEnabled?.()) {
       console.log("[STABILIZE PROTOCOL] reset", { reason });
     }
@@ -27354,7 +29902,12 @@ class SurvivalScene extends Phaser.Scene {
     );
     return Math.max(
       LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS,
-      Math.round(baseInterval * this.getOverdriveFireIntervalMultiplier() * this.getSkillMutationCooldownMultiplier("basicSkill", { source: "autoLightning" }))
+      Math.round(
+        baseInterval *
+        this.getOverdriveFireIntervalMultiplier() *
+        this.getSkillMutationCooldownMultiplier("basicSkill", { source: "autoLightning" }) *
+        this.getRunEquipmentAttackIntervalMultiplier("basicSkill")
+      )
     );
   }
 
@@ -31852,6 +34405,7 @@ class SurvivalScene extends Phaser.Scene {
     this.specialItems = this.physics.add.group();
     this.robotItems = this.physics.add.group();
     this.lostArmItems = this.physics.add.group();
+    this.equipmentBoxItems = this.physics.add.group();
     this.depthDirectiveBeacons = this.physics.add.group();
     this.pickupEffectsLayer = this.add.layer().setDepth(11);
     this.skillEffectsLayer = this.add.layer().setDepth(21);
@@ -33903,6 +36457,23 @@ class SurvivalScene extends Phaser.Scene {
       color: HUD_STYLE.text,
       wordWrap: { width: this.hudUsesFrameAsset ? 214 : 194 }
     });
+    this.hudEquipmentPanel = this.createHudPanel(GAME_WIDTH - 246, this.hudUsesFrameAsset ? 170 : 168, 232, 58, {
+      forceShape: true,
+      depth: 203,
+      alpha: this.hudUsesFrameAsset ? 0.5 : 0.68,
+      stroke: 0x9ffcff,
+      strokeAlpha: 0.28
+    });
+    this.hudEquipmentText = this.createHudText(GAME_WIDTH - 226, this.hudUsesFrameAsset ? 179 : 177, "", {
+      fontSize: "11px",
+      color: "#c8ffff",
+      fontStyle: "bold",
+      lineSpacing: 3,
+      depth: 204,
+      wordWrap: { width: 202 }
+    });
+    this.hudEquipmentPanel.setVisible(false);
+    this.hudEquipmentText.setVisible(false);
 
     this.createHudPanel(12, this.hudUsesFrameAsset ? 466 : GAME_HEIGHT - 178, 252, this.hudUsesFrameAsset ? 242 : 166);
     this.hudAreaText = this.createHudText(
@@ -34852,10 +37423,10 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     const source = String(text.text || "");
-    let next = source;
-    while (next.length > 1 && text.width > maxWidth) {
-      next = `${next.slice(0, Math.max(1, next.length - 2))}...`;
-      text.setText(next);
+    let trimLength = Math.max(1, source.length - 3);
+    while (trimLength > 1 && text.width > maxWidth) {
+      text.setText(`${source.slice(0, trimLength)}...`);
+      trimLength -= 1;
     }
   }
 
@@ -34976,6 +37547,56 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   renderGeekShopContent() {
+    if (!GEEK_SHOP_SUB_VIEWS.some((view) => view.id === this.geekShopSubView)) {
+      this.geekShopSubView = GEEK_SHOP_SUB_VIEW_BASE_CALIBRATION;
+    }
+    this.renderGeekShopSubViewTabs();
+    if (this.geekShopSubView === GEEK_SHOP_SUB_VIEW_EQUIPMENT_ANALYSIS) {
+      this.renderEquipmentAnalysisContent();
+      return;
+    }
+    this.renderBaseCalibrationContent();
+  }
+
+  renderGeekShopSubViewTabs() {
+    const tabY = -208;
+    const tabHeight = 28;
+    const tabGap = 10;
+    const tabWidths = {
+      [GEEK_SHOP_SUB_VIEW_BASE_CALIBRATION]: 202,
+      [GEEK_SHOP_SUB_VIEW_EQUIPMENT_ANALYSIS]: 226
+    };
+    let x = 76;
+    GEEK_SHOP_SUB_VIEWS.forEach((view) => {
+      const width = tabWidths[view.id] || 196;
+      const selected = this.geekShopSubView === view.id;
+      const panel = this.addOverlayChild(
+        this.add
+          .rectangle(x + width / 2, tabY, width, tabHeight, selected ? 0x18334a : 0x0b1623, selected ? 0.98 : 0.86)
+          .setStrokeStyle(selected ? 2 : 1, selected ? 0x6fcfff : 0x466578, selected ? 0.72 : 0.34)
+          .setInteractive({ useHandCursor: true })
+      );
+      panel.on("pointerover", () => panel.setFillStyle(selected ? 0x1f405d : 0x13243a, 0.98));
+      panel.on("pointerout", () => panel.setFillStyle(selected ? 0x18334a : 0x0b1623, selected ? 0.98 : 0.86));
+      this.addOverlayAction(panel, () => {
+        if (this.geekShopSubView !== view.id) {
+          this.geekShopSubView = view.id;
+        }
+        this.showPreGameShop(this.shopStatusMessage);
+      }, true, 6);
+      const label = this.createOverlayText(x + width / 2, tabY - 7, view.label, {
+        fontSize: "12px",
+        color: selected ? "#ecfaff" : "#9ab7cc",
+        fontStyle: "bold",
+        align: "center",
+        origin: { x: 0.5, y: 0 }
+      });
+      this.fitOverlayTextToWidth(label, width - 20, 9);
+      x += width + tabGap;
+    });
+  }
+
+  renderBaseCalibrationContent() {
     this.createOverlayText(-530, -210, "GEEKSHOP", {
       fontSize: "15px",
       color: "#f0c463",
@@ -34990,6 +37611,271 @@ class SurvivalScene extends Phaser.Scene {
     this.renderPermanentUpgradeCards(-530, -150, 360, 92, 14);
     this.renderSupportLinkShopCard(-530, 168, 360, 128);
     this.renderCleaningRobotShopPanel(-116, -150, 622, 362);
+  }
+
+  renderEquipmentAnalysisContent() {
+    const state = this.getEquipmentHubDisplayState();
+    const slotRows = this.getEquipmentHubSlotRows(state);
+    const rarityCounts = this.getEquipmentHubRarityCounts(state);
+    const hiddenLegendCount = state.legendDiscovered === true ? 0 : (rarityCounts.LEGEND || 0);
+
+    this.logEquipmentHubDebugSample(state, slotRows, rarityCounts, hiddenLegendCount);
+
+    this.createOverlayText(-530, -210, "EQUIPMENT ANALYSIS", {
+      fontSize: "15px",
+      color: "#9ffcff",
+      fontStyle: "bold"
+    });
+    const description = this.isEquipmentHubDebugEnabled()
+      ? "表示専用プレビュー。解析、GEEK消費、保存更新は行いません。"
+      : "確保済みの未解析箱を解析し、部位ごとの最高品質装備を次回出撃時の固定ボーナスとして使用します。";
+    this.createOverlayText(-530, -188, description, {
+      fontSize: "12px",
+      color: "#9ab7cc",
+      wordWrap: { width: 560 }
+    });
+
+    this.createOverlayText(-530, -160, "CURRENT LOADOUT", {
+      fontSize: "13px",
+      color: "#ecf7ff",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(188, -160, "SEALED EQUIPMENT", {
+      fontSize: "13px",
+      color: "#ecf7ff",
+      fontStyle: "bold"
+    });
+
+    const cardWidth = 220;
+    const cardHeight = 84;
+    const gapX = 16;
+    const gapY = 14;
+    const firstRowX = -530;
+    const secondRowX = firstRowX + (cardWidth + gapX) / 2;
+    const firstRowY = -132;
+    slotRows.forEach((row, index) => {
+      const rowIndex = index < 3 ? 0 : 1;
+      const column = index < 3 ? index : index - 3;
+      const x = (rowIndex === 0 ? firstRowX : secondRowX) + column * (cardWidth + gapX);
+      const y = firstRowY + rowIndex * (cardHeight + gapY);
+      this.renderEquipmentLoadoutCard(row, x, y, cardWidth, cardHeight);
+    });
+
+    this.renderSealedEquipmentSummary(188, -132, 352, 224, state, rarityCounts, hiddenLegendCount);
+    const creditText = this.isEquipmentHubDebugEnabled()
+      ? "PREVIEW ONLY"
+      : `FREE ANALYSIS CREDIT x${this.normalizeCoinAmount(state.freeAnalysisCredits)}`;
+    this.createOverlayText(188, 100, creditText, {
+      fontSize: "12px",
+      color: this.isEquipmentHubDebugEnabled() ? "#f0c463" : "#77f0b4",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+    this.createOverlayText(188, 122, "ANALYSIS MODULE: READY", {
+      fontSize: "13px",
+      color: "#9ffcff",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+  }
+
+  renderEquipmentLoadoutCard(row, x, y, width, height) {
+    const style = row.displayRarity
+      ? this.getEquipmentRarityStyle(row.displayRarity)
+      : (row.status === "unregistered" ? EQUIPMENT_HUB_RARITY_STYLES.unknown : EQUIPMENT_HUB_RARITY_STYLES.N);
+    const graphics = this.addOverlayChild(this.add.graphics());
+    graphics.fillStyle(row.status === "empty" ? 0x09131e : style.fill, row.status === "empty" ? 0.78 : 0.92);
+    graphics.fillRoundedRect(x, y, width, height, 6);
+    graphics.lineStyle(row.displayRarity === "LEGEND" ? 2 : 1, style.stroke, row.status === "empty" ? 0.24 : 0.62);
+    graphics.strokeRoundedRect(x + 0.5, y + 0.5, width - 1, height - 1, 6);
+    graphics.lineStyle(1, 0xecf7ff, 0.12);
+    graphics.lineBetween(x + 12, y + 6, x + width - 12, y + 6);
+
+    if (row.displayRarity === "LEGEND") {
+      this.drawStaticEquipmentLegendFrame(x + 3, y + 3, width - 6, height - 6);
+    }
+
+    this.createOverlayText(x + 14, y + 10, row.label, {
+      fontSize: "12px",
+      color: "#9ab7cc",
+      fontStyle: "bold"
+    });
+
+    if (row.status === "empty") {
+      this.createOverlayText(x + 14, y + 42, "NO DATA", {
+        fontSize: "18px",
+        color: "#738597",
+        fontStyle: "bold"
+      });
+      return;
+    }
+
+    if (row.status === "unregistered") {
+      const text = this.createOverlayText(x + 14, y + 34, "UNREGISTERED DATA", {
+        fontSize: "15px",
+        color: "#ecfaff",
+        fontStyle: "bold"
+      });
+      this.fitOverlayTextToWidth(text, width - 28, 10);
+      return;
+    }
+
+    this.createOverlayText(x + 14, y + 32, row.displayRarity, {
+      fontSize: row.displayRarity === "LEGEND" ? "19px" : "20px",
+      color: style.text,
+      fontStyle: "bold"
+    });
+    this.createOverlayText(x + 14, y + 58, `RANK ${row.rankLabel}`, {
+      fontSize: "14px",
+      color: style.dim,
+      fontStyle: "bold"
+    });
+    const effectText = this.createOverlayText(x + width - 14, y + 60, row.effectLabel || "NO EFFECT", {
+      fontSize: "10px",
+      color: "#ecf7ff",
+      fontStyle: "bold",
+      align: "right",
+      origin: { x: 1, y: 0 }
+    });
+    this.fitOverlayTextToWidth(effectText, width - 92, 8);
+  }
+
+  drawStaticEquipmentLegendFrame(x, y, width, height) {
+    const graphics = this.addOverlayChild(this.add.graphics());
+    const segmentWidth = width / EQUIPMENT_HUB_LEGEND_FRAME_COLORS.length;
+    EQUIPMENT_HUB_LEGEND_FRAME_COLORS.forEach((color, index) => {
+      const left = x + index * segmentWidth;
+      graphics.fillStyle(color, 0.9);
+      graphics.fillRect(left, y, Math.max(1, segmentWidth - 1), 3);
+      graphics.fillRect(left, y + height - 3, Math.max(1, segmentWidth - 1), 3);
+    });
+    graphics.fillStyle(EQUIPMENT_HUB_LEGEND_FRAME_COLORS[0], 0.78);
+    graphics.fillRect(x, y + 3, 3, height - 6);
+    graphics.fillStyle(EQUIPMENT_HUB_LEGEND_FRAME_COLORS[EQUIPMENT_HUB_LEGEND_FRAME_COLORS.length - 1], 0.78);
+    graphics.fillRect(x + width - 3, y + 3, 3, height - 6);
+    return graphics;
+  }
+
+  renderSealedEquipmentSummary(x, y, width, height, state, rarityCounts, hiddenLegendCount) {
+    const graphics = this.addOverlayChild(this.add.graphics());
+    graphics.fillStyle(0x081420, 0.9);
+    graphics.fillRoundedRect(x, y, width, height, 6);
+    graphics.lineStyle(1, 0x6fcfff, 0.34);
+    graphics.strokeRoundedRect(x + 0.5, y + 0.5, width - 1, height - 1, 6);
+    graphics.lineStyle(1, 0xecf7ff, 0.12);
+    graphics.lineBetween(x + 14, y + 7, x + width - 14, y + 7);
+
+    const totalBoxes = EQUIPMENT_HUB_RARITY_ORDER.reduce((total, rarity) => total + (rarityCounts[rarity] || 0), 0);
+    if (totalBoxes <= 0) {
+      this.createOverlayText(x + width / 2, y + height / 2 - 9, "NO SEALED EQUIPMENT", {
+        fontSize: "15px",
+        color: "#738597",
+        fontStyle: "bold",
+        align: "center",
+        origin: { x: 0.5, y: 0.5 }
+      });
+      return;
+    }
+
+    const visibleRarities = state.legendDiscovered === true
+      ? EQUIPMENT_HUB_RARITY_ORDER
+      : EQUIPMENT_HUB_RARITY_ORDER.filter((rarity) => rarity !== "LEGEND");
+    visibleRarities.forEach((rarity, index) => {
+      this.renderSealedEquipmentCountRow(
+        x + 18,
+        y + 18 + index * 38,
+        width - 36,
+        rarity,
+        rarity,
+        rarityCounts[rarity] || 0,
+        state,
+        rarity
+      );
+    });
+
+    if (state.legendDiscovered !== true && hiddenLegendCount > 0) {
+      this.renderSealedEquipmentCountRow(
+        x + 18,
+        y + 18 + visibleRarities.length * 38,
+        width - 36,
+        "unknown",
+        "UNKNOWN SIGNAL",
+        hiddenLegendCount,
+        state,
+        "LEGEND"
+      );
+    }
+  }
+
+  renderSealedEquipmentCountRow(x, y, width, rarityKey, label, count, state, analysisRarity = rarityKey) {
+    const style = this.getEquipmentRarityStyle(rarityKey);
+    const rowGraphics = this.addOverlayChild(this.add.graphics());
+    rowGraphics.fillStyle(style.fill, rarityKey === "unknown" ? 0.84 : 0.72);
+    rowGraphics.fillRoundedRect(x, y, width, 32, 4);
+    rowGraphics.lineStyle(1, style.stroke, rarityKey === "LEGEND" ? 0.58 : 0.28);
+    rowGraphics.strokeRoundedRect(x + 0.5, y + 0.5, width - 1, 31, 4);
+    if (rarityKey === "LEGEND") {
+      const segmentWidth = 72 / EQUIPMENT_HUB_LEGEND_FRAME_COLORS.length;
+      EQUIPMENT_HUB_LEGEND_FRAME_COLORS.forEach((color, index) => {
+        rowGraphics.fillStyle(color, 0.86);
+        rowGraphics.fillRect(x + 8 + index * segmentWidth, y + 6, Math.max(1, segmentWidth - 1), 3);
+      });
+    } else {
+      rowGraphics.fillStyle(style.stroke, rarityKey === "unknown" ? 0.8 : 0.72);
+      rowGraphics.fillRect(x + 9, y + 7, 30, 3);
+    }
+
+    const rarityText = this.createOverlayText(x + 50, y + 8, `${label} x${count}`, {
+      fontSize: "13px",
+      color: style.text,
+      fontStyle: "bold"
+    });
+    this.fitOverlayTextToWidth(rarityText, width - 190, 10);
+
+    const buttonState = this.getEquipmentAnalysisButtonState(state, analysisRarity, count);
+    if (!buttonState.label) {
+      return;
+    }
+
+    const buttonWidth = 126;
+    const buttonHeight = 24;
+    const buttonX = x + width - buttonWidth / 2 - 8;
+    const buttonY = y + 16;
+    const enabled = buttonState.enabled === true;
+    const button = this.addOverlayChild(
+      this.add
+        .rectangle(buttonX, buttonY, buttonWidth, buttonHeight, enabled ? 0x18334a : 0x101925, enabled ? 1 : 0.82)
+        .setStrokeStyle(1, enabled ? 0x6fcfff : 0x466578, enabled ? 0.7 : 0.34)
+    );
+    if (enabled) {
+      button.setInteractive({ useHandCursor: true });
+      button.on("pointerover", () => button.setFillStyle(0x224b6c, 1));
+      button.on("pointerout", () => button.setFillStyle(0x18334a, 1));
+      this.addOverlayAction(button, () => {
+        this.analyzeSecuredEquipmentBox(buttonState.boxId);
+      }, true, 6);
+    }
+
+    const mainLabel = this.createOverlayText(buttonX, buttonY - (buttonState.subLabel ? 10 : 7), buttonState.label, {
+      fontSize: buttonState.subLabel ? "10px" : "11px",
+      color: enabled ? "#ecf7ff" : "#9ab7cc",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+    this.fitOverlayTextToWidth(mainLabel, buttonWidth - 12, 8);
+    if (buttonState.subLabel) {
+      const subLabel = this.createOverlayText(buttonX, buttonY + 1, buttonState.subLabel, {
+        fontSize: "9px",
+        color: enabled ? "#9ffcff" : "#f0c463",
+        fontStyle: "bold",
+        align: "center",
+        origin: { x: 0.5, y: 0 }
+      });
+      this.fitOverlayTextToWidth(subLabel, buttonWidth - 10, 7);
+    }
   }
 
   renderCdShopContent() {
@@ -36129,7 +39015,7 @@ class SurvivalScene extends Phaser.Scene {
 
   showPreGameShop(message = "") {
     this.shopActive = true;
-    this.shopStatusMessage = message || "";
+    this.shopStatusMessage = this.consumePendingEquipmentRewardHubNotice(message) || "";
     this.levelUpActive = false;
     this.physics.world.pause();
 
@@ -36822,7 +39708,10 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
+    this.captureRunEquipmentBonuses("gameStart");
+    this.rebuildStartingStats();
     const pendingShopEpilogue = this.peekPendingShopEpilogueComms?.() || "";
+    this.clearFinalRaidLegendRewardRuntimeState("gameStart");
     this.cleanupCommsEpilogueTimers?.("gameStart");
     this.shopActive = false;
     this.shopStatusMessage = "";
@@ -36944,6 +39833,7 @@ class SurvivalScene extends Phaser.Scene {
     this.physics.add.overlap(this.playerHitbox, this.specialItems, this.handleSpecialItemPickup, null, this);
     this.physics.add.overlap(this.playerHitbox, this.robotItems, this.handleRobotItemPickup, null, this);
     this.physics.add.overlap(this.playerHitbox, this.lostArmItems, this.handleLostArmCorePickup, null, this);
+    this.physics.add.overlap(this.playerHitbox, this.equipmentBoxItems, (_player, drop) => this.handleEquipmentBoxPickup(drop, "player"), null, this);
     this.physics.add.overlap(this.playerHitbox, this.depthDirectiveBeacons, this.handleDepthDirectiveBeaconPickup, null, this);
 
     if (this.stageObstacleBodies) {
@@ -38718,6 +41608,7 @@ class SurvivalScene extends Phaser.Scene {
     this.cleanupNemesisBoss("depthTransition");
     this.cleanupVoidHunterBoss("depthTransition");
     this.stageDepth = targetDepth;
+    this.initializeEquipmentProductionDropState(this.stageDepth, "depthTransition");
     this.updateRunRankingDepthProgress(this.stageDepth);
     this.gateInstabilityStacks = Math.max(0, Math.floor(Number(transition?.nextInstabilityStacks) || 0));
     this.updateAnjuMemoryDepthProgress(this.stageDepth);
@@ -38727,6 +41618,7 @@ class SurvivalScene extends Phaser.Scene {
     const dataCacheCount = this.spawnDataCacheDrops(transition?.dataCachePayload);
     this.gateChoiceActive = false;
     this.gateChoiceLocked = false;
+    this.updateRunEquipmentHud(true);
     if (this.anomalyContractState) {
       this.anomalyContractState.selectionOpen = false;
       this.anomalyContractState.selectionLocked = false;
@@ -38786,6 +41678,9 @@ class SurvivalScene extends Phaser.Scene {
 
   completeExtraction(result, emergency, lostArmsMessage = "") {
     const deepExtractionContext = this.captureDeepExtractionResultContext(result, emergency, lostArmsMessage);
+    const equipmentTransfer = this.secureRunEquipmentBoxes(emergency ? "emergencyExtract" : "normalExtract");
+    const equipmentTransferLines = this.formatRunEquipmentTransferLines(equipmentTransfer);
+    const equipmentTransferMessage = equipmentTransferLines.join("\n");
     const anjuMemoryAward = this.awardAnjuMemoryOnExtraction(emergency ? "emergency" : "normal");
     const atlasMaxDepthReached = Math.max(
       this.normalizeDepthValue(this.runRankingStats?.maxDepthReached, 1),
@@ -38838,7 +41733,8 @@ class SurvivalScene extends Phaser.Scene {
     const lostText = result.lost > 0 ? ` / LOST ${result.lost.toLocaleString()}` : "";
     const anjuMemoryText = this.formatAnjuMemoryAwardLine(anjuMemoryAward);
     const mutationAtlasText = this.formatMutationAtlasExtractionLines(mutationAtlasResult).join("\n");
-    const returnMessage = [`作戦成功 ${securedText}${lostText}`, lostArmsMessage, anjuMemoryText, mutationAtlasText].filter(Boolean).join("\n");
+    const displayExtractionMessage = [lostArmsMessage, equipmentTransferMessage].filter(Boolean).join("\n");
+    const returnMessage = [`作戦成功 ${securedText}${lostText}`, lostArmsMessage, equipmentTransferMessage, anjuMemoryText, mutationAtlasText].filter(Boolean).join("\n");
     this.prepareExtractionRankingEntry(recordState, {
       reason: emergency ? "emergencyExtract" : "extract",
       securedCoins: result.secured,
@@ -38856,6 +41752,7 @@ class SurvivalScene extends Phaser.Scene {
       mutationAtlasResult,
       recordState,
       context: deepExtractionContext,
+      equipmentTransferLines,
       returnMessage
     }));
     if (this.shouldShowDeepExtractionResult(deepResultPayload)) {
@@ -38863,7 +41760,7 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
     this.consumeDeepExtractionResultPayload();
-    this.showExtractionCompleteOverlay(result, emergency, lostArmsMessage, anjuMemoryAward, mutationAtlasResult);
+    this.showExtractionCompleteOverlay(result, emergency, displayExtractionMessage, anjuMemoryAward, mutationAtlasResult);
     this.time.delayedCall(1800, () => {
       this.showExtractionRankingOverlayOrReturn();
     });
@@ -39088,6 +41985,7 @@ class SurvivalScene extends Phaser.Scene {
       atlasBonusAnju: mutationAtlasResult?.atlasBonusAnju || 0,
       researchCompleted: Boolean(mutationAtlasResult?.researchCompleted),
       researchRerollTicket: mutationAtlasResult?.researchRerollTicket || 0,
+      equipmentTransferLines: Array.isArray(options.equipmentTransferLines) ? options.equipmentTransferLines : [],
       instabilityStacks: context.instabilityStacks,
       peakGeekMultiplier: context.peakGeekMultiplier,
       geekMilestoneTitle: milestone?.title || "",
@@ -39131,6 +42029,9 @@ class SurvivalScene extends Phaser.Scene {
       atlasBonusAnju: this.normalizeAnjuMemoryAmount(raw.atlasBonusAnju),
       researchCompleted: Boolean(raw.researchCompleted),
       researchRerollTicket: this.normalizeAnjuMemoryAmount(raw.researchRerollTicket),
+      equipmentTransferLines: Array.isArray(raw.equipmentTransferLines)
+        ? raw.equipmentTransferLines.map((line) => String(line || "").trim()).filter(Boolean).slice(0, DEEP_EXTRACTION_RESULT_CONFIG.maxRewardLines)
+        : [],
       instabilityStacks: Math.max(0, Math.floor(Number(raw.instabilityStacks) || 0)),
       peakGeekMultiplier: Math.max(1, Number(raw.peakGeekMultiplier) || 1),
       geekMilestoneTitle: String(raw.geekMilestoneTitle || ""),
@@ -39208,6 +42109,9 @@ class SurvivalScene extends Phaser.Scene {
     if (payload.lostArmsSavedLines?.length > 0) {
       highlights.push(`LOST ARMS x${payload.lostArmsSavedLines.length} SAVED`);
     }
+    if (payload.equipmentTransferLines?.length > 0) {
+      highlights.push("SEALED EQUIPMENT SECURED");
+    }
     if (payload.nemesisKills > 0) {
       highlights.push(`NEMESIS x${payload.nemesisKills}`);
     }
@@ -39258,6 +42162,9 @@ class SurvivalScene extends Phaser.Scene {
     }
     if (payload.lostArmsLostLines?.length > 0) {
       rows.push({ label: "LOST ARMS LOST", value: payload.lostArmsLostLines.join(" / ") });
+    }
+    if (payload.equipmentTransferLines?.length > 0) {
+      rows.push({ label: "SEALED EQUIPMENT", value: payload.equipmentTransferLines.join(" / ") });
     }
     if (payload.anjuMemoryEarned > 0) {
       rows.push({ label: "ANJU MEMORY", value: `+${payload.anjuMemoryEarned}` });
@@ -39719,6 +42626,10 @@ class SurvivalScene extends Phaser.Scene {
     const mutationAtlasText = this.formatMutationAtlasExtractionLines(mutationAtlasResult).join("\n");
     const rankingStats = this.normalizeRunRankingStats(this.runRankingStats);
     const resultStatsText = `BEST DEPTH ${rankingStats.maxDepthReached}\nEXTRACTED GEEK ${rankingStats.extractedGeek.toLocaleString()}`;
+    const extraResultLines = String(lostArmsMessage || "").split(/\n+/).filter(Boolean).length
+      + String(mutationAtlasText || "").split(/\n+/).filter(Boolean).length
+      + (anjuMemoryText ? 1 : 0);
+    const bodyFontSize = extraResultLines >= 4 ? "18px" : "20px";
     this.clearOverlayButtons();
     this.configureOverlayPanel(680, 390);
     this.overlayPanel
@@ -39738,10 +42649,10 @@ class SurvivalScene extends Phaser.Scene {
     this.overlayBody
       .setStyle({
         fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
-        fontSize: "20px",
+        fontSize: bodyFontSize,
         color: "#9fc9df",
         align: "center",
-        lineSpacing: 8
+        lineSpacing: extraResultLines >= 4 ? 5 : 8
       })
       .setOrigin(0.5)
       .setPosition(0, -68)
@@ -39892,6 +42803,8 @@ class SurvivalScene extends Phaser.Scene {
     this.updateSpecialItems(delta);
     this.updateRobotItems(delta);
     this.updateLostArmItems(delta);
+    this.updateEquipmentBoxDrops(delta);
+    this.trySpawnDebugEquipmentDrops();
     this.updateDropLimitSafetyCleanup();
     this.updateRobotCombat(time, delta);
     this.updateRobotHealing(delta);
@@ -39947,7 +42860,7 @@ class SurvivalScene extends Phaser.Scene {
       if (this.time.now >= this.dashRegenBlockedUntil) {
         this.stats.stamina = Math.min(
           this.stats.maxStamina,
-          stamina + DASH_STAMINA_REGEN_PER_SECOND * (delta / 1000)
+          stamina + DASH_STAMINA_REGEN_PER_SECOND * this.getRunEquipmentStaminaRegenMultiplier() * (delta / 1000)
         );
       }
     }
@@ -40216,6 +43129,8 @@ class SurvivalScene extends Phaser.Scene {
       this.handleRobotItemPickup(proxy, drop);
     } else if (category === "lostArm") {
       this.handleLostArmCorePickup(proxy, drop);
+    } else if (category === "equipmentBox") {
+      this.handleEquipmentBoxPickup(drop, "cleaningRobot");
     }
 
     this.cleaningRobotState.target = null;
@@ -40464,7 +43379,14 @@ class SurvivalScene extends Phaser.Scene {
         orbital.sprite.setVisible(false);
         orbital.aura.setVisible(false);
 
-        const cooldownMs = Math.max(180, Math.round((stageData.cooldownMs || 1000) * this.getSkillMutationCooldownMultiplier(skillState.id, { source: "skillCooldown" })));
+        const cooldownMs = Math.max(
+          180,
+          Math.round(
+            (stageData.cooldownMs || 1000) *
+            this.getSkillMutationCooldownMultiplier(skillState.id, { source: "skillCooldown" }) *
+            this.getRunEquipmentAttackIntervalMultiplier(skillState.id)
+          )
+        );
         if (orbital.dashCooldownTimer >= cooldownMs) {
           this.startDirectionalDash(orbital, stageData);
         }
@@ -40598,9 +43520,12 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    const damage = this.getMutatedSkillDamage(skillId, stageData.impactDamage || Math.max(1, Math.ceil((stageData.damage || 1) * 0.5)), {
-      source: "impact"
-    });
+    const damage = this.applyRunEquipmentPlayerSkillDamageBonus(
+      skillId,
+      this.getMutatedSkillDamage(skillId, stageData.impactDamage || Math.max(1, Math.ceil((stageData.damage || 1) * 0.5)), {
+        source: "impact"
+      })
+    );
     let hitCount = 0;
 
     this.enemies.children.each((enemy) => {
@@ -42359,7 +45284,8 @@ class SurvivalScene extends Phaser.Scene {
       { group: this.rareItems, groupName: "rareItems", fallbackCategory: "value" },
       { group: this.specialItems, groupName: "specialItems", fallbackCategory: "other" },
       { group: this.robotItems, groupName: "robotItems", fallbackCategory: "robot" },
-      { group: this.lostArmItems, groupName: "lostArmItems", fallbackCategory: "lostArm" }
+      { group: this.lostArmItems, groupName: "lostArmItems", fallbackCategory: "lostArm" },
+      { group: this.equipmentBoxItems, groupName: "equipmentBoxItems", fallbackCategory: "equipmentBox" }
     ];
     const drops = [];
 
@@ -42444,6 +45370,9 @@ class SurvivalScene extends Phaser.Scene {
     if (drop.dropGroupName === "lostArmItems" || drop.armId) {
       return "lostArm";
     }
+    if (drop.dropGroupName === "equipmentBoxItems" || drop.equipmentRecord) {
+      return "equipmentBox";
+    }
 
     const effectType = drop.itemDefinition?.effectType;
     if (effectType === "heal") {
@@ -42482,6 +45411,9 @@ class SurvivalScene extends Phaser.Scene {
     if (category === "lostArm") {
       return "lostArmItems";
     }
+    if (category === "equipmentBox") {
+      return "equipmentBoxItems";
+    }
     return null;
   }
 
@@ -42515,6 +45447,10 @@ class SurvivalScene extends Phaser.Scene {
         xp: Math.max(0, Math.floor(Number(drop.xpValue ?? definition.xpValue) || 0)),
         unsecuredGeek: this.normalizeCoinAmount(drop.coinValue ?? fallbackCoin)
       };
+    }
+
+    if (category === "equipmentBox") {
+      return { xp: 0, unsecuredGeek: 0 };
     }
 
     return { xp: 0, unsecuredGeek: 0 };
@@ -42581,8 +45517,12 @@ class SurvivalScene extends Phaser.Scene {
 
   cleanupDropsOnDepthTransition() {
     const drops = this.collectActiveDropsForCleanup();
+    const equipmentGroundCount = drops.filter((drop) => this.getDropCategory(drop) === "equipmentBox").length;
     const payload = this.compressDropsToDataCachePayload(drops);
     drops.forEach((drop) => this.removeDropSafely(drop));
+    if (equipmentGroundCount > 0) {
+      this.logEquipmentRunDebug("depthTransitionGroundDiscard", { count: equipmentGroundCount, depth: this.stageDepth || 1 });
+    }
     this.nextDropLimitCleanupAt = this.time?.now || 0;
     return payload;
   }
@@ -42606,7 +45546,10 @@ class SurvivalScene extends Phaser.Scene {
       drop.stackLabel,
       ...(drop.pillarSparkles || []),
       drop.beam,
-      drop.scanLine
+      drop.scanLine,
+      drop.equipmentGlow,
+      drop.equipmentRing,
+      drop.equipmentLabel
     ].filter(Boolean);
   }
 
@@ -42633,6 +45576,8 @@ class SurvivalScene extends Phaser.Scene {
       this.destroyRobotItem(drop);
     } else if (groupName === "lostArmItems") {
       this.destroyLostArmItem(drop);
+    } else if (groupName === "equipmentBoxItems") {
+      this.destroyEquipmentBoxDrop(drop);
     } else if (drop.active) {
       drop.destroy();
     }
@@ -42672,6 +45617,9 @@ class SurvivalScene extends Phaser.Scene {
     }
     if (category === "lostArm") {
       return 84;
+    }
+    if (category === "equipmentBox") {
+      return 86;
     }
     if (category === "dataCache") {
       return 90;
@@ -42865,7 +45813,7 @@ class SurvivalScene extends Phaser.Scene {
 
   enforceTotalDropLimit(limit = this.getEffectiveDropLimits().total) {
     let guard = 0;
-    let drops = this.getActiveDropObjects();
+    let drops = this.getActiveDropObjects().filter((drop) => this.getDropCategory(drop) !== "equipmentBox");
     const effectiveLimit = Math.max(0, Math.floor(Number(limit) || 0));
 
     while (drops.length > effectiveLimit && guard < Math.max(1, effectiveLimit * 2)) {
@@ -42883,7 +45831,7 @@ class SurvivalScene extends Phaser.Scene {
         this.mergeDropReward(target, source);
       }
       this.removeDropSafely(source);
-      drops = this.getActiveDropObjects();
+      drops = this.getActiveDropObjects().filter((drop) => this.getDropCategory(drop) !== "equipmentBox");
     }
   }
 
@@ -43816,6 +46764,11 @@ class SurvivalScene extends Phaser.Scene {
       isElite: true,
       isBoss: true
     });
+    if (this.activeWaveBoss?.active) {
+      this.activeWaveBoss.isWaveBoss = true;
+      this.activeWaveBoss.waveBossDepth = this.stageDepth || 1;
+      this.activeWaveBoss.waveBossWaveId = wave.id;
+    }
     this.setLastPickupNotice(`BOSS WAVE ${wave.id}`);
     if (this.activeWaveBoss?.active) {
       this.tryQueueGenericComms("boss_spawn", {
@@ -44048,10 +47001,13 @@ class SurvivalScene extends Phaser.Scene {
       }
 
       this.spawnBasicLightningStrike(target, shotIndex, shotCount);
-      const damage = this.getMutatedSkillDamage("basicSkill", this.stats.bulletDamage, {
-        source: "autoLightning",
-        enemy: target
-      });
+      const damage = this.applyRunEquipmentPlayerSkillDamageBonus(
+        "basicSkill",
+        this.getMutatedSkillDamage("basicSkill", this.stats.bulletDamage, {
+          source: "autoLightning",
+          enemy: target
+        })
+      );
       const style = this.getSkillMutationVisualStyle("basicSkill");
       this.applyDamageToEnemy(target, damage, style?.damageTint || 0xe4f6ff, {
         sourceX: this.playerHitbox.x,
@@ -45126,11 +48082,14 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
     this.spawnSkillHitEffect(hitbox, enemy);
-    const damage = this.getMutatedSkillDamage(hitbox.skillId, hitbox.baseDamage || hitbox.damage, {
-      source: "contact",
-      enemy,
-      hitbox
-    });
+    const damage = this.applyRunEquipmentPlayerSkillDamageBonus(
+      hitbox.skillId,
+      this.getMutatedSkillDamage(hitbox.skillId, hitbox.baseDamage || hitbox.damage, {
+        source: "contact",
+        enemy,
+        hitbox
+      })
+    );
     this.applyDamageToEnemy(enemy, damage, hitbox.damageTint || 0xf4c8ff, {
       sourceX: hitbox.x,
       sourceY: hitbox.y,
@@ -45634,6 +48593,7 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
+    this.trySpawnProductionEquipmentBox(enemy);
     enemy.isDying = true;
     const isNemesis = this.isNemesisBoss(enemy);
     const isVoidHunter = this.isVoidHunterBoss(enemy);
@@ -47108,6 +50068,7 @@ class SurvivalScene extends Phaser.Scene {
     let specialCount = 0;
     let robotCount = 0;
     let lostArmCount = 0;
+    let equipmentCount = 0;
     const magnetRadius = this.getOverdriveModMagnetRadius(definition.magnetRadius);
 
     this.xpOrbs.children.each((orb) => {
@@ -47174,8 +50135,23 @@ class SurvivalScene extends Phaser.Scene {
       }
     });
 
+    this.equipmentBoxItems?.children?.each?.((item) => {
+      if (!item.active) {
+        return;
+      }
+
+      const distance = Phaser.Math.Distance.Between(item.x, item.y, this.playerHitbox.x, this.playerHitbox.y);
+      if (distance <= magnetRadius) {
+        this.setPickupPullToPlayer(item, definition.magnetDurationMs, definition.magnetPullSpeed);
+        equipmentCount += 1;
+      }
+    });
+
     this.spawnSpecialItemPickupEffect(this.playerHitbox.x, this.playerHitbox.y - 10, definition);
-    this.setLastPickupNotice(`MAGNET XP ${orbCount}${rareCount > 0 ? ` / GEEK ITEM ${rareCount}` : ""}${dataCacheCount > 0 ? ` / DATA CACHE ${dataCacheCount}` : ""}${specialCount > 0 ? ` / SPECIAL ${specialCount}` : ""}${robotCount > 0 ? ` / ROBOT ${robotCount}` : ""}${lostArmCount > 0 ? ` / LOST ARMS ${lostArmCount}` : ""}`);
+    if (equipmentCount > 0) {
+      this.logEquipmentRunDebug("magnetPull", { count: equipmentCount, source: "magnet", radius: magnetRadius });
+    }
+    this.setLastPickupNotice(`MAGNET XP ${orbCount}${rareCount > 0 ? ` / GEEK ITEM ${rareCount}` : ""}${dataCacheCount > 0 ? ` / DATA CACHE ${dataCacheCount}` : ""}${specialCount > 0 ? ` / SPECIAL ${specialCount}` : ""}${robotCount > 0 ? ` / ROBOT ${robotCount}` : ""}${lostArmCount > 0 ? ` / LOST ARMS ${lostArmCount}` : ""}${equipmentCount > 0 ? ` / EQUIP ${equipmentCount}` : ""}`);
   }
 
   applyBombItemEffect(definition) {
@@ -52097,6 +55073,7 @@ class SurvivalScene extends Phaser.Scene {
       ? this.normalizeCoinAmount(gameOverOptions.lostCoins)
       : this.loseRunCoins(reason);
     const lostArmsMessage = this.discardPendingLostArms();
+    this.discardRunEquipmentBoxes(reason);
     this.setRunRankingExtractionStats("none", 0, false);
     const archiveOutcome = reason === "gateCollapse" ? "gate_collapse" : "game_over";
     const archiveDeathReason = reason === "gateCollapse"
@@ -52310,6 +55287,7 @@ class SurvivalScene extends Phaser.Scene {
     this.cleanupGeekMilestoneNotice("returnToOpeningShop");
     this.resetCommsUi("returnToOpeningShop");
     this.resetOverflowRewardState();
+    this.discardRunEquipmentBoxes("returnToOpeningShop");
     this.clearEndlessVoidBgmOverride("returnToOpeningShop");
     this.skipShopReturnSceneShutdownCleanup = true;
     this.overlayActions = [];
@@ -53376,6 +56354,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   clearOverlayButtons() {
+    this.equipmentAnalysisResultOpen = false;
     this.teardownLevelUpOverlay();
     this.teardownGateChoiceOverlay();
     this.teardownAnomalyContractOverlay();
@@ -53646,6 +56625,7 @@ class SurvivalScene extends Phaser.Scene {
     this.updateDepthDirectiveHud();
     this.updateTriadMatrixHud();
     this.updateNemesisBossHud();
+    this.updateRunEquipmentHud();
 
     const specialCounts = {
       heal: this.countActiveSpecialItems("heal"),
