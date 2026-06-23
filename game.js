@@ -3739,6 +3739,9 @@ const ROBOT_BASE_MAX_LEVEL = ROBOT_CUSTOM_BASE_LEVEL_CAP;
 const ROBOT_MAX_LEVEL = ROBOT_CUSTOM_EXTENDED_LEVEL_CAP;
 const ROBOT_ABILITY_MAX_LEVEL = 20;
 const ROBOT_BOSS_DROP_CHANCE = 0.32;
+const ROBOT_DEEP_WAVE_BOSS_DROP_DEPTH = 6;
+const ROBOT_DEEP_WAVE_BOSS_DROP_CHANCE = 0.4;
+const ROBOT_EX_MISSILE_CORE_WEIGHT = 8;
 const ROBOT_VASE_XP_BONUS = 8;
 const ROBOT_MISSILE_HIT_XP = 1;
 const ROBOT_FIELD_PULSE_XP = 1;
@@ -49033,14 +49036,36 @@ class SurvivalScene extends Phaser.Scene {
     return count;
   }
 
+  getRobotBossDropChance(enemy) {
+    const depth = Math.max(1, Math.floor(Number(enemy?.waveBossDepth || this.stageDepth) || 1));
+    if (enemy?.isWaveBoss === true && depth >= ROBOT_DEEP_WAVE_BOSS_DROP_DEPTH) {
+      return ROBOT_DEEP_WAVE_BOSS_DROP_CHANCE;
+    }
+    return ROBOT_BOSS_DROP_CHANCE;
+  }
+
+  getMissileCoreRobotDropCandidate() {
+    const definition = ROBOT_DROP_DEFINITIONS.missileChest;
+    const missileLevel = Math.max(1, Math.floor(Number(this.robotState?.missileLevel) || 1));
+    const cap = this.getRobotLevelCap("missile");
+    if (missileLevel >= ROBOT_BASE_MAX_LEVEL && missileLevel < cap) {
+      return { ...definition, weight: ROBOT_EX_MISSILE_CORE_WEIGHT };
+    }
+    return definition;
+  }
+
   trySpawnRobotBossDrop(enemy) {
-    if (!enemy.isBoss || Math.random() > ROBOT_BOSS_DROP_CHANCE || this.getActiveRobotItemCount() >= DROP_LIMITS.robot) {
+    if (!enemy.isBoss || this.getActiveRobotItemCount() >= DROP_LIMITS.robot) {
+      return;
+    }
+
+    if (Math.random() > this.getRobotBossDropChance(enemy)) {
       return;
     }
 
     const candidates = [];
     if ((this.robotState?.missileLevel || 1) < this.getRobotLevelCap("missile")) {
-      candidates.push(ROBOT_DROP_DEFINITIONS.missileChest);
+      candidates.push(this.getMissileCoreRobotDropCandidate());
     }
     if ((this.robotState?.healLevel || 1) < this.getRobotLevelCap("field")) {
       candidates.push(ROBOT_DROP_DEFINITIONS.healChest);
