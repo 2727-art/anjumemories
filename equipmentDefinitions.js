@@ -156,6 +156,13 @@
     }, {});
   }
 
+  function createDefaultLegendResonanceBySlot() {
+    return SLOTS.reduce((resonanceBySlot, slot) => {
+      resonanceBySlot[slot] = 0;
+      return resonanceBySlot;
+    }, {});
+  }
+
   function createDefaultStats() {
     return {
       opened: 0,
@@ -172,8 +179,53 @@
       freeAnalysisCredits: 1,
       bestBySlot: createDefaultBestBySlot(),
       securedBoxes: [],
+      legendResonanceBySlot: createDefaultLegendResonanceBySlot(),
       stats: createDefaultStats()
     };
+  }
+
+  function normalizeLegendResonanceValue(value) {
+    return Number.isInteger(value) && Number.isSafeInteger(value) && value >= 0 ? value : 0;
+  }
+
+  function normalizeLegendResonanceBySlot(record) {
+    const source = isObject(record) ? record : {};
+    return SLOTS.reduce((resonanceBySlot, slot) => {
+      resonanceBySlot[slot] = normalizeLegendResonanceValue(source[slot]);
+      return resonanceBySlot;
+    }, {});
+  }
+
+  function incrementLegendResonanceForSlot(resonanceBySlot, slot) {
+    const normalizedSlot = normalizeSlot(slot);
+    const normalizedResonance = normalizeLegendResonanceBySlot(resonanceBySlot);
+    if (!normalizedSlot) {
+      return normalizedResonance;
+    }
+    const currentValue = normalizedResonance[normalizedSlot];
+    normalizedResonance[normalizedSlot] = currentValue >= Number.MAX_SAFE_INTEGER
+      ? currentValue
+      : currentValue + 1;
+    return normalizedResonance;
+  }
+
+  function getLegendResonanceForSlot(resonanceBySlot, slot) {
+    const normalizedSlot = normalizeSlot(slot);
+    if (!normalizedSlot) {
+      return 0;
+    }
+    return normalizeLegendResonanceBySlot(resonanceBySlot)[normalizedSlot] || 0;
+  }
+
+  function getLegendResonanceTotal(resonanceBySlot) {
+    const normalizedResonance = normalizeLegendResonanceBySlot(resonanceBySlot);
+    return SLOTS.reduce((total, slot) => {
+      const slotResonance = normalizedResonance[slot];
+      if (total >= Number.MAX_SAFE_INTEGER - slotResonance) {
+        return Number.MAX_SAFE_INTEGER;
+      }
+      return total + slotResonance;
+    }, 0);
   }
 
   function normalizeEquipmentItem(rawItem) {
@@ -240,6 +292,7 @@
       ),
       bestBySlot,
       securedBoxes,
+      legendResonanceBySlot: normalizeLegendResonanceBySlot(source.legendResonanceBySlot),
       stats: {
         opened: normalizeNonNegativeInteger(source.stats?.opened, defaults.stats.opened),
         upgrades: normalizeNonNegativeInteger(source.stats?.upgrades, defaults.stats.upgrades),
@@ -304,7 +357,10 @@
         rarity: occupied ? item.rarity : null,
         rank: occupied ? item.rank : null,
         ssrPlus: occupied ? isEquipmentRarityAtLeast(item.rarity, "SSR") : false,
-        legend: occupied ? item.rarity === "LEGEND" : false
+        legend: occupied ? item.rarity === "LEGEND" : false,
+        legendResonance: occupied && item.rarity === "LEGEND"
+          ? getLegendResonanceForSlot(normalizedState.legendResonanceBySlot, slot)
+          : 0
       };
       return result;
     }, {});
@@ -326,6 +382,7 @@
       ssrPlusComplete: ssrPlusCount >= SLOTS.length,
       legendComplete: legendVisible && legendCount >= SLOTS.length,
       legendVisible,
+      legendResonanceTotal: legendVisible ? getLegendResonanceTotal(normalizedState.legendResonanceBySlot) : 0,
       slots
     };
   }
@@ -1047,10 +1104,14 @@
       duplicate &&
       previous?.slot === box.slot &&
       previous?.rarity === "LEGEND";
+    const legendResonanceBySlot = duplicateLegend
+      ? incrementLegendResonanceForSlot(normalizedState.legendResonanceBySlot, box.slot)
+      : normalizeLegendResonanceBySlot(normalizedState.legendResonanceBySlot);
     const nextState = normalizeEquipmentState({
       ...bestUpdate.state,
       legendDiscovered: normalizedState.legendDiscovered === true || box.rarity === "LEGEND",
       finalRaidLegendRewardClaimed: normalizedState.finalRaidLegendRewardClaimed,
+      legendResonanceBySlot,
       freeAnalysisCredits: quote.usesFreeCredit
         ? Math.max(0, normalizedState.freeAnalysisCredits - 1)
         : normalizedState.freeAnalysisCredits,
@@ -1101,6 +1162,11 @@
     EQUIPMENT_DEEP_CACHE_DEPTH_TIERS,
     EQUIPMENT_DEEP_CACHE_RARITY_TABLES,
     EQUIPMENT_DEEP_CACHE_RANK_TABLES,
+    createDefaultLegendResonanceBySlot,
+    normalizeLegendResonanceBySlot,
+    incrementLegendResonanceForSlot,
+    getLegendResonanceTotal,
+    getLegendResonanceForSlot,
     createDefaultEquipmentState,
     normalizeEquipmentItem,
     normalizeEquipmentItemList,

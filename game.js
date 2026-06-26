@@ -10863,6 +10863,13 @@ class SurvivalScene extends Phaser.Scene {
         accessory: null
       },
       securedBoxes: [],
+      legendResonanceBySlot: {
+        head: 0,
+        clothes: 0,
+        shoes: 0,
+        weapon: 0,
+        accessory: 0
+      },
       stats: {
         opened: 0,
         upgrades: 0,
@@ -13509,6 +13516,13 @@ class SurvivalScene extends Phaser.Scene {
           ? this.createEquipmentHubDebugItem("debug-accessory-legend-3", "LEGEND", 3, "accessory")
           : null
       },
+      legendResonanceBySlot: {
+        head: legendDebug ? 1 : 0,
+        clothes: 0,
+        shoes: legendDebug ? 2 : 0,
+        weapon: legendDebug ? 2 : 0,
+        accessory: 0
+      },
       securedBoxes: [
         this.createEquipmentHubDebugItem("debug-box-n-1", "N", 1, "head"),
         this.createEquipmentHubDebugItem("debug-box-n-2", "N", 4, "weapon"),
@@ -13623,7 +13637,10 @@ class SurvivalScene extends Phaser.Scene {
         rarity: occupied ? item.rarity : null,
         rank: occupied ? item.rank : null,
         ssrPlus: rarityIndex >= EQUIPMENT_HUB_RARITY_ORDER.indexOf("SSR"),
-        legend: occupied ? item.rarity === "LEGEND" : false
+        legend: occupied ? item.rarity === "LEGEND" : false,
+        legendResonance: occupied && item.rarity === "LEGEND"
+          ? this.getEquipmentSystem()?.getLegendResonanceForSlot?.(normalizedState.legendResonanceBySlot, entry.slot) || 0
+          : 0
       };
       return result;
     }, {});
@@ -13640,6 +13657,9 @@ class SurvivalScene extends Phaser.Scene {
       ssrPlusComplete: ssrPlusCount >= totalSlotCount,
       legendComplete: legendCount >= totalSlotCount,
       legendVisible: normalizedState.legendDiscovered === true,
+      legendResonanceTotal: normalizedState.legendDiscovered === true
+        ? this.getEquipmentSystem()?.getLegendResonanceTotal?.(normalizedState.legendResonanceBySlot) || 0
+        : 0,
       slots
     };
   }
@@ -14157,17 +14177,18 @@ class SurvivalScene extends Phaser.Scene {
     });
 
     if (duplicateLegend) {
-      this.createOverlayText(left + 34, top + 282, "Best slot record retained.", {
+      this.createOverlayText(left + 34, top + 276, `Best slot record retained.\nLEGEND RESONANCE LOGGED / ${slotLabel} +1`, {
         fontSize: "12px",
         color: "#ffd98a",
-        fontStyle: "bold"
+        fontStyle: "bold",
+        lineSpacing: 4
       });
     }
 
     const sourceNote = result.quote?.usesFreeCredit
       ? "FREE ANALYSIS CREDIT CONSUMED"
       : (result.quote?.usesCostOverride ? "SPECIAL ANALYSIS COST APPLIED" : "STANDARD ANALYSIS COST APPLIED");
-    this.createOverlayText(left + 34, top + 304, sourceNote, {
+    this.createOverlayText(left + 34, duplicateLegend ? top + 316 : top + 304, sourceNote, {
       fontSize: "12px",
       color: "#9ab7cc",
       fontStyle: "bold"
@@ -39797,7 +39818,10 @@ class SurvivalScene extends Phaser.Scene {
     const slots = collectionProgress?.slots || {};
     return `LGD: ${EQUIPMENT_HUB_SLOT_ROWS.map((entry) => {
       const slot = slots[entry.slot] || {};
-      const marker = slot.legend ? this.getEquipmentRankLabel(slot.rank) : "--";
+      const resonance = Math.max(0, Math.floor(Number(slot.legendResonance) || 0));
+      const marker = slot.legend
+        ? `${this.getEquipmentRankLabel(slot.rank)}${resonance > 0 ? `+${resonance}` : ""}`
+        : "--";
       return `${this.getEquipmentCollectionSlotAbbreviation(entry.slot)} ${marker}`;
     }).join(" / ")}`;
   }
