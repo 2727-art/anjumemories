@@ -71,7 +71,8 @@ service cloud.firestore {
           || request.resource.data.usedDepthRelay == false
           || (request.resource.data.keys().hasAny(["startDepth"])
             && (request.resource.data.startDepth == 10
-              || request.resource.data.startDepth == 20)
+              || request.resource.data.startDepth == 20
+              || request.resource.data.startDepth == 30)
             && request.resource.data.keys().hasAny(["bestDepth"])
             && request.resource.data.bestDepth >= request.resource.data.startDepth))
         && (!request.resource.data.keys().hasAny(["anjuMemoryEarned"])

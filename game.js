@@ -932,9 +932,9 @@ const LOST_ARMS_STORAGE_KEY = "lastmemoVansabaLostArmsState";
 const FINAL_BOSS_STATE_STORAGE_KEY = "lastmemoVansabaFinalBossState";
 const DEPTH_RELAY_STATE_STORAGE_KEY = "lastmemoVansabaDepthRelayState";
 const DEPTH_RELAY_STATE_VERSION = 1;
-const DEPTH_RELAY_SUPPORTED_DEPTHS = Object.freeze([10, 20]);
-const DEPTH_RELAY_UNLOCKABLE_DEPTHS = Object.freeze([10, 20]);
-const DEPTH_RELAY_PLAYER_SELECTABLE_DEPTHS = Object.freeze([10, 20]);
+const DEPTH_RELAY_SUPPORTED_DEPTHS = Object.freeze([10, 20, 30]);
+const DEPTH_RELAY_UNLOCKABLE_DEPTHS = Object.freeze([10, 20, 30]);
+const DEPTH_RELAY_PLAYER_SELECTABLE_DEPTHS = Object.freeze([10, 20, 30]);
 const EQUIPMENT_STORAGE_KEY = "lastmemoVansabaEquipmentState";
 const EQUIPMENT_DEBUG_QUERY_PARAM = "debugEquipmentState";
 const EQUIPMENT_HUB_DEBUG_QUERY_PARAM = "debugEquipmentHub";
@@ -2158,7 +2158,7 @@ const CD_CATALOG = [
 ];
 const BASE_CALIBRATION_UPGRADE_IDS = Object.freeze(["weapon", "armor", "shoes"]);
 const BASE_CALIBRATION_DEFAULT_CAP = 10;
-const BASE_CALIBRATION_ABSOLUTE_MAX_LEVEL = 20;
+const BASE_CALIBRATION_ABSOLUTE_MAX_LEVEL = 25;
 const BASE_CALIBRATION_RELAY_CAP_TIERS = Object.freeze([
   Object.freeze({
     requiredRelayDepth: 10,
@@ -2167,6 +2167,10 @@ const BASE_CALIBRATION_RELAY_CAP_TIERS = Object.freeze([
   Object.freeze({
     requiredRelayDepth: 20,
     cap: 20
+  }),
+  Object.freeze({
+    requiredRelayDepth: 30,
+    cap: 25
   })
 ]);
 const SHOP_UPGRADE_DEFINITIONS = {
@@ -14687,28 +14691,44 @@ class SurvivalScene extends Phaser.Scene {
     return normalizedState;
   }
 
-  resolveDepthRelayAnchorsCompletedByRunEvent(options = {}) {
-    const eventType = typeof options?.eventType === "string" ? options.eventType : "";
-    const normalizedState = this.normalizeDepthRelayState(options?.depthRelayState);
-    if (options?.anchorUnlockEligible !== true) {
-      return {
-        unlockDepths: [],
-        reason: "ineligible-debug-run"
-      };
-    }
-    if (!this.isDepthRelayDepthUnlocked(normalizedState, FINAL_BOSS_RAID_CONFIG.targetDepth)) {
-      return {
-        unlockDepths: [],
-        reason: "missing-depth10-anchor"
-      };
-    }
-    if (this.isDepthRelayDepthUnlocked(normalizedState, 20)) {
-      return {
-        unlockDepths: [],
-        reason: "already-unlocked"
-      };
-    }
+  getDepthRelayProgressionAnchorDepths() {
+    return DEPTH_RELAY_UNLOCKABLE_DEPTHS
+      .filter((depth) => depth === 20 || depth === 30)
+      .sort((left, right) => left - right);
+  }
 
+  getDepthRelayAnchorPrerequisiteDepths(anchorDepth) {
+    if (anchorDepth === 20) {
+      return [FINAL_BOSS_RAID_CONFIG.targetDepth];
+    }
+    if (anchorDepth === 30) {
+      return [FINAL_BOSS_RAID_CONFIG.targetDepth, 20];
+    }
+    return [];
+  }
+
+  canUnlockDepthRelayAnchorFromState(state, anchorDepth) {
+    if (
+      !Number.isInteger(anchorDepth) ||
+      !Number.isSafeInteger(anchorDepth) ||
+      !DEPTH_RELAY_UNLOCKABLE_DEPTHS.includes(anchorDepth)
+    ) {
+      return false;
+    }
+    const normalizedState = this.normalizeDepthRelayState(state);
+    return this.getDepthRelayAnchorPrerequisiteDepths(anchorDepth)
+      .every((depth) => this.isDepthRelayDepthUnlocked(normalizedState, depth));
+  }
+
+  isDepthRelayAnchorCompletedByRunEvent(anchorDepth, options = {}) {
+    if (
+      !Number.isInteger(anchorDepth) ||
+      !Number.isSafeInteger(anchorDepth) ||
+      !DEPTH_RELAY_UNLOCKABLE_DEPTHS.includes(anchorDepth)
+    ) {
+      return false;
+    }
+    const eventType = typeof options?.eventType === "string" ? options.eventType : "";
     if (eventType === "advance") {
       const completedDepth = Number.isInteger(options?.completedDepth) && Number.isSafeInteger(options.completedDepth)
         ? options.completedDepth
@@ -14716,32 +14736,25 @@ class SurvivalScene extends Phaser.Scene {
       const targetDepth = Number.isInteger(options?.targetDepth) && Number.isSafeInteger(options.targetDepth)
         ? options.targetDepth
         : null;
-      if (completedDepth === 20 && targetDepth >= 21) {
-        return {
-          unlockDepths: [20],
-          reason: "advance"
-        };
-      }
-      return {
-        unlockDepths: [],
-        reason: "advance-not-depth20-clear"
-      };
+      return completedDepth === anchorDepth && targetDepth >= anchorDepth + 1;
     }
-
     if (eventType === "normalExtract") {
       const maxAbsoluteDepthReached = Number.isInteger(options?.maxAbsoluteDepthReached)
         && Number.isSafeInteger(options.maxAbsoluteDepthReached)
         ? options.maxAbsoluteDepthReached
         : 0;
-      if (maxAbsoluteDepthReached >= 20) {
-        return {
-          unlockDepths: [20],
-          reason: "normal-extract"
-        };
-      }
+      return maxAbsoluteDepthReached >= anchorDepth;
+    }
+    return false;
+  }
+
+  resolveDepthRelayAnchorsCompletedByRunEvent(options = {}) {
+    const eventType = typeof options?.eventType === "string" ? options.eventType : "";
+    const normalizedState = this.normalizeDepthRelayState(options?.depthRelayState);
+    if (options?.anchorUnlockEligible !== true) {
       return {
         unlockDepths: [],
-        reason: "normal-extract-below-depth20"
+        reason: "ineligible-debug-run"
       };
     }
 
@@ -14770,9 +14783,49 @@ class SurvivalScene extends Phaser.Scene {
       };
     }
 
+    if (eventType !== "advance" && eventType !== "normalExtract") {
+      return {
+        unlockDepths: [],
+        reason: "unsupported-event"
+      };
+    }
+
+    const completedAnchorDepths = this.getDepthRelayProgressionAnchorDepths()
+      .filter((anchorDepth) => this.isDepthRelayAnchorCompletedByRunEvent(anchorDepth, {
+        ...options,
+        eventType
+      }));
+    const unlockDepths = completedAnchorDepths.filter((anchorDepth) => (
+      !this.isDepthRelayDepthUnlocked(normalizedState, anchorDepth) &&
+      this.canUnlockDepthRelayAnchorFromState(normalizedState, anchorDepth)
+    ));
+    if (unlockDepths.length > 0) {
+      return {
+        unlockDepths,
+        reason: eventType === "advance" ? "advance" : "normal-extract"
+      };
+    }
+
+    const missingPrerequisiteDepth = completedAnchorDepths.find((anchorDepth) => (
+      !this.canUnlockDepthRelayAnchorFromState(normalizedState, anchorDepth)
+    ));
+    if (missingPrerequisiteDepth) {
+      return {
+        unlockDepths: [],
+        reason: missingPrerequisiteDepth === 30 ? "missing-depth20-anchor" : "missing-depth10-anchor"
+      };
+    }
+
+    if (completedAnchorDepths.length > 0) {
+      return {
+        unlockDepths: [],
+        reason: "already-unlocked"
+      };
+    }
+
     return {
       unlockDepths: [],
-      reason: "unsupported-event"
+      reason: eventType === "advance" ? "advance-no-anchor-unlocked" : "normal-extract-no-anchor-unlocked"
     };
   }
 
@@ -40867,6 +40920,11 @@ class SurvivalScene extends Phaser.Scene {
 
   createDebugRunArchiveEntries() {
     const now = Date.now();
+    const debugRelayDepth = this.getDebugRelayStartDepthOverride?.();
+    const relayDebugPreview = this.hasDebugRelayStartDepthQuery?.() === true
+      && this.isDepthRelayStartDepthAvailable(this.depthRelayState, debugRelayDepth);
+    const previewRelayStartDepth = relayDebugPreview ? debugRelayDepth : 20;
+    const previewRelayBestDepth = relayDebugPreview ? debugRelayDepth + 2 : 22;
     const baseEntry = {
       outcome: "normal_extract",
       extractionSucceeded: true,
@@ -40958,11 +41016,11 @@ class SurvivalScene extends Phaser.Scene {
       }),
       this.normalizeRunArchiveEntry({
         ...baseEntry,
-        id: `debug-run-archive-${now}-relay-d20-link-ii`,
+        id: `debug-run-archive-${now}-relay-d${previewRelayStartDepth}-link-ii`,
         submittedAt: new Date(now - 180000).toISOString(),
-        bestDepth: 22,
-        maxDepthReached: 22,
-        startDepth: 20,
+        bestDepth: previewRelayBestDepth,
+        maxDepthReached: previewRelayBestDepth,
+        startDepth: previewRelayStartDepth,
         usedDepthRelay: true,
         level: 17,
         kills: 980,
@@ -42200,7 +42258,9 @@ class SurvivalScene extends Phaser.Scene {
       .map((choice) => choice.depth)
       .filter((depth) => Number.isInteger(depth));
     const maxRelayDepth = relayDepths.length > 0 ? Math.max(...relayDepths) : null;
-    const label = maxRelayDepth >= 20 ? "ANCHOR 020 ONLINE" : `RELAY ONLINE - D${maxRelayDepth || 10}`;
+    const label = maxRelayDepth >= 30
+      ? "ANCHOR 030 ONLINE"
+      : (maxRelayDepth >= 20 ? "ANCHOR 020 ONLINE" : `RELAY ONLINE - D${maxRelayDepth || 10}`);
     this.addOverlayChild(
       this.add
         .rectangle(centerX, centerY, width, height, 0x061724, 0.9)
@@ -42374,6 +42434,17 @@ class SurvivalScene extends Phaser.Scene {
         warning: "FRESH RUN - NO D1-D19 REWARDS\nEARLY FIREPOWER REQUIRED"
       };
     }
+    if (type === "depthRelay" && depth === 30) {
+      return {
+        tone: "limit",
+        badge: "BEACON LIMIT",
+        title: "EDGE RELAY TRANSFER",
+        depthLabel: "START DEPTH 30",
+        primaryNote: "LEGEND HUNT ZONE",
+        secondaryNote: "FRESH RUN - NO D1-D29 REWARDS",
+        warning: "D31+ OUT OF BEACON RANGE"
+      };
+    }
     return {
       tone: "standard",
       badge: "ROUTE",
@@ -42429,6 +42500,73 @@ class SurvivalScene extends Phaser.Scene {
     }
     parent.add(label);
     return label;
+  }
+
+  buildDepthRelayStartChoiceLayout(choices, panel) {
+    const safeChoices = Array.isArray(choices) ? choices : [];
+    const panelX = panel?.x ?? GAME_WIDTH / 2;
+    const panelTop = panel?.top ?? (GAME_HEIGHT / 2 - 255);
+    const panelWidth = panel?.width ?? 910;
+    if (safeChoices.length >= 4) {
+      const columns = 2;
+      const cardWidth = Math.min(392, Math.floor((panelWidth - 108) / columns));
+      const cardHeight = 142;
+      const columnGap = 26;
+      const rowGap = 14;
+      const firstCardX = panelX - (cardWidth + columnGap) / 2;
+      const firstCardY = panelTop + 122 + cardHeight / 2;
+      return {
+        mode: "grid",
+        columns,
+        cardWidth,
+        cardHeight,
+        hintY: panelTop + 432,
+        statusY: panelTop + 462,
+        backY: panelTop + 486,
+        cards: safeChoices.map((_choice, index) => {
+          const column = index % columns;
+          const row = Math.floor(index / columns);
+          return {
+            x: firstCardX + column * (cardWidth + columnGap),
+            y: firstCardY + row * (cardHeight + rowGap),
+            width: cardWidth,
+            height: cardHeight,
+            row,
+            column,
+            columns
+          };
+        })
+      };
+    }
+
+    const compactCards = safeChoices.length >= 3;
+    const cardWidth = compactCards ? 286 : 336;
+    const cardHeight = compactCards ? 244 : 234;
+    const cardGap = compactCards ? 22 : 34;
+    const cardY = panelTop + 254;
+    const totalCardWidth = safeChoices.length * cardWidth + Math.max(0, safeChoices.length - 1) * cardGap;
+    const firstCardX = panelX - totalCardWidth / 2 + cardWidth / 2;
+    return {
+      mode: "row",
+      columns: safeChoices.length,
+      cardWidth,
+      cardHeight,
+      cardGap,
+      cardY,
+      firstCardX,
+      hintY: panelTop + 432,
+      statusY: panelTop + 462,
+      backY: panelTop + 486,
+      cards: safeChoices.map((_choice, index) => ({
+        x: firstCardX + index * (cardWidth + cardGap),
+        y: cardY,
+        width: cardWidth,
+        height: cardHeight,
+        row: 0,
+        column: index,
+        columns: safeChoices.length
+      }))
+    };
   }
 
   showDepthRelayStartSelectionOverlay() {
@@ -42506,30 +42644,30 @@ class SurvivalScene extends Phaser.Scene {
       origin: { x: 0.5, y: 0.5 }
     });
 
-    const compactCards = choices.length >= 3;
-    const cardWidth = compactCards ? 286 : 336;
-    const cardHeight = compactCards ? 244 : 234;
-    const cardGap = compactCards ? 22 : 34;
-    const cardY = panelTop + 254;
-    const cardTop = cardY - cardHeight / 2;
-    const cardBottom = cardY + cardHeight / 2;
-    const totalCardWidth = choices.length * cardWidth + Math.max(0, choices.length - 1) * cardGap;
-    const firstCardX = panelX - totalCardWidth / 2 + cardWidth / 2;
-    const cardLeft = firstCardX - cardWidth / 2;
-    const cardRight = firstCardX + (choices.length - 1) * (cardWidth + cardGap) + cardWidth / 2;
-    this.addDepthRelayStartInputBlocker(overlay, panelX, panelTop + (cardTop - panelTop) / 2, panelWidth, cardTop - panelTop);
-    this.addDepthRelayStartInputBlocker(overlay, panelLeft + (cardLeft - panelLeft) / 2, cardY, cardLeft - panelLeft, cardHeight);
-    this.addDepthRelayStartInputBlocker(overlay, cardRight + (panelRight - cardRight) / 2, cardY, panelRight - cardRight, cardHeight);
-    if (choices.length > 1) {
-      for (let index = 0; index < choices.length - 1; index += 1) {
-        const gapLeft = firstCardX + index * (cardWidth + cardGap) + cardWidth / 2;
-        this.addDepthRelayStartInputBlocker(overlay, gapLeft + cardGap / 2, cardY, cardGap, cardHeight);
-      }
+    const choiceLayout = this.buildDepthRelayStartChoiceLayout(choices, {
+      x: panelX,
+      top: panelTop,
+      width: panelWidth
+    });
+    const cardBounds = choiceLayout.cards.reduce((bounds, card) => ({
+      left: Math.min(bounds.left, card.x - card.width / 2),
+      top: Math.min(bounds.top, card.y - card.height / 2),
+      right: Math.max(bounds.right, card.x + card.width / 2),
+      bottom: Math.max(bounds.bottom, card.y + card.height / 2)
+    }), {
+      left: Number.POSITIVE_INFINITY,
+      top: Number.POSITIVE_INFINITY,
+      right: Number.NEGATIVE_INFINITY,
+      bottom: Number.NEGATIVE_INFINITY
+    });
+    if ([cardBounds.left, cardBounds.top, cardBounds.right, cardBounds.bottom].every(Number.isFinite)) {
+      this.addDepthRelayStartInputBlocker(overlay, panelX, panelTop + (cardBounds.top - panelTop) / 2, panelWidth, cardBounds.top - panelTop);
+      this.addDepthRelayStartInputBlocker(overlay, panelX, cardBounds.top + (cardBounds.bottom - cardBounds.top) / 2, panelWidth, cardBounds.bottom - cardBounds.top);
+      this.addDepthRelayStartInputBlocker(overlay, panelX, cardBounds.bottom + (panelTop + 468 - cardBounds.bottom) / 2, panelWidth, panelTop + 468 - cardBounds.bottom);
     }
-    this.addDepthRelayStartInputBlocker(overlay, panelX, cardBottom + (panelTop + 468 - cardBottom) / 2, panelWidth, panelTop + 468 - cardBottom);
     choices.forEach((choice, index) => {
-      const cardX = firstCardX + index * (cardWidth + cardGap);
-      this.createDepthRelayStartChoiceCard(choice, index, cardX, cardY, cardWidth, cardHeight);
+      const card = choiceLayout.cards[index];
+      this.createDepthRelayStartChoiceCard(choice, index, card.x, card.y, card.width, card.height, card);
     });
 
     const selectableKeys = choices
@@ -42539,24 +42677,24 @@ class SurvivalScene extends Phaser.Scene {
     const hint = this.mobileControlsEnabled
       ? "TAP TO SELECT    ESC BACK"
       : `${selectableKeys} SELECT    ARROWS FOCUS    ENTER DEPLOY    ESC BACK`;
-    this.createDepthRelayStartText(overlay, panelX, panelTop + 432, hint, {
+    this.createDepthRelayStartText(overlay, panelX, choiceLayout.hintY, hint, {
       fontSize: "13px",
       color: "#8fb0c6",
       fontStyle: "bold",
       align: "center",
       origin: { x: 0.5, y: 0.5 }
     });
-    this.depthRelayStartStatusText = this.createDepthRelayStartText(overlay, panelX, panelTop + 462, "", {
+    this.depthRelayStartStatusText = this.createDepthRelayStartText(overlay, panelX, choiceLayout.statusY, "", {
       fontSize: "13px",
       color: "#ffb9a8",
       fontStyle: "bold",
       align: "center",
       origin: { x: 0.5, y: 0.5 }
     });
-    this.createDepthRelayStartBackButton(overlay, panelX, panelTop + 486);
-    this.addDepthRelayStartInputBlocker(overlay, panelX - 198, panelTop + 486, panelWidth / 2 - 77, 36);
-    this.addDepthRelayStartInputBlocker(overlay, panelX + 198, panelTop + 486, panelWidth / 2 - 77, 36);
-    this.addDepthRelayStartInputBlocker(overlay, panelX, panelTop + 504, panelWidth, Math.max(0, panelBottom - (panelTop + 504)));
+    this.createDepthRelayStartBackButton(overlay, panelX, choiceLayout.backY);
+    this.addDepthRelayStartInputBlocker(overlay, panelX - 198, choiceLayout.backY, panelWidth / 2 - 77, 36);
+    this.addDepthRelayStartInputBlocker(overlay, panelX + 198, choiceLayout.backY, panelWidth / 2 - 77, 36);
+    this.addDepthRelayStartInputBlocker(overlay, panelX, choiceLayout.backY + 18, panelWidth, Math.max(0, panelBottom - (choiceLayout.backY + 18)));
 
     this.registerDepthRelayStartKeyboardInput();
     this.registerDepthRelayStartPointerInput();
@@ -42589,7 +42727,7 @@ class SurvivalScene extends Phaser.Scene {
     return blocker;
   }
 
-  createDepthRelayStartChoiceCard(choice, index, x, y, width, height) {
+  createDepthRelayStartChoiceCard(choice, index, x, y, width, height, layout = {}) {
     const container = this.add.container(x, y);
     container.setDepth(20);
     const background = this.add.graphics();
@@ -42605,6 +42743,9 @@ class SurvivalScene extends Phaser.Scene {
       hitArea,
       width,
       height,
+      row: Number.isInteger(layout.row) ? layout.row : 0,
+      column: Number.isInteger(layout.column) ? layout.column : index,
+      columns: Number.isInteger(layout.columns) ? layout.columns : 1,
       focused: false,
       selected: false,
       disabled: choice.locked === true || choice.selectable === false || !choice.unlocked
@@ -42631,70 +42772,85 @@ class SurvivalScene extends Phaser.Scene {
     const left = -width / 2;
     const top = -height / 2;
     const presentation = this.getDepthRelayStartChoicePresentation(choice);
-    const riskTone = presentation.tone === "warning" || presentation.tone === "extreme";
+    const riskTone = presentation.tone === "warning" || presentation.tone === "extreme" || presentation.tone === "limit";
     const extremeTone = presentation.tone === "extreme";
+    const limitTone = presentation.tone === "limit";
     const accent = riskTone ? "#ffcf91" : "#9ffcff";
-    const badgeFill = riskTone ? 0x3e2710 : 0x0d3341;
-    const badgeStroke = extremeTone ? 0xff9f43 : (riskTone ? 0xf0c463 : 0x6ff7ff);
+    const badgeFill = riskTone ? (limitTone ? 0x44340e : 0x3e2710) : 0x0d3341;
+    const badgeStroke = limitTone ? 0xffd15c : (extremeTone ? 0xff9f43 : (riskTone ? 0xf0c463 : 0x6ff7ff));
     const compact = width < 320;
+    const dense = height < 180;
+    const contentX = left + (dense ? 16 : 22);
+    const contentWidth = width - (dense ? 32 : 44);
+    const chipY = top + (dense ? 10 : 18);
+    const keyY = top + (dense ? 16 : 22);
+    const titleY = top + (dense ? 36 : 55);
+    const depthY = top + (dense ? 60 : 88);
+    const primaryY = top + (dense ? 88 : 126);
+    const secondaryY = top + (dense ? 108 : 154);
+    const warningY = dense ? top + 124 : height / 2 - 34;
 
-    this.createDepthRelayStartChipLabel(container, left + 22, top + 18, presentation.badge, badgeFill, accent, badgeStroke);
-    record.keyText = this.createDepthRelayStartText(container, width / 2 - 28, top + 22, String(choice.inputNumber), {
-      fontSize: "18px",
+    this.createDepthRelayStartChipLabel(container, contentX, chipY, presentation.badge, badgeFill, accent, badgeStroke, dense);
+    record.keyText = this.createDepthRelayStartText(container, width / 2 - (dense ? 20 : 28), keyY, String(choice.inputNumber), {
+      fontSize: dense ? "15px" : "18px",
       color: "#ecfaff",
       fontStyle: "bold",
       align: "center",
       origin: { x: 0.5, y: 0.5 }
     });
-    const titleText = this.createDepthRelayStartText(container, left + 22, top + 55, presentation.title, {
-      fontSize: compact ? "21px" : "24px",
+    const titleText = this.createDepthRelayStartText(container, contentX, titleY, presentation.title, {
+      fontSize: dense ? "17px" : (compact ? "21px" : "24px"),
       color: "#ecf7ff",
       fontStyle: "bold"
     });
-    this.fitOverlayTextToWidth(titleText, width - 72, 18);
-    const depthText = this.createDepthRelayStartText(container, left + 22, top + 88, presentation.depthLabel, {
-      fontSize: compact ? "23px" : "26px",
+    this.fitOverlayTextToWidth(titleText, width - (dense ? 58 : 72), dense ? 14 : 18);
+    const depthText = this.createDepthRelayStartText(container, contentX, depthY, presentation.depthLabel, {
+      fontSize: dense ? "19px" : (compact ? "23px" : "26px"),
       color: "#ecf7ff",
       fontStyle: "bold"
     });
-    this.fitOverlayTextToWidth(depthText, width - 44, 18);
-    const primaryText = this.createDepthRelayStartText(container, left + 22, top + 126, presentation.primaryNote, {
-      fontSize: "14px",
+    this.fitOverlayTextToWidth(depthText, contentWidth, dense ? 15 : 18);
+    const primaryText = this.createDepthRelayStartText(container, contentX, primaryY, presentation.primaryNote, {
+      fontSize: dense ? "11px" : "14px",
       color: riskTone ? "#ffdfac" : "#b8d4e8",
       fontStyle: "bold",
-      wordWrap: { width: width - 44 }
+      wordWrap: { width: contentWidth }
     });
-    this.fitOverlayTextToWidth(primaryText, width - 44, 10);
+    this.fitOverlayTextToWidth(primaryText, contentWidth, dense ? 9 : 10);
     if (presentation.secondaryNote) {
-      this.createDepthRelayStartText(container, left + 22, top + 154, presentation.secondaryNote, {
-        fontSize: compact ? "12px" : "13px",
+      const secondaryText = this.createDepthRelayStartText(container, contentX, secondaryY, presentation.secondaryNote, {
+        fontSize: dense ? "10px" : (compact ? "12px" : "13px"),
         color: riskTone ? "#ffcf91" : "#8fb0c6",
         fontStyle: riskTone ? "bold" : "",
-        lineSpacing: 1,
-        wordWrap: { width: width - 44 }
+        lineSpacing: dense ? 0 : 1,
+        wordWrap: { width: contentWidth }
       });
+      if (dense) {
+        this.fitOverlayTextToWidth(secondaryText, contentWidth, 8);
+      }
     }
     if (presentation.warning) {
-      record.warningText = this.createDepthRelayStartText(container, left + 22, height / 2 - 34, presentation.warning, {
-        fontSize: compact ? "12px" : "13px",
+      record.warningText = this.createDepthRelayStartText(container, contentX, warningY, presentation.warning, {
+        fontSize: dense ? "10px" : (compact ? "12px" : "13px"),
         color: "#ffbd72",
         fontStyle: "bold",
-        lineSpacing: 1,
-        wordWrap: { width: width - 44 }
+        lineSpacing: dense ? 0 : 1,
+        wordWrap: { width: contentWidth }
       });
     }
   }
 
-  createDepthRelayStartChipLabel(parent, x, y, text, fill, color, stroke = 0x6ff7ff) {
-    const width = Math.min(196, Math.max(108, text.length * 7 + 22));
+  createDepthRelayStartChipLabel(parent, x, y, text, fill, color, stroke = 0x6ff7ff, compact = false) {
+    const width = Math.min(compact ? 166 : 196, Math.max(compact ? 94 : 108, text.length * (compact ? 6.3 : 7) + 22));
+    const height = compact ? 18 : 20;
     const chip = this.add.graphics();
     chip.fillStyle(fill, 0.86);
-    chip.fillRoundedRect(x, y, width, 20, 4);
+    chip.fillRoundedRect(x, y, width, height, 4);
     chip.lineStyle(1, stroke, 0.42);
-    chip.strokeRoundedRect(x + 0.5, y + 0.5, width - 1, 19, 4);
+    chip.strokeRoundedRect(x + 0.5, y + 0.5, width - 1, height - 1, 4);
     parent.add(chip);
-    this.createDepthRelayStartText(parent, x + 11, y + 3, text, {
-      fontSize: "11px",
+    this.createDepthRelayStartText(parent, x + 11, y + (compact ? 2 : 3), text, {
+      fontSize: compact ? "10px" : "11px",
       color,
       fontStyle: "bold"
     });
@@ -42718,8 +42874,10 @@ class SurvivalScene extends Phaser.Scene {
     background.strokeRoundedRect(left + 1, top + 1, width - 2, height - 2, 8);
     background.fillStyle(accent, disabled ? 0.18 : (focused || selected ? 0.62 : 0.38));
     background.fillRect(left, top + 16, 4, height - 32);
-    background.lineStyle(1, 0xffffff, disabled ? 0.08 : 0.12);
-    background.lineBetween(left + 18, top + 146, width / 2 - 18, top + 146);
+    if (height >= 180) {
+      background.lineStyle(1, 0xffffff, disabled ? 0.08 : 0.12);
+      background.lineBetween(left + 18, top + 146, width / 2 - 18, top + 146);
+    }
 
     record.keyText?.setColor(focused ? this.colorToCss(accent) : "#ecfaff");
     record.container?.setAlpha(disabled ? 0.5 : 1);
@@ -42786,6 +42944,47 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
+  getDepthRelayStartFocusedIndexForDirection(direction) {
+    const records = this.depthRelayStartChoiceRecords || [];
+    if (records.length <= 0) {
+      return 0;
+    }
+    const currentIndex = Phaser.Math.Wrap(this.depthRelayStartFocusedIndex, 0, records.length);
+    const current = records[currentIndex];
+    const columns = Math.max(1, current?.columns || 1);
+    if (records.length >= 4 && columns >= 2) {
+      const row = current?.row || 0;
+      const column = current?.column || 0;
+      const findGridIndex = (targetRow, targetColumn) => records.findIndex((record) => (
+        record.row === targetRow && record.column === targetColumn
+      ));
+      if (direction === "left") {
+        const sameRowLeft = findGridIndex(row, column - 1);
+        return sameRowLeft >= 0 ? sameRowLeft : findGridIndex(row, columns - 1);
+      }
+      if (direction === "right") {
+        const sameRowRight = findGridIndex(row, column + 1);
+        return sameRowRight >= 0 ? sameRowRight : findGridIndex(row, 0);
+      }
+      if (direction === "up") {
+        const upper = findGridIndex(row - 1, column);
+        if (upper >= 0) {
+          return upper;
+        }
+        const maxRow = records.reduce((max, record) => Math.max(max, record.row || 0), 0);
+        const wrapped = findGridIndex(maxRow, column);
+        return wrapped >= 0 ? wrapped : currentIndex;
+      }
+      if (direction === "down") {
+        const lower = findGridIndex(row + 1, column);
+        return lower >= 0 ? lower : findGridIndex(0, column);
+      }
+    }
+    return direction === "left" || direction === "up"
+      ? currentIndex - 1
+      : currentIndex + 1;
+  }
+
   registerDepthRelayStartKeyboardInput() {
     if (this.depthRelayStartKeyHandler) {
       this.input?.keyboard?.off("keydown", this.depthRelayStartKeyHandler);
@@ -42815,16 +43014,28 @@ class SurvivalScene extends Phaser.Scene {
         }
         return;
       }
-      if (["ArrowLeft", "ArrowUp"].includes(key)) {
+      if (key === "ArrowLeft") {
         event.preventDefault?.();
         event.stopPropagation?.();
-        this.setDepthRelayStartFocusedIndex(this.depthRelayStartFocusedIndex - 1);
+        this.setDepthRelayStartFocusedIndex(this.getDepthRelayStartFocusedIndexForDirection("left"));
         return;
       }
-      if (["ArrowRight", "ArrowDown"].includes(key)) {
+      if (key === "ArrowRight") {
         event.preventDefault?.();
         event.stopPropagation?.();
-        this.setDepthRelayStartFocusedIndex(this.depthRelayStartFocusedIndex + 1);
+        this.setDepthRelayStartFocusedIndex(this.getDepthRelayStartFocusedIndexForDirection("right"));
+        return;
+      }
+      if (key === "ArrowUp") {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+        this.setDepthRelayStartFocusedIndex(this.getDepthRelayStartFocusedIndexForDirection("up"));
+        return;
+      }
+      if (key === "ArrowDown") {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+        this.setDepthRelayStartFocusedIndex(this.getDepthRelayStartFocusedIndexForDirection("down"));
         return;
       }
       if (key === "Enter" || key === " ") {
@@ -43035,7 +43246,9 @@ class SurvivalScene extends Phaser.Scene {
     this.depthRelayStartSelectionLocked = false;
     this.depthRelayStartStatusText?.setText("RELAY LINK OFFLINE");
     this.depthRelayStartChoiceRecords.forEach((entry) => {
-      entry.disabled = entry === record ? true : entry.choice.unlocked !== true;
+      entry.disabled = entry.choice.type === "depthRelay"
+        ? !this.isDepthRelayStartDepthCurrentlySelectable(entry.choice.depth)
+        : entry.choice.unlocked !== true;
       entry.selected = false;
       this.drawDepthRelayStartChoiceCard(entry);
     });
