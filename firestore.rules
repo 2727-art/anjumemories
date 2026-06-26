@@ -17,6 +17,8 @@ service cloud.firestore {
           "extractedGeek",
           "extractMode",
           "extractionSucceeded",
+          "startDepth",
+          "usedDepthRelay",
           "anjuMemoryEarned",
           "selectedTitle",
           "selectedBadge",
@@ -57,6 +59,21 @@ service cloud.firestore {
             && request.resource.data.extractMode in ["none", "normal", "emergency"]))
         && (!request.resource.data.keys().hasAny(["extractionSucceeded"])
           || request.resource.data.extractionSucceeded is bool)
+        && (!request.resource.data.keys().hasAny(["startDepth"])
+          || (request.resource.data.startDepth is int
+            && request.resource.data.startDepth >= 1
+            && request.resource.data.startDepth <= 999
+            && request.resource.data.keys().hasAny(["bestDepth"])
+            && request.resource.data.startDepth <= request.resource.data.bestDepth))
+        && (!request.resource.data.keys().hasAny(["usedDepthRelay"])
+          || request.resource.data.usedDepthRelay is bool)
+        && (!request.resource.data.keys().hasAny(["usedDepthRelay"])
+          || request.resource.data.usedDepthRelay == false
+          || (request.resource.data.keys().hasAny(["startDepth"])
+            && (request.resource.data.startDepth == 10
+              || request.resource.data.startDepth == 20)
+            && request.resource.data.keys().hasAny(["bestDepth"])
+            && request.resource.data.bestDepth >= request.resource.data.startDepth))
         && (!request.resource.data.keys().hasAny(["anjuMemoryEarned"])
           || (request.resource.data.anjuMemoryEarned is int
             && request.resource.data.anjuMemoryEarned >= 0

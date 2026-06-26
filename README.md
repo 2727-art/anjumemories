@@ -26,6 +26,7 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - DASH: `Shift` / `Space` / 右 DASH ボタン
 - レベルアップ選択: クリック / タップ / `1` `2` `3`、Opening Boost +1 使用時のみ `4`
 - Gate 選択: クリック / タップ / `1` `2`
+- DEPTH RELAY 選択: クリック / タップ / `1` D1 / `2` D10 / `3` D20、`Escape` で OPERATIONS HUB へ戻る
 - ランキング入力: 名前入力後 `Enter`
 - ゲームオーバー後: `R` または `Enter` でショップへ戻る
 
@@ -46,6 +47,8 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - `?mobileControls=1`: PC ブラウザでもモバイル操作 UI を表示します。
 - `?mobileControls=0`: モバイル操作 UI を無効化します。
 - `?debugStartDepth=10`: デバッグ用。`SORTIE PREP` 後のランを Depth10 から開始します。`11` 以上を指定すると通常深層として開始し、Final Raid には入りません。
+- `?debugRelayStartDepth=10`: デバッグ用。保存済みの Depth10 DEPTH RELAY 解放がある場合だけ、`SORTIE PREP` 後のランを Final Raid ではなく通常 Depth10 として開始します。`20` を指定すると保存済みの Depth10 / Depth20 Anchor がある場合だけ通常 Depth20 Relay として開始します。解放状態は変更せず、`debugStartDepth` が同時指定された場合は `debugStartDepth` を優先します。
+- `?debugRelayLaunchDepth=10`: デバッグ用。通常の OPERATIONS HUB を表示したあと、`SORTIE PREP` 押下時に保存済みの Depth10 DEPTH RELAY 解放がある場合だけ、プレイヤー向け DEPTH RELAY 選択 UI を経由せず Scene restart 経由の新規ラン初期化で通常 Depth10 へ進みます。`20` を指定すると保存済みの Depth10 / Depth20 Anchor がある場合だけ HUB 経由の Depth20 Relay ランチ経路を確認できます。解放状態は変更しません。
 - `?debugSkipOpeningBoost=1`: デバッグ用。`SORTIE PREP` 後の Opening Boost 選択をスキップします。
 - `?debugComms=1`: デバッグ用。戦闘中の通信UIテスト文を表示します。
 - `?debugCommsStory=1`: デバッグ用。通信ストーリーの保存済みフラグを無視し、このランでは再生済み保存を行いません。
@@ -103,17 +106,22 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 ## ゲーム進行
 
 1. OPERATIONS HUB の `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY`、`ARCHIVE` で CD、BGM、永続強化、ロボット系解放、戦闘ログ、MUTATION ATLAS 閲覧を行います。
-2. `SORTIE PREP` から Opening Boost 選択へ進み、開始前に 3 回ぶんの強化を選択します。ANJU MEMORY の +1 チケットを持っている場合、最初の Opening Boost だけ 4 択になります。
-3. Opening Boost 完了後に戦闘へ出撃し、敵を倒して XP、未確定 GEEK、Support、Robot、LOST ARMS アイテムを集めます。
-4. レベルアップ時はスキル解放、スキル強化、パッシブ強化から 3 択で 1 つ選びます。
-5. 各 Depth の開始から 120 秒で Stage Gate が開きます。
-6. Stage Gate では次の Depth へ進むか、未確定 GEEK を確定してショップへ帰還します。
-7. `NEXT STAGE` / `FORCE BREAKTHROUGH` で次 Depth へ進むと、地面に残った一部報酬が DATA CACHE に圧縮されます。
-8. Depth10 初回未討伐時は通常フィールドではなく Depth10 Final Raid に入り、残り 40 秒でボス HP が 0 になった後、600 秒到達時に専用の `ドールを解放する` ゲートだけが出現します。このゲートは Depth11 へ進まず、討伐報酬を保存して OPERATIONS HUB へ帰還します。
-9. Depth10 Final Raid 討伐後に通常プレイで Depth10 へ到達した場合は通常 Depth として進行し、CDSHOP で選択中の BGM を維持します。
-10. Depth11 以降は Endless Void 領域になり、選択 CD を保存変更せずラン中だけ `音声/bgm/ENDLESSVOIDAMBIENCE.mp3` へ上書きします。Depth12 以降へ進んでも同じ BGM を継続し、Depth ごとに先頭から再生し直しません。
-11. Depth11 以降は外部通信、味方通信、通常 Depth 通信、Final Raid 後日談通信を遮断し、既存通信 UI の `SCRAMBLED SIGNAL` 表示で短いスクランブル受信だけが低頻度で発生します。スクランブル通信はラン内一時状態で、`lastmemoVansabaCommsStoryState` には保存しません。
-12. 帰還、ゲームオーバー、Gate 崩壊後はローディング表示を挟んで OPERATIONS HUB に戻ります。
+2. `SORTIE PREP` から Opening Boost 選択へ進み、開始前に 3 回ぶんの強化を選択します。Depth10 Final Raid 討伐後は、その前に DEPTH RELAY で Depth1 通常開始または解放済み転送先を選べます。Depth20 Anchor 解放後は Depth1 / Depth10 / Depth20 の 3 択になります。
+3. DEPTH RELAY で Depth10 を選んだ場合も Final Raid ではなく通常 Depth10 の新しいランとして始まり、Depth1〜9の XP、GEEK、ANJU MEMORY などのスキップ報酬は付与されません。Opening Boost 回数は通常仕様のままです。
+4. Depth10 Relay は高難度の開始方法で、永続強化済みの構成を推奨します。Depth10 カードには `HIGH RISK` 警告、強化済み構成推奨、新規ラン開始、スキップ報酬なしの注意が表示されます。
+5. Depth20 Relay は `EXTREME RISK` の高難度チャレンジです。Depth10 / Depth20 Anchor が解放済みなら回収ロボ Lv に関係なく選択でき、Legend 装備探索や深層チャレンジ向けの新しいランとして Depth20 から開始します。Depth1〜19の XP、GEEK、ANJU MEMORY などのスキップ報酬は付与されず、Opening Boost は通常どおり 3 回、敵難度補正も緩和しません。深層ではアイテム回収が難しくなるため回収ロボ強化は有効ですが、D20選択の必須条件ではありません。
+6. DEPTH RELAY の Beacon Network は世界設定上 Depth30 まで拡張可能ですが、Depth31 以降はビーコン圏外です。現在公開済みの転送先は Depth10 / Depth20 で、Depth30 Anchor、D30転送、Lv21以上のBase Calibration上限拡張、Equipmentセット効果、深層開拓報酬は未実装です。
+7. ANJU MEMORY の +1 チケットを持っている場合、最初の Opening Boost だけ 4 択になります。
+8. Opening Boost 完了後に戦闘へ出撃し、敵を倒して XP、未確定 GEEK、Support、Robot、LOST ARMS アイテムを集めます。
+9. レベルアップ時はスキル解放、スキル強化、パッシブ強化から 3 択で 1 つ選びます。
+10. 各 Depth の開始から 120 秒で Stage Gate が開きます。
+11. Stage Gate では次の Depth へ進むか、未確定 GEEK を確定してショップへ帰還します。
+12. `NEXT STAGE` / `FORCE BREAKTHROUGH` で次 Depth へ進むと、地面に残った一部報酬が DATA CACHE に圧縮されます。
+13. Depth10 初回未討伐時は通常フィールドではなく Depth10 Final Raid に入り、残り 40 秒でボス HP が 0 になった後、600 秒到達時に専用の `ドールを解放する` ゲートだけが出現します。このゲートは Depth11 へ進まず、討伐報酬を保存して OPERATIONS HUB へ帰還します。
+14. Depth10 Final Raid 討伐後に通常プレイで Depth10 へ到達した場合は通常 Depth として進行し、CDSHOP で選択中の BGM を維持します。
+15. Depth11 以降は Endless Void 領域になり、選択 CD を保存変更せずラン中だけ `音声/bgm/ENDLESSVOIDAMBIENCE.mp3` へ上書きします。Depth12 以降へ進んでも同じ BGM を継続し、Depth ごとに先頭から再生し直しません。
+16. Depth11 以降は外部通信、味方通信、通常 Depth 通信、Final Raid 後日談通信を遮断し、既存通信 UI の `SCRAMBLED SIGNAL` 表示で短いスクランブル受信だけが低頻度で発生します。スクランブル通信はラン内一時状態で、`lastmemoVansabaCommsStoryState` には保存しません。
+17. 帰還、ゲームオーバー、Gate 崩壊後はローディング表示を挟んで OPERATIONS HUB に戻ります。
 
 ## Depth10 Final Raid
 
@@ -178,7 +186,7 @@ GEEK MILESTONE BONUS:
 - Support: サポート攻撃を発動します。
 - Robot: 随伴ロボットの本体レベルやチューニングを強化します。
 - LOST ARMS コア: レア武器のラン内仮強化です。
-- 装備箱: 通常 Wave Boss、Elite、NEMESIS、Gold Slime、Silver Slime から低確率で出現する未解析 Equipment 箱です。拾うとラン内の一時リストに入り、通常 EXTRACT で全箱、EMERGENCY EXTRACT で最高品質1箱だけ `lastmemoVansabaEquipmentState.securedBoxes` に保存されます。NEXT STAGE / FORCE BREAKTHROUGH では拾得済み箱だけ持ち越し、地面に残った箱は DATA CACHE に変換せず破棄します。
+- 装備箱: 通常 Wave Boss、Elite、NEMESIS、Gold Slime、Silver Slime から低確率で出現する未解析 Equipment 箱です。拾うとラン内の一時リストに入り、通常 EXTRACT で全箱、EMERGENCY EXTRACT で最高品質1箱だけ `lastmemoVansabaEquipmentState.securedBoxes` に保存されます。NEXT STAGE / FORCE BREAKTHROUGH では拾得済み箱だけ持ち越し、地面に残った箱は DATA CACHE に変換せず破棄します。さらに Depth10 以上で通常 EXTRACT に成功した場合は、深層抽出報酬として未解析 Equipment Cache が 1 個 `securedBoxes` に追加されます。Cache の品質は抽出時の絶対 sourceDepth 帯で変わり、D10帯はR以上、D20帯はSR以上、D30帯はSSR以上になります。LEGENDはどの帯でも低確率で、D30帯でも5部位LEGENDコンプは長期目標です。D30帯は通常進行や将来拡張用の抽選帯であり、D30 Relay公開を意味しません。
 
 Bronze / Silver / Gold の獲得 GEEK 量は Depth、Gate 不安定度、GEEK MILESTONE BONUS、ANOMALY CONTRACT で増加します。XP 成分には GEEK MILESTONE BONUS は影響しません。旧仕様の単独 GEEK オーブや、GEEK だけを直接付与する通常ピックアップは使っていません。
 
@@ -367,7 +375,7 @@ Depth6、8、10、12、15 に入ると `GEEK MILESTONE` 通知が短く表示さ
 
 ### DEEP EXTRACTION RESULT
 
-Depth 6 以降に通常 `EXTRACT` または `EMERGENCY EXTRACT` が成功すると、ランキング入力やショップ復帰の前に `DEEP EXTRACTION RESULT` が表示されます。通常抽出では `DEEP EXTRACTION RESULT`、緊急抽出では `EMERGENCY DEEP EXTRACTION / Partial data secured` として、到達 Depth、確定 GEEK、生存時間、撃破数、Elite / Boss、Instability、GEEK 最大倍率、ANJU MEMORY、LOST ARMS、装備箱の保存 / 喪失、NEMESIS、DEPTH DIRECTIVE、TRIAD BUILD / MUTATION ATLAS、ベスト更新、Grade を表示します。
+Depth 6 以降に通常 `EXTRACT` または `EMERGENCY EXTRACT` が成功すると、ランキング入力やショップ復帰の前に `DEEP EXTRACTION RESULT` が表示されます。通常抽出では `DEEP EXTRACTION RESULT`、緊急抽出では `EMERGENCY DEEP EXTRACTION / Partial data secured` として、到達 Depth、確定 GEEK、生存時間、撃破数、Elite / Boss、Instability、GEEK 最大倍率、ANJU MEMORY、LOST ARMS、装備箱の保存 / 喪失、Depth10 以上の通常抽出で保存された Equipment Cache、NEMESIS、DEPTH DIRECTIVE、TRIAD BUILD / MUTATION ATLAS、ベスト更新、Grade を表示します。
 
 この画面は演出と集計表示だけです。`secureRunCoins()` の確定額、緊急脱出の保護率、`lastmemoVansabaCoins`、`lastmemoVansabaExtractionMessage`、ランキング、Firebase 送信値は変更しません。Continue、Enter、Space、タップで既存のランキング入力または OPERATIONS HUB 復帰へ進みます。
 
@@ -625,9 +633,10 @@ GEEKSHOP は `BASE CALIBRATION` と `EQUIPMENT ANALYSIS` の2つのサブビュ�
 
 GEEKSHOP / BASE CALIBRATION:
 
-- Weapon: 最大 Lv.10、攻撃力 +6% / Lv
-- Armor: 最大 Lv.10、最大 HP +10 / Lv
-- Shoes: 最大 Lv.10、移動速度 +8 / Lv
+- Weapon: 基本上限 Lv.10、Depth10 Anchor 解放で Lv.15、Depth20 Anchor 解放で Lv.20。攻撃力 +6% / Lv
+- Armor: 基本上限 Lv.10、Depth10 Anchor 解放で Lv.15、Depth20 Anchor 解放で Lv.20。最大 HP +10 / Lv
+- Shoes: 基本上限 Lv.10、Depth10 Anchor 解放で Lv.15、Depth20 Anchor 解放で Lv.20。移動速度 +8 / Lv
+- 上限解放は購入可能Lvを広げるだけで、無料Lvは付与されません。購入には従来どおり確定 GEEK を使用し、価格式も従来のLv比例式を継続します。Depth30連動のLv21以上は未実装です。
 - SUPPORT LINK SYSTEM: 60,000 GEEK でインストール。インストール後は Support の正常発動累計で `LINK Lv.1-6` まで自動成長し、Support combat effect が +5% から最大 +25% になります。
 - 回収ロボ: 最大 Lv.10。必要 GEEK は 100,000 / 150,000 / 230,000 / 350,000 / 520,000 / 780,000 / 1,150,000 / 1,700,000 / 2,500,000 / 3,600,000。
 
@@ -636,12 +645,19 @@ GEEKSHOP / EQUIPMENT ANALYSIS:
 - `HEAD`、`CLOTHES`、`SHOES`、`WEAPON`、`ACCESSORY` の5部位に、保存済み `bestBySlot` のレアリティと Rank I〜V を表示します。空スロットは `NO DATA` です。
 - 未解析箱は `N`、`R`、`SR`、`SSR`、LEGEND発見後のみ `LEGEND` の個数を表示します。箱のslot、rank、sourceDepth、sourceType、id、analysisCostOverrideは表示しません。
 - `legendDiscovered=false` の間は、UI上に `LEGEND` や虹色枠を表示しません。未発見状態でLEGEND箱が内部にある場合は `UNKNOWN SIGNAL` として表示します。
+- `SET RESONANCE` は5部位の `bestBySlot` レアリティからセット進捗を導出して表示します。SSR以上5部位は `SSR+ ARRAY`、LEGEND 5部位は `LEGEND ARRAY` として判定しますが、LEGEND未発見時はLEGENDセット名やLEGEND部位数を表示しません。
+- セット進捗は `EQUIPPED SLOTS`、`SSR+ ARRAY`、LEGEND発見後の `LEGEND ARRAY` を `STANDBY` / `QUALIFIED` として示します。SSR+ 5部位では `COMBAT LINK I: READY` / `OVERLIMIT CAP: I`、LEGEND発見済みのLEGEND 5部位では `COMBAT LINK II: READY` / `OVERLIMIT CAP: II` を表示します。LEGEND未発見時はLEGEND名や虹色枠を出さず、SSR+側の表示に留めます。
+- `COLLECTION STATUS` では `bestBySlot` から導出した `SSR+ COLLECTION` と、LEGEND発見後の `LEGEND COLLECTION` 進捗を確認できます。未解析箱は進捗に含めず、LEGEND未発見中は `HIGHER SIGNAL / LOCKED` として秘匿します。LEGEND 5部位コンプは長期目標で、進捗や完成状態はランキング / Firebase / Deep Result へ送信しません。
 - 解析費用は `N 500`、`R 2,000`、`SR 8,000`、`SSR 30,000`、`LEGEND 100,000` GEEKです。箱に `analysisCostOverride` がある場合はそれを最優先し、override が無い場合だけ `freeAnalysisCredits` を先に消費します。override 0 は無料ですが無料解析クレジットを消費しません。
 - 解析時は開始前に `actualCost` 全額を所持している必要があります。既存bestより高品質なら `bestBySlot` を更新し、同品質以下の重複なら `Math.floor(actualCost * 0.5)` を返金扱いにして、実際の支払いは差額だけになります。無料解析の重複返金は0です。
+- 同じslotに既存LEGEND bestがあり、より低いまたは同品質のLEGENDを解析した場合は `DUPLICATE LEGEND SIGNAL` として表示します。現段階では交換、pity、補償、トークン化、追加報酬はありません。
+- Deep Extractionで得た Equipment Cache も `EQUIPMENT ANALYSIS` で解析し、保存済みCacheの `slot` / `rarity` / `rank` を再抽選せず装備として確定します。解析済み装備は `bestBySlot` へ反映され、LEGENDは解析成功時に初めて発見扱いになります。SSR+ / LEGEND の5部位成立は `SET RESONANCE` と次ランの Combat Link 条件になります。
 - 保存成功後だけ解析結果パネルを表示します。保存に失敗した場合は GEEK と Equipment 状態をロールバックし、結果パネルは出さず `ANALYSIS ABORTED / SAVE ERROR` を表示します。
 - CURRENT LOADOUT には各部位の効果を表示します。HEAD は攻撃間隔短縮、CLOTHES は最大HP、SHOES はスタミナ回復、WEAPON は3攻撃スキルの実ダメージ、ACCESSORY は最大スタミナです。解析結果パネルは更新時に効果差分、重複時に `UNCHANGED` を表示します。
 - 出撃開始時に保存済み `bestBySlot` だけから `runEquipmentLoadoutSnapshot` と `runEquipmentBonuses` を作成します。このスナップショットはラン中固定で、NEXT STAGE、FORCE BREAKTHROUGH、Depth遷移、レベルアップ、Gate、overlay、pause、ショップ保存値変更では再取得しません。次の出撃から最新の保存装備が反映されます。
 - 装備ボーナスは品質スコア `rarityIndex * 5 + rank` を使います。HEAD は攻撃間隔 -0.25% x score、CLOTHES は最大HP +3 x score、SHOES はスタミナ回復 +0.8% x score、WEAPON は `basicSkill` / `tornadoSkill` / `rabbitThunderSkill` とそれらのMutation派生ダメージ +1.2% x score、ACCESSORY は最大スタミナ +1 x score です。LEGEND Rank5 では HEAD x0.9375、CLOTHES +75、SHOES x1.20、WEAPON x1.30、ACCESSORY +25 になります。
+- COMBAT LINK は出撃開始時の装備snapshotだけを参照するラン内効果です。対象3スキルが Stage8 に到達し、Final Mutation を選択済みの場合、通常 Level Up 候補として `EQUIPMENT OVERLIMIT` が出現します。Stage8 Final Mutation を正式に選択した直後にも、Combat Link 条件を満たす場合はそのスキル専用の `FINAL COMBAT LINK` OVERLIMIT bonus が出ることがあります。Depth6以降で Deep Level が実際に上がったときも、同じ条件を満たす未取得 OVERLIMIT があれば追加の `DEEP COMBAT LINK` 選択機会が出ます。OVERLIMIT I は対象スキルの実ダメージ x1.10、OVERLIMIT II は x1.20 で、Stage9 / Stage10 ではなく Stage8 のまま、Stage表記や保存schemaは増やさず、そのラン中だけ有効です。Opening Boost、Final Raid、Support、Robot、LOST ARMS、環境ダメージ、Final Raid疑似ダメージ、XP、GEEK、ANJU、Equipment報酬には影響しません。
+- OVERLIMIT 取得済みの対象スキルは戦闘HUDのスキル枠に `OVL-I` / `OVL-II` を表示します。Final Raid 中は COMBAT LINK の攻撃効果を抑制するため、このHUD表示も出ません。RUN ARCHIVE にはローカル閲覧用として Combat Link 段階と各対象スキルの OVERLIMIT 段階を記録しますが、ランキング、Firebase、Deep Result へは送信しません。OVERLIMIT はラン内効果で、次のランへ持ち越しません。
 - CLOTHES と ACCESSORY は開始ステータス再構築時に一度だけ加算します。SHOES はダッシュ回復遅延や消費量を変えず、スタミナ回復量の最終倍率だけを変えます。HEAD は3攻撃スキルの通常攻撃間隔 / 再発動間隔だけへ掛かり、演出ディレイ、持続時間、内部Mutationクールダウン、Support、Robot、LOST ARMS、CHAIN、敵行動には掛かりません。WEAPON は3攻撃スキル由来の実ダメージだけへ掛かり、Support、Robot、Recovery、LOST ARMS、CHAIN、環境ダメージ、敵攻撃、Final Raidの疑似ダメージ、支援ランキング、ボスHPタイムラインには掛かりません。
 - Depth10 初回 Final Raid 中はボスフィールドの時刻演出とランキングを守るため、HEAD と WEAPON の有効倍率だけを 1 に抑制します。CLOTHES、SHOES、ACCESSORY は Final Raid 中も有効です。Final Raid 討伐後の通常 Depth10 ではこの抑制は発生しません。
 - `?debugEquipmentHub=1` と `?debugEquipmentHub=1&debugEquipmentHubLegend=1` は表示専用です。解析ボタンは `PREVIEW ONLY` になり、GEEK消費、無料クレジット消費、統計更新、保存は行いません。
@@ -650,6 +666,7 @@ GEEKSHOP / EQUIPMENT ANALYSIS:
 - Depth1 で Equipment 進行が完全に空の場合、最初の通常 Wave Boss だけ本番ドロップ抽選を100%にします。中身のレアリティ、Rank、部位はDepth1用テーブルで通常どおり決まります。
 - LEGEND の本番ドロップは Depth11 以降かつ `finalRaidLegendRewardClaimed=true` の時だけ解禁されます。未解禁時の LEGEND 重みは SSR に再配分され、`legendDiscovered` では解禁されません。
 - 装備箱を拾うとラン内の `runUnsecuredEquipmentBoxes` にだけ入り、拾った瞬間には `lastmemoVansabaEquipmentState`、`securedBoxes`、`legendDiscovered`、`stats`、確定 GEEK、未確定 GEEK を変更しません。
+- Depth10 以上で通常 `EXTRACT` に成功した場合は、拾得箱とは別に深層抽出の未解析 Equipment Cache を1個だけ `securedBoxes` へ保存します。`sourceDepth` はそのランの最大到達絶対Depthで、DEPTH RELAY の `rewardDepthReached` は使いません。Depth10 / Depth20 Relay でも通常抽出なら対象ですが、EMERGENCY EXTRACT、ゲームオーバー、Final Raid専用帰還、進行注入系debugラン、プレビューでは付与しません。
 - 通常 `EXTRACT` と Final Raid の解放帰還では、拾得済み装備箱をすべて `securedBoxes` に保存します。`EMERGENCY EXTRACT` では `rarityIndex * 5 + rank` の品質スコアが最も高い1箱だけ保存し、同点の場合は先に拾った箱を保存します。
 - Depth10 初回 Final Raid では、ボス撃破時に未登録Equipment信号を一度だけ表示し、専用の `ドールを解放する` 帰還が成功した時だけ固定ID `final-raid-equipment-reward-v1` のLEGEND未解析箱を `securedBoxes` の先頭へ保存します。Rank は Rank2 75% / Rank3 25%、slot は5部位均等、`sourceDepth=10`、`sourceType=finalRaid`、`analysisCostOverride=0` です。
 - Final Raid 確定箱は解析前に `UNKNOWN SIGNAL` として表示され、`LEGEND`、Rank、slot は解析成功時の `LEGEND CLASS CONFIRMED` で初めて公開されます。override 0 のため解析費用は無料で、初回無料解析クレジットは消費しません。
@@ -727,6 +744,8 @@ Firebase SDK は `12.13.0` を dynamic import し、匿名認証で Firestore �
 
 ランキング画面では `KILLS`、`DEPTH`、`GEEK` の 3 モードを切り替えられ、最大 10 件を表示します。`KILLS` はキル数、生存時間、レベル、エリート撃破数、Best Depth、Extracted GEEK の順で並びます。`DEPTH` は Best Depth、Extracted GEEK、キル数、生存時間、レベルの順、`GEEK` は Extracted GEEK、Best Depth、キル数、生存時間、レベルの順で並びます。表示上は選択中バッジと抽出で得た ANJU MEMORY も併記します。オンライン取得に失敗した場合はローカルランキング表示に戻ります。
 
+ランキング entry は開始Depthを示す `startDepth` と DEPTH RELAY 開始かを示す `usedDepthRelay` を持ちます。古い entry は Depth1 通常開始として扱い、Relay entry は一覧で `RLY D10` または `RLY D20` のように開始Depthを表示します。現時点では通常ランとRelayランを別集計せず、並び順、スコア計算、参加条件は従来どおりです。
+
 Best Depth はそのランで実際に到達した最大 Depth です。Extracted GEEK はそのランの抽出で実際に確定できた未確定 GEEK 量で、通常抽出では 100%、緊急抽出では最終保護率ぶん、ゲームオーバーや Gate 崩壊では 0 になります。これは確定 GEEK ウォレット `lastmemoVansabaCoins` の総額ではありません。
 
 ## RUN ARCHIVE / 戦闘ログ
@@ -740,6 +759,7 @@ OPERATIONS HUB の `ARCHIVE` タブから、`RUN ARCHIVE` と `MUTATION ATLAS` �
 - 到達 Depth、抽出結果、Extracted GEEK、生存時間、撃破数、Elite / Boss
 - ANJU MEMORY 獲得量、Grade、Stage
 - TRIAD BUILD。完成ビルドがある通常ランでは `BUILD: CONTROL GRID / PRISM CASCADE` のように表示します。
+- COMBAT LINK と対象スキルの OVERLIMIT 段階。古いログや未取得ランは従来どおり非表示です。
 - スキル、パッシブ、LOST ARMS、RESONANCE / Evolution、Robot Lv / SYNC
 - ANOMALY CONTRACT、DEPTH DIRECTIVE、OVERDRIVE MOD、STABILIZE PROTOCOL、NEMESIS
 
@@ -750,7 +770,7 @@ OPERATIONS HUB の `ARCHIVE` タブから、`RUN ARCHIVE` と `MUTATION ATLAS` �
 localStorage キー:
 
 - `lastmemoVansabaBestRecord`: ベスト記録。`bestDepth` と `bestExtractedGeek` も保存します。
-- `lastmemoVansabaKillRanking`: ローカルランキング。各 entry は `bestDepth`、`extractedGeek`、`extractMode`、`extractionSucceeded`、`submittedAt`、`version` を持ち、古い entry にフィールドがない場合は `bestDepth = 1`、`extractedGeek = 0`、`extractMode = none` に補完します。
+- `lastmemoVansabaKillRanking`: ローカルランキング。各 entry は `bestDepth`、`startDepth`、`usedDepthRelay`、`extractedGeek`、`extractMode`、`extractionSucceeded`、`submittedAt`、`version` を持ち、古い entry にフィールドがない場合は `bestDepth = 1`、`startDepth = 1`、`usedDepthRelay = false`、`extractedGeek = 0`、`extractMode = none` に補完します。
 - `lastmemoVansabaCoins`: 確定 GEEK
 - `lastmemoVansabaSupportLinkState`: SUPPORT LINK SYSTEM のインストール状態、LINK Lv、累計正常発動回数
 - `lastmemoVansabaShopState`: CD 所持、選択 BGM、永続強化状態、回収ロボ `cleaningRobotLevel`、`robotCustom`。`cleaningRobotLevel` は古い保存データに無い場合 Lv0 へ補完します。`robotCustom` は `missileCapTier`、`recoveryCapTier`、`napalmUnlocked`、`barrierUnlocked` を持ち、古い保存データに無い場合は初期値へ補完します。
@@ -759,6 +779,7 @@ localStorage キー:
 - `lastmemoVansabaMutationAtlasState`: MUTATION ATLAS の 16 ビルド発見/保存/研究状態、Best Depth、選択中 Research Target
 - `lastmemoVansabaRunArchive`: 直近 20 件の RUN ARCHIVE / 戦闘ログ。ローカル閲覧専用でランキングや Firebase には送信しません。
 - `lastmemoVansabaFinalBossState`: Depth10 Final Raid 討伐済み、ラスボスCD、ラスボスサポート解禁状態、VOID HUNTER 討伐済み、VOID HUNTER サポート解禁状態
+- `lastmemoVansabaDepthRelayState`: DEPTH RELAY の解放済み転送 Depth を保存します。`version` と `unlockedDepths` を持ち、Final Raid 討伐済み旧セーブでは Depth10 が補完されます。Depth20 Anchor 解放後はプレイヤー向け選択 UI に Depth20 も表示されます。
 - `lastmemoVansabaCommsStoryState`: Depth 初回通信の再生済みフラグ
 - `lastmemoVansabaEquipmentState`: Equipment 保存状態。version、LEGEND 発見フラグ、Final Raid LEGEND 初回報酬フラグ、無料解析クレジット、部位別best装備、未解析箱、opened/upgrades/duplicates統計を保存します。破損JSONや古い形式は起動時に正規化されます。
 - `collisionEditor:<stageId>`: 衝突判定編集モードの一時保存データ
@@ -773,7 +794,9 @@ sessionStorage キー:
 
 `equipmentDefinitions.js` は装備システムの定義と純粋関数を `window.EquipmentSystem` として公開します。装備部位は `head`、`clothes`、`shoes`、`weapon`、`accessory` の5種です。レアリティは `N`、`R`、`SR`、`SSR`、`LEGEND` の5種で、各レアリティは Rank1〜5 を持ちます。品質スコアは `rarityIndex * 5 + rank` で、`N Rank5 < R Rank1 < ... < LEGEND Rank5` になるよう比較します。`createEmptyEquipmentBonuses()`、`getEquipmentBonusForItem()`、`getEquipmentBonusesFromState()`、`cloneEquipmentBonuses()` は状態を変更しない純粋関数で、補正計算では `bestBySlot` だけを参照します。
 
-保存キーは `lastmemoVansabaEquipmentState` です。初期状態は `version: 1`、`legendDiscovered: false`、`finalRaidLegendRewardClaimed: false`、`freeAnalysisCredits: 1`、5部位すべて `null` の `bestBySlot`、空の `securedBoxes`、`opened/upgrades/duplicates` が0の `stats` です。Phase 7 でも保存キーと `version` は増やしません。ラン中に拾った未抽出箱は `runUnsecuredEquipmentBoxes` の一時状態だけで持ち、通常 / 緊急 / Final Raid 解放帰還の抽出成功時にだけ `securedBoxes` へ追記して `lastmemoVansabaEquipmentState` を保存します。Depth10 Final Raid 初回確定箱はラン中箱とは別系統の自動報酬で、専用帰還成功時に固定IDで `securedBoxes` 先頭へ保存します。
+`evaluateEquipmentSetStatus()` は保存済み `bestBySlot` から5部位セット進捗を毎回導出する純粋関数です。Rank、`securedBoxes`、`stats` はセット判定に使わず、セット状態用の保存フィールドや保存versionは追加しません。
+
+保存キーは `lastmemoVansabaEquipmentState` です。初期状態は `version: 1`、`legendDiscovered: false`、`finalRaidLegendRewardClaimed: false`、`freeAnalysisCredits: 1`、5部位すべて `null` の `bestBySlot`、空の `securedBoxes`、`opened/upgrades/duplicates` が0の `stats` です。Phase 7 でも保存キーと `version` は増やしません。ラン中に拾った未抽出箱は `runUnsecuredEquipmentBoxes` の一時状態だけで持ち、通常 / 緊急 / Final Raid 解放帰還の抽出成功時にだけ `securedBoxes` へ追記して `lastmemoVansabaEquipmentState` を保存します。Depth10 以上の通常EXTRACTで得る深層 Equipment Cache は中身を Deep Result や RUN ARCHIVE / ranking / Firebase へ公開せず、EQUIPMENT ANALYSIS で解析するまで未解析箱として扱います。LEGEND未発見状態では既存ルールどおりLEGEND表示を秘匿します。Emergency Extract、ゲームオーバー、Final Raid専用帰還、debugプレビューでは深層 Equipment Cache は付与されません。深層 Equipment Cacheの中身やsourceDepthはランキング / Firebaseへ送信しません。Depth10 Final Raid 初回確定箱はラン中箱とは別系統の自動報酬で、専用帰還成功時に固定IDで `securedBoxes` 先頭へ保存します。
 
 OPERATIONS HUB の GEEKSHOP / EQUIPMENT ANALYSIS から保存済み `securedBoxes` を解析すると、`legendDiscovered`、`freeAnalysisCredits`、`bestBySlot`、`securedBoxes`、`stats.opened/upgrades/duplicates` を更新します。`finalRaidLegendRewardClaimed` は Final Raid 初回LEGEND確定箱の保存成功、または同じ固定ID箱が既に存在する状態の修復保存成功でだけ true になります。解析、通常戦闘ドロップ、抽出保存では変更しません。ラン中のステータス補正は出撃開始時に `bestBySlot` から作る `runEquipmentLoadoutSnapshot` と `runEquipmentBonuses` だけを参照し、`lastmemoVansabaEquipmentState` 自体には保存しません。
 

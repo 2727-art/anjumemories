@@ -465,6 +465,13 @@ const DEBUG_START_DEPTH_QUERY_PARAM = "debugStartDepth";
 const DEBUG_START_DEPTH_ALIAS_QUERY_PARAM = "startDepth";
 const DEBUG_START_DEPTH_SHORT_QUERY_PARAM = "debugDepth";
 const DEBUG_START_DEPTH_MAX = 99;
+const DEBUG_RELAY_START_DEPTH_QUERY_PARAM = "debugRelayStartDepth";
+const DEBUG_RELAY_LAUNCH_DEPTH_QUERY_PARAM = "debugRelayLaunchDepth";
+const RUN_START_CONTEXT_MODE = Object.freeze({
+  STANDARD: "standard",
+  DEBUG: "debug",
+  DEPTH_RELAY: "depthRelay"
+});
 const DEBUG_MAX_BUILD_QUERY_PARAM = "debugMaxBuild";
 const DEBUG_MAX_BUILD_ALIAS_QUERY_PARAM = "debugPowerBuild";
 const DEBUG_MAX_BUILD_CONFIG = {
@@ -923,6 +930,11 @@ const COIN_WALLET_STORAGE_KEY = "lastmemoVansabaCoins";
 const SHOP_STATE_STORAGE_KEY = "lastmemoVansabaShopState";
 const LOST_ARMS_STORAGE_KEY = "lastmemoVansabaLostArmsState";
 const FINAL_BOSS_STATE_STORAGE_KEY = "lastmemoVansabaFinalBossState";
+const DEPTH_RELAY_STATE_STORAGE_KEY = "lastmemoVansabaDepthRelayState";
+const DEPTH_RELAY_STATE_VERSION = 1;
+const DEPTH_RELAY_SUPPORTED_DEPTHS = Object.freeze([10, 20]);
+const DEPTH_RELAY_UNLOCKABLE_DEPTHS = Object.freeze([10, 20]);
+const DEPTH_RELAY_PLAYER_SELECTABLE_DEPTHS = Object.freeze([10, 20]);
 const EQUIPMENT_STORAGE_KEY = "lastmemoVansabaEquipmentState";
 const EQUIPMENT_DEBUG_QUERY_PARAM = "debugEquipmentState";
 const EQUIPMENT_HUB_DEBUG_QUERY_PARAM = "debugEquipmentHub";
@@ -930,6 +942,12 @@ const EQUIPMENT_HUB_LEGEND_DEBUG_QUERY_PARAM = "debugEquipmentHubLegend";
 const EQUIPMENT_ANALYSIS_DEBUG_QUERY_PARAM = "debugEquipmentAnalysis";
 const EQUIPMENT_BONUS_DEBUG_QUERY_PARAM = "debugEquipmentBonuses";
 const EQUIPMENT_BONUS_PRESET_QUERY_PARAM = "debugEquipmentBonusPreset";
+const EQUIPMENT_COMBAT_LINK_TIER_CONFIG = Object.freeze({
+  ssrPlusFive: Object.freeze({ combatLinkLevel: 1, overlimitCap: 1 }),
+  legendFive: Object.freeze({ combatLinkLevel: 2, overlimitCap: 2 })
+});
+const EQUIPMENT_COMBAT_LINK_SKILL_IDS = Object.freeze(["basicSkill", "tornadoSkill", "rabbitThunderSkill"]);
+const EQUIPMENT_OVERLIMIT_DAMAGE_MULTIPLIERS = Object.freeze([1.00, 1.10, 1.20]);
 const EQUIPMENT_RUN_DEBUG_QUERY_PARAM = "debugEquipmentRun";
 const EQUIPMENT_DROP_DEBUG_QUERY_PARAM = "debugEquipmentDrop";
 const EQUIPMENT_DROP_RANK_DEBUG_QUERY_PARAM = "debugEquipmentDropRank";
@@ -943,6 +961,9 @@ const EQUIPMENT_PRODUCTION_RARITY_DEBUG_QUERY_PARAM = "debugEquipmentProductionR
 const EQUIPMENT_PRODUCTION_RANK_DEBUG_QUERY_PARAM = "debugEquipmentProductionRank";
 const EQUIPMENT_PRODUCTION_SLOT_DEBUG_QUERY_PARAM = "debugEquipmentProductionSlot";
 const EQUIPMENT_PRODUCTION_LEGEND_UNLOCKED_DEBUG_QUERY_PARAM = "debugEquipmentProductionLegendUnlocked";
+const EQUIPMENT_DEEP_CACHE_MIN_ABSOLUTE_DEPTH = 10;
+const EQUIPMENT_DEEP_CACHE_REWARD_COUNT = 1;
+const EQUIPMENT_DEEP_CACHE_SOURCE_TYPE = "deepExtraction";
 const FINAL_RAID_LEGEND_REWARD_DEBUG_QUERY_PARAM = "debugFinalRaidLegendReward";
 const FINAL_RAID_LEGEND_PRESENTATION_DEBUG_QUERY_PARAM = "debugFinalRaidLegendPresentation";
 const FINAL_RAID_LEGEND_REWARD_PREVIEW_DEBUG_QUERY_PARAM = "debugFinalRaidLegendRewardPreview";
@@ -2135,13 +2156,26 @@ const CD_CATALOG = [
     }
   }
 ];
+const BASE_CALIBRATION_UPGRADE_IDS = Object.freeze(["weapon", "armor", "shoes"]);
+const BASE_CALIBRATION_DEFAULT_CAP = 10;
+const BASE_CALIBRATION_ABSOLUTE_MAX_LEVEL = 20;
+const BASE_CALIBRATION_RELAY_CAP_TIERS = Object.freeze([
+  Object.freeze({
+    requiredRelayDepth: 10,
+    cap: 15
+  }),
+  Object.freeze({
+    requiredRelayDepth: 20,
+    cap: 20
+  })
+]);
 const SHOP_UPGRADE_DEFINITIONS = {
   weapon: {
     id: "weapon",
     title: "武器強化",
     shortTitle: "WEAPON",
     description: "攻撃力 +6% / Lv",
-    maxLevel: 10,
+    maxLevel: BASE_CALIBRATION_ABSOLUTE_MAX_LEVEL,
     baseCost: 1000,
     costGrowth: 1.58,
     accent: 0xf0c463
@@ -2151,7 +2185,7 @@ const SHOP_UPGRADE_DEFINITIONS = {
     title: "鎧強化",
     shortTitle: "ARMOR",
     description: "最大HP +10 / Lv",
-    maxLevel: 10,
+    maxLevel: BASE_CALIBRATION_ABSOLUTE_MAX_LEVEL,
     baseCost: 1000,
     costGrowth: 1.52,
     accent: 0x66d25f
@@ -2161,7 +2195,7 @@ const SHOP_UPGRADE_DEFINITIONS = {
     title: "靴強化",
     shortTitle: "SHOES",
     description: "移動速度 +8 / Lv",
-    maxLevel: 10,
+    maxLevel: BASE_CALIBRATION_ABSOLUTE_MAX_LEVEL,
     baseCost: 1000,
     costGrowth: 1.48,
     accent: 0x45a9ff
@@ -3643,6 +3677,11 @@ const LEVEL_UP_CARD_TYPE_META = {
   skillMutation: {
     label: "SKILL MUTATION",
     color: 0xffd76b,
+    textColor: "#fff3c8"
+  },
+  equipmentOverlimit: {
+    label: "COMBAT LINK UPGRADE",
+    color: 0xf0c463,
     textColor: "#fff3c8"
   },
   passiveChip: {
@@ -5246,7 +5285,8 @@ class SurvivalScene extends Phaser.Scene {
     super("survival-scene");
   }
 
-  init() {
+  init(data = {}) {
+    this.initialRunLaunchRequestData = data?.runLaunchRequest || null;
     this.currentStage = this.selectCurrentStageDefinition();
   }
 
@@ -5496,6 +5536,38 @@ class SurvivalScene extends Phaser.Scene {
       return null;
     }
     return Phaser.Math.Clamp(depth, 1, DEBUG_START_DEPTH_MAX);
+  }
+
+  hasDebugRelayStartDepthQuery() {
+    return this.getUrlStageParam(DEBUG_RELAY_START_DEPTH_QUERY_PARAM) !== null;
+  }
+
+  getDebugRelayStartDepthOverride() {
+    const rawDepth = this.getUrlStageParam(DEBUG_RELAY_START_DEPTH_QUERY_PARAM);
+    if (rawDepth === null || !/^[0-9]+$/.test(String(rawDepth))) {
+      return null;
+    }
+    const depth = Number(rawDepth);
+    if (!Number.isSafeInteger(depth) || depth <= 0) {
+      return null;
+    }
+    return depth;
+  }
+
+  hasDebugRelayLaunchDepthQuery() {
+    return this.getUrlStageParam(DEBUG_RELAY_LAUNCH_DEPTH_QUERY_PARAM) !== null;
+  }
+
+  getDebugRelayLaunchDepthOverride() {
+    const rawDepth = this.getUrlStageParam(DEBUG_RELAY_LAUNCH_DEPTH_QUERY_PARAM);
+    if (rawDepth === null || !/^[0-9]+$/.test(String(rawDepth))) {
+      return null;
+    }
+    const depth = Number(rawDepth);
+    if (!Number.isSafeInteger(depth) || depth <= 0) {
+      return null;
+    }
+    return depth;
   }
 
   isDebugMaxBuildEnabled() {
@@ -5769,6 +5841,8 @@ class SurvivalScene extends Phaser.Scene {
         cleanup();
       }
     };
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.clearDepthRelayStartSelectionOverlay("sceneShutdown"));
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.clearDepthRelayStartSelectionOverlay("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetAnomalyContractState("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetAnomalyContractState("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetOverdriveModState("sceneShutdown")));
@@ -5793,7 +5867,7 @@ class SurvivalScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetVoidHunterState("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetFinalBossRaidState("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetFinalBossRaidState("sceneDestroy"));
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.destroyCommsUi("sceneShutdown"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.destroyCommsUi("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.destroyCommsUi("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.cleanupDeepExtractionResultOverlay("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.cleanupDeepExtractionResultOverlay("sceneDestroy"));
@@ -5801,6 +5875,8 @@ class SurvivalScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.cleanupGeekMilestoneNotice("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.discardRunEquipmentBoxes("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.discardRunEquipmentBoxes("sceneDestroy"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetRunEquipmentCombatLinkState("sceneShutdown")));
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetRunEquipmentCombatLinkState("sceneDestroy"));
     this.setupMobileControls();
     this.configureCameras();
     this.createColliders();
@@ -5810,6 +5886,7 @@ class SurvivalScene extends Phaser.Scene {
     this.updateSkills(0);
     this.updateHud();
     this.showPreGameShop(this.consumePendingExtractionShopMessage());
+    this.continuePendingRunLaunchRequestFromHub("create");
     if (this.isDeepExtractionResultDebugEnabled() && !this.isRankingDebugEnabled()) {
       this.time.delayedCall(180, () => this.showDebugDeepExtractionResultOverlay());
     }
@@ -6265,6 +6342,7 @@ class SurvivalScene extends Phaser.Scene {
     this.mutationAtlasState = this.loadMutationAtlasState();
     this.supportLinkState = this.loadSupportLinkState();
     this.finalBossState = this.loadFinalBossState();
+    this.depthRelayState = this.loadDepthRelayState();
     this.equipmentState = this.loadEquipmentState();
     this.syncFinalBossUnlocksToShopState("createState", { save: false });
     this.shopViewMode = this.isMutationAtlasDebugEnabled()
@@ -6289,11 +6367,19 @@ class SurvivalScene extends Phaser.Scene {
     this.rebuildStartingStats();
 
     this.survivalTime = 0;
-    this.initializeDepthRunState();
+    this.pendingRunLaunchRequest = this.normalizeRunLaunchRequest(this.initialRunLaunchRequestData);
+    this.initialRunLaunchRequestData = null;
+    this.runLaunchRequestAutoContinueConsumed = false;
+    this.runLaunchRequestInProgress = false;
+    this.initializeDepthRunState({ runLaunchRequest: this.pendingRunLaunchRequest });
     this.initializeFinalBossRaidState();
     this.initFinalRaidRescueLinkState("createState");
     this.initializeAnjuMemoryRunState();
     this.applyDebugStartDepthRunProgress("createState");
+    if (this.debugRelayStartDepthQueryPresent) {
+      this.logDebugRelayStartResolution(this.debugRelayStartDepthRequested, this.runStartContext);
+    }
+    this.logInitializedRunLaunchRequestIfNeeded("createState");
     this.initializeAnomalyContractState();
     this.initializeOverflowRewardState();
     this.initializeOverdriveModState();
@@ -6336,6 +6422,17 @@ class SurvivalScene extends Phaser.Scene {
     this.mobileDashHeld = false;
     this.mobileControlsContainer = null;
     this.mobileControlVisuals = null;
+    this.depthRelayStartOverlay = null;
+    this.depthRelayStartChoiceRecords = [];
+    this.depthRelayStartKeyHandler = null;
+    this.depthRelayStartPointerHandler = null;
+    this.depthRelayStartTouchHandler = null;
+    this.depthRelayStartSelectionLocked = false;
+    this.depthRelayStartFocusedIndex = 0;
+    this.depthRelayStartOverlayActive = false;
+    this.depthRelayStartSelectTimer = null;
+    this.depthRelayStartStatusText = null;
+    this.depthRelayStartBackButton = null;
     this.invincibleUntil = 0;
     this.pendingLevelUps = 0;
     this.startingUpgradeSelectionsRemaining = STARTING_UPGRADE_CHOICES;
@@ -6433,10 +6530,361 @@ class SurvivalScene extends Phaser.Scene {
     this.logEquipmentDebugState();
   }
 
-  initializeDepthRunState() {
+  createDefaultRunStartContext() {
+    return {
+      mode: RUN_START_CONTEXT_MODE.STANDARD,
+      runStartDepth: 1,
+      selectedRelayDepth: null,
+      usedDepthRelay: false
+    };
+  }
+
+  createDefaultRunLaunchRequest() {
+    return {
+      requestedRelayDepth: null,
+      autoContinueSortie: false
+    };
+  }
+
+  normalizeRunLaunchRequest(record = {}) {
+    const defaults = this.createDefaultRunLaunchRequest();
+    if (!record || typeof record !== "object" || Array.isArray(record)) {
+      return defaults;
+    }
+
+    const requestedRelayDepth = record.requestedRelayDepth;
+    const isSupportedRelayDepth = Number.isInteger(requestedRelayDepth)
+      && Number.isSafeInteger(requestedRelayDepth)
+      && DEPTH_RELAY_SUPPORTED_DEPTHS.includes(requestedRelayDepth);
+    if (
+      !isSupportedRelayDepth ||
+      !this.isDepthRelayStartDepthAvailable(this.depthRelayState, requestedRelayDepth)
+    ) {
+      return defaults;
+    }
+
+    return {
+      requestedRelayDepth,
+      autoContinueSortie: record.autoContinueSortie === true
+    };
+  }
+
+  createDepthRelayRunLaunchRequest(depth) {
+    return this.normalizeRunLaunchRequest({
+      requestedRelayDepth: depth,
+      autoContinueSortie: true
+    });
+  }
+
+  isValidRunLaunchRequest(record = {}) {
+    const normalized = this.normalizeRunLaunchRequest(record);
+    return Number.isInteger(normalized.requestedRelayDepth)
+      && normalized.autoContinueSortie === true;
+  }
+
+  createDefaultRunOriginSnapshot() {
+    return {
+      startDepth: 1,
+      usedDepthRelay: false
+    };
+  }
+
+  createRunOriginSnapshot(runStartContext = null) {
+    const defaults = this.createDefaultRunOriginSnapshot();
+    const startDepth = this.isValidRunDepthProgressDepth(runStartContext?.runStartDepth)
+      ? runStartContext.runStartDepth
+      : defaults.startDepth;
+    const usedDepthRelay = this.isDepthRelayRun(runStartContext)
+      && DEPTH_RELAY_SUPPORTED_DEPTHS.includes(startDepth);
+    return {
+      startDepth,
+      usedDepthRelay
+    };
+  }
+
+  normalizeRunOriginSnapshot(record = {}, options = {}) {
+    const defaults = this.createDefaultRunOriginSnapshot();
+    const startDepth = this.isValidRunDepthProgressDepth(record?.startDepth)
+      ? record.startDepth
+      : defaults.startDepth;
+    const usedDepthRelay = record?.usedDepthRelay === true;
+    if (!usedDepthRelay) {
+      return {
+        startDepth,
+        usedDepthRelay: false
+      };
+    }
+
+    const maxDepthKnown = options.maxDepthReached !== undefined && options.maxDepthReached !== null;
+    const maxDepthReached = maxDepthKnown
+      ? this.normalizeDepthValue(options.maxDepthReached, 1)
+      : null;
+    if (
+      !DEPTH_RELAY_SUPPORTED_DEPTHS.includes(startDepth) ||
+      (maxDepthKnown && startDepth > maxDepthReached)
+    ) {
+      return defaults;
+    }
+
+    return {
+      startDepth,
+      usedDepthRelay: true
+    };
+  }
+
+  formatRunOriginRouteLabel(runOriginSnapshot = {}, maxDepthReached = 1) {
+    const normalized = this.normalizeRunOriginSnapshot(runOriginSnapshot, { maxDepthReached });
+    if (!normalized.usedDepthRelay) {
+      return "";
+    }
+    const reachedDepth = Math.max(normalized.startDepth, this.normalizeDepthValue(maxDepthReached, normalized.startDepth));
+    return reachedDepth > normalized.startDepth
+      ? `D${normalized.startDepth} -> D${reachedDepth}`
+      : `D${normalized.startDepth}`;
+  }
+
+  resolveRunStartContext(options = {}) {
+    const debugStartDepth = options?.debugStartDepth;
+    if (Number.isInteger(debugStartDepth) && debugStartDepth > 1) {
+      return {
+        mode: RUN_START_CONTEXT_MODE.DEBUG,
+        runStartDepth: Phaser.Math.Clamp(debugStartDepth, 1, DEBUG_START_DEPTH_MAX),
+        selectedRelayDepth: null,
+        usedDepthRelay: false
+      };
+    }
+
+    const requestedRelayDepth = options?.requestedRelayDepth;
+    if (
+      Number.isInteger(requestedRelayDepth) &&
+      this.isDepthRelayStartDepthAvailable(options?.depthRelayState, requestedRelayDepth)
+    ) {
+      return {
+        mode: RUN_START_CONTEXT_MODE.DEPTH_RELAY,
+        runStartDepth: requestedRelayDepth,
+        selectedRelayDepth: requestedRelayDepth,
+        usedDepthRelay: true
+      };
+    }
+
+    return this.createDefaultRunStartContext();
+  }
+
+  isDepthRelayRun(context = this.runStartContext) {
+    return context?.mode === RUN_START_CONTEXT_MODE.DEPTH_RELAY
+      && context?.usedDepthRelay === true
+      && Number.isInteger(context?.runStartDepth)
+      && context.runStartDepth === context.selectedRelayDepth;
+  }
+
+  resetRunStartContext(options = {}) {
+    this.runStartContext = this.resolveRunStartContext(options);
+    return this.runStartContext;
+  }
+
+  isValidRunDepthProgressDepth(depth) {
+    return Number.isInteger(depth) && Number.isSafeInteger(depth) && depth >= 1;
+  }
+
+  createDefaultRunDepthProgressState() {
+    return {
+      startAbsoluteDepth: 1,
+      maxAbsoluteDepthReached: 1,
+      rewardDepthReached: 1
+    };
+  }
+
+  createRunDepthProgressState(runStartContext = this.runStartContext) {
+    const defaults = this.createDefaultRunDepthProgressState();
+    const startAbsoluteDepth = this.isValidRunDepthProgressDepth(runStartContext?.runStartDepth)
+      ? runStartContext.runStartDepth
+      : defaults.startAbsoluteDepth;
+    const maxAbsoluteDepthReached = startAbsoluteDepth;
+    const rewardDepthReached = this.isDepthRelayRun(runStartContext)
+      ? 1
+      : maxAbsoluteDepthReached;
+    return {
+      startAbsoluteDepth,
+      maxAbsoluteDepthReached,
+      rewardDepthReached
+    };
+  }
+
+  updateRunDepthProgressForEnteredDepth(
+    currentState = this.runDepthProgressState,
+    enteredAbsoluteDepth = this.stageDepth,
+    runStartContext = this.runStartContext
+  ) {
+    const fallbackState = this.createRunDepthProgressState(runStartContext);
+    const startAbsoluteDepth = this.isValidRunDepthProgressDepth(currentState?.startAbsoluteDepth)
+      ? currentState.startAbsoluteDepth
+      : fallbackState.startAbsoluteDepth;
+    const currentMaxAbsoluteDepth = this.isValidRunDepthProgressDepth(currentState?.maxAbsoluteDepthReached)
+      ? Math.max(startAbsoluteDepth, currentState.maxAbsoluteDepthReached)
+      : fallbackState.maxAbsoluteDepthReached;
+    const currentRewardDepth = this.isValidRunDepthProgressDepth(currentState?.rewardDepthReached)
+      ? currentState.rewardDepthReached
+      : fallbackState.rewardDepthReached;
+
+    if (!this.isValidRunDepthProgressDepth(enteredAbsoluteDepth)) {
+      return {
+        startAbsoluteDepth,
+        maxAbsoluteDepthReached: currentMaxAbsoluteDepth,
+        rewardDepthReached: currentRewardDepth
+      };
+    }
+
+    const maxAbsoluteDepthReached = Math.max(currentMaxAbsoluteDepth, enteredAbsoluteDepth);
+    const rewardDepthReached = this.isDepthRelayRun(runStartContext)
+      ? 1 + Math.max(0, maxAbsoluteDepthReached - startAbsoluteDepth)
+      : maxAbsoluteDepthReached;
+    return {
+      startAbsoluteDepth,
+      maxAbsoluteDepthReached,
+      rewardDepthReached
+    };
+  }
+
+  getRunMaxAbsoluteDepthReached(state = this.runDepthProgressState) {
+    const fallbackState = this.createRunDepthProgressState(this.runStartContext);
+    return this.isValidRunDepthProgressDepth(state?.maxAbsoluteDepthReached)
+      ? state.maxAbsoluteDepthReached
+      : fallbackState.maxAbsoluteDepthReached;
+  }
+
+  getRunRewardDepthReached(state = this.runDepthProgressState) {
+    const fallbackState = this.createRunDepthProgressState(this.runStartContext);
+    return this.isValidRunDepthProgressDepth(state?.rewardDepthReached)
+      ? state.rewardDepthReached
+      : fallbackState.rewardDepthReached;
+  }
+
+  resetRunDepthProgressState(runStartContext = this.runStartContext) {
+    this.runDepthProgressState = this.createRunDepthProgressState(runStartContext);
+    return this.runDepthProgressState;
+  }
+
+  createDepthRelayAnchorProgressState(runStartContext = this.runStartContext) {
+    return {
+      anchorUnlockEligible: this.isDepthRelayAnchorUnlockEligibleForRun(runStartContext)
+    };
+  }
+
+  isDepthRelayProgressionDebugInjectionRun() {
+    return this.getDebugStartDepthOverride() !== null ||
+      this.hasDebugRelayStartDepthQuery() ||
+      this.hasDebugRelayLaunchDepthQuery() ||
+      this.isDebugMaxBuildEnabled?.() === true ||
+      this.isFinalBossRaidDebugEnabled?.() === true ||
+      this.isSkillMutationDebugEnabled?.() === true ||
+      this.isTriadMatrixDebugEnabled?.() === true ||
+      this.isAnomalyContractDebugEnabled?.() === true ||
+      this.isAnjuMemoryDebugEnabled?.() === true ||
+      this.isEquipmentBonusDebugEnabled?.() === true ||
+      this.isEquipmentProductionDebugEnabled?.() === true ||
+      this.isOverdriveModDebugEnabled?.() === true ||
+      this.isStabilizeProtocolDebugEnabled?.() === true ||
+      this.isNemesisBossDebugEnabled?.() === true ||
+      this.isVoidHunterDebugEnabled?.() === true ||
+      (this.getDebugRobotMissileLevelOverride?.() ?? null) !== null;
+  }
+
+  isDepthRelayAnchorUnlockEligibleForRun(runStartContext = this.runStartContext) {
+    if (this.isDepthRelayProgressionDebugInjectionRun()) {
+      return false;
+    }
+    const mode = runStartContext?.mode || RUN_START_CONTEXT_MODE.STANDARD;
+    return mode === RUN_START_CONTEXT_MODE.STANDARD || this.isDepthRelayRun(runStartContext);
+  }
+
+  initializeDepthRelayAnchorProgressState(runStartContext = this.runStartContext) {
+    this.depthRelayAnchorProgressState = this.createDepthRelayAnchorProgressState(runStartContext);
+    return this.depthRelayAnchorProgressState;
+  }
+
+  logDebugRelayStartResolution(requestedRelayDepth, context = this.runStartContext) {
+    const relayUnlocked = Number.isInteger(requestedRelayDepth)
+      && this.isDepthRelayDepthUnlocked(this.depthRelayState, requestedRelayDepth);
+    const relayStartAvailable = Number.isInteger(requestedRelayDepth)
+      && this.isDepthRelayStartDepthAvailable(this.depthRelayState, requestedRelayDepth);
+    const maxAbsoluteDepthReached = this.getRunMaxAbsoluteDepthReached(this.runDepthProgressState);
+    const rewardDepthReached = this.getRunRewardDepthReached(this.runDepthProgressState);
+    console.log("[DEPTH RELAY DEBUG] start resolution", {
+      requestedRelayDepth: Number.isInteger(requestedRelayDepth) ? requestedRelayDepth : null,
+      relayUnlocked,
+      relayStartAvailable,
+      mode: context?.mode || RUN_START_CONTEXT_MODE.STANDARD,
+      runStartDepth: context?.runStartDepth || 1,
+      stageDepth: this.stageDepth || 1,
+      selectedRelayDepth: context?.selectedRelayDepth ?? null,
+      usedDepthRelay: context?.usedDepthRelay === true,
+      maxAbsoluteDepthReached,
+      rewardDepthReached,
+      rankingMaxDepthReached: this.runRankingStats?.maxDepthReached ?? null,
+      anjuAbsoluteMaxDepthReached: this.runAnjuMemoryState?.maxDepthReached ?? null,
+      anjuRewardDepthReached: this.runAnjuMemoryState?.rewardDepthReached ?? null
+    });
+  }
+
+  logDebugRelayLaunchBridge(phase, details = {}) {
+    if (!this.hasDebugRelayLaunchDepthQuery()) {
+      return;
+    }
+    if (!this.debugRelayLaunchLoggedPhases) {
+      this.debugRelayLaunchLoggedPhases = new Set();
+    }
+    if (this.debugRelayLaunchLoggedPhases.has(phase)) {
+      return;
+    }
+    this.debugRelayLaunchLoggedPhases.add(phase);
+    console.log(`[DEPTH RELAY LAUNCH] ${phase}`, details);
+  }
+
+  logInitializedRunLaunchRequestIfNeeded(reason = "runLaunchRequest") {
+    const request = this.normalizeRunLaunchRequest(this.pendingRunLaunchRequest);
+    if (
+      !this.isValidRunLaunchRequest(request) ||
+      !this.isDepthRelayRun(this.runStartContext) ||
+      this.runStartContext.runStartDepth !== request.requestedRelayDepth
+    ) {
+      return false;
+    }
+    this.logDebugRelayLaunchBridge("initialized", {
+      reason,
+      implementation: "scene-restart",
+      requestedRelayDepth: request.requestedRelayDepth,
+      mode: this.runStartContext?.mode || RUN_START_CONTEXT_MODE.STANDARD,
+      runStartDepth: this.runStartContext?.runStartDepth || 1,
+      stageDepth: this.stageDepth || 1,
+      usedDepthRelay: this.runStartContext?.usedDepthRelay === true,
+      autoContinueSortie: request.autoContinueSortie === true,
+      maxAbsoluteDepthReached: this.getRunMaxAbsoluteDepthReached(this.runDepthProgressState),
+      rewardDepthReached: this.getRunRewardDepthReached(this.runDepthProgressState)
+    });
+    return true;
+  }
+
+  initializeDepthRunState(options = {}) {
     const debugStartDepth = this.getDebugStartDepthOverride();
-    this.stageDepth = debugStartDepth || 1;
-    this.debugStartDepth = debugStartDepth || 0;
+    const relayStartQueryPresent = this.hasDebugRelayStartDepthQuery();
+    const directDebugRelayDepth = this.getDebugRelayStartDepthOverride();
+    const runLaunchRequest = this.normalizeRunLaunchRequest(options.runLaunchRequest);
+    const requestedRelayDepth = Number.isInteger(runLaunchRequest.requestedRelayDepth)
+      ? runLaunchRequest.requestedRelayDepth
+      : directDebugRelayDepth;
+    const runStartContext = this.resetRunStartContext({
+      debugStartDepth,
+      requestedRelayDepth,
+      depthRelayState: this.depthRelayState
+    });
+    this.debugRelayStartDepthQueryPresent = relayStartQueryPresent;
+    this.debugRelayStartDepthRequested = directDebugRelayDepth;
+    this.stageDepth = runStartContext.runStartDepth;
+    this.debugStartDepth = runStartContext.mode === RUN_START_CONTEXT_MODE.DEBUG
+      ? runStartContext.runStartDepth
+      : 0;
+    this.resetRunDepthProgressState(runStartContext);
+    this.initializeDepthRelayAnchorProgressState(runStartContext);
     this.initializeEquipmentProductionDropState(this.stageDepth, "depthRunState");
     this.debugStartFinalBossRaidStarted = false;
     this.runRankingStats = this.createRunRankingStats(this.stageDepth);
@@ -10330,7 +10778,9 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     Object.entries(SHOP_UPGRADE_DEFINITIONS).forEach(([id, definition]) => {
-      const value = Math.floor(Number(record?.upgrades?.[id]) || 0);
+      const rawValue = Number(record?.upgrades?.[id]);
+      const fallbackValue = Math.floor(Number(DEFAULT_SHOP_STATE.upgrades?.[id]) || 0);
+      const value = Number.isFinite(rawValue) ? Math.floor(rawValue) : fallbackValue;
       state.upgrades[id] = Phaser.Math.Clamp(value, 0, definition.maxLevel);
     });
     state.cleaningRobotLevel = Phaser.Math.Clamp(
@@ -10974,6 +11424,572 @@ class SurvivalScene extends Phaser.Scene {
     console.log(`[EQUIPMENT BONUSES] ${event} ${details}`);
   }
 
+  logEquipmentCombatLinkDebug(event, payload = {}) {
+    if (!this.isEquipmentBonusDebugEnabled()) {
+      return;
+    }
+    let details = "";
+    try {
+      details = JSON.stringify(payload);
+    } catch (error) {
+      details = "[unserializable]";
+    }
+    console.log(`[EQUIPMENT COMBAT LINK] ${event} ${details}`);
+  }
+
+  createDefaultRunEquipmentOverlimitLevels() {
+    return EQUIPMENT_COMBAT_LINK_SKILL_IDS.reduce((levels, skillId) => {
+      levels[skillId] = 0;
+      return levels;
+    }, {});
+  }
+
+  createDefaultRunEquipmentCombatLinkState() {
+    return {
+      snapshotCaptured: false,
+      highestTierId: null,
+      combatLinkLevel: 0,
+      overlimitCap: 0,
+      overlimitLevels: this.createDefaultRunEquipmentOverlimitLevels()
+    };
+  }
+
+  getEquipmentCombatLinkTierConfig(tierId) {
+    if (typeof tierId !== "string") {
+      return null;
+    }
+    const config = EQUIPMENT_COMBAT_LINK_TIER_CONFIG[tierId] || null;
+    return config
+      ? {
+        combatLinkLevel: config.combatLinkLevel,
+        overlimitCap: config.overlimitCap
+      }
+      : null;
+  }
+
+  normalizeRunEquipmentOverlimitLevels(record, overlimitCap = 0) {
+    const source = record && typeof record === "object" && !Array.isArray(record)
+      ? record
+      : {};
+    const cap = Math.max(0, Math.min(
+      EQUIPMENT_OVERLIMIT_DAMAGE_MULTIPLIERS.length - 1,
+      Number.isInteger(overlimitCap) && Number.isSafeInteger(overlimitCap) ? overlimitCap : 0
+    ));
+    return EQUIPMENT_COMBAT_LINK_SKILL_IDS.reduce((levels, skillId) => {
+      const rawLevel = source[skillId];
+      levels[skillId] = Number.isInteger(rawLevel) && Number.isSafeInteger(rawLevel)
+        ? Math.max(0, Math.min(cap, rawLevel))
+        : 0;
+      return levels;
+    }, {});
+  }
+
+  normalizeRunEquipmentCombatLinkState(record) {
+    const source = record && typeof record === "object" && !Array.isArray(record)
+      ? record
+      : {};
+    const snapshotCaptured = source.snapshotCaptured === true;
+    const tierId = typeof source.highestTierId === "string" ? source.highestTierId : null;
+    const config = this.getEquipmentCombatLinkTierConfig(tierId);
+    if (!config) {
+      return {
+        snapshotCaptured,
+        highestTierId: null,
+        combatLinkLevel: 0,
+        overlimitCap: 0,
+        overlimitLevels: this.normalizeRunEquipmentOverlimitLevels(source.overlimitLevels, 0)
+      };
+    }
+    return {
+      snapshotCaptured,
+      highestTierId: tierId,
+      combatLinkLevel: config.combatLinkLevel,
+      overlimitCap: config.overlimitCap,
+      overlimitLevels: this.normalizeRunEquipmentOverlimitLevels(source.overlimitLevels, config.overlimitCap)
+    };
+  }
+
+  cloneRunEquipmentCombatLinkState(state) {
+    return this.normalizeRunEquipmentCombatLinkState(state);
+  }
+
+  resolveRunEquipmentCombatLinkSnapshot(equipmentState) {
+    const fallback = {
+      ...this.createDefaultRunEquipmentCombatLinkState(),
+      snapshotCaptured: true
+    };
+    const equipmentSystem = this.getEquipmentSystem();
+    if (!equipmentSystem?.evaluateEquipmentSetStatus) {
+      return fallback;
+    }
+
+    try {
+      const normalizedState = this.normalizeEquipmentState(equipmentState);
+      const setStatus = equipmentSystem.evaluateEquipmentSetStatus(normalizedState);
+      const highestTier = equipmentSystem.getHighestCompletedEquipmentSetTier
+        ? equipmentSystem.getHighestCompletedEquipmentSetTier(setStatus?.tiers)
+        : null;
+      const tierId = highestTier?.id || setStatus?.highestCompletedTierId || null;
+      const config = this.getEquipmentCombatLinkTierConfig(tierId);
+      return this.normalizeRunEquipmentCombatLinkState({
+        snapshotCaptured: true,
+        highestTierId: config ? tierId : null,
+        combatLinkLevel: config?.combatLinkLevel,
+        overlimitCap: config?.overlimitCap
+      });
+    } catch (error) {
+      return fallback;
+    }
+  }
+
+  getRunEquipmentCombatLinkState() {
+    return this.cloneRunEquipmentCombatLinkState(
+      this.runEquipmentCombatLinkState || this.createDefaultRunEquipmentCombatLinkState()
+    );
+  }
+
+  createDefaultRunEquipmentOverlimitBonusState() {
+    return {
+      pendingCount: 0,
+      pendingFinalSkillIds: [],
+      finalConsumedSkillIds: [],
+      selectionOpen: false,
+      selectionLocked: false,
+      currentChoices: [],
+      currentBonusSource: ""
+    };
+  }
+
+  initializeRunEquipmentOverlimitBonusState() {
+    this.runEquipmentOverlimitBonusState = this.createDefaultRunEquipmentOverlimitBonusState();
+    this.runEquipmentOverlimitBonusSelectionActive = false;
+  }
+
+  ensureRunEquipmentOverlimitBonusState() {
+    if (!this.runEquipmentOverlimitBonusState) {
+      this.initializeRunEquipmentOverlimitBonusState();
+    }
+    if (!Array.isArray(this.runEquipmentOverlimitBonusState.pendingFinalSkillIds)) {
+      this.runEquipmentOverlimitBonusState.pendingFinalSkillIds = [];
+    }
+    if (!Array.isArray(this.runEquipmentOverlimitBonusState.finalConsumedSkillIds)) {
+      this.runEquipmentOverlimitBonusState.finalConsumedSkillIds = [];
+    }
+    if (!Array.isArray(this.runEquipmentOverlimitBonusState.currentChoices)) {
+      this.runEquipmentOverlimitBonusState.currentChoices = [];
+    }
+    if (typeof this.runEquipmentOverlimitBonusState.currentBonusSource !== "string") {
+      this.runEquipmentOverlimitBonusState.currentBonusSource = "";
+    }
+    return this.runEquipmentOverlimitBonusState;
+  }
+
+  resetRunEquipmentOverlimitBonusState(reason = "reset") {
+    if (this.runEquipmentOverlimitBonusSelectionActive || this.levelUpSelectionMode === "equipmentOverlimitBonus") {
+      this.hideOverlay?.();
+      this.levelUpActive = false;
+      this.physics?.world?.resume?.();
+    }
+    this.initializeRunEquipmentOverlimitBonusState();
+  }
+
+  resetRunEquipmentCombatLinkState(reason = "reset") {
+    this.resetRunEquipmentOverlimitBonusState(reason);
+    this.runEquipmentCombatLinkState = this.createDefaultRunEquipmentCombatLinkState();
+    this.logEquipmentCombatLinkDebug("reset", { reason });
+    return this.getRunEquipmentCombatLinkState();
+  }
+
+  captureRunEquipmentCombatLinkSnapshot(equipmentState = this.runEquipmentLoadoutSnapshot, reason = "runStart", options = {}) {
+    const current = this.getRunEquipmentCombatLinkState();
+    const force = options && typeof options === "object" && options.force === true;
+    if (current.snapshotCaptured && !force) {
+      return current;
+    }
+    const snapshot = this.resolveRunEquipmentCombatLinkSnapshot(equipmentState);
+    this.runEquipmentCombatLinkState = this.cloneRunEquipmentCombatLinkState({
+      ...snapshot,
+      overlimitLevels: current.overlimitLevels
+    });
+    this.logEquipmentCombatLinkDebug("snapshot", {
+      reason,
+      raw: this.runEquipmentCombatLinkState,
+      effective: {
+        combatLinkLevel: this.getRunEquipmentCombatLinkLevel({ effective: true }),
+        overlimitCap: this.getRunEquipmentOverlimitCap({ effective: true })
+      },
+      finalRaidSuppressed: this.shouldSuppressRunEquipmentCombatLink()
+    });
+    return this.getRunEquipmentCombatLinkState();
+  }
+
+  shouldSuppressRunEquipmentCombatLink() {
+    return this.shouldSuppressRunEquipmentOffenseBonuses();
+  }
+
+  getRunEquipmentCombatLinkLevel(options = {}) {
+    if (options?.effective === true && this.shouldSuppressRunEquipmentCombatLink()) {
+      return 0;
+    }
+    return this.getRunEquipmentCombatLinkState().combatLinkLevel;
+  }
+
+  getRunEquipmentOverlimitCap(options = {}) {
+    if (options?.effective === true && this.shouldSuppressRunEquipmentCombatLink()) {
+      return 0;
+    }
+    return this.getRunEquipmentCombatLinkState().overlimitCap;
+  }
+
+  isEquipmentCombatLinkSkillId(skillId) {
+    return EQUIPMENT_COMBAT_LINK_SKILL_IDS.includes(String(skillId || ""));
+  }
+
+  getRunEquipmentSkillOverlimitCap(skillId, options = {}) {
+    if (!this.isEquipmentCombatLinkSkillId(skillId)) {
+      return 0;
+    }
+    return Math.max(0, Math.min(
+      EQUIPMENT_OVERLIMIT_DAMAGE_MULTIPLIERS.length - 1,
+      this.getRunEquipmentOverlimitCap(options)
+    ));
+  }
+
+  getRunEquipmentSkillOverlimitLevel(skillId, options = {}) {
+    if (!this.isEquipmentCombatLinkSkillId(skillId)) {
+      return 0;
+    }
+    if (options?.effective === true && this.shouldSuppressRunEquipmentCombatLink()) {
+      return 0;
+    }
+    const state = this.getRunEquipmentCombatLinkState();
+    const rawLevel = state.overlimitLevels?.[skillId];
+    const level = Number.isInteger(rawLevel) && Number.isSafeInteger(rawLevel) ? rawLevel : 0;
+    return Math.max(0, Math.min(this.getRunEquipmentSkillOverlimitCap(skillId, options), level));
+  }
+
+  getRunEquipmentSkillOverlimitDamageMultiplier(skillId, options = {}) {
+    const levelOptions = options?.effective === false ? { ...options } : { ...options, effective: true };
+    const level = this.getRunEquipmentSkillOverlimitLevel(skillId, levelOptions);
+    const multiplier = EQUIPMENT_OVERLIMIT_DAMAGE_MULTIPLIERS[level];
+    return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+  }
+
+  applyRunEquipmentSkillOverlimitDamage(damage, skillId, options = {}) {
+    const baseDamage = Math.max(0, Number(damage) || 0);
+    if (!this.isEquipmentCombatLinkSkillId(skillId)) {
+      return baseDamage;
+    }
+    const multiplier = this.getRunEquipmentSkillOverlimitDamageMultiplier(skillId, options);
+    return Math.max(0, Math.round(baseDamage * multiplier));
+  }
+
+  isRunEquipmentOverlimitCandidateBlocked(skillId, options = {}) {
+    if (this.gameOver || this.shopActive || this.extractionComplete) {
+      return true;
+    }
+    if (options?.openingBoost === true || options?.source === "openingBoost" || this.isOpeningBoostDraftActive?.()) {
+      return true;
+    }
+    if (this.shouldSuppressRunEquipmentCombatLink()) {
+      return true;
+    }
+    const ignoreActiveSkillMutationSelection = options?.ignoreActiveSkillMutationSelection === true;
+    if (!ignoreActiveSkillMutationSelection && (this.skillMutationSelectionActive || this.skillMutationState?.selectionOpen)) {
+      return true;
+    }
+    if (this.skillMutationState?.pendingQueue?.some((entry) => entry?.skillId === skillId)) {
+      return true;
+    }
+    const mutationEntry = this.getSkillMutationState?.(skillId);
+    return Boolean(mutationEntry?.stage8Queued);
+  }
+
+  canUpgradeRunEquipmentSkillOverlimit(skillId, options = {}) {
+    if (options?.allowEquipmentOverlimit === false) {
+      return false;
+    }
+    if (!this.isEquipmentCombatLinkSkillId(skillId)) {
+      return false;
+    }
+    const state = this.getRunEquipmentCombatLinkState();
+    const cap = this.getRunEquipmentSkillOverlimitCap(skillId, { effective: true });
+    const skillState = this.playerSkills?.[skillId];
+    const currentStage = skillState?.definition?.stages?.[skillState.stageIndex] || null;
+    if (
+      !state.snapshotCaptured ||
+      cap <= 0 ||
+      !skillState ||
+      Math.max(0, Math.floor(Number(currentStage?.stage) || 0)) < SKILL_MUTATION_CONFIG.stage8 ||
+      !this.hasSkillFinalMutation?.(skillId) ||
+      this.isRunEquipmentOverlimitCandidateBlocked(skillId, options)
+    ) {
+      return false;
+    }
+    return this.getRunEquipmentSkillOverlimitLevel(skillId) < cap;
+  }
+
+  hasAvailableRunEquipmentOverlimitUpgrade(options = {}) {
+    return EQUIPMENT_COMBAT_LINK_SKILL_IDS.some((skillId) => (
+      this.canUpgradeRunEquipmentSkillOverlimit(skillId, options)
+    ));
+  }
+
+  applyRunEquipmentSkillOverlimitUpgrade(skillId) {
+    if (!this.canUpgradeRunEquipmentSkillOverlimit(skillId, { allowEquipmentOverlimit: true })) {
+      return false;
+    }
+    const state = this.getRunEquipmentCombatLinkState();
+    const currentLevel = this.getRunEquipmentSkillOverlimitLevel(skillId);
+    const nextLevel = Math.min(this.getRunEquipmentSkillOverlimitCap(skillId, { effective: true }), currentLevel + 1);
+    this.runEquipmentCombatLinkState = this.normalizeRunEquipmentCombatLinkState({
+      ...state,
+      overlimitLevels: {
+        ...state.overlimitLevels,
+        [skillId]: nextLevel
+      }
+    });
+    this.logEquipmentCombatLinkDebug("overlimit upgrade", {
+      skillId,
+      level: nextLevel,
+      multiplier: this.getRunEquipmentSkillOverlimitDamageMultiplier(skillId, { effective: true })
+    });
+    this.updateHud?.();
+    return true;
+  }
+
+  formatEquipmentOverlimitLevelLabel(level) {
+    if (level === 2) {
+      return "II";
+    }
+    return "I";
+  }
+
+  formatEquipmentOverlimitHudLabel(level) {
+    if (level !== 1 && level !== 2) {
+      return "";
+    }
+    return `OVL-${this.formatEquipmentOverlimitLevelLabel(level)}`;
+  }
+
+  getRunEquipmentSkillOverlimitHudPresentation(skillId) {
+    if (!this.isEquipmentCombatLinkSkillId(skillId)) {
+      return null;
+    }
+    const level = this.getRunEquipmentSkillOverlimitLevel(skillId, { effective: true });
+    const label = this.formatEquipmentOverlimitHudLabel(level);
+    if (!label) {
+      return null;
+    }
+    return {
+      level,
+      label,
+      tone: level >= 2 ? "gold" : "cyan"
+    };
+  }
+
+  buildEquipmentOverlimitChoice(skillId, options = {}) {
+    if (!this.canUpgradeRunEquipmentSkillOverlimit(skillId, options)) {
+      return null;
+    }
+    const skillState = this.playerSkills?.[skillId];
+    const nextLevel = this.getRunEquipmentSkillOverlimitLevel(skillId) + 1;
+    const multiplier = EQUIPMENT_OVERLIMIT_DAMAGE_MULTIPLIERS[nextLevel] || 1;
+    const overlimitLabel = this.formatEquipmentOverlimitLevelLabel(nextLevel);
+    return {
+      type: "equipmentOverlimit",
+      actionType: "equipmentOverlimit",
+      skillId,
+      definition: skillState.definition,
+      currentStage: skillState.currentStage,
+      nextOverlimitLevel: nextLevel,
+      overlimitCap: this.getRunEquipmentSkillOverlimitCap(skillId, { effective: true }),
+      multiplier,
+      title: `${skillState.definition.name} OVERLIMIT ${overlimitLabel}`,
+      description: `SKILL DMG x${multiplier.toFixed(2)} / RUN ONLY`,
+      onSelect: () => this.applyRunEquipmentSkillOverlimitUpgrade(skillId)
+    };
+  }
+
+  getAvailableEquipmentOverlimitChoices(options = {}) {
+    return EQUIPMENT_COMBAT_LINK_SKILL_IDS
+      .map((skillId) => this.buildEquipmentOverlimitChoice(skillId, options))
+      .filter(Boolean);
+  }
+
+  countAvailableEquipmentOverlimitUpgradeSteps(options = {}) {
+    return EQUIPMENT_COMBAT_LINK_SKILL_IDS.reduce((total, skillId) => {
+      if (!this.canUpgradeRunEquipmentSkillOverlimit(skillId, options)) {
+        return total;
+      }
+      const cap = this.getRunEquipmentSkillOverlimitCap(skillId, { effective: true });
+      const currentLevel = this.getRunEquipmentSkillOverlimitLevel(skillId);
+      return total + Math.max(0, cap - currentLevel);
+    }, 0);
+  }
+
+  getRunEquipmentOverlimitBonusPendingWeight(state = this.runEquipmentOverlimitBonusState) {
+    const pendingCount = Math.max(0, Math.floor(Number(state?.pendingCount) || 0));
+    const pendingFinalCount = Array.isArray(state?.pendingFinalSkillIds) ? state.pendingFinalSkillIds.length : 0;
+    return pendingCount + pendingFinalCount + (state?.selectionOpen ? 1 : 0);
+  }
+
+  queueFinalMutationEquipmentOverlimitBonus(skillId, reason = "finalMutation") {
+    if (!this.isEquipmentCombatLinkSkillId(skillId)) {
+      return false;
+    }
+
+    const state = this.ensureRunEquipmentOverlimitBonusState();
+    const normalizedSkillId = String(skillId || "");
+    if (
+      state.finalConsumedSkillIds.includes(normalizedSkillId) ||
+      state.pendingFinalSkillIds.includes(normalizedSkillId)
+    ) {
+      return false;
+    }
+
+    if (!this.canUpgradeRunEquipmentSkillOverlimit(normalizedSkillId, {
+      allowEquipmentOverlimit: true,
+      source: "finalMutationOverlimitBonus",
+      ignoreActiveSkillMutationSelection: true
+    })) {
+      return false;
+    }
+
+    state.pendingFinalSkillIds.push(normalizedSkillId);
+    state.finalConsumedSkillIds.push(normalizedSkillId);
+    this.logEquipmentCombatLinkDebug("final mutation bonus queued", {
+      reason,
+      skillId: normalizedSkillId,
+      pendingFinalCount: state.pendingFinalSkillIds.length
+    });
+    this.tryOpenPendingPostOverlaySelections();
+    return true;
+  }
+
+  queueDeepLevelEquipmentOverlimitBonus(levelsGained = 1, reason = "deepLevel") {
+    const gained = Math.max(0, Math.floor(Number(levelsGained) || 0));
+    if (gained <= 0) {
+      return { queued: 0, pendingCount: this.ensureRunEquipmentOverlimitBonusState().pendingCount };
+    }
+
+    const state = this.ensureRunEquipmentOverlimitBonusState();
+    const options = { allowEquipmentOverlimit: true, source: "deepLevelOverlimitBonus" };
+    const availableSteps = this.countAvailableEquipmentOverlimitUpgradeSteps(options);
+    const pendingWeight = this.getRunEquipmentOverlimitBonusPendingWeight(state);
+    const queueCount = Math.min(gained, Math.max(0, availableSteps - pendingWeight));
+    if (queueCount <= 0) {
+      return { queued: 0, pendingCount: state.pendingCount };
+    }
+
+    state.pendingCount += queueCount;
+    this.logEquipmentCombatLinkDebug("deep level bonus queued", {
+      reason,
+      levelsGained: gained,
+      queued: queueCount,
+      pendingCount: state.pendingCount,
+      availableSteps
+    });
+    this.tryOpenPendingPostOverlaySelections();
+    return { queued: queueCount, pendingCount: state.pendingCount };
+  }
+
+  canOpenEquipmentOverlimitBonusSelection() {
+    const state = this.runEquipmentOverlimitBonusState;
+    const hasFinalPending = Array.isArray(state?.pendingFinalSkillIds) && state.pendingFinalSkillIds.length > 0;
+    return (
+      Boolean(state?.pendingCount > 0 || hasFinalPending) &&
+      !state.selectionOpen &&
+      !this.runEquipmentOverlimitBonusSelectionActive &&
+      !this.gameOver &&
+      !this.shopActive &&
+      !this.levelUpActive &&
+      !this.gateChoiceActive &&
+      !this.extractionComplete &&
+      !this.overlayContainer?.visible &&
+      (this.pendingLevelUps || 0) <= 0
+    );
+  }
+
+  tryOpenPendingEquipmentOverlimitBonusSelection() {
+    if (!this.canOpenEquipmentOverlimitBonusSelection()) {
+      return false;
+    }
+
+    const state = this.ensureRunEquipmentOverlimitBonusState();
+    while (state.pendingFinalSkillIds.length > 0) {
+      const skillId = state.pendingFinalSkillIds.shift();
+      const choice = this.buildEquipmentOverlimitChoice(skillId, {
+        allowEquipmentOverlimit: true,
+        source: "finalMutationOverlimitBonus"
+      });
+      if (!choice) {
+        continue;
+      }
+      return this.openEquipmentOverlimitBonusSelection([choice], {
+        source: "finalMutationOverlimitBonus",
+        title: "FINAL COMBAT LINK",
+        body: "FINAL MUTATION BONUS / Choose OVERLIMIT upgrade"
+      });
+    }
+
+    while (state.pendingCount > 0) {
+      state.pendingCount -= 1;
+      const choices = this.getAvailableEquipmentOverlimitChoices({
+        allowEquipmentOverlimit: true,
+        source: "deepLevelOverlimitBonus"
+      }).slice(0, 3);
+      if (choices.length <= 0) {
+        continue;
+      }
+      return this.openEquipmentOverlimitBonusSelection(choices, {
+        source: "deepLevelOverlimitBonus",
+        title: "DEEP COMBAT LINK",
+        body: "DEEP LEVEL BONUS / Choose one OVERLIMIT upgrade"
+      });
+    }
+    return false;
+  }
+
+  openEquipmentOverlimitBonusSelection(choices = [], context = {}) {
+    const visibleChoices = (choices || []).filter(Boolean).slice(0, 3);
+    if (visibleChoices.length <= 0) {
+      return false;
+    }
+
+    const state = this.ensureRunEquipmentOverlimitBonusState();
+    state.selectionOpen = true;
+    state.selectionLocked = false;
+    state.currentChoices = visibleChoices.map((choice) => choice.skillId).filter(Boolean);
+    state.currentBonusSource = context?.source || "equipmentOverlimitBonus";
+    this.runEquipmentOverlimitBonusSelectionActive = true;
+    this.levelUpActive = true;
+    this.cancelActiveEnemyBeamCharges();
+    this.physics.world.pause();
+    this.showLevelUpCardOverlay(
+      context?.title || "DEEP COMBAT LINK",
+      context?.body || "DEEP LEVEL BONUS / Choose one OVERLIMIT upgrade",
+      visibleChoices,
+      "equipmentOverlimitBonus"
+    );
+    return true;
+  }
+
+  finishEquipmentOverlimitBonusSelectionOverlay() {
+    this.levelUpActive = false;
+    this.runEquipmentOverlimitBonusSelectionActive = false;
+    if (this.runEquipmentOverlimitBonusState) {
+      this.runEquipmentOverlimitBonusState.selectionOpen = false;
+      this.runEquipmentOverlimitBonusState.selectionLocked = false;
+      this.runEquipmentOverlimitBonusState.currentChoices = [];
+      this.runEquipmentOverlimitBonusState.currentBonusSource = "";
+    }
+    this.hideOverlay();
+    this.resumeGameplayAfterBlockingOverlay("equipmentOverlimitBonusSelection");
+    this.tryOpenPendingPostOverlaySelections();
+    return true;
+  }
+
   createEquipmentBonusPresetItem(preset, slot, rarity, rank) {
     return this.normalizeEquipmentItem({
       id: `debug-equipment-bonus-${preset}-${slot}`,
@@ -11160,7 +12176,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   isRunEquipmentSkillBonusTarget(skillId) {
-    return SKILL_MUTATION_SKILL_IDS.includes(String(skillId || ""));
+    return this.isEquipmentCombatLinkSkillId(skillId);
   }
 
   getRunEquipmentAttackIntervalMultiplier(skillId) {
@@ -11181,9 +12197,10 @@ class SurvivalScene extends Phaser.Scene {
     if (!this.isRunEquipmentSkillBonusTarget(skillId)) {
       return baseDamage;
     }
+    const overlimitDamage = this.applyRunEquipmentSkillOverlimitDamage(baseDamage, skillId, { effective: true });
     const multiplier = Number(this.getActiveRunEquipmentBonuses().playerSkillDamageMultiplier);
     const effectiveMultiplier = Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
-    return Math.max(1, Math.round(baseDamage * effectiveMultiplier));
+    return Math.max(1, Math.round(overlimitDamage * effectiveMultiplier));
   }
 
   getRunEquipmentAdjustedSkillIntervalMs(skillId, intervalMs, minimumMs = 1) {
@@ -11199,9 +12216,11 @@ class SurvivalScene extends Phaser.Scene {
     this.runUnsecuredEquipmentBoxes = [];
     this.runEquipmentLoadoutSnapshot = this.normalizeEquipmentState(this.createDefaultEquipmentState());
     this.runEquipmentBonuses = this.createEmptyEquipmentBonuses();
+    this.resetRunEquipmentCombatLinkState(reason);
     this.lastEquipmentBonusSuppressionSignature = "";
     this.runEquipmentTransferCompleted = false;
     this.lastRunEquipmentTransferResult = null;
+    this.runEquipmentDeepCacheRewardClaimed = false;
     this.equipmentDropSerial = 0;
     this.debugEquipmentDropSpawned = false;
     this.debugEquipmentDropConfigResolved = false;
@@ -12061,6 +13080,251 @@ class SurvivalScene extends Phaser.Scene {
     return result;
   }
 
+  getEquipmentDeepCacheSourceDepth(options = {}) {
+    const value = options?.sourceDepth ?? options?.maxAbsoluteDepthReached;
+    const depth = Math.floor(Number(value));
+    return Number.isInteger(depth) && Number.isSafeInteger(depth) && depth >= 1 ? depth : 0;
+  }
+
+  getEquipmentDeepCacheRewardCount(options = {}) {
+    const explicitCount = Math.floor(Number(options?.count));
+    if (Number.isInteger(explicitCount) && Number.isSafeInteger(explicitCount) && explicitCount >= 0) {
+      return Math.min(explicitCount, EQUIPMENT_DEEP_CACHE_REWARD_COUNT);
+    }
+    return EQUIPMENT_DEEP_CACHE_REWARD_COUNT;
+  }
+
+  hasEquipmentDeepCacheDebugBlock(debugFlags = null) {
+    if (debugFlags === true) {
+      return true;
+    }
+    if (Array.isArray(debugFlags)) {
+      return debugFlags.some(Boolean);
+    }
+    if (debugFlags && typeof debugFlags === "object") {
+      return Object.values(debugFlags).some(Boolean);
+    }
+    return false;
+  }
+
+  shouldAwardEquipmentDeepCacheForExtraction(options = {}) {
+    const extractMode = String(options?.extractMode || "").trim();
+    const eventType = String(options?.eventType || "").trim();
+    const sourceDepth = this.getEquipmentDeepCacheSourceDepth(options);
+    if (options?.extractionSucceeded === false) {
+      return {
+        eligible: false,
+        reason: "not-extracted",
+        sourceDepth,
+        count: 0,
+        sourceType: EQUIPMENT_DEEP_CACHE_SOURCE_TYPE
+      };
+    }
+    if (["gameOver", "gateCollapse", "emergencyExtract"].includes(eventType)) {
+      return {
+        eligible: false,
+        reason: eventType,
+        sourceDepth,
+        count: 0,
+        sourceType: EQUIPMENT_DEEP_CACHE_SOURCE_TYPE
+      };
+    }
+    if (extractMode !== "normal") {
+      return {
+        eligible: false,
+        reason: "not-normal-extract",
+        sourceDepth,
+        count: 0,
+        sourceType: EQUIPMENT_DEEP_CACHE_SOURCE_TYPE
+      };
+    }
+    if (options?.isFinalRaid === true || eventType === "finalRaidReturn") {
+      return {
+        eligible: false,
+        reason: "final-raid",
+        sourceDepth,
+        count: 0,
+        sourceType: EQUIPMENT_DEEP_CACHE_SOURCE_TYPE
+      };
+    }
+    if (options?.debugPreview === true || this.hasEquipmentDeepCacheDebugBlock(options?.debugFlags)) {
+      return {
+        eligible: false,
+        reason: "debug-preview",
+        sourceDepth,
+        count: 0,
+        sourceType: EQUIPMENT_DEEP_CACHE_SOURCE_TYPE
+      };
+    }
+    if (options?.anchorUnlockEligible !== true) {
+      return {
+        eligible: false,
+        reason: "progression-ineligible",
+        sourceDepth,
+        count: 0,
+        sourceType: EQUIPMENT_DEEP_CACHE_SOURCE_TYPE
+      };
+    }
+    if (sourceDepth < EQUIPMENT_DEEP_CACHE_MIN_ABSOLUTE_DEPTH) {
+      return {
+        eligible: false,
+        reason: "depth-too-low",
+        sourceDepth,
+        count: 0,
+        sourceType: EQUIPMENT_DEEP_CACHE_SOURCE_TYPE
+      };
+    }
+
+    return {
+      eligible: true,
+      reason: "eligible",
+      sourceDepth,
+      count: this.getEquipmentDeepCacheRewardCount(options),
+      sourceType: EQUIPMENT_DEEP_CACHE_SOURCE_TYPE
+    };
+  }
+
+  normalizeEquipmentDeepCacheRewardDescriptor(record = {}) {
+    const sourceDepth = this.getEquipmentDeepCacheSourceDepth(record);
+    const count = Math.max(0, Math.min(
+      EQUIPMENT_DEEP_CACHE_REWARD_COUNT,
+      Math.floor(Number(record?.count) || 0)
+    ));
+    const sourceType = String(record?.sourceType || EQUIPMENT_DEEP_CACHE_SOURCE_TYPE).trim() || EQUIPMENT_DEEP_CACHE_SOURCE_TYPE;
+    const eligible = record?.eligible === true
+      && sourceDepth >= EQUIPMENT_DEEP_CACHE_MIN_ABSOLUTE_DEPTH
+      && count > 0
+      && sourceType === EQUIPMENT_DEEP_CACHE_SOURCE_TYPE;
+    return {
+      eligible,
+      reason: eligible ? "eligible" : (record?.reason || "not-eligible"),
+      sourceDepth,
+      count: eligible ? count : 0,
+      sourceType: EQUIPMENT_DEEP_CACHE_SOURCE_TYPE
+    };
+  }
+
+  createEquipmentDeepCacheRewardDescriptor(options = {}) {
+    return this.normalizeEquipmentDeepCacheRewardDescriptor(
+      this.shouldAwardEquipmentDeepCacheForExtraction(options)
+    );
+  }
+
+  createEmptyEquipmentDeepCacheRewardResult(reason = "not-eligible") {
+    return {
+      awarded: false,
+      count: 0,
+      sourceDepth: 0,
+      sourceType: EQUIPMENT_DEEP_CACHE_SOURCE_TYPE,
+      boxes: [],
+      saveSucceeded: false,
+      reason
+    };
+  }
+
+  normalizeEquipmentDeepCacheRewardResult(record = {}) {
+    const sourceDepth = this.getEquipmentDeepCacheSourceDepth(record);
+    const count = Math.max(0, Math.floor(Number(record?.count) || 0));
+    const awarded = record?.awarded === true && count > 0 && sourceDepth >= EQUIPMENT_DEEP_CACHE_MIN_ABSOLUTE_DEPTH;
+    return {
+      awarded,
+      count: awarded ? count : 0,
+      sourceDepth: awarded ? sourceDepth : 0,
+      sourceType: EQUIPMENT_DEEP_CACHE_SOURCE_TYPE,
+      boxes: awarded ? this.normalizeEquipmentItemList(record?.boxes) : [],
+      saveSucceeded: record?.saveSucceeded === true,
+      reason: awarded ? "awarded" : (record?.reason || "not-awarded")
+    };
+  }
+
+  createEquipmentDeepCacheRecord(sourceDepth, index = 0) {
+    const equipmentSystem = this.getEquipmentSystem();
+    if (!equipmentSystem) {
+      return null;
+    }
+    const depth = this.getEquipmentDeepCacheSourceDepth({ sourceDepth });
+    const record = equipmentSystem.createEquipmentDeepCacheBox?.({
+      id: this.createEquipmentDropRecordId(),
+      index,
+      sourceDepth: depth,
+      sourceType: EQUIPMENT_DEEP_CACHE_SOURCE_TYPE,
+      rng: Math.random
+    });
+    return this.normalizeEquipmentItem(record);
+  }
+
+  awardEquipmentDeepExtractionCaches(options = {}) {
+    if (this.runEquipmentDeepCacheRewardClaimed === true) {
+      return this.createEmptyEquipmentDeepCacheRewardResult("already-claimed");
+    }
+
+    const descriptor = this.createEquipmentDeepCacheRewardDescriptor(options);
+    if (!descriptor.eligible) {
+      return this.createEmptyEquipmentDeepCacheRewardResult(descriptor.reason);
+    }
+
+    this.runEquipmentDeepCacheRewardClaimed = true;
+    const boxes = [];
+    for (let index = 0; index < descriptor.count; index += 1) {
+      const record = this.createEquipmentDeepCacheRecord(descriptor.sourceDepth, index);
+      if (record) {
+        boxes.push(record);
+      }
+    }
+
+    if (boxes.length <= 0) {
+      return {
+        ...this.createEmptyEquipmentDeepCacheRewardResult("box-create-failed"),
+        sourceDepth: descriptor.sourceDepth
+      };
+    }
+
+    const equipmentSystem = this.getEquipmentSystem();
+    const previousState = this.normalizeEquipmentState(this.equipmentState);
+    const appended = equipmentSystem?.appendSecuredEquipmentBoxes
+      ? equipmentSystem.appendSecuredEquipmentBoxes(previousState, boxes)
+      : {
+          state: previousState,
+          addedBoxes: [],
+          skippedBoxes: boxes
+        };
+    const addedBoxes = this.normalizeEquipmentItemList(appended.addedBoxes);
+    this.equipmentState = this.normalizeEquipmentState(appended.state);
+    const saveSucceeded = addedBoxes.length > 0 ? this.saveEquipmentState() : false;
+    const awarded = addedBoxes.length > 0 && saveSucceeded;
+    const result = {
+      awarded,
+      count: awarded ? addedBoxes.length : 0,
+      sourceDepth: descriptor.sourceDepth,
+      sourceType: descriptor.sourceType,
+      boxes: awarded ? addedBoxes : [],
+      skippedBoxes: this.normalizeEquipmentItemList(appended.skippedBoxes),
+      saveSucceeded,
+      reason: awarded ? "awarded" : (addedBoxes.length > 0 ? "save-failed" : "no-box-added")
+    };
+    this.logEquipmentRunDebug("deepCacheReward", {
+      sourceDepth: result.sourceDepth,
+      count: result.count,
+      saveSucceeded,
+      boxes: result.boxes.map((box) => ({
+        id: this.getShortEquipmentBoxId(box.id),
+        rarity: box.rarity,
+        rank: box.rank,
+        slot: box.slot,
+        sourceDepth: box.sourceDepth
+      }))
+    });
+    return result;
+  }
+
+  formatEquipmentDeepCacheRewardLine(result = {}) {
+    const reward = this.normalizeEquipmentDeepCacheRewardResult(result);
+    if (!reward.awarded) {
+      return "";
+    }
+    return `D${reward.sourceDepth} CACHE x${reward.count}`;
+  }
+
   secureRunEquipmentBoxes(mode = "normalExtract") {
     if (this.runEquipmentTransferCompleted) {
       this.logEquipmentRunDebug("doubleTransferSkip", {
@@ -12229,10 +13493,18 @@ class SurvivalScene extends Phaser.Scene {
       finalRaidLegendRewardClaimed: false,
       freeAnalysisCredits: 1,
       bestBySlot: {
-        head: this.createEquipmentHubDebugItem("debug-head-n-2", "N", 2, "head"),
-        clothes: this.createEquipmentHubDebugItem("debug-clothes-r-4", "R", 4, "clothes"),
-        shoes: this.createEquipmentHubDebugItem("debug-shoes-sr-3", "SR", 3, "shoes"),
-        weapon: this.createEquipmentHubDebugItem("debug-weapon-ssr-2", "SSR", 2, "weapon"),
+        head: legendDebug
+          ? this.createEquipmentHubDebugItem("debug-head-legend-5", "LEGEND", 5, "head")
+          : this.createEquipmentHubDebugItem("debug-head-n-2", "N", 2, "head"),
+        clothes: legendDebug
+          ? this.createEquipmentHubDebugItem("debug-clothes-legend-4", "LEGEND", 4, "clothes")
+          : this.createEquipmentHubDebugItem("debug-clothes-r-4", "R", 4, "clothes"),
+        shoes: legendDebug
+          ? this.createEquipmentHubDebugItem("debug-shoes-legend-3", "LEGEND", 3, "shoes")
+          : this.createEquipmentHubDebugItem("debug-shoes-sr-3", "SR", 3, "shoes"),
+        weapon: legendDebug
+          ? this.createEquipmentHubDebugItem("debug-weapon-legend-5", "LEGEND", 5, "weapon")
+          : this.createEquipmentHubDebugItem("debug-weapon-ssr-2", "SSR", 2, "weapon"),
         accessory: legendDebug
           ? this.createEquipmentHubDebugItem("debug-accessory-legend-3", "LEGEND", 3, "accessory")
           : null
@@ -12278,6 +13550,106 @@ class SurvivalScene extends Phaser.Scene {
     return counts;
   }
 
+  getEquipmentSetStatus(state) {
+    const equipmentSystem = this.getEquipmentSystem();
+    if (equipmentSystem?.evaluateEquipmentSetStatus) {
+      return equipmentSystem.evaluateEquipmentSetStatus(state);
+    }
+
+    const normalizedState = this.normalizeEquipmentState(state);
+    const slotSummaries = EQUIPMENT_HUB_SLOT_ROWS.map((entry) => {
+      const item = normalizedState.bestBySlot?.[entry.slot] || null;
+      const equipped = item?.slot === entry.slot;
+      const rarityIndex = equipped ? EQUIPMENT_HUB_RARITY_ORDER.indexOf(item.rarity) : -1;
+      return {
+        slot: entry.slot,
+        equipped,
+        rarity: equipped ? item.rarity : null,
+        ssrPlusQualified: rarityIndex >= EQUIPMENT_HUB_RARITY_ORDER.indexOf("SSR"),
+        legendQualified: rarityIndex >= EQUIPMENT_HUB_RARITY_ORDER.indexOf("LEGEND")
+      };
+    });
+    const equippedSlotCount = slotSummaries.filter((summary) => summary.equipped).length;
+    const ssrPlusSlotCount = slotSummaries.filter((summary) => summary.ssrPlusQualified).length;
+    const legendSlotCount = slotSummaries.filter((summary) => summary.legendQualified).length;
+    const tiers = [
+      {
+        id: "ssrPlusFive",
+        label: "SSR+ ARRAY",
+        minimumRarity: "SSR",
+        matchedSlotCount: ssrPlusSlotCount,
+        requiredSlotCount: EQUIPMENT_HUB_SLOT_ROWS.length,
+        complete: ssrPlusSlotCount >= EQUIPMENT_HUB_SLOT_ROWS.length,
+        visible: true
+      },
+      {
+        id: "legendFive",
+        label: "LEGEND ARRAY",
+        minimumRarity: "LEGEND",
+        matchedSlotCount: legendSlotCount,
+        requiredSlotCount: EQUIPMENT_HUB_SLOT_ROWS.length,
+        complete: legendSlotCount >= EQUIPMENT_HUB_SLOT_ROWS.length,
+        visible: normalizedState.legendDiscovered === true
+      }
+    ];
+    const highestCompletedTier = tiers
+      .filter((tier) => tier.complete && tier.visible !== false)
+      .sort((a, b) => EQUIPMENT_HUB_RARITY_ORDER.indexOf(b.minimumRarity) - EQUIPMENT_HUB_RARITY_ORDER.indexOf(a.minimumRarity))[0] || null;
+
+    return {
+      totalSlotCount: EQUIPMENT_HUB_SLOT_ROWS.length,
+      equippedSlotCount,
+      ssrPlusSlotCount,
+      legendSlotCount,
+      highestCompletedTierId: highestCompletedTier?.id || null,
+      tiers,
+      slotSummaries
+    };
+  }
+
+  getEquipmentCollectionProgress(state) {
+    const equipmentSystem = this.getEquipmentSystem();
+    if (equipmentSystem?.evaluateEquipmentCollectionProgress) {
+      return equipmentSystem.evaluateEquipmentCollectionProgress(state);
+    }
+
+    const normalizedState = this.normalizeEquipmentState(state);
+    const slots = EQUIPMENT_HUB_SLOT_ROWS.reduce((result, entry) => {
+      const item = normalizedState.bestBySlot?.[entry.slot] || null;
+      const occupied = item?.slot === entry.slot;
+      const rarityIndex = occupied ? EQUIPMENT_HUB_RARITY_ORDER.indexOf(item.rarity) : -1;
+      result[entry.slot] = {
+        occupied,
+        rarity: occupied ? item.rarity : null,
+        rank: occupied ? item.rank : null,
+        ssrPlus: rarityIndex >= EQUIPMENT_HUB_RARITY_ORDER.indexOf("SSR"),
+        legend: occupied ? item.rarity === "LEGEND" : false
+      };
+      return result;
+    }, {});
+    const slotValues = Object.values(slots);
+    const totalSlotCount = EQUIPMENT_HUB_SLOT_ROWS.length;
+    const equippedSlotCount = slotValues.filter((slot) => slot.occupied).length;
+    const ssrPlusCount = slotValues.filter((slot) => slot.ssrPlus).length;
+    const legendCount = slotValues.filter((slot) => slot.legend).length;
+    return {
+      totalSlotCount,
+      equippedSlotCount,
+      ssrPlusCount,
+      legendCount,
+      ssrPlusComplete: ssrPlusCount >= totalSlotCount,
+      legendComplete: legendCount >= totalSlotCount,
+      legendVisible: normalizedState.legendDiscovered === true,
+      slots
+    };
+  }
+
+  getEquipmentSetTier(setStatus, tierId) {
+    return Array.isArray(setStatus?.tiers)
+      ? setStatus.tiers.find((tier) => tier?.id === tierId) || null
+      : null;
+  }
+
   getEquipmentRankLabel(rank) {
     return EQUIPMENT_HUB_RANK_LABELS[Math.floor(Number(rank) || 0)] || "?";
   }
@@ -12321,7 +13693,7 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
-  logEquipmentHubDebugSample(state, slotRows, rarityCounts, unknownSignalCount) {
+  logEquipmentHubDebugSample(state, slotRows, rarityCounts, unknownSignalCount, collectionProgress = null) {
     if (!this.isEquipmentHubDebugEnabled()) {
       return;
     }
@@ -12336,7 +13708,12 @@ class SurvivalScene extends Phaser.Scene {
       legend: state.legendDiscovered === true,
       slots: slotSummary,
       counts: rarityCounts,
-      unknownSignalCount
+      unknownSignalCount,
+      collection: collectionProgress ? {
+        ssrPlusCount: collectionProgress.ssrPlusCount,
+        legendCount: collectionProgress.legendCount,
+        legendVisible: collectionProgress.legendVisible
+      } : null
     });
     if (this.lastEquipmentHubDebugLogSignature === signature) {
       return;
@@ -12348,6 +13725,14 @@ class SurvivalScene extends Phaser.Scene {
     console.log("[EQUIPMENT HUB] loadout", slotSummary);
     console.log("[EQUIPMENT HUB] sealedBoxesByRarity", rarityCounts);
     console.log("[EQUIPMENT HUB] unknownSignalCount", unknownSignalCount);
+    if (collectionProgress) {
+      console.log("[EQUIPMENT HUB] collection", {
+        ssrPlus: `${collectionProgress.ssrPlusCount}/${collectionProgress.totalSlotCount}`,
+        legend: collectionProgress.legendVisible
+          ? `${collectionProgress.legendCount}/${collectionProgress.totalSlotCount}`
+          : "hidden"
+      });
+    }
   }
 
   isEquipmentAnalysisDebugEnabled() {
@@ -12676,6 +14061,19 @@ class SurvivalScene extends Phaser.Scene {
     this.showEquipmentAnalysisResultPanel(resolved);
   }
 
+  isDuplicateLegendAnalysisResult(result) {
+    return Boolean(
+      result?.duplicateLegend === true ||
+      (
+        result?.box?.rarity === "LEGEND" &&
+        result?.duplicate === true &&
+        result?.upgraded !== true &&
+        result?.previous?.slot === result?.box?.slot &&
+        result?.previous?.rarity === "LEGEND"
+      )
+    );
+  }
+
   showEquipmentAnalysisResultPanel(result) {
     if (!result?.ok) {
       return;
@@ -12683,6 +14081,7 @@ class SurvivalScene extends Phaser.Scene {
 
     this.equipmentAnalysisResultOpen = true;
     this.overlayActions = [];
+    const duplicateLegend = this.isDuplicateLegendAnalysisResult(result);
 
     const blocker = this.addOverlayChild(
       this.add
@@ -12710,7 +14109,9 @@ class SurvivalScene extends Phaser.Scene {
       this.drawStaticEquipmentLegendFrame(left + 8, top + 8, width - 16, height - 16);
     }
 
-    const title = result.legendDiscoveredNow ? "LEGEND CLASS CONFIRMED" : "EQUIPMENT ANALYSIS COMPLETE";
+    const title = result.legendDiscoveredNow
+      ? "LEGEND CLASS CONFIRMED"
+      : (duplicateLegend ? "DUPLICATE LEGEND SIGNAL" : "EQUIPMENT ANALYSIS COMPLETE");
     this.createOverlayText(0, top + 22, title, {
       fontSize: "20px",
       color: "#ecf7ff",
@@ -12732,7 +14133,9 @@ class SurvivalScene extends Phaser.Scene {
       fontStyle: "bold"
     });
 
-    const statusText = result.upgraded ? "LOADOUT UPDATED" : "NO UPDATE / DUPLICATE DATA";
+    const statusText = duplicateLegend
+      ? "EXISTING LEGEND REMAINS BEST"
+      : (result.upgraded ? "LOADOUT UPDATED" : "NO UPDATE / DUPLICATE DATA");
     this.createOverlayText(left + 34, top + 154, statusText, {
       fontSize: "16px",
       color: result.upgraded ? "#77f0b4" : "#f0c463",
@@ -12752,6 +14155,14 @@ class SurvivalScene extends Phaser.Scene {
       fontStyle: "bold",
       lineSpacing: 7
     });
+
+    if (duplicateLegend) {
+      this.createOverlayText(left + 34, top + 282, "Best slot record retained.", {
+        fontSize: "12px",
+        color: "#ffd98a",
+        fontStyle: "bold"
+      });
+    }
 
     const sourceNote = result.quote?.usesFreeCredit
       ? "FREE ANALYSIS CREDIT CONSUMED"
@@ -13107,6 +14518,275 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
+  createDefaultDepthRelayState() {
+    return {
+      version: DEPTH_RELAY_STATE_VERSION,
+      unlockedDepths: []
+    };
+  }
+
+  normalizeDepthRelayState(record) {
+    if (!record || typeof record !== "object" || Array.isArray(record)) {
+      return this.createDefaultDepthRelayState();
+    }
+    const unlockableDepths = new Set(DEPTH_RELAY_UNLOCKABLE_DEPTHS);
+    const unlockedDepths = Array.isArray(record.unlockedDepths)
+      ? [...new Set(record.unlockedDepths.filter((depth) => (
+          Number.isInteger(depth) && Number.isSafeInteger(depth) && unlockableDepths.has(depth)
+        )))].sort((left, right) => left - right)
+      : [];
+    return {
+      version: DEPTH_RELAY_STATE_VERSION,
+      unlockedDepths
+    };
+  }
+
+  isDepthRelayStateEquivalent(left, right) {
+    const normalizedLeft = this.normalizeDepthRelayState(left);
+    const normalizedRight = this.normalizeDepthRelayState(right);
+    if (normalizedLeft.version !== normalizedRight.version) {
+      return false;
+    }
+    if (normalizedLeft.unlockedDepths.length !== normalizedRight.unlockedDepths.length) {
+      return false;
+    }
+    return normalizedLeft.unlockedDepths.every((depth, index) => depth === normalizedRight.unlockedDepths[index]);
+  }
+
+  isDepthRelayStateStorageCanonical(record) {
+    try {
+      return JSON.stringify(record) === JSON.stringify(this.normalizeDepthRelayState(record));
+    } catch (error) {
+      return false;
+    }
+  }
+
+  loadDepthRelayState() {
+    let rawState = null;
+    let hasStoredState = false;
+    let shouldPersist = false;
+    let state = this.createDefaultDepthRelayState();
+
+    try {
+      rawState = window.localStorage?.getItem(DEPTH_RELAY_STATE_STORAGE_KEY) ?? null;
+      hasStoredState = rawState !== null;
+    } catch (error) {
+      rawState = null;
+      hasStoredState = false;
+    }
+
+    if (hasStoredState) {
+      try {
+        const parsedState = JSON.parse(rawState);
+        state = this.normalizeDepthRelayState(parsedState);
+        shouldPersist = !this.isDepthRelayStateStorageCanonical(parsedState);
+      } catch (error) {
+        state = this.createDefaultDepthRelayState();
+        shouldPersist = true;
+      }
+    }
+
+    const reconciledState = this.reconcileDepthRelayStateWithFinalBoss(state, this.finalBossState);
+    if (!this.isDepthRelayStateEquivalent(state, reconciledState)) {
+      shouldPersist = true;
+    }
+
+    this.depthRelayState = reconciledState;
+    if (shouldPersist) {
+      this.saveDepthRelayState(reconciledState);
+    }
+    return this.depthRelayState;
+  }
+
+  saveDepthRelayState(state = this.depthRelayState) {
+    this.depthRelayState = this.normalizeDepthRelayState(state);
+
+    try {
+      window.localStorage?.setItem(DEPTH_RELAY_STATE_STORAGE_KEY, JSON.stringify(this.depthRelayState));
+    } catch (error) {
+      // Ignore storage failures so Depth Relay unlock data never blocks boot or raid completion.
+    }
+    return this.depthRelayState;
+  }
+
+  unlockDepthRelayDepth(state, depth) {
+    const normalizedState = this.normalizeDepthRelayState(state);
+    if (
+      !Number.isInteger(depth) ||
+      !Number.isSafeInteger(depth) ||
+      !DEPTH_RELAY_UNLOCKABLE_DEPTHS.includes(depth)
+    ) {
+      return normalizedState;
+    }
+    if (normalizedState.unlockedDepths.includes(depth)) {
+      return normalizedState;
+    }
+    return this.normalizeDepthRelayState({
+      ...normalizedState,
+      unlockedDepths: [...normalizedState.unlockedDepths, depth]
+    });
+  }
+
+  isDepthRelayDepthUnlocked(state, depth) {
+    if (
+      !Number.isInteger(depth) ||
+      !Number.isSafeInteger(depth) ||
+      !DEPTH_RELAY_UNLOCKABLE_DEPTHS.includes(depth)
+    ) {
+      return false;
+    }
+    return this.normalizeDepthRelayState(state).unlockedDepths.includes(depth);
+  }
+
+  isDepthRelayStartDepthAvailable(state, depth) {
+    if (
+      !Number.isInteger(depth) ||
+      !Number.isSafeInteger(depth) ||
+      depth < 1 ||
+      !DEPTH_RELAY_SUPPORTED_DEPTHS.includes(depth)
+    ) {
+      return false;
+    }
+    const normalizedState = this.normalizeDepthRelayState(state);
+    return DEPTH_RELAY_SUPPORTED_DEPTHS
+      .filter((anchorDepth) => (
+        Number.isInteger(anchorDepth) &&
+        Number.isSafeInteger(anchorDepth) &&
+        anchorDepth >= 1 &&
+        anchorDepth <= depth
+      ))
+      .every((anchorDepth) => this.isDepthRelayDepthUnlocked(normalizedState, anchorDepth));
+  }
+
+  reconcileDepthRelayStateWithFinalBoss(state, finalBossState) {
+    const normalizedState = this.normalizeDepthRelayState(state);
+    if (finalBossState?.cleared === true) {
+      return this.unlockDepthRelayDepth(normalizedState, FINAL_BOSS_RAID_CONFIG.targetDepth);
+    }
+    return normalizedState;
+  }
+
+  resolveDepthRelayAnchorsCompletedByRunEvent(options = {}) {
+    const eventType = typeof options?.eventType === "string" ? options.eventType : "";
+    const normalizedState = this.normalizeDepthRelayState(options?.depthRelayState);
+    if (options?.anchorUnlockEligible !== true) {
+      return {
+        unlockDepths: [],
+        reason: "ineligible-debug-run"
+      };
+    }
+    if (!this.isDepthRelayDepthUnlocked(normalizedState, FINAL_BOSS_RAID_CONFIG.targetDepth)) {
+      return {
+        unlockDepths: [],
+        reason: "missing-depth10-anchor"
+      };
+    }
+    if (this.isDepthRelayDepthUnlocked(normalizedState, 20)) {
+      return {
+        unlockDepths: [],
+        reason: "already-unlocked"
+      };
+    }
+
+    if (eventType === "advance") {
+      const completedDepth = Number.isInteger(options?.completedDepth) && Number.isSafeInteger(options.completedDepth)
+        ? options.completedDepth
+        : null;
+      const targetDepth = Number.isInteger(options?.targetDepth) && Number.isSafeInteger(options.targetDepth)
+        ? options.targetDepth
+        : null;
+      if (completedDepth === 20 && targetDepth >= 21) {
+        return {
+          unlockDepths: [20],
+          reason: "advance"
+        };
+      }
+      return {
+        unlockDepths: [],
+        reason: "advance-not-depth20-clear"
+      };
+    }
+
+    if (eventType === "normalExtract") {
+      const maxAbsoluteDepthReached = Number.isInteger(options?.maxAbsoluteDepthReached)
+        && Number.isSafeInteger(options.maxAbsoluteDepthReached)
+        ? options.maxAbsoluteDepthReached
+        : 0;
+      if (maxAbsoluteDepthReached >= 20) {
+        return {
+          unlockDepths: [20],
+          reason: "normal-extract"
+        };
+      }
+      return {
+        unlockDepths: [],
+        reason: "normal-extract-below-depth20"
+      };
+    }
+
+    if (eventType === "emergencyExtract") {
+      return {
+        unlockDepths: [],
+        reason: "emergency-extract"
+      };
+    }
+    if (eventType === "gameOver") {
+      return {
+        unlockDepths: [],
+        reason: "game-over"
+      };
+    }
+    if (eventType === "gateCollapse") {
+      return {
+        unlockDepths: [],
+        reason: "gate-collapse"
+      };
+    }
+    if (eventType === "finalRaidReturn") {
+      return {
+        unlockDepths: [],
+        reason: "final-raid-return"
+      };
+    }
+
+    return {
+      unlockDepths: [],
+      reason: "unsupported-event"
+    };
+  }
+
+  unlockCompletedDepthRelayAnchors(options = {}) {
+    const currentState = this.normalizeDepthRelayState(this.depthRelayState);
+    const resolution = this.resolveDepthRelayAnchorsCompletedByRunEvent({
+      ...options,
+      anchorUnlockEligible: this.depthRelayAnchorProgressState?.anchorUnlockEligible === true,
+      depthRelayState: currentState
+    });
+    let nextState = currentState;
+    const newlyUnlockedDepths = [];
+
+    (resolution.unlockDepths || []).forEach((depth) => {
+      const beforeUnlocked = nextState.unlockedDepths.includes(depth);
+      nextState = this.unlockDepthRelayDepth(nextState, depth);
+      if (!beforeUnlocked && nextState.unlockedDepths.includes(depth)) {
+        newlyUnlockedDepths.push(depth);
+      }
+    });
+
+    const changed = !this.isDepthRelayStateEquivalent(currentState, nextState);
+    this.depthRelayState = nextState;
+    if (changed) {
+      this.saveDepthRelayState(nextState);
+    }
+
+    return {
+      changed,
+      newlyUnlockedDepths,
+      state: this.depthRelayState,
+      reason: resolution.reason
+    };
+  }
+
   isFinalBossRaidCleared() {
     return this.finalBossState?.cleared === true;
   }
@@ -13124,6 +14804,16 @@ class SurvivalScene extends Phaser.Scene {
       unlockedFinalBossSupport: options.unlockedFinalBossSupport !== false
     });
     this.saveFinalBossState();
+    const previousDepthRelayState = this.normalizeDepthRelayState(this.depthRelayState);
+    const nextDepthRelayState = this.reconcileDepthRelayStateWithFinalBoss(
+      previousDepthRelayState,
+      this.finalBossState
+    );
+    if (!this.isDepthRelayStateEquivalent(previousDepthRelayState, nextDepthRelayState)) {
+      this.saveDepthRelayState(nextDepthRelayState);
+    } else {
+      this.depthRelayState = nextDepthRelayState;
+    }
     this.syncFinalBossUnlocksToShopState("finalBossRaidClear", { save: true });
     return this.finalBossState;
   }
@@ -13282,6 +14972,9 @@ class SurvivalScene extends Phaser.Scene {
   shouldEnterFinalBossRaid(targetDepth, mode = "next") {
     const normalizedDepth = Math.max(1, Math.floor(Number(targetDepth) || 1));
     if (!["next", "force"].includes(mode)) {
+      return false;
+    }
+    if (this.isDepthRelayRun()) {
       return false;
     }
     return normalizedDepth === FINAL_BOSS_RAID_CONFIG.targetDepth
@@ -22526,7 +24219,6 @@ class SurvivalScene extends Phaser.Scene {
       return false;
     }
 
-    this.awardFinalBossRaidClearRewards(reason);
     this.completeFinalRaidExternalDownlinkRestore?.({ reason: reason || "liberationGate" });
     this.tryQueueDepth10EpilogueComms?.("depth10_release_gate_epilogue", reason);
     const config = FINAL_BOSS_RAID_CONFIG.liberationGate || {};
@@ -22704,7 +24396,11 @@ class SurvivalScene extends Phaser.Scene {
     const anjuMemoryAward = this.awardAnjuMemoryOnExtraction?.("normal") || null;
     this.setRunRankingExtractionStats("normal", result?.secured, true);
     const recordState = this.saveBestRecordIfNeeded();
-    const deepExtractionContext = this.captureDeepExtractionResultContext(result, false, lostArmsMessage);
+    const runOriginSnapshot = {
+      ...this.createRunOriginSnapshot(this.runStartContext),
+      usedDepthRelay: false
+    };
+    const deepExtractionContext = this.captureDeepExtractionResultContext(result, false, lostArmsMessage, { runOriginSnapshot });
     this.saveRunArchiveEntryOnce({
       outcome: "normal_extract",
       extractionSucceeded: true,
@@ -22716,6 +24412,7 @@ class SurvivalScene extends Phaser.Scene {
       anjuMemoryAward,
       lostArmsMessage,
       recordState,
+      runOriginSnapshot,
       context: deepExtractionContext
     });
     this.extractionComplete = true;
@@ -22746,6 +24443,8 @@ class SurvivalScene extends Phaser.Scene {
     this.cleanupFinalRaidRescueLink?.("liberationReturn");
     this.returnToOpeningShop(messageLines.join("\n"), {
       showMobileLaunchGate: true,
+      forceInPageReset: true,
+      clearDebugLaunchParams: true,
       shopLoading: this.buildExtractionShopLoadingOptions(result)
     });
   }
@@ -22758,7 +24457,8 @@ class SurvivalScene extends Phaser.Scene {
 
     state.timerComplete = true;
     state.elapsedMs = state.durationMs;
-    this.awardFinalBossRaidClearRewards("timerComplete");
+    state.bossHpBars = 0;
+    state.bossHpDisplayBars = 0;
     this.openFinalBossLiberationGate("timerComplete");
     if (state.debug) {
       console.log("[FINAL BOSS RAID] timer complete", {
@@ -23085,9 +24785,11 @@ class SurvivalScene extends Phaser.Scene {
     return this.getAnjuMemorySelectedReward("contractCardBack")?.palette || {};
   }
 
-  initializeAnjuMemoryRunState() {
+  initializeAnjuMemoryRunState(options = {}) {
+    const progressState = options.runDepthProgressState || this.runDepthProgressState || this.createRunDepthProgressState(this.runStartContext);
     this.runAnjuMemoryState = {
-      maxDepthReached: this.stageDepth || 1,
+      maxDepthReached: this.getRunMaxAbsoluteDepthReached(progressState),
+      rewardDepthReached: this.getRunRewardDepthReached(progressState),
       unlockedNoticeShown: false,
       awarded: false,
       pendingAward: null,
@@ -23113,9 +24815,14 @@ class SurvivalScene extends Phaser.Scene {
     if (!this.runAnjuMemoryState) {
       this.initializeAnjuMemoryRunState();
     }
-    const nextDepth = Math.max(1, Math.floor(Number(depth) || 1));
     const previousDepth = Math.max(1, Math.floor(Number(this.runAnjuMemoryState.maxDepthReached) || 1));
-    this.runAnjuMemoryState.maxDepthReached = Math.max(previousDepth, nextDepth);
+    this.runDepthProgressState = this.updateRunDepthProgressForEnteredDepth(
+      this.runDepthProgressState,
+      depth,
+      this.runStartContext
+    );
+    this.runAnjuMemoryState.maxDepthReached = this.getRunMaxAbsoluteDepthReached(this.runDepthProgressState);
+    this.runAnjuMemoryState.rewardDepthReached = this.getRunRewardDepthReached(this.runDepthProgressState);
 
     if (
       previousDepth < ANJU_MEMORY_CONFIG.unlockDepth &&
@@ -23144,19 +24851,43 @@ class SurvivalScene extends Phaser.Scene {
     return Math.floor((level * (level + 1)) / 2);
   }
 
-  getPendingAnjuMemoryMilestones(maxDepthReached) {
+  getPendingAnjuMemoryMilestones(maxDepthReached, options = {}) {
+    const context = options.runStartContext || this.runStartContext;
+    const startAbsoluteDepth = this.isDepthRelayRun(context)
+      ? Math.max(1, Math.floor(Number(options.startAbsoluteDepth ?? context?.runStartDepth) || 1))
+      : 1;
     return ANJU_MEMORY_CONFIG.milestones.filter((milestone) => (
       maxDepthReached >= milestone.depth &&
+      milestone.depth >= startAbsoluteDepth &&
       !this.anjuMemoryState?.milestonesClaimed?.[milestone.depth]
     ));
   }
 
   calculateAnjuMemoryReward(mode = "normal") {
-    const maxDepthReached = Math.max(
+    const maxDepthCandidate = Math.max(
       Math.floor(Number(this.runAnjuMemoryState?.maxDepthReached) || 1),
+      Math.floor(Number(this.runDepthProgressState?.maxAbsoluteDepthReached) || 1),
       Math.floor(Number(this.stageDepth) || 1)
     );
-    if (maxDepthReached < ANJU_MEMORY_CONFIG.unlockDepth) {
+    const effectiveProgressState = this.updateRunDepthProgressForEnteredDepth(
+      this.runDepthProgressState,
+      maxDepthCandidate,
+      this.runStartContext
+    );
+    const maxDepthReached = Math.max(
+      this.getRunMaxAbsoluteDepthReached(effectiveProgressState),
+      maxDepthCandidate
+    );
+    const rewardDepthReached = this.getRunRewardDepthReached(effectiveProgressState);
+    const milestones = this.getPendingAnjuMemoryMilestones(maxDepthReached, {
+      runStartContext: this.runStartContext,
+      startAbsoluteDepth: effectiveProgressState.startAbsoluteDepth
+    });
+    const depthBonus = rewardDepthReached >= ANJU_MEMORY_CONFIG.unlockDepth
+      ? this.getAnjuMemoryRepeatDepthBonus(rewardDepthReached)
+      : 0;
+    const firstReachBonus = milestones.reduce((sum, milestone) => sum + milestone.reward, 0);
+    if (maxDepthReached < ANJU_MEMORY_CONFIG.unlockDepth || (rewardDepthReached < ANJU_MEMORY_CONFIG.unlockDepth && firstReachBonus <= 0)) {
       return {
         mode,
         amount: 0,
@@ -23165,13 +24896,11 @@ class SurvivalScene extends Phaser.Scene {
         firstReachBonus: 0,
         instabilityMultiplier: 1,
         maxDepthReached,
+        rewardDepthReached,
         milestones: []
       };
     }
 
-    const depthBonus = this.getAnjuMemoryRepeatDepthBonus(maxDepthReached);
-    const milestones = this.getPendingAnjuMemoryMilestones(maxDepthReached);
-    const firstReachBonus = milestones.reduce((sum, milestone) => sum + milestone.reward, 0);
     const instabilityBonus = Phaser.Math.Clamp(
       (this.gateInstabilityStacks || 0) * ANJU_MEMORY_CONFIG.instabilityBonusPerStack,
       0,
@@ -23184,7 +24913,7 @@ class SurvivalScene extends Phaser.Scene {
       ? Math.min(ANJU_MEMORY_CONFIG.emergencyExtractMultiplier, ANJU_MEMORY_CONFIG.emergencyExtractMaxMultiplier)
       : ANJU_MEMORY_CONFIG.normalExtractMultiplier;
     let amount = Math.floor(raw * multiplier);
-    if (!emergency && maxDepthReached >= ANJU_MEMORY_CONFIG.unlockDepth) {
+    if (!emergency && (rewardDepthReached >= ANJU_MEMORY_CONFIG.unlockDepth || firstReachBonus > 0)) {
       amount = Math.max(1, amount);
     } else if (emergency && raw > 0) {
       amount = Math.max(1, amount);
@@ -23198,6 +24927,7 @@ class SurvivalScene extends Phaser.Scene {
       firstReachBonus,
       instabilityMultiplier,
       maxDepthReached,
+      rewardDepthReached,
       milestones
     };
   }
@@ -23249,7 +24979,7 @@ class SurvivalScene extends Phaser.Scene {
 
   getAnjuMemoryPreviewLine() {
     const reward = this.calculateAnjuMemoryReward("normal");
-    if (reward.maxDepthReached < ANJU_MEMORY_CONFIG.unlockDepth) {
+    if (reward.amount <= 0 || reward.maxDepthReached < ANJU_MEMORY_CONFIG.unlockDepth) {
       return "";
     }
     return `ANJU MEMORY +${reward.amount}? / Extract to preserve`;
@@ -23385,14 +25115,139 @@ class SurvivalScene extends Phaser.Scene {
     this.showPreGameShop(`回収ロボ Lv.${this.shopState.cleaningRobotLevel} に強化`);
   }
 
+  isBaseCalibrationUpgradeId(upgradeId) {
+    return BASE_CALIBRATION_UPGRADE_IDS.includes(upgradeId);
+  }
+
+  isBaseCalibrationCapTierUnlocked(requiredRelayDepth, depthRelayState = this.depthRelayState) {
+    if (!Number.isInteger(requiredRelayDepth) || !Number.isSafeInteger(requiredRelayDepth)) {
+      return false;
+    }
+    const normalizedState = this.normalizeDepthRelayState(depthRelayState);
+    return BASE_CALIBRATION_RELAY_CAP_TIERS
+      .filter((tier) => tier.requiredRelayDepth <= requiredRelayDepth)
+      .every((tier) => this.isDepthRelayDepthUnlocked(normalizedState, tier.requiredRelayDepth));
+  }
+
+  getBaseCalibrationLevelCap(upgradeId, depthRelayState = this.depthRelayState) {
+    const definition = SHOP_UPGRADE_DEFINITIONS[upgradeId];
+    if (!definition) {
+      return 0;
+    }
+    if (!this.isBaseCalibrationUpgradeId(upgradeId)) {
+      return definition.maxLevel;
+    }
+
+    let cap = BASE_CALIBRATION_DEFAULT_CAP;
+    BASE_CALIBRATION_RELAY_CAP_TIERS.forEach((tier) => {
+      if (this.isBaseCalibrationCapTierUnlocked(tier.requiredRelayDepth, depthRelayState)) {
+        cap = Math.max(cap, tier.cap);
+      }
+    });
+
+    return Phaser.Math.Clamp(
+      cap,
+      BASE_CALIBRATION_DEFAULT_CAP,
+      Math.min(BASE_CALIBRATION_ABSOLUTE_MAX_LEVEL, definition.maxLevel)
+    );
+  }
+
+  getNextBaseCalibrationCapRequirement(currentCap, depthRelayState = this.depthRelayState) {
+    const normalizedCap = Phaser.Math.Clamp(
+      Math.floor(Number(currentCap) || BASE_CALIBRATION_DEFAULT_CAP),
+      BASE_CALIBRATION_DEFAULT_CAP,
+      BASE_CALIBRATION_ABSOLUTE_MAX_LEVEL
+    );
+    const nextTier = BASE_CALIBRATION_RELAY_CAP_TIERS.find((tier) => tier.cap > normalizedCap);
+    if (!nextTier) {
+      return null;
+    }
+
+    return {
+      nextCap: nextTier.cap,
+      requiredRelayDepth: nextTier.requiredRelayDepth,
+      unlocked: this.isBaseCalibrationCapTierUnlocked(nextTier.requiredRelayDepth, depthRelayState)
+    };
+  }
+
+  getBaseCalibrationRequirementLabel(requirement) {
+    const requiredDepth = requirement?.requiredRelayDepth;
+    return Number.isInteger(requiredDepth)
+      ? `D${requiredDepth} BEACON REQUIRED`
+      : "";
+  }
+
+  getPermanentUpgradeCardPresentation(options = {}) {
+    const upgradeId = options.upgradeId;
+    const currentLevel = Math.max(0, Math.floor(Number(options.currentLevel) || 0));
+    const currentCap = Math.max(0, Math.floor(Number(options.currentCap) || 0));
+    const absoluteMaxLevel = Math.max(currentCap, Math.floor(Number(options.absoluteMaxLevel) || currentCap));
+    const cost = Number.isFinite(options.cost) ? Math.max(0, Math.floor(options.cost)) : null;
+    const currentCoins = Math.max(0, Math.floor(Number(options.currentCoins) || 0));
+    const nextRequirement = options.nextRequirement || null;
+    const requirementLabel = this.getBaseCalibrationRequirementLabel(nextRequirement);
+    const levelLabel = `LV ${currentLevel} / CAP ${currentCap}`;
+
+    if (currentLevel >= absoluteMaxLevel) {
+      return {
+        state: "absolute-max",
+        canAttemptPurchase: false,
+        canPurchase: false,
+        levelLabel,
+        actionLabel: "CURRENT MAX",
+        actionColor: "#66d25f",
+        statusLabel: "BEACON NETWORK LIMIT"
+      };
+    }
+
+    if (currentLevel > currentCap) {
+      return {
+        state: "over-cap-owned",
+        canAttemptPurchase: false,
+        canPurchase: false,
+        levelLabel,
+        actionLabel: "PURCHASE LOCKED",
+        actionColor: "#ffcf91",
+        statusLabel: requirementLabel ? `CURRENT CAP ${currentCap} / ${requirementLabel}` : `CURRENT CAP ${currentCap}`
+      };
+    }
+
+    if (currentLevel >= currentCap) {
+      return {
+        state: "relay-cap-locked",
+        canAttemptPurchase: false,
+        canPurchase: false,
+        levelLabel,
+        actionLabel: "CAP LOCKED",
+        actionColor: "#ffcf91",
+        statusLabel: nextRequirement
+          ? `NEXT CAP ${nextRequirement.nextCap} / ${requirementLabel}`
+          : "BEACON NETWORK LIMIT"
+      };
+    }
+
+    const priceLabel = cost !== null ? `${cost.toLocaleString()} GEEK` : "MAX";
+    return {
+      state: cost !== null && currentCoins >= cost ? "available" : "insufficient-geek",
+      canAttemptPurchase: cost !== null,
+      canPurchase: cost !== null && currentCoins >= cost,
+      levelLabel,
+      actionLabel: priceLabel,
+      actionColor: cost !== null && currentCoins < cost ? "#ffb9a8" : "#ecf7ff",
+      statusLabel: `NEXT LV ${currentLevel + 1}`
+    };
+  }
+
   getPermanentUpgradeLevel(upgradeId) {
     const definition = SHOP_UPGRADE_DEFINITIONS[upgradeId];
     if (!definition) {
       return 0;
     }
 
+    const rawValue = Number(this.shopState?.upgrades?.[upgradeId]);
+    const value = Number.isFinite(rawValue) ? Math.floor(rawValue) : 0;
     return Phaser.Math.Clamp(
-      Math.floor(Number(this.shopState?.upgrades?.[upgradeId]) || 0),
+      value,
       0,
       definition.maxLevel
     );
@@ -23440,8 +25295,9 @@ class SurvivalScene extends Phaser.Scene {
   getPermanentUpgradeCost(upgradeId) {
     const definition = SHOP_UPGRADE_DEFINITIONS[upgradeId];
     const level = this.getPermanentUpgradeLevel(upgradeId);
+    const currentCap = this.getBaseCalibrationLevelCap(upgradeId, this.depthRelayState);
 
-    if (!definition || level >= definition.maxLevel) {
+    if (!definition || level >= currentCap || level >= definition.maxLevel) {
       return null;
     }
 
@@ -23476,12 +25332,46 @@ class SurvivalScene extends Phaser.Scene {
     return true;
   }
 
+  beginPermanentUpgradePurchaseLock() {
+    if (this.permanentUpgradePurchaseInProgress) {
+      return false;
+    }
+    this.permanentUpgradePurchaseInProgress = true;
+    const release = () => {
+      this.permanentUpgradePurchaseInProgress = false;
+    };
+    if (this.time?.delayedCall) {
+      this.time.delayedCall(0, release);
+    } else if (typeof setTimeout === "function") {
+      setTimeout(release, 0);
+    } else {
+      release();
+    }
+    return true;
+  }
+
   purchasePermanentUpgrade(upgradeId) {
+    if (!this.beginPermanentUpgradePurchaseLock()) {
+      return;
+    }
     const definition = SHOP_UPGRADE_DEFINITIONS[upgradeId];
     const level = this.getPermanentUpgradeLevel(upgradeId);
+    const currentCap = this.getBaseCalibrationLevelCap(upgradeId, this.depthRelayState);
     const cost = this.getPermanentUpgradeCost(upgradeId);
 
-    if (!definition || cost === null) {
+    if (!definition) {
+      return;
+    }
+    if (level >= currentCap) {
+      const requirement = this.getNextBaseCalibrationCapRequirement(currentCap, this.depthRelayState);
+      const requirementLabel = this.getBaseCalibrationRequirementLabel(requirement);
+      const lockMessage = requirementLabel
+        ? `RELAY CAP LOCKED / ${requirementLabel}`
+        : "BEACON NETWORK LIMIT";
+      this.showPreGameShop(lockMessage);
+      return;
+    }
+    if (cost === null) {
       this.showPreGameShop("この強化は最大レベルです");
       return;
     }
@@ -25879,6 +27769,11 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
     const now = Date.now();
+    const debugRelayDepth = this.getDebugRelayStartDepthOverride?.();
+    const relayDebugPreview = this.hasDebugRelayStartDepthQuery?.() === true
+      && this.isDepthRelayStartDepthAvailable(this.depthRelayState, debugRelayDepth);
+    const previewStartDepth = relayDebugPreview ? debugRelayDepth : 1;
+    const previewBestDepth = relayDebugPreview ? debugRelayDepth + 2 : 8;
     const debugEntries = [
       {
         id: `debug-ranking-depth-${now}`,
@@ -25887,14 +27782,16 @@ class SurvivalScene extends Phaser.Scene {
         level: 18,
         kills: 1840,
         eliteKills: 22,
-        maxDepthReached: 8,
-        bestDepth: 8,
+        maxDepthReached: previewBestDepth,
+        bestDepth: previewBestDepth,
         extractedGeek: 23800,
         bestExtractedGeek: 23800,
         extractMode: "normal",
         extractionSucceeded: true,
         anjuMemoryEarned: 6,
-        selectedBadge: "D8",
+        selectedBadge: `D${previewBestDepth}`,
+        startDepth: previewStartDepth,
+        usedDepthRelay: relayDebugPreview,
         recordedAt: now,
         submittedAt: now,
         version: RANKING_ENTRY_VERSION
@@ -26078,6 +27975,7 @@ class SurvivalScene extends Phaser.Scene {
 
   normalizeRankingEntry(entry) {
     const record = this.normalizeBestRecord(entry);
+    const runOriginSnapshot = this.normalizeRunOriginSnapshot(entry, { maxDepthReached: record.bestDepth });
     const id = typeof entry?.id === "string" && entry.id.length > 0
       ? entry.id
       : `${Number(entry?.recordedAt) || 0}-${this.normalizePlayerName(entry?.name)}-${record.kills}`;
@@ -26097,12 +27995,26 @@ class SurvivalScene extends Phaser.Scene {
       bestExtractedGeek: record.bestExtractedGeek,
       extractMode: record.extractMode,
       extractionSucceeded: record.extractionSucceeded,
+      startDepth: runOriginSnapshot.startDepth,
+      usedDepthRelay: runOriginSnapshot.usedDepthRelay,
       anjuMemoryEarned: record.anjuMemoryEarned,
       selectedTitle: String(entry?.selectedTitle || "").slice(0, 32),
       selectedBadge: String(entry?.selectedBadge || "").slice(0, 12),
       recordedAt,
       submittedAt,
       version: Math.max(1, Math.floor(Number(entry?.version) || record.version || RANKING_ENTRY_VERSION))
+    };
+  }
+
+  createRankingRecordWithRunOrigin(record = {}, runOriginSnapshot = record) {
+    const normalizedRecord = this.normalizeBestRecord(record);
+    const normalizedOrigin = this.normalizeRunOriginSnapshot(runOriginSnapshot, {
+      maxDepthReached: normalizedRecord.bestDepth
+    });
+    return {
+      ...normalizedRecord,
+      startDepth: normalizedOrigin.startDepth,
+      usedDepthRelay: normalizedOrigin.usedDepthRelay
     };
   }
 
@@ -26253,6 +28165,47 @@ class SurvivalScene extends Phaser.Scene {
     }, {});
   }
 
+  createDefaultRunArchiveEquipmentCombatLinkSnapshot() {
+    return {
+      combatLinkLevel: 0,
+      overlimitCap: 0,
+      overlimitLevels: this.createDefaultRunEquipmentOverlimitLevels()
+    };
+  }
+
+  normalizeRunArchiveEquipmentCombatLinkSnapshot(record = {}) {
+    const source = record && typeof record === "object" && !Array.isArray(record)
+      ? record
+      : {};
+    const clampArchiveLevel = (value) => (
+      Number.isInteger(value) && Number.isSafeInteger(value)
+        ? Math.max(0, Math.min(EQUIPMENT_OVERLIMIT_DAMAGE_MULTIPLIERS.length - 1, value))
+        : 0
+    );
+    const combatLinkLevel = clampArchiveLevel(source.combatLinkLevel);
+    const overlimitCap = Math.min(combatLinkLevel, clampArchiveLevel(source.overlimitCap));
+    return {
+      combatLinkLevel,
+      overlimitCap,
+      overlimitLevels: this.normalizeRunEquipmentOverlimitLevels(source.overlimitLevels, overlimitCap)
+    };
+  }
+
+  createRunArchiveEquipmentCombatLinkSnapshot(runEquipmentCombatLinkState = this.runEquipmentCombatLinkState) {
+    const state = this.normalizeRunEquipmentCombatLinkState(runEquipmentCombatLinkState);
+    return this.normalizeRunArchiveEquipmentCombatLinkSnapshot({
+      combatLinkLevel: state.combatLinkLevel,
+      overlimitCap: state.overlimitCap,
+      overlimitLevels: state.overlimitLevels
+    });
+  }
+
+  hasRunArchiveEquipmentCombatLinkData(snapshot) {
+    const normalized = this.normalizeRunArchiveEquipmentCombatLinkSnapshot(snapshot);
+    return normalized.combatLinkLevel > 0
+      || EQUIPMENT_COMBAT_LINK_SKILL_IDS.some((skillId) => normalized.overlimitLevels[skillId] > 0);
+  }
+
   normalizeRunArchiveTriadBuild(record = null) {
     const meta = this.getMutationAtlasBuildMeta(record?.buildId);
     if (!meta) {
@@ -26301,8 +28254,12 @@ class SurvivalScene extends Phaser.Scene {
 
     const contracts = Array.isArray(entry.contracts) ? entry.contracts : [];
     const directives = Array.isArray(entry.directives) ? entry.directives : [];
+    const bestDepth = this.normalizeDepthValue(entry.bestDepth, 1);
+    const maxDepthReached = this.normalizeDepthValue(entry.maxDepthReached ?? entry.bestDepth, 1);
+    const runOriginSnapshot = this.normalizeRunOriginSnapshot(entry, { maxDepthReached });
+    const equipmentCombatLink = this.normalizeRunArchiveEquipmentCombatLinkSnapshot(entry.equipmentCombatLink);
 
-    return {
+    const normalizedEntry = {
       id,
       version: RUN_ARCHIVE_VERSION,
       submittedAt,
@@ -26311,8 +28268,10 @@ class SurvivalScene extends Phaser.Scene {
       extractMode,
       deathReason: this.normalizeRunArchiveDeathReason(entry.deathReason),
 
-      bestDepth: this.normalizeDepthValue(entry.bestDepth, 1),
-      maxDepthReached: this.normalizeDepthValue(entry.maxDepthReached ?? entry.bestDepth, 1),
+      bestDepth,
+      maxDepthReached,
+      startDepth: runOriginSnapshot.startDepth,
+      usedDepthRelay: runOriginSnapshot.usedDepthRelay,
       survivalMs: Math.max(0, Math.floor(Number(entry.survivalMs ?? entry.survivalTimeMs) || 0)),
       level: Math.max(1, Math.floor(Number(entry.level) || 1)),
       kills: Math.max(0, Math.floor(Number(entry.kills) || 0)),
@@ -26398,6 +28357,10 @@ class SurvivalScene extends Phaser.Scene {
         typesDefeated: this.normalizeRunArchiveStringList(nemesis.typesDefeated, 8, 32)
       }
     };
+    if (this.hasRunArchiveEquipmentCombatLinkData(equipmentCombatLink)) {
+      normalizedEntry.equipmentCombatLink = equipmentCombatLink;
+    }
+    return normalizedEntry;
   }
 
   normalizeRunArchive(raw) {
@@ -26605,6 +28568,13 @@ class SurvivalScene extends Phaser.Scene {
     );
     const stage = this.currentStage || {};
     const runArchiveStats = this.runArchiveStats || this.createRunArchiveRunStats();
+    const runOriginSnapshot = this.normalizeRunOriginSnapshot(
+      outcomeOptions.runOriginSnapshot || outcomeOptions.context?.runOriginSnapshot || {
+        startDepth: outcomeOptions.context?.startDepth,
+        usedDepthRelay: outcomeOptions.context?.usedDepthRelay
+      },
+      { maxDepthReached }
+    );
     const entry = this.normalizeRunArchiveEntry({
       id: `${this.runArchiveSessionId || "run"}-${outcomeOptions.outcome || "unknown"}`,
       submittedAt: new Date().toISOString(),
@@ -26614,6 +28584,8 @@ class SurvivalScene extends Phaser.Scene {
       deathReason: outcomeOptions.deathReason || (extractionSucceeded ? "none" : "unknown"),
       bestDepth: maxDepthReached,
       maxDepthReached,
+      startDepth: runOriginSnapshot.startDepth,
+      usedDepthRelay: runOriginSnapshot.usedDepthRelay,
       survivalMs: currentRecord.survivalTimeMs ?? this.survivalTime,
       level: currentRecord.level ?? this.stats?.level,
       kills: currentRecord.kills ?? this.runStats?.kills,
@@ -26633,6 +28605,7 @@ class SurvivalScene extends Phaser.Scene {
       stageName: stage.name || stage.areaLabel || "",
       skills: this.getRunArchiveSkillLevels(),
       skillMutations: this.getRunArchiveSkillMutationSnapshot(),
+      equipmentCombatLink: this.createRunArchiveEquipmentCombatLinkSnapshot(this.runEquipmentCombatLinkState),
       triadBuild: this.getTriadRunArchiveBuildSnapshot(outcomeOptions.context || {}),
       passives: this.getRunArchivePassiveLevels(),
       lostArms: this.getRunArchiveLostArmsSnapshot(),
@@ -26697,8 +28670,9 @@ class SurvivalScene extends Phaser.Scene {
 
   addKillRankingEntry(name, record) {
     const submittedAt = Date.now();
+    const rankingRecord = this.createRankingRecordWithRunOrigin(record, record);
     const entry = this.normalizeRankingEntry({
-      ...this.normalizeBestRecord(record),
+      ...rankingRecord,
       id: `${submittedAt}-${Math.floor(Math.random() * 1000000)}`,
       name,
       selectedTitle: this.getAnjuMemorySelectedRankingLabel("title"),
@@ -26865,6 +28839,8 @@ class SurvivalScene extends Phaser.Scene {
           extractedGeek: normalizedEntry.extractedGeek,
           extractMode: normalizedEntry.extractMode,
           extractionSucceeded: normalizedEntry.extractionSucceeded,
+          startDepth: normalizedEntry.startDepth,
+          usedDepthRelay: normalizedEntry.usedDepthRelay,
           anjuMemoryEarned: normalizedEntry.anjuMemoryEarned,
           selectedTitle: normalizedEntry.selectedTitle,
           selectedBadge: normalizedEntry.selectedBadge,
@@ -26900,11 +28876,17 @@ class SurvivalScene extends Phaser.Scene {
     return String(amount).padStart(width, " ");
   }
 
+  getRankingRelayBadge(entry = {}) {
+    const snapshot = this.normalizeRunOriginSnapshot(entry, { maxDepthReached: this.getRecordBestDepth(entry) });
+    return snapshot.usedDepthRelay ? `RLY D${snapshot.startDepth}` : "";
+  }
+
   formatRankingEntryLine(entry, index, highlightEntryId = null) {
     const marker = entry.id === highlightEntryId ? ">" : " ";
     const rank = String(index + 1).padStart(2, " ");
     const badge = entry.selectedBadge ? `[${String(entry.selectedBadge).slice(0, 3)}]` : "";
     const name = `${badge}${this.formatRankingName(entry.name)}`.slice(0, 13).padEnd(13, " ");
+    const relayBadge = this.getRankingRelayBadge(entry).padEnd(7, " ");
     const kills = String(entry.kills).padStart(5, " ");
     const depth = String(this.getRecordBestDepth(entry)).padStart(2, " ");
     const geek = this.formatRankingNumber(entry.extractedGeek, 6);
@@ -26913,12 +28895,12 @@ class SurvivalScene extends Phaser.Scene {
     const mode = this.getValidRankingMode(this.rankingDisplayMode);
 
     if (mode === "depth") {
-      return `${marker}${rank} ${name} D ${depth} G ${geek} K ${kills} ${this.formatTimeMs(entry.survivalTimeMs)} LV ${level} AM ${anjuMemory}`;
+      return `${marker}${rank} ${name} ${relayBadge} D ${depth} G ${geek} K ${kills} ${this.formatTimeMs(entry.survivalTimeMs)} LV ${level} AM ${anjuMemory}`;
     }
     if (mode === "geek") {
-      return `${marker}${rank} ${name} G ${geek} D ${depth} K ${kills} ${this.formatTimeMs(entry.survivalTimeMs)} LV ${level} AM ${anjuMemory}`;
+      return `${marker}${rank} ${name} ${relayBadge} G ${geek} D ${depth} K ${kills} ${this.formatTimeMs(entry.survivalTimeMs)} LV ${level} AM ${anjuMemory}`;
     }
-    return `${marker}${rank} ${name} K ${kills} D ${depth} G ${geek} ${this.formatTimeMs(entry.survivalTimeMs)} LV ${level} AM ${anjuMemory}`;
+    return `${marker}${rank} ${name} ${relayBadge} K ${kills} D ${depth} G ${geek} ${this.formatTimeMs(entry.survivalTimeMs)} LV ${level} AM ${anjuMemory}`;
   }
 
   formatKillRankingLines(highlightEntryId = null, sourceEntries = null) {
@@ -27804,6 +29786,33 @@ class SurvivalScene extends Phaser.Scene {
     return this.getTriadMatrixModifier("dashStaminaDrainMultiplier", 1);
   }
 
+  resolveMutationAtlasRunDepthContext(options = {}) {
+    const legacyAbsoluteDepth = this.normalizeDepthValue(
+      options.legacyAbsoluteDepth ?? options.maxDepthReached ?? Math.max(
+        Number(this.runAnjuMemoryState?.maxDepthReached) || 1,
+        Number(this.runRankingStats?.maxDepthReached) || 1,
+        Number(this.stageDepth) || 1
+      ),
+      1
+    );
+    const progressState = options.runDepthProgressState || this.runDepthProgressState;
+    const startContext = options.runStartContext || this.runStartContext;
+    const hasValidProgressState = this.isValidRunDepthProgressDepth(progressState?.maxAbsoluteDepthReached)
+      && this.isValidRunDepthProgressDepth(progressState?.rewardDepthReached);
+
+    if (hasValidProgressState) {
+      return {
+        absoluteMaxDepthReached: this.getRunMaxAbsoluteDepthReached(progressState),
+        rewardDepthReached: this.getRunRewardDepthReached(progressState)
+      };
+    }
+
+    return {
+      absoluteMaxDepthReached: legacyAbsoluteDepth,
+      rewardDepthReached: this.isDepthRelayRun(startContext) ? 1 : legacyAbsoluteDepth
+    };
+  }
+
   updateMutationAtlasProgressFromSnapshot(snapshot = this.getTriadMatrixSnapshot(), reason = "progress") {
     const buildId = snapshot?.buildId;
     if (!buildId || this.shouldBlockMutationAtlasPersistence()) {
@@ -27814,7 +29823,7 @@ class SurvivalScene extends Phaser.Scene {
     }
     this.mutationAtlasState = this.normalizeMutationAtlasState(this.mutationAtlasState);
     const entry = this.mutationAtlasState.entries[buildId] || this.createDefaultMutationAtlasEntry();
-    const maxDepth = this.normalizeDepthValue(
+    const legacyAbsoluteDepth = this.normalizeDepthValue(
       Math.max(
         Number(this.runAnjuMemoryState?.maxDepthReached) || 1,
         Number(this.runRankingStats?.maxDepthReached) || 1,
@@ -27822,6 +29831,9 @@ class SurvivalScene extends Phaser.Scene {
       ),
       1
     );
+    const { absoluteMaxDepthReached } = this.resolveMutationAtlasRunDepthContext({
+      legacyAbsoluteDepth
+    });
     const wasDiscovered = entry.discovered === true;
     const previousBestDepth = Math.max(0, Math.floor(Number(entry.bestDepth) || 0));
     let changed = false;
@@ -27829,8 +29841,8 @@ class SurvivalScene extends Phaser.Scene {
       entry.discovered = true;
       changed = true;
     }
-    if (maxDepth > previousBestDepth) {
-      entry.bestDepth = maxDepth;
+    if (absoluteMaxDepthReached > previousBestDepth) {
+      entry.bestDepth = absoluteMaxDepthReached;
       changed = true;
     }
     if (!changed) {
@@ -27843,7 +29855,7 @@ class SurvivalScene extends Phaser.Scene {
       buildId,
       displayName: meta?.displayName || buildId,
       discovered: !wasDiscovered,
-      bestDepthUpdated: maxDepth > previousBestDepth,
+      bestDepthUpdated: absoluteMaxDepthReached > previousBestDepth,
       bestDepth: entry.bestDepth,
       reason
     };
@@ -27898,9 +29910,23 @@ class SurvivalScene extends Phaser.Scene {
     }
     this.mutationAtlasState = this.normalizeMutationAtlasState(this.mutationAtlasState || this.loadMutationAtlasState());
     const entry = this.mutationAtlasState.entries[buildId] || this.createDefaultMutationAtlasEntry();
-    const maxDepthReached = this.normalizeDepthValue(options.maxDepthReached ?? this.getRunMaxDepthReachedForResult(this.runRankingStats), 1);
-    if (maxDepthReached > (entry.bestDepth || 0)) {
-      entry.bestDepth = maxDepthReached;
+    const legacyAbsoluteDepth = this.normalizeDepthValue(
+      options.absoluteMaxDepthReached ?? options.maxDepthReached ?? this.getRunMaxDepthReachedForResult(this.runRankingStats),
+      1
+    );
+    const explicitDepthProgressState = this.isValidRunDepthProgressDepth(options.rewardDepthReached)
+      ? {
+          maxAbsoluteDepthReached: legacyAbsoluteDepth,
+          rewardDepthReached: options.rewardDepthReached
+        }
+      : options.runDepthProgressState;
+    const { absoluteMaxDepthReached, rewardDepthReached } = this.resolveMutationAtlasRunDepthContext({
+      legacyAbsoluteDepth,
+      runDepthProgressState: explicitDepthProgressState,
+      runStartContext: options.runStartContext
+    });
+    if (absoluteMaxDepthReached > (entry.bestDepth || 0)) {
+      entry.bestDepth = absoluteMaxDepthReached;
     }
     if (!entry.discovered) {
       entry.discovered = true;
@@ -27908,7 +29934,7 @@ class SurvivalScene extends Phaser.Scene {
 
     let atlasStatus = entry.preserved ? "PRESERVED" : "DISCOVERED";
     let atlasBonusAnju = 0;
-    if (mode === "normal" && maxDepthReached >= ANJU_MEMORY_CONFIG.unlockDepth && !entry.preserved) {
+    if (mode === "normal" && rewardDepthReached >= ANJU_MEMORY_CONFIG.unlockDepth && !entry.preserved) {
       entry.preserved = true;
       atlasStatus = "PRESERVED";
       if (!entry.preserveRewardClaimed) {
@@ -27923,7 +29949,7 @@ class SurvivalScene extends Phaser.Scene {
     if (
       mode === "normal" &&
       runTargetId === buildId &&
-      maxDepthReached >= 8 &&
+      rewardDepthReached >= 8 &&
       !entry.researchCompleted
     ) {
       entry.researchCompleted = true;
@@ -28333,7 +30359,8 @@ class SurvivalScene extends Phaser.Scene {
     targets.forEach((target) => {
       const distance = Phaser.Math.Distance.Between(x, y, target.x, target.y);
       const falloff = Phaser.Math.Clamp(1 - distance / Math.max(1, effectiveRadius), 0, 1);
-      const damage = Math.max(1, Math.round((Number(baseDamage) || 1) * (0.72 + falloff * 0.34)));
+      const rawDamage = Math.max(1, Math.round((Number(baseDamage) || 1) * (0.72 + falloff * 0.34)));
+      const damage = this.applyRunEquipmentPlayerSkillDamageBonus(skillId, rawDamage);
       this.applyDamageToEnemy(target, damage, style.damageTint || 0xecffff, {
         sourceX: x,
         sourceY: y,
@@ -28361,11 +30388,12 @@ class SurvivalScene extends Phaser.Scene {
       return false;
     }
     const style = this.getSkillMutationVisualStyle(skillId) || {};
-    const damage = this.getMutatedSkillDamage(skillId, baseDamage, {
+    const rawDamage = this.getMutatedSkillDamage(skillId, baseDamage, {
       source: "mutationBolt",
       enemy: target
     }) * (options.damageMultiplier || 1);
-    this.applyDamageToEnemy(target, Math.max(1, Math.round(damage)), style.damageTint || 0xecffff, {
+    const damage = this.applyRunEquipmentPlayerSkillDamageBonus(skillId, Math.max(1, Math.round(rawDamage)));
+    this.applyDamageToEnemy(target, damage, style.damageTint || 0xecffff, {
       sourceX: fromX,
       sourceY: fromY,
       force: options.force ?? 150,
@@ -28399,7 +30427,8 @@ class SurvivalScene extends Phaser.Scene {
     );
     const branchDamage = Math.max(1, Math.round((Number(baseDamage) || 1) * (skillId === "rabbitThunderSkill" ? 0.46 : 0.42) * this.getTriadPrismDamageMultiplier()));
     targets.forEach((target) => {
-      this.applyDamageToEnemy(target, branchDamage, style.damageTint || 0xd9ffff, {
+      const damage = this.applyRunEquipmentPlayerSkillDamageBonus(skillId, branchDamage);
+      this.applyDamageToEnemy(target, damage, style.damageTint || 0xd9ffff, {
         sourceX: originX,
         sourceY: originY,
         force: 82,
@@ -28519,7 +30548,9 @@ class SurvivalScene extends Phaser.Scene {
     const style = this.getSkillMutationVisualStyle(skillId) || {};
     const targets = this.findSkillMutationTargets(originX, originY, 235, 3);
     targets.forEach((target) => {
-      this.applyDamageToEnemy(target, Math.max(1, Math.round((Number(baseDamage) || 1) * 0.48)), style.damageTint || 0xecffff, {
+      const rawDamage = Math.max(1, Math.round((Number(baseDamage) || 1) * 0.48));
+      const damage = this.applyRunEquipmentPlayerSkillDamageBonus(skillId, rawDamage);
+      this.applyDamageToEnemy(target, damage, style.damageTint || 0xecffff, {
         sourceX: originX,
         sourceY: originY,
         force: 76,
@@ -28786,6 +30817,9 @@ class SurvivalScene extends Phaser.Scene {
 
     this.applySkillStage(this.playerSkills?.[skillId], false);
     this.updateHud();
+    if (phase === "stage8") {
+      this.queueFinalMutationEquipmentOverlimitBonus(skillId, "stage8FinalMutation");
+    }
     return true;
   }
 
@@ -28809,6 +30843,7 @@ class SurvivalScene extends Phaser.Scene {
       this.tryOpenPendingSkillMutationSelection?.() ||
       this.tryOpenQueuedLostArmsEvolutionSelection?.() ||
       this.tryOpenPendingOverdriveModSelection?.() ||
+      this.tryOpenPendingEquipmentOverlimitBonusSelection?.() ||
       this.tryStartFinalBossRaidFromDebugStart?.("postOverlay") ||
       this.tryOpenPendingDepthDirectiveSelection?.() ||
       false
@@ -29678,7 +31713,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   hasAvailableLevelUpUpgrade() {
-    return this.getAvailableSkillChoices().length > 0 || this.getPassiveUpgradeChoices().length > 0;
+    return this.getAvailableSkillChoices({ source: "levelUp", allowEquipmentOverlimit: true }).length > 0 || this.getPassiveUpgradeChoices().length > 0;
   }
 
   isXpProgressionCapped() {
@@ -29775,6 +31810,7 @@ class SurvivalScene extends Phaser.Scene {
       this.setLastPickupNotice(`DEEP LEVEL ${this.stats.level}${cappedText} / MAX HP +${totalHpGain}`);
       this.spawnPlayerHealNumber(totalHpGain);
       this.showOverflowRewardText(`DEEP LV ${this.stats.level}${cappedText} / HP +${totalHpGain}`, this.playerHitbox?.x, this.playerHitbox?.y - 52, "#9fffe0");
+      this.queueDeepLevelEquipmentOverlimitBonus(levelsGained, "deepLevel");
     }
 
     return { levels: levelsGained, hpGain: totalHpGain };
@@ -36856,6 +38892,24 @@ class SurvivalScene extends Phaser.Scene {
       depth: 203
     }).setOrigin(0.5, 0);
 
+    const overlimitChipWidth = this.hudUsesFrameAsset ? 34 : 31;
+    const overlimitChipHeight = this.hudUsesFrameAsset ? 12 : 11;
+    const overlimitChipY = y + size - (this.hudUsesFrameAsset ? 45 : 39);
+    const overlimitBackground = this.registerUiObject(this.add
+      .rectangle(x + size - 3, overlimitChipY, overlimitChipWidth, overlimitChipHeight, 0x0a3240, 0.86)
+      .setOrigin(1, 0)
+      .setStrokeStyle(1, 0x64e9ff, 0.52)
+      .setScrollFactor(0)
+      .setDepth(205)
+      .setVisible(false));
+    const overlimitText = this.createHudText(x + size - 5, overlimitChipY + 1, "", {
+      fontSize: this.hudUsesFrameAsset ? "8px" : "7px",
+      color: "#bfffff",
+      fontStyle: "bold",
+      align: "right",
+      depth: 206
+    }).setOrigin(1, 0).setVisible(false);
+
     const stageDots = [];
     if (options.showStageDots) {
       const dotCount = 8;
@@ -36874,6 +38928,8 @@ class SurvivalScene extends Phaser.Scene {
       panel,
       icon,
       label,
+      overlimitBackground,
+      overlimitText,
       stageDots,
       x,
       y,
@@ -36917,6 +38973,27 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
+  updateHudSkillOverlimitChip(slot, presentation) {
+    if (!slot?.overlimitBackground || !slot?.overlimitText) {
+      return;
+    }
+    if (!presentation) {
+      slot.overlimitBackground.setVisible(false);
+      slot.overlimitText.setVisible(false).setText("");
+      return;
+    }
+
+    const isGold = presentation.tone === "gold";
+    slot.overlimitBackground
+      .setVisible(true)
+      .setFillStyle(isGold ? 0x4a3210 : 0x073344, 0.9)
+      .setStrokeStyle(1, isGold ? 0xffcf72 : 0x64e9ff, isGold ? 0.72 : 0.58);
+    slot.overlimitText
+      .setVisible(true)
+      .setText(presentation.label)
+      .setColor(isGold ? "#ffe3a4" : "#bfffff");
+  }
+
   updateHudSkillSlots() {
     if (!this.hudSkillSlots) {
       return;
@@ -36937,6 +39014,7 @@ class SurvivalScene extends Phaser.Scene {
         slot.icon.setVisible(false);
         slot.label.setText("");
         slot.panel.setAlpha(0.42);
+        this.updateHudSkillOverlimitChip(slot, null);
         this.setHudSkillStageDots(slot, 0, 0, false);
         return;
       }
@@ -36963,12 +39041,17 @@ class SurvivalScene extends Phaser.Scene {
         .setPosition(slot.x + slot.size / 2, slot.y + slot.size - (this.hudUsesFrameAsset ? (mutationLine ? 31 : 17) : (mutationLine ? 27 : 14)))
         .setText(labelText)
         .setColor(skillState ? (mutationLine ? (this.getSkillMutationVisualStyle(skillId)?.textColor || "#f0c463") : "#f0c463") : HUD_STYLE.muted);
+      this.updateHudSkillOverlimitChip(
+        slot,
+        skillState ? this.getRunEquipmentSkillOverlimitHudPresentation(skillId) : null
+      );
       this.setHudSkillStageDots(slot, currentStage, maxStage, Boolean(skillState));
     });
   }
 
   updateHudLostArmSlot(slot, armId) {
     const definition = this.getLostArmDefinition(armId);
+    this.updateHudSkillOverlimitChip(slot, null);
     if (!definition) {
       slot.icon.setVisible(false);
       slot.label.setText("");
@@ -37620,9 +39703,11 @@ class SurvivalScene extends Phaser.Scene {
     const state = this.getEquipmentHubDisplayState();
     const slotRows = this.getEquipmentHubSlotRows(state);
     const rarityCounts = this.getEquipmentHubRarityCounts(state);
+    const setStatus = this.getEquipmentSetStatus(state);
+    const collectionProgress = this.getEquipmentCollectionProgress(state);
     const hiddenLegendCount = state.legendDiscovered === true ? 0 : (rarityCounts.LEGEND || 0);
 
-    this.logEquipmentHubDebugSample(state, slotRows, rarityCounts, hiddenLegendCount);
+    this.logEquipmentHubDebugSample(state, slotRows, rarityCounts, hiddenLegendCount, collectionProgress);
 
     this.createOverlayText(-530, -210, "EQUIPMENT ANALYSIS", {
       fontSize: "15px",
@@ -37665,6 +39750,8 @@ class SurvivalScene extends Phaser.Scene {
     });
 
     this.renderSealedEquipmentSummary(188, -132, 352, 224, state, rarityCounts, hiddenLegendCount);
+    this.renderEquipmentSetResonancePanel(-530, 72, 456, 174, state, setStatus);
+    this.renderEquipmentCollectionProgressPanel(188, 146, 352, 94, state, collectionProgress);
     const creditText = this.isEquipmentHubDebugEnabled()
       ? "PREVIEW ONLY"
       : `FREE ANALYSIS CREDIT x${this.normalizeCoinAmount(state.freeAnalysisCredits)}`;
@@ -37682,6 +39769,338 @@ class SurvivalScene extends Phaser.Scene {
       align: "center",
       origin: { x: 0.5, y: 0 }
     });
+  }
+
+  getEquipmentCollectionSlotAbbreviation(slot) {
+    if (slot === "head") {
+      return "HD";
+    }
+    if (slot === "clothes") {
+      return "CL";
+    }
+    if (slot === "shoes") {
+      return "SH";
+    }
+    if (slot === "weapon") {
+      return "WP";
+    }
+    if (slot === "accessory") {
+      return "AC";
+    }
+    return String(slot || "--").slice(0, 2).toUpperCase();
+  }
+
+  getEquipmentLegendCollectionSlotLine(collectionProgress) {
+    if (collectionProgress?.legendVisible !== true) {
+      return "HIGHER SIGNAL: UNDECODED";
+    }
+    const slots = collectionProgress?.slots || {};
+    return `LGD: ${EQUIPMENT_HUB_SLOT_ROWS.map((entry) => {
+      const slot = slots[entry.slot] || {};
+      const marker = slot.legend ? this.getEquipmentRankLabel(slot.rank) : "--";
+      return `${this.getEquipmentCollectionSlotAbbreviation(entry.slot)} ${marker}`;
+    }).join(" / ")}`;
+  }
+
+  renderEquipmentCollectionProgressRow(x, y, width, label, count, total, status, tone = "standard") {
+    const complete = status === "COMPLETE";
+    const locked = tone === "locked";
+    const legend = tone === "legend";
+    const stroke = locked ? 0x466578 : (legend ? 0xf0c463 : 0x6fcfff);
+    const textColor = locked ? "#9ab7cc" : (legend ? "#ffe39a" : "#ecf7ff");
+    const rowGraphics = this.addOverlayChild(this.add.graphics());
+    rowGraphics.fillStyle(locked ? 0x09131e : 0x0a1824, locked ? 0.68 : 0.74);
+    rowGraphics.fillRoundedRect(x, y, width, 18, 4);
+    rowGraphics.lineStyle(1, stroke, complete ? 0.42 : 0.2);
+    rowGraphics.strokeRoundedRect(x + 0.5, y + 0.5, width - 1, 17, 4);
+
+    const labelText = this.createOverlayText(x + 8, y + 4, label, {
+      fontSize: "9px",
+      color: textColor,
+      fontStyle: "bold"
+    });
+    const countText = this.createOverlayText(x + width - 80, y + 4, `${count} / ${total}`, {
+      fontSize: "9px",
+      color: locked ? "#738597" : "#9ffcff",
+      fontStyle: "bold",
+      align: "right",
+      origin: { x: 1, y: 0 }
+    });
+    const statusText = this.createOverlayText(x + width - 8, y + 4, status, {
+      fontSize: "9px",
+      color: complete ? "#ffe39a" : (locked ? "#738597" : "#9ab7cc"),
+      fontStyle: "bold",
+      align: "right",
+      origin: { x: 1, y: 0 }
+    });
+    this.fitOverlayTextToWidth(labelText, width - 150, 7);
+    this.fitOverlayTextToWidth(countText, 48, 7);
+    this.fitOverlayTextToWidth(statusText, 66, 7);
+  }
+
+  renderEquipmentCollectionProgressPanel(x, y, width, height, state, collectionProgress) {
+    const progress = collectionProgress || this.getEquipmentCollectionProgress(state);
+    const total = progress?.totalSlotCount || EQUIPMENT_HUB_SLOT_ROWS.length;
+    const legendVisible = progress?.legendVisible === true;
+    const legendComplete = legendVisible && progress?.legendComplete === true;
+    const accent = legendComplete ? 0xf0c463 : (legendVisible ? 0x6fcfff : 0x466578);
+    const graphics = this.addOverlayChild(this.add.graphics());
+    graphics.fillStyle(0x07131f, 0.9);
+    graphics.fillRoundedRect(x, y, width, height, 6);
+    graphics.lineStyle(1, accent, legendComplete ? 0.56 : 0.34);
+    graphics.strokeRoundedRect(x + 0.5, y + 0.5, width - 1, height - 1, 6);
+    graphics.lineStyle(1, 0xecf7ff, 0.1);
+    graphics.lineBetween(x + 14, y + 7, x + width - 14, y + 7);
+
+    this.createOverlayText(x + 16, y + 11, "COLLECTION STATUS", {
+      fontSize: "11px",
+      color: "#ecf7ff",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(x + width - 16, y + 11, legendComplete ? "LEGEND COMPLETE" : "DISPLAY ONLY", {
+      fontSize: "9px",
+      color: legendComplete ? "#ffe39a" : "#9ab7cc",
+      fontStyle: "bold",
+      align: "right",
+      origin: { x: 1, y: 0 }
+    });
+
+    this.renderEquipmentCollectionProgressRow(
+      x + 16,
+      y + 30,
+      width - 32,
+      "SSR+ COLLECTION",
+      progress?.ssrPlusCount || 0,
+      total,
+      progress?.ssrPlusComplete ? "COMPLETE" : "STANDBY",
+      progress?.ssrPlusComplete ? "qualified" : "standard"
+    );
+
+    this.renderEquipmentCollectionProgressRow(
+      x + 16,
+      y + 52,
+      width - 32,
+      legendVisible ? "LEGEND COLLECTION" : "HIGHER SIGNAL",
+      legendVisible ? (progress?.legendCount || 0) : 0,
+      total,
+      legendVisible ? (legendComplete ? "COMPLETE" : "SEARCHING") : "LOCKED",
+      legendVisible ? (legendComplete ? "legend" : "standard") : "locked"
+    );
+
+    const slotLine = this.createOverlayText(x + 16, y + 76, this.getEquipmentLegendCollectionSlotLine(progress), {
+      fontSize: "9px",
+      color: legendVisible ? (legendComplete ? "#ffe39a" : "#b8d8ec") : "#738597",
+      fontStyle: "bold"
+    });
+    this.fitOverlayTextToWidth(slotLine, width - 32, 7);
+  }
+
+  getEquipmentCombatLinkAnalysisPresentation(setStatus) {
+    const ssrTier = this.getEquipmentSetTier(setStatus, "ssrPlusFive");
+    const legendTier = this.getEquipmentSetTier(setStatus, "legendFive");
+    if (legendTier?.complete && legendTier.visible === true) {
+      return {
+        primary: "COMBAT LINK II: READY",
+        secondary: "OVERLIMIT CAP: II",
+        color: "#f0c463"
+      };
+    }
+    if (ssrTier?.complete) {
+      return {
+        primary: "COMBAT LINK I: READY",
+        secondary: "OVERLIMIT CAP: I",
+        color: "#9ffcff"
+      };
+    }
+    return {
+      primary: "COMBAT LINK: OFFLINE",
+      secondary: "OVERLIMIT CAP: --",
+      color: "#9ab7cc"
+    };
+  }
+
+  renderEquipmentSetResonancePanel(x, y, width, height, state, setStatus) {
+    const ssrTier = this.getEquipmentSetTier(setStatus, "ssrPlusFive");
+    const legendTier = this.getEquipmentSetTier(setStatus, "legendFive");
+    const visibleLegendTier = legendTier?.visible === true;
+    const completedVisibleTier = Array.isArray(setStatus?.tiers)
+      ? setStatus.tiers.some((tier) => tier?.complete && tier.visible !== false)
+      : false;
+    const graphics = this.addOverlayChild(this.add.graphics());
+    graphics.fillStyle(0x07131f, 0.92);
+    graphics.fillRoundedRect(x, y, width, height, 6);
+    graphics.lineStyle(1, completedVisibleTier ? 0xf0c463 : 0x6fcfff, completedVisibleTier ? 0.5 : 0.34);
+    graphics.strokeRoundedRect(x + 0.5, y + 0.5, width - 1, height - 1, 6);
+    graphics.lineStyle(1, 0xecf7ff, 0.12);
+    graphics.lineBetween(x + 14, y + 7, x + width - 14, y + 7);
+    if (completedVisibleTier) {
+      graphics.fillStyle(0xf0c463, 0.16);
+      graphics.fillRect(x + 2, y + 2, width - 4, 2);
+      graphics.fillRect(x + 2, y + height - 4, width - 4, 2);
+    }
+
+    this.createOverlayText(x + 16, y + 12, "SET RESONANCE", {
+      fontSize: "13px",
+      color: "#ecf7ff",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(x + width - 16, y + 12, "DISPLAY ONLY", {
+      fontSize: "10px",
+      color: "#9ab7cc",
+      fontStyle: "bold",
+      align: "right",
+      origin: { x: 1, y: 0 }
+    });
+
+    this.renderEquipmentSetSlotNodes(x + 16, y + 36, width - 32, state, setStatus);
+
+    let rowY = y + 72;
+    this.renderEquipmentSetProgressRow(
+      x + 16,
+      rowY,
+      width - 32,
+      "EQUIPPED SLOTS",
+      setStatus?.equippedSlotCount || 0,
+      setStatus?.totalSlotCount || EQUIPMENT_HUB_SLOT_ROWS.length,
+      "",
+      "standard"
+    );
+    rowY += 25;
+    this.renderEquipmentSetProgressRow(
+      x + 16,
+      rowY,
+      width - 32,
+      ssrTier?.label || "SSR+ ARRAY",
+      ssrTier?.matchedSlotCount || 0,
+      ssrTier?.requiredSlotCount || EQUIPMENT_HUB_SLOT_ROWS.length,
+      ssrTier?.complete ? "QUALIFIED" : "STANDBY",
+      ssrTier?.complete ? "qualified" : "standard"
+    );
+    rowY += 25;
+    if (visibleLegendTier) {
+      this.renderEquipmentSetProgressRow(
+        x + 16,
+        rowY,
+        width - 32,
+        legendTier.label || "LEGEND ARRAY",
+        legendTier.matchedSlotCount || 0,
+        legendTier.requiredSlotCount || EQUIPMENT_HUB_SLOT_ROWS.length,
+        legendTier.complete ? "QUALIFIED" : "STANDBY",
+        legendTier.complete ? "legend" : "standard"
+      );
+      rowY += 25;
+    }
+
+    const combatLink = this.getEquipmentCombatLinkAnalysisPresentation(setStatus);
+    const linkY = Math.min(y + height - 36, rowY + 2);
+    this.createOverlayText(x + 16, linkY, combatLink.primary, {
+      fontSize: "11px",
+      color: combatLink.color,
+      fontStyle: "bold"
+    });
+    this.createOverlayText(x + width - 16, linkY, combatLink.secondary, {
+      fontSize: "10px",
+      color: combatLink.color,
+      fontStyle: "bold",
+      align: "right",
+      origin: { x: 1, y: 0 }
+    });
+  }
+
+  renderEquipmentSetSlotNodes(x, y, width, state, setStatus) {
+    const slotSummaries = Array.isArray(setStatus?.slotSummaries) ? setStatus.slotSummaries : [];
+    const summaryBySlot = slotSummaries.reduce((result, summary) => {
+      if (summary?.slot) {
+        result[summary.slot] = summary;
+      }
+      return result;
+    }, {});
+    const visibleLegend = state.legendDiscovered === true;
+    const gap = 7;
+    const nodeWidth = Math.floor((width - gap * (EQUIPMENT_HUB_SLOT_ROWS.length - 1)) / EQUIPMENT_HUB_SLOT_ROWS.length);
+    EQUIPMENT_HUB_SLOT_ROWS.forEach((entry, index) => {
+      const summary = summaryBySlot[entry.slot] || { equipped: false, rarity: null };
+      const nodeX = x + index * (nodeWidth + gap);
+      const slotLabel = entry.slot === "accessory"
+        ? "ACC"
+        : (entry.slot === "weapon" ? "WEPN" : entry.label.slice(0, 5));
+      let rarityLabel = "--";
+      let style = EQUIPMENT_HUB_RARITY_STYLES.N;
+      let fillAlpha = 0.34;
+      if (summary.equipped) {
+        if (summary.legendQualified && visibleLegend) {
+          rarityLabel = "LEGEND";
+          style = EQUIPMENT_HUB_RARITY_STYLES.LEGEND;
+          fillAlpha = 0.68;
+        } else if (summary.ssrPlusQualified) {
+          rarityLabel = "SSR+";
+          style = EQUIPMENT_HUB_RARITY_STYLES.SSR;
+          fillAlpha = 0.64;
+        } else if (summary.rarity) {
+          rarityLabel = summary.rarity;
+          style = this.getEquipmentRarityStyle(summary.rarity);
+          fillAlpha = 0.5;
+        }
+      }
+
+      const graphics = this.addOverlayChild(this.add.graphics());
+      graphics.fillStyle(style.fill, fillAlpha);
+      graphics.fillRoundedRect(nodeX, y, nodeWidth, 28, 4);
+      graphics.lineStyle(1, style.stroke, summary.equipped ? 0.36 : 0.18);
+      graphics.strokeRoundedRect(nodeX + 0.5, y + 0.5, nodeWidth - 1, 27, 4);
+      this.createOverlayText(nodeX + 5, y + 5, slotLabel, {
+        fontSize: "8px",
+        color: "#9ab7cc",
+        fontStyle: "bold"
+      });
+      const rarityText = this.createOverlayText(nodeX + nodeWidth - 5, y + 15, rarityLabel, {
+        fontSize: "9px",
+        color: summary.equipped ? style.text : "#738597",
+        fontStyle: "bold",
+        align: "right",
+        origin: { x: 1, y: 0 }
+      });
+      this.fitOverlayTextToWidth(rarityText, nodeWidth - 10, 7);
+    });
+  }
+
+  renderEquipmentSetProgressRow(x, y, width, label, count, total, status, tone) {
+    const complete = status === "QUALIFIED";
+    const strokeColor = tone === "legend" ? 0xecf7ff : (complete ? 0xf0c463 : 0x6fcfff);
+    const textColor = tone === "legend" ? "#ffffff" : (complete ? "#ffe39a" : "#ecf7ff");
+    const rowGraphics = this.addOverlayChild(this.add.graphics());
+    rowGraphics.fillStyle(0x0a1824, 0.7);
+    rowGraphics.fillRoundedRect(x, y, width, 21, 4);
+    rowGraphics.lineStyle(1, strokeColor, complete ? 0.36 : 0.18);
+    rowGraphics.strokeRoundedRect(x + 0.5, y + 0.5, width - 1, 20, 4);
+
+    const labelText = this.createOverlayText(x + 9, y + 5, label, {
+      fontSize: "10px",
+      color: textColor,
+      fontStyle: "bold"
+    });
+    const countText = this.createOverlayText(x + width - (status ? 96 : 12), y + 5, `${count} / ${total}`, {
+      fontSize: "10px",
+      color: "#9ffcff",
+      fontStyle: "bold",
+      align: "right",
+      origin: { x: 1, y: 0 }
+    });
+    if (status) {
+      const statusText = this.createOverlayText(x + width - 10, y + 5, status, {
+        fontSize: "10px",
+        color: complete ? "#ffe39a" : "#9ab7cc",
+        fontStyle: "bold",
+        align: "right",
+        origin: { x: 1, y: 0 }
+      });
+      this.fitOverlayTextToWidth(statusText, 76, 8);
+      this.fitOverlayTextToWidth(labelText, width - 190, 8);
+      this.fitOverlayTextToWidth(countText, 56, 8);
+      return;
+    }
+    this.fitOverlayTextToWidth(labelText, width - 96, 8);
+    this.fitOverlayTextToWidth(countText, 74, 8);
   }
 
   renderEquipmentLoadoutCard(row, x, y, width, height) {
@@ -38424,58 +40843,113 @@ class SurvivalScene extends Phaser.Scene {
 
   createDebugRunArchiveEntries() {
     const now = Date.now();
+    const baseEntry = {
+      outcome: "normal_extract",
+      extractionSucceeded: true,
+      extractMode: "normal",
+      deathReason: "none",
+      survivalMs: 482000,
+      level: 31,
+      kills: 1860,
+      eliteKills: 18,
+      bossKills: 5,
+      unconfirmedGeekFinal: 32400,
+      extractedGeek: 32400,
+      geekMultiplierMax: 2.78,
+      instability: 2,
+      anjuMemoryEarned: 6,
+      grade: "S",
+      stageId: "tokyo_stage_03_electric_town",
+      stageName: "Tokyo 03 Electric Town",
+      skills: { basicSkill: 8, tornadoSkill: 6, rabbitThunderSkill: 4 },
+      skillMutations: {
+        basicSkill: { core: "assault", final: "prism", finalFormId: "assault_prism", label: "PRISM HALO" },
+        tornadoSkill: { core: "control", final: "singularity", finalFormId: "control_singularity", label: "EVENT HORIZON" },
+        rabbitThunderSkill: { core: "reactor", final: "execution", finalFormId: "reactor_execution", label: "BOOST SPEAR" }
+      },
+      passives: { overchargeBolt: 6, rapidSigil: 5, swiftStep: 4, staminaCore: 3, vitalBloom: 7 },
+      lostArms: {
+        abyssRailLevel: 5,
+        gravitySeedLevel: 3,
+        abyssRailResonance: 3,
+        gravitySeedResonance: 2,
+        abyssRailEvolution: "EXECUTION RAIL",
+        gravitySeedEvolution: ""
+      },
+      robot: {
+        missileLevel: 12,
+        recoveryLevel: 11,
+        rapidLauncherLevel: 4,
+        warheadBoostLevel: 3,
+        fieldCycleLevel: 2,
+        careOutputLevel: 4,
+        syncActivations: 2
+      },
+      overdrive: { activations: 4, modsSelected: ["GOLD FEVER", "HUNTER MODE"] },
+      stabilize: { chargesUsed: 3, protocolsUsed: ["EXTEND GATE", "SECURE CACHE"] },
+      contracts: [{ depth: 6, id: "greedProtocol", label: "GREED PROTOCOL" }],
+      directives: [{ depth: 6, id: "bossHunter", label: "BOSS HUNTER", completed: true }],
+      nemesis: { spawned: 2, defeated: 2, typesDefeated: ["NEMESIS BRUTE", "NEMESIS CASTER"] }
+    };
     return [
       this.normalizeRunArchiveEntry({
-        id: `debug-run-archive-${now}`,
+        ...baseEntry,
+        id: `debug-run-archive-${now}-no-link`,
         submittedAt: new Date(now).toISOString(),
-        outcome: "normal_extract",
-        extractionSucceeded: true,
-        extractMode: "normal",
-        deathReason: "none",
         bestDepth: 8,
         maxDepthReached: 8,
-        survivalMs: 482000,
-        level: 31,
-        kills: 1860,
-        eliteKills: 18,
-        bossKills: 5,
-        unconfirmedGeekFinal: 32400,
-        extractedGeek: 32400,
-        geekMultiplierMax: 2.78,
-        instability: 2,
-        anjuMemoryEarned: 6,
+        startDepth: 1,
+        usedDepthRelay: false
+      }),
+      this.normalizeRunArchiveEntry({
+        ...baseEntry,
+        id: `debug-run-archive-${now}-link-i`,
+        submittedAt: new Date(now - 60000).toISOString(),
+        bestDepth: 10,
+        maxDepthReached: 10,
+        startDepth: 1,
+        usedDepthRelay: false,
+        grade: "A",
+        equipmentCombatLink: {
+          combatLinkLevel: 1,
+          overlimitCap: 1,
+          overlimitLevels: { basicSkill: 1, tornadoSkill: 0, rabbitThunderSkill: 0 }
+        }
+      }),
+      this.normalizeRunArchiveEntry({
+        ...baseEntry,
+        id: `debug-run-archive-${now}-link-ii`,
+        submittedAt: new Date(now - 120000).toISOString(),
+        bestDepth: 14,
+        maxDepthReached: 14,
+        startDepth: 1,
+        usedDepthRelay: false,
         grade: "S",
-        stageId: "tokyo_stage_03_electric_town",
-        stageName: "Tokyo 03 Electric Town",
-        skills: { basicSkill: 8, tornadoSkill: 6, rabbitThunderSkill: 4 },
-        skillMutations: {
-          basicSkill: { core: "assault", final: "prism", finalFormId: "assault_prism", label: "PRISM HALO" },
-          tornadoSkill: { core: "control", final: "singularity", finalFormId: "control_singularity", label: "EVENT HORIZON" },
-          rabbitThunderSkill: { core: "reactor", final: "execution", finalFormId: "reactor_execution", label: "BOOST SPEAR" }
-        },
-        passives: { overchargeBolt: 6, rapidSigil: 5, swiftStep: 4, staminaCore: 3, vitalBloom: 7 },
-        lostArms: {
-          abyssRailLevel: 5,
-          gravitySeedLevel: 3,
-          abyssRailResonance: 3,
-          gravitySeedResonance: 2,
-          abyssRailEvolution: "EXECUTION RAIL",
-          gravitySeedEvolution: ""
-        },
-        robot: {
-          missileLevel: 12,
-          recoveryLevel: 11,
-          rapidLauncherLevel: 4,
-          warheadBoostLevel: 3,
-          fieldCycleLevel: 2,
-          careOutputLevel: 4,
-          syncActivations: 2
-        },
-        overdrive: { activations: 4, modsSelected: ["GOLD FEVER", "HUNTER MODE"] },
-        stabilize: { chargesUsed: 3, protocolsUsed: ["EXTEND GATE", "SECURE CACHE"] },
-        contracts: [{ depth: 6, id: "greedProtocol", label: "GREED PROTOCOL" }],
-        directives: [{ depth: 6, id: "bossHunter", label: "BOSS HUNTER", completed: true }],
-        nemesis: { spawned: 2, defeated: 2, typesDefeated: ["NEMESIS BRUTE", "NEMESIS CASTER"] }
+        skills: { basicSkill: 8, tornadoSkill: 8, rabbitThunderSkill: 5 },
+        equipmentCombatLink: {
+          combatLinkLevel: 2,
+          overlimitCap: 2,
+          overlimitLevels: { basicSkill: 1, tornadoSkill: 2, rabbitThunderSkill: 0 }
+        }
+      }),
+      this.normalizeRunArchiveEntry({
+        ...baseEntry,
+        id: `debug-run-archive-${now}-relay-d20-link-ii`,
+        submittedAt: new Date(now - 180000).toISOString(),
+        bestDepth: 22,
+        maxDepthReached: 22,
+        startDepth: 20,
+        usedDepthRelay: true,
+        level: 17,
+        kills: 980,
+        extractedGeek: 20800,
+        unconfirmedGeekFinal: 20800,
+        skills: { basicSkill: 8, tornadoSkill: 8, rabbitThunderSkill: 8 },
+        equipmentCombatLink: {
+          combatLinkLevel: 2,
+          overlimitCap: 2,
+          overlimitLevels: { basicSkill: 0, tornadoSkill: 2, rabbitThunderSkill: 1 }
+        }
       })
     ];
   }
@@ -38498,12 +40972,39 @@ class SurvivalScene extends Phaser.Scene {
     return selected;
   }
 
+  getRunArchiveEquipmentCombatLinkSnapshot(entry) {
+    return this.normalizeRunArchiveEquipmentCombatLinkSnapshot(entry?.equipmentCombatLink);
+  }
+
+  getRunArchiveCombatLinkBadge(entry) {
+    const snapshot = this.getRunArchiveEquipmentCombatLinkSnapshot(entry);
+    if (snapshot.combatLinkLevel <= 0) {
+      return "";
+    }
+    return `LINK ${this.formatEquipmentOverlimitLevelLabel(snapshot.combatLinkLevel)}`;
+  }
+
+  getRunArchiveCombatLinkDetailLine(entry) {
+    const badge = this.getRunArchiveCombatLinkBadge(entry);
+    return badge ? `COMBAT LINK: ${badge.replace("LINK ", "")}` : "";
+  }
+
+  getRunArchiveSkillOverlimitLabel(entry, skillId) {
+    const snapshot = this.getRunArchiveEquipmentCombatLinkSnapshot(entry);
+    const level = snapshot.overlimitLevels?.[skillId] || 0;
+    return this.formatEquipmentOverlimitHudLabel(level);
+  }
+
   getRunArchiveSkillSummary(entry) {
     const skills = entry?.skills || {};
+    const formatSkill = (label, skillId, level) => {
+      const overlimitLabel = this.getRunArchiveSkillOverlimitLabel(entry, skillId);
+      return `${label} ${level || 0}${overlimitLabel ? ` ${overlimitLabel}` : ""}`;
+    };
     return [
-      `BASIC ${skills.basicSkill || 0}`,
-      `TORNADO ${skills.tornadoSkill || 0}`,
-      `RABBIT ${skills.rabbitThunderSkill || 0}`
+      formatSkill("BASIC", "basicSkill", skills.basicSkill),
+      formatSkill("TORNADO", "tornadoSkill", skills.tornadoSkill),
+      formatSkill("RABBIT", "rabbitThunderSkill", skills.rabbitThunderSkill)
     ].join(" / ");
   }
 
@@ -38536,6 +41037,16 @@ class SurvivalScene extends Phaser.Scene {
       ? `GRAVITY ${arms.gravitySeedEvolution}`
       : `GRAVITY Lv.${arms.gravitySeedLevel || 0}${arms.gravitySeedResonance > 0 ? ` RES ${arms.gravitySeedResonance}` : ""}`;
     return `${abyss} / ${gravity}`;
+  }
+
+  getRunArchiveRelayBadge(entry = {}) {
+    const snapshot = this.normalizeRunOriginSnapshot(entry, { maxDepthReached: entry?.maxDepthReached });
+    return snapshot.usedDepthRelay ? `RLY D${snapshot.startDepth}` : "";
+  }
+
+  getRunArchiveRelayRouteLine(entry = {}) {
+    const route = this.formatRunOriginRouteLabel(entry, entry?.maxDepthReached);
+    return route ? `DEPTH RELAY: ${route}` : "";
   }
 
   getRunArchiveBuildSummary(entry) {
@@ -38592,7 +41103,10 @@ class SurvivalScene extends Phaser.Scene {
 
     const label = this.getRunArchiveOutcomeLabel(entry.outcome);
     const gradeText = entry.grade ? ` / ${entry.grade}` : "";
-    const metrics = `D${entry.maxDepthReached}  K${entry.kills.toLocaleString()}  EX ${this.formatRunArchiveGeek(entry.extractedGeek)}`;
+    const relayBadge = this.getRunArchiveRelayBadge(entry);
+    const combatLinkBadge = this.getRunArchiveCombatLinkBadge(entry);
+    const prefixBadges = [relayBadge, combatLinkBadge].filter(Boolean).join("  ");
+    const metrics = `${prefixBadges ? `${prefixBadges}  ` : ""}D${entry.maxDepthReached}  K${entry.kills.toLocaleString()}  EX ${this.formatRunArchiveGeek(entry.extractedGeek)}`;
     const stage = entry.stageName || entry.stageId || "UNKNOWN STAGE";
     this.createOverlayText(x + 12, y + 8, `${this.formatRunArchiveDate(entry.submittedAt)}  ${label}${gradeText}`, {
       fontSize: "12px",
@@ -38633,9 +41147,13 @@ class SurvivalScene extends Phaser.Scene {
     const odMods = entry.overdrive?.modsSelected?.join(", ") || "-";
     const stProtocols = entry.stabilize?.protocolsUsed?.join(", ") || "-";
     const nemesisTypes = entry.nemesis?.typesDefeated?.join(", ") || "-";
+    const relayRouteLine = this.getRunArchiveRelayRouteLine(entry);
+    const combatLinkLine = this.getRunArchiveCombatLinkDetailLine(entry);
     const lines = [
       `RESULT: ${this.getRunArchiveOutcomeLabel(entry.outcome)} / ${entry.extractionSucceeded ? "SUCCESS" : "FAILED"} / MODE ${entry.extractMode} / DEATH ${entry.deathReason}`,
       `RUN: Depth ${entry.maxDepthReached} / TIME ${this.formatRunArchiveDuration(entry.survivalMs)} / Lv.${entry.level} / KILLS ${entry.kills.toLocaleString()} / ELITE ${entry.eliteKills} / BOSS ${entry.bossKills}`,
+      relayRouteLine,
+      combatLinkLine,
       `GEEK: EXTRACTED ${this.formatRunArchiveGeek(entry.extractedGeek)} / FINAL UNCONFIRMED ${this.formatRunArchiveGeek(entry.unconfirmedGeekFinal)} / MAX x${entry.geekMultiplierMax.toFixed(2)} / INSTABILITY ${entry.instability}`,
       `BUILD: ${this.getRunArchiveTriadBuildSummary(entry)}`,
       `SKILLS: ${this.getRunArchiveSkillSummary(entry)}`,
@@ -38648,7 +41166,7 @@ class SurvivalScene extends Phaser.Scene {
       `NEMESIS: ${entry.nemesis?.defeated || 0}/${entry.nemesis?.spawned || 0} / ${nemesisTypes}`,
       `OD/ST: OD ${entry.overdrive?.activations || 0} (${odMods}) / ST CHARGE ${entry.stabilize?.chargesUsed || 0} (${stProtocols})`,
       `STAGE: ${entry.stageName || "-"} / ${entry.stageId || "-"}`
-    ];
+    ].filter(Boolean);
 
     this.createOverlayText(x + 18, y + 14, "DETAIL", {
       fontSize: "14px",
@@ -39021,6 +41539,7 @@ class SurvivalScene extends Phaser.Scene {
     this.shopStatusMessage = this.consumePendingEquipmentRewardHubNotice(message) || "";
     this.levelUpActive = false;
     this.physics.world.pause();
+    this.clearDepthRelayStartSelectionOverlay("showPreGameShop");
 
     this.clearOverlayButtons();
     this.configureOverlayPanel(1160, 674);
@@ -39574,13 +42093,24 @@ class SurvivalScene extends Phaser.Scene {
 
   createPermanentUpgradeCard(definition, x, y, width, height) {
     const level = this.getPermanentUpgradeLevel(definition.id);
+    const currentCap = this.getBaseCalibrationLevelCap(definition.id, this.depthRelayState);
     const cost = this.getPermanentUpgradeCost(definition.id);
-    const isMaxed = cost === null;
+    const nextRequirement = this.getNextBaseCalibrationCapRequirement(currentCap, this.depthRelayState);
+    const presentation = this.getPermanentUpgradeCardPresentation({
+      upgradeId: definition.id,
+      currentLevel: level,
+      currentCap,
+      absoluteMaxLevel: definition.maxLevel,
+      nextRequirement,
+      currentCoins: this.coins,
+      cost
+    });
+    const isMaxed = presentation.state === "absolute-max";
     const panel = this.addOverlayChild(
       this.add
         .rectangle(x, y, width, height, 0x101b2a, 0.94)
         .setOrigin(0, 0)
-        .setStrokeStyle(1, definition.accent, isMaxed ? 0.64 : 0.34)
+        .setStrokeStyle(1, definition.accent, presentation.canAttemptPurchase ? 0.34 : 0.52)
     );
 
     panel.setInteractive({ useHandCursor: !isMaxed });
@@ -39595,32 +42125,37 @@ class SurvivalScene extends Phaser.Scene {
     }, true, 8);
 
     this.createOverlayText(x + 18, y + 14, definition.title, {
-      fontSize: "20px",
+      fontSize: "18px",
       color: "#ecf7ff",
       fontStyle: "bold"
     });
-    this.createOverlayText(x + width - 18, y + 16, `Lv.${level}/${definition.maxLevel}`, {
-      fontSize: "16px",
+    this.createOverlayText(x + width - 18, y + 14, presentation.levelLabel, {
+      fontSize: "14px",
       color: "#f0c463",
       fontStyle: "bold",
       align: "right",
       origin: { x: 1, y: 0 }
     });
-    this.createOverlayText(x + 18, y + 43, definition.description, {
-      fontSize: "14px",
+    this.createOverlayText(x + 18, y + 36, definition.description, {
+      fontSize: "12px",
       color: "#9ab7cc"
     });
-    this.createOverlayText(x + 18, y + 70, this.getPermanentUpgradeEffectText(definition.id), {
-      fontSize: "16px",
+    this.createOverlayText(x + 18, y + 56, this.getPermanentUpgradeEffectText(definition.id), {
+      fontSize: "15px",
       color: "#ecf7ff",
       fontStyle: "bold"
     });
-    this.createOverlayText(x + width - 18, y + 70, isMaxed ? "MAX" : `${cost.toLocaleString()} GEEK`, {
-      fontSize: "18px",
-      color: isMaxed ? "#66d25f" : "#ecf7ff",
+    this.createOverlayText(x + width - 18, y + 56, presentation.actionLabel, {
+      fontSize: presentation.actionLabel.length > 14 ? "14px" : "17px",
+      color: presentation.actionColor,
       fontStyle: "bold",
       align: "right",
       origin: { x: 1, y: 0 }
+    });
+    this.createOverlayText(x + 18, y + 76, presentation.statusLabel, {
+      fontSize: presentation.statusLabel.length > 28 ? "10px" : "11px",
+      color: presentation.state === "available" ? "#8fb5ca" : "#ffcf91",
+      fontStyle: presentation.state === "available" ? "" : "bold"
     });
   }
 
@@ -39629,6 +42164,35 @@ class SurvivalScene extends Phaser.Scene {
     this.createShopButton(392, 298, 318, 64, "SORTIE PREP", "開始前強化を選択", () => {
       this.startGameFromShop();
     }, 0x174766, 0x236b92, { kicker: "NEXT PHASE" });
+    if (this.hasUnlockedDepthRelayStartDepth()) {
+      this.renderDepthRelayStartOnlineChip(392, 348, 220);
+    }
+  }
+
+  renderDepthRelayStartOnlineChip(centerX, centerY, width = 182) {
+    const height = 22;
+    const relayDepths = this.buildDepthRelayStartChoices(this.depthRelayState)
+      .filter((choice) => choice.type === "depthRelay")
+      .map((choice) => choice.depth)
+      .filter((depth) => Number.isInteger(depth));
+    const maxRelayDepth = relayDepths.length > 0 ? Math.max(...relayDepths) : null;
+    const label = maxRelayDepth >= 20 ? "ANCHOR 020 ONLINE" : `RELAY ONLINE - D${maxRelayDepth || 10}`;
+    this.addOverlayChild(
+      this.add
+        .rectangle(centerX, centerY, width, height, 0x061724, 0.9)
+        .setStrokeStyle(1, 0x6ff7ff, 0.48)
+    );
+    this.createOverlayText(centerX, centerY - 7, label, {
+      fontSize: "11px",
+      color: "#9ffcff",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0.5 }
+    }).setAlpha(0.94);
+    this.addOverlayChild(
+      this.add
+        .circle(centerX - width / 2 + 16, centerY, 3.5, 0x63ffcf, 0.88)
+    );
   }
 
   renderShopPhaseProgress(centerX, centerY, width = 318) {
@@ -39706,12 +42270,940 @@ class SurvivalScene extends Phaser.Scene {
     return panel;
   }
 
-  startGameFromShop() {
-    if (!this.shopActive) {
-      return;
+  buildDepthRelayStartChoices(depthRelayState = this.depthRelayState) {
+    const normalizedState = this.normalizeDepthRelayState(depthRelayState);
+    const relayDepths = [...new Set(
+      DEPTH_RELAY_PLAYER_SELECTABLE_DEPTHS.filter((depth) => (
+        Number.isInteger(depth) &&
+        Number.isSafeInteger(depth) &&
+        depth > 1
+      ))
+    )]
+      .sort((left, right) => left - right)
+      .filter((depth) => this.isDepthRelayStartDepthAvailable(normalizedState, depth));
+
+    return [
+      {
+        depth: 1,
+        type: "standard",
+        unlocked: true,
+        inputNumber: 1,
+        selectable: true,
+        locked: false
+      },
+      ...relayDepths.map((depth, index) => ({
+        depth,
+        type: "depthRelay",
+        unlocked: true,
+        inputNumber: index + 2,
+        selectable: true,
+        locked: false
+      }))
+    ];
+  }
+
+  hasUnlockedDepthRelayStartDepth(depthRelayState = this.depthRelayState) {
+    return this.buildDepthRelayStartChoices(depthRelayState).some((choice) => choice.type === "depthRelay");
+  }
+
+  hasDepthRelayStartSelectionDebugBypass() {
+    return this.getDebugStartDepthOverride() !== null ||
+      this.hasDebugRelayStartDepthQuery() ||
+      this.hasDebugRelayLaunchDepthQuery() ||
+      this.runStartContext?.mode === RUN_START_CONTEXT_MODE.DEBUG ||
+      this.runStartContext?.mode === RUN_START_CONTEXT_MODE.DEPTH_RELAY;
+  }
+
+  getDepthRelayStartChoicePresentation(choice) {
+    const depth = Number.isInteger(choice?.depth) ? choice.depth : null;
+    const type = typeof choice?.type === "string" ? choice.type : "";
+    if (type === "standard" && depth === 1) {
+      return {
+        tone: "standard",
+        badge: "FULL ROUTE",
+        title: "STANDARD DESCENT",
+        depthLabel: "START DEPTH 1",
+        primaryNote: "BUILD FROM DEPTH 1",
+        secondaryNote: "ALL DEPTH PROGRESSION AVAILABLE",
+        warning: null
+      };
+    }
+    if (type === "depthRelay" && depth === 10) {
+      return {
+        tone: "warning",
+        badge: "HIGH RISK",
+        title: "RELAY TRANSFER",
+        depthLabel: "START DEPTH 10",
+        primaryNote: "UPGRADED LOADOUT RECOMMENDED",
+        secondaryNote: "FRESH RUN - NO D1-D9 REWARDS",
+        warning: "EARLY FIREPOWER REQUIRED"
+      };
+    }
+    if (type === "depthRelay" && depth === 20) {
+      return {
+        tone: "extreme",
+        badge: "EXTREME RISK",
+        title: "DEEP RELAY TRANSFER",
+        depthLabel: "START DEPTH 20",
+        primaryNote: "DEEP LOADOUT RECOMMENDED",
+        secondaryNote: "LEGEND HUNT / ITEM RECOVERY SUPPORT ADVISED",
+        warning: "FRESH RUN - NO D1-D19 REWARDS\nEARLY FIREPOWER REQUIRED"
+      };
+    }
+    return {
+      tone: "standard",
+      badge: "ROUTE",
+      title: "DEPLOYMENT ROUTE",
+      depthLabel: Number.isInteger(depth) ? `START DEPTH ${depth}` : "START DEPTH --",
+      primaryNote: "SELECT A VALID ROUTE",
+      secondaryNote: "",
+      warning: null
+    };
+  }
+
+  shouldOfferDepthRelayStartSelection() {
+    if (
+      !this.shopActive ||
+      this.gameOver ||
+      this.extractionComplete ||
+      this.levelUpActive ||
+      this.gateChoiceActive ||
+      this.depthRelayStartOverlayActive ||
+      this.depthRelayStartSelectionLocked ||
+      this.runLaunchRequestInProgress ||
+      this.equipmentAnalysisResultOpen
+    ) {
+      return false;
+    }
+    if (this.hasDepthRelayStartSelectionDebugBypass()) {
+      return false;
+    }
+    if (this.isValidRunLaunchRequest(this.pendingRunLaunchRequest)) {
+      return false;
+    }
+    if ((this.runStartContext?.mode || RUN_START_CONTEXT_MODE.STANDARD) !== RUN_START_CONTEXT_MODE.STANDARD) {
+      return false;
+    }
+    return this.hasUnlockedDepthRelayStartDepth(this.depthRelayState);
+  }
+
+  createDepthRelayStartText(parent, x, y, text, options = {}) {
+    const label = this.add.text(x, y, text, {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: options.fontSize ?? "16px",
+      color: options.color ?? "#ecf7ff",
+      fontStyle: options.fontStyle ?? "",
+      align: options.align ?? "left",
+      lineSpacing: options.lineSpacing ?? 0,
+      wordWrap: options.wordWrap
+    });
+    if (options.origin) {
+      label.setOrigin(options.origin.x, options.origin.y);
+    }
+    if (Number.isFinite(options.depth)) {
+      label.setDepth(options.depth);
+    }
+    parent.add(label);
+    return label;
+  }
+
+  showDepthRelayStartSelectionOverlay() {
+    if (this.depthRelayStartOverlayActive) {
+      return true;
+    }
+    const choices = this.buildDepthRelayStartChoices(this.depthRelayState);
+    if (!choices.some((choice) => choice.type === "depthRelay")) {
+      return false;
     }
 
+    this.depthRelayStartOverlayActive = true;
+    this.depthRelayStartSelectionLocked = false;
+    this.depthRelayStartFocusedIndex = 0;
+    this.depthRelayStartChoiceRecords = [];
+
+    const overlay = this.add
+      .container(0, 0)
+      .setScrollFactor(0)
+      .setDepth(10100);
+    this.depthRelayStartOverlay = overlay;
+
+    const panelWidth = 910;
+    const panelHeight = 510;
+    const panelX = GAME_WIDTH / 2;
+    const panelY = GAME_HEIGHT / 2 + 2;
+    const panelLeft = panelX - panelWidth / 2;
+    const panelTop = panelY - panelHeight / 2;
+    const panelRight = panelLeft + panelWidth;
+    const panelBottom = panelTop + panelHeight;
+    overlay.add(
+      this.add
+        .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x010711, 0.62)
+        .setScrollFactor(0)
+        .setDepth(-200)
+    );
+    this.addDepthRelayStartInputBlocker(overlay, GAME_WIDTH / 2, panelTop / 2, GAME_WIDTH, panelTop);
+    this.addDepthRelayStartInputBlocker(overlay, GAME_WIDTH / 2, panelBottom + (GAME_HEIGHT - panelBottom) / 2, GAME_WIDTH, GAME_HEIGHT - panelBottom);
+    this.addDepthRelayStartInputBlocker(overlay, panelLeft / 2, panelTop + panelHeight / 2, panelLeft, panelHeight);
+    this.addDepthRelayStartInputBlocker(overlay, panelRight + (GAME_WIDTH - panelRight) / 2, panelTop + panelHeight / 2, GAME_WIDTH - panelRight, panelHeight);
+    const frame = this.add.graphics();
+    frame.setDepth(-50);
+    frame.fillStyle(0x020811, 0.96);
+    frame.fillRoundedRect(panelLeft, panelTop, panelWidth, panelHeight, 8);
+    frame.lineStyle(2, 0x6ff7ff, 0.58);
+    frame.strokeRoundedRect(panelLeft + 1, panelTop + 1, panelWidth - 2, panelHeight - 2, 8);
+    frame.lineStyle(1, 0xf0c463, 0.32);
+    frame.lineBetween(panelLeft + 28, panelTop + 48, panelLeft + 210, panelTop + 48);
+    frame.lineBetween(panelLeft + panelWidth - 210, panelTop + 48, panelLeft + panelWidth - 28, panelTop + 48);
+    frame.fillStyle(0x0b2637, 0.86);
+    frame.fillRoundedRect(panelX - 122, panelTop + 55, 244, 25, 4);
+    frame.lineStyle(1, 0x6ff7ff, 0.36);
+    frame.strokeRoundedRect(panelX - 122.5, panelTop + 54.5, 245, 26, 4);
+    overlay.add(frame);
+
+    this.createDepthRelayStartText(overlay, panelX, panelTop + 30, "DEPTH RELAY", {
+      fontSize: "34px",
+      color: "#ecf7ff",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0.5 }
+    });
+    this.createDepthRelayStartText(overlay, panelX, panelTop + 68, "BEACON NETWORK ONLINE", {
+      fontSize: "12px",
+      color: "#9ffcff",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0.5 }
+    });
+    this.createDepthRelayStartText(overlay, panelX, panelTop + 101, "SELECT DEPLOYMENT ORIGIN", {
+      fontSize: "17px",
+      color: "#b8d4e8",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0.5 }
+    });
+
+    const compactCards = choices.length >= 3;
+    const cardWidth = compactCards ? 286 : 336;
+    const cardHeight = compactCards ? 244 : 234;
+    const cardGap = compactCards ? 22 : 34;
+    const cardY = panelTop + 254;
+    const cardTop = cardY - cardHeight / 2;
+    const cardBottom = cardY + cardHeight / 2;
+    const totalCardWidth = choices.length * cardWidth + Math.max(0, choices.length - 1) * cardGap;
+    const firstCardX = panelX - totalCardWidth / 2 + cardWidth / 2;
+    const cardLeft = firstCardX - cardWidth / 2;
+    const cardRight = firstCardX + (choices.length - 1) * (cardWidth + cardGap) + cardWidth / 2;
+    this.addDepthRelayStartInputBlocker(overlay, panelX, panelTop + (cardTop - panelTop) / 2, panelWidth, cardTop - panelTop);
+    this.addDepthRelayStartInputBlocker(overlay, panelLeft + (cardLeft - panelLeft) / 2, cardY, cardLeft - panelLeft, cardHeight);
+    this.addDepthRelayStartInputBlocker(overlay, cardRight + (panelRight - cardRight) / 2, cardY, panelRight - cardRight, cardHeight);
+    if (choices.length > 1) {
+      for (let index = 0; index < choices.length - 1; index += 1) {
+        const gapLeft = firstCardX + index * (cardWidth + cardGap) + cardWidth / 2;
+        this.addDepthRelayStartInputBlocker(overlay, gapLeft + cardGap / 2, cardY, cardGap, cardHeight);
+      }
+    }
+    this.addDepthRelayStartInputBlocker(overlay, panelX, cardBottom + (panelTop + 468 - cardBottom) / 2, panelWidth, panelTop + 468 - cardBottom);
+    choices.forEach((choice, index) => {
+      const cardX = firstCardX + index * (cardWidth + cardGap);
+      this.createDepthRelayStartChoiceCard(choice, index, cardX, cardY, cardWidth, cardHeight);
+    });
+
+    const selectableKeys = choices
+      .map((choice) => choice.inputNumber)
+      .filter((inputNumber) => Number.isInteger(inputNumber))
+      .join(" / ");
+    const hint = this.mobileControlsEnabled
+      ? "TAP TO SELECT    ESC BACK"
+      : `${selectableKeys} SELECT    ARROWS FOCUS    ENTER DEPLOY    ESC BACK`;
+    this.createDepthRelayStartText(overlay, panelX, panelTop + 432, hint, {
+      fontSize: "13px",
+      color: "#8fb0c6",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0.5 }
+    });
+    this.depthRelayStartStatusText = this.createDepthRelayStartText(overlay, panelX, panelTop + 462, "", {
+      fontSize: "13px",
+      color: "#ffb9a8",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0.5 }
+    });
+    this.createDepthRelayStartBackButton(overlay, panelX, panelTop + 486);
+    this.addDepthRelayStartInputBlocker(overlay, panelX - 198, panelTop + 486, panelWidth / 2 - 77, 36);
+    this.addDepthRelayStartInputBlocker(overlay, panelX + 198, panelTop + 486, panelWidth / 2 - 77, 36);
+    this.addDepthRelayStartInputBlocker(overlay, panelX, panelTop + 504, panelWidth, Math.max(0, panelBottom - (panelTop + 504)));
+
+    this.registerDepthRelayStartKeyboardInput();
+    this.registerDepthRelayStartPointerInput();
+    this.setDepthRelayStartFocusedIndex(0, { animate: false });
+    overlay.sort?.("depth");
+
+    overlay.setAlpha(0.96).setScale(0.985);
+    this.tweens?.add({
+      targets: overlay,
+      alpha: 1,
+      scale: 1,
+      duration: 140,
+      ease: "Sine.easeOut"
+    });
+    return true;
+  }
+
+  addDepthRelayStartInputBlocker(parent, centerX, centerY, width, height) {
+    if (!parent || width <= 0 || height <= 0) {
+      return null;
+    }
+    const blocker = this.add
+      .rectangle(centerX, centerY, width, height, 0xffffff, 0.001)
+      .setDepth(-100)
+      .setInteractive({ useHandCursor: false });
+    ["pointerdown", "pointerup", "pointermove", "wheel"].forEach((eventName) => {
+      blocker.on(eventName, (_pointer, _localX, _localY, event) => event?.stopPropagation?.());
+    });
+    parent.add(blocker);
+    return blocker;
+  }
+
+  createDepthRelayStartChoiceCard(choice, index, x, y, width, height) {
+    const container = this.add.container(x, y);
+    container.setDepth(20);
+    const background = this.add.graphics();
+    const hitArea = this.add
+      .rectangle(x, y, width, height, 0xffffff, 0.001)
+      .setDepth(25)
+      .setInteractive({ useHandCursor: true });
+    const record = {
+      choice: { ...choice },
+      index,
+      container,
+      background,
+      hitArea,
+      width,
+      height,
+      focused: false,
+      selected: false,
+      disabled: choice.locked === true || choice.selectable === false || !choice.unlocked
+    };
+
+    container.add(background);
+    this.renderDepthRelayStartChoiceTexts(container, record);
+    hitArea.on("pointerover", () => this.setDepthRelayStartFocusedIndex(index));
+    hitArea.on("pointerup", (pointer, _localX, _localY, event) => {
+      if (!this.isPrimaryPointerActivation(pointer)) {
+        return;
+      }
+      event?.stopPropagation?.();
+      this.commitDepthRelayStartChoice(choice.depth);
+    });
+    this.depthRelayStartOverlay.add([container, hitArea]);
+    this.depthRelayStartChoiceRecords.push(record);
+    this.drawDepthRelayStartChoiceCard(record);
+    return record;
+  }
+
+  renderDepthRelayStartChoiceTexts(container, record) {
+    const { choice, width, height } = record;
+    const left = -width / 2;
+    const top = -height / 2;
+    const presentation = this.getDepthRelayStartChoicePresentation(choice);
+    const riskTone = presentation.tone === "warning" || presentation.tone === "extreme";
+    const extremeTone = presentation.tone === "extreme";
+    const accent = riskTone ? "#ffcf91" : "#9ffcff";
+    const badgeFill = riskTone ? 0x3e2710 : 0x0d3341;
+    const badgeStroke = extremeTone ? 0xff9f43 : (riskTone ? 0xf0c463 : 0x6ff7ff);
+    const compact = width < 320;
+
+    this.createDepthRelayStartChipLabel(container, left + 22, top + 18, presentation.badge, badgeFill, accent, badgeStroke);
+    record.keyText = this.createDepthRelayStartText(container, width / 2 - 28, top + 22, String(choice.inputNumber), {
+      fontSize: "18px",
+      color: "#ecfaff",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0.5 }
+    });
+    const titleText = this.createDepthRelayStartText(container, left + 22, top + 55, presentation.title, {
+      fontSize: compact ? "21px" : "24px",
+      color: "#ecf7ff",
+      fontStyle: "bold"
+    });
+    this.fitOverlayTextToWidth(titleText, width - 72, 18);
+    const depthText = this.createDepthRelayStartText(container, left + 22, top + 88, presentation.depthLabel, {
+      fontSize: compact ? "23px" : "26px",
+      color: "#ecf7ff",
+      fontStyle: "bold"
+    });
+    this.fitOverlayTextToWidth(depthText, width - 44, 18);
+    const primaryText = this.createDepthRelayStartText(container, left + 22, top + 126, presentation.primaryNote, {
+      fontSize: "14px",
+      color: riskTone ? "#ffdfac" : "#b8d4e8",
+      fontStyle: "bold",
+      wordWrap: { width: width - 44 }
+    });
+    this.fitOverlayTextToWidth(primaryText, width - 44, 10);
+    if (presentation.secondaryNote) {
+      this.createDepthRelayStartText(container, left + 22, top + 154, presentation.secondaryNote, {
+        fontSize: compact ? "12px" : "13px",
+        color: riskTone ? "#ffcf91" : "#8fb0c6",
+        fontStyle: riskTone ? "bold" : "",
+        lineSpacing: 1,
+        wordWrap: { width: width - 44 }
+      });
+    }
+    if (presentation.warning) {
+      record.warningText = this.createDepthRelayStartText(container, left + 22, height / 2 - 34, presentation.warning, {
+        fontSize: compact ? "12px" : "13px",
+        color: "#ffbd72",
+        fontStyle: "bold",
+        lineSpacing: 1,
+        wordWrap: { width: width - 44 }
+      });
+    }
+  }
+
+  createDepthRelayStartChipLabel(parent, x, y, text, fill, color, stroke = 0x6ff7ff) {
+    const width = Math.min(196, Math.max(108, text.length * 7 + 22));
+    const chip = this.add.graphics();
+    chip.fillStyle(fill, 0.86);
+    chip.fillRoundedRect(x, y, width, 20, 4);
+    chip.lineStyle(1, stroke, 0.42);
+    chip.strokeRoundedRect(x + 0.5, y + 0.5, width - 1, 19, 4);
+    parent.add(chip);
+    this.createDepthRelayStartText(parent, x + 11, y + 3, text, {
+      fontSize: "11px",
+      color,
+      fontStyle: "bold"
+    });
+  }
+
+  drawDepthRelayStartChoiceCard(record) {
+    if (!record?.background) {
+      return;
+    }
+    const { background, width, height, focused, selected, disabled, choice } = record;
+    const left = -width / 2;
+    const top = -height / 2;
+    const accent = choice.type === "depthRelay" ? 0x6ff7ff : 0xf0c463;
+    const fill = disabled ? 0x07101a : (choice.type === "depthRelay" ? 0x061724 : 0x111726);
+    const strokeAlpha = disabled ? 0.16 : (selected ? 0.92 : (focused ? 0.72 : 0.34));
+
+    background.clear();
+    background.fillStyle(fill, disabled ? 0.52 : 0.92);
+    background.fillRoundedRect(left, top, width, height, 8);
+    background.lineStyle(selected ? 3 : 2, accent, strokeAlpha);
+    background.strokeRoundedRect(left + 1, top + 1, width - 2, height - 2, 8);
+    background.fillStyle(accent, disabled ? 0.18 : (focused || selected ? 0.62 : 0.38));
+    background.fillRect(left, top + 16, 4, height - 32);
+    background.lineStyle(1, 0xffffff, disabled ? 0.08 : 0.12);
+    background.lineBetween(left + 18, top + 146, width / 2 - 18, top + 146);
+
+    record.keyText?.setColor(focused ? this.colorToCss(accent) : "#ecfaff");
+    record.container?.setAlpha(disabled ? 0.5 : 1);
+  }
+
+  createDepthRelayStartBackButton(parent, centerX, centerY) {
+    const width = 154;
+    const height = 36;
+    const button = this.add
+      .rectangle(centerX, centerY, width, height, 0x102033, 0.94)
+      .setDepth(30)
+      .setStrokeStyle(1, 0x9fb7c9, 0.52);
+    const hitArea = this.add
+      .zone(centerX, centerY, width, height)
+      .setOrigin(0.5)
+      .setDepth(32)
+      .setInteractive({ useHandCursor: true });
+    hitArea.on("pointerover", () => button.setFillStyle(0x19324d, 0.98));
+    hitArea.on("pointerout", () => button.setFillStyle(0x102033, 0.94));
+    hitArea.on("pointerup", (pointer, _localX, _localY, event) => {
+      if (!this.isPrimaryPointerActivation(pointer)) {
+        return;
+      }
+      event?.stopPropagation?.();
+      this.cancelDepthRelayStartSelection("backButton");
+    });
+    parent.add([button, hitArea]);
+    this.depthRelayStartBackButton = hitArea;
+    this.createDepthRelayStartText(parent, centerX, centerY - 1, "BACK", {
+      fontSize: "16px",
+      color: "#ecf7ff",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0.5 },
+      depth: 31
+    });
+  }
+
+  setDepthRelayStartFocusedIndex(index, options = {}) {
+    if (!this.depthRelayStartOverlayActive || this.depthRelayStartSelectionLocked) {
+      return;
+    }
+    const records = this.depthRelayStartChoiceRecords || [];
+    if (records.length <= 0) {
+      this.depthRelayStartFocusedIndex = 0;
+      return;
+    }
+    const normalizedIndex = Phaser.Math.Wrap(index, 0, records.length);
+    this.depthRelayStartFocusedIndex = normalizedIndex;
+    records.forEach((record, recordIndex) => {
+      record.focused = recordIndex === normalizedIndex;
+      this.drawDepthRelayStartChoiceCard(record);
+      if (options.animate === false) {
+        record.container?.setScale(record.focused ? 1.025 : 1);
+        return;
+      }
+      this.tweens?.killTweensOf(record.container);
+      this.tweens?.add({
+        targets: record.container,
+        scale: record.focused ? 1.025 : 1,
+        duration: 95,
+        ease: "Sine.easeOut"
+      });
+    });
+  }
+
+  registerDepthRelayStartKeyboardInput() {
+    if (this.depthRelayStartKeyHandler) {
+      this.input?.keyboard?.off("keydown", this.depthRelayStartKeyHandler);
+      this.depthRelayStartKeyHandler = null;
+    }
+    this.depthRelayStartKeyHandler = (event) => {
+      if (!this.depthRelayStartOverlayActive) {
+        return;
+      }
+      const key = event.key;
+      if (key === "Escape" || key === "Esc") {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+        this.cancelDepthRelayStartSelection("escapeKey");
+        return;
+      }
+      if (this.depthRelayStartSelectionLocked) {
+        return;
+      }
+      const numericInput = Number(key);
+      if (Number.isInteger(numericInput) && numericInput >= 1) {
+        const record = this.depthRelayStartChoiceRecords.find((entry) => entry.choice.inputNumber === numericInput);
+        if (record) {
+          event.preventDefault?.();
+          event.stopPropagation?.();
+          this.commitDepthRelayStartChoice(record.choice.depth);
+        }
+        return;
+      }
+      if (["ArrowLeft", "ArrowUp"].includes(key)) {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+        this.setDepthRelayStartFocusedIndex(this.depthRelayStartFocusedIndex - 1);
+        return;
+      }
+      if (["ArrowRight", "ArrowDown"].includes(key)) {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+        this.setDepthRelayStartFocusedIndex(this.depthRelayStartFocusedIndex + 1);
+        return;
+      }
+      if (key === "Enter" || key === " ") {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+        const record = this.depthRelayStartChoiceRecords[this.depthRelayStartFocusedIndex];
+        if (record) {
+          this.commitDepthRelayStartChoice(record.choice.depth);
+        }
+      }
+    };
+    this.input?.keyboard?.on("keydown", this.depthRelayStartKeyHandler);
+  }
+
+  registerDepthRelayStartPointerInput() {
+    if (this.depthRelayStartPointerHandler) {
+      this.input?.off("pointerdown", this.depthRelayStartPointerHandler);
+      this.input?.off("pointerup", this.depthRelayStartPointerHandler);
+      this.depthRelayStartPointerHandler = null;
+    }
+    if (this.depthRelayStartTouchHandler) {
+      this.game?.canvas?.removeEventListener?.("touchend", this.depthRelayStartTouchHandler);
+      this.depthRelayStartTouchHandler = null;
+    }
+    const activateAtPoint = (point, sourceEvent = null) => {
+      if (!this.depthRelayStartOverlayActive || this.depthRelayStartSelectionLocked) {
+        return false;
+      }
+      if (this.isPointInsideDepthRelayStartBounds(point, this.getDepthRelayStartObjectBounds(this.depthRelayStartBackButton, 0))) {
+        sourceEvent?.stopPropagation?.();
+        this.cancelDepthRelayStartSelection("backPointer");
+        return true;
+      }
+      const record = (this.depthRelayStartChoiceRecords || []).find((entry) => (
+        !entry.disabled && this.isPointInsideDepthRelayStartBounds(point, this.getDepthRelayStartObjectBounds(entry.hitArea, 0))
+      ));
+      if (!record) {
+        return false;
+      }
+      sourceEvent?.stopPropagation?.();
+      this.commitDepthRelayStartChoice(record.choice.depth);
+      return true;
+    };
+    this.depthRelayStartPointerHandler = (pointer) => {
+      if (!this.depthRelayStartOverlayActive || this.depthRelayStartSelectionLocked || !this.isPrimaryPointerActivation(pointer)) {
+        return;
+      }
+      activateAtPoint(this.getOverlayPointerGamePosition(pointer), pointer?.event);
+    };
+    this.depthRelayStartTouchHandler = (event) => {
+      if (!this.depthRelayStartOverlayActive || this.depthRelayStartSelectionLocked) {
+        return;
+      }
+      const canvas = this.game?.canvas;
+      if (!canvas?.getBoundingClientRect) {
+        return;
+      }
+      const bounds = canvas.getBoundingClientRect();
+      const touch = event?.changedTouches?.[0] || event?.touches?.[0] || null;
+      if (!touch || bounds.width <= 0 || bounds.height <= 0) {
+        return;
+      }
+      const point = {
+        x: ((touch.clientX - bounds.left) / bounds.width) * GAME_WIDTH,
+        y: ((touch.clientY - bounds.top) / bounds.height) * GAME_HEIGHT
+      };
+      if (activateAtPoint(point, event) && event?.cancelable !== false) {
+        event.preventDefault?.();
+      }
+    };
+    this.input?.on("pointerdown", this.depthRelayStartPointerHandler);
+    this.input?.on("pointerup", this.depthRelayStartPointerHandler);
+    this.game?.canvas?.addEventListener?.("touchend", this.depthRelayStartTouchHandler, { passive: false });
+  }
+
+  getDepthRelayStartObjectBounds(object, padding = 0) {
+    if (!object) {
+      return null;
+    }
+    const safePadding = Math.max(0, Number(padding) || 0);
+    if (typeof object.getBounds === "function") {
+      const bounds = object.getBounds();
+      if (bounds) {
+        const left = Number.isFinite(bounds.left) ? bounds.left : bounds.x;
+        const top = Number.isFinite(bounds.top) ? bounds.top : bounds.y;
+        const right = Number.isFinite(bounds.right) ? bounds.right : left + bounds.width;
+        const bottom = Number.isFinite(bounds.bottom) ? bounds.bottom : top + bounds.height;
+        if ([left, top, right, bottom].every(Number.isFinite)) {
+          return {
+            left: left - safePadding,
+            top: top - safePadding,
+            right: right + safePadding,
+            bottom: bottom + safePadding
+          };
+        }
+      }
+    }
+    let width = object.displayWidth ?? object.width ?? 0;
+    let height = object.displayHeight ?? object.height ?? 0;
+    let left = object.x - width * (object.originX ?? 0.5);
+    let top = object.y - height * (object.originY ?? 0.5);
+    let parent = object.parentContainer;
+    while (parent) {
+      const scaleX = parent.scaleX ?? 1;
+      const scaleY = parent.scaleY ?? 1;
+      left = parent.x + left * scaleX;
+      top = parent.y + top * scaleY;
+      width *= scaleX;
+      height *= scaleY;
+      parent = parent.parentContainer;
+    }
+    return {
+      left: left - safePadding,
+      top: top - safePadding,
+      right: left + width + safePadding,
+      bottom: top + height + safePadding
+    };
+  }
+
+  isPointInsideDepthRelayStartBounds(point, bounds) {
+    return Boolean(
+      point &&
+      bounds &&
+      point.x >= bounds.left &&
+      point.x <= bounds.right &&
+      point.y >= bounds.top &&
+      point.y <= bounds.bottom
+    );
+  }
+
+  isDepthRelayStartDepthCurrentlySelectable(depth) {
+    return Number.isInteger(depth) &&
+      Number.isSafeInteger(depth) &&
+      DEPTH_RELAY_PLAYER_SELECTABLE_DEPTHS.includes(depth) &&
+      this.isDepthRelayStartDepthAvailable(this.depthRelayState, depth) &&
+      this.shopActive &&
+      !this.gameOver &&
+      !this.extractionComplete &&
+      !this.runLaunchRequestInProgress &&
+      Boolean(this.scene?.restart);
+  }
+
+  commitDepthRelayStartChoice(depth) {
+    if (!this.depthRelayStartOverlayActive || this.depthRelayStartSelectionLocked) {
+      return false;
+    }
+    const record = this.depthRelayStartChoiceRecords.find((entry) => entry.choice.depth === depth);
+    if (!record || record.disabled) {
+      return false;
+    }
+
+    this.depthRelayStartSelectionLocked = true;
+    this.depthRelayStartChoiceRecords.forEach((entry) => {
+      entry.selected = entry === record;
+      entry.disabled = entry !== record;
+      entry.focused = false;
+      this.drawDepthRelayStartChoiceCard(entry);
+    });
+
+    if (record.choice.type === "standard") {
+      this.playDepthRelayStartCommitFeedback(record, () => {
+        this.clearDepthRelayStartSelectionOverlay("standardChoice");
+        this.continueSortieFromHub();
+      });
+      return true;
+    }
+
+    if (!this.isDepthRelayStartDepthCurrentlySelectable(record.choice.depth)) {
+      this.markDepthRelayStartChoiceUnavailable(record);
+      return false;
+    }
+
+    this.playDepthRelayStartCommitFeedback(record, () => {
+      const relayDepth = record.choice.depth;
+      this.clearDepthRelayStartSelectionOverlay("relayChoice");
+      this.requestSortieWithRunStart({
+        requestedRelayDepth: relayDepth,
+        autoContinueSortie: true,
+        source: "depthRelayStartSelection",
+        fallbackToStandard: false
+      });
+    });
+    return true;
+  }
+
+  playDepthRelayStartCommitFeedback(record, onComplete) {
+    this.tweens?.killTweensOf(record.container);
+    this.tweens?.add({
+      targets: record.container,
+      scale: 1.055,
+      alpha: 1,
+      duration: 90,
+      yoyo: true,
+      hold: 30,
+      ease: "Sine.easeOut"
+    });
+    if (this.time?.delayedCall) {
+      this.depthRelayStartSelectTimer?.remove(false);
+      this.depthRelayStartSelectTimer = this.time.delayedCall(160, onComplete);
+      return;
+    }
+    onComplete?.();
+  }
+
+  markDepthRelayStartChoiceUnavailable(record) {
+    record.disabled = true;
+    record.selected = false;
+    this.depthRelayStartSelectionLocked = false;
+    this.depthRelayStartStatusText?.setText("RELAY LINK OFFLINE");
+    this.depthRelayStartChoiceRecords.forEach((entry) => {
+      entry.disabled = entry === record ? true : entry.choice.unlocked !== true;
+      entry.selected = false;
+      this.drawDepthRelayStartChoiceCard(entry);
+    });
+    this.setDepthRelayStartFocusedIndex(0);
+  }
+
+  cancelDepthRelayStartSelection(reason = "cancel") {
+    if (!this.depthRelayStartOverlayActive || this.depthRelayStartSelectionLocked) {
+      return false;
+    }
+    this.depthRelayStartSelectionLocked = true;
+    this.clearDepthRelayStartSelectionOverlay(reason);
+    return true;
+  }
+
+  clearDepthRelayStartSelectionOverlay(reason = "cleanup") {
+    if (this.depthRelayStartKeyHandler) {
+      this.input?.keyboard?.off("keydown", this.depthRelayStartKeyHandler);
+      this.depthRelayStartKeyHandler = null;
+    }
+    if (this.depthRelayStartPointerHandler) {
+      this.input?.off("pointerdown", this.depthRelayStartPointerHandler);
+      this.input?.off("pointerup", this.depthRelayStartPointerHandler);
+      this.depthRelayStartPointerHandler = null;
+    }
+    if (this.depthRelayStartTouchHandler) {
+      this.game?.canvas?.removeEventListener?.("touchend", this.depthRelayStartTouchHandler);
+      this.depthRelayStartTouchHandler = null;
+    }
+    this.depthRelayStartSelectTimer?.remove(false);
+    this.depthRelayStartSelectTimer = null;
+
+    const records = this.depthRelayStartChoiceRecords || [];
+    records.forEach((record) => {
+      this.tweens?.killTweensOf(record.container);
+    });
+    if (this.depthRelayStartOverlay) {
+      this.tweens?.killTweensOf(this.depthRelayStartOverlay);
+      this.depthRelayStartOverlay.destroy?.(true);
+    }
+
+    this.depthRelayStartOverlay = null;
+    this.depthRelayStartChoiceRecords = [];
+    this.depthRelayStartStatusText = null;
+    this.depthRelayStartBackButton = null;
+    this.depthRelayStartFocusedIndex = 0;
+    this.depthRelayStartSelectionLocked = false;
+    this.depthRelayStartOverlayActive = false;
+    return reason;
+  }
+
+  startGameFromShop() {
+    return this.handleSortiePrepRequested();
+  }
+
+  handleSortiePrepRequested() {
+    if (this.depthRelayStartOverlayActive) {
+      return true;
+    }
+    if (
+      this.hasDebugRelayLaunchDepthQuery() &&
+      this.getDebugStartDepthOverride() === null &&
+      !this.hasDebugRelayStartDepthQuery()
+    ) {
+      const debugRelayLaunchDepth = this.getDebugRelayLaunchDepthOverride();
+      if (Number.isInteger(debugRelayLaunchDepth)) {
+        return this.requestSortieWithRunStart({
+          requestedRelayDepth: debugRelayLaunchDepth,
+          autoContinueSortie: true,
+          source: DEBUG_RELAY_LAUNCH_DEPTH_QUERY_PARAM
+        });
+      }
+    }
+
+    if (this.shouldOfferDepthRelayStartSelection()) {
+      return this.showDepthRelayStartSelectionOverlay();
+    }
+
+    return this.continueSortieFromHub();
+  }
+
+  requestSortieWithRunStart(options = {}) {
+    if (!this.shopActive) {
+      return false;
+    }
+    const fallbackToStandard = options?.fallbackToStandard !== false;
+
+    const requestedRelayDepth = Number.isInteger(options?.requestedRelayDepth)
+      && Number.isSafeInteger(options.requestedRelayDepth)
+      ? options.requestedRelayDepth
+      : null;
+    if (!Number.isInteger(requestedRelayDepth)) {
+      return fallbackToStandard ? this.continueSortieFromHub() : false;
+    }
+
+    const runLaunchRequest = this.createDepthRelayRunLaunchRequest(requestedRelayDepth);
+    const validRequest = this.isValidRunLaunchRequest(runLaunchRequest);
+    this.logDebugRelayLaunchBridge("requested", {
+      source: options?.source || "runLaunchRequest",
+      implementation: "scene-restart",
+      requestedRelayDepth,
+      supportedDepth: DEPTH_RELAY_SUPPORTED_DEPTHS.includes(requestedRelayDepth),
+      relayUnlocked: this.isDepthRelayDepthUnlocked(this.depthRelayState, requestedRelayDepth),
+      relayStartAvailable: this.isDepthRelayStartDepthAvailable(this.depthRelayState, requestedRelayDepth),
+      validRequest
+    });
+
+    if (!validRequest) {
+      return fallbackToStandard ? this.continueSortieFromHub() : false;
+    }
+    if (this.runLaunchRequestInProgress) {
+      return true;
+    }
+    this.runLaunchRequestInProgress = true;
+
+    if (!this.restartSceneWithRunLaunchRequest(runLaunchRequest, options?.source || "runLaunchRequest")) {
+      this.runLaunchRequestInProgress = false;
+      return fallbackToStandard ? this.continueSortieFromHub() : false;
+    }
+
+    return true;
+  }
+
+  restartSceneWithRunLaunchRequest(runLaunchRequest, reason = "runLaunchRequest") {
+    const normalizedRequest = this.normalizeRunLaunchRequest(runLaunchRequest);
+    if (!this.isValidRunLaunchRequest(normalizedRequest) || !this.scene?.restart) {
+      return false;
+    }
+
+    this.logDebugRelayLaunchBridge("restarting", {
+      reason,
+      implementation: "scene-restart",
+      requestedRelayDepth: normalizedRequest.requestedRelayDepth,
+      autoContinueSortie: normalizedRequest.autoContinueSortie === true
+    });
+
+    try {
+      this.scene.restart({ runLaunchRequest: normalizedRequest });
+      return true;
+    } catch (error) {
+      console.error("Failed to restart scene for Depth Relay run launch.", error);
+      return false;
+    }
+  }
+
+  continuePendingRunLaunchRequestFromHub(reason = "runLaunchRequest") {
+    if (this.runLaunchRequestAutoContinueConsumed) {
+      return false;
+    }
+
+    const request = this.normalizeRunLaunchRequest(this.pendingRunLaunchRequest);
+    if (
+      !this.isValidRunLaunchRequest(request) ||
+      !this.isDepthRelayRun(this.runStartContext) ||
+      this.runStartContext.runStartDepth !== request.requestedRelayDepth
+    ) {
+      return false;
+    }
+
+    this.runLaunchRequestAutoContinueConsumed = true;
+    this.pendingRunLaunchRequest = this.createDefaultRunLaunchRequest();
+    this.logDebugRelayLaunchBridge("continuing sortie", {
+      reason,
+      implementation: "scene-restart",
+      requestedRelayDepth: request.requestedRelayDepth,
+      stageDepth: this.stageDepth || 1,
+      usedDepthRelay: this.runStartContext?.usedDepthRelay === true
+    });
+
+    const continueSortie = () => {
+      if (this.shopActive && !this.gameOver && !this.extractionComplete) {
+        this.continueSortieFromHub();
+      }
+    };
+
+    if (this.time?.delayedCall) {
+      this.time.delayedCall(0, continueSortie);
+    } else {
+      continueSortie();
+    }
+    return true;
+  }
+
+  continueSortieFromHub() {
+    if (!this.shopActive) {
+      return false;
+    }
+
+    this.clearDepthRelayStartSelectionOverlay("continueSortie");
+    this.resetRunEquipmentCombatLinkState("gameStart");
     this.captureRunEquipmentBonuses("gameStart");
+    this.captureRunEquipmentCombatLinkSnapshot(this.runEquipmentLoadoutSnapshot, "gameStart");
     this.rebuildStartingStats();
     const pendingShopEpilogue = this.peekPendingShopEpilogueComms?.() || "";
     this.clearFinalRaidLegendRewardRuntimeState("gameStart");
@@ -39778,10 +43270,11 @@ class SurvivalScene extends Phaser.Scene {
     }
     if (!this.levelUpActive) {
       if (this.tryStartFinalBossRaidFromDebugStart("gameStart")) {
-        return;
+        return true;
       }
       this.physics.world.resume();
     }
+    return true;
   }
 
   updateUiContainerCameraCompensation(zoom = WORLD_CAMERA_ZOOM) {
@@ -41583,13 +45076,15 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   beginGateDepthTransition(mode = "next") {
-    const targetDepth = (this.stageDepth || 1) + 1;
+    const completedDepth = this.stageDepth || 1;
+    const targetDepth = completedDepth + 1;
     const dataCachePayload = this.mergeDataCachePayload(
       this.cleanupDropsOnDepthTransition(),
       this.consumePendingStabilizeSecureCachePayload()
     );
     const transition = {
       mode,
+      completedDepth,
       targetDepth,
       dataCachePayload,
       nextInstabilityStacks: mode === "next" ? 0 : (this.gateInstabilityStacks || 0)
@@ -41604,6 +45099,9 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   completeGateDepthTransition(transition) {
+    const completedDepth = Number.isInteger(transition?.completedDepth) && Number.isSafeInteger(transition.completedDepth)
+      ? transition.completedDepth
+      : (this.stageDepth || 1);
     const targetDepth = Math.max(1, Math.floor(Number(transition?.targetDepth) || ((this.stageDepth || 1) + 1)));
     const mode = transition?.mode === "force" ? "force" : "next";
     this.clearActiveAnomalyContract("depthTransition", { silent: true, keepPending: true });
@@ -41611,6 +45109,17 @@ class SurvivalScene extends Phaser.Scene {
     this.cleanupNemesisBoss("depthTransition");
     this.cleanupVoidHunterBoss("depthTransition");
     this.stageDepth = targetDepth;
+    this.runDepthProgressState = this.updateRunDepthProgressForEnteredDepth(
+      this.runDepthProgressState,
+      this.stageDepth,
+      this.runStartContext
+    );
+    this.unlockCompletedDepthRelayAnchors({
+      eventType: "advance",
+      completedDepth,
+      targetDepth,
+      maxAbsoluteDepthReached: this.getRunMaxAbsoluteDepthReached(this.runDepthProgressState)
+    });
     this.initializeEquipmentProductionDropState(this.stageDepth, "depthTransition");
     this.updateRunRankingDepthProgress(this.stageDepth);
     this.gateInstabilityStacks = Math.max(0, Math.floor(Number(transition?.nextInstabilityStacks) || 0));
@@ -41680,7 +45189,8 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   completeExtraction(result, emergency, lostArmsMessage = "") {
-    const deepExtractionContext = this.captureDeepExtractionResultContext(result, emergency, lostArmsMessage);
+    const runOriginSnapshot = this.createRunOriginSnapshot(this.runStartContext);
+    const deepExtractionContext = this.captureDeepExtractionResultContext(result, emergency, lostArmsMessage, { runOriginSnapshot });
     const equipmentTransfer = this.secureRunEquipmentBoxes(emergency ? "emergencyExtract" : "normalExtract");
     const equipmentTransferLines = this.formatRunEquipmentTransferLines(equipmentTransfer);
     const equipmentTransferMessage = equipmentTransferLines.join("\n");
@@ -41690,10 +45200,33 @@ class SurvivalScene extends Phaser.Scene {
       this.normalizeDepthValue(this.runAnjuMemoryState?.maxDepthReached, 1),
       this.normalizeDepthValue(this.stageDepth, 1)
     );
+    const mutationAtlasDepthContext = this.resolveMutationAtlasRunDepthContext({
+      legacyAbsoluteDepth: atlasMaxDepthReached
+    });
     const mutationAtlasResult = this.completeMutationAtlasExtractionProgress({
       emergency,
-      maxDepthReached: atlasMaxDepthReached
+      absoluteMaxDepthReached: mutationAtlasDepthContext.absoluteMaxDepthReached,
+      rewardDepthReached: mutationAtlasDepthContext.rewardDepthReached
     });
+    const maxAbsoluteDepthReachedForEquipmentCache = this.getRunMaxAbsoluteDepthReached(this.runDepthProgressState);
+    const equipmentDeepCacheReward = !emergency
+      ? this.awardEquipmentDeepExtractionCaches({
+          extractMode: "normal",
+          extractionSucceeded: true,
+          maxAbsoluteDepthReached: maxAbsoluteDepthReachedForEquipmentCache,
+          rewardDepthReached: this.getRunRewardDepthReached(this.runDepthProgressState),
+          runStartContext: this.runStartContext,
+          anchorUnlockEligible: this.depthRelayAnchorProgressState?.anchorUnlockEligible === true,
+          isFinalRaid: this.isFinalBossRaidActive?.() === true
+        })
+      : this.createEmptyEquipmentDeepCacheRewardResult("emergency");
+    if (!emergency) {
+      this.unlockCompletedDepthRelayAnchors({
+        eventType: "normalExtract",
+        maxAbsoluteDepthReached: maxAbsoluteDepthReachedForEquipmentCache,
+        extractionMode: "normal"
+      });
+    }
     this.setRunRankingExtractionStats(emergency ? "emergency" : "normal", result?.secured, true);
     const recordState = this.saveBestRecordIfNeeded();
     this.saveRunArchiveEntryOnce({
@@ -41707,11 +45240,13 @@ class SurvivalScene extends Phaser.Scene {
       anjuMemoryAward,
       lostArmsMessage,
       recordState,
+      runOriginSnapshot,
       context: {
         ...deepExtractionContext,
         mutationAtlasResult
       }
     });
+    this.resetRunEquipmentCombatLinkState(emergency ? "emergencyExtract" : "extract");
     this.extractionComplete = true;
     this.gateChoiceActive = false;
     this.levelUpActive = false;
@@ -41745,6 +45280,7 @@ class SurvivalScene extends Phaser.Scene {
       lostArmsMessage,
       anjuMemoryText,
       returnMessage,
+      runOriginSnapshot,
       shopLoadingOptions: this.buildExtractionShopLoadingOptions(result)
     });
     const deepResultPayload = this.storeDeepExtractionResultPayload(this.buildDeepExtractionResultPayload({
@@ -41753,7 +45289,9 @@ class SurvivalScene extends Phaser.Scene {
       lostArmsMessage,
       anjuMemoryAward,
       mutationAtlasResult,
+      equipmentDeepCacheReward,
       recordState,
+      runOriginSnapshot,
       context: deepExtractionContext,
       equipmentTransferLines,
       returnMessage
@@ -41800,7 +45338,10 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     this.gameOverRecordState = recordState;
-    this.pendingRankingRecord = recordState.currentRecord;
+    this.pendingRankingRecord = this.createRankingRecordWithRunOrigin(
+      recordState.currentRecord,
+      context.runOriginSnapshot || recordState.currentRecord
+    );
     this.pendingRankingSaved = false;
     this.rankingPlayerName = DEFAULT_PLAYER_NAME;
     this.rankingNameEntryActive = true;
@@ -41860,14 +45401,21 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     this.deepExtractionResultDebugShown = true;
+    const debugRelayDepth = this.getDebugRelayStartDepthOverride?.();
+    const relayDebugPreview = this.hasDebugRelayStartDepthQuery?.() === true
+      && this.isDepthRelayStartDepthAvailable(this.depthRelayState, debugRelayDepth);
+    const previewStartDepth = relayDebugPreview ? debugRelayDepth : 1;
+    const previewMaxDepth = relayDebugPreview ? debugRelayDepth + 2 : 8;
     this.createDeepExtractionResultOverlay({
       debugPreview: true,
       version: 1,
       mode: "normal",
       extractionSucceeded: true,
-      maxDepthReached: 8,
-      bestDepth: 8,
-      currentDepth: 8,
+      maxDepthReached: previewMaxDepth,
+      bestDepth: previewMaxDepth,
+      currentDepth: previewMaxDepth,
+      startDepth: previewStartDepth,
+      usedDepthRelay: relayDebugPreview,
       extractedGeek: 32400,
       lostGeek: 0,
       protectionRate: 1,
@@ -41921,12 +45469,18 @@ class SurvivalScene extends Phaser.Scene {
       .slice(0, DEEP_EXTRACTION_RESULT_CONFIG.maxRewardLines);
   }
 
-  captureDeepExtractionResultContext(result = {}, emergency = false, lostArmsMessage = "") {
+  captureDeepExtractionResultContext(result = {}, emergency = false, lostArmsMessage = "", options = {}) {
     const coinScaling = this.getCurrentCoinScaling();
     const mode = emergency ? "emergency" : "normal";
+    const maxDepthReached = this.getRunMaxDepthReachedForResult(this.runRankingStats);
+    const runOriginSnapshot = this.normalizeRunOriginSnapshot(
+      options.runOriginSnapshot || this.createRunOriginSnapshot(this.runStartContext),
+      { maxDepthReached }
+    );
     return {
       mode,
-      maxDepthReached: this.getRunMaxDepthReachedForResult(this.runRankingStats),
+      maxDepthReached,
+      runOriginSnapshot,
       lostArmsSavedLines: mode === "normal" ? this.getDeepExtractionLostArmsLines(lostArmsMessage, mode) : [],
       lostArmsLostLines: mode === "emergency" ? this.getDeepExtractionLostArmsLines(lostArmsMessage, mode) : [],
       directivesCompleted: Math.max(0, Math.floor(Number(this.runStats?.depthDirectiveCompletions) || 0)),
@@ -41953,6 +45507,13 @@ class SurvivalScene extends Phaser.Scene {
     const previousBest = recordState.previousBest || null;
     const rankingStats = this.normalizeRunRankingStats(this.runRankingStats);
     const maxDepthReached = this.getRunMaxDepthReachedForResult(rankingStats, context);
+    const runOriginSnapshot = this.normalizeRunOriginSnapshot(
+      options.runOriginSnapshot || context.runOriginSnapshot || {
+        startDepth: context.startDepth,
+        usedDepthRelay: context.usedDepthRelay
+      },
+      { maxDepthReached }
+    );
     const milestone = this.getGeekMilestoneForDepth(maxDepthReached);
     const extractedGeek = this.getExtractedGeekThisRun(result);
     const mutationAtlasResult = options.mutationAtlasResult || context.mutationAtlasResult || null;
@@ -41968,6 +45529,8 @@ class SurvivalScene extends Phaser.Scene {
       maxDepthReached,
       bestDepth: Math.max(maxDepthReached, this.getRecordBestDepth(recordState.bestRecord || currentRecord)),
       currentDepth: this.normalizeDepthValue(this.stageDepth || maxDepthReached, maxDepthReached),
+      startDepth: runOriginSnapshot.startDepth,
+      usedDepthRelay: runOriginSnapshot.usedDepthRelay,
       extractedGeek,
       lostGeek: this.normalizeCoinAmount(result?.lost),
       protectionRate: context.protectionRate,
@@ -41989,6 +45552,7 @@ class SurvivalScene extends Phaser.Scene {
       researchCompleted: Boolean(mutationAtlasResult?.researchCompleted),
       researchRerollTicket: mutationAtlasResult?.researchRerollTicket || 0,
       equipmentTransferLines: Array.isArray(options.equipmentTransferLines) ? options.equipmentTransferLines : [],
+      equipmentDeepCacheReward: options.equipmentDeepCacheReward || context.equipmentDeepCacheReward || null,
       instabilityStacks: context.instabilityStacks,
       peakGeekMultiplier: context.peakGeekMultiplier,
       geekMilestoneTitle: milestone?.title || "",
@@ -42002,6 +45566,8 @@ class SurvivalScene extends Phaser.Scene {
 
   normalizeDeepExtractionResultPayload(raw = {}) {
     const mode = raw.mode === "emergency" ? "emergency" : "normal";
+    const maxDepthReached = this.normalizeDepthValue(raw.maxDepthReached, this.stageDepth || 1);
+    const runOriginSnapshot = this.normalizeRunOriginSnapshot(raw, { maxDepthReached });
     const payload = {
       version: Math.max(1, Math.floor(Number(raw.version) || 1)),
       mode,
@@ -42009,9 +45575,11 @@ class SurvivalScene extends Phaser.Scene {
       extractionSucceeded: raw.extractionSucceeded !== false,
       title: mode === "emergency" ? "EMERGENCY DEEP EXTRACTION" : "DEEP EXTRACTION RESULT",
       subtitle: mode === "emergency" ? "Partial data secured" : "Deep layer data secured",
-      maxDepthReached: this.normalizeDepthValue(raw.maxDepthReached, this.stageDepth || 1),
+      maxDepthReached,
       bestDepth: this.normalizeDepthValue(raw.bestDepth ?? raw.maxDepthReached, this.stageDepth || 1),
       currentDepth: this.normalizeDepthValue(raw.currentDepth ?? raw.maxDepthReached, this.stageDepth || 1),
+      startDepth: runOriginSnapshot.startDepth,
+      usedDepthRelay: runOriginSnapshot.usedDepthRelay,
       extractedGeek: this.normalizeCoinAmount(raw.extractedGeek),
       lostGeek: this.normalizeCoinAmount(raw.lostGeek),
       protectionRate: Phaser.Math.Clamp(Number(raw.protectionRate ?? (mode === "normal" ? 1 : 0)) || 0, 0, 1),
@@ -42035,6 +45603,7 @@ class SurvivalScene extends Phaser.Scene {
       equipmentTransferLines: Array.isArray(raw.equipmentTransferLines)
         ? raw.equipmentTransferLines.map((line) => String(line || "").trim()).filter(Boolean).slice(0, DEEP_EXTRACTION_RESULT_CONFIG.maxRewardLines)
         : [],
+      equipmentDeepCacheReward: this.normalizeEquipmentDeepCacheRewardResult(raw.equipmentDeepCacheReward),
       instabilityStacks: Math.max(0, Math.floor(Number(raw.instabilityStacks) || 0)),
       peakGeekMultiplier: Math.max(1, Number(raw.peakGeekMultiplier) || 1),
       geekMilestoneTitle: String(raw.geekMilestoneTitle || ""),
@@ -42168,6 +45737,12 @@ class SurvivalScene extends Phaser.Scene {
     }
     if (payload.equipmentTransferLines?.length > 0) {
       rows.push({ label: "SEALED EQUIPMENT", value: payload.equipmentTransferLines.join(" / ") });
+    }
+    if (payload.equipmentDeepCacheReward?.awarded) {
+      rows.push({
+        label: "EQUIPMENT CACHE",
+        value: this.formatEquipmentDeepCacheRewardLine(payload.equipmentDeepCacheReward)
+      });
     }
     if (payload.anjuMemoryEarned > 0) {
       rows.push({ label: "ANJU MEMORY", value: `+${payload.anjuMemoryEarned}` });
@@ -42400,6 +45975,9 @@ class SurvivalScene extends Phaser.Scene {
     this.createDeepExtractionSectionFrame(x - 10, y - 48, width + 20, 362, "RUN TELEMETRY", payload.mode === "emergency" ? 0xff5bba : 0x6fcfff);
     const rows = [
       { label: "REACHED / BEST", value: `D${payload.maxDepthReached} / D${payload.bestDepth}` },
+      payload.usedDepthRelay
+        ? { label: "RELAY ROUTE", value: this.formatRunOriginRouteLabel(payload, payload.maxDepthReached) }
+        : null,
       { label: "EXTRACTED GEEK", value: payload.extractedGeek.toLocaleString(), countValue: payload.extractedGeek },
       { label: "SURVIVAL TIME", value: this.formatTimeMs(payload.survivalTimeMs), countValue: payload.survivalTimeMs, formatter: (value) => this.formatTimeMs(value) },
       { label: "KILLS", value: payload.kills.toLocaleString(), countValue: payload.kills },
@@ -42409,7 +45987,7 @@ class SurvivalScene extends Phaser.Scene {
       payload.mode === "emergency"
         ? { label: "PROTECTION RATE", value: `${Math.round(payload.protectionRate * 100)}%` }
         : { label: "EXTRACT MODE", value: "FULL SECURE" }
-    ];
+    ].filter(Boolean);
     rows.forEach((row, index) => {
       const col = index % 2;
       const rowIndex = Math.floor(index / 2);
@@ -43523,12 +47101,10 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    const damage = this.applyRunEquipmentPlayerSkillDamageBonus(
-      skillId,
-      this.getMutatedSkillDamage(skillId, stageData.impactDamage || Math.max(1, Math.ceil((stageData.damage || 1) * 0.5)), {
-        source: "impact"
-      })
-    );
+    const mutatedDamage = this.getMutatedSkillDamage(skillId, stageData.impactDamage || Math.max(1, Math.ceil((stageData.damage || 1) * 0.5)), {
+      source: "impact"
+    });
+    const damage = this.applyRunEquipmentPlayerSkillDamageBonus(skillId, mutatedDamage);
     let hitCount = 0;
 
     this.enemies.children.each((enemy) => {
@@ -43558,7 +47134,7 @@ class SurvivalScene extends Phaser.Scene {
         force: stageData.impactForce || 240,
         recoverMs: 135
       });
-      this.applySkillMutationOnHit(skillId, enemy, { x, y, skillId, skillStage: stageData.stage }, damage);
+      this.applySkillMutationOnHit(skillId, enemy, { x, y, skillId, skillStage: stageData.stage }, mutatedDamage);
     });
 
     const style = this.getSkillMutationVisualStyle(skillId);
@@ -47004,13 +50580,11 @@ class SurvivalScene extends Phaser.Scene {
       }
 
       this.spawnBasicLightningStrike(target, shotIndex, shotCount);
-      const damage = this.applyRunEquipmentPlayerSkillDamageBonus(
-        "basicSkill",
-        this.getMutatedSkillDamage("basicSkill", this.stats.bulletDamage, {
-          source: "autoLightning",
-          enemy: target
-        })
-      );
+      const mutatedDamage = this.getMutatedSkillDamage("basicSkill", this.stats.bulletDamage, {
+        source: "autoLightning",
+        enemy: target
+      });
+      const damage = this.applyRunEquipmentPlayerSkillDamageBonus("basicSkill", mutatedDamage);
       const style = this.getSkillMutationVisualStyle("basicSkill");
       this.applyDamageToEnemy(target, damage, style?.damageTint || 0xe4f6ff, {
         sourceX: this.playerHitbox.x,
@@ -47023,7 +50597,7 @@ class SurvivalScene extends Phaser.Scene {
         y: this.playerHitbox.y - 18,
         skillId: "basicSkill",
         skillStage: this.getPrimarySkillState()?.currentStage?.stage || 1
-      }, damage);
+      }, mutatedDamage);
     }
   }
 
@@ -48085,21 +51659,19 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
     this.spawnSkillHitEffect(hitbox, enemy);
-    const damage = this.applyRunEquipmentPlayerSkillDamageBonus(
-      hitbox.skillId,
-      this.getMutatedSkillDamage(hitbox.skillId, hitbox.baseDamage || hitbox.damage, {
-        source: "contact",
-        enemy,
-        hitbox
-      })
-    );
+    const mutatedDamage = this.getMutatedSkillDamage(hitbox.skillId, hitbox.baseDamage || hitbox.damage, {
+      source: "contact",
+      enemy,
+      hitbox
+    });
+    const damage = this.applyRunEquipmentPlayerSkillDamageBonus(hitbox.skillId, mutatedDamage);
     this.applyDamageToEnemy(enemy, damage, hitbox.damageTint || 0xf4c8ff, {
       sourceX: hitbox.x,
       sourceY: hitbox.y,
       force: 120 + (hitbox.skillStage || 1) * 14,
       recoverMs: 80
     });
-    this.applySkillMutationOnHit(hitbox.skillId, enemy, hitbox, damage);
+    this.applySkillMutationOnHit(hitbox.skillId, enemy, hitbox, mutatedDamage);
   }
 
   spawnSkillHitEffect(hitbox, enemy) {
@@ -48402,6 +51974,18 @@ class SurvivalScene extends Phaser.Scene {
     const layer = options.layer || this.combatTextLayer || this.supportEffectsLayer || this.skillEffectsLayer;
     layer?.add(text);
     this.floatingCombatTextCount = (this.floatingCombatTextCount || 0) + 1;
+    let floatingTextReleased = false;
+    const releaseFloatingText = () => {
+      if (floatingTextReleased) {
+        return;
+      }
+      floatingTextReleased = true;
+      this.floatingCombatTextCount = Math.max(0, (this.floatingCombatTextCount || 0) - 1);
+      layer?.remove?.(text, false);
+      if (text.active) {
+        text.destroy();
+      }
+    };
 
     this.tweens.add({
       targets: text,
@@ -48411,10 +51995,7 @@ class SurvivalScene extends Phaser.Scene {
       alpha: 0,
       duration: options.duration ?? 640,
       ease: "Quad.Out",
-      onComplete: () => {
-        this.floatingCombatTextCount = Math.max(0, (this.floatingCombatTextCount || 0) - 1);
-        text.destroy();
-      }
+      onComplete: releaseFloatingText
     });
 
     return text;
@@ -54306,7 +57887,11 @@ class SurvivalScene extends Phaser.Scene {
   showLevelUpChoices() {
     const isStartingDraft = this.isOpeningBoostDraftActive();
     const choiceLimit = this.getOpeningBoostChoiceLimit(isStartingDraft);
-    const skillChoices = this.getAvailableSkillChoices();
+    const skillChoices = this.getAvailableSkillChoices({
+      source: isStartingDraft ? "openingBoost" : "levelUp",
+      openingBoost: isStartingDraft,
+      allowEquipmentOverlimit: !isStartingDraft
+    });
     const passiveChoices = Phaser.Utils.Array.Shuffle(this.getPassiveUpgradeChoices());
     const skillChoiceLimit = Math.min(passiveChoices.length > 0 ? Math.min(2, choiceLimit - 1) : choiceLimit, skillChoices.length);
     const upgrades = [...skillChoices.slice(0, skillChoiceLimit), ...passiveChoices].slice(0, choiceLimit);
@@ -54400,12 +57985,12 @@ class SurvivalScene extends Phaser.Scene {
     return choices.map((choice) => this.buildPassiveUpgradeChoice(choice)).filter(Boolean);
   }
 
-  getAvailableSkillChoices() {
+  getAvailableSkillChoices(options = {}) {
     const upgradeChoices = [];
     const unlockChoices = [];
 
     Object.keys(SKILL_DEFINITIONS).forEach((skillId) => {
-      const choice = this.buildSkillChoice(skillId);
+      const choice = this.buildSkillChoice(skillId, options);
       if (!choice) {
         return;
       }
@@ -54421,9 +58006,9 @@ class SurvivalScene extends Phaser.Scene {
     return this.shuffleArray([...upgradeChoices, ...unlockChoices]);
   }
 
-  buildSkillChoice(skillId) {
+  buildSkillChoice(skillId, options = {}) {
     if (this.playerSkills[skillId]) {
-      return this.buildSkillUpgradeChoice(skillId);
+      return this.buildSkillUpgradeChoice(skillId) || this.buildEquipmentOverlimitChoice(skillId, options);
     }
 
     return this.buildSkillUnlockChoice(skillId);
@@ -54620,6 +58205,40 @@ class SurvivalScene extends Phaser.Scene {
 
     if (option?.type === "skillMutation") {
       return this.buildSkillMutationCardModel(option, index);
+    }
+
+    if (option?.type === "equipmentOverlimit") {
+      const meta = this.getSkillUiMeta(option.skillId);
+      const maxStage = this.getSkillMaxStage(option.definition);
+      const nextLevel = Math.max(1, Math.floor(Number(option.nextOverlimitLevel) || 1));
+      const overlimitLabel = this.formatEquipmentOverlimitLevelLabel(nextLevel);
+      const multiplier = Number.isFinite(option.multiplier) && option.multiplier > 0 ? option.multiplier : 1;
+      const typeMeta = LEVEL_UP_CARD_TYPE_META.equipmentOverlimit;
+      return {
+        option,
+        index,
+        kind: "skill",
+        cardType: "equipmentOverlimit",
+        typeLabel: typeMeta.label,
+        typeColor: typeMeta.color,
+        typeTextColor: typeMeta.textColor,
+        title: meta.displayName,
+        stageLabel: `OVERLIMIT ${overlimitLabel}`,
+        description: "Combat LinkでStage8後の実ダメージを強化",
+        stageProgress: this.formatStageProgress(maxStage, maxStage),
+        chips: [
+          { label: `SKILL DMG x${multiplier.toFixed(2)}`, priority: 130 },
+          { label: "STAGE 8 MAX", priority: 110 },
+          { label: `CAP ${this.formatEquipmentOverlimitLevelLabel(option.overlimitCap || nextLevel)}`, priority: 100 },
+          { label: "RUN ONLY", priority: 90 }
+        ],
+        newEffects: [],
+        themeColor: typeMeta.color,
+        glowColor: meta.glowColor || typeMeta.color,
+        accentColor: "#f0c463",
+        iconTone: "OVL",
+        iconTextureKey: option.definition?.hudIconTextureKey || option.definition?.stages?.[0]?.textureKey || null
+      };
     }
 
     if (option?.type === "skill") {
@@ -55105,6 +58724,7 @@ class SurvivalScene extends Phaser.Scene {
       ? "gate_collapse"
       : (reason === "playerDeath" || reason === "enemy" ? "enemy" : "unknown");
     const recordState = this.saveBestRecordIfNeeded();
+    const runOriginSnapshot = this.createRunOriginSnapshot(this.runStartContext);
     this.saveRunArchiveEntryOnce({
       outcome: archiveOutcome,
       extractionSucceeded: false,
@@ -55113,12 +58733,15 @@ class SurvivalScene extends Phaser.Scene {
       unconfirmedGeekFinal: lostCoins,
       extractedGeek: 0,
       recordState,
+      runOriginSnapshot,
       context: {
+        runOriginSnapshot,
         maxDepthReached: this.normalizeRunRankingStats(this.runRankingStats).maxDepthReached,
         peakGeekMultiplier: this.runStats?.peakGeekMultiplier || 1,
         instabilityStacks: this.gateInstabilityStacks || 0
       }
     });
+    this.resetRunEquipmentCombatLinkState(reason);
 
     this.gameOver = true;
     this.levelUpActive = false;
@@ -55155,7 +58778,10 @@ class SurvivalScene extends Phaser.Scene {
     this.cancelActiveEnemyBeamCharges();
     this.physics.world.pause();
     this.gameOverRecordState = recordState;
-    this.pendingRankingRecord = this.gameOverRecordState.currentRecord;
+    this.pendingRankingRecord = this.createRankingRecordWithRunOrigin(
+      this.gameOverRecordState.currentRecord,
+      runOriginSnapshot
+    );
     this.pendingRankingSaved = false;
     this.rankingPlayerName = DEFAULT_PLAYER_NAME;
     this.rankingNameEntryActive = true;
@@ -55267,9 +58893,10 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    const useMobileInPageReset = shouldUseMobileInPageShopReset();
     const wantsFullscreenOnReturn = wantsMobileLandscapeFullscreen();
     const shopReturnOptions = { ...options };
+    const useMobileInPageReset = shouldUseMobileInPageShopReset();
+    const useInPageReset = useMobileInPageReset || shopReturnOptions.forceInPageReset === true;
     const shopLoadingOptions = shopReturnOptions.shopLoading && this.normalizeCoinAmount(shopReturnOptions.shopLoading.amount) > 0
       ? { ...shopReturnOptions.shopLoading }
       : null;
@@ -55294,7 +58921,7 @@ class SurvivalScene extends Phaser.Scene {
     this.pendingRankingSaved = true;
     this.levelUpActive = false;
     this.gateChoiceActive = false;
-    this.extractionComplete = false;
+    this.extractionComplete = true;
     this.clearPendingAnjuMemory("returnToOpeningShop");
     this.resetAnomalyContractState("returnToOpeningShop");
     this.resetStabilizeProtocolState("returnToOpeningShop");
@@ -55309,11 +58936,13 @@ class SurvivalScene extends Phaser.Scene {
     this.resetRobotSyncState("returnToOpeningShop");
     this.resetRobotBarrierState("returnToOpeningShop");
     this.resetRobotNapalmState("returnToOpeningShop");
+    this.resetRunEquipmentCombatLinkState("returnToOpeningShop");
     this.cleanupGeekMilestoneNotice("returnToOpeningShop");
     this.resetCommsUi("returnToOpeningShop");
     this.resetOverflowRewardState();
     this.discardRunEquipmentBoxes("returnToOpeningShop");
     this.clearEndlessVoidBgmOverride("returnToOpeningShop");
+    this.clearOverlayButtons();
     this.skipShopReturnSceneShutdownCleanup = true;
     this.overlayActions = [];
     this.releaseMobileControlPointers?.();
@@ -55323,11 +58952,11 @@ class SurvivalScene extends Phaser.Scene {
     }
     this.overlayBackdrop?.setAlpha(1).setVisible(false);
     this.overlayContainer?.setAlpha(1).setScale(1).setVisible(false);
-    this.physics?.world?.resume();
+    this.physics?.world?.pause();
     this.sound?.stopAll();
 
     window.setTimeout(() => {
-      if (useMobileInPageReset && restartSurvivalSceneToShop(this, message, shopReturnOptions)) {
+      if (useInPageReset && restartSurvivalSceneToShop(this, message, shopReturnOptions)) {
         return;
       }
       resetSurvivalGameToShop(message, shopReturnOptions);
@@ -56239,6 +59868,15 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
+    if (this.levelUpSelectionMode === "equipmentOverlimitBonus") {
+      if (this.gameOver) {
+        return;
+      }
+
+      this.finishEquipmentOverlimitBonusSelectionOverlay();
+      return;
+    }
+
     if (this.levelUpSelectionMode === "robot") {
       if (this.gameOver) {
         return;
@@ -56387,13 +60025,34 @@ class SurvivalScene extends Phaser.Scene {
     this.teardownFinalBossRaidPlaceholder?.("clearOverlay");
     this.teardownFinalBossLiberationGate?.("clearOverlay");
     this.cleanupDeepExtractionResultOverlay("clearOverlay");
-    this.overlayButtons.forEach((item) => item.destroy());
+    const persistentOverlayObjects = new Set([
+      this.overlayPanel,
+      this.overlayTitle,
+      this.overlayBody
+    ].filter(Boolean));
+    const transientOverlayObjects = new Set((this.overlayButtons || []).filter(Boolean));
+    const overlayChildren = this.overlayContainer?.list?.slice?.() || [];
+    overlayChildren.forEach((item) => {
+      if (item && !persistentOverlayObjects.has(item)) {
+        transientOverlayObjects.add(item);
+      }
+    });
+    transientOverlayObjects.forEach((item) => {
+      this.overlayContainer?.remove?.(item, false);
+      if (item?.active !== false) {
+        item?.destroy?.();
+      }
+    });
     this.overlayButtons = [];
     this.overlayActions = [];
   }
 
   handleOverlayPointerUp(pointer) {
-    if (!this.isPrimaryPointerActivation(pointer) || !this.overlayContainer.visible) {
+    if (
+      this.depthRelayStartOverlayActive ||
+      !this.isPrimaryPointerActivation(pointer) ||
+      !this.overlayContainer.visible
+    ) {
       return;
     }
 
@@ -57212,9 +60871,69 @@ function startMobileFullscreenResumeMonitor(token) {
   window.setTimeout(check, MOBILE_FULLSCREEN_RESUME_PROMPT_DELAY_MS);
 }
 
+function removeOpeningShopReturnDebugParams(url) {
+  if (!url?.searchParams) {
+    return false;
+  }
+  const params = [
+    DEBUG_START_DEPTH_QUERY_PARAM,
+    DEBUG_START_DEPTH_ALIAS_QUERY_PARAM,
+    DEBUG_START_DEPTH_SHORT_QUERY_PARAM,
+    DEBUG_RELAY_START_DEPTH_QUERY_PARAM,
+    DEBUG_RELAY_LAUNCH_DEPTH_QUERY_PARAM,
+    DEBUG_MAX_BUILD_QUERY_PARAM,
+    DEBUG_MAX_BUILD_ALIAS_QUERY_PARAM,
+    DEBUG_SKIP_OPENING_BOOST_QUERY_PARAM,
+    DEBUG_SKIP_OPENING_BOOST_ALIAS_QUERY_PARAM,
+    FINAL_BOSS_DEBUG_QUERY_PARAM,
+    FINAL_BOSS_DEBUG_ALIAS_QUERY_PARAM,
+    FINAL_BOSS_DEBUG_TIME_SCALE_QUERY_PARAM,
+    FINAL_BOSS_DEBUG_TIME_SCALE_ALIAS_QUERY_PARAM,
+    FINAL_BOSS_DEBUG_PHASE_QUERY_PARAM,
+    FINAL_BOSS_DEBUG_PHASE_ALIAS_QUERY_PARAM,
+    FINAL_BOSS_DEBUG_THIRD_PHASE_QUERY_PARAM,
+    RAID_RESCUE_LINK_DEBUG_QUERY_PARAM,
+    RAID_RESCUE_LINK_DEBUG_GUILD_QUERY_PARAM,
+    RAID_RESCUE_LINK_DEBUG_HUD_QUERY_PARAM,
+    RAID_RESCUE_LINK_DEBUG_COMPACT_QUERY_PARAM,
+    RAID_RESCUE_EFFECTS_DEBUG_QUERY_PARAM,
+    RAID_RESCUE_EFFECT_DEBUG_QUERY_PARAM,
+    RAID_RESCUE_EFFECT_SCALE_DEBUG_QUERY_PARAM,
+    RAID_RESCUE_NO_EFFECTS_DEBUG_QUERY_PARAM,
+    RAID_ALLIED_MESH_DEBUG_QUERY_PARAM,
+    RAID_ALLIED_MESH_PHASE_DEBUG_QUERY_PARAM,
+    RAID_ALLIED_MESH_SCALE_DEBUG_QUERY_PARAM,
+    RAID_ALLIED_MESH_INCOMPLETE_DEBUG_QUERY_PARAM
+  ];
+  let changed = false;
+  params.forEach((param) => {
+    if (url.searchParams.has(param)) {
+      url.searchParams.delete(param);
+      changed = true;
+    }
+  });
+  return changed;
+}
+
+function clearOpeningShopReturnDebugParams() {
+  try {
+    const url = new URL(window.location.href);
+    if (!removeOpeningShopReturnDebugParams(url)) {
+      return false;
+    }
+    window.history?.replaceState?.(window.history.state, document.title, url.toString());
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
 function buildOpeningShopReloadUrl(options = {}) {
   try {
     const url = new URL(window.location.href);
+    if (options.clearDebugLaunchParams) {
+      removeOpeningShopReturnDebugParams(url);
+    }
     if (options.skipMobileGate) {
       url.searchParams.set(MOBILE_GATE_SKIP_QUERY_PARAM, "1");
     } else {
@@ -57822,13 +61541,50 @@ function restartSurvivalSceneToShop(scene, message = "", options = {}) {
     return false;
   }
 
-  if (!shouldUseMobileInPageShopReset()) {
+  const useMobileInPageReset = shouldUseMobileInPageShopReset();
+  const forceInPageReset = options?.forceInPageReset === true;
+  if (!useMobileInPageReset && !forceInPageReset) {
     return false;
   }
 
   setPendingOpeningShopMessage(message);
-  clearMobileLaunchGateSkip();
-  prepareMobileViewport();
+  if (options?.clearDebugLaunchParams) {
+    clearOpeningShopReturnDebugParams();
+  }
+  if (useMobileInPageReset) {
+    clearMobileLaunchGateSkip();
+    prepareMobileViewport();
+  }
+
+  if (forceInPageReset) {
+    if (window.__SURVIVAL_GAME_RESETTING__) {
+      return true;
+    }
+    window.__SURVIVAL_GAME_RESETTING__ = true;
+    window.setTimeout(() => {
+      try {
+        scene.initialRunLaunchRequestData = null;
+        scene.pendingRunLaunchRequest = scene.createDefaultRunLaunchRequest?.() || { requestedRelayDepth: null, autoContinueSortie: false };
+        scene.runLaunchRequestAutoContinueConsumed = false;
+        scene.runLaunchRequestInProgress = false;
+        scene.initializeDepthRunState?.({ runLaunchRequest: null });
+        scene.gameOver = false;
+        scene.extractionComplete = false;
+        scene.restartInProgress = false;
+        scene.showPreGameShop?.(message);
+        window.__SURVIVAL_GAME_RESETTING__ = false;
+        window.__SURVIVAL_MOBILE_SCENE_RESETTING__ = false;
+      } catch (error) {
+        window.__SURVIVAL_GAME_RESETTING__ = false;
+        console.error("Failed to restore opening shop in page.", error);
+        resetSurvivalGameToShop(message, {
+          ...options,
+          forceInPageReset: false
+        });
+      }
+    }, SHOP_RETURN_RELOAD_DELAY_MS);
+    return true;
+  }
 
   if (window.__SURVIVAL_MOBILE_SCENE_RESETTING__) {
     return true;
@@ -57839,9 +61595,13 @@ function restartSurvivalSceneToShop(scene, message = "", options = {}) {
   window.__SURVIVAL_MOBILE_SHOP_RESET_TOKEN__ = resetToken;
   window.setTimeout(() => {
     try {
-      scene.scene.restart();
-      scheduleMobileLayoutRefresh();
-      scheduleMobileShopReturnWatchdog(resetToken, message, options);
+      scene.scene.restart({ runLaunchRequest: null });
+      if (useMobileInPageReset) {
+        scheduleMobileLayoutRefresh();
+        scheduleMobileShopReturnWatchdog(resetToken, message, options);
+      } else {
+        window.__SURVIVAL_MOBILE_SCENE_RESETTING__ = false;
+      }
     } catch (error) {
       window.__SURVIVAL_MOBILE_SCENE_RESETTING__ = false;
       console.error("Failed to restart mobile scene for opening shop.", error);
@@ -57857,6 +61617,9 @@ function resetSurvivalGameToShop(message = "", options = {}) {
   }
 
   setPendingOpeningShopMessage(message);
+  if (options?.clearDebugLaunchParams) {
+    clearOpeningShopReturnDebugParams();
+  }
   if (isMobilePlayEnvironment() || document.body?.classList.contains("mobile-session")) {
     prepareMobileViewport();
   }
@@ -57871,7 +61634,10 @@ function resetSurvivalGameToShop(message = "", options = {}) {
   }
 
   window.__SURVIVAL_GAME_RESETTING__ = true;
-  const reloadUrl = buildOpeningShopReloadUrl({ skipMobileGate });
+  const reloadUrl = buildOpeningShopReloadUrl({
+    skipMobileGate,
+    clearDebugLaunchParams: options?.clearDebugLaunchParams === true
+  });
   window.setTimeout(() => {
     try {
       if (reloadUrl) {

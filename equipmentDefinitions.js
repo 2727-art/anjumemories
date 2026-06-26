@@ -24,6 +24,7 @@
     "nemesis",
     "goldSlime",
     "silverSlime",
+    "deepExtraction",
     "finalRaid",
     "debug",
     "unknown"
@@ -46,6 +47,20 @@
     weapon: Object.freeze({ playerSkillDamageIncreaseRatePerScore: 0.012 }),
     accessory: Object.freeze({ maxStaminaFlatPerScore: 1 })
   });
+  const EQUIPMENT_SET_DEFINITIONS = Object.freeze([
+    Object.freeze({
+      id: "ssrPlusFive",
+      minimumRarity: "SSR",
+      requiredSlotCount: SLOTS.length,
+      label: "SSR+ ARRAY"
+    }),
+    Object.freeze({
+      id: "legendFive",
+      minimumRarity: "LEGEND",
+      requiredSlotCount: SLOTS.length,
+      label: "LEGEND ARRAY"
+    })
+  ]);
   const freezeWeights = (weights) => Object.freeze({ ...weights });
   const EQUIPMENT_RARITY_DROP_TABLES = Object.freeze([
     Object.freeze({ minDepth: 1, maxDepth: 3, weights: freezeWeights({ N: 70, R: 25, SR: 5, SSR: 0, LEGEND: 0 }) }),
@@ -63,6 +78,22 @@
     Object.freeze({ minDepth: 9, maxDepth: 10, weights: freezeWeights({ 1: 20, 2: 28, 3: 30, 4: 16, 5: 6 }) }),
     Object.freeze({ minDepth: 11, maxDepth: Infinity, weights: freezeWeights({ 1: 12, 2: 24, 3: 34, 4: 21, 5: 9 }) })
   ]);
+  const EQUIPMENT_DEEP_CACHE_SOURCE_TYPE = "deepExtraction";
+  const EQUIPMENT_DEEP_CACHE_DEPTH_TIERS = Object.freeze([
+    Object.freeze({ id: "d10", minDepth: 10, maxDepth: 19 }),
+    Object.freeze({ id: "d20", minDepth: 20, maxDepth: 29 }),
+    Object.freeze({ id: "d30", minDepth: 30, maxDepth: Infinity })
+  ]);
+  const EQUIPMENT_DEEP_CACHE_RARITY_TABLES = Object.freeze({
+    d10: freezeWeights({ N: 0, R: 5000, SR: 3500, SSR: 1490, LEGEND: 10 }),
+    d20: freezeWeights({ N: 0, R: 0, SR: 5950, SSR: 4000, LEGEND: 50 }),
+    d30: freezeWeights({ N: 0, R: 0, SR: 0, SSR: 9800, LEGEND: 200 })
+  });
+  const EQUIPMENT_DEEP_CACHE_RANK_TABLES = Object.freeze({
+    d10: freezeWeights({ 1: 30, 2: 30, 3: 25, 4: 12, 5: 3 }),
+    d20: freezeWeights({ 1: 0, 2: 25, 3: 35, 4: 30, 5: 10 }),
+    d30: freezeWeights({ 1: 0, 2: 0, 3: 30, 4: 45, 5: 25 })
+  });
 
   const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
   const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
@@ -217,6 +248,151 @@
     };
   }
 
+  function isEquipmentRarityAtLeast(rarity, minimumRarity) {
+    const normalizedRarity = normalizeRarity(rarity);
+    const normalizedMinimumRarity = normalizeRarity(minimumRarity);
+    if (!normalizedRarity || !normalizedMinimumRarity) {
+      return false;
+    }
+    return RARITY_INDEX[normalizedRarity] >= RARITY_INDEX[normalizedMinimumRarity];
+  }
+
+  function createEquipmentSetSlotSummaries(state) {
+    const normalizedState = normalizeEquipmentState(state);
+    return SLOTS.map((slot) => {
+      const item = normalizedState.bestBySlot?.[slot] || null;
+      const equipped = item?.slot === slot;
+      return {
+        slot,
+        equipped,
+        rarity: equipped ? item.rarity : null,
+        ssrPlusQualified: equipped ? isEquipmentRarityAtLeast(item.rarity, "SSR") : false,
+        legendQualified: equipped ? isEquipmentRarityAtLeast(item.rarity, "LEGEND") : false
+      };
+    });
+  }
+
+  function countEquipmentSlotsAtOrAboveRarity(state, minimumRarity) {
+    return createEquipmentSetSlotSummaries(state).filter(
+      (summary) => summary.equipped && isEquipmentRarityAtLeast(summary.rarity, minimumRarity)
+    ).length;
+  }
+
+  function countBestSlotsAtRarity(state, rarity) {
+    const normalizedRarity = normalizeRarity(rarity);
+    if (!normalizedRarity) {
+      return 0;
+    }
+    const normalizedState = normalizeEquipmentState(state);
+    return SLOTS.filter((slot) => {
+      const item = normalizedState.bestBySlot?.[slot] || null;
+      return item?.slot === slot && item.rarity === normalizedRarity;
+    }).length;
+  }
+
+  function countBestSlotsAtOrAboveRarity(state, rarity) {
+    return countEquipmentSlotsAtOrAboveRarity(state, rarity);
+  }
+
+  function getEquipmentCollectionSlotStatus(state) {
+    const normalizedState = normalizeEquipmentState(state);
+    return SLOTS.reduce((result, slot) => {
+      const item = normalizedState.bestBySlot?.[slot] || null;
+      const occupied = item?.slot === slot;
+      result[slot] = {
+        occupied,
+        rarity: occupied ? item.rarity : null,
+        rank: occupied ? item.rank : null,
+        ssrPlus: occupied ? isEquipmentRarityAtLeast(item.rarity, "SSR") : false,
+        legend: occupied ? item.rarity === "LEGEND" : false
+      };
+      return result;
+    }, {});
+  }
+
+  function evaluateEquipmentCollectionProgress(state) {
+    const normalizedState = normalizeEquipmentState(state);
+    const slots = getEquipmentCollectionSlotStatus(normalizedState);
+    const slotValues = SLOTS.map((slot) => slots[slot]);
+    const equippedSlotCount = slotValues.filter((slot) => slot.occupied).length;
+    const ssrPlusCount = slotValues.filter((slot) => slot.ssrPlus).length;
+    const legendCount = slotValues.filter((slot) => slot.legend).length;
+    const legendVisible = normalizedState.legendDiscovered === true;
+    return {
+      totalSlotCount: SLOTS.length,
+      equippedSlotCount,
+      ssrPlusCount,
+      legendCount,
+      ssrPlusComplete: ssrPlusCount >= SLOTS.length,
+      legendComplete: legendVisible && legendCount >= SLOTS.length,
+      legendVisible,
+      slots
+    };
+  }
+
+  function getHighestCompletedEquipmentSetTier(tiers) {
+    if (!Array.isArray(tiers)) {
+      return null;
+    }
+    const highest = tiers.reduce((currentHighest, tier) => {
+      if (!tier?.complete || tier.visible === false) {
+        return currentHighest;
+      }
+      const rarity = normalizeRarity(tier.minimumRarity);
+      if (!rarity) {
+        return currentHighest;
+      }
+      if (!currentHighest) {
+        return tier;
+      }
+      const currentRarity = normalizeRarity(currentHighest.minimumRarity);
+      return !currentRarity || RARITY_INDEX[rarity] > RARITY_INDEX[currentRarity]
+        ? tier
+        : currentHighest;
+    }, null);
+    return highest ? { ...highest } : null;
+  }
+
+  function evaluateEquipmentSetStatus(state) {
+    const normalizedState = normalizeEquipmentState(state);
+    const slotSummaries = createEquipmentSetSlotSummaries(normalizedState);
+    const equippedSlotCount = slotSummaries.filter((summary) => summary.equipped).length;
+    const equippedRarities = slotSummaries
+      .filter((summary) => summary.equipped && normalizeRarity(summary.rarity))
+      .map((summary) => summary.rarity);
+    const minimumEquippedRarity = equippedRarities.length > 0
+      ? equippedRarities.reduce((minimum, rarity) => (
+        RARITY_INDEX[rarity] < RARITY_INDEX[minimum] ? rarity : minimum
+      ), equippedRarities[0])
+      : null;
+    const tiers = EQUIPMENT_SET_DEFINITIONS.map((definition) => {
+      const matchedSlotCount = slotSummaries.filter(
+        (summary) => summary.equipped && isEquipmentRarityAtLeast(summary.rarity, definition.minimumRarity)
+      ).length;
+      return {
+        id: definition.id,
+        label: definition.label,
+        minimumRarity: definition.minimumRarity,
+        matchedSlotCount,
+        requiredSlotCount: definition.requiredSlotCount,
+        complete: matchedSlotCount >= definition.requiredSlotCount,
+        visible: definition.minimumRarity !== "LEGEND" || normalizedState.legendDiscovered === true
+      };
+    });
+    const highestCompletedTier = getHighestCompletedEquipmentSetTier(tiers);
+
+    return {
+      totalSlotCount: SLOTS.length,
+      equippedSlotCount,
+      minimumEquippedRarity,
+      ssrPlusSlotCount: countEquipmentSlotsAtOrAboveRarity(normalizedState, "SSR"),
+      legendSlotCount: countEquipmentSlotsAtOrAboveRarity(normalizedState, "LEGEND"),
+      highestCompletedTierId: highestCompletedTier?.id || null,
+      tiers,
+      slotSummaries
+    };
+  }
+
   function getEquipmentDropChanceForSource(sourceType) {
     const normalizedSourceType = typeof sourceType === "string" ? sourceType.trim() : "";
     return hasOwn(EQUIPMENT_DROP_SOURCE_CHANCES, normalizedSourceType)
@@ -253,6 +429,39 @@
   function getEquipmentRankWeightsForDepth(depth) {
     const table = findEquipmentDropTable(EQUIPMENT_RANK_DROP_TABLES, depth);
     return cloneWeightsWithKeys(table?.weights, RANK_KEYS);
+  }
+
+  function normalizeEquipmentDeepCacheSourceDepth(sourceDepth) {
+    return Number.isInteger(sourceDepth) && Number.isSafeInteger(sourceDepth) && sourceDepth >= 1
+      ? sourceDepth
+      : 0;
+  }
+
+  function getEquipmentDeepCacheTierForDepth(sourceDepth) {
+    const normalizedDepth = normalizeEquipmentDeepCacheSourceDepth(sourceDepth);
+    if (normalizedDepth <= 0) {
+      return null;
+    }
+    const tier = EQUIPMENT_DEEP_CACHE_DEPTH_TIERS.find(
+      (entry) => normalizedDepth >= entry.minDepth && normalizedDepth <= entry.maxDepth
+    );
+    return tier?.id || null;
+  }
+
+  function getEquipmentDeepCacheRarityWeights(sourceDepth) {
+    const tierId = getEquipmentDeepCacheTierForDepth(sourceDepth);
+    if (!tierId) {
+      return null;
+    }
+    return cloneWeightsWithKeys(EQUIPMENT_DEEP_CACHE_RARITY_TABLES[tierId], RARITIES);
+  }
+
+  function getEquipmentDeepCacheRankWeights(sourceDepth) {
+    const tierId = getEquipmentDeepCacheTierForDepth(sourceDepth);
+    if (!tierId) {
+      return null;
+    }
+    return cloneWeightsWithKeys(EQUIPMENT_DEEP_CACHE_RANK_TABLES[tierId], RANK_KEYS);
   }
 
   function getWeightedEquipmentKeyOrder(weights) {
@@ -321,6 +530,28 @@
     return rollWeightedEquipmentValue(slotWeights, getRandomValue(rng));
   }
 
+  function rollEquipmentDeepCacheRarity(sourceDepth, rng = Math.random) {
+    return rollWeightedEquipmentValue(
+      getEquipmentDeepCacheRarityWeights(sourceDepth),
+      getRandomValue(rng)
+    );
+  }
+
+  function rollEquipmentDeepCacheRank(sourceDepth, rng = Math.random) {
+    const rankKey = rollWeightedEquipmentValue(getEquipmentDeepCacheRankWeights(sourceDepth), getRandomValue(rng));
+    const rank = normalizeInteger(rankKey, NaN);
+    return Number.isInteger(rank) && rank >= RANK_MIN && rank <= RANK_MAX ? rank : null;
+  }
+
+  function rollEquipmentDeepCacheSlot(rng = Math.random) {
+    return rollEquipmentSlot(rng);
+  }
+
+  function createFallbackEquipmentDeepCacheBoxId(sourceDepth, index) {
+    const normalizedIndex = Number.isInteger(index) && Number.isSafeInteger(index) && index >= 0 ? index : 0;
+    return `deep-extraction-d${sourceDepth}-${normalizedIndex}`;
+  }
+
   function rollFinalRaidLegendRewardRank(rng = Math.random) {
     const rankKey = rollWeightedEquipmentValue(FINAL_RAID_LEGEND_RANK_WEIGHTS, getRandomValue(rng));
     const rank = normalizeInteger(rankKey, NaN);
@@ -357,6 +588,38 @@
       slot,
       sourceDepth,
       sourceType,
+      analysisCostOverride: null
+    });
+  }
+
+  function createEquipmentDeepCacheBox(options = {}) {
+    if (!isObject(options)) {
+      return null;
+    }
+
+    const sourceDepth = normalizeEquipmentDeepCacheSourceDepth(options.sourceDepth);
+    const sourceType = options.sourceType === undefined
+      ? EQUIPMENT_DEEP_CACHE_SOURCE_TYPE
+      : (typeof options.sourceType === "string" ? options.sourceType.trim() : "");
+    if (sourceType !== EQUIPMENT_DEEP_CACHE_SOURCE_TYPE || !getEquipmentDeepCacheTierForDepth(sourceDepth)) {
+      return null;
+    }
+
+    const id = toNonEmptyString(options.id) || createFallbackEquipmentDeepCacheBoxId(sourceDepth, options.index);
+    const rarity = rollEquipmentDeepCacheRarity(sourceDepth, options.rng);
+    const rank = rollEquipmentDeepCacheRank(sourceDepth, options.rng);
+    const slot = rollEquipmentDeepCacheSlot(options.rng);
+    if (!rarity || !rank || !slot) {
+      return null;
+    }
+
+    return normalizeEquipmentItem({
+      id,
+      rarity,
+      rank,
+      slot,
+      sourceDepth,
+      sourceType: EQUIPMENT_DEEP_CACHE_SOURCE_TYPE,
       analysisCostOverride: null
     });
   }
@@ -780,6 +1043,10 @@
         };
     const refund = duplicate ? Math.floor(quote.actualCost * 0.5) : 0;
     const legendDiscoveredNow = box.rarity === "LEGEND" && normalizedState.legendDiscovered !== true;
+    const duplicateLegend = box.rarity === "LEGEND" &&
+      duplicate &&
+      previous?.slot === box.slot &&
+      previous?.rarity === "LEGEND";
     const nextState = normalizeEquipmentState({
       ...bestUpdate.state,
       legendDiscovered: normalizedState.legendDiscovered === true || box.rarity === "LEGEND",
@@ -808,7 +1075,8 @@
       current: upgraded ? cloneItem(box) : previous,
       refund,
       netCost: Math.max(0, quote.actualCost - refund),
-      legendDiscoveredNow
+      legendDiscoveredNow,
+      duplicateLegend
     };
   }
 
@@ -819,6 +1087,8 @@
     RARITY_INDEX: Object.freeze({ ...RARITY_INDEX }),
     ANALYSIS_COSTS: Object.freeze({ ...ANALYSIS_COSTS }),
     EQUIPMENT_BONUS_CONFIG,
+    EQUIPMENT_SET_DEFINITIONS,
+    setDefinitions: EQUIPMENT_SET_DEFINITIONS,
     RANK_MIN,
     RANK_MAX,
     SOURCE_TYPES: Object.freeze([...SOURCE_TYPES]),
@@ -827,19 +1097,41 @@
     FINAL_RAID_LEGEND_RANK_WEIGHTS: Object.freeze({ ...FINAL_RAID_LEGEND_RANK_WEIGHTS }),
     EQUIPMENT_RARITY_DROP_TABLES,
     EQUIPMENT_RANK_DROP_TABLES,
+    EQUIPMENT_DEEP_CACHE_SOURCE_TYPE,
+    EQUIPMENT_DEEP_CACHE_DEPTH_TIERS,
+    EQUIPMENT_DEEP_CACHE_RARITY_TABLES,
+    EQUIPMENT_DEEP_CACHE_RANK_TABLES,
     createDefaultEquipmentState,
     normalizeEquipmentItem,
     normalizeEquipmentItemList,
     normalizeEquipmentState,
+    isEquipmentRarityAtLeast,
+    isRarityAtLeast: isEquipmentRarityAtLeast,
+    countEquipmentSlotsAtOrAboveRarity,
+    countBestSlotsAtRarity,
+    countBestSlotsAtOrAboveRarity,
+    getEquipmentCollectionSlotStatus,
+    evaluateEquipmentCollectionProgress,
+    evaluateCollectionProgress: evaluateEquipmentCollectionProgress,
+    getHighestCompletedEquipmentSetTier,
+    evaluateEquipmentSetStatus,
+    evaluateSetStatus: evaluateEquipmentSetStatus,
     getEquipmentDropChanceForSource,
     getEquipmentRarityWeightsForDepth,
     getEquipmentRankWeightsForDepth,
+    getEquipmentDeepCacheTierForDepth,
+    getEquipmentDeepCacheRarityWeights,
+    getEquipmentDeepCacheRankWeights,
     rollWeightedEquipmentValue,
     rollEquipmentRarityForDepth,
     rollEquipmentRankForDepth,
     rollEquipmentSlot,
+    rollEquipmentDeepCacheRarity,
+    rollEquipmentDeepCacheRank,
+    rollEquipmentDeepCacheSlot,
     rollFinalRaidLegendRewardRank,
     createRandomEquipmentDropRecord,
+    createEquipmentDeepCacheBox,
     createFinalRaidLegendRewardRecord,
     getEquipmentQualityScore,
     createEmptyEquipmentBonuses,
