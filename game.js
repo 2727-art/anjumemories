@@ -2211,12 +2211,12 @@ const ROBOT_CUSTOM_LEVELS_PER_TIER = 2;
 const ROBOT_CUSTOM_MAX_CAP_TIER = 5;
 const ROBOT_CUSTOM_EXTENDED_LEVEL_CAP = ROBOT_CUSTOM_BASE_LEVEL_CAP + ROBOT_CUSTOM_LEVELS_PER_TIER * ROBOT_CUSTOM_MAX_CAP_TIER;
 const ROBOT_CUSTOM_CAP_UNLOCK_COSTS = [30000, 60000, 100000, 160000, 240000];
-const ROBOT_CUSTOM_EX_UNLOCK_COST = 180000;
+const ROBOT_CUSTOM_EX_UNLOCK_COST = 2000000;
 const ROBOT_NAPALM_CAP_LEVELS = [11, 13, 15, 17, 20];
-const ROBOT_NAPALM_CAP_UNLOCK_COSTS = [60000, 100000, 160000, 240000];
+const ROBOT_NAPALM_CAP_UNLOCK_COSTS = [2000000, 2000000, 2000000, 2000000];
 const ROBOT_NAPALM_MAX_CAP_TIER = ROBOT_NAPALM_CAP_LEVELS.length - 1;
 const ROBOT_BARRIER_CAP_LEVELS = [11, 13, 15, 17, 20];
-const ROBOT_BARRIER_CAP_UNLOCK_COSTS = [60000, 100000, 160000, 240000];
+const ROBOT_BARRIER_CAP_UNLOCK_COSTS = [2000000, 2000000, 2000000, 2000000];
 const ROBOT_BARRIER_MAX_CAP_TIER = ROBOT_BARRIER_CAP_LEVELS.length - 1;
 const DEFAULT_ROBOT_CUSTOM_STATE = {
   missileCapTier: 0,
@@ -3833,20 +3833,26 @@ const ROBOT_MISSILE_LOCK_CONFIG = {
   missileSpeedBonusMax: 60,
   missileLifetimeMs: 3200,
   missileDamageMultiplier: 1.45,
-  markerTransitionMs: 260,
-  markerLerp: 0.18,
+  retargetDelayMs: 320,
+  markerMoveSpeedMultiplier: 1,
+  markerMoveMinSpeed: 240,
+  markerMoveMaxSpeed: 420,
+  markerSnapDistance: 8,
+  bossFocusPriorityBias: 240000,
+  bossFocusMarkerRadius: 22,
+  bossFocusMarkerRadiusStep: 3,
   markerSize: 58,
   markerGlowSize: 78,
-  markerSearchRadius: 34,
-  markerSearchRadiusStep: 5,
+  markerSearchRadius: 24,
+  markerSearchRadiusStep: 3,
   markerSearchAlpha: 0.28,
   markerSearchGlowAlpha: 0.1,
   markerMovingAlpha: 0.34,
   markerLockingAlpha: 0.58,
   markerReadyAlpha: 0.92,
   markerGlowAlpha: 0.28,
-  cameraInsetX: 80,
-  cameraInsetY: 56
+  cameraInsetX: 120,
+  cameraInsetY: 84
 };
 const ROBOT_SYNC_CONFIG = {
   gaugeMax: 100,
@@ -51301,9 +51307,12 @@ class SurvivalScene extends Phaser.Scene {
       if (distanceSq > maxDistanceSq) {
         return;
       }
+      const focusBias = this.isRobotMissileFocusTarget(target)
+        ? ROBOT_MISSILE_LOCK_CONFIG.bossFocusPriorityBias
+        : 0;
       rankedTargets.push({
         target,
-        distanceSq: Math.max(0, distanceSq - priorityBias)
+        distanceSq: Math.max(0, distanceSq - priorityBias - focusBias)
       });
     };
 
@@ -51516,6 +51525,9 @@ class SurvivalScene extends Phaser.Scene {
         target: null,
         lockMs: 0,
         moveMs: 0,
+        retargetDelayMs: 0,
+        targetLockCount: 1,
+        targetLockIndex: 0,
         searchAngle: index * 0.72,
         marker: null,
         glow: null
@@ -51546,6 +51558,9 @@ class SurvivalScene extends Phaser.Scene {
       target: null,
       lockMs: 0,
       moveMs: 0,
+      retargetDelayMs: 0,
+      targetLockCount: 1,
+      targetLockIndex: 0,
       searchAngle: index * 0.72,
       marker,
       glow
@@ -51581,10 +51596,23 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
-  getRobotMissileLockMarkerPoint(target) {
+  getRobotMissileLockMarkerPoint(target, slot = null) {
     const yOffset = Math.max(10, (target?.displayHeight || 40) * 0.34);
     let x = target?.x || 0;
     let y = (target?.y || 0) - yOffset;
+    const duplicateCount = Math.max(1, Math.floor(Number(slot?.targetLockCount) || 1));
+    if (duplicateCount > 1 && this.isRobotMissileFocusTarget(target)) {
+      const duplicateIndex = Phaser.Math.Clamp(
+        Math.floor(Number(slot?.targetLockIndex) || 0),
+        0,
+        duplicateCount - 1
+      );
+      const radius = ROBOT_MISSILE_LOCK_CONFIG.bossFocusMarkerRadius
+        + Math.min(duplicateCount - 1, 5) * ROBOT_MISSILE_LOCK_CONFIG.bossFocusMarkerRadiusStep;
+      const angle = -Math.PI / 2 + (Math.PI * 2 * duplicateIndex) / duplicateCount;
+      x += Math.cos(angle) * radius;
+      y += Math.sin(angle) * radius * 0.74;
+    }
     const view = this.cameras?.main?.worldView;
     if (view) {
       const margin = ROBOT_MISSILE_LOCK_CONFIG.markerSize * 0.5;
@@ -51665,27 +51693,126 @@ class SurvivalScene extends Phaser.Scene {
       : this.isRobotMissileLockTargetValid(slot.target);
   }
 
+  isRobotMissileFocusTarget(target) {
+    if (!target?.active || target.isDying || target.isFinalBossRaidGiantWeapon) {
+      return false;
+    }
+    return target.isBoss === true
+      || this.isNemesisBoss?.(target) === true
+      || this.isVoidHunterBoss?.(target) === true;
+  }
+
+  updateRobotMissileLockSlotFocusLayout() {
+    if (!Array.isArray(this.robotMissileLockSlots)) {
+      return;
+    }
+
+    const targetCounts = new Map();
+    this.robotMissileLockSlots.forEach((slot) => {
+      if (slot?.target && this.isRobotMissileLockSlotTargetValid(slot)) {
+        targetCounts.set(slot.target, (targetCounts.get(slot.target) || 0) + 1);
+      }
+    });
+
+    const targetIndexes = new Map();
+    this.robotMissileLockSlots.forEach((slot) => {
+      if (!slot) {
+        return;
+      }
+      if (!slot.target || !this.isRobotMissileLockSlotTargetValid(slot)) {
+        slot.targetLockCount = 1;
+        slot.targetLockIndex = 0;
+        return;
+      }
+      const index = targetIndexes.get(slot.target) || 0;
+      slot.targetLockCount = targetCounts.get(slot.target) || 1;
+      slot.targetLockIndex = index;
+      targetIndexes.set(slot.target, index + 1);
+    });
+  }
+
+  getRobotMissileLockMarkerMoveSpeed() {
+    const playerSpeed = Number(this.stats?.moveSpeed) || 310;
+    return Phaser.Math.Clamp(
+      playerSpeed * ROBOT_MISSILE_LOCK_CONFIG.markerMoveSpeedMultiplier,
+      ROBOT_MISSILE_LOCK_CONFIG.markerMoveMinSpeed,
+      ROBOT_MISSILE_LOCK_CONFIG.markerMoveMaxSpeed
+    );
+  }
+
+  moveRobotMissileLockMarkerToward(slot, point, delta) {
+    const marker = slot?.marker;
+    const glow = slot?.glow;
+    if (!marker || !point) {
+      return true;
+    }
+
+    const hasPosition = marker.visible === true
+      && Number.isFinite(marker.x)
+      && Number.isFinite(marker.y);
+    if (!hasPosition) {
+      marker.setPosition(point.x, point.y);
+      glow?.setPosition(point.x, point.y);
+      return true;
+    }
+
+    const distance = Phaser.Math.Distance.Between(marker.x, marker.y, point.x, point.y);
+    const maxStep = this.getRobotMissileLockMarkerMoveSpeed() * Math.max(0, delta) / 1000;
+    if (distance <= Math.max(ROBOT_MISSILE_LOCK_CONFIG.markerSnapDistance, maxStep)) {
+      marker.setPosition(point.x, point.y);
+      glow?.setPosition(point.x, point.y);
+      return true;
+    }
+
+    const ratio = maxStep > 0 ? maxStep / distance : 0;
+    const nextX = Phaser.Math.Linear(marker.x, point.x, ratio);
+    const nextY = Phaser.Math.Linear(marker.y, point.y, ratio);
+    marker.setPosition(nextX, nextY);
+    glow?.setPosition(nextX, nextY);
+    return false;
+  }
+
   assignRobotMissileLockSlotTarget(slot, target) {
     if (!slot || slot.target === target) {
       return;
     }
-    const wasVisible = slot.marker?.visible === true && slot.target?.active;
+    const wasVisible = slot.marker?.visible === true;
     slot.target = target || null;
     slot.lockMs = 0;
-    slot.moveMs = wasVisible && target ? ROBOT_MISSILE_LOCK_CONFIG.markerTransitionMs : 0;
+    slot.moveMs = wasVisible && target ? 1 : 0;
+    slot.retargetDelayMs = 0;
+    this.applyRobotMissileLockMarkerVisual(slot, false);
+    slot.glow?.setTint(0x3dff72);
     if (!target) {
       slot.marker?.setVisible(false).setAlpha(0);
       slot.glow?.setVisible(false).setAlpha(0);
       return;
     }
 
-    const point = this.getRobotMissileLockMarkerPoint(target);
+    const point = this.getRobotMissileLockMarkerPoint(target, slot);
     if (!wasVisible) {
       slot.marker?.setPosition(point.x, point.y);
       slot.glow?.setPosition(point.x, point.y);
     }
     slot.marker?.setVisible(true);
     slot.glow?.setVisible(true);
+  }
+
+  releaseRobotMissileLockTarget(target, reason = "targetLost") {
+    if (!target || !Array.isArray(this.robotMissileLockSlots)) {
+      return;
+    }
+    this.robotMissileLockSlots.forEach((slot) => {
+      if (slot?.target !== target) {
+        return;
+      }
+      slot.target = null;
+      slot.lockMs = 0;
+      slot.moveMs = 0;
+      slot.retargetDelayMs = ROBOT_MISSILE_LOCK_CONFIG.retargetDelayMs;
+      this.applyRobotMissileLockMarkerVisual(slot, false);
+      this.updateRobotMissileSearchMarker(slot, 0);
+    });
   }
 
   updateRobotMissileSearchMarker(slot, delta) {
@@ -51699,8 +51826,8 @@ class SurvivalScene extends Phaser.Scene {
     const point = this.getRobotMissileSearchMarkerPoint(slot);
     const marker = slot.marker;
     const glow = slot.glow;
-    marker?.setPosition(point.x, point.y);
-    glow?.setPosition(point.x, point.y);
+    const arrived = this.moveRobotMissileLockMarkerToward(slot, point, delta);
+    slot.moveMs = arrived ? 0 : 1;
     marker?.setVisible(true).setAlpha(ROBOT_MISSILE_LOCK_CONFIG.markerSearchAlpha);
     glow
       ?.setVisible(true)
@@ -51718,20 +51845,12 @@ class SurvivalScene extends Phaser.Scene {
       return this.updateRobotMissileSearchMarker(slot, delta);
     }
 
-    const point = this.getRobotMissileLockMarkerPoint(slot.target);
+    const point = this.getRobotMissileLockMarkerPoint(slot.target, slot);
     const marker = slot.marker;
     const glow = slot.glow;
-    if (slot.moveMs > 0) {
-      slot.moveMs = Math.max(0, slot.moveMs - delta);
-      const lerp = ROBOT_MISSILE_LOCK_CONFIG.markerLerp;
-      marker?.setPosition(
-        Phaser.Math.Linear(marker.x, point.x, lerp),
-        Phaser.Math.Linear(marker.y, point.y, lerp)
-      );
-      glow?.setPosition(marker?.x || point.x, marker?.y || point.y);
-    } else {
-      marker?.setPosition(point.x, point.y);
-      glow?.setPosition(point.x, point.y);
+    const arrived = this.moveRobotMissileLockMarkerToward(slot, point, delta);
+    slot.moveMs = arrived ? 0 : 1;
+    if (arrived) {
       slot.lockMs = Math.min(
         ROBOT_MISSILE_LOCK_CONFIG.lockOnMs,
         Math.max(0, slot.lockMs + delta)
@@ -51784,6 +51903,7 @@ class SurvivalScene extends Phaser.Scene {
 
     this.robotState.missileTimer = Math.max(0, (this.robotState.missileTimer || 0) - delta);
     const candidates = this.findRobotMissileLockTargets(slotCount);
+    const focusTarget = candidates.find((candidate) => this.isRobotMissileFocusTarget(candidate));
     const reservedTargets = new Set();
     this.robotMissileLockSlots.forEach((slot) => {
       if (this.isRobotMissileLockSlotTargetValid(slot)) {
@@ -51795,37 +51915,40 @@ class SurvivalScene extends Phaser.Scene {
       if (this.isRobotMissileLockSlotTargetValid(slot)) {
         return;
       }
-      const nextTarget = candidates.find((candidate) => !reservedTargets.has(candidate));
+      if ((Number(slot?.retargetDelayMs) || 0) > 0) {
+        slot.retargetDelayMs = Math.max(0, slot.retargetDelayMs - delta);
+        return;
+      }
+      const uniqueTarget = candidates.find((candidate) => !reservedTargets.has(candidate));
+      const nextTarget = uniqueTarget || focusTarget || null;
       this.assignRobotMissileLockSlotTarget(slot, nextTarget || null);
-      if (nextTarget) {
-        reservedTargets.add(nextTarget);
+      if (uniqueTarget) {
+        reservedTargets.add(uniqueTarget);
       }
     });
 
-    const readyTargets = [];
-    let activeSlotCount = 0;
+    this.updateRobotMissileLockSlotFocusLayout();
+    const readySlots = [];
     this.robotMissileLockSlots.forEach((slot) => {
       const isReady = this.updateRobotMissileLockSlotMarker(slot, delta);
       if (slot.target && this.isRobotMissileLockSlotTargetValid(slot)) {
-        activeSlotCount += 1;
         if (isReady) {
-          readyTargets.push(slot.target);
+          readySlots.push(slot);
         }
       }
     });
 
-    if (!activeSlotCount || readyTargets.length < activeSlotCount || this.robotState.missileTimer > 0) {
+    const readyTargets = readySlots.map((slot) => slot.target).filter(Boolean);
+    if (!readyTargets.length || this.robotState.missileTimer > 0) {
       return;
     }
 
     this.fireRobotMissileVolley(readyTargets);
-    this.robotMissileLockSlots.forEach((slot) => {
-      if (readyTargets.includes(slot.target)) {
-        slot.lockMs = this.isRobotMissileRetainedTargetAlive(slot.target)
-          ? ROBOT_MISSILE_LOCK_CONFIG.lockOnMs
-          : 0;
-        slot.moveMs = 0;
-      }
+    readySlots.forEach((slot) => {
+      slot.lockMs = this.isRobotMissileRetainedTargetAlive(slot.target)
+        ? ROBOT_MISSILE_LOCK_CONFIG.lockOnMs
+        : 0;
+      slot.moveMs = 0;
     });
     this.robotState.missileTimer = this.getRobotMissileFireInterval();
   }
@@ -52159,21 +52282,25 @@ class SurvivalScene extends Phaser.Scene {
 
     const radius = missile.splashRadius || (isLargeExplosion ? 160 : 46);
     const damage = missile.damage || this.getRobotMissileDamage();
-    const napalmLevel = missile.napalm === true
+    const isNapalmMissile = missile.napalm === true;
+    const napalmLevel = isNapalmMissile
       ? Phaser.Math.Clamp(Math.floor(Number(missile.napalmLevel) || this.getRobotEffectiveNapalmLevel()), ROBOT_NAPALM_CONFIG.unlockLevel, ROBOT_MAX_LEVEL)
       : 0;
     this.detachRobotMissileLock(missile);
     missile.body.enable = false;
     missile.destroy();
     this.applyFinalBossRaidGiantWeaponPseudoDamageInRadius?.(x, y, radius);
-    this.applyRobotExplosionDamage(x, y, radius, damage, isLargeExplosion);
+    this.applyRobotExplosionDamage(x, y, radius, damage, isLargeExplosion, {
+      grantMissileXp: !isNapalmMissile
+    });
     if (napalmLevel >= ROBOT_NAPALM_CONFIG.unlockLevel) {
       this.applyRobotNapalmImpact(x, y, radius, damage, napalmLevel, isLargeExplosion);
     }
     this.spawnRobotExplosionEffect(x, y, radius, isLargeExplosion);
   }
 
-  applyRobotExplosionDamage(x, y, radius, damage, isLargeExplosion) {
+  applyRobotExplosionDamage(x, y, radius, damage, isLargeExplosion, options = {}) {
+    const grantMissileXp = options.grantMissileXp !== false;
     let syncGaugeGain = 0;
     this.enemies.children.each((enemy) => {
       if (!this.isFinalBossRaidEnemyTargetable(enemy)) {
@@ -52207,8 +52334,10 @@ class SurvivalScene extends Phaser.Scene {
         recoverMs: isLargeExplosion ? 170 : 105
       });
       if (wasAlive && hpBefore > enemy.hp) {
-        const killBonus = enemy.isDying ? (enemy.isBoss ? 12 : (enemy.isElite ? 5 : 2)) : 0;
-        this.addRobotSubsystemXp("missile", ROBOT_MISSILE_HIT_XP + killBonus + (isLargeExplosion ? 1 : 0), { silent: true });
+        if (grantMissileXp) {
+          const killBonus = enemy.isDying ? (enemy.isBoss ? 12 : (enemy.isElite ? 5 : 2)) : 0;
+          this.addRobotSubsystemXp("missile", ROBOT_MISSILE_HIT_XP + killBonus + (isLargeExplosion ? 1 : 0), { silent: true });
+        }
         syncGaugeGain += ROBOT_SYNC_CONFIG.missileHitGauge + (isLargeExplosion ? ROBOT_SYNC_CONFIG.largeExplosionGauge : 0);
         if (enemy.isDying) {
           syncGaugeGain += enemy.isBoss
@@ -52495,6 +52624,14 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
+  applyRobotNapalmDotDamageToEnemy(enemy, damage, flashTint, impact = {}) {
+    this.applyDamageToEnemy(enemy, damage, flashTint, {
+      ...impact,
+      damageSource: "robotNapalmDot",
+      robotSubsystemXpExcluded: true
+    });
+  }
+
   hasRobotNapalmLaunchTargets() {
     return this.getRobotNapalmTargetCandidates().length > 0;
   }
@@ -52557,7 +52694,7 @@ class SurvivalScene extends Phaser.Scene {
       entry.tickTimerMs += delta;
       while (entry.tickTimerMs >= ROBOT_NAPALM_CONFIG.burnTickMs && entry.remainingMs > 0 && enemy.active && !enemy.isDying) {
         entry.tickTimerMs -= ROBOT_NAPALM_CONFIG.burnTickMs;
-        this.applyDamageToEnemy(enemy, entry.tickDamage, 0xff8a4c, {
+        this.applyRobotNapalmDotDamageToEnemy(enemy, entry.tickDamage, 0xff8a4c, {
           sourceX: enemy.x,
           sourceY: enemy.y,
           force: 70,
@@ -52604,7 +52741,7 @@ class SurvivalScene extends Phaser.Scene {
             return;
           }
           const tickDamage = this.getRobotNapalmTickDamageForEnemy(enemy, field.baseDamage, ROBOT_NAPALM_CONFIG.fieldTickDamageMultiplier, field.level);
-          this.applyDamageToEnemy(enemy, tickDamage, 0xffb347, {
+          this.applyRobotNapalmDotDamageToEnemy(enemy, tickDamage, 0xffb347, {
             sourceX: field.x,
             sourceY: field.y,
             force: 60,
@@ -53433,6 +53570,7 @@ class SurvivalScene extends Phaser.Scene {
 
     this.trySpawnProductionEquipmentBox(enemy);
     enemy.isDying = true;
+    this.releaseRobotMissileLockTarget(enemy, "enemyKilled");
     const isNemesis = this.isNemesisBoss(enemy);
     const isVoidHunter = this.isVoidHunterBoss(enemy);
     const suppressRaidMinionRewards = enemy.isFinalBossRaidMinion === true;
