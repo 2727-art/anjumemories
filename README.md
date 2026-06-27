@@ -26,7 +26,7 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - DASH: `Shift` / `Space` / 右 DASH ボタン
 - レベルアップ選択: クリック / タップ / `1` `2` `3`、Opening Boost +1 使用時のみ `4`
 - Gate 選択: クリック / タップ / `1` `2`
-- DEPTH RELAY 選択: クリック / タップ / `1` D1 / `2` D10 / `3` D20 / `4` D30、`Escape` で OPERATIONS HUB へ戻る
+- DEPTH RELAY 選択: クリック / タップ / 表示中カードの左から `1` `2` `3`、`Escape` で OPERATIONS HUB へ戻る
 - ランキング入力: 名前入力後 `Enter`
 - ゲームオーバー後: `R` または `Enter` でショップへ戻る
 
@@ -78,7 +78,7 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - `?debugRaidAlliedMeshPhase=arrival|maximum|recovery|restored|all`: デバッグ用。エクスカリオン到着、全ノードMAXIMUM、通信復旧中継、外部回線復旧の各表示を単体または連続で確認します。ランキング、支援効果、報酬は変更しません。
 - `?debugRaidAlliedMeshScale=0.25`: デバッグ用。`debugRaidAlliedMesh=1` 時だけ、ALLIED MESH 表示演出の時間を短縮・延長します。戦闘効果やタイムラインは変わりません。
 - `?debugRaidAlliedMeshIncomplete=1`: デバッグ用。`debugRaidAlliedMeshPhase=maximum` と併用すると12/13ノード不足状態を作り、MAXIMUMが発動しないことを確認できます。
-- `?debugMaxBuild=1`: デバッグ用。攻撃スキル全種を最終Stage、ROBOTをLv.20/Tune Lv.20、HPを300、移動速度を+100にします。
+- `?debugMaxBuild=1`: デバッグ用。攻撃スキル全種を最終Stage、ROBOTをLv.20/Tune Lv.20、APを300、推進出力を+100にします。
 - `?debugRobotMissileLevel=10`: デバッグ用。ラン開始時のROBOT Missile Lvだけを指定値にします。値は1〜20で、Lv10の通常ミサイル確認には `debugSkipOpeningBoost=1` と併用できます。
 - `?debugTriadMatrix=1`: デバッグ用。TRIAD MATRIX の再計算、状態遷移、完成 buildId を console に出します。
 - `?debugTriadCore=assault|control|reactor|trinity`: デバッグ用。3攻撃スキルのStage4 Coreをラン内注入します。`trinity` は3種1個ずつになります。
@@ -106,11 +106,11 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 ## ゲーム進行
 
 1. OPERATIONS HUB の `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY`、`ARCHIVE` で CD、BGM、永続強化、ロボット系解放、戦闘ログ、MUTATION ATLAS 閲覧を行います。
-2. `SORTIE PREP` から Opening Boost 選択へ進み、開始前に 3 回ぶんの強化を選択します。Depth10 Final Raid 討伐後は、その前に DEPTH RELAY で Depth1 通常開始または解放済み転送先を選べます。Depth20 Anchor 解放後は Depth1 / Depth10 / Depth20、Depth30 Anchor 解放後は Depth1 / Depth10 / Depth20 / Depth30 の選択になります。
+2. `SORTIE PREP` から Opening Boost 選択へ進み、開始前に 3 回ぶんの強化を選択します。Depth10 Final Raid 討伐後は、その前に DEPTH RELAY で Depth1 通常開始または解放済み転送先を選べます。選択UIは最大3択で、Depth1は常時表示、Relay候補は解放済みAnchorの最新2件だけを表示します。Depth20 Anchor 解放後は Depth1 / Depth10 / Depth20、Depth30 Anchor 解放後は Depth1 / Depth20 / Depth30 の選択になります。
 3. DEPTH RELAY で Depth10 を選んだ場合も Final Raid ではなく通常 Depth10 の新しいランとして始まり、Depth1〜9の XP、GEEK、ANJU MEMORY などのスキップ報酬は付与されません。Opening Boost 回数は通常仕様のままです。
 4. Depth10 Relay は高難度の開始方法で、永続強化済みの構成を推奨します。Depth10 カードには `HIGH RISK` 警告、強化済み構成推奨、新規ラン開始、スキップ報酬なしの注意が表示されます。
 5. Depth20 Relay は `EXTREME RISK` の高難度チャレンジです。Depth10 / Depth20 Anchor が解放済みなら回収ロボ Lv に関係なく選択でき、Legend 装備探索や深層チャレンジ向けの新しいランとして Depth20 から開始します。Depth1〜19の XP、GEEK、ANJU MEMORY などのスキップ報酬は付与されず、Opening Boost は通常どおり 3 回、敵難度補正も緩和しません。深層ではアイテム回収が難しくなるため回収ロボ強化は有効ですが、D20選択の必須条件ではありません。
-6. Depth30 Relay は Beacon Network の最終 Anchor で、カードには `BEACON LIMIT` と Depth31 以降がビーコン圏外である警告を表示します。Depth10 / Depth20 / Depth30 Anchor が連鎖解放済みなら Depth30 から新しいランとして開始でき、Depth1〜29の XP、GEEK、ANJU MEMORY などのスキップ報酬は付与されません。Opening Boost は通常どおり 3 回で、Depth30 は LEGEND 掘りの高難度帯です。通常 `EXTRACT` では到達した絶対Depthを `sourceDepth` とする D30帯 Equipment Cache を保存します。Depth30 Anchor により GEEKSHOP / BASE CALIBRATION の Weapon / Armor / Shoes 上限は Lv.25 まで拡張されますが、Depth31 以降への直接 Relay は未実装です。
+6. Depth30 Relay は Beacon Network の最終 Anchor で、カードには `BEACON LIMIT` と Depth31 以降がビーコン圏外である警告を表示します。Depth10 / Depth20 / Depth30 Anchor が連鎖解放済みなら Depth30 から新しいランとして開始でき、Depth1〜29の XP、GEEK、ANJU MEMORY などのスキップ報酬は付与されません。D30解放後はD10がプレイヤー向け最新候補から上書きされますが、内部runtime、debug起動、旧記録表示、ランキング互換ではD10 Relayを維持します。Opening Boost は通常どおり 3 回で、Depth30 は LEGEND 掘りの高難度帯です。通常 `EXTRACT` では到達した絶対Depthを `sourceDepth` とする D30帯 Equipment Cache を保存します。Depth30 Anchor により GEEKSHOP / BASE CALIBRATION の Armament / AP Frame / Booster 上限は Lv.25 まで拡張されますが、Depth31 以降への直接 Relay は未実装です。
 7. ANJU MEMORY の +1 チケットを持っている場合、最初の Opening Boost だけ 4 択になります。
 8. Opening Boost 完了後に戦闘へ出撃し、敵を倒して XP、未確定 GEEK、Support、Robot、LOST ARMS アイテムを集めます。
 9. レベルアップ時はスキル解放、スキル強化、パッシブ強化から 3 択で 1 つ選びます。
@@ -119,13 +119,13 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 12. `NEXT STAGE` / `FORCE BREAKTHROUGH` で次 Depth へ進むと、地面に残った一部報酬が DATA CACHE に圧縮されます。
 13. Depth10 初回未討伐時は通常フィールドではなく Depth10 Final Raid に入り、残り 40 秒でボス HP が 0 になった後、600 秒到達時に専用の `ドールを解放する` ゲートだけが出現します。このゲートは Depth11 へ進まず、討伐報酬を保存して OPERATIONS HUB へ帰還します。
 14. Depth10 Final Raid 討伐後に通常プレイで Depth10 へ到達した場合は通常 Depth として進行し、CDSHOP で選択中の BGM を維持します。
-15. Depth11 以降は Endless Void 領域になり、選択 CD を保存変更せずラン中だけ `音声/bgm/ENDLESSVOIDAMBIENCE.mp3` へ上書きします。Depth12 以降へ進んでも同じ BGM を継続し、Depth ごとに先頭から再生し直しません。
-16. Depth11 以降は外部通信、味方通信、通常 Depth 通信、Final Raid 後日談通信を遮断し、既存通信 UI の `SCRAMBLED SIGNAL` 表示で短いスクランブル受信だけが低頻度で発生します。スクランブル通信はラン内一時状態で、`lastmemoVansabaCommsStoryState` には保存しません。
+15. Beacon coverage 内のDepthでは選択中CDの通常BGMと通常通信を維持します。Depth10までは常にcoverage内で、Depth10 / Depth20 / Depth30 Anchor が連鎖解放済みの場合は coverage がそれぞれ Depth10 / Depth20 / Depth30 まで広がります。coverage外では選択 CD を保存変更せずラン中だけ `音声/bgm/ENDLESSVOIDAMBIENCE.mp3` へ上書きし、Depth ごとに先頭から再生し直しません。
+16. Beacon coverage 外では外部通信、味方通信、通常 Depth 通信、Final Raid 後日談通信を遮断し、既存通信 UI の `SCRAMBLED SIGNAL` 表示で短いスクランブル受信だけが低頻度で発生します。D30 Anchor後もDepth31以降はビーコン圏外です。スクランブル通信はラン内一時状態で、`lastmemoVansabaCommsStoryState` には保存しません。
 17. 帰還、ゲームオーバー、Gate 崩壊後はローディング表示を挟んで OPERATIONS HUB に戻ります。
 
 ## Depth10 Final Raid
 
-Depth10 初回未討伐時の専用戦闘です。カメラはプレイヤーとボスを同時に収める専用ズームへ切り替わり、ボスは第1形態から第3形態まで浮遊フィールド中央へ固定されます。プレイヤーがボスの奥側へ回り込んだときだけ finalboss の描画 depth がプレイヤーより前になり、手前側ではプレイヤーが前面に出る疑似立体レイヤーになります。Final Raid 中のみプレイヤー移動速度は専用の固定値になり、通常 Depth の移動速度や永続強化には影響しません。
+Depth10 初回未討伐時の専用戦闘です。カメラはプレイヤーとボスを同時に収める専用ズームへ切り替わり、ボスは第1形態から第3形態まで浮遊フィールド中央へ固定されます。プレイヤーがボスの奥側へ回り込んだときだけ finalboss の描画 depth がプレイヤーより前になり、手前側ではプレイヤーが前面に出る疑似立体レイヤーになります。Final Raid 中のみプレイヤー推進出力は専用の固定値になり、通常 Depth の推進出力や永続強化には影響しません。
 
 Final Raid の表示レイヤーは、背景、浮遊型巨大機械兵器、浮遊型フィールド、ボス攻撃予兆/持続フィールド、プレイヤー関連、finalboss を基本にします。第三形態の左右巨大兵器による半面ダメージ床エフェクトもプレイヤーとボスより下のレイヤーに表示されます。移動可能範囲は浮遊型フィールドの白いタイル面に沿う六角形へ制限され、背景はわずかに揺れてフィールドが空中に浮いているように見えます。
 
@@ -133,15 +133,15 @@ Final Raid のボスフィールドでは `DOLL FIELD JAMMING` により LOST AR
 
 Final Raid のボスに対するプレイヤー攻撃は、通常のダメージ計算を行わず軽いヒット演出と疑似ダメージ数値だけを発生させます。スキル種別、強化状況、ダメージ倍率によるボス HP や支援ランキングへの影響はありません。ギルド救援もボス HP への実ダメージ計算は行わず、ボス HP と支援ランキングは時刻ベースのストーリー演出として進行します。開始直後はボス HP バーを満タンで安定表示し、最初の救援開始後からHPバー演出が進みます。ボス HP の数値、パーセント、BREAK、REVIVE、RAID SIGNAL、OBJECTIVE 表示は行いません。支援ランキングにはギルドだけを表示し、プレイヤーは表示しません。
 
-第1形態と第2形態では短い予兆付きフィールド攻撃が発生し、Final Raid 専用の被ダメージ値で通常フィールドより緊張感を高めています。第3形態では爆炎/氷結が約3秒残る持続フィールドになり、氷結フィールド命中時は一時的に移動速度が低下します。第3形態の爆炎/氷結はプレイヤー位置、移動方向、直近の魔法着弾点、既存の危険床、左右巨大兵器の半面床を見て候補点を評価し、完全封鎖を避けつつ逃げ道を段階的に狭める詰め将棋型の配置になります。既存4体の通常モンスター Add は第2形態専用で出現し、高耐久の Elite 扱いとして短い予兆付きの小フィールド攻撃を行います。Final Raid の Add に表示されるダメージ数値は実ダメージ計算ではなく疑似数値ですが、出現直後の保護時間、残存数、撃破上限を満たした場合だけ、攻撃ヒット時に低確率で撃破されます。撃破時は通常ドロップや XP 報酬には混ざらず、Heal アイテムだけを落とします。
+第1形態と第2形態では短い予兆付きフィールド攻撃が発生し、Final Raid 専用の被ダメージ値で通常フィールドより緊張感を高めています。第3形態では爆炎/氷結が約3秒残る持続フィールドになり、氷結フィールド命中時は一時的に推進出力が低下します。第3形態の爆炎/氷結はプレイヤー位置、移動方向、直近の魔法着弾点、既存の危険床、左右巨大兵器の半面床を見て候補点を評価し、完全封鎖を避けつつ逃げ道を段階的に狭める詰め将棋型の配置になります。既存4体の通常モンスター Add は第2形態専用で出現し、高耐久の Elite 扱いとして短い予兆付きの小フィールド攻撃を行います。Final Raid の Add に表示されるダメージ数値は実ダメージ計算ではなく疑似数値ですが、出現直後の保護時間、残存数、撃破上限を満たした場合だけ、攻撃ヒット時に低確率で撃破されます。撃破時は通常ドロップや XP 報酬には混ざらず、Heal アイテムだけを落とします。
 
 浮遊型巨大機械兵器 2 体は背景とフィールドの間に表示され、通常スキルや接触ではターゲットになりません。随伴ロボットのミサイルだけが届き、命中時は実 HP を持たない疑似ダメージ数値とヒット演出だけを表示します。巨大機械兵器は第3形態から、左兵器はフィールド左半面、右兵器はフィールド右半面に持続型ダメージ床を順番に展開します。Coven が救援参加すると左の巨大機械兵器が拘束され、左半面ダメージ床とそのターゲット判定が停止します。ひとりぼっちの が救援参加すると右の巨大機械兵器が拘束され、右半面ダメージ床とそのターゲット判定が停止します。HP 低下中はボス本体の危険フィールドと巨大兵器半面床が短時間に重なりすぎないよう、巨大兵器側が短く発動を遅らせます。ボス討伐時には、左右の巨大機械兵器本体、拘束演出、ターゲット判定、残っているダメージ床をまとめて削除します。
 
 支援ランキングは終盤まで REDWOLF が上位に残り、残り 1:45 でエクスカリオンが救援参加します。エクスカリオンは 5 位から 4 位、3 位、2 位へ段階的に上がり、残り 1:10 で 1 位になる演出です。REDWOLF は最終的に 2 位でレイドを終えます。ランキング数値は表示用の演出値で、リアルタイムのボス HP 計算には使いません。残り 2:00 で TIMELIMIT パネルが赤色に変化し、残り 0:40 でボス HP が 0 になってボス表示、当たり判定、左右の浮遊型巨大機械兵器とそのターゲット判定が消え、ランキング更新も停止します。600 秒到達後に `ドールを解放する` ゲートで討伐報酬を保存して OPERATIONS HUB へ帰還します。
 
-Final Raid 中は `DOLL FIELD JAMMING` により福音領域外から内部への `EXTERNAL DOWNLINK` が遮断されます。一方で内部から外部への `EMERGENCY UPLINK` は有効で、救援に到着したギルドとは `LOCAL MESH` で短距離通信できます。到着済みギルドは支援ランキングとは別に `RESCUE LINK` HUDへ到着順で表示されます。各ギルド初到着時は最大HP4%分の `RELIEF PACKET` が届き、HP不足分を回復し、余剰分は12秒間の `RELIEF SHIELD` へ変換されます。RELIEF SHIELD の上限は最大HP8%で、既存 Robot Barrier Field の後、HPダメージ前にだけ吸収します。7番目の `LOCAL MESH` 接続時には1回だけ `RESCUE BEACON` が展開され、10秒間に4回、範囲内のプレイヤーを最大HP3%ずつ回復します。これらはFinal Raidラン内限定の生存補助で、既存Robot Recovery Field / Barrier Fieldとは別系統です。ボスHP、支援ランキング、ギルド参戦時刻、報酬、GEEK、ANJU MEMORY、Run Archive、Firebaseには影響しません。
+Final Raid 中は `DOLL FIELD JAMMING` により福音領域外から内部への `EXTERNAL DOWNLINK` が遮断されます。一方で内部から外部への `EMERGENCY UPLINK` は有効で、救援に到着したギルドとは `LOCAL MESH` で短距離通信できます。到着済みギルドは支援ランキングとは別に `RESCUE LINK` HUDへ到着順で表示されます。各ギルド初到着時は最大AP4%分の `RELIEF PACKET` が届き、AP不足分を回復し、余剰分は12秒間の `RELIEF SHIELD` へ変換されます。RELIEF SHIELD の上限は最大AP8%で、既存 Robot Barrier Field の後、APダメージ前にだけ吸収します。7番目の `LOCAL MESH` 接続時には1回だけ `RESCUE BEACON` が展開され、10秒間に4回、範囲内のプレイヤーを最大AP3%ずつ回復します。これらはFinal Raidラン内限定の生存補助で、既存Robot Recovery Field / Barrier Fieldとは別系統です。ボスHP、支援ランキング、ギルド参戦時刻、報酬、GEEK、ANJU MEMORY、Run Archive、Firebaseには影響しません。
 
-各ギルド初到着時には、共通の `RELIEF PACKET` に加えてラン内限定のギルド固有支援が1回だけ発動します。乙女の牙はHP不足分優先の `VANGUARD AID`、SilentAngelは氷結スローを1回防ぐ `DEBUFF WARD`、アースクリエイターは10秒間10%軽減の `EARTHEN BULWARK`、Dream_Happyは短い分割回復の `HOPE REGEN`、千の風はスロー解除とスタミナ回復の `WIND RELEASE`、JGGLegendsは次のHPダメージを50%軽減する `LEGEND GUARD`、Doll'sHouseはBEACON内だけ10%軽減とスロー無効になる `SAFEHOUSE LINK`、シルバニアファミリーはRELIEF SHIELDを上限まで補充する `FAMILY SHELTER`、アークエンジェルズは10秒間12%軽減とスロー無効の `SANCTUARY LINK`、REDWOLFは12秒間15%軽減の `FRONTLINE GUARD`、エクスカリオンは回復・シールド・スロー解除・スタミナ全回復・15%軽減をまとめた `ALLIED MESH MAXIMUM` を付与します。軽減効果は加算せず、同時有効中の最大値だけを採用し、上限は15%です。Coven / ひとりぼっちの は既存の左右巨大兵器拘束を担当し、RESCUE LINK HUD 内の `BATTLEFIELD CONTROL` で左右兵器の `STANDBY` / `HOSTILE` / `LOCKING` / `SEALED` / `OFFLINE` 状態を確認できます。
+各ギルド初到着時には、共通の `RELIEF PACKET` に加えてラン内限定のギルド固有支援が1回だけ発動します。乙女の牙はAP不足分優先の `VANGUARD AID`、SilentAngelは氷結スローを1回防ぐ `DEBUFF WARD`、アースクリエイターは10秒間10%軽減の `EARTHEN BULWARK`、Dream_Happyは短い分割回復の `HOPE REGEN`、千の風はスロー解除とブーストEN回復の `WIND RELEASE`、JGGLegendsは次のAPダメージを50%軽減する `LEGEND GUARD`、Doll'sHouseはBEACON内だけ10%軽減とスロー無効になる `SAFEHOUSE LINK`、シルバニアファミリーはRELIEF SHIELDを上限まで補充する `FAMILY SHELTER`、アークエンジェルズは10秒間12%軽減とスロー無効の `SANCTUARY LINK`、REDWOLFは12秒間15%軽減の `FRONTLINE GUARD`、エクスカリオンは回復・シールド・スロー解除・ブーストEN全回復・15%軽減をまとめた `ALLIED MESH MAXIMUM` を付与します。軽減効果は加算せず、同時有効中の最大値だけを採用し、上限は15%です。Coven / ひとりぼっちの は既存の左右巨大兵器拘束を担当し、RESCUE LINK HUD 内の `BATTLEFIELD CONTROL` で左右兵器の `STANDBY` / `HOSTILE` / `LOCKING` / `SEALED` / `OFFLINE` 状態を確認できます。
 
 エクスカリオン初到着時に13ギルド全ノードが接続済みなら、RESCUE LINK HUD 内の `MESH ARRAY` が順番に点灯し、全13ノードが `ALLIED MESH: MAXIMUM` として同期します。この同期表示はネットワーク状態の演出であり、エクスカリオン到着時の既存支援効果を再適用、延長、強化しません。ボス撃破後はALLIED MESHが中継回線となり、HUDは `ALLIED MESH: RELAY MODE`、後日談通信の復旧ログ表示時は `VOICE CARRIER DETECTED`、専用帰還ゲート出現時は `ALLIED MESH: STABLE` へ段階的に変化します。
 
@@ -181,7 +181,7 @@ GEEK MILESTONE BONUS:
 - Silver: 20 XP / 基礎 1,000 GEEK を獲得します。
 - Gold: 38 XP / 基礎 3,000 GEEK を獲得します。
 - DATA CACHE: Depth 遷移時に残った XP / 未確定 GEEK 報酬を圧縮した箱です。
-- Heal: HP を回復します。
+- Heal: AP を回復します。
 - Magnet: XP オーブ、Bronze / Silver / Gold、DATA CACHE、Robot、LOST ARMS、装備箱を引き寄せます。
 - Support: サポート攻撃を発動します。
 - Robot: 随伴ロボットの本体レベルやチューニングを強化します。
@@ -271,8 +271,8 @@ TRIAD MATRIX の戦闘効果は、3 攻撃スキルと既存 SKILL MUTATION 効�
 
 - `ASSAULT LINK I` / `ASSAULT ARRAY`: 3 攻撃スキルの実ダメージ x1.04 / x1.08。
 - `CONTROL LINK I` / `CONTROL GRID`: 既存 Mutation 由来の鈍足、持続、押し戻し、制圧フィールド系の制御性能 x1.06 / x1.12。
-- `REACTOR LINK I` / `REACTOR LOOP`: OVERDRIVEゲージ獲得量とROBOT SYNCゲージ獲得量 x1.06 / x1.12、DASH中スタミナ消費 x0.97 / x0.94。
-- `TRINITY CORE`: 実ダメージ x1.03、制御性能 x1.05、OVERDRIVE/ROBOT SYNCゲージ x1.05、DASH中スタミナ消費 x0.97。
+- `REACTOR LINK I` / `REACTOR LOOP`: OVERDRIVEゲージ獲得量とROBOT SYNCゲージ獲得量 x1.06 / x1.12、DASH中ブーストEN消費 x0.97 / x0.94。
+- `TRINITY CORE`: 実ダメージ x1.03、制御性能 x1.05、OVERDRIVE/ROBOT SYNCゲージ x1.05、DASH中ブーストEN消費 x0.97。
 - `EXECUTION LINK I` / `EXECUTION PROTOCOL`: 既存のBoss / Elite / 高HP通常敵判定への3攻撃スキル対象ダメージ x1.06 / x1.12。
 - `PRISM LINK I` / `PRISM CASCADE`: 既存PRISM Mutationの分岐・連鎖・副次攻撃ダメージ x1.08 / x1.15。分岐数や同時存在数は増えません。
 - `SINGULARITY LINK I` / `SINGULARITY DOMAIN`: 既存SINGULARITY Mutationのフィールド半径、持続、吸引/制圧系の値 x1.06 / x1.12。
@@ -295,7 +295,7 @@ Depth10初回 Final Raid 中は TRIAD HUD、TRIAD戦闘効果、Atlas記録、PR
 
 検証用に `?debugTriadMatrix=1` を付けるとTRIAD再計算、状態遷移、完成 buildId を console に出します。`?debugTriadCore=assault|control|reactor|trinity` と `?debugTriadFinal=execution|prism|singularity|adaptive` は3スキルへラン内Mutationを注入します。この注入ランではAtlas保存、ANJU MEMORY報酬、Reroll Ticket報酬、Research完了、実RUN ARCHIVEへのTRIADビルド保存を行いません。`?debugMutationAtlas=1` はOPERATIONS HUB起動時に保存を書き換えないサンプルAtlasを表示します。
 
-通常のレベルアップ強化は Lv.25 までを基準にし、Depth 6 以降で Lv.25 に到達している場合は `DEEP LEVEL` 成長に切り替わります。`DEEP LEVEL` は Lv.99 まで上昇し、カード選択を出さずに 1 レベルごとに Lv.25 時点の最大 HP 基準で約 1% の最大 HP と同量の現在 HP を加算します。Depth 6 未満では `DEEP LEVEL` は解禁されません。
+通常のレベルアップ強化は Lv.25 までを基準にし、Depth 6 以降で Lv.25 に到達している場合は `DEEP LEVEL` 成長に切り替わります。`DEEP LEVEL` は Lv.99 まで上昇し、カード選択を出さずに 1 レベルごとに Lv.25 時点の最大AP基準で約 1% の最大APと同量の現在APを加算します。Depth 6 未満では `DEEP LEVEL` は解禁されません。
 
 すべてのスキル候補とパッシブ候補が上限に達した後の XP は `OVERDRIVE` に変換されます。
 
@@ -307,7 +307,7 @@ OVERDRIVE:
 - 1 XP が 1% ゲージになります。
 - Overflow XP の 12% 相当を基礎値として、Depth / 不安定度補正つきの未確定 GEEK も得ます。
 - 発動時間は 30 秒、延長込み最大 60 秒です。
-- 発動中はダメージ x1.15、移動速度 x1.12、攻撃間隔 x0.88 になります。
+- 発動中はダメージ x1.15、推進出力 x1.12、攻撃間隔 x0.88 になります。
 - HUD 中央に `OD` ゲージと残り秒数が表示されます。
 
 Depth 6 以降で OVERDRIVE が新規発動する場合、即時発動ではなく `OVERDRIVE MOD SELECT` の 3 択カードが開き、その OVERDRIVE 中だけ有効な MOD を 1 つ選びます。Depth 1〜5 は従来どおり自動発動します。すでに OVERDRIVE 中にゲージが 100% へ到達した場合は選択 UI を出さず、現在の MOD を維持したまま発動時間だけ延長します。レベルアップ、Gate、STABILIZE PROTOCOL、LOST ARMS RESONANCE など別 overlay が開いている場合、MOD 選択はキューされ、overlay が閉じてから表示されます。抽出、緊急抽出、ゲームオーバー、ショップ復帰、リスタート、シーン破棄で MOD 状態と未表示キューは破棄され、保存データには残りません。
@@ -319,7 +319,7 @@ OVERDRIVE MOD:
 - `MAGNET STORM`: 発動時に半径 900 内の XP、価値ドロップ、DATA CACHE、Robot、Support、LOST ARMS / RESONANCE ECHO を引き寄せ、通常 MAGNET の範囲 x1.60、引き寄せ速度 x1.35。
 - `GOLD FEVER`: Bronze / Silver / Gold の未確定 GEEK x1.20、DATA CACHE の未確定 GEEK x1.15。確定 GEEK と保存済み通貨には影響しません。
 - `GUARD PULSE`: 発動直後 2.5 秒だけ被ダメージ x0.78、半径 220 の敵を押し戻します。
-- `COOLDOWN REACTOR`: OVERDRIVE 中の攻撃間隔をさらに x0.88、移動速度を x0.96 にします。
+- `COOLDOWN REACTOR`: OVERDRIVE 中の攻撃間隔をさらに x0.88、推進出力を x0.96 にします。
 
 検証用に `?debugOverdriveMod=1` を付けると、Depth 1 から MOD 選択条件を確認でき、console に選択ログが出ます。
 
@@ -404,7 +404,7 @@ DIRECTIVE 一覧:
 
 - `BOSS HUNTER`: Boss / Elite を撃破。Depth 6 は 1 体、Depth 7 以降は 2 体。報酬は LOST ARMS SIGNAL と未確定 GEEK。
 - `DATA RECOVERY`: Directive Beacon を 3 個回収。報酬は DATA CACHE。DATA CACHE が上限 3 個に達している場合は既存 CACHE へ payload を統合します。
-- `NO RETREAT`: Gate 開放時に HP 50% 以上を維持。報酬は STABILIZE +100% と未確定 GEEK。
+- `NO RETREAT`: Gate 開放時に AP 50% 以上を維持。報酬は STABILIZE +100% と未確定 GEEK。
 - `SLIME SIGNAL`: Depth 中に出現する Directive Slime を撃破。報酬は Gold cache と未確定 GEEK。Directive Slime の通常 Gold Slime 確定報酬と LOST ARMS 抽選は抑制します。
 - `CLEAN SWEEP`: 敵を `160 + (Depth - 6) x 12` 体撃破。報酬は OVERDRIVE +50% と未確定 GEEK。
 - `GATE ANCHOR`: Elite 1 体撃破、かつ Bronze / Silver / Gold を 8 個回収。報酬は次に開く Gate の安定時間 +8 秒と未確定 GEEK。
@@ -480,12 +480,12 @@ ANJU MEMORY ショップ報酬:
 
 プレイヤー初期値:
 
-- HP: 100
-- 移動速度: 310
-- スタミナ: 100
+- AP（アーマーポイント）: 100
+- 推進出力: 310
+- BOOST EN: 100
 - DASH 速度倍率: 1.68
-- DASH スタミナ消費: 38 / 秒
-- スタミナ回復: 24 / 秒
+- DASH ブーストEN消費: 38 / 秒
+- ブーストEN回復: 24 / 秒
 
 敵タイプ:
 
@@ -509,11 +509,11 @@ ANJU MEMORY ショップ報酬:
 
 パッシブ:
 
-- Overcharge Bolt: 電撃ダメージを増やします。
-- Rapid Sigil: 攻撃間隔を短縮します。
-- Swift Step: 移動速度を上げます。
-- Stamina Core: 最大スタミナとスタミナ回復余地を増やします。
-- Vital Bloom: 最大 HP と現在 HP を増やします。
+- Reactor Overcharge: 電撃ダメージを増やします。
+- Fire Control Link: 攻撃間隔を短縮します。
+- Booster Tuning: 推進出力を上げます。
+- Energy Capacitor: 最大ブーストENとブーストEN回復余地を増やします。
+- AP Reinforce: 最大APと現在APを増やします。
 
 ## LOST ARMS / ロストアームズ
 
@@ -599,52 +599,53 @@ SUPPORT LINK SYSTEM:
 - Golden Tune Vase: ミサイル系チューニングを 2 択で選びます。
 - Silver Tune Vase: フィールド系チューニングを 2 択で選びます。
 
-通常ミサイルはロボットから最大 1120 の範囲にいる敵を狙い、Lv1-2で1発、Lv3-4で2発、Lv5-6で3発、Lv7-8で4発、Lv9で5発、Lv10以降で6発を短い連続発射として撃ちます。Depth10 ではミサイルの距離制限を外し、フィールド内の対象を距離に関係なく候補にします。さらに通常ミサイルの速度は変えず、生存時間を2倍にして飛行距離を約2倍にします。Lv10以降は通常ミサイルに加えて、上空からの大きい爆撃ミサイルも同じ発射サイクル内で発生します。
+通常ミサイルはカメラ内側にいる敵だけをロックオンする高誘導ミサイルです。画面外から狙いすぎないよう、カメラ端から左右80px / 上下56pxぶん内側に入った対象だけを候補にします。Lv1-2で1枠、Lv3-4で2枠、Lv5-6で3枠、Lv7-8で4枠、Lv9で5枠、Lv10で6枠、Lv11-12で7枠、Lv13-14で8枠、Lv15-16で9枠、Lv17以降で最大10枠のロック枠を持ちます。各枠は緑色のターゲットマーカーで敵を追尾し、画面内に対象がいない間はロボット周辺を薄く旋回する索敵表示になります。ロック完了前に対象が死亡またはサーチ範囲外へ移動した時は、次の対象へ半透明で移動します。同じ対象を3秒ロックすると赤色のロック完了マーカーへ切り替わり、その枠の通常ミサイルを発射します。ロック完了後は対象が死亡または非activeになるまで赤マーカーを維持し、サーチ範囲外へ出ても同じ対象をロックし続けます。Rapid Launcher は発射後クールダウンを 2400ms から最短 1500ms まで短縮します。ROBOT SYNC DRIVE 中はこのクールダウンが短縮され、最短 1300ms になります。通常ミサイル速度は480を基準にチューニングで最大540まで伸び、寿命は3200msです。1発の通常ミサイル威力は従来計算の約1.45倍です。Depth10 でも距離無制限・生存時間2倍の特例は使わず、通常ミサイルの新規ロック対象はカメラ内側の敵に限定されます。Lv11以降も通常ミサイルの画像サイズはLv10相当で固定です。
 
 GEEKSHOP の `回収ロボ` は、確定 GEEK で Lv.1-10 まで永続強化する別系統の非ダメージサポートです。出撃中はキャラクター周辺のドロップを探してロボット自身が拾いに行き、回収後はプレイヤー付近へ戻ります。Lv が上がるとサーチ範囲、移動速度、回収対象が広がり、Lv2 以降は周囲の敵を押し戻す掃除パルス、Lv4 以降は短い鈍足補助も発生します。対象は Lv1 で XP / Bronze / Silver / Gold、Lv2 で DATA CACHE、Lv3 で Heal / Magnet、Lv5 で Robot / Support / LOST ARMS まで広がります。画像は `./画像/robot/cleaning_robot_lv1.png` から `cleaning_robot_lv10.png` を使用し、未読み込み時は既存ロボット画像へフォールバックします。
 
 ミサイルと回復フィールドの本体レベルは通常 Lv.10 が上限です。OPERATIONS HUB の `ROBOT CUSTOM` で確定 GEEK を使ってLv上限を段階解放すると、各系統ごとに Lv.12 / 14 / 16 / 18 / 20 まで伸ばせます。チューニングは Rapid Launcher、Warhead Boost、Field Cycle、Care Output があり、それぞれ最大 Lv.20 です。
 
-ミサイル命中、撃破、回復パルスでもロボット経験値が入り、Lv1-10までは既存テンポで本体レベルが上がります。Lv10以降は自動経験値では上がらず、Missile / Recovery Core を複数取得して `CORE x/y` を満たすと1レベル上がります。必要Core数は Lv10->11:2、Lv11->12:2、Lv12->13:3、Lv13->14:3、Lv14->15:4、Lv15->16:5、Lv16->17:6、Lv17->18:7、Lv18->19:8、Lv19->20:10 です。Boss撃破時のRobot報酬抽選は基本32%ですが、Depth6以降の通常Wave Bossだけ40%になります。Missile Lv10以上かつ上限未到達の間は、Robot報酬候補内のMissile Core重みが5から8に上がります。すでに現在の上限に達した Robot 報酬を拾った場合は、STABILIZE と未確定 GEEK に変換されます。
+ミサイル命中、撃破、回復パルスでもロボット経験値が入り、Lv1-10までは既存テンポで本体レベルが上がります。Lv10以降は自動経験値では上がらず、Missile / Recovery Core を複数取得して `CORE x/y` を満たすと1レベル上がります。必要Core数は Lv10->11:1、Lv11->12:2、Lv12->13:3、Lv13->14:3、Lv14->15:4、Lv15->16:5、Lv16->17:6、Lv17->18:7、Lv18->19:8、Lv19->20:10 です。Boss撃破時のRobot報酬抽選は基本32%ですが、Depth6以降の通常Wave Bossだけ40%になります。Missile Lv10以上かつ上限未到達の間は、Robot報酬候補内のMissile Core重みが5から8に上がります。すでに現在の上限に達した Robot 報酬を拾った場合は、STABILIZE と未確定 GEEK に変換されます。
 
-Lv11+ ROBOT EX:
+ROBOT EX:
 
-- `Napalm Missile`: `ROBOT CUSTOM` で 180,000 GEEK、Missile Cap Tier 1 以上が必要です。購入後、Missile Lv11+でミサイル爆発時に燃焼を付与します。Lv15+では短時間の燃焼床を生成し、最大8個まで残ります。燃焼ダメージは既存の敵ダメージ処理を通るため、撃破・ドロップ・ランキング加算は通常処理に乗ります。
-- `Barrier Field`: `ROBOT CUSTOM` で 180,000 GEEK、Recovery Cap Tier 1 以上が必要です。購入後、Recovery Lv11+でHPとは別のシールドを生成します。Barrierは被弾時にHPより先に削られ、破壊後はクールダウンを経て回復フィールドのパルスで再構築されます。Recovery Lv20では90秒クールダウンのLast Standがあり、致死ダメージ時に一度だけHP1で踏みとどまります。
-- ロボット本体は Lv11-15 で `robot_lv11.png`、Lv16-19 で `robot_lv16.png`、Lv20 で `robot_lv20.png` を使います。ナパーム弾は Lv11-15 / 16-19 / 20 で `robot_bombslv11.png` / `robot_bombslv16.png` / `robot_bombslv20.png` を使います。燃焼は `missile_explosion_frame_01.png` から `missile_explosion_frame_08.png` のフレームアニメーションです。
+- `Napalm Missile`: `ROBOT CUSTOM` で 180,000 GEEK、Missile Cap Tier 1 以上が必要です。購入後、Missile Lv1+で通常ミサイルとは別に上空からのナパーム砲撃を一定間隔で要請します。ナパームは通常ミサイル画像を置き換えず、カメラ内の敵密集地点を評価して中心付近へ降り注ぎ、着弾範囲内の敵へダメージと燃焼を与えます。狙える候補がない間は砲撃を待機します。ナパーム実効Lvは Missile Lv と Napalm Cap の低い方で、購入直後の Cap は Lv11、追加 GEEK 解放で Lv13 / 15 / 17 / 20 まで伸びます。実効Lvが上がると1回あたりのナパーム弾数、着弾範囲、燃焼ダメージ、燃焼時間が増え、Lv11+では持続するダメージ床を生成します。Lv20付近では爆撃が密集地点を中心に広がり、逃げながら延焼と炎上床で敵群を削る制圧性能が高くなります。燃焼ダメージとダメージ床は既存の敵ダメージ処理を通るため、撃破・ドロップ・ランキング加算は通常処理に乗ります。
+- `Barrier Field`: `ROBOT CUSTOM` で 180,000 GEEK、Recovery Cap Tier 1 以上が必要です。購入後、Recovery Lv1+でHPとは別のシールドを生成します。Barrier実効Lvは Recovery Lv と Barrier Cap の低い方で、購入直後の Cap は Lv11、追加 GEEK 解放で Lv13 / 15 / 17 / 20 まで伸びます。Barrierは被弾時にHPより先に削られ、破壊後はクールダウンを経て回復フィールドのパルスで再構築されます。実効Lv1-20にかけてシールド量が増加し、実効Lv20では90秒クールダウンのLast Standがあり、致死ダメージ時に一度だけHP1で踏みとどまります。
+- ロボット本体は Lv11-15 で `robot_lv11.png`、Lv16-19 で `robot_lv16.png`、Lv20 で `robot_lv20.png` を使います。通常ミサイルは Lv11 以降も `missile_frame_01.png` から `missile_frame_08.png` の通常フレームを使います。ナパーム弾は Lv1-15 / 16-19 / 20 で `robot_bombslv11.png` / `robot_bombslv16.png` / `robot_bombslv20.png` を使います。燃焼は `missile_explosion_frame_01.png` から `missile_explosion_frame_08.png` のフレームアニメーションです。
 - Recovery Field は Lv1-10 で各Lv画像を使い、Lv11-14 は `recovery_field_lv11.png`、Lv15-19 は `recovery_field_lv15.png`、Lv20 は `recovery_field_lv20.png` を使います。Lv11以降の各区間では同じ表示スケールを保ち、毎Lvごとの拡大は行いません。Barrier Field 展開中はキャラクター本体に白い半透明シールドを重ねて表示し、Recovery Field は常時回転しない静止デカールとして、プレイヤー/ロボットの足元にプレイヤーより下の depth で表示します。画像未読込時は Lv20 -> Lv15 -> Lv11 -> Lv10 の順にフォールバックし、最後は既存のリング表現へ戻します。
 
 ROBOT SYNC DRIVE:
 
 - ミサイル命中・撃破、回復フィールドのパルス、Missile / Recovery Core 取得、Golden / Silver Tune Vase のチューニング選択で `SYNC` ゲージが蓄積します。
 - `SYNC` 100% で 18 秒間の `ROBOT SYNC DRIVE` が自動発動します。発動中に再度 100% へ到達した場合は最大 30 秒まで延長されます。
-- 発動中はミサイル発射間隔 x0.86、ミサイル威力 x1.16、回復フィールド範囲 x1.12、回復量 x1.18 になります。
+- 発動中は通常ミサイルの発射後クールダウン x0.86、ミサイル威力 x1.16、回復フィールド範囲 x1.12、回復量 x1.18 になります。
 - 発動中の回復パルスは `SYNC PULSE` になり、周囲の敵へ小ダメージと押し戻しを与えます。
 - `SYNC` はラン内一時状態です。ショップ復帰、抽出、ゲームオーバー、リスタートでリセットされ、localStorage / sessionStorage には保存されません。
 - 検証用に `?debugRobotSync=1` を付けると、初期 `SYNC` ゲージが高い状態になり、ゲージ獲得量が増えて発動確認しやすくなります。
 
 ## OPERATIONS HUB / 拠点
 
-OPERATIONS HUB では `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY`、`ARCHIVE` をタブで切り替えます。CDSHOP は CD 購入と BGM 選択専用です。GEEKSHOP と ROBOT CUSTOM では確定 GEEK を使用します。GEEKSHOP は Weapon / Armor / Shoes と回収ロボの永続強化、ROBOT CUSTOM はラン中Lvを直接購入する画面ではなく、Missile / Recovery のLv上限と Lv11+ EX 機能を解放する画面です。ANJU MEMORY では深層メタ報酬の購入・選択、ARCHIVE では RUN ARCHIVE と MUTATION ATLAS を確認します。CD は BGM 選択と永続ボーナスを兼ねており、購入済み CD の永続効果は選択中 BGM に関係なく常時発動します。
+OPERATIONS HUB では `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY`、`ARCHIVE` をタブで切り替えます。CDSHOP は CD 購入と BGM 選択専用です。GEEKSHOP と ROBOT CUSTOM では確定 GEEK を使用します。GEEKSHOP は Armament / AP Frame / Booster と回収ロボの永続強化、ROBOT CUSTOM はラン中Lvを直接購入する画面ではなく、Missile / Recovery のLv上限と EX 機能を解放する画面です。ANJU MEMORY では深層メタ報酬の購入・選択、ARCHIVE では RUN ARCHIVE と MUTATION ATLAS を確認します。CD は BGM 選択と永続ボーナスを兼ねており、購入済み CD の永続効果は選択中 BGM に関係なく常時発動します。
 
-ラン中 BGM は Depth1〜9 と Final Raid 討伐後の通常 Depth10 では CDSHOP の選択 CD を再生します。初回未討伐の Depth10 Final Raid だけ Final Raid 専用 BGM に切り替わり、Depth11 以降では `./音声/bgm/ENDLESSVOIDAMBIENCE.mp3` をラン中だけ一時上書きします。この専用 BGM は CD として購入・選択・保存されず、`lastmemoVansabaShopState` の CD 選択値も変更しません。
+ラン中 BGM は Beacon coverage 内では CDSHOP の選択 CD を再生します。Depth1〜10は常にcoverage内で、D20 Anchorが連鎖解放済みならDepth20まで、D30 Anchorが連鎖解放済みならDepth30まで選択CD BGMと通常通信を維持します。初回未討伐の Depth10 Final Raid だけ Final Raid 専用 BGM に切り替わります。Beacon coverage外では `./音声/bgm/ENDLESSVOIDAMBIENCE.mp3` をラン中だけ一時上書きし、外部通信は `SCRAMBLED SIGNAL` になります。この専用 BGM は CD として購入・選択・保存されず、`lastmemoVansabaShopState` の CD 選択値も変更しません。
 
 GEEKSHOP は `BASE CALIBRATION` と `EQUIPMENT ANALYSIS` の2つのサブビューを持ちます。`BASE CALIBRATION` は従来の確定 GEEK 永続強化画面です。`EQUIPMENT ANALYSIS` では、保存済みの未解析箱を確定 GEEK または無料解析クレジットで解析し、5部位それぞれの最高品質装備を更新できます。装備箱 GameObject、ラン内一時保持、HUD、通常 / 緊急 / Final Raid 帰還時の抽出保存、通常戦闘の本番ドロップ、Depth10 Final Raid 初回LEGEND確定箱、5部位のラン内ステータス補正まで実装済みです。
 
 GEEKSHOP / BASE CALIBRATION:
 
-- Weapon: 基本上限 Lv.10、Depth10 Anchor 解放で Lv.15、Depth20 Anchor 解放で Lv.20、Depth30 Anchor 解放で Lv.25。攻撃力 +6% / Lv
-- Armor: 基本上限 Lv.10、Depth10 Anchor 解放で Lv.15、Depth20 Anchor 解放で Lv.20、Depth30 Anchor 解放で Lv.25。最大 HP +10 / Lv
-- Shoes: 基本上限 Lv.10、Depth10 Anchor 解放で Lv.15、Depth20 Anchor 解放で Lv.20、Depth30 Anchor 解放で Lv.25。移動速度 +8 / Lv
+- Armament: 基本上限 Lv.10、Depth10 Anchor 解放で Lv.15、Depth20 Anchor 解放で Lv.20、Depth30 Anchor 解放で Lv.25。攻撃力 +6% / Lv
+- AP Frame: 基本上限 Lv.10、Depth10 Anchor 解放で Lv.15、Depth20 Anchor 解放で Lv.20、Depth30 Anchor 解放で Lv.25。最大AP +10 / Lv
+- Booster: 基本上限 Lv.10、Depth10 Anchor 解放で Lv.15、Depth20 Anchor 解放で Lv.20、Depth30 Anchor 解放で Lv.25。推進出力 +8 / Lv
 - 上限解放は購入可能Lvを広げるだけで、無料Lvは付与されません。Lv21〜25も従来と同じ効果式と確定 GEEK の価格式を継続します。Depth31 以降はビーコン圏外のため、現時点で Lv26 以上はありません。Depth30 Anchor による上限解放は、D30転送カードの表示条件と同じく Anchor 解放状態だけを参照し、購入済みLvや装備状態はD30選択条件にしません。
 - SUPPORT LINK SYSTEM: 60,000 GEEK でインストール。インストール後は Support の正常発動累計で `LINK Lv.1-6` まで自動成長し、Support combat effect が +5% から最大 +25% になります。
 - 回収ロボ: 最大 Lv.10。必要 GEEK は 100,000 / 150,000 / 230,000 / 350,000 / 520,000 / 780,000 / 1,150,000 / 1,700,000 / 2,500,000 / 3,600,000。
 
 GEEKSHOP / EQUIPMENT ANALYSIS:
 
-- `HEAD`、`CLOTHES`、`SHOES`、`WEAPON`、`ACCESSORY` の5部位に、保存済み `bestBySlot` のレアリティと Rank I〜V を表示します。空スロットは `NO DATA` です。
+- `SENSOR`、`FRAME`、`BOOSTER`、`ARMAMENT`、`CORE` の5部位に、保存済み `bestBySlot` のレアリティと Rank I〜V を表示します。空スロットは `NO DATA` です。保存schemaの内部slot IDは互換性のため `head` / `clothes` / `shoes` / `weapon` / `accessory` のままです。
 - 未解析箱は `N`、`R`、`SR`、`SSR`、LEGEND発見後のみ `LEGEND` の個数を表示します。箱のslot、rank、sourceDepth、sourceType、id、analysisCostOverrideは表示しません。
 - `legendDiscovered=false` の間は、UI上に `LEGEND` や虹色枠を表示しません。未発見状態でLEGEND箱が内部にある場合は `UNKNOWN SIGNAL` として表示します。
+- LEGEND表示は最高レアリティとして、CURRENT LOADOUT、解析結果、未解析一覧、SET RESONANCE、COLLECTION STATUSで滑らかな虹色グラデーション枠と発光文字を使います。
 - `SET RESONANCE` は5部位の `bestBySlot` レアリティからセット進捗を導出して表示します。SSR以上5部位は `SSR+ ARRAY`、LEGEND 5部位は `LEGEND ARRAY` として判定しますが、LEGEND未発見時はLEGENDセット名やLEGEND部位数を表示しません。
 - セット進捗は `EQUIPPED SLOTS`、`SSR+ ARRAY`、LEGEND発見後の `LEGEND ARRAY` を `STANDBY` / `QUALIFIED` として示します。SSR+ 5部位では `COMBAT LINK I: READY` / `OVERLIMIT CAP: I`、LEGEND発見済みのLEGEND 5部位では `COMBAT LINK II: READY` / `OVERLIMIT CAP: II` を表示します。LEGEND未発見時はLEGEND名や虹色枠を出さず、SSR+側の表示に留めます。
 - `COLLECTION STATUS` では `bestBySlot` から導出した `SSR+ COLLECTION` と、LEGEND発見後の `LEGEND COLLECTION` 進捗を確認できます。未解析箱は進捗に含めず、LEGEND未発見中は `HIGHER SIGNAL / LOCKED` として秘匿します。LEGEND 5部位コンプは長期目標で、進捗や完成状態はランキング / Firebase / Deep Result へ送信しません。
@@ -653,13 +654,13 @@ GEEKSHOP / EQUIPMENT ANALYSIS:
 - 同じslotに既存LEGEND bestがあり、より低いまたは同品質のLEGENDを解析した場合は `DUPLICATE LEGEND SIGNAL` として表示し、slot別の `LEGEND RESONANCE` として記録します。RESONANCEは現段階では表示専用で、Rank、戦闘効果、ドロップ率、交換、pity、未所持slot補完、ランキング / Firebase には影響しません。
 - Deep Extractionで得た Equipment Cache も `EQUIPMENT ANALYSIS` で解析し、保存済みCacheの `slot` / `rarity` / `rank` を再抽選せず装備として確定します。解析済み装備は `bestBySlot` へ反映され、LEGENDは解析成功時に初めて発見扱いになります。SSR+ / LEGEND の5部位成立は `SET RESONANCE` と次ランの Combat Link 条件になります。
 - 保存成功後だけ解析結果パネルを表示します。保存に失敗した場合は GEEK と Equipment 状態をロールバックし、結果パネルは出さず `ANALYSIS ABORTED / SAVE ERROR` を表示します。
-- CURRENT LOADOUT には各部位の効果を表示します。HEAD は攻撃間隔短縮、CLOTHES は最大HP、SHOES はスタミナ回復、WEAPON は3攻撃スキルの実ダメージ、ACCESSORY は最大スタミナです。解析結果パネルは更新時に効果差分、重複時に `UNCHANGED` を表示します。
+- CURRENT LOADOUT には各部位の効果を表示します。SENSOR は攻撃間隔短縮、FRAME は最大AP、BOOSTER はブーストEN回復、ARMAMENT は3攻撃スキルの実ダメージ、CORE は最大ブーストENです。解析結果パネルは更新時に効果差分、重複時に `UNCHANGED` を表示します。
 - 出撃開始時に保存済み `bestBySlot` だけから `runEquipmentLoadoutSnapshot` と `runEquipmentBonuses` を作成します。このスナップショットはラン中固定で、NEXT STAGE、FORCE BREAKTHROUGH、Depth遷移、レベルアップ、Gate、overlay、pause、ショップ保存値変更では再取得しません。次の出撃から最新の保存装備が反映されます。
-- 装備ボーナスは品質スコア `rarityIndex * 5 + rank` を使います。HEAD は攻撃間隔 -0.25% x score、CLOTHES は最大HP +3 x score、SHOES はスタミナ回復 +0.8% x score、WEAPON は `basicSkill` / `tornadoSkill` / `rabbitThunderSkill` とそれらのMutation派生ダメージ +1.2% x score、ACCESSORY は最大スタミナ +1 x score です。LEGEND Rank5 では HEAD x0.9375、CLOTHES +75、SHOES x1.20、WEAPON x1.30、ACCESSORY +25 になります。
+- 装備ボーナスは品質スコア `rarityIndex * 5 + rank` を使います。SENSOR は攻撃間隔 -0.25% x score、FRAME は最大AP +3 x score、BOOSTER はブーストEN回復 +0.8% x score、ARMAMENT は `basicSkill` / `tornadoSkill` / `rabbitThunderSkill` とそれらのMutation派生ダメージ +1.2% x score、CORE は最大ブーストEN +1 x score です。LEGEND Rank5 では SENSOR x0.9375、FRAME +75、BOOSTER x1.20、ARMAMENT x1.30、CORE +25 になります。
 - COMBAT LINK は出撃開始時の装備snapshotだけを参照するラン内効果です。対象3スキルが Stage8 に到達し、Final Mutation を選択済みの場合、通常 Level Up 候補として `EQUIPMENT OVERLIMIT` が出現します。Stage8 Final Mutation を正式に選択した直後にも、Combat Link 条件を満たす場合はそのスキル専用の `FINAL COMBAT LINK` OVERLIMIT bonus が出ることがあります。Depth6以降で Deep Level が実際に上がったときも、同じ条件を満たす未取得 OVERLIMIT があれば追加の `DEEP COMBAT LINK` 選択機会が出ます。OVERLIMIT I は対象スキルの実ダメージ x1.10、OVERLIMIT II は x1.20 で、Stage9 / Stage10 ではなく Stage8 のまま、Stage表記や保存schemaは増やさず、そのラン中だけ有効です。Opening Boost、Final Raid、Support、Robot、LOST ARMS、環境ダメージ、Final Raid疑似ダメージ、XP、GEEK、ANJU、Equipment報酬には影響しません。
 - OVERLIMIT 取得済みの対象スキルは戦闘HUDのスキル枠に `OVL-I` / `OVL-II` を表示します。Final Raid 中は COMBAT LINK の攻撃効果を抑制するため、このHUD表示も出ません。RUN ARCHIVE にはローカル閲覧用として Combat Link 段階と各対象スキルの OVERLIMIT 段階を記録しますが、ランキング、Firebase、Deep Result へは送信しません。OVERLIMIT はラン内効果で、次のランへ持ち越しません。
-- CLOTHES と ACCESSORY は開始ステータス再構築時に一度だけ加算します。SHOES はダッシュ回復遅延や消費量を変えず、スタミナ回復量の最終倍率だけを変えます。HEAD は3攻撃スキルの通常攻撃間隔 / 再発動間隔だけへ掛かり、演出ディレイ、持続時間、内部Mutationクールダウン、Support、Robot、LOST ARMS、CHAIN、敵行動には掛かりません。WEAPON は3攻撃スキル由来の実ダメージだけへ掛かり、Support、Robot、Recovery、LOST ARMS、CHAIN、環境ダメージ、敵攻撃、Final Raidの疑似ダメージ、支援ランキング、ボスHPタイムラインには掛かりません。
-- Depth10 初回 Final Raid 中はボスフィールドの時刻演出とランキングを守るため、HEAD と WEAPON の有効倍率だけを 1 に抑制します。CLOTHES、SHOES、ACCESSORY は Final Raid 中も有効です。Final Raid 討伐後の通常 Depth10 ではこの抑制は発生しません。
+- FRAME と CORE は開始ステータス再構築時に一度だけ加算します。BOOSTER はダッシュ回復遅延や消費量を変えず、ブーストEN回復量の最終倍率だけを変えます。SENSOR は3攻撃スキルの通常攻撃間隔 / 再発動間隔だけへ掛かり、演出ディレイ、持続時間、内部Mutationクールダウン、Support、Robot、LOST ARMS、CHAIN、敵行動には掛かりません。ARMAMENT は3攻撃スキル由来の実ダメージだけへ掛かり、Support、Robot、Recovery、LOST ARMS、CHAIN、環境ダメージ、敵攻撃、Final Raidの疑似ダメージ、支援ランキング、ボスHPタイムラインには掛かりません。
+- Depth10 初回 Final Raid 中はボスフィールドの時刻演出とランキングを守るため、SENSOR と ARMAMENT の有効倍率だけを 1 に抑制します。FRAME、BOOSTER、CORE は Final Raid 中も有効です。Final Raid 討伐後の通常 Depth10 ではこの抑制は発生しません。
 - `?debugEquipmentHub=1` と `?debugEquipmentHub=1&debugEquipmentHubLegend=1` は表示専用です。解析ボタンは `PREVIEW ONLY` になり、GEEK消費、無料クレジット消費、統計更新、保存は行いません。
 - 本番装備箱は通常 Wave Boss 45%、通常 Elite 15%、NEMESIS 100%、Gold Slime 35%、Silver Slime 25% で抽選します。通常敵、Final Raid ボス/Add/巨大兵器、元素騎士イベント対象、Directive Slime、VOID HUNTER、報酬抑制対象からは落ちません。
 - 本番装備箱は1 Depth につき最大1個だけ出現します。`?debugEquipmentDrop=...` の直接出現箱や Final Raid 初回確定報酬はこの上限に含めません。
@@ -679,17 +680,19 @@ ROBOT CUSTOM:
 
 - Missile / Recovery Cap Tier 1-5: 30,000 / 60,000 / 100,000 / 160,000 / 240,000 GEEK。各Tierで該当系統の上限が+2され、最大Lv20です。
 - Napalm Missile: 180,000 GEEK。Missile Cap Tier 1 以上が必要です。
+- Napalm Payload Cap Tier 1-4: 60,000 / 100,000 / 160,000 / 240,000 GEEK。Napalm Missile 解放後、同じカード枠が上限解放に切り替わり、ナパーム実効Lv上限を Lv13 / 15 / 17 / 20 まで伸ばします。購入直後の基礎上限は Lv11 です。
 - Barrier Field: 180,000 GEEK。Recovery Cap Tier 1 以上が必要です。
+- Barrier Output Cap Tier 1-4: 60,000 / 100,000 / 160,000 / 240,000 GEEK。Barrier Field 解放後、同じカード枠が上限解放に切り替わり、バリア実効Lv上限を Lv13 / 15 / 17 / 20 まで伸ばします。購入直後の基礎上限は Lv11 です。
 
 CD:
 
 - Anju: 初期所持
 - なんでやねんねん: 100,000 GEEK / 攻撃力 +10%、連射 +6%
-- 反省会: 100,000 GEEK / 最大 HP +25、最大スタミナ +20 / `./音声/bgm/hanseikai_ver2.mp3`
-- 未来を生きてる: 100,000 GEEK / 移動速度 +20、連射 +5%
-- コトコト: 100,000 GEEK / 攻撃力 +6%、最大スタミナ +15
-- いっちゃいな: 100,000 GEEK / 弾速 +8%、移動速度 +12
-- ドールを解放せし者: Depth10 Final Raid 討伐報酬 / 最大 HP +100、最大スタミナ +50。討伐前は CDSHOP でロック表示、討伐後は BGM として選択できます。
+- 反省会: 100,000 GEEK / 最大AP +25、最大ブーストEN +20 / `./音声/bgm/hanseikai_ver2.mp3`
+- 未来を生きてる: 100,000 GEEK / 推進出力 +20、連射 +5%
+- コトコト: 100,000 GEEK / 攻撃力 +6%、最大ブーストEN +15
+- いっちゃいな: 100,000 GEEK / 弾速 +8%、推進出力 +12
+- ドールを解放せし者: Depth10 Final Raid 討伐報酬 / 最大AP +100、最大ブーストEN +50。討伐前は CDSHOP でロック表示、討伐後は BGM として選択できます。
 
 CDSHOP では通常 CD を 3 列 x 2 段、`ドールを解放せし者` を大型ジャケットカードとして表示します。右側の HUD には購入・解放済み CD の合計ステータスボーナス、ACTIVE CDS、OPERATIONS HUB 全体の強化を表示専用に評価した TOTAL BONUS SCORE を表示します。
 

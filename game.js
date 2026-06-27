@@ -974,11 +974,11 @@ const GEEK_SHOP_SUB_VIEWS = [
   { id: GEEK_SHOP_SUB_VIEW_EQUIPMENT_ANALYSIS, label: "EQUIPMENT ANALYSIS" }
 ];
 const EQUIPMENT_HUB_SLOT_ROWS = [
-  { slot: "head", label: "HEAD" },
-  { slot: "clothes", label: "CLOTHES" },
-  { slot: "shoes", label: "SHOES" },
-  { slot: "weapon", label: "WEAPON" },
-  { slot: "accessory", label: "ACCESSORY" }
+  { slot: "head", label: "SENSOR" },
+  { slot: "clothes", label: "FRAME" },
+  { slot: "shoes", label: "BOOSTER" },
+  { slot: "weapon", label: "ARMAMENT" },
+  { slot: "accessory", label: "CORE" }
 ];
 const EQUIPMENT_HUB_RARITY_ORDER = ["N", "R", "SR", "SSR", "LEGEND"];
 const EQUIPMENT_HUB_RANK_LABELS = {
@@ -997,6 +997,7 @@ const EQUIPMENT_HUB_RARITY_STYLES = {
   unknown: { fill: 0x0b1a22, stroke: 0x9ffcff, text: "#ecfaff", dim: "#9ab7cc" }
 };
 const EQUIPMENT_HUB_LEGEND_FRAME_COLORS = [0xff4f45, 0xffa341, 0xffe45c, 0x72f06d, 0x55d9ff, 0xb184ff];
+const EQUIPMENT_HUB_LEGEND_GRADIENT_STEPS = 72;
 const EQUIPMENT_BOX_GROUND_LIMIT = 12;
 const EQUIPMENT_DROP_DEFAULTS = {
   rarity: "N",
@@ -2074,7 +2075,7 @@ const CD_CATALOG = [
     lockedJacketPath: "./画像/cd/hanseikai_locked.jpg",
     audioKey: "bgm-hanseikai",
     audioPath: "./音声/bgm/hanseikai_ver2.mp3",
-    bonusLabel: "HP +25 / STAM +20",
+    bonusLabel: "AP +25 / BOOST EN +20",
     statBonus: {
       maxHpAdd: 25,
       maxStaminaAdd: 20
@@ -2092,7 +2093,7 @@ const CD_CATALOG = [
     lockedJacketPath: "./画像/cd/miraiwoikiteru_locked.jpg",
     audioKey: "bgm-miraiwoikiteru",
     audioPath: "./音声/bgm/miraiwoikiteru.mp3",
-    bonusLabel: "SPD +20 / 連射 +5%",
+    bonusLabel: "BOOSTER +20 / 連射 +5%",
     statBonus: {
       moveSpeedAdd: 20,
       fireIntervalMultiplier: 0.95
@@ -2110,7 +2111,7 @@ const CD_CATALOG = [
     lockedJacketPath: "./画像/cd/kotokoto_locked.jpg",
     audioKey: "bgm-kotokoto",
     audioPath: "./音声/bgm/kotokoto.mp3",
-    bonusLabel: "ATK +6% / STAM +15",
+    bonusLabel: "ATK +6% / BOOST EN +15",
     statBonus: {
       damageMultiplierAdd: 0.06,
       maxStaminaAdd: 15
@@ -2128,7 +2129,7 @@ const CD_CATALOG = [
     lockedJacketPath: "./画像/cd/ichaina_locked.jpg",
     audioKey: "bgm-ichaina",
     audioPath: "./音声/bgm/ichaina.mp3",
-    bonusLabel: "弾速 +8% / SPD +12",
+    bonusLabel: "弾速 +8% / BOOSTER +12",
     statBonus: {
       bulletSpeedMultiplier: 1.08,
       moveSpeedAdd: 12
@@ -2149,7 +2150,7 @@ const CD_CATALOG = [
     lockedJacketPath: "./画像/cd/bosscd_lock.jpg",
     audioKey: "bgm-finalboss-liberator",
     audioPath: "./音声/bgm/ドールを解放せし者.mp3",
-    bonusLabel: "HP +100 / STAM +50",
+    bonusLabel: "AP +100 / BOOST EN +50",
     statBonus: {
       maxHpAdd: 100,
       maxStaminaAdd: 50
@@ -2176,8 +2177,8 @@ const BASE_CALIBRATION_RELAY_CAP_TIERS = Object.freeze([
 const SHOP_UPGRADE_DEFINITIONS = {
   weapon: {
     id: "weapon",
-    title: "武器強化",
-    shortTitle: "WEAPON",
+    title: "兵装出力強化",
+    shortTitle: "ARMAMENT",
     description: "攻撃力 +6% / Lv",
     maxLevel: BASE_CALIBRATION_ABSOLUTE_MAX_LEVEL,
     baseCost: 1000,
@@ -2186,9 +2187,9 @@ const SHOP_UPGRADE_DEFINITIONS = {
   },
   armor: {
     id: "armor",
-    title: "鎧強化",
-    shortTitle: "ARMOR",
-    description: "最大HP +10 / Lv",
+    title: "装甲フレーム強化",
+    shortTitle: "AP FRAME",
+    description: "最大AP +10 / Lv",
     maxLevel: BASE_CALIBRATION_ABSOLUTE_MAX_LEVEL,
     baseCost: 1000,
     costGrowth: 1.52,
@@ -2196,9 +2197,9 @@ const SHOP_UPGRADE_DEFINITIONS = {
   },
   shoes: {
     id: "shoes",
-    title: "靴強化",
-    shortTitle: "SHOES",
-    description: "移動速度 +8 / Lv",
+    title: "推進ブースター強化",
+    shortTitle: "BOOSTER",
+    description: "推進出力 +8 / Lv",
     maxLevel: BASE_CALIBRATION_ABSOLUTE_MAX_LEVEL,
     baseCost: 1000,
     costGrowth: 1.48,
@@ -2211,11 +2212,19 @@ const ROBOT_CUSTOM_MAX_CAP_TIER = 5;
 const ROBOT_CUSTOM_EXTENDED_LEVEL_CAP = ROBOT_CUSTOM_BASE_LEVEL_CAP + ROBOT_CUSTOM_LEVELS_PER_TIER * ROBOT_CUSTOM_MAX_CAP_TIER;
 const ROBOT_CUSTOM_CAP_UNLOCK_COSTS = [30000, 60000, 100000, 160000, 240000];
 const ROBOT_CUSTOM_EX_UNLOCK_COST = 180000;
+const ROBOT_NAPALM_CAP_LEVELS = [11, 13, 15, 17, 20];
+const ROBOT_NAPALM_CAP_UNLOCK_COSTS = [60000, 100000, 160000, 240000];
+const ROBOT_NAPALM_MAX_CAP_TIER = ROBOT_NAPALM_CAP_LEVELS.length - 1;
+const ROBOT_BARRIER_CAP_LEVELS = [11, 13, 15, 17, 20];
+const ROBOT_BARRIER_CAP_UNLOCK_COSTS = [60000, 100000, 160000, 240000];
+const ROBOT_BARRIER_MAX_CAP_TIER = ROBOT_BARRIER_CAP_LEVELS.length - 1;
 const DEFAULT_ROBOT_CUSTOM_STATE = {
   missileCapTier: 0,
   recoveryCapTier: 0,
   napalmUnlocked: false,
-  barrierUnlocked: false
+  napalmCapTier: 0,
+  barrierUnlocked: false,
+  barrierCapTier: 0
 };
 const ROBOT_CUSTOM_SHOP_ITEMS = {
   missileCap: {
@@ -2240,7 +2249,7 @@ const ROBOT_CUSTOM_SHOP_ITEMS = {
     id: "napalm",
     title: "Napalm Missile",
     jpTitle: "ナパームミサイル",
-    description: "Missile Lv11+で燃焼と燃焼床を解禁します",
+    description: "Missile Lv1+で独立砲撃を要請します",
     type: "ex",
     stateKey: "napalmUnlocked",
     requiresTierKey: "missileCapTier",
@@ -2248,16 +2257,36 @@ const ROBOT_CUSTOM_SHOP_ITEMS = {
     cost: ROBOT_CUSTOM_EX_UNLOCK_COST,
     accent: 0xff8a4c
   },
+  napalmCap: {
+    id: "napalmCap",
+    title: "Napalm Payload Cap",
+    jpTitle: "ナパーム上限解放",
+    description: "Napalmの実効Lv上限を伸ばします",
+    type: "napalmCap",
+    stateKey: "napalmCapTier",
+    requiresUnlockKey: "napalmUnlocked",
+    accent: 0xffb347
+  },
   barrier: {
     id: "barrier",
     title: "Barrier Field",
     jpTitle: "バリアフィールド",
-    description: "Recovery Lv11+で被弾を肩代わりするシールドを解禁します",
+    description: "Recovery Lv1+で被弾を肩代わりするシールドを解禁します",
     type: "ex",
     stateKey: "barrierUnlocked",
     requiresTierKey: "recoveryCapTier",
     requiresTier: 1,
     cost: ROBOT_CUSTOM_EX_UNLOCK_COST,
+    accent: 0x7efcff
+  },
+  barrierCap: {
+    id: "barrierCap",
+    title: "Barrier Output Cap",
+    jpTitle: "バリア上限解放",
+    description: "Barrierの実効Lv上限を伸ばします",
+    type: "barrierCap",
+    stateKey: "barrierCapTier",
+    requiresUnlockKey: "barrierUnlocked",
     accent: 0x7efcff
   }
 };
@@ -3354,9 +3383,9 @@ const OVERDRIVE_MOD_CONFIG = {
       id: "cooldownReactor",
       title: "COOLDOWN REACTOR",
       subtitle: "発射循環強化",
-      description: "攻撃間隔をさらに短縮するが、移動速度は少し落ちる",
+      description: "攻撃間隔をさらに短縮するが、推進出力は少し落ちる",
       shortLabel: "REACT",
-      chips: ["FIRE CD x0.88", "MOVE x0.96", "THIS OD ONLY"],
+      chips: ["FIRE CD x0.88", "BOOSTER x0.96", "THIS OD ONLY"],
       themeColor: 0xc596ff,
       glowColor: 0xf2e6ff,
       accentColor: "#d6b8ff",
@@ -3479,10 +3508,10 @@ const DEPTH_DIRECTIVE_CONFIG = {
       id: "noRetreat",
       title: "NO RETREAT",
       subtitle: "耐久維持",
-      objective: "Gate開放時にHP 50%以上を維持する",
+      objective: "Gate開放時にAP 50%以上を維持する",
       rewardLabel: "STABILIZE + GEEK",
       shortLabel: "HOLD",
-      chips: ["Gate時 HP 50%+", "STABILIZE +100%", "未確定GEEK"],
+      chips: ["Gate時 AP 50%+", "STABILIZE +100%", "未確定GEEK"],
       themeColor: 0xb8fbff,
       glowColor: 0xecffff,
       accentColor: "#b8fbff",
@@ -3602,7 +3631,7 @@ const LEVEL_UP_SKILL_UI_META = {
 };
 const LEVEL_UP_PASSIVE_UI_META = {
   overchargeBolt: {
-    displayName: "Overcharge Bolt",
+    displayName: "Reactor Overcharge",
     description: "雷撃ダメージ +1",
     chipLabel: "雷撃 +1",
     themeColor: 0xffd86b,
@@ -3610,36 +3639,36 @@ const LEVEL_UP_PASSIVE_UI_META = {
     iconTone: "DMG"
   },
   rapidSigil: {
-    displayName: "Rapid Sigil",
+    displayName: "Fire Control Link",
     description: "放電間隔短縮",
     chipLabel: "間隔短縮",
     themeColor: 0x79d8ff,
     accentColor: "#79d8ff",
-    iconTone: "SPD"
+    iconTone: "FCS"
   },
   swiftStep: {
-    displayName: "Swift Step",
-    description: "移動速度アップ",
-    chipLabel: "移動 +30",
+    displayName: "Booster Tuning",
+    description: "推進出力アップ",
+    chipLabel: "推進 +30",
     themeColor: 0x73ffb8,
     accentColor: "#73ffb8",
-    iconTone: "MOVE"
+    iconTone: "BST"
   },
   staminaCore: {
-    displayName: "Stamina Core",
-    description: "耐久力アップ",
-    chipLabel: "スタミナ +25",
+    displayName: "Energy Capacitor",
+    description: "ブーストEN拡張",
+    chipLabel: "BOOST EN +25",
     themeColor: 0xa8c4ff,
     accentColor: "#a8c4ff",
-    iconTone: "CORE"
+    iconTone: "EN"
   },
   vitalBloom: {
-    displayName: "Vital Bloom",
-    description: "回復性能アップ",
-    chipLabel: "HP +20",
+    displayName: "AP Reinforce",
+    description: "アーマーポイント補強",
+    chipLabel: "AP +20",
     themeColor: 0xff8fc4,
     accentColor: "#ff8fc4",
-    iconTone: "HEAL"
+    iconTone: "AP"
   }
 };
 const LEVEL_UP_CARD_TYPE_META = {
@@ -3707,8 +3736,8 @@ const LEVEL_UP_CARD_TYPE_META = {
 const ROBOT_TUNING_UI_META = {
   fireRateLevel: {
     displayName: "Rapid Launcher",
-    description: "ミサイル発射サイクルを短縮する",
-    statLabel: "発射間隔",
+    description: "通常ミサイルの発射後クールダウンを短縮する",
+    statLabel: "発射後CD",
     unit: "ms",
     direction: "lower",
     group: "missile",
@@ -3790,6 +3819,35 @@ const ROBOT_MISSILE_HIT_XP = 1;
 const ROBOT_FIELD_PULSE_XP = 1;
 const ROBOT_SYNC_DEBUG_QUERY_PARAM = "debugRobotSync";
 const RECOVERY_FIELD_DEBUG_QUERY_PARAM = "debugRecoveryFieldScale";
+const ROBOT_NORMAL_MISSILE_DISPLAY_SIZE = 46;
+const ROBOT_NAPALM_MISSILE_DISPLAY_SIZE = 56;
+const ROBOT_MISSILE_LOCK_CONFIG = {
+  maxSlots: 10,
+  lockOnMs: 3000,
+  baseCooldownMs: 2400,
+  fireRateCooldownStepMs: 45,
+  minCooldownMs: 1500,
+  minSyncCooldownMs: 1300,
+  missileSpeedBase: 480,
+  missileSpeedBonusPerFireRate: 3,
+  missileSpeedBonusMax: 60,
+  missileLifetimeMs: 3200,
+  missileDamageMultiplier: 1.45,
+  markerTransitionMs: 260,
+  markerLerp: 0.18,
+  markerSize: 58,
+  markerGlowSize: 78,
+  markerSearchRadius: 34,
+  markerSearchRadiusStep: 5,
+  markerSearchAlpha: 0.28,
+  markerSearchGlowAlpha: 0.1,
+  markerMovingAlpha: 0.34,
+  markerLockingAlpha: 0.58,
+  markerReadyAlpha: 0.92,
+  markerGlowAlpha: 0.28,
+  cameraInsetX: 80,
+  cameraInsetY: 56
+};
 const ROBOT_SYNC_CONFIG = {
   gaugeMax: 100,
   activeDurationMs: 18000,
@@ -3840,7 +3898,7 @@ const RECOVERY_FIELD_VISUAL_CONFIG = {
   debugLogIntervalMs: 650
 };
 const ROBOT_EX_LEVEL_REQUIREMENTS = {
-  10: 2,
+  10: 1,
   11: 2,
   12: 3,
   13: 3,
@@ -3853,12 +3911,12 @@ const ROBOT_EX_LEVEL_REQUIREMENTS = {
 };
 const ROBOT_CORE_EXP_PER_PICKUP = 1;
 const ROBOT_BARRIER_CONFIG = {
-  unlockLevel: 11,
-  baseHpRatio: 0.08,
-  hpRatioPerLevel: 0.015,
-  minHp: 12,
+  unlockLevel: 1,
+  baseHpRatio: 0.05,
+  hpRatioPerLevel: 0.0085,
+  minHp: 8,
   baseCooldownMs: 14000,
-  cooldownStepMs: 700,
+  cooldownStepMs: 330,
   minCooldownMs: 7600,
   pulseRechargeRatio: 0.34,
   pulseRechargeHealRatio: 0.22,
@@ -3866,24 +3924,37 @@ const ROBOT_BARRIER_CONFIG = {
   lastStandCooldownMs: 90000
 };
 const ROBOT_NAPALM_CONFIG = {
-  unlockLevel: 11,
-  fieldUnlockLevel: 15,
-  baseChance: 0.1,
-  chancePerLevel: 0.03,
-  maxChance: 0.4,
-  burnBaseDurationMs: 3000,
-  burnDurationStepMs: 150,
+  unlockLevel: 1,
+  fieldUnlockLevel: 11,
+  barrageIntervalMs: 4200,
+  missileDelayMs: 115,
+  landingMinRadius: 110,
+  landingMaxRadius: 360,
+  targetScanRadius: 760,
+  targetCameraPadding: 96,
+  targetClusterRadius: 190,
+  targetClusterRadiusStep: 4,
+  targetJitterRadius: 18,
+  barrageSpreadBase: 50,
+  barrageSpreadStep: 4,
+  barrageSpreadMax: 132,
+  impactDamageMultiplier: 2.15,
+  impactBaseRadius: 132,
+  impactRadiusStep: 5,
+  burnBaseDurationMs: 3600,
+  burnDurationStepMs: 160,
   burnTickMs: 500,
-  burnDamageRatio: 0.15,
+  burnDamageRatio: 0.12,
+  burnDamageRatioStep: 0.01,
+  maxBurnDamageRatio: 0.34,
   bossDamageMultiplier: 0.55,
   eliteDamageMultiplier: 0.72,
-  fieldBaseRadius: 52,
-  fieldRadiusStep: 4,
-  fieldBaseDurationMs: 3000,
-  fieldDurationStepMs: 250,
-  maxFields: 8,
-  targetRadius: 160,
-  fieldTickDamageMultiplier: 0.72
+  fieldBaseRadius: 72,
+  fieldRadiusStep: 7,
+  fieldBaseDurationMs: 4200,
+  fieldDurationStepMs: 340,
+  maxFields: 14,
+  fieldTickDamageMultiplier: 0.95
 };
 const ROBOT_LEVEL_IMAGE_RANGES = [
   { minLevel: 11, maxLevel: 15, imagePath: "./画像/robot/robot_lv11.png" },
@@ -3892,7 +3963,7 @@ const ROBOT_LEVEL_IMAGE_RANGES = [
 ];
 const ROBOT_NAPALM_MISSILE_ASSETS = [
   {
-    minLevel: 11,
+    minLevel: 1,
     maxLevel: 15,
     textureKey: "robot-napalm-missile-11",
     imagePath: "./画像/robot/robot_bombslv11.png"
@@ -3947,7 +4018,15 @@ const ROBOT_IMAGE_ASSETS = {
       imagePath: `./画像/robot/recovery_field_lv${String(level).padStart(2, "0")}.png`
     };
   }),
-  napalmMissiles: ROBOT_NAPALM_MISSILE_ASSETS
+  napalmMissiles: ROBOT_NAPALM_MISSILE_ASSETS,
+  targetLockMarker: {
+    textureKey: "robot-target-lock-marker",
+    imagePath: "./画像/robot/robot_target_lock_marker.png"
+  },
+  targetLockReadyMarker: {
+    textureKey: "robot-target-lock-marker-ready",
+    imagePath: "./画像/robot/robot_target_lock_marker_ready.png"
+  }
 };
 const ROBOT_ITEM_IMAGE_ASSETS = {
   missileChest: {
@@ -4337,13 +4416,13 @@ const ENEMY_DEFINITIONS = {
     hitRadius: 27,
     hitboxCenterY: 0.56,
     aiBehavior: "ranged",
-    preferredRange: 620,
-    keepAwayRange: 430,
+    preferredRange: 430,
+    keepAwayRange: 300,
     rangeTolerance: 90,
     strafeSpeed: 58,
     attackIntervalMs: 2300,
-    beamRange: 920,
-    beamChargeMs: ENEMY_ATTACK_WARNING_CONFIG.rangedBeamChargeMs,
+    beamRange: 520,
+    beamChargeMs: ENEMY_ATTACK_WARNING_CONFIG.rangedBeamChargeMs - 500,
     beamDamage: 14,
     beamWidth: 34,
     beamTint: 0xff2f38,
@@ -5377,6 +5456,8 @@ class SurvivalScene extends Phaser.Scene {
       ...ROBOT_IMAGE_ASSETS.explosionFrames,
       ...ROBOT_IMAGE_ASSETS.recoveryFields,
       ...ROBOT_IMAGE_ASSETS.napalmMissiles,
+      ROBOT_IMAGE_ASSETS.targetLockMarker,
+      ROBOT_IMAGE_ASSETS.targetLockReadyMarker,
       ...Object.values(ROBOT_ITEM_IMAGE_ASSETS)
     ].forEach((asset) => {
       this.loadImageIfNeeded(asset.textureKey, asset.imagePath);
@@ -6430,6 +6511,7 @@ class SurvivalScene extends Phaser.Scene {
     this.depthRelayStartChoiceRecords = [];
     this.depthRelayStartKeyHandler = null;
     this.depthRelayStartPointerHandler = null;
+    this.depthRelayStartCanvasPointerHandler = null;
     this.depthRelayStartTouchHandler = null;
     this.depthRelayStartSelectionLocked = false;
     this.depthRelayStartFocusedIndex = 0;
@@ -6452,6 +6534,7 @@ class SurvivalScene extends Phaser.Scene {
     this.activeWaveBoss = null;
     this.playerSkills = this.buildInitialSkillStates();
     this.robotState = this.createRobotState();
+    this.robotMissileLockSlots = [];
     this.cleaningRobotState = this.createCleaningRobotState();
     this.debugMaxBuildApplied = false;
     if (this.isRobotSyncDebugEnabled()) {
@@ -10424,7 +10507,7 @@ class SurvivalScene extends Phaser.Scene {
       return `EL ${progress.eliteKills || 0}/${directive.eliteTarget || 1}  VALUE ${progress.valueDropsCollected || 0}/${directive.valueDropTarget || 8}`;
     }
     if (directive.id === "noRetreat") {
-      return `HP ${Math.floor(this.getPlayerHpRatio() * 100)}% / KEEP ${Math.round((directive.minHpRatio || 0.5) * 100)}% UNTIL GATE`;
+      return `AP ${Math.floor(this.getPlayerHpRatio() * 100)}% / KEEP ${Math.round((directive.minHpRatio || 0.5) * 100)}% UNTIL GATE`;
     }
     const primary = this.getDepthDirectivePrimaryProgress(directive);
     const suffix = primary.percentMode ? "%" : "";
@@ -10510,6 +10593,7 @@ class SurvivalScene extends Phaser.Scene {
       y: 0,
       bobTimer: 0,
       missileTimer: 0,
+      napalmTimer: 0,
       healTimer: 0,
       lastHealPulseAt: 0,
       syncGauge: 0,
@@ -10602,6 +10686,7 @@ class SurvivalScene extends Phaser.Scene {
     this.robotState.syncGauge = ROBOT_SYNC_CONFIG.gaugeMax;
     this.robotState.syncActiveMs = 0;
     this.robotState.missileTimer = 0;
+    this.robotState.napalmTimer = 0;
     this.robotState.healTimer = 0;
     this.robotState.barrierHp = this.getRobotBarrierMaxHp(ROBOT_MAX_LEVEL);
     this.robotState.barrierCooldownMs = 0;
@@ -10621,6 +10706,7 @@ class SurvivalScene extends Phaser.Scene {
     this.robotState.missileXp = 0;
     this.robotState.missileCoreExp = 0;
     this.robotState.missileTimer = 0;
+    this.robotState.napalmTimer = 0;
     this.robotState.visualLevel = this.getRobotVisualLevel();
     this.updateRobotVisualLevel?.(true);
     this.updateHudRobotPanel?.();
@@ -10803,7 +10889,17 @@ class SurvivalScene extends Phaser.Scene {
       ROBOT_CUSTOM_MAX_CAP_TIER
     );
     state.robotCustom.napalmUnlocked = record?.robotCustom?.napalmUnlocked === true;
+    state.robotCustom.napalmCapTier = Phaser.Math.Clamp(
+      Math.floor(Number(record?.robotCustom?.napalmCapTier) || 0),
+      0,
+      ROBOT_NAPALM_MAX_CAP_TIER
+    );
     state.robotCustom.barrierUnlocked = record?.robotCustom?.barrierUnlocked === true;
+    state.robotCustom.barrierCapTier = Phaser.Math.Clamp(
+      Math.floor(Number(record?.robotCustom?.barrierCapTier) || 0),
+      0,
+      ROBOT_BARRIER_MAX_CAP_TIER
+    );
 
     const selectedId = typeof record?.selectedCdId === "string"
       ? record.selectedCdId
@@ -13812,7 +13908,7 @@ class SurvivalScene extends Phaser.Scene {
     if (normalizedItem.slot === "clothes") {
       return {
         slot: normalizedItem.slot,
-        title: "MAX HP",
+        title: "MAX AP",
         value: Math.max(0, Math.floor(Number(bonuses.maxHpFlat) || 0)),
         valueType: "flat"
       };
@@ -13820,7 +13916,7 @@ class SurvivalScene extends Phaser.Scene {
     if (normalizedItem.slot === "shoes") {
       return {
         slot: normalizedItem.slot,
-        title: "STAMINA REGEN",
+        title: "BOOST EN REGEN",
         value: Math.max(0, Number(bonuses.staminaRegenIncreaseRate) || 0),
         valueType: "positivePercent"
       };
@@ -13836,7 +13932,7 @@ class SurvivalScene extends Phaser.Scene {
     if (normalizedItem.slot === "accessory") {
       return {
         slot: normalizedItem.slot,
-        title: "MAX STAMINA",
+        title: "MAX BOOST EN",
         value: Math.max(0, Math.floor(Number(bonuses.maxStaminaFlat) || 0)),
         valueType: "flat"
       };
@@ -19974,16 +20070,16 @@ class SurvivalScene extends Phaser.Scene {
     if (entry?.id) {
       this.updateFinalRaidRescueLinkEntry(entry.id, {
         effectKey: shieldGain > 0 ? FINAL_RAID_RESCUE_EFFECT_KEYS.shield : "guild_recovery",
-        effectLabel: shieldGain > 0 ? `${label} SHIELD +${shieldGain}` : `${label} HP +${healed}`,
+      effectLabel: shieldGain > 0 ? `${label} SHIELD +${shieldGain}` : `${label} AP +${healed}`,
         effectEndsAt: shieldGain > 0 ? this.finalRaidRescueLinkState?.rescueShieldEndsAt : now + this.scaleFinalRaidGuildEffectMs(FINAL_RAID_RESCUE_EFFECTS.instantEffectLabelDurationMs)
       }, label);
     }
-    this.showFinalRaidRescueEffectToast(`${label}  ${healed > 0 ? `HP +${healed}` : ""}${healed > 0 && shieldGain > 0 ? " / " : ""}${shieldGain > 0 ? `SHIELD +${shieldGain}` : ""}`.trim());
+    this.showFinalRaidRescueEffectToast(`${label}  ${healed > 0 ? `AP +${healed}` : ""}${healed > 0 && shieldGain > 0 ? " / " : ""}${shieldGain > 0 ? `SHIELD +${shieldGain}` : ""}`.trim());
     this.spawnFinalRaidGuildSupportPulse(label, healed > 0 ? 0x9ffcff : 0x65e6ff);
     return { healed, shieldGain, budget };
   }
 
-  restoreFinalRaidGuildStamina(entry, ratio = 1, label = "STAMINA RESTORED", context = {}) {
+  restoreFinalRaidGuildStamina(entry, ratio = 1, label = "BOOST EN RESTORED", context = {}) {
     if (!this.shouldApplyFinalRaidGuildSupportEffects(context) || !this.stats) {
       return 0;
     }
@@ -20002,7 +20098,7 @@ class SurvivalScene extends Phaser.Scene {
       }, label);
     }
     if (gain > 0 && this.playerHitbox?.active) {
-      this.showOverflowRewardText(`STAMINA +${Math.round(gain)}`, this.playerHitbox.x, this.playerHitbox.y - 70, "#9ffcff");
+      this.showOverflowRewardText(`BOOST EN +${Math.round(gain)}`, this.playerHitbox.x, this.playerHitbox.y - 70, "#9ffcff");
     }
     return gain;
   }
@@ -20460,7 +20556,7 @@ class SurvivalScene extends Phaser.Scene {
     }
     if (guildId === "guild-013") {
       this.clearFinalRaidMovementDebuffs("alliedMeshMaximum");
-      this.restoreFinalRaidGuildStamina(entry, 1, "STAMINA FULL", effectContext);
+      this.restoreFinalRaidGuildStamina(entry, 1, "BOOST EN FULL", effectContext);
       this.setFinalRaidSlowImmunity(config.key, config.label, config.slowImmunityMs, effectContext);
       applied = Boolean(this.setFinalRaidGuildDamageReduction(config.key, config.label, config.reductionRatio, config.durationMs, effectContext)) || applied;
     }
@@ -20545,7 +20641,7 @@ class SurvivalScene extends Phaser.Scene {
     }
     const toastParts = [];
     if (healed > 0) {
-      toastParts.push(`HP +${healed}`);
+      toastParts.push(`AP +${healed}`);
     }
     if (shieldGain > 0) {
       toastParts.push(`SHIELD +${shieldGain}${healed <= 0 ? " / 12s" : ""}`);
@@ -25094,8 +25190,51 @@ class SurvivalScene extends Phaser.Scene {
     return ROBOT_CUSTOM_CAP_UNLOCK_COSTS[index] ?? null;
   }
 
+  getRobotNapalmCapTier() {
+    const state = this.getRobotCustomState();
+    return Phaser.Math.Clamp(Math.floor(Number(state?.napalmCapTier) || 0), 0, ROBOT_NAPALM_MAX_CAP_TIER);
+  }
+
+  getRobotNapalmLevelCap() {
+    const tier = this.getRobotNapalmCapTier();
+    return ROBOT_NAPALM_CAP_LEVELS[tier] || ROBOT_NAPALM_CAP_LEVELS[0] || ROBOT_NAPALM_CONFIG.unlockLevel;
+  }
+
+  getRobotNapalmCapCost(nextTier) {
+    const index = Math.max(0, Math.floor(Number(nextTier) || 0) - 1);
+    return ROBOT_NAPALM_CAP_UNLOCK_COSTS[index] ?? null;
+  }
+
+  getRobotBarrierCapTier() {
+    const state = this.getRobotCustomState();
+    return Phaser.Math.Clamp(Math.floor(Number(state?.barrierCapTier) || 0), 0, ROBOT_BARRIER_MAX_CAP_TIER);
+  }
+
+  getRobotBarrierLevelCap() {
+    if (this.isDebugMaxBuildEnabled?.()) {
+      return ROBOT_MAX_LEVEL;
+    }
+    const tier = this.getRobotBarrierCapTier();
+    return ROBOT_BARRIER_CAP_LEVELS[tier] || ROBOT_BARRIER_CAP_LEVELS[0] || ROBOT_BARRIER_CONFIG.unlockLevel;
+  }
+
+  getRobotBarrierCapCost(nextTier) {
+    const index = Math.max(0, Math.floor(Number(nextTier) || 0) - 1);
+    return ROBOT_BARRIER_CAP_UNLOCK_COSTS[index] ?? null;
+  }
+
   getRobotCustomShopItem(itemId) {
     return ROBOT_CUSTOM_SHOP_ITEMS[itemId] || null;
+  }
+
+  getRobotCustomDisplayItem(item) {
+    if (item?.id === "napalm" && this.getRobotCustomState()?.napalmUnlocked === true) {
+      return ROBOT_CUSTOM_SHOP_ITEMS.napalmCap || item;
+    }
+    if (item?.id === "barrier" && this.getRobotCustomState()?.barrierUnlocked === true) {
+      return ROBOT_CUSTOM_SHOP_ITEMS.barrierCap || item;
+    }
+    return item;
   }
 
   getRobotCustomItemStatus(item) {
@@ -25125,6 +25264,50 @@ class SurvivalScene extends Phaser.Scene {
       };
     }
 
+    if (item.type === "napalmCap") {
+      const tier = this.getRobotNapalmCapTier();
+      const nextTier = tier + 1;
+      const maxed = tier >= ROBOT_NAPALM_MAX_CAP_TIER;
+      const currentCap = this.getRobotNapalmLevelCap();
+      const nextCap = maxed ? currentCap : (ROBOT_NAPALM_CAP_LEVELS[nextTier] || currentCap);
+      const cost = maxed ? null : this.getRobotNapalmCapCost(nextTier);
+      const unlocked = state?.[item.requiresUnlockKey] === true;
+      return {
+        tier,
+        nextTier,
+        currentCap,
+        nextCap,
+        owned: maxed,
+        maxed,
+        locked: !unlocked,
+        affordable: maxed || this.normalizeCoinAmount(this.coins) >= cost,
+        cost,
+        action: maxed ? "MAX" : (unlocked ? `UNLOCK Lv.${nextCap}` : "NAPALM REQUIRED")
+      };
+    }
+
+    if (item.type === "barrierCap") {
+      const tier = this.getRobotBarrierCapTier();
+      const nextTier = tier + 1;
+      const maxed = tier >= ROBOT_BARRIER_MAX_CAP_TIER;
+      const currentCap = this.getRobotBarrierLevelCap();
+      const nextCap = maxed ? currentCap : (ROBOT_BARRIER_CAP_LEVELS[nextTier] || currentCap);
+      const cost = maxed ? null : this.getRobotBarrierCapCost(nextTier);
+      const unlocked = state?.[item.requiresUnlockKey] === true;
+      return {
+        tier,
+        nextTier,
+        currentCap,
+        nextCap,
+        owned: maxed,
+        maxed,
+        locked: !unlocked,
+        affordable: maxed || this.normalizeCoinAmount(this.coins) >= cost,
+        cost,
+        action: maxed ? "MAX" : (unlocked ? `UNLOCK Lv.${nextCap}` : "BARRIER REQUIRED")
+      };
+    }
+
     const owned = state?.[item.stateKey] === true;
     const requirementMet = this.getRobotCapTier(item.requiresTierKey === "recoveryCapTier" ? "field" : "missile") >= (item.requiresTier || 0);
     const cost = owned ? null : item.cost;
@@ -25150,7 +25333,12 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
     if (status.locked) {
-      this.showPreGameShop(`${item.jpTitle}: Lv上限解放が必要です`);
+      const unlockMessage = item.type === "napalmCap"
+        ? `${item.jpTitle}: ナパーム解放が必要です`
+        : (item.type === "barrierCap"
+          ? `${item.jpTitle}: バリア解放が必要です`
+          : `${item.jpTitle}: Lv上限解放が必要です`);
+      this.showPreGameShop(unlockMessage);
       return;
     }
     if (!this.spendCoins(status.cost)) {
@@ -25163,6 +25351,20 @@ class SurvivalScene extends Phaser.Scene {
       state[item.stateKey] = Phaser.Math.Clamp(status.nextTier, 0, ROBOT_CUSTOM_MAX_CAP_TIER);
       this.saveShopState();
       this.showPreGameShop(`${item.jpTitle}: 上限Lv.${status.nextCap}解放`);
+      return;
+    }
+
+    if (item.type === "napalmCap") {
+      state[item.stateKey] = Phaser.Math.Clamp(status.nextTier, 0, ROBOT_NAPALM_MAX_CAP_TIER);
+      this.saveShopState();
+      this.showPreGameShop(`${item.jpTitle}: Napalm Lv.${status.nextCap}解放`);
+      return;
+    }
+
+    if (item.type === "barrierCap") {
+      state[item.stateKey] = Phaser.Math.Clamp(status.nextTier, 0, ROBOT_BARRIER_MAX_CAP_TIER);
+      this.saveShopState();
+      this.showPreGameShop(`${item.jpTitle}: Barrier Lv.${status.nextCap}解放`);
       return;
     }
 
@@ -25383,10 +25585,10 @@ class SurvivalScene extends Phaser.Scene {
       return `ATK +${Math.round(level * 6)}%`;
     }
     if (upgradeId === "armor") {
-      return `HP +${level * 10}`;
+      return `AP +${level * 10}`;
     }
     if (upgradeId === "shoes") {
-      return `SPD +${level * 8}`;
+      return `BOOSTER +${level * 8}`;
     }
     return "";
   }
@@ -25550,6 +25752,45 @@ class SurvivalScene extends Phaser.Scene {
     return CD_CATALOG.find((cd) => this.isCdOwned(cd.id)) || null;
   }
 
+  getDepthRelayBeaconCoverageDepth(depthRelayState = this.depthRelayState) {
+    const normalizedState = this.normalizeDepthRelayState(depthRelayState);
+    const anchorDepths = DEPTH_RELAY_UNLOCKABLE_DEPTHS
+      .filter((depth) => Number.isInteger(depth) && Number.isSafeInteger(depth) && depth > 1)
+      .sort((left, right) => left - right);
+    let coverageDepth = 10;
+    anchorDepths.forEach((anchorDepth) => {
+      if (anchorDepth <= 10) {
+        return;
+      }
+      const requiredAnchors = anchorDepths.filter((depth) => depth <= anchorDepth);
+      const allRequiredAnchorsUnlocked = requiredAnchors.every((depth) => (
+        this.isDepthRelayDepthUnlocked(normalizedState, depth)
+      ));
+      if (allRequiredAnchorsUnlocked) {
+        coverageDepth = Math.max(coverageDepth, anchorDepth);
+      }
+    });
+    return coverageDepth;
+  }
+
+  isDepthWithinRelayBeaconCoverage(depth, depthRelayState = this.depthRelayState) {
+    if (!Number.isInteger(depth) || !Number.isSafeInteger(depth) || depth < 1) {
+      return false;
+    }
+    return depth <= this.getDepthRelayBeaconCoverageDepth(depthRelayState);
+  }
+
+  shouldUseEndlessVoidAtmosphereForDepth(depth, depthRelayState = this.depthRelayState) {
+    if (!Number.isInteger(depth) || !Number.isSafeInteger(depth) || depth < 1) {
+      return true;
+    }
+    return !this.isDepthWithinRelayBeaconCoverage(depth, depthRelayState);
+  }
+
+  shouldUseScrambledCommsForDepth(depth, depthRelayState = this.depthRelayState) {
+    return this.shouldUseEndlessVoidAtmosphereForDepth(depth, depthRelayState);
+  }
+
   isEndlessVoidDepth(depth = this.stageDepth) {
     return Math.max(1, Math.floor(Number(depth) || 1)) >= ENDLESS_VOID_BGM_CONFIG.unlockDepth;
   }
@@ -25577,7 +25818,7 @@ class SurvivalScene extends Phaser.Scene {
     if (this.isFinalBossRaidActive?.()) {
       return RUN_BGM_MODES.finalRaid;
     }
-    return this.isEndlessVoidDepth(depth) ? RUN_BGM_MODES.endlessVoid : RUN_BGM_MODES.cd;
+    return this.shouldUseEndlessVoidAtmosphereForDepth(depth, this.depthRelayState) ? RUN_BGM_MODES.endlessVoid : RUN_BGM_MODES.cd;
   }
 
   isEndlessVoidBgmDebugEnabled() {
@@ -31881,9 +32122,9 @@ class SurvivalScene extends Phaser.Scene {
 
     if (levelsGained > 0) {
       const cappedText = this.isPlayerLevelCapped() ? " / MAX" : "";
-      this.setLastPickupNotice(`DEEP LEVEL ${this.stats.level}${cappedText} / MAX HP +${totalHpGain}`);
+      this.setLastPickupNotice(`DEEP LEVEL ${this.stats.level}${cappedText} / MAX AP +${totalHpGain}`);
       this.spawnPlayerHealNumber(totalHpGain);
-      this.showOverflowRewardText(`DEEP LV ${this.stats.level}${cappedText} / HP +${totalHpGain}`, this.playerHitbox?.x, this.playerHitbox?.y - 52, "#9fffe0");
+      this.showOverflowRewardText(`DEEP LV ${this.stats.level}${cappedText} / AP +${totalHpGain}`, this.playerHitbox?.x, this.playerHitbox?.y - 52, "#9fffe0");
       this.queueDeepLevelEquipmentOverlimitBonus(levelsGained, "deepLevel");
     }
 
@@ -32618,7 +32859,7 @@ class SurvivalScene extends Phaser.Scene {
       !this.gameOver &&
       !this.extractionComplete &&
       !this.isFinalBossRaidActive?.() &&
-      this.isEndlessVoidDepth?.(this.stageDepth)
+      this.shouldUseScrambledCommsForDepth?.(this.stageDepth, this.depthRelayState)
     );
   }
 
@@ -33104,7 +33345,7 @@ class SurvivalScene extends Phaser.Scene {
       this.gameOver ||
       this.extractionComplete ||
       this.isFinalBossRaidActive?.() ||
-      !this.isEndlessVoidDepth?.(this.stageDepth)
+      !this.shouldUseScrambledCommsForDepth?.(this.stageDepth, this.depthRelayState)
     ) {
       return { ok: false, reason: "inactive" };
     }
@@ -33206,7 +33447,7 @@ class SurvivalScene extends Phaser.Scene {
       this.debugLogScrambledComms("schedule kept", { reason });
       return true;
     }
-    if (!this.time?.delayedCall || this.shopActive || this.gameOver || this.extractionComplete || !this.isEndlessVoidDepth?.(this.stageDepth)) {
+    if (!this.time?.delayedCall || this.shopActive || this.gameOver || this.extractionComplete || !this.shouldUseScrambledCommsForDepth?.(this.stageDepth, this.depthRelayState)) {
       return false;
     }
 
@@ -33216,7 +33457,7 @@ class SurvivalScene extends Phaser.Scene {
       if (this.scrambledCommsState) {
         this.scrambledCommsState.timer = null;
       }
-      if (!this.isEndlessVoidDepth?.(this.stageDepth)) {
+      if (!this.shouldUseScrambledCommsForDepth?.(this.stageDepth, this.depthRelayState)) {
         return;
       }
       if (options.intro === true) {
@@ -33293,7 +33534,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   ensureScrambledCommsScheduler(reason = "ensure") {
-    if (!this.isEndlessVoidDepth?.(this.stageDepth) || this.shopActive || this.gameOver || this.extractionComplete || this.isFinalBossRaidActive?.()) {
+    if (!this.shouldUseScrambledCommsForDepth?.(this.stageDepth, this.depthRelayState) || this.shopActive || this.gameOver || this.extractionComplete || this.isFinalBossRaidActive?.()) {
       return false;
     }
     const state = this.scrambledCommsState || this.initializeScrambledCommsState("ensure");
@@ -33330,7 +33571,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   handleEndlessVoidDepthStarted(depth = this.stageDepth, reason = "depthStart") {
-    if (!this.isEndlessVoidDepth?.(depth)) {
+    if (!this.shouldUseScrambledCommsForDepth?.(depth, this.depthRelayState)) {
       return false;
     }
     this.cleanupExternalCommsForEndlessVoid(reason);
@@ -34589,7 +34830,7 @@ class SurvivalScene extends Phaser.Scene {
     const state = this.commsBanterState || this.initializeCommsBanterState();
     const safeDepth = Math.max(1, Math.floor(Number(depth) || 1));
     state.perDepthCount[safeDepth] = 0;
-    if (this.isEndlessVoidDepth?.(safeDepth)) {
+    if (this.shouldUseScrambledCommsForDepth?.(safeDepth, this.depthRelayState)) {
       this.cleanupCommsBanter(reason);
       this.debugLogCommsBanter("depthResetBlocked", { depth: safeDepth, reason });
       return state;
@@ -37390,7 +37631,19 @@ class SurvivalScene extends Phaser.Scene {
       && (this.robotState?.healLevel || 1) >= ROBOT_BARRIER_CONFIG.unlockLevel;
   }
 
-  getRobotBarrierMaxHp(level = this.robotState?.healLevel || 1) {
+  getRobotEffectiveBarrierLevel() {
+    if (!this.isRobotBarrierUnlocked()) {
+      return 0;
+    }
+    const recoveryLevel = Phaser.Math.Clamp(Math.floor(Number(this.robotState?.healLevel) || 1), 1, ROBOT_MAX_LEVEL);
+    return Phaser.Math.Clamp(
+      Math.min(recoveryLevel, this.getRobotBarrierLevelCap()),
+      ROBOT_BARRIER_CONFIG.unlockLevel,
+      ROBOT_MAX_LEVEL
+    );
+  }
+
+  getRobotBarrierMaxHp(level = this.getRobotEffectiveBarrierLevel()) {
     if (!this.isRobotBarrierUnlocked() || !this.stats) {
       return 0;
     }
@@ -37400,7 +37653,7 @@ class SurvivalScene extends Phaser.Scene {
     return Math.max(ROBOT_BARRIER_CONFIG.minHp, Math.round(this.stats.maxHp * ratio));
   }
 
-  getRobotBarrierCooldownMs(level = this.robotState?.healLevel || 1) {
+  getRobotBarrierCooldownMs(level = this.getRobotEffectiveBarrierLevel()) {
     const levelOffset = Math.max(0, (Number(level) || 1) - ROBOT_BARRIER_CONFIG.unlockLevel);
     return Math.max(
       ROBOT_BARRIER_CONFIG.minCooldownMs,
@@ -37495,7 +37748,7 @@ class SurvivalScene extends Phaser.Scene {
 
   tryActivateRobotBarrierLastStand() {
     if (!this.isRobotBarrierUnlocked()
-      || (this.robotState?.healLevel || 1) < ROBOT_BARRIER_CONFIG.lastStandLevel
+      || this.getRobotEffectiveBarrierLevel() < ROBOT_BARRIER_CONFIG.lastStandLevel
       || (this.robotState?.barrierLastStandCooldownMs || 0) > 0
       || !this.stats) {
       return false;
@@ -38345,7 +38598,7 @@ class SurvivalScene extends Phaser.Scene {
     const statusHpBarWidth = this.hudUsesFrameAsset ? 238 : 170;
     const statusXpBarWidth = this.hudUsesFrameAsset ? 218 : 170;
     const statusValueX = this.hudUsesFrameAsset ? 418 : 292;
-    this.createHudText(statusLabelX, this.hudUsesFrameAsset ? 54 : 55, "HP", {
+    this.createHudText(statusLabelX, this.hudUsesFrameAsset ? 54 : 55, "AP", {
       fontSize: "11px",
       color: HUD_STYLE.text,
       fontStyle: "bold"
@@ -39847,19 +40100,19 @@ class SurvivalScene extends Phaser.Scene {
 
   getEquipmentCollectionSlotAbbreviation(slot) {
     if (slot === "head") {
-      return "HD";
+      return "SN";
     }
     if (slot === "clothes") {
-      return "CL";
+      return "FR";
     }
     if (slot === "shoes") {
-      return "SH";
+      return "BS";
     }
     if (slot === "weapon") {
-      return "WP";
+      return "AR";
     }
     if (slot === "accessory") {
-      return "AC";
+      return "CR";
     }
     return String(slot || "--").slice(0, 2).toUpperCase();
   }
@@ -39890,12 +40143,21 @@ class SurvivalScene extends Phaser.Scene {
     rowGraphics.fillRoundedRect(x, y, width, 18, 4);
     rowGraphics.lineStyle(1, stroke, complete ? 0.42 : 0.2);
     rowGraphics.strokeRoundedRect(x + 0.5, y + 0.5, width - 1, 17, 4);
+    if (legend) {
+      this.drawEquipmentLegendGradientStrip(rowGraphics, x + 5, y + 2, width - 10, 2, { alpha: complete ? 0.82 : 0.48, steps: 58 });
+      this.drawEquipmentLegendGradientStrip(rowGraphics, x + 5, y + 15, width - 10, 1, { alpha: complete ? 0.46 : 0.28, steps: 58, offset: 0.5 });
+    }
 
     const labelText = this.createOverlayText(x + 8, y + 4, label, {
       fontSize: "9px",
       color: textColor,
-      fontStyle: "bold"
+      fontStyle: "bold",
+      stroke: legend ? "#5eefff" : undefined,
+      strokeThickness: legend ? 1 : 0
     });
+    if (legend) {
+      labelText.setShadow(0, 0, "#b184ff", 5, true, true);
+    }
     const countText = this.createOverlayText(x + width - 80, y + 4, `${count} / ${total}`, {
       fontSize: "9px",
       color: locked ? "#738597" : "#9ffcff",
@@ -40125,6 +40387,10 @@ class SurvivalScene extends Phaser.Scene {
       graphics.fillRoundedRect(nodeX, y, nodeWidth, 28, 4);
       graphics.lineStyle(1, style.stroke, summary.equipped ? 0.36 : 0.18);
       graphics.strokeRoundedRect(nodeX + 0.5, y + 0.5, nodeWidth - 1, 27, 4);
+      if (rarityLabel === "LEGEND") {
+        this.drawEquipmentLegendGradientStrip(graphics, nodeX + 3, y + 2, nodeWidth - 6, 2, { alpha: 0.78, steps: 24 });
+        this.drawEquipmentLegendGradientStrip(graphics, nodeX + 3, y + 25, nodeWidth - 6, 1, { alpha: 0.42, steps: 24, offset: 0.5 });
+      }
       this.createOverlayText(nodeX + 5, y + 5, slotLabel, {
         fontSize: "8px",
         color: "#9ab7cc",
@@ -40137,6 +40403,9 @@ class SurvivalScene extends Phaser.Scene {
         align: "right",
         origin: { x: 1, y: 0 }
       });
+      if (rarityLabel === "LEGEND") {
+        rarityText.setShadow(0, 0, "#b184ff", 4, true, true);
+      }
       this.fitOverlayTextToWidth(rarityText, nodeWidth - 10, 7);
     });
   }
@@ -40150,12 +40419,21 @@ class SurvivalScene extends Phaser.Scene {
     rowGraphics.fillRoundedRect(x, y, width, 21, 4);
     rowGraphics.lineStyle(1, strokeColor, complete ? 0.36 : 0.18);
     rowGraphics.strokeRoundedRect(x + 0.5, y + 0.5, width - 1, 20, 4);
+    if (tone === "legend") {
+      this.drawEquipmentLegendGradientStrip(rowGraphics, x + 6, y + 2, width - 12, 2, { alpha: complete ? 0.86 : 0.54, steps: 64 });
+      this.drawEquipmentLegendGradientStrip(rowGraphics, x + 6, y + 18, width - 12, 1, { alpha: complete ? 0.48 : 0.3, steps: 64, offset: 0.5 });
+    }
 
     const labelText = this.createOverlayText(x + 9, y + 5, label, {
       fontSize: "10px",
       color: textColor,
-      fontStyle: "bold"
+      fontStyle: "bold",
+      stroke: tone === "legend" ? "#5eefff" : undefined,
+      strokeThickness: tone === "legend" ? 1 : 0
     });
+    if (tone === "legend") {
+      labelText.setShadow(0, 0, "#b184ff", 5, true, true);
+    }
     const countText = this.createOverlayText(x + width - (status ? 96 : 12), y + 5, `${count} / ${total}`, {
       fontSize: "10px",
       color: "#9ffcff",
@@ -40221,11 +40499,16 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    this.createOverlayText(x + 14, y + 32, row.displayRarity, {
+    const rarityText = this.createOverlayText(x + 14, y + 32, row.displayRarity, {
       fontSize: row.displayRarity === "LEGEND" ? "19px" : "20px",
       color: style.text,
-      fontStyle: "bold"
+      fontStyle: "bold",
+      stroke: row.displayRarity === "LEGEND" ? "#5eefff" : undefined,
+      strokeThickness: row.displayRarity === "LEGEND" ? 1 : 0
     });
+    if (row.displayRarity === "LEGEND") {
+      rarityText.setShadow(0, 0, "#b184ff", 8, true, true);
+    }
     this.createOverlayText(x + 14, y + 58, `RANK ${row.rankLabel}`, {
       fontSize: "14px",
       color: style.dim,
@@ -40241,19 +40524,88 @@ class SurvivalScene extends Phaser.Scene {
     this.fitOverlayTextToWidth(effectText, width - 92, 8);
   }
 
+  interpolateEquipmentLegendColor(leftColor, rightColor, amount = 0) {
+    const t = Phaser.Math.Clamp(Number(amount) || 0, 0, 1);
+    const leftR = (leftColor >> 16) & 0xff;
+    const leftG = (leftColor >> 8) & 0xff;
+    const leftB = leftColor & 0xff;
+    const rightR = (rightColor >> 16) & 0xff;
+    const rightG = (rightColor >> 8) & 0xff;
+    const rightB = rightColor & 0xff;
+    const r = Math.round(Phaser.Math.Linear(leftR, rightR, t));
+    const g = Math.round(Phaser.Math.Linear(leftG, rightG, t));
+    const b = Math.round(Phaser.Math.Linear(leftB, rightB, t));
+    return (r << 16) | (g << 8) | b;
+  }
+
+  getEquipmentLegendGradientColor(position = 0) {
+    const colors = EQUIPMENT_HUB_LEGEND_FRAME_COLORS;
+    if (!colors.length) {
+      return 0xecf7ff;
+    }
+    if (colors.length === 1) {
+      return colors[0];
+    }
+    const wrapped = ((Number(position) || 0) % 1 + 1) % 1;
+    const scaled = wrapped * (colors.length - 1);
+    const index = Math.min(colors.length - 2, Math.floor(scaled));
+    return this.interpolateEquipmentLegendColor(colors[index], colors[index + 1], scaled - index);
+  }
+
+  drawEquipmentLegendGradientStrip(graphics, x, y, width, height, options = {}) {
+    if (!graphics || width <= 0 || height <= 0) {
+      return;
+    }
+    const vertical = options.vertical === true;
+    const alpha = Phaser.Math.Clamp(Number(options.alpha) || 0.9, 0, 1);
+    const steps = Math.max(6, Math.floor(Number(options.steps) || EQUIPMENT_HUB_LEGEND_GRADIENT_STEPS));
+    const offset = Number(options.offset) || 0;
+    for (let index = 0; index < steps; index += 1) {
+      const ratio = steps <= 1 ? 0 : index / (steps - 1);
+      const color = this.getEquipmentLegendGradientColor(ratio + offset);
+      graphics.fillStyle(color, alpha);
+      if (vertical) {
+        const segmentY = y + (height * index) / steps;
+        const segmentH = Math.ceil(height / steps) + 1;
+        graphics.fillRect(x, segmentY, width, segmentH);
+      } else {
+        const segmentX = x + (width * index) / steps;
+        const segmentW = Math.ceil(width / steps) + 1;
+        graphics.fillRect(segmentX, y, segmentW, height);
+      }
+    }
+  }
+
   drawStaticEquipmentLegendFrame(x, y, width, height) {
     const graphics = this.addOverlayChild(this.add.graphics());
-    const segmentWidth = width / EQUIPMENT_HUB_LEGEND_FRAME_COLORS.length;
-    EQUIPMENT_HUB_LEGEND_FRAME_COLORS.forEach((color, index) => {
-      const left = x + index * segmentWidth;
-      graphics.fillStyle(color, 0.9);
-      graphics.fillRect(left, y, Math.max(1, segmentWidth - 1), 3);
-      graphics.fillRect(left, y + height - 3, Math.max(1, segmentWidth - 1), 3);
-    });
-    graphics.fillStyle(EQUIPMENT_HUB_LEGEND_FRAME_COLORS[0], 0.78);
-    graphics.fillRect(x, y + 3, 3, height - 6);
-    graphics.fillStyle(EQUIPMENT_HUB_LEGEND_FRAME_COLORS[EQUIPMENT_HUB_LEGEND_FRAME_COLORS.length - 1], 0.78);
-    graphics.fillRect(x + width - 3, y + 3, 3, height - 6);
+    graphics.lineStyle(7, 0xffffff, 0.06);
+    graphics.strokeRoundedRect(x - 2, y - 2, width + 4, height + 4, 8);
+    graphics.lineStyle(4, 0x55d9ff, 0.12);
+    graphics.strokeRoundedRect(x - 1, y - 1, width + 2, height + 2, 7);
+    graphics.lineStyle(2, 0xb184ff, 0.16);
+    graphics.strokeRoundedRect(x + 1, y + 1, width - 2, height - 2, 6);
+
+    this.drawEquipmentLegendGradientStrip(graphics, x, y, width, 4, { alpha: 0.96, steps: 96 });
+    this.drawEquipmentLegendGradientStrip(graphics, x, y + height - 4, width, 4, { alpha: 0.96, steps: 96, offset: 0.5 });
+    this.drawEquipmentLegendGradientStrip(graphics, x, y + 4, 4, height - 8, { alpha: 0.88, vertical: true, steps: 42, offset: 0.15 });
+    this.drawEquipmentLegendGradientStrip(graphics, x + width - 4, y + 4, 4, height - 8, { alpha: 0.88, vertical: true, steps: 42, offset: 0.65 });
+    this.drawEquipmentLegendGradientStrip(graphics, x + 8, y + 7, width - 16, 1, { alpha: 0.46, steps: 84, offset: 0.08 });
+    this.drawEquipmentLegendGradientStrip(graphics, x + 8, y + height - 8, width - 16, 1, { alpha: 0.42, steps: 84, offset: 0.58 });
+
+    graphics.fillStyle(0xffffff, 0.28);
+    graphics.fillRect(x + 4, y + 4, 14, 2);
+    graphics.fillRect(x + 4, y + 4, 2, 14);
+    graphics.fillRect(x + width - 18, y + 4, 14, 2);
+    graphics.fillRect(x + width - 6, y + 4, 2, 14);
+    graphics.fillRect(x + 4, y + height - 6, 14, 2);
+    graphics.fillRect(x + 4, y + height - 18, 2, 14);
+    graphics.fillRect(x + width - 18, y + height - 6, 14, 2);
+    graphics.fillRect(x + width - 6, y + height - 18, 2, 14);
+
+    graphics.lineStyle(1, 0xffffff, 0.11);
+    graphics.lineBetween(x + width * 0.12, y + height - 8, x + width * 0.42, y + 8);
+    graphics.lineStyle(1, 0x55d9ff, 0.13);
+    graphics.lineBetween(x + width * 0.54, y + height - 8, x + width * 0.86, y + 8);
     return graphics;
   }
 
@@ -40316,11 +40668,13 @@ class SurvivalScene extends Phaser.Scene {
     rowGraphics.lineStyle(1, style.stroke, rarityKey === "LEGEND" ? 0.58 : 0.28);
     rowGraphics.strokeRoundedRect(x + 0.5, y + 0.5, width - 1, 31, 4);
     if (rarityKey === "LEGEND") {
-      const segmentWidth = 72 / EQUIPMENT_HUB_LEGEND_FRAME_COLORS.length;
-      EQUIPMENT_HUB_LEGEND_FRAME_COLORS.forEach((color, index) => {
-        rowGraphics.fillStyle(color, 0.86);
-        rowGraphics.fillRect(x + 8 + index * segmentWidth, y + 6, Math.max(1, segmentWidth - 1), 3);
-      });
+      rowGraphics.lineStyle(2, 0x55d9ff, 0.16);
+      rowGraphics.strokeRoundedRect(x + 1.5, y + 1.5, width - 3, 29, 4);
+      this.drawEquipmentLegendGradientStrip(rowGraphics, x + 8, y + 5, 76, 4, { alpha: 0.94, steps: 48 });
+      this.drawEquipmentLegendGradientStrip(rowGraphics, x + 8, y + 25, 76, 2, { alpha: 0.42, steps: 48, offset: 0.5 });
+      rowGraphics.fillStyle(0xffffff, 0.22);
+      rowGraphics.fillRect(x + 9, y + 10, 2, 12);
+      rowGraphics.fillRect(x + 80, y + 10, 2, 12);
     } else {
       rowGraphics.fillStyle(style.stroke, rarityKey === "unknown" ? 0.8 : 0.72);
       rowGraphics.fillRect(x + 9, y + 7, 30, 3);
@@ -40329,8 +40683,13 @@ class SurvivalScene extends Phaser.Scene {
     const rarityText = this.createOverlayText(x + 50, y + 8, `${label} x${count}`, {
       fontSize: "13px",
       color: style.text,
-      fontStyle: "bold"
+      fontStyle: "bold",
+      stroke: rarityKey === "LEGEND" ? "#5eefff" : undefined,
+      strokeThickness: rarityKey === "LEGEND" ? 1 : 0
     });
+    if (rarityKey === "LEGEND") {
+      rarityText.setShadow(0, 0, "#b184ff", 6, true, true);
+    }
     this.fitOverlayTextToWidth(rarityText, width - 190, 10);
 
     const buttonState = this.getEquipmentAnalysisButtonState(state, analysisRarity, count);
@@ -40606,7 +40965,7 @@ class SurvivalScene extends Phaser.Scene {
       color: "#9ffcff",
       fontStyle: "bold"
     });
-    this.createOverlayText(-530, -188, "確定GEEKでLv上限とLv11+専用EX機能を解放します。ラン中LvはRobot Coreで成長します。", {
+    this.createOverlayText(-530, -188, "確定GEEKでLv上限と専用EX機能を解放します。ラン中LvはRobot Coreで成長します。", {
       fontSize: "12px",
       color: "#9ab7cc",
       wordWrap: { width: 760 }
@@ -40638,10 +40997,11 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   createRobotCustomShopCard(item, x, y, width, height) {
-    const status = this.getRobotCustomItemStatus(item);
+    const displayItem = this.getRobotCustomDisplayItem(item);
+    const status = this.getRobotCustomItemStatus(displayItem);
     const disabled = status.locked || status.maxed || status.owned;
     const fill = status.owned || status.maxed ? 0x102332 : (status.locked ? 0x090f18 : 0x101b2a);
-    const stroke = item.accent || 0x6fcfff;
+    const stroke = displayItem.accent || 0x6fcfff;
     const panel = this.addOverlayChild(
       this.add
         .rectangle(x, y, width, height, fill, status.locked ? 0.66 : 0.94)
@@ -40656,17 +41016,21 @@ class SurvivalScene extends Phaser.Scene {
     panel.on("pointerout", () => {
       panel.setFillStyle(fill, status.locked ? 0.66 : 0.94);
     });
-    this.addOverlayAction(panel, () => this.purchaseRobotCustomItem(item.id), true, 8);
+    this.addOverlayAction(panel, () => this.purchaseRobotCustomItem(displayItem.id), true, 8);
 
     const costLabel = status.cost === null ? status.action : `${status.cost.toLocaleString()} GEEK`;
-    const levelLine = item.type === "cap"
+    const levelLine = displayItem.type === "cap"
       ? `CAP Lv.${status.currentCap} -> Lv.${status.nextCap}  /  Tier ${status.tier}/${ROBOT_CUSTOM_MAX_CAP_TIER}`
-      : (item.id === "napalm"
-        ? `REQUIRES Missile Cap Tier ${item.requiresTier} / Missile Lv.${ROBOT_NAPALM_CONFIG.unlockLevel}+`
-        : `REQUIRES Recovery Cap Tier ${item.requiresTier} / Recovery Lv.${ROBOT_BARRIER_CONFIG.unlockLevel}+`);
+      : (displayItem.type === "napalmCap"
+        ? `NAPALM CAP Lv.${status.currentCap} -> Lv.${status.nextCap} / Tier ${status.tier}/${ROBOT_NAPALM_MAX_CAP_TIER}`
+        : (displayItem.type === "barrierCap"
+          ? `BARRIER CAP Lv.${status.currentCap} -> Lv.${status.nextCap} / Tier ${status.tier}/${ROBOT_BARRIER_MAX_CAP_TIER}`
+        : (displayItem.id === "napalm"
+        ? `REQUIRES Missile Cap Tier ${displayItem.requiresTier} / Missile Lv.${ROBOT_NAPALM_CONFIG.unlockLevel}+`
+        : `REQUIRES Recovery Cap Tier ${displayItem.requiresTier} / Recovery Lv.${ROBOT_BARRIER_CONFIG.unlockLevel}+`)));
     const actionColor = status.locked ? "#7f90a0" : (status.owned || status.maxed ? "#77f0b4" : "#ecf7ff");
 
-    this.createOverlayText(x + 18, y + 14, item.jpTitle, {
+    this.createOverlayText(x + 18, y + 14, displayItem.jpTitle, {
       fontSize: "19px",
       color: status.locked ? "#7f90a0" : "#ecf7ff",
       fontStyle: "bold",
@@ -40679,12 +41043,12 @@ class SurvivalScene extends Phaser.Scene {
       align: "right",
       origin: { x: 1, y: 0 }
     });
-    this.createOverlayText(x + 18, y + 44, item.title, {
+    this.createOverlayText(x + 18, y + 44, displayItem.title, {
       fontSize: "12px",
       color: status.locked ? "#617484" : "#9ffcff",
       fontStyle: "bold"
     });
-    this.createOverlayText(x + 18, y + 62, item.description, {
+    this.createOverlayText(x + 18, y + 62, displayItem.description, {
       fontSize: "12px",
       color: status.locked ? "#617484" : "#b8d4e8",
       wordWrap: { width: width - 36 }
@@ -40711,7 +41075,7 @@ class SurvivalScene extends Phaser.Scene {
     const summaryLines = [
       `MISSILE CAP Lv.${missileCap} / Tier ${custom.missileCapTier}/${ROBOT_CUSTOM_MAX_CAP_TIER}`,
       `RECOVERY CAP Lv.${fieldCap} / Tier ${custom.recoveryCapTier}/${ROBOT_CUSTOM_MAX_CAP_TIER}`,
-      `NAPALM ${custom.napalmUnlocked ? "UNLOCKED" : "LOCKED"} / BARRIER ${custom.barrierUnlocked ? "UNLOCKED" : "LOCKED"}`,
+      `NAPALM ${custom.napalmUnlocked ? `Lv.${this.getRobotNapalmLevelCap()} CAP` : "LOCKED"} / BARRIER ${custom.barrierUnlocked ? `Lv.${this.getRobotBarrierLevelCap()} CAP` : "LOCKED"}`,
       "Lv11以降はCore複数取得で進行。画像未登録Lvは既存素材にフォールバック。"
     ];
     this.addOverlayChild(
@@ -41240,7 +41604,7 @@ class SurvivalScene extends Phaser.Scene {
       `BUILD: ${this.getRunArchiveTriadBuildSummary(entry)}`,
       `SKILLS: ${this.getRunArchiveSkillSummary(entry)}`,
       `MUTATION: ${this.getRunArchiveSkillMutationSummary(entry)}`,
-      `PASSIVE: BOLT ${passives.overchargeBolt} / RAPID ${passives.rapidSigil} / STEP ${passives.swiftStep} / STAMINA ${passives.staminaCore} / VITAL ${passives.vitalBloom}`,
+      `PASSIVE: REACTOR ${passives.overchargeBolt} / FIRE CTRL ${passives.rapidSigil} / BOOSTER ${passives.swiftStep} / ENERGY ${passives.staminaCore} / AP ${passives.vitalBloom}`,
       `LOST ARMS: ${this.getRunArchiveLostArmsSummary(entry)}`,
       `ROBOT: M${robot.missileLevel} / F${robot.recoveryLevel} / RAPID ${robot.rapidLauncherLevel} / WARHEAD ${robot.warheadBoostLevel} / FIELD ${robot.fieldCycleLevel} / CARE ${robot.careOutputLevel} / SYNC ${robot.syncActivations}`,
       `DEEP: CONTRACT ${contractText}`,
@@ -42014,7 +42378,9 @@ class SurvivalScene extends Phaser.Scene {
     score += (Number(robotCustom.missileCapTier) || 0) * 5000;
     score += (Number(robotCustom.recoveryCapTier) || 0) * 5000;
     score += robotCustom.napalmUnlocked ? 15000 : 0;
+    score += (Number(robotCustom.napalmCapTier) || 0) * 3500;
     score += robotCustom.barrierUnlocked ? 15000 : 0;
+    score += (Number(robotCustom.barrierCapTier) || 0) * 3500;
     return Math.max(0, Math.round(score));
   }
 
@@ -42031,10 +42397,10 @@ class SurvivalScene extends Phaser.Scene {
     graphics.strokeRoundedRect(x + 10, y + 10, width - 20, height - 20, 4);
 
     const rows = [
-      { type: "attack", label: "ATTACK BONUS", jp: "攻撃力ボーナス", value: this.formatShopBonusPercent(summary.attackPercent), color: 0xffd866 },
-      { type: "hp", label: "HP BONUS", jp: "HPボーナス", value: this.formatShopBonusNumber(summary.hpAdd), color: 0xf2f7ff },
-      { type: "speed", label: "SPEED BONUS", jp: "速度ボーナス", value: this.formatShopBonusNumber(summary.speedAdd), color: 0x77f0b4 },
-      { type: "stamina", label: "STAMINA BONUS", jp: "スタミナボーナス", value: this.formatShopBonusNumber(summary.staminaAdd), color: 0xf0c463 },
+      { type: "attack", label: "ARMAMENT OUTPUT", jp: "兵装出力", value: this.formatShopBonusPercent(summary.attackPercent), color: 0xffd866 },
+      { type: "hp", label: "AP BONUS", jp: "APボーナス", value: this.formatShopBonusNumber(summary.hpAdd), color: 0xf2f7ff },
+      { type: "speed", label: "BOOSTER OUTPUT", jp: "推進出力", value: this.formatShopBonusNumber(summary.speedAdd), color: 0x77f0b4 },
+      { type: "stamina", label: "BOOST EN BONUS", jp: "ブーストEN", value: this.formatShopBonusNumber(summary.staminaAdd), color: 0xf0c463 },
       { type: "fireRate", label: "FIRE RATE", jp: "連射ボーナス", value: this.formatShopBonusPercent(summary.fireRatePercent), color: 0x9ffcff },
       { type: "bullet", label: "BULLET SPEED", jp: "弾速ボーナス", value: this.formatShopBonusPercent(summary.bulletSpeedPercent), color: 0xc596ff }
     ];
@@ -42356,7 +42722,7 @@ class SurvivalScene extends Phaser.Scene {
 
   buildDepthRelayStartChoices(depthRelayState = this.depthRelayState) {
     const normalizedState = this.normalizeDepthRelayState(depthRelayState);
-    const relayDepths = [...new Set(
+    const availableRelayDepths = [...new Set(
       DEPTH_RELAY_PLAYER_SELECTABLE_DEPTHS.filter((depth) => (
         Number.isInteger(depth) &&
         Number.isSafeInteger(depth) &&
@@ -42365,6 +42731,11 @@ class SurvivalScene extends Phaser.Scene {
     )]
       .sort((left, right) => left - right)
       .filter((depth) => this.isDepthRelayStartDepthAvailable(normalizedState, depth));
+    const relayDepths = availableRelayDepths
+      .slice()
+      .sort((left, right) => right - left)
+      .slice(0, 2)
+      .sort((left, right) => left - right);
 
     return [
       {
@@ -42691,21 +43062,31 @@ class SurvivalScene extends Phaser.Scene {
       align: "center",
       origin: { x: 0.5, y: 0.5 }
     });
-    this.createDepthRelayStartBackButton(overlay, panelX, choiceLayout.backY);
-    this.addDepthRelayStartInputBlocker(overlay, panelX - 198, choiceLayout.backY, panelWidth / 2 - 77, 36);
-    this.addDepthRelayStartInputBlocker(overlay, panelX + 198, choiceLayout.backY, panelWidth / 2 - 77, 36);
-    this.addDepthRelayStartInputBlocker(overlay, panelX, choiceLayout.backY + 18, panelWidth, Math.max(0, panelBottom - (choiceLayout.backY + 18)));
+    const backButtonSize = this.createDepthRelayStartBackButton(overlay, panelX, choiceLayout.backY);
+    const backButtonHalfWidth = Math.max(0, (backButtonSize?.width || 0) / 2);
+    const backSideBlockerWidth = Math.max(0, panelWidth / 2 - backButtonHalfWidth);
+    const backSideBlockerOffset = backButtonHalfWidth + backSideBlockerWidth / 2;
+    this.addDepthRelayStartInputBlocker(overlay, panelX - backSideBlockerOffset, choiceLayout.backY, backSideBlockerWidth, backButtonSize.height);
+    this.addDepthRelayStartInputBlocker(overlay, panelX + backSideBlockerOffset, choiceLayout.backY, backSideBlockerWidth, backButtonSize.height);
+    const lowerBackBlockerTop = choiceLayout.backY + backButtonSize.height / 2;
+    const lowerBackBlockerHeight = Math.max(0, panelBottom - lowerBackBlockerTop);
+    this.addDepthRelayStartInputBlocker(
+      overlay,
+      panelX,
+      lowerBackBlockerTop + lowerBackBlockerHeight / 2,
+      panelWidth,
+      lowerBackBlockerHeight
+    );
 
     this.registerDepthRelayStartKeyboardInput();
     this.registerDepthRelayStartPointerInput();
     this.setDepthRelayStartFocusedIndex(0, { animate: false });
     overlay.sort?.("depth");
 
-    overlay.setAlpha(0.96).setScale(0.985);
+    overlay.setAlpha(0.96).setScale(1);
     this.tweens?.add({
       targets: overlay,
       alpha: 1,
-      scale: 1,
       duration: 140,
       ease: "Sine.easeOut"
     });
@@ -42756,6 +43137,10 @@ class SurvivalScene extends Phaser.Scene {
     hitArea.on("pointerover", () => this.setDepthRelayStartFocusedIndex(index));
     hitArea.on("pointerup", (pointer, _localX, _localY, event) => {
       if (!this.isPrimaryPointerActivation(pointer)) {
+        return;
+      }
+      const point = this.getOverlayPointerGamePosition(pointer);
+      if (!this.isPointInsideDepthRelayStartBounds(point, this.getDepthRelayStartObjectBounds(hitArea, 0))) {
         return;
       }
       event?.stopPropagation?.();
@@ -42827,6 +43212,8 @@ class SurvivalScene extends Phaser.Scene {
       });
       if (dense) {
         this.fitOverlayTextToWidth(secondaryText, contentWidth, 8);
+      } else {
+        this.fitOverlayTextToWidth(secondaryText, contentWidth, 9);
       }
     }
     if (presentation.warning) {
@@ -42837,6 +43224,7 @@ class SurvivalScene extends Phaser.Scene {
         lineSpacing: dense ? 0 : 1,
         wordWrap: { width: contentWidth }
       });
+      this.fitOverlayTextToWidth(record.warningText, contentWidth, dense ? 8 : 9);
     }
   }
 
@@ -42891,14 +43279,17 @@ class SurvivalScene extends Phaser.Scene {
       .setDepth(30)
       .setStrokeStyle(1, 0x9fb7c9, 0.52);
     const hitArea = this.add
-      .zone(centerX, centerY, width, height)
-      .setOrigin(0.5)
+      .rectangle(centerX, centerY, width, height, 0xffffff, 0.001)
       .setDepth(32)
       .setInteractive({ useHandCursor: true });
     hitArea.on("pointerover", () => button.setFillStyle(0x19324d, 0.98));
     hitArea.on("pointerout", () => button.setFillStyle(0x102033, 0.94));
     hitArea.on("pointerup", (pointer, _localX, _localY, event) => {
       if (!this.isPrimaryPointerActivation(pointer)) {
+        return;
+      }
+      const point = this.getOverlayPointerGamePosition(pointer);
+      if (!this.isPointInsideDepthRelayStartBounds(point, this.getDepthRelayStartObjectBounds(hitArea, 0))) {
         return;
       }
       event?.stopPropagation?.();
@@ -42914,6 +43305,7 @@ class SurvivalScene extends Phaser.Scene {
       origin: { x: 0.5, y: 0.5 },
       depth: 31
     });
+    return { width, height };
   }
 
   setDepthRelayStartFocusedIndex(index, options = {}) {
@@ -43060,12 +43452,36 @@ class SurvivalScene extends Phaser.Scene {
       this.game?.canvas?.removeEventListener?.("touchend", this.depthRelayStartTouchHandler);
       this.depthRelayStartTouchHandler = null;
     }
+    if (this.depthRelayStartCanvasPointerHandler) {
+      this.game?.canvas?.removeEventListener?.("pointerup", this.depthRelayStartCanvasPointerHandler, true);
+      this.depthRelayStartCanvasPointerHandler = null;
+    }
+    const getCanvasEventGamePoint = (event) => {
+      const canvas = this.game?.canvas;
+      if (!canvas?.getBoundingClientRect) {
+        return null;
+      }
+      const bounds = canvas.getBoundingClientRect();
+      const clientPoint = this.getSourceEventClientPosition(event);
+      if (!clientPoint || bounds.width <= 0 || bounds.height <= 0) {
+        return null;
+      }
+      return {
+        x: ((clientPoint.clientX - bounds.left) / bounds.width) * GAME_WIDTH,
+        y: ((clientPoint.clientY - bounds.top) / bounds.height) * GAME_HEIGHT
+      };
+    };
+    const stopDepthRelayStartPointerEvent = (sourceEvent) => {
+      sourceEvent?.preventDefault?.();
+      sourceEvent?.stopImmediatePropagation?.();
+      sourceEvent?.stopPropagation?.();
+    };
     const activateAtPoint = (point, sourceEvent = null) => {
       if (!this.depthRelayStartOverlayActive || this.depthRelayStartSelectionLocked) {
         return false;
       }
       if (this.isPointInsideDepthRelayStartBounds(point, this.getDepthRelayStartObjectBounds(this.depthRelayStartBackButton, 0))) {
-        sourceEvent?.stopPropagation?.();
+        stopDepthRelayStartPointerEvent(sourceEvent);
         this.cancelDepthRelayStartSelection("backPointer");
         return true;
       }
@@ -43075,7 +43491,7 @@ class SurvivalScene extends Phaser.Scene {
       if (!record) {
         return false;
       }
-      sourceEvent?.stopPropagation?.();
+      stopDepthRelayStartPointerEvent(sourceEvent);
       this.commitDepthRelayStartChoice(record.choice.depth);
       return true;
     };
@@ -43085,29 +43501,26 @@ class SurvivalScene extends Phaser.Scene {
       }
       activateAtPoint(this.getOverlayPointerGamePosition(pointer), pointer?.event);
     };
-    this.depthRelayStartTouchHandler = (event) => {
+    this.depthRelayStartCanvasPointerHandler = (event) => {
       if (!this.depthRelayStartOverlayActive || this.depthRelayStartSelectionLocked) {
         return;
       }
-      const canvas = this.game?.canvas;
-      if (!canvas?.getBoundingClientRect) {
-        return;
-      }
-      const bounds = canvas.getBoundingClientRect();
-      const touch = event?.changedTouches?.[0] || event?.touches?.[0] || null;
-      if (!touch || bounds.width <= 0 || bounds.height <= 0) {
-        return;
-      }
-      const point = {
-        x: ((touch.clientX - bounds.left) / bounds.width) * GAME_WIDTH,
-        y: ((touch.clientY - bounds.top) / bounds.height) * GAME_HEIGHT
-      };
+      const point = getCanvasEventGamePoint(event);
       if (activateAtPoint(point, event) && event?.cancelable !== false) {
         event.preventDefault?.();
       }
     };
-    this.input?.on("pointerdown", this.depthRelayStartPointerHandler);
+    this.depthRelayStartTouchHandler = (event) => {
+      if (!this.depthRelayStartOverlayActive || this.depthRelayStartSelectionLocked) {
+        return;
+      }
+      const point = getCanvasEventGamePoint(event);
+      if (activateAtPoint(point, event) && event?.cancelable !== false) {
+        event.preventDefault?.();
+      }
+    };
     this.input?.on("pointerup", this.depthRelayStartPointerHandler);
+    this.game?.canvas?.addEventListener?.("pointerup", this.depthRelayStartCanvasPointerHandler, true);
     this.game?.canvas?.addEventListener?.("touchend", this.depthRelayStartTouchHandler, { passive: false });
   }
 
@@ -43277,6 +43690,10 @@ class SurvivalScene extends Phaser.Scene {
     if (this.depthRelayStartTouchHandler) {
       this.game?.canvas?.removeEventListener?.("touchend", this.depthRelayStartTouchHandler);
       this.depthRelayStartTouchHandler = null;
+    }
+    if (this.depthRelayStartCanvasPointerHandler) {
+      this.game?.canvas?.removeEventListener?.("pointerup", this.depthRelayStartCanvasPointerHandler, true);
+      this.depthRelayStartCanvasPointerHandler = null;
     }
     this.depthRelayStartSelectTimer?.remove(false);
     this.depthRelayStartSelectTimer = null;
@@ -43484,7 +43901,7 @@ class SurvivalScene extends Phaser.Scene {
       this.onDepthStartedForNemesis(this.stageDepth, "gameStart");
       this.onDepthStartedForVoidHunter(this.stageDepth, "gameStart");
     }
-    const gameStartsInEndlessVoid = !debugStartFinalBossRaidPending && this.isEndlessVoidDepth?.(this.stageDepth);
+    const gameStartsInEndlessVoid = !debugStartFinalBossRaidPending && this.shouldUseEndlessVoidAtmosphereForDepth?.(this.stageDepth, this.depthRelayState);
     if (gameStartsInEndlessVoid) {
       this.cleanupExternalCommsForEndlessVoid?.("gameStart");
     }
@@ -45392,7 +45809,7 @@ class SurvivalScene extends Phaser.Scene {
       this.beginFinalBossRaid(transition, { dataCacheCount });
       return;
     }
-    const enteredEndlessVoid = this.isEndlessVoidDepth?.(targetDepth) === true;
+    const enteredEndlessVoid = this.shouldUseEndlessVoidAtmosphereForDepth?.(targetDepth, this.depthRelayState) === true;
     if (enteredEndlessVoid) {
       this.cleanupExternalCommsForEndlessVoid?.("endlessVoidEnter");
     }
@@ -50870,11 +51287,14 @@ class SurvivalScene extends Phaser.Scene {
     return rankedEnemies.slice(0, maxCount).map((entry) => entry.enemy);
   }
 
-  findRobotMissileTargets(originX, originY, maxCount, maxRange = Infinity) {
+  findRobotMissileTargets(originX, originY, maxCount, maxRange = Infinity, options = {}) {
     const rankedTargets = [];
     const maxDistanceSq = Number.isFinite(maxRange) ? maxRange * maxRange : Infinity;
     const addTarget = (target, priorityBias = 0) => {
       if (!target?.active || target.isDying) {
+        return;
+      }
+      if (options.cameraVisibleOnly && !this.isRobotMissileTargetInCameraView(target)) {
         return;
       }
       const distanceSq = Phaser.Math.Distance.Squared(target.x, target.y, originX, originY);
@@ -50903,10 +51323,6 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getRobotMissileFrameKey(frameIndex = 0) {
-    const napalmTextureKey = this.getRobotNapalmMissileTextureKey();
-    if (napalmTextureKey) {
-      return napalmTextureKey;
-    }
     const frames = ROBOT_IMAGE_ASSETS.missileFrames;
     const asset = frames[frameIndex % frames.length];
     return this.textures.exists(asset?.textureKey) ? asset.textureKey : "bullet-core";
@@ -50936,90 +51352,85 @@ class SurvivalScene extends Phaser.Scene {
     if (!missile) {
       return;
     }
-    this.scaleWorldImageToFit(missile, isBombardment ? 56 : 46);
+    this.scaleWorldImageToFit(
+      missile,
+      isBombardment ? ROBOT_NAPALM_MISSILE_DISPLAY_SIZE : ROBOT_NORMAL_MISSILE_DISPLAY_SIZE
+    );
   }
 
   getRobotMissileShotCount() {
     const level = this.robotState?.missileLevel || 1;
-    return Math.min(6, 1 + Math.floor((level - 1) / 2) + (level >= ROBOT_BASE_MAX_LEVEL ? 1 : 0));
+    if (level < ROBOT_BASE_MAX_LEVEL) {
+      return Math.min(5, 1 + Math.floor((level - 1) / 2));
+    }
+    return Math.min(10, 6 + Math.floor((level - ROBOT_BASE_MAX_LEVEL + 1) / 2));
   }
 
   getRobotMissileFireIntervalForLevel(fireRateLevel = this.robotState?.fireRateLevel || 0) {
-    const earlyLevels = Math.min(fireRateLevel, 10);
-    const extendedLevels = Math.max(0, fireRateLevel - 10);
-    return Math.max(360, 1500 - earlyLevels * 95 - extendedLevels * 19);
+    const normalizedLevel = Phaser.Math.Clamp(Math.floor(Number(fireRateLevel) || 0), 0, ROBOT_ABILITY_MAX_LEVEL);
+    return Math.max(
+      ROBOT_MISSILE_LOCK_CONFIG.minCooldownMs,
+      ROBOT_MISSILE_LOCK_CONFIG.baseCooldownMs
+        - normalizedLevel * ROBOT_MISSILE_LOCK_CONFIG.fireRateCooldownStepMs
+    );
   }
 
   getRobotMissileFireInterval() {
     const baseInterval = this.getRobotMissileFireIntervalForLevel(this.robotState?.fireRateLevel || 0);
-    return Math.max(300, Math.round(baseInterval * this.getRobotSyncMissileIntervalMultiplier()));
+    return Math.max(
+      ROBOT_MISSILE_LOCK_CONFIG.minSyncCooldownMs,
+      Math.round(baseInterval * this.getRobotSyncMissileIntervalMultiplier())
+    );
   }
 
   getRobotMissileDamageForLevel(damageLevel = this.robotState?.damageLevel || 0, missileLevel = this.robotState?.missileLevel || 1) {
     return Math.max(1, Math.round((1 + Math.floor((missileLevel - 1) / 2)) * (1 + damageLevel * 0.18)));
   }
 
+  getRobotNormalMissileDamageForLevel(damageLevel = this.robotState?.damageLevel || 0, missileLevel = this.robotState?.missileLevel || 1) {
+    return Math.max(1, Math.round(this.getRobotMissileDamageForLevel(damageLevel, missileLevel) * ROBOT_MISSILE_LOCK_CONFIG.missileDamageMultiplier));
+  }
+
   getRobotMissileDamage() {
-    const baseDamage = this.getRobotMissileDamageForLevel(this.robotState?.damageLevel || 0, this.robotState?.missileLevel || 1);
+    const baseDamage = this.getRobotNormalMissileDamageForLevel(this.robotState?.damageLevel || 0, this.robotState?.missileLevel || 1);
     return Math.max(1, Math.round(baseDamage * this.getRobotSyncMissileDamageMultiplier()));
   }
 
   getRobotMissileTargetRange() {
-    return Math.floor(Number(this.stageDepth) || 1) === 10 ? Infinity : 1120;
+    return Infinity;
   }
 
   getRobotMissileLifetimeMs() {
-    const baseLifetimeMs = 2300;
-    return Math.floor(Number(this.stageDepth) || 1) === 10 ? baseLifetimeMs * 2 : baseLifetimeMs;
+    return ROBOT_MISSILE_LOCK_CONFIG.missileLifetimeMs;
+  }
+
+  getRobotMissileSpeed() {
+    return ROBOT_MISSILE_LOCK_CONFIG.missileSpeedBase
+      + Math.min(
+        ROBOT_MISSILE_LOCK_CONFIG.missileSpeedBonusMax,
+        (this.robotState?.fireRateLevel || 0) * ROBOT_MISSILE_LOCK_CONFIG.missileSpeedBonusPerFireRate
+      );
   }
 
   updateRobotCombat(time, delta) {
     if (!this.robotState || !this.robotSprite) {
+      this.cleanupRobotMissileLockMarkers("robotInactive");
       return;
     }
 
-    const interval = this.getRobotMissileFireInterval();
-    this.robotState.missileTimer += delta;
-    if (this.robotState.missileTimer < interval) {
-      return;
-    }
-
-    const targets = this.findRobotMissileTargets(
-      this.robotState.x,
-      this.robotState.y,
-      this.getRobotMissileShotCount(),
-      this.getRobotMissileTargetRange()
-    );
-    if (!targets.length) {
-      this.robotState.missileTimer = interval;
-      return;
-    }
-
-    this.robotState.missileTimer = Math.max(0, this.robotState.missileTimer - interval);
-    this.fireRobotMissileVolley(targets);
+    this.updateRobotMissileLockSlots(delta);
   }
 
   fireRobotMissileVolley(targets) {
-    const shotCount = this.getRobotMissileShotCount();
+    const validTargets = (targets || []).filter((target) => this.isRobotMissileRetainedTargetAlive(target));
+    const shotCount = Math.min(validTargets.length, this.getRobotMissileLockSlotCount());
     for (let shotIndex = 0; shotIndex < shotCount; shotIndex += 1) {
-      const target = targets[shotIndex % targets.length];
+      const target = validTargets[shotIndex];
       if (!target?.active || target.isDying) {
         continue;
       }
 
       this.spawnRobotMissile(target, shotIndex, shotCount);
-    }
-
-    if ((this.robotState?.missileLevel || 1) >= ROBOT_BASE_MAX_LEVEL) {
-      const bombardmentCount = Math.min(3, 1 + Math.floor((this.robotState.fireRateLevel + this.robotState.damageLevel) / 8));
-      for (let index = 0; index < bombardmentCount; index += 1) {
-        this.time.delayedCall(index * 120, () => {
-          if (this.gameOver || this.shopActive || this.levelUpActive) {
-            return;
-          }
-          this.spawnRobotBombardmentMissile();
-        });
-      }
     }
 
     if (this.robotMuzzleGlow) {
@@ -51051,7 +51462,7 @@ class SurvivalScene extends Phaser.Scene {
 
     missile.body.setAllowGravity(false);
     missile.target = target;
-    missile.speed = 620 + Math.min(90, (this.robotState?.fireRateLevel || 0) * 7);
+    missile.speed = this.getRobotMissileSpeed();
     missile.damage = this.getRobotMissileDamage();
     missile.splashRadius = 42 + (this.robotState?.missileLevel || 1) * 2;
     missile.expireAt = this.time.now + this.getRobotMissileLifetimeMs();
@@ -51063,72 +51474,611 @@ class SurvivalScene extends Phaser.Scene {
     this.robotMissiles.add(missile);
   }
 
-  spawnRobotBombardmentMissile() {
-    const point = this.pickRobotBombardmentPoint();
-    const startX = point.x + Phaser.Math.Between(-260, 260);
-    const startY = point.y - Phaser.Math.Between(420, 560);
+  getRobotMissileLockSlotCount() {
+    return Math.min(
+      ROBOT_MISSILE_LOCK_CONFIG.maxSlots,
+      Math.max(0, Math.floor(this.getRobotMissileShotCount() || 0))
+    );
+  }
+
+  getRobotMissileLockMarkerTextureKey(isReady = false) {
+    const primaryAsset = isReady ? ROBOT_IMAGE_ASSETS.targetLockReadyMarker : ROBOT_IMAGE_ASSETS.targetLockMarker;
+    const fallbackAsset = ROBOT_IMAGE_ASSETS.targetLockMarker;
+    if (this.textures.exists(primaryAsset?.textureKey)) {
+      return primaryAsset.textureKey;
+    }
+    if (this.textures.exists(fallbackAsset?.textureKey)) {
+      return fallbackAsset.textureKey;
+    }
+    return "skill-hit-ring";
+  }
+
+  applyRobotMissileLockMarkerVisual(slot, isReady = false) {
+    const marker = slot?.marker;
+    if (!marker?.active) {
+      return;
+    }
+    const textureKey = this.getRobotMissileLockMarkerTextureKey(isReady);
+    if (marker.texture?.key !== textureKey) {
+      marker.setTexture(textureKey);
+      marker.setDisplaySize(ROBOT_MISSILE_LOCK_CONFIG.markerSize, ROBOT_MISSILE_LOCK_CONFIG.markerSize);
+    }
+    const customGreenKey = ROBOT_IMAGE_ASSETS.targetLockMarker?.textureKey;
+    const customReadyKey = ROBOT_IMAGE_ASSETS.targetLockReadyMarker?.textureKey;
+    const usesCustomMarker = textureKey === customGreenKey || textureKey === customReadyKey;
+    marker.setTint(usesCustomMarker ? 0xffffff : (isReady ? 0xff3333 : 0x3dff72));
+  }
+
+  createRobotMissileLockSlot(index) {
+    if (!this.robotEffectsLayer) {
+      return {
+        index,
+        target: null,
+        lockMs: 0,
+        moveMs: 0,
+        searchAngle: index * 0.72,
+        marker: null,
+        glow: null
+      };
+    }
+
+    const marker = this.add
+      .image(0, 0, this.getRobotMissileLockMarkerTextureKey())
+      .setDepth(24.2)
+      .setAlpha(0)
+      .setVisible(false)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    marker.setTint(0xffffff);
+    marker.setDisplaySize(ROBOT_MISSILE_LOCK_CONFIG.markerSize, ROBOT_MISSILE_LOCK_CONFIG.markerSize);
+
+    const glow = this.add
+      .image(0, 0, "skill-hit-glow")
+      .setDepth(24.1)
+      .setTint(0x3dff72)
+      .setAlpha(0)
+      .setVisible(false)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    glow.setDisplaySize(ROBOT_MISSILE_LOCK_CONFIG.markerGlowSize, ROBOT_MISSILE_LOCK_CONFIG.markerGlowSize);
+
+    this.robotEffectsLayer.add([glow, marker]);
+    return {
+      index,
+      target: null,
+      lockMs: 0,
+      moveMs: 0,
+      searchAngle: index * 0.72,
+      marker,
+      glow
+    };
+  }
+
+  destroyRobotMissileLockSlot(slot) {
+    if (!slot) {
+      return;
+    }
+    this.tweens?.killTweensOf([slot.marker, slot.glow].filter(Boolean));
+    slot.marker?.destroy?.();
+    slot.glow?.destroy?.();
+    slot.target = null;
+    slot.marker = null;
+    slot.glow = null;
+  }
+
+  ensureRobotMissileLockSlots(slotCount) {
+    const targetCount = Phaser.Math.Clamp(
+      Math.floor(Number(slotCount) || 0),
+      0,
+      ROBOT_MISSILE_LOCK_CONFIG.maxSlots
+    );
+    if (!Array.isArray(this.robotMissileLockSlots)) {
+      this.robotMissileLockSlots = [];
+    }
+    while (this.robotMissileLockSlots.length < targetCount) {
+      this.robotMissileLockSlots.push(this.createRobotMissileLockSlot(this.robotMissileLockSlots.length));
+    }
+    while (this.robotMissileLockSlots.length > targetCount) {
+      this.destroyRobotMissileLockSlot(this.robotMissileLockSlots.pop());
+    }
+  }
+
+  getRobotMissileLockMarkerPoint(target) {
+    const yOffset = Math.max(10, (target?.displayHeight || 40) * 0.34);
+    let x = target?.x || 0;
+    let y = (target?.y || 0) - yOffset;
+    const view = this.cameras?.main?.worldView;
+    if (view) {
+      const margin = ROBOT_MISSILE_LOCK_CONFIG.markerSize * 0.5;
+      x = Phaser.Math.Clamp(x, view.x + margin, view.x + view.width - margin);
+      y = Phaser.Math.Clamp(y, view.y + margin, view.y + view.height - margin);
+    }
+    return {
+      x,
+      y
+    };
+  }
+
+  getRobotMissileSearchMarkerPoint(slot) {
+    const centerX = this.robotState?.x || this.playerHitbox?.x || this.playerSprite?.x || WORLD_WIDTH / 2;
+    const centerY = this.robotState?.y || this.playerHitbox?.y || this.playerSprite?.y || WORLD_HEIGHT / 2;
+    const radius = ROBOT_MISSILE_LOCK_CONFIG.markerSearchRadius
+      + (Math.floor(Number(slot?.index) || 0) % 3) * ROBOT_MISSILE_LOCK_CONFIG.markerSearchRadiusStep;
+    const angle = Number(slot?.searchAngle) || 0;
+    let x = centerX + Math.cos(angle) * radius;
+    let y = centerY + Math.sin(angle) * radius * 0.62 - 18;
+    const view = this.cameras?.main?.worldView;
+    if (view) {
+      const margin = ROBOT_MISSILE_LOCK_CONFIG.markerSize * 0.5;
+      x = Phaser.Math.Clamp(x, view.x + margin, view.x + view.width - margin);
+      y = Phaser.Math.Clamp(y, view.y + margin, view.y + view.height - margin);
+    }
+    return { x, y };
+  }
+
+  isRobotMissileTargetInCameraView(target) {
+    if (!target?.active) {
+      return false;
+    }
+    const camera = this.cameras?.main;
+    const view = camera?.worldView;
+    if (!view) {
+      return true;
+    }
+    const insetX = Math.min(ROBOT_MISSILE_LOCK_CONFIG.cameraInsetX, Math.max(0, view.width * 0.35));
+    const insetY = Math.min(ROBOT_MISSILE_LOCK_CONFIG.cameraInsetY, Math.max(0, view.height * 0.35));
+    const left = view.x + insetX;
+    const right = view.x + view.width - insetX;
+    const top = view.y + insetY;
+    const bottom = view.y + view.height - insetY;
+    return target.x >= left && target.x <= right && target.y >= top && target.y <= bottom;
+  }
+
+  isRobotMissileLockTargetValid(target) {
+    if (!target?.active || target.isDying || !this.isRobotMissileTargetInCameraView(target)) {
+      return false;
+    }
+    if (target.isFinalBossRaidGiantWeapon) {
+      return true;
+    }
+    return this.isFinalBossRaidEnemyTargetable(target);
+  }
+
+  isRobotMissileLockComplete(slot) {
+    return (Number(slot?.lockMs) || 0) >= ROBOT_MISSILE_LOCK_CONFIG.lockOnMs;
+  }
+
+  isRobotMissileRetainedTargetAlive(target) {
+    if (!target?.active || target.isDying) {
+      return false;
+    }
+    if (target.isFinalBossRaidGiantWeapon) {
+      return true;
+    }
+    return this.isFinalBossRaidEnemyTargetable(target);
+  }
+
+  isRobotMissileLockSlotTargetValid(slot) {
+    if (!slot?.target) {
+      return false;
+    }
+    return this.isRobotMissileLockComplete(slot)
+      ? this.isRobotMissileRetainedTargetAlive(slot.target)
+      : this.isRobotMissileLockTargetValid(slot.target);
+  }
+
+  assignRobotMissileLockSlotTarget(slot, target) {
+    if (!slot || slot.target === target) {
+      return;
+    }
+    const wasVisible = slot.marker?.visible === true && slot.target?.active;
+    slot.target = target || null;
+    slot.lockMs = 0;
+    slot.moveMs = wasVisible && target ? ROBOT_MISSILE_LOCK_CONFIG.markerTransitionMs : 0;
+    if (!target) {
+      slot.marker?.setVisible(false).setAlpha(0);
+      slot.glow?.setVisible(false).setAlpha(0);
+      return;
+    }
+
+    const point = this.getRobotMissileLockMarkerPoint(target);
+    if (!wasVisible) {
+      slot.marker?.setPosition(point.x, point.y);
+      slot.glow?.setPosition(point.x, point.y);
+    }
+    slot.marker?.setVisible(true);
+    slot.glow?.setVisible(true);
+  }
+
+  updateRobotMissileSearchMarker(slot, delta) {
+    if (!slot) {
+      return false;
+    }
+    slot.lockMs = 0;
+    slot.moveMs = 0;
+    slot.searchAngle = (Number(slot.searchAngle) || 0) + (delta / 1000) * (0.95 + (slot.index % 5) * 0.04);
+    this.applyRobotMissileLockMarkerVisual(slot, false);
+    const point = this.getRobotMissileSearchMarkerPoint(slot);
+    const marker = slot.marker;
+    const glow = slot.glow;
+    marker?.setPosition(point.x, point.y);
+    glow?.setPosition(point.x, point.y);
+    marker?.setVisible(true).setAlpha(ROBOT_MISSILE_LOCK_CONFIG.markerSearchAlpha);
+    glow
+      ?.setVisible(true)
+      .setTint(0x3dff72)
+      .setAlpha(ROBOT_MISSILE_LOCK_CONFIG.markerSearchGlowAlpha);
+    if (marker) {
+      marker.rotation += (delta / 1000) * 1.15;
+    }
+    return false;
+  }
+
+  updateRobotMissileLockSlotMarker(slot, delta) {
+    if (!slot?.target || !this.isRobotMissileLockSlotTargetValid(slot)) {
+      this.assignRobotMissileLockSlotTarget(slot, null);
+      return this.updateRobotMissileSearchMarker(slot, delta);
+    }
+
+    const point = this.getRobotMissileLockMarkerPoint(slot.target);
+    const marker = slot.marker;
+    const glow = slot.glow;
+    if (slot.moveMs > 0) {
+      slot.moveMs = Math.max(0, slot.moveMs - delta);
+      const lerp = ROBOT_MISSILE_LOCK_CONFIG.markerLerp;
+      marker?.setPosition(
+        Phaser.Math.Linear(marker.x, point.x, lerp),
+        Phaser.Math.Linear(marker.y, point.y, lerp)
+      );
+      glow?.setPosition(marker?.x || point.x, marker?.y || point.y);
+    } else {
+      marker?.setPosition(point.x, point.y);
+      glow?.setPosition(point.x, point.y);
+      slot.lockMs = Math.min(
+        ROBOT_MISSILE_LOCK_CONFIG.lockOnMs,
+        Math.max(0, slot.lockMs + delta)
+      );
+    }
+
+    const progress = Phaser.Math.Clamp(slot.lockMs / ROBOT_MISSILE_LOCK_CONFIG.lockOnMs, 0, 1);
+    const isReady = progress >= 1;
+    this.applyRobotMissileLockMarkerVisual(slot, isReady);
+    const markerAlpha = slot.moveMs > 0
+      ? ROBOT_MISSILE_LOCK_CONFIG.markerMovingAlpha
+      : Phaser.Math.Linear(
+        ROBOT_MISSILE_LOCK_CONFIG.markerLockingAlpha,
+        ROBOT_MISSILE_LOCK_CONFIG.markerReadyAlpha,
+        progress
+      );
+    const glowAlpha = slot.moveMs > 0
+      ? ROBOT_MISSILE_LOCK_CONFIG.markerGlowAlpha * 0.55
+      : ROBOT_MISSILE_LOCK_CONFIG.markerGlowAlpha * (0.55 + progress * 0.75);
+    marker?.setVisible(true).setAlpha(markerAlpha);
+    glow
+      ?.setVisible(true)
+      .setTint(isReady ? 0xff3030 : 0x3dff72)
+      .setAlpha(glowAlpha);
+    if (marker) {
+      marker.rotation += (delta / 1000) * (isReady ? 2.8 : 1.4);
+    }
+    return isReady;
+  }
+
+  findRobotMissileLockTargets(maxCount) {
+    if (!this.robotState) {
+      return [];
+    }
+    return this.findRobotMissileTargets(
+      this.robotState.x,
+      this.robotState.y,
+      maxCount,
+      this.getRobotMissileTargetRange(),
+      { cameraVisibleOnly: true }
+    );
+  }
+
+  updateRobotMissileLockSlots(delta) {
+    const slotCount = this.getRobotMissileLockSlotCount();
+    this.ensureRobotMissileLockSlots(slotCount);
+    if (!slotCount) {
+      return;
+    }
+
+    this.robotState.missileTimer = Math.max(0, (this.robotState.missileTimer || 0) - delta);
+    const candidates = this.findRobotMissileLockTargets(slotCount);
+    const reservedTargets = new Set();
+    this.robotMissileLockSlots.forEach((slot) => {
+      if (this.isRobotMissileLockSlotTargetValid(slot)) {
+        reservedTargets.add(slot.target);
+      }
+    });
+
+    this.robotMissileLockSlots.forEach((slot) => {
+      if (this.isRobotMissileLockSlotTargetValid(slot)) {
+        return;
+      }
+      const nextTarget = candidates.find((candidate) => !reservedTargets.has(candidate));
+      this.assignRobotMissileLockSlotTarget(slot, nextTarget || null);
+      if (nextTarget) {
+        reservedTargets.add(nextTarget);
+      }
+    });
+
+    const readyTargets = [];
+    let activeSlotCount = 0;
+    this.robotMissileLockSlots.forEach((slot) => {
+      const isReady = this.updateRobotMissileLockSlotMarker(slot, delta);
+      if (slot.target && this.isRobotMissileLockSlotTargetValid(slot)) {
+        activeSlotCount += 1;
+        if (isReady) {
+          readyTargets.push(slot.target);
+        }
+      }
+    });
+
+    if (!activeSlotCount || readyTargets.length < activeSlotCount || this.robotState.missileTimer > 0) {
+      return;
+    }
+
+    this.fireRobotMissileVolley(readyTargets);
+    this.robotMissileLockSlots.forEach((slot) => {
+      if (readyTargets.includes(slot.target)) {
+        slot.lockMs = this.isRobotMissileRetainedTargetAlive(slot.target)
+          ? ROBOT_MISSILE_LOCK_CONFIG.lockOnMs
+          : 0;
+        slot.moveMs = 0;
+      }
+    });
+    this.robotState.missileTimer = this.getRobotMissileFireInterval();
+  }
+
+  detachRobotMissileLock(missile) {
+    if (missile) {
+      missile.lockOnTarget = null;
+    }
+  }
+
+  cleanupRobotMissileLockMarkers(reason = "cleanup") {
+    if (!Array.isArray(this.robotMissileLockSlots)) {
+      this.robotMissileLockSlots = [];
+      return;
+    }
+    this.robotMissileLockSlots.forEach((slot) => this.destroyRobotMissileLockSlot(slot));
+    this.robotMissileLockSlots = [];
+  }
+
+  spawnRobotNapalmMissile(level = this.getRobotEffectiveNapalmLevel(), barrageIndex = 0, barrageCount = 1, barrageAngle = null) {
+    if (!this.robotState || level < ROBOT_NAPALM_CONFIG.unlockLevel) {
+      return;
+    }
+    const point = this.pickRobotNapalmLandingPoint(level, barrageIndex, barrageCount, barrageAngle);
+    const travelDistance = Phaser.Math.Between(480, 680);
+    const sourceAngle = Phaser.Math.FloatBetween(-Math.PI * 0.92, -Math.PI * 0.08);
+    const startX = point.x + Math.cos(sourceAngle) * travelDistance;
+    const startY = point.y + Math.sin(sourceAngle) * travelDistance;
     const angle = Phaser.Math.Angle.Between(startX, startY, point.x, point.y);
+    const textureKey = this.getRobotNapalmMissileTextureKey(level) || this.getRobotMissileFrameKey(0);
     const missile = this.physics.add
-      .image(startX, startY, this.getRobotMissileFrameKey(0))
+      .image(startX, startY, textureKey)
       .setDepth(23)
       .setRotation(angle);
 
     missile.body.setAllowGravity(false);
-    missile.speed = 760 + Math.min(120, (this.robotState?.fireRateLevel || 0) * 8);
-    missile.damage = Math.round(this.getRobotMissileDamage() * 2.3);
-    missile.splashRadius = 158 + (this.robotState?.damageLevel || 0) * 5;
+    missile.speed = 760;
+    missile.damage = this.getRobotNapalmImpactDamage(level);
+    missile.splashRadius = this.getRobotNapalmImpactRadius(level);
     missile.expireAt = this.time.now + 2600;
     missile.frameTimer = 0;
     missile.bombardment = true;
+    missile.napalm = true;
+    missile.napalmLevel = level;
     missile.landingX = point.x;
     missile.landingY = point.y;
     this.scaleRobotMissileSprite(missile, true);
     this.configureRobotMissileBody(missile, 8);
     this.physics.velocityFromRotation(angle, missile.speed, missile.body.velocity);
     this.robotMissiles.add(missile);
+    this.spawnRobotNapalmLandingMarker(point.x, point.y, 760, missile.splashRadius);
+  }
 
-    const marker = this.add
-      .image(point.x, point.y, "skill-hit-ring")
-      .setDepth(18)
-      .setScale(0.56)
-      .setTint(0xff6ee8)
-      .setAlpha(0.42)
+  spawnRobotNapalmLandingMarker(x, y, durationMs = 760, radius = ROBOT_NAPALM_CONFIG.impactBaseRadius) {
+    if (!this.robotEffectsLayer) {
+      return;
+    }
+    const markerScale = Phaser.Math.Clamp(radius / 150, 0.68, 1.58);
+    const glow = this.add
+      .image(x, y, "skill-hit-glow")
+      .setDepth(17.8)
+      .setScale(0.54 * markerScale)
+      .setTint(0xff8a4c)
+      .setAlpha(0.26)
       .setBlendMode(Phaser.BlendModes.ADD);
-    this.robotEffectsLayer.add(marker);
+    const marker = this.add
+      .image(x, y, "skill-hit-ring")
+      .setDepth(18)
+      .setScale(0.48 * markerScale)
+      .setTint(0xffb347)
+      .setAlpha(0.58)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.robotEffectsLayer.add([glow, marker]);
     this.tweens.add({
       targets: marker,
-      scaleX: 1.28,
-      scaleY: 1.28,
+      scaleX: 1.42,
+      scaleY: 1.42,
       alpha: 0,
-      duration: 380,
+      duration: durationMs,
       ease: "Quad.Out",
       onComplete: () => {
         marker.destroy();
       }
     });
-  }
-
-  pickRobotBombardmentPoint() {
-    const candidates = [];
-    this.enemies.children.each((enemy) => {
-      if (this.isFinalBossRaidEnemyTargetable(enemy)) {
-        candidates.push(enemy);
+    this.tweens.add({
+      targets: glow,
+      scaleX: 1.18,
+      scaleY: 1.18,
+      alpha: 0,
+      duration: durationMs,
+      ease: "Quad.Out",
+      onComplete: () => {
+        glow.destroy();
       }
     });
-    this.getFinalBossRaidGiantWeaponTargets?.().forEach((target) => candidates.push(target));
+  }
 
-    if (candidates.length > 0) {
-      const enemy = Phaser.Utils.Array.GetRandom(candidates);
-      return {
-        x: Phaser.Math.Clamp(enemy.x + Phaser.Math.Between(-92, 92), 24, WORLD_WIDTH - 24),
-        y: Phaser.Math.Clamp(enemy.y + Phaser.Math.Between(-92, 92), 24, WORLD_HEIGHT - 24)
-      };
+  pickRobotNapalmLandingPoint(level = this.getRobotEffectiveNapalmLevel(), barrageIndex = 0, barrageCount = 1, barrageAngle = null) {
+    const clusterPoint = this.pickRobotNapalmClusterLandingPoint(level);
+    if (clusterPoint) {
+      return this.offsetRobotNapalmBarragePoint(clusterPoint, level, barrageIndex, barrageCount, barrageAngle);
+    }
+    return this.pickRobotNapalmFallbackLandingPoint();
+  }
+
+  pickRobotNapalmFallbackLandingPoint() {
+    const centerX = this.playerHitbox?.x || this.playerSprite?.x || this.robotState?.x || WORLD_WIDTH / 2;
+    const centerY = this.playerHitbox?.y || this.playerSprite?.y || this.robotState?.y || WORLD_HEIGHT / 2;
+    const distance = Phaser.Math.Between(ROBOT_NAPALM_CONFIG.landingMinRadius, ROBOT_NAPALM_CONFIG.landingMaxRadius);
+    const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+    return {
+      x: Phaser.Math.Clamp(centerX + Math.cos(angle) * distance, 24, WORLD_WIDTH - 24),
+      y: Phaser.Math.Clamp(centerY + Math.sin(angle) * distance, 24, WORLD_HEIGHT - 24)
+    };
+  }
+
+  pickRobotNapalmClusterLandingPoint(level = this.getRobotEffectiveNapalmLevel()) {
+    const candidates = this.getRobotNapalmTargetCandidates();
+    if (!candidates.length) {
+      return null;
     }
 
-    const view = this.cameras.main.worldView;
+    const clusterRadius = this.getRobotNapalmClusterRadius(level);
+    const clusterRadiusSq = clusterRadius * clusterRadius;
+    const playerX = this.playerHitbox?.x || this.playerSprite?.x || WORLD_WIDTH / 2;
+    const playerY = this.playerHitbox?.y || this.playerSprite?.y || WORLD_HEIGHT / 2;
+    let best = null;
+
+    candidates.forEach((candidate) => {
+      let score = 0;
+      let weightedX = 0;
+      let weightedY = 0;
+      let totalWeight = 0;
+      let nearbyCount = 0;
+
+      candidates.forEach((other) => {
+        const distanceSq = Phaser.Math.Distance.Squared(candidate.x, candidate.y, other.x, other.y);
+        if (distanceSq > clusterRadiusSq) {
+          return;
+        }
+        const distance = Math.sqrt(distanceSq);
+        const distanceWeight = 1.12 - Phaser.Math.Clamp(distance / Math.max(1, clusterRadius), 0, 1) * 0.55;
+        const weight = other.weight * distanceWeight;
+        score += weight;
+        weightedX += other.x * weight;
+        weightedY += other.y * weight;
+        totalWeight += weight;
+        nearbyCount += 1;
+      });
+
+      const playerDistance = Phaser.Math.Distance.Between(playerX, playerY, candidate.x, candidate.y);
+      const proximityBonus = 1 - Phaser.Math.Clamp(playerDistance / Math.max(1, ROBOT_NAPALM_CONFIG.targetScanRadius), 0, 1);
+      score += proximityBonus * 0.75 + Math.min(nearbyCount, 12) * 0.08;
+      if (!best || score > best.score) {
+        best = {
+          score,
+          x: totalWeight > 0 ? weightedX / totalWeight : candidate.x,
+          y: totalWeight > 0 ? weightedY / totalWeight : candidate.y
+        };
+      }
+    });
+
+    if (!best) {
+      return null;
+    }
+    return this.clampRobotNapalmLandingPoint(best.x, best.y);
+  }
+
+  getRobotNapalmTargetCandidates() {
+    const candidates = [];
+    const addCandidate = (target, extraWeight = 0) => {
+      if (!this.isFinalBossRaidEnemyTargetable(target) && !target?.isFinalBossRaidGiantWeapon) {
+        return;
+      }
+      if (!this.isRobotNapalmTargetInView(target.x, target.y)) {
+        return;
+      }
+      const playerX = this.playerHitbox?.x || this.playerSprite?.x || target.x;
+      const playerY = this.playerHitbox?.y || this.playerSprite?.y || target.y;
+      const distance = Phaser.Math.Distance.Between(playerX, playerY, target.x, target.y);
+      if (!target?.isBoss && !target?.isElite && !target?.isFinalBossRaidGiantWeapon && distance > ROBOT_NAPALM_CONFIG.targetScanRadius) {
+        return;
+      }
+      let weight = 1 + extraWeight;
+      if (target?.isBoss) {
+        weight += 2.4;
+      } else if (target?.isElite) {
+        weight += 1.1;
+      }
+      if (target?.isFinalBossRaidGiantWeapon) {
+        weight += 2.8;
+      }
+      candidates.push({ target, x: target.x, y: target.y, weight });
+    };
+
+    this.enemies.children.each((enemy) => addCandidate(enemy));
+    this.getFinalBossRaidGiantWeaponTargets?.().forEach((target) => addCandidate(target, 1.2));
+    return candidates;
+  }
+
+  isRobotNapalmTargetInView(x, y) {
+    const view = this.cameras?.main?.worldView;
+    if (!view) {
+      return true;
+    }
+    const padding = ROBOT_NAPALM_CONFIG.targetCameraPadding;
+    return x >= view.x - padding
+      && x <= view.right + padding
+      && y >= view.y - padding
+      && y <= view.bottom + padding;
+  }
+
+  getRobotNapalmClusterRadius(level = this.getRobotEffectiveNapalmLevel()) {
+    return ROBOT_NAPALM_CONFIG.targetClusterRadius
+      + Math.max(0, level - ROBOT_NAPALM_CONFIG.unlockLevel) * ROBOT_NAPALM_CONFIG.targetClusterRadiusStep;
+  }
+
+  offsetRobotNapalmBarragePoint(point, level = this.getRobotEffectiveNapalmLevel(), barrageIndex = 0, barrageCount = 1, barrageAngle = null) {
+    const count = Math.max(1, Math.floor(Number(barrageCount) || 1));
+    const index = Math.max(0, Math.floor(Number(barrageIndex) || 0));
+    let x = point.x;
+    let y = point.y;
+    if (count > 1 && index > 0) {
+      const spread = Phaser.Math.Clamp(
+        ROBOT_NAPALM_CONFIG.barrageSpreadBase + Math.max(0, level - ROBOT_NAPALM_CONFIG.unlockLevel) * ROBOT_NAPALM_CONFIG.barrageSpreadStep,
+        0,
+        ROBOT_NAPALM_CONFIG.barrageSpreadMax
+      );
+      const angleBase = Number.isFinite(barrageAngle) ? barrageAngle : Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const ringSlots = Math.max(1, count - 1);
+      const angle = angleBase + (index - 1) * (Math.PI * 2 / ringSlots);
+      const ringScale = index % 2 === 0 ? 0.72 : 1;
+      x += Math.cos(angle) * spread * ringScale;
+      y += Math.sin(angle) * spread * ringScale;
+    }
+    const jitter = ROBOT_NAPALM_CONFIG.targetJitterRadius;
+    x += Phaser.Math.Between(-jitter, jitter);
+    y += Phaser.Math.Between(-jitter, jitter);
+    return this.clampRobotNapalmLandingPoint(x, y);
+  }
+
+  clampRobotNapalmLandingPoint(x, y) {
+    const view = this.cameras?.main?.worldView;
+    if (view) {
+      const padding = 24;
+      return {
+        x: Phaser.Math.Clamp(x, Math.max(24, view.x + padding), Math.min(WORLD_WIDTH - 24, view.right - padding)),
+        y: Phaser.Math.Clamp(y, Math.max(24, view.y + padding), Math.min(WORLD_HEIGHT - 24, view.bottom - padding))
+      };
+    }
     return {
-      x: Phaser.Math.Between(Math.round(view.x + 64), Math.round(view.right - 64)),
-      y: Phaser.Math.Between(Math.round(view.y + 64), Math.round(view.bottom - 64))
+      x: Phaser.Math.Clamp(x, 24, WORLD_WIDTH - 24),
+      y: Phaser.Math.Clamp(y, 24, WORLD_HEIGHT - 24)
     };
   }
 
@@ -51151,6 +52101,7 @@ class SurvivalScene extends Phaser.Scene {
         if (missile.bombardment) {
           this.detonateRobotMissile(missile, missile.landingX || missile.x, missile.landingY || missile.y, true);
         } else {
+          this.detachRobotMissileLock(missile);
           missile.destroy();
         }
         return;
@@ -51158,7 +52109,10 @@ class SurvivalScene extends Phaser.Scene {
 
       missile.frameTimer += delta;
       const frameIndex = Math.floor(missile.frameTimer / 70) % ROBOT_IMAGE_ASSETS.missileFrames.length;
-      missile.setTexture(this.getRobotMissileFrameKey(frameIndex));
+      const textureKey = missile.napalm === true
+        ? (this.getRobotNapalmMissileTextureKey(missile.napalmLevel) || this.getRobotMissileFrameKey(frameIndex))
+        : this.getRobotMissileFrameKey(frameIndex);
+      missile.setTexture(textureKey);
 
       if (missile.bombardment) {
         const angle = Phaser.Math.Angle.Between(missile.x, missile.y, missile.landingX, missile.landingY);
@@ -51175,6 +52129,8 @@ class SurvivalScene extends Phaser.Scene {
         const angle = Phaser.Math.Angle.Between(missile.x, missile.y, missile.target.x, missile.target.y);
         missile.setRotation(angle);
         this.physics.velocityFromRotation(angle, missile.speed, missile.body.velocity);
+      } else if (missile.lockOnTarget) {
+        this.detachRobotMissileLock(missile);
       }
     });
   }
@@ -51203,12 +52159,17 @@ class SurvivalScene extends Phaser.Scene {
 
     const radius = missile.splashRadius || (isLargeExplosion ? 160 : 46);
     const damage = missile.damage || this.getRobotMissileDamage();
-    const sourceEnemy = this.isFinalBossRaidEnemyTargetable(missile.target) ? missile.target : null;
+    const napalmLevel = missile.napalm === true
+      ? Phaser.Math.Clamp(Math.floor(Number(missile.napalmLevel) || this.getRobotEffectiveNapalmLevel()), ROBOT_NAPALM_CONFIG.unlockLevel, ROBOT_MAX_LEVEL)
+      : 0;
+    this.detachRobotMissileLock(missile);
     missile.body.enable = false;
     missile.destroy();
     this.applyFinalBossRaidGiantWeaponPseudoDamageInRadius?.(x, y, radius);
     this.applyRobotExplosionDamage(x, y, radius, damage, isLargeExplosion);
-    this.tryTriggerRobotNapalm(sourceEnemy, x, y, damage, isLargeExplosion);
+    if (napalmLevel >= ROBOT_NAPALM_CONFIG.unlockLevel) {
+      this.applyRobotNapalmImpact(x, y, radius, damage, napalmLevel, isLargeExplosion);
+    }
     this.spawnRobotExplosionEffect(x, y, radius, isLargeExplosion);
   }
 
@@ -51324,15 +52285,47 @@ class SurvivalScene extends Phaser.Scene {
       && (this.robotState?.missileLevel || 1) >= ROBOT_NAPALM_CONFIG.unlockLevel;
   }
 
-  getRobotNapalmChance(level = this.robotState?.missileLevel || 1) {
+  getRobotEffectiveNapalmLevel() {
     if (!this.isRobotNapalmUnlocked()) {
       return 0;
     }
-    const levelOffset = Math.max(0, (Number(level) || 1) - ROBOT_NAPALM_CONFIG.unlockLevel);
+    const missileLevel = Phaser.Math.Clamp(Math.floor(Number(this.robotState?.missileLevel) || 1), 1, ROBOT_MAX_LEVEL);
     return Phaser.Math.Clamp(
-      ROBOT_NAPALM_CONFIG.baseChance + levelOffset * ROBOT_NAPALM_CONFIG.chancePerLevel,
-      0,
-      ROBOT_NAPALM_CONFIG.maxChance
+      Math.min(missileLevel, this.getRobotNapalmLevelCap()),
+      ROBOT_NAPALM_CONFIG.unlockLevel,
+      ROBOT_MAX_LEVEL
+    );
+  }
+
+  getRobotNapalmMissileCount(level = this.getRobotEffectiveNapalmLevel()) {
+    if (level < ROBOT_NAPALM_CONFIG.unlockLevel) {
+      return 0;
+    }
+    return Math.min(7, 2 + Math.floor(Math.max(0, level - ROBOT_NAPALM_CONFIG.unlockLevel) / 3));
+  }
+
+  getRobotNapalmImpactDamage(level = this.getRobotEffectiveNapalmLevel()) {
+    if (level < ROBOT_NAPALM_CONFIG.unlockLevel) {
+      return 0;
+    }
+    const baseDamage = this.getRobotMissileDamageForLevel(this.robotState?.damageLevel || 0, level);
+    return Math.max(1, Math.round(baseDamage * this.getRobotSyncMissileDamageMultiplier() * ROBOT_NAPALM_CONFIG.impactDamageMultiplier));
+  }
+
+  getRobotNapalmImpactRadius(level = this.getRobotEffectiveNapalmLevel()) {
+    if (level < ROBOT_NAPALM_CONFIG.unlockLevel) {
+      return 0;
+    }
+    return ROBOT_NAPALM_CONFIG.impactBaseRadius
+      + Math.max(0, level - ROBOT_NAPALM_CONFIG.unlockLevel) * ROBOT_NAPALM_CONFIG.impactRadiusStep;
+  }
+
+  getRobotNapalmBurnDamageRatio(level = this.getRobotEffectiveNapalmLevel()) {
+    const levelOffset = Math.max(0, (Number(level) || ROBOT_NAPALM_CONFIG.unlockLevel) - ROBOT_NAPALM_CONFIG.unlockLevel);
+    return Phaser.Math.Clamp(
+      ROBOT_NAPALM_CONFIG.burnDamageRatio + levelOffset * ROBOT_NAPALM_CONFIG.burnDamageRatioStep,
+      ROBOT_NAPALM_CONFIG.burnDamageRatio,
+      ROBOT_NAPALM_CONFIG.maxBurnDamageRatio
     );
   }
 
@@ -51341,54 +52334,39 @@ class SurvivalScene extends Phaser.Scene {
     return ROBOT_NAPALM_CONFIG.burnBaseDurationMs + levelOffset * ROBOT_NAPALM_CONFIG.burnDurationStepMs;
   }
 
-  getRobotNapalmTickDamageForEnemy(enemy, baseDamage, multiplier = 1) {
+  getRobotNapalmTickDamageForEnemy(enemy, baseDamage, multiplier = 1, level = this.getRobotEffectiveNapalmLevel()) {
     let damageMultiplier = multiplier;
     if (enemy?.isBoss) {
       damageMultiplier *= ROBOT_NAPALM_CONFIG.bossDamageMultiplier;
     } else if (enemy?.isElite) {
       damageMultiplier *= ROBOT_NAPALM_CONFIG.eliteDamageMultiplier;
     }
-    return Math.max(1, Math.round(Math.max(1, baseDamage) * ROBOT_NAPALM_CONFIG.burnDamageRatio * damageMultiplier));
+    return Math.max(1, Math.round(Math.max(1, baseDamage) * this.getRobotNapalmBurnDamageRatio(level) * damageMultiplier));
   }
 
-  tryTriggerRobotNapalm(sourceEnemy, x, y, baseDamage, isLargeExplosion = false) {
-    if (!this.isRobotNapalmUnlocked() || Math.random() > this.getRobotNapalmChance()) {
+  applyRobotNapalmImpact(x, y, radius, baseDamage, level = this.getRobotEffectiveNapalmLevel(), isLargeExplosion = true) {
+    if (level < ROBOT_NAPALM_CONFIG.unlockLevel) {
       return false;
     }
-
-    const level = this.robotState?.missileLevel || 1;
-    const targetEnemy = this.pickRobotNapalmTarget(x, y, sourceEnemy);
-    if (targetEnemy) {
-      this.applyRobotNapalmBurn(targetEnemy, baseDamage, level);
-    }
-    const targetX = targetEnemy?.x ?? x;
-    const targetY = targetEnemy?.y ?? y;
+    this.applyRobotNapalmBurnsInRadius(x, y, radius, baseDamage, level);
     if (level >= ROBOT_NAPALM_CONFIG.fieldUnlockLevel) {
-      this.spawnRobotNapalmField(targetX, targetY, level, baseDamage);
+      this.spawnRobotNapalmField(x, y, level, baseDamage);
     }
-    this.spawnRobotNapalmIgnitionEffect(targetX, targetY, isLargeExplosion);
+    this.spawnRobotNapalmIgnitionEffect(x, y, isLargeExplosion);
     return true;
   }
 
-  pickRobotNapalmTarget(x, y, sourceEnemy = null) {
-    if (this.isFinalBossRaidEnemyTargetable(sourceEnemy)) {
-      return sourceEnemy;
-    }
-
-    const candidates = [];
-    const radiusSq = ROBOT_NAPALM_CONFIG.targetRadius * ROBOT_NAPALM_CONFIG.targetRadius;
+  applyRobotNapalmBurnsInRadius(x, y, radius, baseDamage, level = this.getRobotEffectiveNapalmLevel()) {
+    const radiusSq = Math.max(1, radius * radius);
     this.enemies.children.each((enemy) => {
       if (!this.isFinalBossRaidEnemyTargetable(enemy)) {
         return;
       }
       const distanceSq = Phaser.Math.Distance.Squared(x, y, enemy.x, enemy.y);
       if (distanceSq <= radiusSq) {
-        candidates.push({ enemy, distanceSq });
+        this.applyRobotNapalmBurn(enemy, baseDamage, level);
       }
     });
-    candidates.sort((left, right) => left.distanceSq - right.distanceSq);
-    const shortList = candidates.slice(0, Math.min(5, candidates.length));
-    return shortList.length > 0 ? Phaser.Utils.Array.GetRandom(shortList).enemy : null;
   }
 
   applyRobotNapalmBurn(enemy, baseDamage, level = this.robotState?.missileLevel || 1) {
@@ -51399,7 +52377,7 @@ class SurvivalScene extends Phaser.Scene {
     const burns = Array.isArray(this.robotState.napalmBurns) ? this.robotState.napalmBurns : [];
     this.robotState.napalmBurns = burns;
     const durationMs = this.getRobotNapalmBurnDurationMs(level);
-    const tickDamage = this.getRobotNapalmTickDamageForEnemy(enemy, baseDamage);
+    const tickDamage = this.getRobotNapalmTickDamageForEnemy(enemy, baseDamage, 1, level);
     const existing = burns.find((entry) => entry.enemy === enemy);
     if (existing) {
       existing.remainingMs = Math.max(existing.remainingMs, durationMs);
@@ -51451,6 +52429,7 @@ class SurvivalScene extends Phaser.Scene {
       x,
       y,
       radius,
+      level,
       remainingMs: durationMs,
       tickTimerMs: 0,
       frameTimerMs: 0,
@@ -51516,10 +52495,48 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
+  hasRobotNapalmLaunchTargets() {
+    return this.getRobotNapalmTargetCandidates().length > 0;
+  }
+
+  updateRobotNapalmLauncher(delta) {
+    if (!this.robotState) {
+      return;
+    }
+    const level = this.getRobotEffectiveNapalmLevel();
+    if (level < ROBOT_NAPALM_CONFIG.unlockLevel) {
+      this.robotState.napalmTimer = 0;
+      return;
+    }
+
+    const interval = ROBOT_NAPALM_CONFIG.barrageIntervalMs;
+    this.robotState.napalmTimer = Math.min(interval, (this.robotState.napalmTimer || 0) + delta);
+    if (this.robotState.napalmTimer < interval || !this.hasRobotNapalmLaunchTargets()) {
+      return;
+    }
+
+    this.robotState.napalmTimer = 0;
+    this.fireRobotNapalmBarrage(level);
+  }
+
+  fireRobotNapalmBarrage(level = this.getRobotEffectiveNapalmLevel()) {
+    const count = this.getRobotNapalmMissileCount(level);
+    const barrageAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+    for (let index = 0; index < count; index += 1) {
+      this.time.delayedCall(index * ROBOT_NAPALM_CONFIG.missileDelayMs, () => {
+        if (this.gameOver || this.shopActive || this.levelUpActive || this.gateChoiceActive) {
+          return;
+        }
+        this.spawnRobotNapalmMissile(level, index, count, barrageAngle);
+      });
+    }
+  }
+
   updateRobotNapalm(delta) {
     if (!this.robotState) {
       return;
     }
+    this.updateRobotNapalmLauncher(delta);
     this.updateRobotNapalmBurns(delta);
     this.updateRobotNapalmFields(delta);
   }
@@ -51586,7 +52603,7 @@ class SurvivalScene extends Phaser.Scene {
           if (Phaser.Math.Distance.Between(field.x, field.y, enemy.x, enemy.y) > field.radius) {
             return;
           }
-          const tickDamage = this.getRobotNapalmTickDamageForEnemy(enemy, field.baseDamage, ROBOT_NAPALM_CONFIG.fieldTickDamageMultiplier);
+          const tickDamage = this.getRobotNapalmTickDamageForEnemy(enemy, field.baseDamage, ROBOT_NAPALM_CONFIG.fieldTickDamageMultiplier, field.level);
           this.applyDamageToEnemy(enemy, tickDamage, 0xffb347, {
             sourceX: field.x,
             sourceY: field.y,
@@ -53830,13 +54847,13 @@ class SurvivalScene extends Phaser.Scene {
       this.buildRobotAbilityChoice(
         "fireRateLevel",
         "Rapid Launcher",
-        `発射間隔 ${this.getRobotMissileFireIntervalForLevel(this.robotState.fireRateLevel)}ms -> ${this.getRobotMissileFireIntervalForLevel(this.robotState.fireRateLevel + 1)}ms`,
+        `発射後CD ${this.getRobotMissileFireIntervalForLevel(this.robotState.fireRateLevel)}ms -> ${this.getRobotMissileFireIntervalForLevel(this.robotState.fireRateLevel + 1)}ms`,
         "missile"
       ),
       this.buildRobotAbilityChoice(
         "damageLevel",
         "Warhead Boost",
-        `ミサイル威力 ${this.getRobotMissileDamageForLevel(this.robotState.damageLevel, this.robotState.missileLevel)} -> ${this.getRobotMissileDamageForLevel(this.robotState.damageLevel + 1, this.robotState.missileLevel)}`,
+        `ミサイル威力 ${this.getRobotNormalMissileDamageForLevel(this.robotState.damageLevel, this.robotState.missileLevel)} -> ${this.getRobotNormalMissileDamageForLevel(this.robotState.damageLevel + 1, this.robotState.missileLevel)}`,
         "missile"
       )
     ];
@@ -53901,7 +54918,7 @@ class SurvivalScene extends Phaser.Scene {
     const healedAmount = this.stats.hp - previousHp;
     this.spawnSpecialItemPickupEffect(this.playerHitbox.x, this.playerHitbox.y - 10, definition);
     this.spawnPlayerHealNumber(healedAmount);
-    this.setLastPickupNotice(healedAmount > 0 ? `HEAL +${healedAmount} HP` : "HEAL FULL");
+    this.setLastPickupNotice(healedAmount > 0 ? `REPAIR +${healedAmount} AP` : "AP FULL");
   }
 
   applyMagnetItemEffect(definition, sourceItem = null) {
@@ -58166,7 +59183,7 @@ class SurvivalScene extends Phaser.Scene {
       {
         id: "overchargeBolt",
         type: "passive",
-        title: "Overcharge Bolt",
+        title: "Reactor Overcharge",
         description: "電撃ダメージ +1",
         onSelect: () => {
           this.stats.bulletDamage += 1;
@@ -58175,8 +59192,8 @@ class SurvivalScene extends Phaser.Scene {
       {
         id: "swiftStep",
         type: "passive",
-        title: "Swift Step",
-        description: "移動速度 +30",
+        title: "Booster Tuning",
+        description: "推進出力 +30",
         onSelect: () => {
           this.stats.moveSpeed += 30;
         }
@@ -58184,8 +59201,8 @@ class SurvivalScene extends Phaser.Scene {
       {
         id: "staminaCore",
         type: "passive",
-        title: "Stamina Core",
-        description: "最大スタミナ +25、スタミナも25回復",
+        title: "Energy Capacitor",
+        description: "最大ブーストEN +25、ブーストENも25回復",
         onSelect: () => {
           this.stats.maxStamina += 25;
           this.stats.stamina = Math.min(this.stats.maxStamina, this.stats.stamina + 25);
@@ -58195,8 +59212,8 @@ class SurvivalScene extends Phaser.Scene {
       {
         id: "vitalBloom",
         type: "passive",
-        title: "Vital Bloom",
-        description: "最大HP +20、HPも20回復",
+        title: "AP Reinforce",
+        description: "最大AP +20、APも20回復",
         onSelect: () => {
           const previousHp = this.stats.hp;
           this.stats.maxHp += 20;
@@ -58211,7 +59228,7 @@ class SurvivalScene extends Phaser.Scene {
       choices.splice(1, 0, {
         id: "rapidSigil",
         type: "passive",
-        title: "Rapid Sigil",
+        title: "Fire Control Link",
         description: `放電間隔 -${effectiveReduction}ms`,
         onSelect: () => {
           this.stats.fireInterval = Math.max(LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS, this.stats.fireInterval - 70);
@@ -58723,7 +59740,7 @@ class SurvivalScene extends Phaser.Scene {
       return this.getRobotMissileFireIntervalForLevel(level);
     }
     if (key === "damageLevel") {
-      return this.getRobotMissileDamageForLevel(level, this.robotState?.missileLevel || 1);
+      return this.getRobotNormalMissileDamageForLevel(level, this.robotState?.missileLevel || 1);
     }
     if (key === "healIntervalLevel") {
       return this.getRobotHealIntervalForLevel(level, this.robotState?.healLevel || 1);
@@ -59173,6 +60190,7 @@ class SurvivalScene extends Phaser.Scene {
     this.resetRobotSyncState("returnToOpeningShop");
     this.resetRobotBarrierState("returnToOpeningShop");
     this.resetRobotNapalmState("returnToOpeningShop");
+    this.cleanupRobotMissileLockMarkers("returnToOpeningShop");
     this.resetRunEquipmentCombatLinkState("returnToOpeningShop");
     this.cleanupGeekMilestoneNotice("returnToOpeningShop");
     this.resetCommsUi("returnToOpeningShop");
