@@ -2,7 +2,7 @@
 
 Phaser 3 製のブラウザ向け 2D サバイバルゲームです。ビルド工程はなく、`index.html`、`vendor/phaser.min.js`、`skillDefinitions.js`、`stageDefinitions.js`、`game.js` をローカル HTTP サーバーで配信して動かします。
 
-操作キャラは通常 Depth ではクマ型超巨大ロボットに搭乗し、背部ブースターで浮遊しながら高速移動します。Depth10 では降機した人間グラフィックに切り替わります。スキル、パッシブ、サポート攻撃、随伴ロボット、LOST ARMS を強化しながら敵を倒し、XP と未確定 GEEK を集めます。2 分ごとに出現する Stage Gate では、Depth を上げて続行するか、未確定 GEEK を確定して帰還するかを選びます。
+操作キャラは通常 Depth ではクマ型超巨大ロボットに搭乗し、背部ブースターで浮遊しながら高速移動します。Final Raid では専用戦闘表示に切り替わりますが、Final Raid ではない通常 Depth10 や Depth10 Relay ではロボット表示のまま進行します。スキル、パッシブ、サポート攻撃、随伴ロボット、LOST ARMS を強化しながら敵を倒し、XP と未確定 GEEK を集めます。2 分ごとに出現する Stage Gate では、Depth を上げて続行するか、未確定 GEEK を確定して帰還するかを選びます。
 
 ## 起動方法
 
@@ -30,7 +30,9 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - ランキング入力: 名前入力後 `Enter`
 - ゲームオーバー後: `R` または `Enter` でショップへ戻る
 
-移動中の操作キャラは通常 Depth では 8 方向のクマ型ロボット画像へ向きを切り替え、ブースター噴出が最も強いフレームを維持します。Depth10 では既存の人間キャラ画像に切り替わり、当たり判定は従来のプレイヤー hitbox のままです。
+通常 Depth の移動は `acV3 AC Movement` が標準です。入力方向へ即座に張り付く歩行ではなく、加速、慣性、減速を持つブースター滑走として動きます。DASH は `AC Quick Boost` / 継続ブーストとして機能し、押している間は BOOST EN を消費します。BOOST EN が 0 になると `FULL_OVERHEAT` になり、BOOST EN が全回復するまでブーストできません。高速滑走中に進行方向と逆向きへ入力すると Air Brake が発動します。
+
+操作キャラは通常 Depth では 8 方向のクマ型ロボット画像へ向きを切り替え、通常移動と POST_BOOST_GLIDE では歩行/滑走フレーム、Quick Boost / 継続ブースト中だけ強いブースター画像と青白い推進FXを使います。Quick Boost / 継続ブーストの開始成功時は、プレイヤーの画面内X位置に応じて左 / 中央 / 右の3種類のステレオSEを鳴らします。target-facing により敵方向を向きながら移動でき、Target Fire は現在ターゲットを示す visual-only の連射FXとして表示されます。Target Fire は敵HP、ダメージ、projectile、collider、overlap には影響しません。通常 Depth10 と Depth10 Relay もロボット表示で、Depth10 Final Raid 中だけ専用のプレイヤー表示と専用移動へ切り替わります。当たり判定は従来のプレイヤー hitbox のままです。
 
 ## スマートフォン対応
 
@@ -50,6 +52,15 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - `?debugRelayStartDepth=10`: デバッグ用。保存済みの Depth10 DEPTH RELAY 解放がある場合だけ、`SORTIE PREP` 後のランを Final Raid ではなく通常 Depth10 として開始します。`20` / `30` を指定すると、必要な Anchor が連鎖解放済みの場合だけ通常 Depth20 / Depth30 Relay として開始します。解放状態は変更せず、`debugStartDepth` が同時指定された場合は `debugStartDepth` を優先します。
 - `?debugRelayLaunchDepth=10`: デバッグ用。通常の OPERATIONS HUB を表示したあと、`SORTIE PREP` 押下時に保存済みの Depth10 DEPTH RELAY 解放がある場合だけ、プレイヤー向け DEPTH RELAY 選択 UI を経由せず Scene restart 経由の新規ラン初期化で通常 Depth10 へ進みます。`20` / `30` を指定すると、必要な Anchor が連鎖解放済みの場合だけ HUB 経由の Depth20 / Depth30 Relay ランチ経路を確認できます。解放状態は変更しません。
 - `?debugSkipOpeningBoost=1`: デバッグ用。`SORTIE PREP` 後の Opening Boost 選択をスキップします。
+- `?legacyMovement=1`: デバッグ用。通常 Depth の `acV3 AC Movement` を無効化し、旧移動へ戻します。
+- `?acMovementRc=1`: 旧RC互換。現在は通常URLと同じ `acV3 AC Movement` として扱います。
+- `?acMovementRc=0`: デバッグ用。`legacyMovement=1` と同じく旧移動へ戻します。
+- `?debugAcMovement=1&debugAcMovementPreset=acV2`: デバッグ用。旧 acV2 比較プリセットを使います。preset未指定時は v1 比較を維持します。
+- `?debugAcMovementHud=1`: デバッグ用。AC移動、BOOST EN、FULL_OVERHEAT、Air Brake、Target Fire、Evasive Firmware、Reactor Cooling、各FXの診断HUDを表示します。
+- `?debugAcBoostSe=0`: デバッグ用。通常 Depth の Quick Boost SE を明示的にOFFにします。
+- `?debugAcBoostSe=1`: 後方互換の明示ONです。Quick Boost SE は通常 Depth では標準ONのため、通常は指定不要です。
+- `?debugAcTargetFire=0` / `?debugAcAirBrake=0` / `?debugAcReactorCoolingShop=0` / `?debugAcEvadeWindow=0` / `?debugAcEvasionPassive=0`: デバッグ用。acV3正式機能を個別に無効化します。
+- `?debugAcEnergyWarning=0` / `?debugAcLockonRing=0` / `?debugAcBoostVector=0` / `?debugAcQuickTurnFx=0` / `?debugAcGroundSkid=0` / `?debugAcAttitudeJets=0` / `?debugAcWeightShadow=0`: デバッグ用。AC tactical FX を個別に無効化します。
 - `?debugComms=1`: デバッグ用。戦闘中の通信UIテスト文を表示します。
 - `?debugCommsStory=1`: デバッグ用。通信ストーリーの保存済みフラグを無視し、このランでは再生済み保存を行いません。
 - `?debugCommsStoryReset=1`: デバッグ用。起動時に通信ストーリーの再生済み保存を削除します。
@@ -85,7 +96,7 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - `?debugTriadFinal=execution|prism|singularity|adaptive`: デバッグ用。3攻撃スキルのStage8 Finalをラン内注入します。`adaptive` は3種1個ずつになります。
 - `?debugMutationAtlas=1`: デバッグ用。OPERATIONS HUB の `ARCHIVE` 内 `MUTATION ATLAS` をサンプル状態で開き、保存データは変更しません。
 - `?debugStartDepth=10&debugFinalRaid=1&debugFinalRaidScale=0.05&debugFinalRaidPhase=third&debugMaxBuild=1&debugSkipOpeningBoost=1`: デバッグ用。強化済み状態でDepth10 Final Raidを確認します。
-- `?debugRecoveryFieldScale=1`: デバッグ用。Recovery Field の選択画像、表示サイズ、alpha、angle / rotation、depth、表示モードを console に出します。
+- `?debugRecoveryFieldScale=1`: デバッグ用。Recovery Field の HUD アイコン選択画像、表示サイズ、HUD種別を console に出します。
 - `?debugShopLoading=geek|shop|sequence`: デバッグ用。保存データを書き換えず、ショップローディングの GEEK 確定、ショップ起動、連続遷移を表示確認します。`debugShopLoadingAmount=12340` で表示額だけ指定できます。
 - `?debugEquipmentState=1`: デバッグ用。装備保存状態、品質スコア境界、レアリティ別の未解析箱数を `[EQUIPMENT]` prefix で console に出します。サンプル装備や箱は追加しません。
 - `?debugEquipmentHub=1`: デバッグ用。OPERATIONS HUB の GEEKSHOP / EQUIPMENT ANALYSIS を表示専用サンプルで開きます。LEGEND未発見状態として表示し、保存データは変更しません。
@@ -487,6 +498,12 @@ ANJU MEMORY ショップ報酬:
 - DASH ブーストEN消費: 38 / 秒
 - ブーストEN回復: 24 / 秒
 
+通常 Depth では acV3 移動、target-facing、EN warning ring、Lock-on ring、Boost Vector、Quick Turn FX、Ground Skid FX、Attitude Jet、Weight Shadow、Air Brake、Target Fire visual-only、Evade Window、Evasive Firmware、Reactor Cooling、Quick Boost SE が標準有効です。Final Raid 中はこれらの AC 移動・AC HUD・AC演出・target-facing・Target Fire・Evade Window・Air Brake・Reactor Cooling の acV3 効果、Quick Boost SE を無効化し、Final Raid 専用挙動を維持します。
+
+BOOST EN は Quick Boost / 継続ブーストで消費し、EN 0 の `FULL_OVERHEAT` では全回復までブーストできません。Reactor Cooling や装備 BOOSTER の回復補正は通常回復量へ乗算され、FULL_OVERHEAT 中はその回復量に overheat 回復倍率がかかります。Air Brake 中と Air Brake 後の短い停止時間は既存どおり回復を抑制します。
+
+Quick Boost SE は Quick Boost / 継続ブーストの開始成功時だけ鳴ります。画面左側では `boostse_L.wav`、中央付近では `boostse_M.wav`、右側では `boostse_R.wav` を使い、runtime pan は通常OFFです。EN不足、不発、`FULL_OVERHEAT` / RECOVERING、NEED_RELEASE、Air Brake、POST_BOOST_GLIDE移行、Final Raidでは鳴りません。連続ブースト時のSEは cooldown 80ms / 最大3音までに制限します。
+
 敵タイプ:
 
 - Chaser: 標準的な追跡型です。
@@ -514,6 +531,7 @@ ANJU MEMORY ショップ報酬:
 - Booster Tuning: 推進出力を上げます。
 - Energy Capacitor: 最大ブーストENとブーストEN回復余地を増やします。
 - AP Reinforce: 最大APと現在APを増やします。
+- Evasive Firmware: Quick Boost開始時の Evade Window を延長します。Lv10で最大 1700ms になり、DASH長押し中の常時無敵ではありません。Opening Boost には出ず、通常レベルアップ候補として出現します。
 
 ## LOST ARMS / ロストアームズ
 
@@ -612,7 +630,7 @@ ROBOT EX:
 - `Napalm Missile`: `ROBOT CUSTOM` で 2,000,000 GEEK、Missile Cap Tier 1 以上が必要です。購入後、Missile Lv1+で通常ミサイルとは別に上空からのナパーム砲撃を一定間隔で要請します。ナパームは通常ミサイル画像を置き換えず、カメラ内の敵密集地点を評価して中心付近へ降り注ぎ、着弾範囲内の敵へダメージと燃焼を与えます。狙える候補がない間は砲撃を待機します。ナパーム実効Lvは Missile Lv と Napalm Cap の低い方で、購入直後の Cap は Lv11、追加 GEEK 解放で Lv13 / 15 / 17 / 20 まで伸びます。実効Lvが上がると1回あたりのナパーム弾数、着弾範囲、燃焼ダメージ、燃焼時間が増え、Lv11+では持続するダメージ床を生成します。Lv20付近では爆撃が密集地点を中心に広がり、逃げながら延焼と炎上床で敵群を削る制圧性能が高くなります。着弾爆発、燃焼ダメージ、ダメージ床は既存の敵ダメージ処理を通るため、撃破・ドロップ・ランキング加算は通常処理に乗りますが、Missile Lv1-10 のロボット経験値は付与しません。
 - `Barrier Field`: `ROBOT CUSTOM` で 2,000,000 GEEK、Recovery Cap Tier 1 以上が必要です。購入後、Recovery Lv1+でHPとは別のシールドを生成します。Barrier実効Lvは Recovery Lv と Barrier Cap の低い方で、購入直後の Cap は Lv11、追加 GEEK 解放で Lv13 / 15 / 17 / 20 まで伸びます。Barrierは被弾時にHPより先に削られ、破壊後はクールダウンを経て回復フィールドのパルスで再構築されます。実効Lv1-20にかけてシールド量が増加し、実効Lv20では90秒クールダウンのLast Standがあり、致死ダメージ時に一度だけHP1で踏みとどまります。
 - ロボット本体は Lv11-15 で `robot_lv11.png`、Lv16-19 で `robot_lv16.png`、Lv20 で `robot_lv20.png` を使います。通常ミサイルは Lv11 以降も `missile_frame_01.png` から `missile_frame_08.png` の通常フレームを使います。ナパーム弾は Lv1-15 / 16-19 / 20 で `robot_bombslv11.png` / `robot_bombslv16.png` / `robot_bombslv20.png` を使います。燃焼は `missile_explosion_frame_01.png` から `missile_explosion_frame_08.png` のフレームアニメーションです。
-- Recovery Field は Lv1-10 で各Lv画像を使い、Lv11-14 は `recovery_field_lv11.png`、Lv15-19 は `recovery_field_lv15.png`、Lv20 は `recovery_field_lv20.png` を使います。Lv11以降の各区間では同じ表示スケールを保ち、毎Lvごとの拡大は行いません。Barrier Field 展開中はキャラクター本体に白い半透明シールドを重ねて表示し、Recovery Field は常時回転しない静止デカールとして、プレイヤー/ロボットの足元にプレイヤーより下の depth で表示します。画像未読込時は Lv20 -> Lv15 -> Lv11 -> Lv10 の順にフォールバックし、最後は既存のリング表現へ戻します。
+- Recovery Field はプレイヤー/ロボットの足元に画像デカールを表示せず、HUD 上の FIELD アイコンだけを回復フィールドLvに応じて更新します。Lv1-2 は `recovery_field_lv01.png`、Lv3-4 は `recovery_field_lv04.png`、以降は Lv5-6 / Lv7-8 / ... / Lv19-20 の2Lv刻みで `recovery_field_lv06.png` から `recovery_field_lv20.png` を使います。画像未読込時は低いLv側へフォールバックし、最後は既存のリング/グロー表現へ戻します。Barrier Field 展開中はキャラクター本体に白い半透明シールドを重ねて表示します。
 
 ROBOT SYNC DRIVE:
 
@@ -625,7 +643,7 @@ ROBOT SYNC DRIVE:
 
 ## OPERATIONS HUB / 拠点
 
-OPERATIONS HUB では `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY`、`ARCHIVE` をタブで切り替えます。CDSHOP は CD 購入と BGM 選択専用です。GEEKSHOP と ROBOT CUSTOM では確定 GEEK を使用します。GEEKSHOP は Armament / AP Frame / Booster と回収ロボの永続強化、ROBOT CUSTOM はラン中Lvを直接購入する画面ではなく、Missile / Recovery のLv上限と EX 機能を解放する画面です。ANJU MEMORY では深層メタ報酬の購入・選択、ARCHIVE では RUN ARCHIVE と MUTATION ATLAS を確認します。CD は BGM 選択と永続ボーナスを兼ねており、購入済み CD の永続効果は選択中 BGM に関係なく常時発動します。
+OPERATIONS HUB では `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY`、`ARCHIVE` をタブで切り替えます。CDSHOP は CD 購入と BGM 選択専用です。GEEKSHOP と ROBOT CUSTOM では確定 GEEK を使用します。GEEKSHOP は Armament / AP Frame / Booster / Reactor Cooling と回収ロボの永続強化、ROBOT CUSTOM はラン中Lvを直接購入する画面ではなく、Missile / Recovery のLv上限と EX 機能を解放する画面です。ANJU MEMORY では深層メタ報酬の購入・選択、ARCHIVE では RUN ARCHIVE と MUTATION ATLAS を確認します。CD は BGM 選択と永続ボーナスを兼ねており、購入済み CD の永続効果は選択中 BGM に関係なく常時発動します。
 
 ラン中 BGM は Beacon coverage 内では CDSHOP の選択 CD を再生します。Depth1〜10は常にcoverage内で、D20 Anchorが連鎖解放済みならDepth20まで、D30 Anchorが連鎖解放済みならDepth30まで選択CD BGMと通常通信を維持します。初回未討伐の Depth10 Final Raid だけ Final Raid 専用 BGM に切り替わります。Beacon coverage外では `./音声/bgm/ENDLESSVOIDAMBIENCE.mp3` をラン中だけ一時上書きし、外部通信は `SCRAMBLED SIGNAL` になります。この専用 BGM は CD として購入・選択・保存されず、`lastmemoVansabaShopState` の CD 選択値も変更しません。
 
@@ -636,6 +654,7 @@ GEEKSHOP / BASE CALIBRATION:
 - Armament: 基本上限 Lv.10、Depth10 Anchor 解放で Lv.15、Depth20 Anchor 解放で Lv.20、Depth30 Anchor 解放で Lv.25。攻撃力 +6% / Lv
 - AP Frame: 基本上限 Lv.10、Depth10 Anchor 解放で Lv.15、Depth20 Anchor 解放で Lv.20、Depth30 Anchor 解放で Lv.25。最大AP +10 / Lv
 - Booster: 基本上限 Lv.10、Depth10 Anchor 解放で Lv.15、Depth20 Anchor 解放で Lv.20、Depth30 Anchor 解放で Lv.25。推進出力 +8 / Lv
+- Reactor Cooling: 基本上限 Lv.10、Depth10 Anchor 解放で Lv.15、Depth20 Anchor 解放で Lv.20、Depth30 Anchor 解放で Lv.25。BOOST EN回復倍率 +2% / Lv。Lv10で x1.20、Lv25で x1.50 になり、基礎回復量 24 / 秒は変更しません。
 - 上限解放は購入可能Lvを広げるだけで、無料Lvは付与されません。Lv21〜25も従来と同じ効果式と確定 GEEK の価格式を継続します。Depth31 以降はビーコン圏外のため、現時点で Lv26 以上はありません。Depth30 Anchor による上限解放は、D30転送カードの表示条件と同じく Anchor 解放状態だけを参照し、購入済みLvや装備状態はD30選択条件にしません。
 - SUPPORT LINK SYSTEM: 60,000 GEEK でインストール。インストール後は Support の正常発動累計で `LINK Lv.1-6` まで自動成長し、Support combat effect が +5% から最大 +25% になります。
 - 回収ロボ: 最大 Lv.10。必要 GEEK は 100,000 / 150,000 / 230,000 / 350,000 / 520,000 / 780,000 / 1,150,000 / 1,700,000 / 2,500,000 / 3,600,000。

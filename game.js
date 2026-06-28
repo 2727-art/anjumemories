@@ -253,6 +253,720 @@ const DASH_HUD_CONFIG = {
   y: 642,
   radius: 45
 };
+const AC_MOVEMENT_DEBUG_QUERY_PARAM = "debugAcMovement";
+const AC_MOVEMENT_RC_QUERY_PARAM = "acMovementRc";
+const AC_MOVEMENT_LEGACY_QUERY_PARAM = "legacyMovement";
+const AC_MOVEMENT_HUD_DEBUG_QUERY_PARAM = "debugAcMovementHud";
+const AC_MOVEMENT_START_STAMINA_QUERY_PARAM = "debugAcMovementStartStamina";
+const AC_MOVEMENT_PRESET_QUERY_PARAM = "debugAcMovementPreset";
+const AC_TARGET_FACING_DEBUG_QUERY_PARAM = "debugAcTargetFacing";
+const AC_ENERGY_WARNING_DEBUG_QUERY_PARAM = "debugAcEnergyWarning";
+const AC_LOCKON_RING_DEBUG_QUERY_PARAM = "debugAcLockonRing";
+const AC_BOOST_VECTOR_DEBUG_QUERY_PARAM = "debugAcBoostVector";
+const AC_GROUND_SKID_DEBUG_QUERY_PARAM = "debugAcGroundSkid";
+const AC_QUICK_TURN_FX_DEBUG_QUERY_PARAM = "debugAcQuickTurnFx";
+const AC_ATTITUDE_JETS_DEBUG_QUERY_PARAM = "debugAcAttitudeJets";
+const AC_WEIGHT_SHADOW_DEBUG_QUERY_PARAM = "debugAcWeightShadow";
+const AC_AIR_BRAKE_DEBUG_QUERY_PARAM = "debugAcAirBrake";
+const AC_EVADE_WINDOW_DEBUG_QUERY_PARAM = "debugAcEvadeWindow";
+const AC_EVASION_PASSIVE_DEBUG_QUERY_PARAM = "debugAcEvasionPassive";
+const AC_EVASION_PASSIVE_START_LEVEL_QUERY_PARAM = "debugAcEvasionPassiveStartLevel";
+const AC_EVASION_PASSIVE_FORCE_QUERY_PARAM = "debugForceEvasiveFirmware";
+const AC_TARGET_FIRE_DEBUG_QUERY_PARAM = "debugAcTargetFire";
+const AC_TARGET_FIRE_PALETTE_DEBUG_QUERY_PARAM = "debugAcTargetFirePalette";
+const AC_REACTOR_COOLING_SHOP_DEBUG_QUERY_PARAM = "debugAcReactorCoolingShop";
+const AC_REACTOR_COOLING_LEVEL_DEBUG_QUERY_PARAM = "debugAcReactorCoolingLevel";
+const AC_BOOST_SE_DEBUG_QUERY_PARAM = "debugAcBoostSe";
+const AC_BOOST_SE_RUNTIME_PAN_DEBUG_QUERY_PARAM = "debugAcBoostSeRuntimePan";
+const AC_QUICK_BOOST_SE_LEGACY_KEY = "acQuickBoostSe";
+const AC_QUICK_BOOST_SE_LEGACY_PATH = "./音声/se/boostse.wav";
+const AC_QUICK_BOOST_SE_LEFT_KEY = "acQuickBoostSeLeft";
+const AC_QUICK_BOOST_SE_CENTER_KEY = "acQuickBoostSeCenter";
+const AC_QUICK_BOOST_SE_RIGHT_KEY = "acQuickBoostSeRight";
+const AC_QUICK_BOOST_SE_LEFT_PATH = "./音声/se/boostse_L.wav";
+const AC_QUICK_BOOST_SE_CENTER_PATH = "./音声/se/boostse_M.wav";
+const AC_QUICK_BOOST_SE_RIGHT_PATH = "./音声/se/boostse_R.wav";
+const EVASIVE_FIRMWARE_PASSIVE_ID = "evasiveFirmware";
+const EVASIVE_FIRMWARE_DURATION_MS_BY_LEVEL = Object.freeze([70, 500, 750, 1000, 1250, 1500, 1540, 1580, 1620, 1660, 1700]);
+const EVASIVE_FIRMWARE_CONFIG = Object.freeze({
+  maxLevel: EVASIVE_FIRMWARE_DURATION_MS_BY_LEVEL.length - 1,
+  durationMsByLevel: EVASIVE_FIRMWARE_DURATION_MS_BY_LEVEL,
+  bonusMsByLevel: Object.freeze([0, 430, 680, 930, 1180, 1430, 1470, 1510, 1550, 1590, 1630]),
+  maxEvadeMs: 1700
+});
+const REACTOR_COOLING_UPGRADE_ID = "reactorCooling";
+const REACTOR_COOLING_CONFIG = Object.freeze({
+  storageKey: "reactorCoolingLevel",
+  regenBonusPerLevel: 0.02,
+  baseMaxLevel: 10,
+  absoluteMaxLevel: 25
+});
+const AC_QUICK_BOOST_FAIL_REASON = Object.freeze({
+  DISABLED: "DISABLED",
+  LOW_EN: "LOW_EN",
+  COOLDOWN: "COOLDOWN",
+  NO_DIRECTION: "NO_DIRECTION",
+  BOOST_LOCKOUT: "BOOST_LOCKOUT",
+  FULL_OVERHEAT: "FULL_OVERHEAT",
+  OVERHEAT_RECOVERY: "OVERHEAT_RECOVERY",
+  NEED_FULL_RECHARGE: "NEED_FULL_RECHARGE",
+  NEED_RELEASE: "NEED_RELEASE",
+  AIR_BRAKE: "AIR_BRAKE",
+  FINAL_RAID_DISABLED: "FINAL_RAID_DISABLED"
+});
+const AC_QUICK_BOOST_END_REASON = Object.freeze({
+  NONE: "-",
+  RELEASE: "RELEASE",
+  MAX_HOLD: "MAX_HOLD",
+  EN_EMPTY: "EN_EMPTY",
+  BOOST_LOCKOUT: "BOOST_LOCKOUT",
+  FULL_OVERHEAT: "FULL_OVERHEAT",
+  OVERHEAT_RECOVERY: "OVERHEAT_RECOVERY",
+  NEED_FULL_RECHARGE: "NEED_FULL_RECHARGE",
+  NEED_RELEASE: "NEED_RELEASE",
+  LOW_EN: "LOW_EN",
+  COOLDOWN: "COOLDOWN",
+  DISABLED: "DISABLED"
+});
+const AC_CONTINUOUS_BOOST_MODE = Object.freeze({
+  OFF: "OFF",
+  START_BURST: "START_BURST",
+  SUSTAIN: "SUSTAIN",
+  RELEASED: "RELEASED",
+  POST_GLIDE: "POST_GLIDE",
+  EN_EMPTY: "EN_EMPTY",
+  LOCKOUT: "LOCKOUT",
+  FULL_OVERHEAT: "FULL_OVERHEAT",
+  OVERHEAT_RECOVERY: "OVERHEAT_RECOVERY",
+  READY_NEEDS_RELEASE: "READY_NEEDS_RELEASE",
+  READY: "READY",
+  OVERHEAT: "OVERHEAT",
+  AIR_BRAKE: "AIR_BRAKE",
+  AIR_BRAKE_COOLDOWN: "AIR_BRAKE_COOLDOWN"
+});
+const AC_AIR_BRAKE_REASON = Object.freeze({
+  DISABLED: "DISABLED",
+  PRESET: "PRESET",
+  FINAL_RAID: "FINAL_RAID",
+  FULL_OVERHEAT: "FULL_OVERHEAT",
+  BOOST_ACTIVE: "BOOST_ACTIVE",
+  NO_BODY: "NO_BODY",
+  NO_INPUT: "NO_INPUT",
+  LOW_INPUT: "LOW_INPUT",
+  LOW_SPEED: "LOW_SPEED",
+  NOT_OPPOSING: "NOT_OPPOSING",
+  HOLDING: "HOLDING",
+  COOLDOWN: "COOLDOWN",
+  ACTIVE: "ACTIVE",
+  READY: "READY"
+});
+const AC_FULL_OVERHEAT_STATE = Object.freeze({
+  NONE: "NONE",
+  FULL_OVERHEAT: "FULL_OVERHEAT",
+  RECOVERING: "RECOVERING",
+  READY_NEEDS_RELEASE: "READY_NEEDS_RELEASE",
+  READY: "READY"
+});
+const AC_THRUSTER_STATE = Object.freeze({
+  OFF: "OFF",
+  WEAK: "WEAK",
+  RESIDUAL: "RESIDUAL",
+  STRONG: "STRONG",
+  OVERHEAT: "OVERHEAT"
+});
+const AC_LOCOMOTION_VISUAL_MODE = Object.freeze({
+  WALK_IDLE: "WALK_IDLE",
+  WALK_MOVE: "WALK_MOVE",
+  QUICK_BOOST: "QUICK_BOOST",
+  POST_BOOST_GLIDE: "POST_BOOST_GLIDE",
+  AIR_BRAKE: "AIR_BRAKE",
+  OVERHEAT: "OVERHEAT"
+});
+const AC_SPRITE_MODE = Object.freeze({
+  WALK: "WALK",
+  BOOST: "BOOST"
+});
+const AC_HEAT_STATE = Object.freeze({
+  NORMAL: "NORMAL",
+  WARNING: "WARNING",
+  OVERHEAT: "OVERHEAT"
+});
+const AC_ENERGY_WARNING_STATE = Object.freeze({
+  NORMAL: "NORMAL",
+  CAUTION: "CAUTION",
+  WARNING: "WARNING",
+  CRITICAL: "CRITICAL",
+  FULL_OVERHEAT: "FULL_OVERHEAT"
+});
+const AC_TARGET_FIRE_SUPPRESSION_REASON = Object.freeze({
+  NONE: "NONE",
+  DISABLED: "DISABLED",
+  PRESET: "PRESET",
+  FINAL_RAID: "FINAL_RAID",
+  VISUALS_DISABLED: "VISUALS_DISABLED",
+  NO_BODY: "NO_BODY",
+  NO_TARGET: "NO_TARGET",
+  TARGET_INVALID: "TARGET_INVALID",
+  TARGET_OFFSCREEN: "TARGET_OFFSCREEN",
+  FULL_OVERHEAT: "FULL_OVERHEAT",
+  AIR_BRAKE: "AIR_BRAKE",
+  COOLDOWN: "COOLDOWN",
+  READY: "READY",
+  BURST: "BURST"
+});
+const AC_TARGET_FIRE_MODE = Object.freeze({
+  OFF: "OFF",
+  WALK: "WALK",
+  BOOST: "BOOST",
+  POST_GLIDE: "POST_GLIDE",
+  AIR_BRAKE_SUPPRESSED: "AIR_BRAKE_SUPPRESSED",
+  OVERHEAT_SUPPRESSED: "OVERHEAT_SUPPRESSED"
+});
+const AC_TARGET_FIRE_PALETTE = Object.freeze({
+  AMBER: "amber",
+  RED: "red"
+});
+const AC_MOVEMENT_ACTIVATION_SOURCE = Object.freeze({
+  LEGACY: "LEGACY",
+  DEBUG_V1: "DEBUG_V1",
+  DEBUG_ACV2: "DEBUG_ACV2",
+  DEBUG_ACV3: "DEBUG_ACV3",
+  AC_RC: "AC_RC",
+  AC_RC_ALIAS: "AC_RC_ALIAS",
+  DEFAULT_ACV3: "DEFAULT_ACV3",
+  FINAL_RAID_DISABLED: "FINAL_RAID_DISABLED"
+});
+const AC_MOVEMENT_CONFIG = Object.freeze({
+  debugQueryParam: AC_MOVEMENT_DEBUG_QUERY_PARAM,
+  releaseCandidateQueryParam: AC_MOVEMENT_RC_QUERY_PARAM,
+  legacyMovementQueryParam: AC_MOVEMENT_LEGACY_QUERY_PARAM,
+  hudDebugQueryParam: AC_MOVEMENT_HUD_DEBUG_QUERY_PARAM,
+  startStaminaQueryParam: AC_MOVEMENT_START_STAMINA_QUERY_PARAM,
+  presetQueryParam: AC_MOVEMENT_PRESET_QUERY_PARAM,
+  targetFacingDebugQueryParam: AC_TARGET_FACING_DEBUG_QUERY_PARAM,
+  energyWarningDebugQueryParam: AC_ENERGY_WARNING_DEBUG_QUERY_PARAM,
+  lockonRingDebugQueryParam: AC_LOCKON_RING_DEBUG_QUERY_PARAM,
+  boostVectorDebugQueryParam: AC_BOOST_VECTOR_DEBUG_QUERY_PARAM,
+  groundSkidDebugQueryParam: AC_GROUND_SKID_DEBUG_QUERY_PARAM,
+  quickTurnFxDebugQueryParam: AC_QUICK_TURN_FX_DEBUG_QUERY_PARAM,
+  attitudeJetsDebugQueryParam: AC_ATTITUDE_JETS_DEBUG_QUERY_PARAM,
+  weightShadowDebugQueryParam: AC_WEIGHT_SHADOW_DEBUG_QUERY_PARAM,
+  airBrakeDebugQueryParam: AC_AIR_BRAKE_DEBUG_QUERY_PARAM,
+  evadeWindowDebugQueryParam: AC_EVADE_WINDOW_DEBUG_QUERY_PARAM,
+  evasionPassiveDebugQueryParam: AC_EVASION_PASSIVE_DEBUG_QUERY_PARAM,
+  evasionPassiveStartLevelQueryParam: AC_EVASION_PASSIVE_START_LEVEL_QUERY_PARAM,
+  evasionPassiveForceQueryParam: AC_EVASION_PASSIVE_FORCE_QUERY_PARAM,
+  targetFireDebugQueryParam: AC_TARGET_FIRE_DEBUG_QUERY_PARAM,
+  targetFirePaletteDebugQueryParam: AC_TARGET_FIRE_PALETTE_DEBUG_QUERY_PARAM,
+  reactorCoolingShopDebugQueryParam: AC_REACTOR_COOLING_SHOP_DEBUG_QUERY_PARAM,
+  reactorCoolingLevelDebugQueryParam: AC_REACTOR_COOLING_LEVEL_DEBUG_QUERY_PARAM,
+  boostSeDebugQueryParam: AC_BOOST_SE_DEBUG_QUERY_PARAM,
+  boostSeRuntimePanDebugQueryParam: AC_BOOST_SE_RUNTIME_PAN_DEBUG_QUERY_PARAM,
+  quickBoostSeMode: "THREE_ZONE",
+  quickBoostSeAudioKey: AC_QUICK_BOOST_SE_LEGACY_KEY,
+  quickBoostSeAudioPath: AC_QUICK_BOOST_SE_LEGACY_PATH,
+  quickBoostSeLegacyAudioKey: AC_QUICK_BOOST_SE_LEGACY_KEY,
+  quickBoostSeLegacyAudioPath: AC_QUICK_BOOST_SE_LEGACY_PATH,
+  quickBoostSeLeftAudioKey: AC_QUICK_BOOST_SE_LEFT_KEY,
+  quickBoostSeLeftAudioPath: AC_QUICK_BOOST_SE_LEFT_PATH,
+  quickBoostSeCenterAudioKey: AC_QUICK_BOOST_SE_CENTER_KEY,
+  quickBoostSeCenterAudioPath: AC_QUICK_BOOST_SE_CENTER_PATH,
+  quickBoostSeRightAudioKey: AC_QUICK_BOOST_SE_RIGHT_KEY,
+  quickBoostSeRightAudioPath: AC_QUICK_BOOST_SE_RIGHT_PATH,
+  quickBoostSeLeftThreshold: 0.38,
+  quickBoostSeRightThreshold: 0.62,
+  quickBoostSeUseRuntimePan: false,
+  quickBoostSeFallbackToLegacy: true,
+  quickBoostSeVolume: 0.72,
+  quickBoostSeCooldownMs: 80,
+  quickBoostSeOverlapLimit: 3,
+  quickBoostSePanStrength: 0.82,
+  quickBoostSePanClamp: 0.85,
+  quickBoostSeCenterDeadzone: 0.08,
+  quickBoostSeInversePan: false,
+  glideMode: "AC_GLIDE",
+  postBoostGlideMode: "POST_BOOST_GLIDE",
+  airBrakeMode: "AIR_BRAKE",
+  defaultLastMoveDirection: Object.freeze({ x: 0, y: 1 }),
+  maxCruiseSpeedMultiplier: 1,
+  accelerationPerSecond: 2100,
+  decelerationPerSecond: 1650,
+  turnAssistMultiplier: 1.45,
+  noInputFrictionPerSecond: 1500,
+  inputDeadzone: 0.04,
+  minVelocityForDirectionUpdate: 12,
+  velocityStopEpsilon: 4,
+  maxDeltaSeconds: 0.05,
+  wallDampingEnabled: true,
+  wallDampingFactor: 0.2,
+  quickBoostMode: "QUICK_BOOST",
+  cooldownMode: "AC_COOLDOWN",
+  idleMode: "AC_IDLE",
+  exhaustedMode: "AC_EXHAUSTED",
+  quickBoostDurationMs: 150,
+  quickBoostCooldownMs: 280,
+  quickBoostCost: 28,
+  minimumStaminaToQuickBoost: 28,
+  quickBoostImpulseMultiplier: 1.85,
+  quickBoostMaxSpeedMultiplier: 2.25,
+  quickBoostExitSpeedMultiplier: 1.35,
+  quickBoostRegenDelayMs: 220,
+  quickBoostInputBufferMs: 0,
+  quickBoostMinDirectionSpeed: 12,
+  quickBoostStopEpsilon: 4,
+  quickBoostLateralRetention: 0.35,
+  quickBoostDebugLog: false,
+  visualsEnabled: true,
+  afterimageEnabled: true,
+  afterimageCount: 3,
+  afterimageLifetimeMs: 180,
+  afterimageAlpha: 0.35,
+  afterimageScaleDecay: 0.08,
+  afterimageMinIntervalMs: 35,
+  afterimageSpacing: 22,
+  quickBoostCameraShakeEnabled: true,
+  quickBoostCameraShakeDurationMs: 70,
+  quickBoostCameraShakeIntensity: 0.003,
+  thrustTrailEnabled: true,
+  thrustTrailLifetimeMs: 120,
+  thrustTrailBaseLength: 24,
+  thrustTrailPostBoostLength: 46,
+  thrustTrailQuickBoostLength: 64,
+  thrustTrailBaseWidth: 10,
+  thrustTrailQuickBoostWidth: 22,
+  thrustTrailAlpha: 0.45,
+  speedTrailThreshold: 180,
+  robotLeanEnabled: true,
+  robotLeanMaxAngleDeg: 6,
+  robotLeanReturnSpeed: 0.2,
+  robotLeanQuickBoostMultiplier: 1.2,
+  visualCleanupMaxObjects: 16,
+  debugHudX: 306,
+  debugHudY: 430,
+  debugHudWidth: 390,
+  debugHudHeight: 720,
+  debugHudDepth: 710,
+  debugHudFontSize: 10
+});
+const AC_MOVEMENT_PRESETS = Object.freeze({
+  v1: Object.freeze({
+    name: "v1",
+    maxCruiseSpeedMultiplier: 1,
+    accelerationPerSecond: 2100,
+    decelerationPerSecond: 1650,
+    turnAssistMultiplier: 1.45,
+    noInputFrictionPerSecond: 1500,
+    inputDeadzone: 0.04,
+    minVelocityForDirectionUpdate: 12,
+    velocityStopEpsilon: 4,
+    maxDeltaSeconds: 0.05,
+    wallDampingFactor: 0.2,
+    quickBoostDurationMs: 150,
+    quickBoostCooldownMs: 280,
+    quickBoostCost: 28,
+    minimumStaminaToQuickBoost: 28,
+    quickBoostImpulseMultiplier: 1.85,
+    quickBoostMaxSpeedMultiplier: 2.25,
+    quickBoostExitSpeedMultiplier: 1.35,
+    quickBoostRegenDelayMs: 220,
+    quickBoostMinDirectionSpeed: 12,
+    quickBoostStopEpsilon: 4,
+    quickBoostLateralRetention: 0.35,
+    postBoostGlideDurationMs: 0,
+    postBoostFrictionMultiplier: 1,
+    postBoostTurnAssistMultiplier: 1,
+    postBoostSpeedDampingPerSecond: 100000,
+    speedLimitDampingPerSecond: 100000,
+    quickBoostChainWindowMs: 900,
+    afterimageCount: 3,
+    afterimageLifetimeMs: 180,
+    afterimageAlpha: 0.35,
+    afterimageScaleDecay: 0.08,
+    afterimageMinIntervalMs: 35,
+    afterimageSpacing: 22,
+    quickBoostCameraShakeDurationMs: 70,
+    quickBoostCameraShakeIntensity: 0.003,
+    thrustTrailLifetimeMs: 120,
+    thrustTrailBaseLength: 24,
+    thrustTrailQuickBoostLength: 64,
+    thrustTrailBaseWidth: 10,
+    thrustTrailQuickBoostWidth: 22,
+    thrustTrailAlpha: 0.45,
+    speedTrailThreshold: 180,
+    robotLeanMaxAngleDeg: 6,
+    robotLeanReturnSpeed: 0.2,
+    robotLeanQuickBoostMultiplier: 1.2,
+    targetFacingSearchIntervalMs: 160,
+    targetFacingRange: 780,
+    targetFacingSmoothing: 0.26
+  }),
+  acV2: Object.freeze({
+    name: "acV2",
+    maxCruiseSpeedMultiplier: 0.96,
+    accelerationPerSecond: 1950,
+    decelerationPerSecond: 820,
+    turnAssistMultiplier: 1.32,
+    noInputFrictionPerSecond: 520,
+    inputDeadzone: 0.04,
+    minVelocityForDirectionUpdate: 9,
+    velocityStopEpsilon: 2.5,
+    maxDeltaSeconds: 0.05,
+    wallDampingFactor: 0.34,
+    quickBoostDurationMs: 220,
+    quickBoostCooldownMs: 300,
+    quickBoostCost: 30,
+    minimumStaminaToQuickBoost: 30,
+    quickBoostImpulseMultiplier: 2.85,
+    quickBoostMaxSpeedMultiplier: 3.3,
+    quickBoostExitSpeedMultiplier: 2.05,
+    quickBoostRegenDelayMs: 220,
+    quickBoostMinDirectionSpeed: 10,
+    quickBoostStopEpsilon: 3,
+    quickBoostLateralRetention: 0.42,
+    postBoostGlideDurationMs: 360,
+    postBoostFrictionMultiplier: 0.45,
+    postBoostTurnAssistMultiplier: 0.9,
+    postBoostSpeedDampingPerSecond: 1250,
+    speedLimitDampingPerSecond: 1650,
+    quickBoostChainWindowMs: 920,
+    afterimageCount: 4,
+    afterimageLifetimeMs: 250,
+    afterimageAlpha: 0.44,
+    afterimageScaleDecay: 0.07,
+    afterimageMinIntervalMs: 28,
+    afterimageSpacing: 32,
+    quickBoostCameraShakeDurationMs: 86,
+    quickBoostCameraShakeIntensity: 0.0038,
+    thrustTrailLifetimeMs: 135,
+    thrustTrailBaseLength: 38,
+    thrustTrailPostBoostLength: 58,
+    thrustTrailQuickBoostLength: 108,
+    thrustTrailBaseWidth: 12,
+    thrustTrailQuickBoostWidth: 28,
+    thrustTrailAlpha: 0.58,
+    speedTrailThreshold: 110,
+    robotLeanMaxAngleDeg: 9,
+    robotLeanReturnSpeed: 0.24,
+    robotLeanQuickBoostMultiplier: 1.32,
+    targetFacingSearchIntervalMs: 150,
+    targetFacingRange: 860,
+    targetFacingSmoothing: 0.32
+  }),
+  acV3: Object.freeze({
+    name: "acV3",
+    maxCruiseSpeedMultiplier: 0.56,
+    accelerationPerSecond: 1350,
+    decelerationPerSecond: 480,
+    turnAssistMultiplier: 1.02,
+    noInputFrictionPerSecond: 260,
+    inputDeadzone: 0.04,
+    minVelocityForDirectionUpdate: 7,
+    velocityStopEpsilon: 2,
+    maxDeltaSeconds: 0.05,
+    wallDampingFactor: 0.3,
+    quickBoostDurationMs: 210,
+    quickBoostCooldownMs: 360,
+    quickBoostCost: 36,
+    minimumStaminaToQuickBoost: 36,
+    quickBoostImpulseMultiplier: 3.05,
+    quickBoostMaxSpeedMultiplier: 3.65,
+    quickBoostExitSpeedMultiplier: 2.15,
+    quickBoostRegenDelayMs: 340,
+    quickBoostHardLockMs: 72,
+    variableQuickBoostEnabled: true,
+    continuousBoostEnabled: true,
+    quickBoostMinHoldMs: 0,
+    quickBoostMaxHoldMs: 300,
+    quickBoostUseMinHoldRatio: false,
+    quickBoostPowerCurve: "smoothstep",
+    quickBoostSpeedCurve: "smoothstep",
+    quickBoostCostCurve: "linear",
+    quickBoostVisualCurve: "smoothstep",
+    quickBoostGlideCurve: "smoothstep",
+    quickBoostMinPowerRatio: 0.3,
+    quickBoostMinDurationMs: 52,
+    quickBoostMaxDurationMs: 300,
+    quickBoostMinSpeedMultiplier: 0.36,
+    quickBoostInitialImpulseRatio: 0.42,
+    quickBoostInitialImpulseFloorRatio: 0.18,
+    quickBoostSustainThrustRatio: 0.78,
+    quickBoostSustainMinRatio: 0.35,
+    quickBoostMinVisualRatio: 0.45,
+    quickBoostMaxVisualRatio: 1,
+    quickBoostReleaseEndsPoweredPhase: true,
+    quickBoostAutoReleaseAtMaxHold: false,
+    quickBoostHoldCostScalingEnabled: true,
+    quickBoostMinCostRatio: 0.34,
+    quickBoostMaxCostRatio: 1,
+    quickBoostSustainAccelerationPerSecond: 3650,
+    boostStartCost: 6,
+    boostMinStaminaToStart: 8,
+    boostSustainDrainPerSecond: 58,
+    boostSustainDrainRampMs: 420,
+    boostSustainDrainMaxMultiplier: 1.15,
+    boostEmptyEpsilon: 0.5,
+    boostEmptyLockoutMs: 1300,
+    boostEmptyRegenDelayMs: 560,
+    boostRestartStaminaThreshold: 24,
+    boostOverheatVisualDurationMs: 920,
+    overheatRequiresFullRecharge: true,
+    overheatRegenMultiplier: 0.35,
+    overheatRegenDelayMs: 720,
+    overheatFullRechargeEpsilon: 0.5,
+    overheatMinimumVisualMs: 1250,
+    fullOverheatVelocityDampingMultiplier: 1.45,
+    fullOverheatCruiseSpeedMultiplier: 0.88,
+    fullOverheatLeanMultiplier: 0.32,
+    boostInitialBurstMs: 110,
+    boostInitialImpulseRatio: 0.34,
+    boostSustainAccelerationPerSecond: 1850,
+    boostTerminalSpeedMultiplier: 3.55,
+    boostHeldTurnRateDegPerSecond: 128,
+    boostHeldInputInfluence: 0.36,
+    boostReleaseGlideSpeedMultiplier: 1,
+    boostEmptyGlideSpeedMultiplier: 0.64,
+    boostReleaseCooldownMs: 0,
+    quickBoostMinDirectionSpeed: 8,
+    quickBoostStopEpsilon: 2.5,
+    quickBoostLateralRetention: 0.58,
+    postBoostGlideDurationMs: 760,
+    postBoostGlideMinDurationMs: 620,
+    postBoostGlideMaxDurationMs: 880,
+    postBoostGlideDurationByHoldRatio: true,
+    postBoostFrictionMultiplier: 0.22,
+    postBoostTurnAssistMultiplier: 0.98,
+    postBoostSpeedDampingPerSecond: 780,
+    speedLimitDampingPerSecond: 1050,
+    postBoostInputSteerEnabled: true,
+    postBoostInputSteerAcceleration: 1160,
+    postBoostInputSteerMultiplier: 0.78,
+    postBoostInputTurnRateDegPerSecond: 255,
+    postBoostInputSpeedRetention: 0.94,
+    postBoostInputMinSpeedRatio: 0.6,
+    quickBoostLateInputSteerMultiplier: 0.22,
+    quickBoostLateTurnRateDegPerSecond: 96,
+    quickBoostChainWindowMs: 1100,
+    afterimageCount: 7,
+    afterimageMinCount: 2,
+    afterimageMaxCount: 8,
+    afterimageLifetimeMs: 330,
+    afterimageLifetimeMsMin: 150,
+    afterimageAlpha: 0.66,
+    afterimageAlphaMin: 0.34,
+    afterimageScaleDecay: 0.065,
+    afterimageMinIntervalMs: 20,
+    afterimageSpacing: 36,
+    quickBoostCameraShakeDurationMs: 98,
+    quickBoostCameraShakeIntensity: 0.0048,
+    quickBoostBurstRingEnabled: true,
+    quickBoostBurstLifetimeMs: 190,
+    quickBoostBurstScale: 1.65,
+    thrustTrailLifetimeMs: 150,
+    thrustTrailBaseLength: 46,
+    thrustTrailPostBoostLength: 54,
+    thrustTrailQuickBoostLength: 168,
+    thrustTrailBaseWidth: 16,
+    thrustTrailQuickBoostWidth: 48,
+    thrustTrailAlpha: 0.86,
+    walkTrailEnabled: false,
+    postBoostResidualTrailLength: 42,
+    postBoostResidualTrailWidth: 8,
+    postBoostResidualTrailAlpha: 0.18,
+    quickBoostTrailLengthMin: 72,
+    quickBoostTrailLengthMax: 168,
+    quickBoostTrailWidthMin: 22,
+    quickBoostTrailWidthMax: 48,
+    quickBoostGlowAlphaMin: 0.46,
+    quickBoostGlowAlphaMax: 0.9,
+    quickBoostGlowRadiusMin: 38,
+    quickBoostGlowRadiusMax: 68,
+    quickBoostBlueWhiteCoreEnabled: true,
+    speedTrailThreshold: 55,
+    robotLeanMaxAngleDeg: 12,
+    robotLeanReturnSpeed: 0.18,
+    robotLeanQuickBoostMultiplier: 1.45,
+    movementLeanEnabled: true,
+    leanForwardMaxDeg: 5,
+    leanBackMaxDeg: 4.5,
+    leanSideMaxDeg: 12,
+    leanQuickBoostMultiplier: 1.55,
+    leanPostBoostMultiplier: 1.02,
+    leanWalkMultiplier: 0.46,
+    leanReturnSpeed: 10,
+    leanOffsetMaxPx: 5,
+    leanMinSpeed: 36,
+    leanSmoothing: 0.24,
+    targetFacingAuto: true,
+    targetFacingSearchIntervalMs: 130,
+    targetFacingStickyMs: 560,
+    targetFacingRange: 1040,
+    targetFacingSmoothing: 0.42,
+    thrusterOffSpeedThreshold: 14,
+    thrusterWeakSpeedThreshold: 70,
+    heatPerQuickBoost: 28,
+    heatChainBonus: 5,
+    heatDecayPerSecond: 32,
+    heatWarningThreshold: 60,
+    heatOverheatThreshold: 88,
+    heatChainOverheatCount: 3,
+    heatWarningStaminaRatio: 0.26,
+    heatWarningDurationMs: 760,
+    heatOverheatDurationMs: 680,
+    heatLowEnergyPulse: 46,
+    heatVentIntervalMs: 58,
+    energyWarningEnabled: true,
+    energyWarningCautionRatio: 0.3,
+    energyWarningWarningRatio: 0.15,
+    energyWarningCriticalRatio: 0.07,
+    energyWarningPulseMs: 420,
+    lockonRingEnabled: true,
+    lockonRingBaseRadius: 34,
+    lockonRingEliteRadiusMultiplier: 1.18,
+    lockonRingBossRadiusMultiplier: 1.38,
+    lockonRingScanPulseMs: 520,
+    boostVectorIndicatorEnabled: true,
+    boostVectorLength: 70,
+    boostVectorBlockedLength: 48,
+    boostVectorRadius: 58,
+    boostVectorPulseMs: 360,
+    quickTurnFxEnabled: true,
+    quickTurnMinSpeed: 190,
+    quickTurnMinAngleDeg: 40,
+    quickTurnMinSideSlip: 0.46,
+    quickTurnCooldownMs: 110,
+    quickTurnSparkCount: 4,
+    quickTurnSparkLifetimeMs: 180,
+    quickTurnSparkLength: 24,
+    quickTurnSparkAlpha: 0.62,
+    quickTurnDepth: 20.14,
+    groundSkidEnabled: true,
+    groundSkidSpeedThreshold: 180,
+    groundSkidPulseMs: 260,
+    groundSkidTrailMs: 180,
+    groundSkidMinSpeed: 170,
+    groundSkidMinSideSlip: 0.38,
+    groundSkidLineLifetimeMs: 240,
+    groundSkidSparkLifetimeMs: 170,
+    groundSkidMaxObjects: 16,
+    groundSkidTrailAlpha: 0.24,
+    groundSkidSparkAlpha: 0.58,
+    groundSkidDepth: 19.22,
+    attitudeJetsEnabled: true,
+    attitudeJetMinSpeed: 150,
+    attitudeJetMinSideDot: 0.38,
+    attitudeJetMinBackDot: -0.35,
+    attitudeJetMaxLength: 30,
+    attitudeJetMaxWidth: 10,
+    attitudeJetAlpha: 0.56,
+    attitudeJetDepth: 19.7,
+    attitudeJetTargetFacingBoost: 1.35,
+    airBrakeDefaultEnabled: true,
+    airBrakeEnabled: true,
+    airBrakeMinSpeed: 220,
+    airBrakeDotThreshold: -0.65,
+    airBrakeInputHoldMs: 70,
+    airBrakeDurationMs: 200,
+    airBrakeCooldownMs: 600,
+    airBrakeMinInputMagnitude: 0.55,
+    airBrakeVelocityDampingPerSecond: 6.2,
+    airBrakeTargetSpeedRatio: 0.52,
+    airBrakeCounterThrustPerSecond: 480,
+    airBrakeRegenBlockMs: 300,
+    airBrakeExitSpeedEpsilon: 20,
+    airBrakeFxEnabled: true,
+    airBrakeSparkCount: 7,
+    airBrakeSparkLifetimeMs: 190,
+    airBrakeSparkLength: 24,
+    airBrakeSparkAlpha: 0.68,
+    airBrakeJetLength: 28,
+    airBrakeJetWidth: 9,
+    airBrakeJetAlpha: 0.52,
+    airBrakeCameraShakeEnabled: true,
+    airBrakeCameraShakeDurationMs: 44,
+    airBrakeCameraShakeIntensity: 0.002,
+    airBrakeDepth: 20.18,
+    evadeWindowEnabled: true,
+    evadeWindowBaseMs: EVASIVE_FIRMWARE_CONFIG.durationMsByLevel[0],
+    evadeWindowMaxMs: EVASIVE_FIRMWARE_CONFIG.maxEvadeMs,
+    evasiveFirmwareMaxLevel: EVASIVE_FIRMWARE_CONFIG.maxLevel,
+    evasiveFirmwareDurationMsByLevel: EVASIVE_FIRMWARE_CONFIG.durationMsByLevel,
+    evasiveFirmwareBonusMsByLevel: EVASIVE_FIRMWARE_CONFIG.bonusMsByLevel,
+    evasiveFirmwareMaxEvadeMs: EVASIVE_FIRMWARE_CONFIG.maxEvadeMs,
+    evadeWindowTriggerMode: "BOOST_START_ONLY",
+    evadeWindowTriggerOnBoostStart: true,
+    evadeWindowTriggerOnSustain: false,
+    evadeWindowTriggerOnPostBoost: false,
+    evadeWindowTriggerOnAirBrake: false,
+    evadeWindowTriggerOnFullOverheat: false,
+    evadeWindowSuppressDamage: true,
+    evadeWindowConsumeOnFirstDamage: false,
+    evadeWindowVisualEnabled: true,
+    evadeWindowRingLifetimeMs: 180,
+    evadeWindowStartRingLifetimeMs: 180,
+    evadeWindowRingAlpha: 0.46,
+    evadeWindowShieldAlpha: 0.24,
+    evadeWindowSustainAlpha: 0.14,
+    evadeWindowSustainPulseEnabled: true,
+    evadeWindowSustainPulseMs: 560,
+    evadeWindowEndFadeMs: 120,
+    evadeWindowTextLifetimeMs: 420,
+    evadeWindowText: "EVADE",
+    evadeWindowDepth: 20.31,
+    evadeWindowTextDepth: 20.32,
+    targetFireEnabled: true,
+    targetFireStyle: "segmented",
+    targetFirePalette: AC_TARGET_FIRE_PALETTE.AMBER,
+    targetFireBurstSize: 12,
+    targetFireShotIntervalMs: 40,
+    targetFireBurstCooldownMs: 240,
+    targetFireMaxRange: 880,
+    targetFireTracerTravelMs: 145,
+    targetFireTracerSegmentLengthRatio: 0.14,
+    targetFireTracerMinLengthPx: 56,
+    targetFireTracerMaxLengthPx: 148,
+    targetFireTracerLifetimeMs: 145,
+    targetFireImpactLifetimeMs: 125,
+    targetFireMuzzleFlashLifetimeMs: 88,
+    targetFireTracerWidth: 5.8,
+    targetFireTracerCoreWidth: 2.4,
+    targetFireTracerGlowWidth: 6.2,
+    targetFireTracerOuterGlowWidth: 11.5,
+    targetFireTracerAlpha: 0.96,
+    targetFireTracerCoreAlpha: 0.98,
+    targetFireTracerGlowAlpha: 0.58,
+    targetFireTracerOuterGlowAlpha: 0.24,
+    targetFireMaxActiveTracers: 48,
+    targetFireBoostSpreadDeg: 7,
+    targetFirePostGlideSpreadDeg: 3,
+    targetFireWalkSpreadDeg: 1.5,
+    targetFireInheritPlayerVelocityVisualOffset: 0.04,
+    targetFireMuzzleMotionJitterPx: 2,
+    targetFireMuzzleForwardOffset: 24,
+    targetFireMuzzleSideOffset: 18,
+    targetFireMuzzleSideKickPx: 3,
+    targetFireMuzzleFlashRadiusMin: 6,
+    targetFireMuzzleFlashRadiusMax: 14,
+    targetFireMuzzleFlashCoreAlpha: 0.95,
+    targetFireMuzzleFlashGlowAlpha: 0.62,
+    targetFireBoostBackOffset: 4,
+    targetFireImpactSparkCount: 5,
+    targetFireImpactRadius: 8,
+    targetFireImpactAlpha: 0.62,
+    targetFireImpactGlowAlpha: 0.28,
+    targetFireTracerDepth: 20.16,
+    targetFireMuzzleDepth: 20.28,
+    targetFireImpactDepth: 20.14,
+    targetFireFullOverheatSuppressed: true,
+    targetFireAirBrakeSuppressed: true,
+    weightShadowEnabled: true,
+    weightShadowBaseScaleX: 1,
+    weightShadowBaseScaleY: 1,
+    weightShadowSpeedStretch: 0.22,
+    weightShadowAlpha: 0.3,
+    weightShadowDepth: 15,
+    weightShadowSmoothing: 0.22
+  })
+});
 const MOBILE_CONTROL_QUERY_PARAM = "mobileControls";
 const COMMS_UI_DEBUG_QUERY_PARAM = "debugComms";
 const COMMS_STORY_DEBUG_QUERY_PARAM = "debugCommsStory";
@@ -2157,7 +2871,7 @@ const CD_CATALOG = [
     }
   }
 ];
-const BASE_CALIBRATION_UPGRADE_IDS = Object.freeze(["weapon", "armor", "shoes"]);
+const BASE_CALIBRATION_UPGRADE_IDS = Object.freeze(["weapon", "armor", "shoes", REACTOR_COOLING_UPGRADE_ID]);
 const BASE_CALIBRATION_DEFAULT_CAP = 10;
 const BASE_CALIBRATION_ABSOLUTE_MAX_LEVEL = 25;
 const BASE_CALIBRATION_RELAY_CAP_TIERS = Object.freeze([
@@ -2204,6 +2918,18 @@ const SHOP_UPGRADE_DEFINITIONS = {
     baseCost: 1000,
     costGrowth: 1.48,
     accent: 0x45a9ff
+  },
+  reactorCooling: {
+    id: REACTOR_COOLING_UPGRADE_ID,
+    stateKey: REACTOR_COOLING_CONFIG.storageKey,
+    title: "Reactor Cooling",
+    shortTitle: "COOLING",
+    description: "BOOST EN回復倍率 +2% / Lv",
+    maxLevel: REACTOR_COOLING_CONFIG.absoluteMaxLevel,
+    baseCost: 1000,
+    costGrowth: 1.48,
+    accent: 0x70f5ff,
+    debugOnly: true
   }
 };
 const ROBOT_CUSTOM_BASE_LEVEL_CAP = 10;
@@ -2336,6 +3062,7 @@ const DEFAULT_SHOP_STATE = {
     armor: 0,
     shoes: 0
   },
+  reactorCoolingLevel: 0,
   cleaningRobotLevel: 0,
   robotCustom: { ...DEFAULT_ROBOT_CUSTOM_STATE }
 };
@@ -3669,6 +4396,14 @@ const LEVEL_UP_PASSIVE_UI_META = {
     themeColor: 0xff8fc4,
     accentColor: "#ff8fc4",
     iconTone: "AP"
+  },
+  evasiveFirmware: {
+    displayName: "EVASIVE FIRMWARE",
+    description: "ブースト開始時の瞬間回避時間を延長",
+    chipLabel: "EVADE FW",
+    themeColor: 0x91faff,
+    accentColor: "#91faff",
+    iconTone: "EVADE"
   }
 };
 const LEVEL_UP_CARD_TYPE_META = {
@@ -3854,6 +4589,23 @@ const ROBOT_MISSILE_LOCK_CONFIG = {
   cameraInsetX: 120,
   cameraInsetY: 84
 };
+const ROBOT_MISSILE_SMOKE_TRAIL_CONFIG = {
+  intervalMs: 78,
+  minDistance: 20,
+  lifetimeMs: 520,
+  depth: 21.6,
+  backOffset: 18,
+  sideJitter: 5,
+  driftDistance: 18,
+  radiusMin: 4.5,
+  radiusMax: 7.5,
+  startScaleX: 1.45,
+  startScaleY: 0.72,
+  endScaleX: 2.55,
+  endScaleY: 1.62,
+  alpha: 0.24,
+  color: 0xb8c4cc
+};
 const ROBOT_SYNC_CONFIG = {
   gaugeMax: 100,
   activeDurationMs: 18000,
@@ -3877,30 +4629,7 @@ const ROBOT_SYNC_CONFIG = {
   fieldPulseKnockback: 220,
   fieldPulseXpBonus: 1
 };
-const RECOVERY_FIELD_VISUAL_CONFIG = {
-  baseDepth: 16,
-  depthOffsetFromPlayer: 4,
-  alphaMin: 0.5,
-  alphaMax: 0.62,
-  syncAlphaMin: 0.54,
-  syncAlphaMax: 0.7,
-  pulseScaleMax: 1.012,
-  widths: {
-    lv1: 220,
-    lv10: 320,
-    lv11: 320,
-    lv15: 320,
-    lv20: 320
-  },
-  aspectRatios: {
-    base: 1308 / 2048,
-    extended: 1
-  },
-  groundOffsets: {
-    robot: { ratio: 0.42, min: 52, max: 70 },
-    human: { ratio: 0.45, min: 34, max: 50 },
-    finalRaid: { ratio: 0.43, min: 32, max: 48 }
-  },
+const RECOVERY_FIELD_HUD_ICON_CONFIG = {
   debugLogIntervalMs: 650
 };
 const ROBOT_EX_LEVEL_REQUIREMENTS = {
@@ -3987,7 +4716,7 @@ const ROBOT_NAPALM_MISSILE_ASSETS = [
     imagePath: "./画像/robot/robot_bombslv20.png"
   }
 ];
-const ROBOT_RECOVERY_FIELD_ASSET_LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 15, 20];
+const ROBOT_RECOVERY_FIELD_ASSET_LEVELS = [1, 4, 6, 8, 10, 12, 14, 16, 18, 20];
 const ROBOT_IMAGE_ASSETS = {
   robotLevels: Array.from({ length: ROBOT_MAX_LEVEL }, (_, index) => {
     const level = index + 1;
@@ -5392,6 +6121,7 @@ class SurvivalScene extends Phaser.Scene {
     this.preloadFinalBossRaidAssets();
     this.preloadSupportAttackAssets();
     this.preloadGensoKnightsSupportAssets();
+    this.preloadAcMovementAudioAssets();
     this.preloadSkillAssets();
   }
 
@@ -5421,6 +6151,19 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     this.load.audio(key, [path]);
+  }
+
+  preloadAcMovementAudioAssets() {
+    if (!this.getAcBoostSeEffectiveEnabled()) {
+      return;
+    }
+
+    this.loadAudioIfNeeded(AC_MOVEMENT_CONFIG.quickBoostSeLeftAudioKey, AC_MOVEMENT_CONFIG.quickBoostSeLeftAudioPath);
+    this.loadAudioIfNeeded(AC_MOVEMENT_CONFIG.quickBoostSeCenterAudioKey, AC_MOVEMENT_CONFIG.quickBoostSeCenterAudioPath);
+    this.loadAudioIfNeeded(AC_MOVEMENT_CONFIG.quickBoostSeRightAudioKey, AC_MOVEMENT_CONFIG.quickBoostSeRightAudioPath);
+    if (AC_MOVEMENT_CONFIG.quickBoostSeFallbackToLegacy) {
+      this.loadAudioIfNeeded(AC_MOVEMENT_CONFIG.quickBoostSeLegacyAudioKey, AC_MOVEMENT_CONFIG.quickBoostSeLegacyAudioPath);
+    }
   }
 
   preloadSkillAssets() {
@@ -5616,6 +6359,655 @@ class SurvivalScene extends Phaser.Scene {
     } catch (error) {
       return null;
     }
+  }
+
+  isQueryFlagValueEnabled(value) {
+    return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
+  }
+
+  isQueryFlagValueDisabled(value) {
+    return ["0", "false", "no", "off"].includes(String(value || "").toLowerCase());
+  }
+
+  isAcMovementDebugEnabled() {
+    const value = this.getUrlStageParam(AC_MOVEMENT_CONFIG.debugQueryParam);
+    return this.isQueryFlagValueEnabled(value);
+  }
+
+  isLegacyMovementDebugEnabled() {
+    return this.isLegacyMovementForced();
+  }
+
+  isLegacyMovementForced() {
+    const value = this.getUrlStageParam(AC_MOVEMENT_CONFIG.releaseCandidateQueryParam);
+    return (
+      this.isQueryFlagValueEnabled(this.getUrlStageParam(AC_MOVEMENT_CONFIG.legacyMovementQueryParam)) ||
+      this.isQueryFlagValueDisabled(value)
+    );
+  }
+
+  isAcMovementDefaultEnabled() {
+    return !this.isLegacyMovementForced();
+  }
+
+  isAcMovementReleaseCandidateExplicitlyDisabled() {
+    return this.isLegacyMovementForced();
+  }
+
+  isAcMovementReleaseCandidateEnabled() {
+    const value = this.getUrlStageParam(AC_MOVEMENT_CONFIG.releaseCandidateQueryParam);
+    return this.isQueryFlagValueEnabled(value) && !this.isLegacyMovementForced();
+  }
+
+  shouldUseAcMovementReleaseCandidate() {
+    return this.isAcMovementReleaseCandidateEnabled();
+  }
+
+  isAcMovementActivationRequested() {
+    return this.isAcMovementDefaultEnabled();
+  }
+
+  getAcMovementActivationSource() {
+    if (this.isFinalBossRaidActive?.()) {
+      return AC_MOVEMENT_ACTIVATION_SOURCE.FINAL_RAID_DISABLED;
+    }
+    if (this.isLegacyMovementForced()) {
+      return AC_MOVEMENT_ACTIVATION_SOURCE.LEGACY;
+    }
+    if (this.isAcMovementDebugEnabled()) {
+      const preset = this.getAcMovementPresetName();
+      if (preset === "acV3") {
+        return AC_MOVEMENT_ACTIVATION_SOURCE.DEBUG_ACV3;
+      }
+      if (preset === "acV2") {
+        return AC_MOVEMENT_ACTIVATION_SOURCE.DEBUG_ACV2;
+      }
+      return AC_MOVEMENT_ACTIVATION_SOURCE.DEBUG_V1;
+    }
+    if (this.shouldUseAcMovementReleaseCandidate()) {
+      return AC_MOVEMENT_ACTIVATION_SOURCE.AC_RC_ALIAS;
+    }
+    return AC_MOVEMENT_ACTIVATION_SOURCE.DEFAULT_ACV3;
+  }
+
+  isAcMovementHudDebugEnabled() {
+    if (!this.isAcMovementActivationRequested()) {
+      return false;
+    }
+
+    const value = this.getUrlStageParam(AC_MOVEMENT_CONFIG.hudDebugQueryParam);
+    return this.isQueryFlagValueEnabled(value);
+  }
+
+  getAcMovementPresetName() {
+    if (this.isLegacyMovementForced()) {
+      return "legacy";
+    }
+    if (!this.isAcMovementDebugEnabled()) {
+      return "acV3";
+    }
+
+    const rawPreset = String(this.getUrlStageParam(AC_MOVEMENT_CONFIG.presetQueryParam) || "").trim();
+    if (!rawPreset) {
+      return "v1";
+    }
+
+    const normalizedPreset = rawPreset.toLowerCase();
+    if (normalizedPreset === "acv2" || normalizedPreset === "ac-v2") {
+      return "acV2";
+    }
+    if (normalizedPreset === "acv3" || normalizedPreset === "ac-v3") {
+      return "acV3";
+    }
+    return Object.prototype.hasOwnProperty.call(AC_MOVEMENT_PRESETS, rawPreset) ? rawPreset : "v1";
+  }
+
+  shouldUseAcV3DefaultBundle() {
+    if (this.isLegacyMovementForced() || this.isFinalBossRaidActive?.() || !this.isAcV3MovementPreset()) {
+      return false;
+    }
+
+    const activationSource = this.getAcMovementActivationSource();
+    return activationSource === AC_MOVEMENT_ACTIVATION_SOURCE.DEFAULT_ACV3
+      || activationSource === AC_MOVEMENT_ACTIVATION_SOURCE.AC_RC_ALIAS
+      || activationSource === AC_MOVEMENT_ACTIVATION_SOURCE.DEBUG_ACV3;
+  }
+
+  isAcMovementPresetEnabled(name) {
+    return this.getAcMovementPresetName() === name;
+  }
+
+  getActiveAcMovementTuning() {
+    return AC_MOVEMENT_PRESETS[this.getAcMovementPresetName()] || AC_MOVEMENT_PRESETS.v1;
+  }
+
+  isAcTargetFacingDebugEnabled() {
+    if (!this.isAcMovementActivationRequested()) {
+      return false;
+    }
+
+    const value = this.getUrlStageParam(AC_MOVEMENT_CONFIG.targetFacingDebugQueryParam);
+    return this.isQueryFlagValueEnabled(value);
+  }
+
+  isAcTargetFacingDebugDisabled() {
+    if (!this.isAcMovementActivationRequested()) {
+      return false;
+    }
+
+    const value = this.getUrlStageParam(AC_MOVEMENT_CONFIG.targetFacingDebugQueryParam);
+    return this.isQueryFlagValueDisabled(value);
+  }
+
+  isAcTargetFacingAutoEnabled() {
+    return Boolean(
+      this.isAcMovementPresetEnabled("acV3") &&
+      this.getActiveAcMovementTuning()?.targetFacingAuto === true
+    );
+  }
+
+  shouldUseAcTargetFacing() {
+    if (this.isAcTargetFacingDebugDisabled()) {
+      return false;
+    }
+
+    return Boolean(
+      (this.isAcTargetFacingDebugEnabled() || this.isAcTargetFacingAutoEnabled()) &&
+      this.shouldUseAcMovement() &&
+      !this.isDepth10HumanPlayerVisualActive?.() &&
+      !this.isFinalBossRaidActive?.()
+    );
+  }
+
+  isAcMovementQueryFlagEnabled(queryParam) {
+    if (!this.isAcMovementActivationRequested()) {
+      return false;
+    }
+
+    const value = this.getUrlStageParam(queryParam);
+    return this.isQueryFlagValueEnabled(value);
+  }
+
+  isAcMovementQueryFlagDisabled(queryParam) {
+    if (!this.isAcMovementActivationRequested()) {
+      return false;
+    }
+
+    const value = this.getUrlStageParam(queryParam);
+    return this.isQueryFlagValueDisabled(value);
+  }
+
+  isAcReleaseCandidateFeatureEnabled(queryParam) {
+    if (this.isAcMovementQueryFlagDisabled(queryParam)) {
+      return false;
+    }
+    return this.shouldUseAcV3DefaultBundle() || this.isAcMovementQueryFlagEnabled(queryParam);
+  }
+
+  getAcFeatureOverrideState(queryParam, enabled = false) {
+    if (this.isAcMovementQueryFlagDisabled(queryParam)) {
+      return "OVERRIDE_OFF";
+    }
+    return enabled ? "ON" : "OFF";
+  }
+
+  shouldUseAcTacticalVisuals() {
+    return Boolean(
+      this.isAcV3MovementPreset() &&
+      this.shouldUseAcMovementVisuals() &&
+      !this.isFinalBossRaidActive?.()
+    );
+  }
+
+  isAcEnergyWarningEnabled() {
+    return Boolean(
+      this.shouldUseAcTacticalVisuals() &&
+      this.getActiveAcMovementTuning()?.energyWarningEnabled !== false &&
+      !this.isAcMovementQueryFlagDisabled(AC_MOVEMENT_CONFIG.energyWarningDebugQueryParam)
+    );
+  }
+
+  isAcLockonRingEnabled() {
+    return Boolean(
+      this.shouldUseAcTacticalVisuals() &&
+      this.shouldUseAcTargetFacing() &&
+      this.getActiveAcMovementTuning()?.lockonRingEnabled !== false &&
+      !this.isAcMovementQueryFlagDisabled(AC_MOVEMENT_CONFIG.lockonRingDebugQueryParam)
+    );
+  }
+
+  isAcBoostVectorIndicatorEnabled() {
+    return Boolean(
+      this.shouldUseAcTacticalVisuals() &&
+      this.getActiveAcMovementTuning()?.boostVectorIndicatorEnabled !== false &&
+      !this.isAcMovementQueryFlagDisabled(AC_MOVEMENT_CONFIG.boostVectorDebugQueryParam)
+    );
+  }
+
+  isAcGroundSkidFxEnabled() {
+    return Boolean(
+      this.shouldUseAcTacticalVisuals() &&
+      (
+        this.getActiveAcMovementTuning()?.groundSkidEnabled === true ||
+        this.isAcMovementQueryFlagEnabled(AC_MOVEMENT_CONFIG.groundSkidDebugQueryParam)
+      ) &&
+      !this.isAcMovementQueryFlagDisabled(AC_MOVEMENT_CONFIG.groundSkidDebugQueryParam)
+    );
+  }
+
+  isAcQuickTurnFxEnabled() {
+    return Boolean(
+      this.shouldUseAcTacticalVisuals() &&
+      this.getActiveAcMovementTuning()?.quickTurnFxEnabled !== false &&
+      !this.isAcMovementQueryFlagDisabled(AC_MOVEMENT_CONFIG.quickTurnFxDebugQueryParam)
+    );
+  }
+
+  isAcAttitudeJetsEnabled() {
+    return Boolean(
+      this.shouldUseAcTacticalVisuals() &&
+      this.getActiveAcMovementTuning()?.attitudeJetsEnabled !== false &&
+      !this.isAcMovementQueryFlagDisabled(AC_MOVEMENT_CONFIG.attitudeJetsDebugQueryParam)
+    );
+  }
+
+  isAcWeightShadowEnabled() {
+    return Boolean(
+      this.shouldUseAcTacticalVisuals() &&
+      this.getActiveAcMovementTuning()?.weightShadowEnabled !== false &&
+      !this.isAcMovementQueryFlagDisabled(AC_MOVEMENT_CONFIG.weightShadowDebugQueryParam)
+    );
+  }
+
+  isAcAirBrakeDebugEnabled() {
+    return this.isAcAirBrakeExplicitlyEnabled();
+  }
+
+  isAcAirBrakeExplicitlyEnabled() {
+    return this.isAcMovementQueryFlagEnabled(AC_MOVEMENT_CONFIG.airBrakeDebugQueryParam);
+  }
+
+  isAcAirBrakeExplicitlyDisabled() {
+    return this.isAcMovementQueryFlagDisabled(AC_MOVEMENT_CONFIG.airBrakeDebugQueryParam);
+  }
+
+  getAcAirBrakeOverrideMode() {
+    if (this.isAcAirBrakeExplicitlyDisabled()) {
+      return "FORCE_OFF";
+    }
+    if (this.isAcAirBrakeExplicitlyEnabled()) {
+      return "FORCE_ON";
+    }
+    return "NONE";
+  }
+
+  isAcAirBrakeDefaultEnabled(tuning = this.getActiveAcMovementTuning()) {
+    return Boolean(
+      this.isAcV3MovementPreset() &&
+      tuning?.airBrakeEnabled !== false &&
+      tuning?.airBrakeDefaultEnabled === true
+    );
+  }
+
+  getAcAirBrakeEffectiveEnabled(tuning = this.getActiveAcMovementTuning()) {
+    if (!this.isAcV3MovementPreset() || tuning?.airBrakeEnabled === false) {
+      return false;
+    }
+    if (this.isAcAirBrakeExplicitlyDisabled()) {
+      return false;
+    }
+    return Boolean(this.isAcAirBrakeDefaultEnabled(tuning) || this.isAcAirBrakeExplicitlyEnabled());
+  }
+
+  shouldUseAcAirBrake() {
+    const tuning = this.getActiveAcMovementTuning();
+    return Boolean(
+      this.shouldUseAcMovement() &&
+      this.getAcAirBrakeEffectiveEnabled(tuning) &&
+      !this.isFinalBossRaidActive?.()
+    );
+  }
+
+  isAcAirBrakeFxEnabled() {
+    return Boolean(
+      this.shouldUseAcAirBrake() &&
+      this.getActiveAcMovementTuning()?.airBrakeFxEnabled !== false
+    );
+  }
+
+  isAcEvadeWindowDebugEnabled() {
+    return this.isAcReleaseCandidateFeatureEnabled(AC_MOVEMENT_CONFIG.evadeWindowDebugQueryParam);
+  }
+
+  getAcEvadeWindowEffectiveEnabled(tuning = this.getActiveAcMovementTuning()) {
+    return Boolean(
+      this.isAcV3MovementPreset() &&
+      tuning?.evadeWindowEnabled === true &&
+      this.isAcEvadeWindowDebugEnabled()
+    );
+  }
+
+  shouldUseAcEvadeWindow(tuning = this.getActiveAcMovementTuning()) {
+    return Boolean(
+      this.shouldUseAcMovement() &&
+      this.getAcEvadeWindowEffectiveEnabled(tuning) &&
+      !this.isFinalBossRaidActive?.()
+    );
+  }
+
+  isAcEvasionPassiveDebugEnabled() {
+    return this.isAcReleaseCandidateFeatureEnabled(AC_MOVEMENT_CONFIG.evasionPassiveDebugQueryParam);
+  }
+
+  isAcEvasionPassiveForceCandidateDebugEnabled() {
+    return this.isAcMovementQueryFlagEnabled(AC_MOVEMENT_CONFIG.evasionPassiveForceQueryParam);
+  }
+
+  shouldUseAcEvasionPassive(tuning = this.getActiveAcMovementTuning()) {
+    return Boolean(
+      this.isAcV3MovementPreset() &&
+      this.getAcEvadeWindowEffectiveEnabled(tuning) &&
+      this.isAcEvasionPassiveDebugEnabled() &&
+      !this.isFinalBossRaidActive?.()
+    );
+  }
+
+  isEvasiveFirmwareCandidateAllowed() {
+    const tuning = this.getActiveAcMovementTuning();
+    return Boolean(
+      this.shouldUseAcEvasionPassive(tuning) &&
+      !this.isOpeningBoostDraftActive?.() &&
+      !this.levelUpOpeningBoostActive &&
+      !this.isFinalBossRaidActive?.()
+    );
+  }
+
+  getEvasiveFirmwareMaxLevel(tuning = this.getActiveAcMovementTuning()) {
+    const configuredMax = Number(tuning?.evasiveFirmwareMaxLevel);
+    const fallbackMax = EVASIVE_FIRMWARE_CONFIG.maxLevel;
+    return Math.max(0, Math.floor(Number.isFinite(configuredMax) && configuredMax > 0 ? configuredMax : fallbackMax));
+  }
+
+  getAcEvasionPassiveStartLevelOverride(tuning = this.getActiveAcMovementTuning()) {
+    if (!this.shouldUseAcEvasionPassive(tuning)) {
+      return null;
+    }
+
+    const rawValue = this.getUrlStageParam(AC_MOVEMENT_CONFIG.evasionPassiveStartLevelQueryParam);
+    if (rawValue === null) {
+      return null;
+    }
+
+    const value = Number(rawValue);
+    if (!Number.isFinite(value)) {
+      return null;
+    }
+
+    return Phaser.Math.Clamp(Math.floor(value), 0, this.getEvasiveFirmwareMaxLevel(tuning));
+  }
+
+  applyAcEvasionPassiveDebugStartLevel(reason = "runtime") {
+    if (this.acEvasionPassiveStartLevelApplied) {
+      return false;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const startLevel = this.getAcEvasionPassiveStartLevelOverride(tuning);
+    this.acEvasionPassiveStartLevelApplied = true;
+    if (startLevel === null) {
+      return false;
+    }
+
+    if (!this.passiveLevels) {
+      this.passiveLevels = {};
+    }
+    const maxLevel = this.getEvasiveFirmwareMaxLevel(tuning);
+    this.passiveLevels[EVASIVE_FIRMWARE_PASSIVE_ID] = Phaser.Math.Clamp(
+      Math.max(this.getPassiveLevel(EVASIVE_FIRMWARE_PASSIVE_ID), startLevel),
+      0,
+      maxLevel
+    );
+    return true;
+  }
+
+  getEvasiveFirmwareLevel(tuning = this.getActiveAcMovementTuning()) {
+    this.applyAcEvasionPassiveDebugStartLevel("level");
+    if (!this.shouldUseAcEvasionPassive(tuning)) {
+      return 0;
+    }
+
+    return Phaser.Math.Clamp(
+      this.getPassiveLevel(EVASIVE_FIRMWARE_PASSIVE_ID),
+      0,
+      this.getEvasiveFirmwareMaxLevel(tuning)
+    );
+  }
+
+  isAcTargetFireDebugEnabled() {
+    return this.isAcReleaseCandidateFeatureEnabled(AC_MOVEMENT_CONFIG.targetFireDebugQueryParam);
+  }
+
+  isAcBoostSeDebugEnabled() {
+    return this.isAcBoostSeExplicitlyEnabled();
+  }
+
+  isAcBoostSeExplicitlyEnabled() {
+    return this.isQueryFlagValueEnabled(this.getUrlStageParam(AC_MOVEMENT_CONFIG.boostSeDebugQueryParam));
+  }
+
+  isAcBoostSeExplicitlyDisabled() {
+    return this.isQueryFlagValueDisabled(this.getUrlStageParam(AC_MOVEMENT_CONFIG.boostSeDebugQueryParam));
+  }
+
+  getAcBoostSeOverrideMode() {
+    if (this.isAcBoostSeExplicitlyDisabled()) {
+      return "FORCE_OFF";
+    }
+    if (this.isAcBoostSeExplicitlyEnabled()) {
+      return "FORCE_ON";
+    }
+    return "NONE";
+  }
+
+  isAcBoostSeDefaultEnabled() {
+    return Boolean(this.shouldUseAcV3DefaultBundle());
+  }
+
+  getAcBoostSeEffectiveEnabled() {
+    if (this.isAcBoostSeExplicitlyDisabled()) {
+      return false;
+    }
+    if (this.isFinalBossRaidActive?.() || this.isLegacyMovementForced() || !this.isAcV3MovementPreset()) {
+      return false;
+    }
+    return Boolean(this.isAcBoostSeDefaultEnabled() || this.isAcBoostSeExplicitlyEnabled());
+  }
+
+  getAcBoostSeActivationSource() {
+    if (this.isAcBoostSeExplicitlyDisabled()) {
+      return "EXPLICIT_OFF";
+    }
+    if (this.isFinalBossRaidActive?.()) {
+      return "FINAL_RAID_DISABLED";
+    }
+    if (this.isLegacyMovementForced()) {
+      return "LEGACY_DISABLED";
+    }
+    if (!this.isAcV3MovementPreset()) {
+      return "PRESET_DISABLED";
+    }
+    if (!this.getAcBoostSeEffectiveEnabled()) {
+      return "DISABLED";
+    }
+    if (this.isAcBoostSeExplicitlyEnabled()) {
+      return "FORCE_ON";
+    }
+    return this.getAcMovementActivationSource();
+  }
+
+  shouldUseAcBoostSe() {
+    return Boolean(
+      this.shouldUseAcMovement() &&
+      this.getAcBoostSeEffectiveEnabled()
+    );
+  }
+
+  shouldUseAcQuickBoostSe() {
+    return this.shouldUseAcBoostSe();
+  }
+
+  getAcTargetFirePalette(tuning = this.getActiveAcMovementTuning()) {
+    const rawValue = String(
+      this.getUrlStageParam(AC_MOVEMENT_CONFIG.targetFirePaletteDebugQueryParam)
+      || tuning?.targetFirePalette
+      || AC_TARGET_FIRE_PALETTE.AMBER
+    ).trim().toLowerCase();
+    if (rawValue === AC_TARGET_FIRE_PALETTE.RED) {
+      return AC_TARGET_FIRE_PALETTE.RED;
+    }
+    return AC_TARGET_FIRE_PALETTE.AMBER;
+  }
+
+  getAcTargetFireEffectiveEnabled(tuning = this.getActiveAcMovementTuning()) {
+    return Boolean(
+      this.isAcV3MovementPreset() &&
+      tuning?.targetFireEnabled === true &&
+      this.isAcTargetFireDebugEnabled()
+    );
+  }
+
+  shouldUseAcTargetFire() {
+    const tuning = this.getActiveAcMovementTuning();
+    return Boolean(
+      this.shouldUseAcMovement() &&
+      this.shouldUseAcTargetFacing() &&
+      this.getAcTargetFireEffectiveEnabled(tuning) &&
+      !this.isFinalBossRaidActive?.()
+    );
+  }
+
+  isAcReactorCoolingShopDebugEnabled() {
+    if (this.isLegacyMovementForced()) {
+      return false;
+    }
+
+    const value = this.getUrlStageParam(AC_MOVEMENT_CONFIG.reactorCoolingShopDebugQueryParam);
+    if (this.isQueryFlagValueDisabled(value)) {
+      return false;
+    }
+    return (
+      this.shouldUseAcV3DefaultBundle() ||
+      (this.isAcV3MovementPreset() && this.isAcMovementActivationRequested() && this.isQueryFlagValueEnabled(value))
+    );
+  }
+
+  shouldShowReactorCoolingShopUpgrade() {
+    return this.isAcReactorCoolingShopDebugEnabled();
+  }
+
+  shouldApplyReactorCoolingBoostRegen() {
+    return Boolean(
+      this.shouldUseAcMovement() &&
+      this.isAcV3MovementPreset() &&
+      this.isAcReactorCoolingShopDebugEnabled() &&
+      !this.isFinalBossRaidActive?.()
+    );
+  }
+
+  getReactorCoolingStoredLevel() {
+    const definition = SHOP_UPGRADE_DEFINITIONS[REACTOR_COOLING_UPGRADE_ID];
+    const rawValue = Number(this.shopState?.[REACTOR_COOLING_CONFIG.storageKey]);
+    const value = Number.isFinite(rawValue) ? Math.floor(rawValue) : 0;
+    return Phaser.Math.Clamp(value, 0, definition?.maxLevel || REACTOR_COOLING_CONFIG.absoluteMaxLevel);
+  }
+
+  getReactorCoolingDebugLevelOverride() {
+    if (!this.isAcReactorCoolingShopDebugEnabled()) {
+      return null;
+    }
+
+    const rawValue = this.getUrlStageParam(AC_MOVEMENT_CONFIG.reactorCoolingLevelDebugQueryParam);
+    if (rawValue === null) {
+      return null;
+    }
+
+    const value = Number(rawValue);
+    if (!Number.isFinite(value)) {
+      return null;
+    }
+
+    return Phaser.Math.Clamp(Math.floor(value), 0, REACTOR_COOLING_CONFIG.absoluteMaxLevel);
+  }
+
+  getReactorCoolingLevel(options = {}) {
+    const useDebugOverride = options.useDebugOverride !== false;
+    if (useDebugOverride) {
+      const debugLevel = this.getReactorCoolingDebugLevelOverride();
+      if (debugLevel !== null) {
+        return debugLevel;
+      }
+    }
+    return this.getReactorCoolingStoredLevel();
+  }
+
+  getReactorCoolingMaxLevel(depthRelayState = this.depthRelayState) {
+    return this.getBaseCalibrationLevelCap(REACTOR_COOLING_UPGRADE_ID, depthRelayState);
+  }
+
+  getReactorCoolingRegenMultiplier(options = {}) {
+    const preview = options.preview === true;
+    if (!preview && !this.shouldApplyReactorCoolingBoostRegen()) {
+      return 1;
+    }
+
+    const level = this.getReactorCoolingLevel(options);
+    return Math.max(1, 1 + level * REACTOR_COOLING_CONFIG.regenBonusPerLevel);
+  }
+
+  getEquipmentBoostEnergyRegenMultiplier() {
+    const multiplier = Number(this.getRunEquipmentStaminaRegenMultiplier?.());
+    return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+  }
+
+  getTotalBoostEnergyRegenMultiplier(options = {}) {
+    return this.getEquipmentBoostEnergyRegenMultiplier() * this.getReactorCoolingRegenMultiplier(options);
+  }
+
+  getBoostEnergyBaseRegenPerSecond() {
+    return DASH_STAMINA_REGEN_PER_SECOND;
+  }
+
+  getAcMovementDebugStartStaminaOverride() {
+    if (
+      !this.isAcMovementActivationRequested() ||
+      this.isFinalBossRaidActive?.() ||
+      this.isFinalBossRaidDebugStartDepthTarget?.()
+    ) {
+      return null;
+    }
+
+    const rawValue = this.getUrlStageParam(AC_MOVEMENT_CONFIG.startStaminaQueryParam);
+    if (rawValue === null) {
+      return null;
+    }
+
+    const value = Number(rawValue);
+    return Number.isFinite(value) ? Math.max(0, value) : null;
+  }
+
+  applyAcMovementDebugStartStamina(reason = "gameStart") {
+    if (this.acMovementDebugStartStaminaApplied || !this.stats) {
+      return;
+    }
+
+    const startStamina = this.getAcMovementDebugStartStaminaOverride();
+    if (startStamina === null) {
+      return;
+    }
+
+    const maxStamina = Math.max(0, Number(this.stats.maxStamina) || 0);
+    this.stats.stamina = Phaser.Math.Clamp(startStamina, 0, maxStamina);
+    this.acMovementDebugStartStaminaApplied = true;
   }
 
   getDebugStartDepthOverride() {
@@ -5958,6 +7350,10 @@ class SurvivalScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetVoidHunterState("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetFinalBossRaidState("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetFinalBossRaidState("sceneDestroy"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cleanupAcMovementVisuals("sceneShutdown"));
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.cleanupAcMovementVisuals("sceneDestroy"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.destroyAcMovementDebugHud("sceneShutdown"));
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.destroyAcMovementDebugHud("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.destroyCommsUi("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.destroyCommsUi("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.cleanupDeepExtractionResultOverlay("sceneShutdown")));
@@ -6506,6 +7902,10 @@ class SurvivalScene extends Phaser.Scene {
     this.isDashing = false;
     this.dashLockedUntilRelease = false;
     this.dashRegenBlockedUntil = 0;
+    this.acMovementState = this.initializeAcMovementState();
+    this.acMovementDebugBranchLogged = false;
+    this.acMovementDebugStartStaminaApplied = false;
+    this.acMovementDebugHud = null;
     this.mobileControlsEnabled = this.shouldUseMobileControls();
     this.mobileControlPointerIds = { move: null, dash: null };
     this.mobileMoveVector = new Phaser.Math.Vector2(0, 0);
@@ -10854,6 +12254,7 @@ class SurvivalScene extends Phaser.Scene {
       ownedCdIds: [...DEFAULT_SHOP_STATE.ownedCdIds],
       selectedCdId: DEFAULT_SHOP_STATE.selectedCdId,
       upgrades: { ...DEFAULT_SHOP_STATE.upgrades },
+      reactorCoolingLevel: DEFAULT_SHOP_STATE.reactorCoolingLevel,
       cleaningRobotLevel: DEFAULT_SHOP_STATE.cleaningRobotLevel,
       robotCustom: { ...DEFAULT_ROBOT_CUSTOM_STATE }
     };
@@ -10874,11 +12275,23 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     Object.entries(SHOP_UPGRADE_DEFINITIONS).forEach(([id, definition]) => {
+      if (definition?.stateKey) {
+        return;
+      }
       const rawValue = Number(record?.upgrades?.[id]);
       const fallbackValue = Math.floor(Number(DEFAULT_SHOP_STATE.upgrades?.[id]) || 0);
       const value = Number.isFinite(rawValue) ? Math.floor(rawValue) : fallbackValue;
       state.upgrades[id] = Phaser.Math.Clamp(value, 0, definition.maxLevel);
     });
+    const rawReactorCoolingLevel = Number(
+      record?.[REACTOR_COOLING_CONFIG.storageKey]
+      ?? record?.upgrades?.[REACTOR_COOLING_UPGRADE_ID]
+    );
+    state.reactorCoolingLevel = Phaser.Math.Clamp(
+      Number.isFinite(rawReactorCoolingLevel) ? Math.floor(rawReactorCoolingLevel) : 0,
+      0,
+      REACTOR_COOLING_CONFIG.absoluteMaxLevel
+    );
     state.cleaningRobotLevel = Phaser.Math.Clamp(
       Math.floor(Number(record?.cleaningRobotLevel) || 0),
       0,
@@ -16958,11 +18371,21 @@ class SurvivalScene extends Phaser.Scene {
     }
     const robotTextureKey = this.getRobotTextureKey(this.getRobotVisualLevel());
     const fieldTextureKey = this.getRecoveryFieldTextureKey(fieldLevel);
+    const fieldIconPreviousTextureKey = elements.fieldIcon?.texture?.key || "";
     if (elements.robotIcon && this.textures.exists(robotTextureKey)) {
       this.setHudIconToFit(elements.robotIcon, robotTextureKey, 42);
     }
     if (elements.fieldIcon && this.textures.exists(fieldTextureKey)) {
       this.setHudIconToFit(elements.fieldIcon, fieldTextureKey, 42);
+      this.logRecoveryFieldHudIconDebug({
+        hud: "finalRaid",
+        level: fieldLevel,
+        assetLevel: this.getRecoveryFieldAssetLevel(fieldLevel),
+        textureKey: fieldTextureKey,
+        displayWidth: Number(elements.fieldIcon.displayWidth.toFixed(2)),
+        displayHeight: Number(elements.fieldIcon.displayHeight.toFixed(2)),
+        maxSize: 42
+      }, fieldIconPreviousTextureKey !== fieldTextureKey);
     }
     this.setFinalRaidHudText(elements.robotTitleText, "ROBOT");
     this.setFinalRaidHudText(elements.robotLevelText, `Lv.${missileLevel}/${missileCap}`);
@@ -25525,6 +26948,9 @@ class SurvivalScene extends Phaser.Scene {
     if (!definition) {
       return 0;
     }
+    if (upgradeId === REACTOR_COOLING_UPGRADE_ID) {
+      return this.getReactorCoolingStoredLevel();
+    }
 
     const rawValue = Number(this.shopState?.upgrades?.[upgradeId]);
     const value = Number.isFinite(rawValue) ? Math.floor(rawValue) : 0;
@@ -25596,6 +27022,17 @@ class SurvivalScene extends Phaser.Scene {
     if (upgradeId === "shoes") {
       return `BOOSTER +${level * 8}`;
     }
+    if (upgradeId === REACTOR_COOLING_UPGRADE_ID) {
+      const currentBonus = Math.round(level * REACTOR_COOLING_CONFIG.regenBonusPerLevel * 100);
+      const currentCap = this.getReactorCoolingMaxLevel(this.depthRelayState);
+      const definition = SHOP_UPGRADE_DEFINITIONS[REACTOR_COOLING_UPGRADE_ID];
+      const nextLevel = Math.min(level + 1, currentCap, definition?.maxLevel || REACTOR_COOLING_CONFIG.absoluteMaxLevel);
+      if (nextLevel > level) {
+        const nextBonus = Math.round(nextLevel * REACTOR_COOLING_CONFIG.regenBonusPerLevel * 100);
+        return `BOOST EN REGEN +${currentBonus}% > +${nextBonus}%`;
+      }
+      return `BOOST EN REGEN +${currentBonus}%`;
+    }
     return "";
   }
 
@@ -25644,6 +27081,10 @@ class SurvivalScene extends Phaser.Scene {
     if (!definition) {
       return;
     }
+    if (definition.debugOnly && upgradeId === REACTOR_COOLING_UPGRADE_ID && !this.shouldShowReactorCoolingShopUpgrade()) {
+      this.showPreGameShop("REACTOR COOLING OFFLINE");
+      return;
+    }
     if (level >= currentCap) {
       const requirement = this.getNextBaseCalibrationCapRequirement(currentCap, this.depthRelayState);
       const requirementLabel = this.getBaseCalibrationRequirementLabel(requirement);
@@ -25662,7 +27103,11 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    this.shopState.upgrades[upgradeId] = level + 1;
+    if (upgradeId === REACTOR_COOLING_UPGRADE_ID) {
+      this.shopState[REACTOR_COOLING_CONFIG.storageKey] = level + 1;
+    } else {
+      this.shopState.upgrades[upgradeId] = level + 1;
+    }
     this.saveShopState();
     this.rebuildStartingStats();
     this.showPreGameShop(`${definition.title} Lv.${level + 1} に強化`);
@@ -29361,12 +30806,14 @@ class SurvivalScene extends Phaser.Scene {
 
   initializeOverflowRewardState() {
     this.passiveLevels = {};
+    this.acEvasionPassiveStartLevelApplied = false;
     this.overflowRewardState = {
       overdriveGauge: 0,
       overdriveRemainingMs: 0,
       stabilizeGauge: 0,
       stabilizeCharges: 0
     };
+    this.applyAcEvasionPassiveDebugStartLevel?.("initializeOverflowRewardState");
   }
 
   ensureOverflowRewardState() {
@@ -31995,6 +33442,13 @@ class SurvivalScene extends Phaser.Scene {
     return Math.max(0, Math.floor(Number(this.passiveLevels?.[passiveId]) || 0));
   }
 
+  getPassiveMaxLevel(passiveId) {
+    if (passiveId === EVASIVE_FIRMWARE_PASSIVE_ID) {
+      return this.getEvasiveFirmwareMaxLevel();
+    }
+    return LEVEL_UP_PASSIVE_MAX_LEVEL;
+  }
+
   incrementPassiveLevel(passiveId) {
     if (!passiveId) {
       return 0;
@@ -32002,13 +33456,13 @@ class SurvivalScene extends Phaser.Scene {
     if (!this.passiveLevels) {
       this.passiveLevels = {};
     }
-    const nextLevel = Math.min(LEVEL_UP_PASSIVE_MAX_LEVEL, this.getPassiveLevel(passiveId) + 1);
+    const nextLevel = Math.min(this.getPassiveMaxLevel(passiveId), this.getPassiveLevel(passiveId) + 1);
     this.passiveLevels[passiveId] = nextLevel;
     return nextLevel;
   }
 
   isPassiveUpgradeAvailable(passiveId) {
-    return this.getPassiveLevel(passiveId) < LEVEL_UP_PASSIVE_MAX_LEVEL;
+    return this.getPassiveLevel(passiveId) < this.getPassiveMaxLevel(passiveId);
   }
 
   buildPassiveUpgradeChoice(choice) {
@@ -32016,14 +33470,15 @@ class SurvivalScene extends Phaser.Scene {
       return null;
     }
 
-    const currentLevel = this.getPassiveLevel(choice.id);
-    const nextLevel = currentLevel + 1;
+    const maxLevel = Math.max(1, Math.floor(Number(choice.maxLevel) || this.getPassiveMaxLevel(choice.id)));
+    const currentLevel = Math.min(maxLevel, this.getPassiveLevel(choice.id));
+    const nextLevel = Math.min(maxLevel, currentLevel + 1);
     return {
       ...choice,
       baseTitle: choice.title,
       currentLevel,
       nextLevel,
-      maxLevel: LEVEL_UP_PASSIVE_MAX_LEVEL,
+      maxLevel,
       title: `${choice.title} Lv.${nextLevel}`,
       description: `${choice.description} / Lv.${currentLevel}->${nextLevel}`,
       onSelect: () => {
@@ -36777,6 +38232,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   createPlayer() {
+    this.cleanupAcMovementVisuals("createPlayer");
     const playBounds = this.getStagePlayBounds(this.currentStage);
     const worldBounds = this.getStageWorldBounds(this.currentStage);
     const debugStart = this.getStageDebugStartOverride(worldBounds);
@@ -36854,7 +38310,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   isDepth10HumanPlayerVisualActive() {
-    return Math.floor(Number(this.stageDepth) || 1) === PLAYER_HUMAN_VISUAL_DEPTH;
+    return Boolean(
+      Math.floor(Number(this.stageDepth) || 1) === PLAYER_HUMAN_VISUAL_DEPTH &&
+      this.isFinalBossRaidActive?.()
+    );
   }
 
   getPlayerHumanTextureKey(moving = false) {
@@ -36944,13 +38403,13 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
-  setPlayerRobotPose(directionKey, moving) {
+  setPlayerRobotPose(directionKey, moving, boostPoseActive = moving) {
     if (!this.playerSprite) {
       return;
     }
 
     const useHumanVisual = this.isDepth10HumanPlayerVisualActive();
-    const textureKey = this.getPlayerVisualTextureKey(directionKey, moving);
+    const textureKey = this.getPlayerVisualTextureKey(directionKey, useHumanVisual ? moving : boostPoseActive);
     if (this.playerSprite.texture?.key !== textureKey) {
       this.playerSprite.setTexture(textureKey);
       this.scalePlayerRobotSprite();
@@ -36967,7 +38426,7 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
-  updatePlayerRobotMotion(delta, direction, isMoving, isDashing) {
+  updatePlayerRobotMotion(delta, direction, isMoving, isDashing, forceDirectionUpdate = false, boostPoseActive = isMoving) {
     if (!this.playerRobotMotion) {
       this.playerRobotMotion = {
         directionKey: "down",
@@ -36985,8 +38444,9 @@ class SurvivalScene extends Phaser.Scene {
     motion.hoverMs += delta;
     motion.isMoving = isMoving;
     motion.isDashing = isDashing;
+    motion.boostPoseActive = boostPoseActive;
 
-    if (isMoving && Number.isFinite(direction?.x) && Number.isFinite(direction?.y)) {
+    if ((isMoving || forceDirectionUpdate) && Number.isFinite(direction?.x) && Number.isFinite(direction?.y)) {
       const angle = Math.atan2(direction.y, direction.x);
       motion.angle = angle;
       motion.directionKey = this.getPlayerRobotDirectionKeyForAngle(angle);
@@ -37007,7 +38467,7 @@ class SurvivalScene extends Phaser.Scene {
     motion.lift = Phaser.Math.Linear(motion.lift || 0, targetLift, 0.18);
     motion.shadowScale = Phaser.Math.Linear(motion.shadowScale || 1, targetShadowScale, 0.16);
 
-    this.setPlayerRobotPose(motion.directionKey, isMoving);
+    this.setPlayerRobotPose(motion.directionKey, isMoving, boostPoseActive);
   }
 
   updatePlayerRobotBoostVisuals(delta = 0) {
@@ -37023,15 +38483,30 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    const moving = Boolean(motion.isMoving);
-    const dashing = Boolean(motion.isDashing);
+    const acVisualActive = Boolean(this.shouldUseAcMovement?.() && this.isAcV3MovementPreset?.());
+    const acState = acVisualActive ? this.ensureAcMovementState() : null;
+    const thrusterState = acState?.thrusterVisualState || "";
+    const acStrongBoostVisual = acVisualActive && this.isAcStrongBoostVisualActive?.(acState);
+    if (acVisualActive && !acStrongBoostVisual) {
+      this.playerBoosterGlow?.setAlpha(0);
+      this.playerBoosterCore?.setAlpha(0);
+      (this.playerBoosterStreaks || []).forEach((streak) => streak?.setAlpha(0));
+      return;
+    }
+
+    const moving = Boolean(motion.isMoving) || acStrongBoostVisual;
+    const dashing = Boolean(motion.isDashing) || acStrongBoostVisual;
+    const heatActive = acVisualActive && (acState?.heat?.state === AC_HEAT_STATE.OVERHEAT || thrusterState === AC_THRUSTER_STATE.OVERHEAT);
     const angle = Number.isFinite(motion.angle) ? motion.angle : (this.playerAimAngle || Math.PI * 0.5);
     const backAngle = angle + Math.PI;
     const sideAngle = backAngle + Math.PI * 0.5;
     const now = this.time?.now || 0;
     const pulse = (Math.sin(now / (dashing ? 42 : 68)) + 1) * 0.5;
-    const intensity = moving ? (dashing ? 1 : 0.72) : 0.18;
-    const backDistance = moving ? (dashing ? 78 : 64) : 48;
+    let intensity = moving ? (dashing ? 1 : 0.72) : 0.18;
+    if (acVisualActive) {
+      intensity = Phaser.Math.Linear(0.98, 1.42, this.getAcQuickBoostVisualIntensity?.(acState) || 1);
+    }
+    const backDistance = moving ? (dashing ? 84 : (acVisualActive ? 68 : 64)) : 48;
     const baseX = this.playerHitbox.x + Math.cos(backAngle) * backDistance;
     const baseY = (this.playerSprite?.y ?? this.playerHitbox.y + PLAYER_SPRITE_OFFSET_Y) + Math.sin(backAngle) * backDistance * 0.72 + 8;
     const glowAlpha = moving ? 0.26 + intensity * 0.34 + pulse * 0.08 : 0.1 + pulse * 0.04;
@@ -37040,12 +38515,13 @@ class SurvivalScene extends Phaser.Scene {
       ?.setPosition(baseX, baseY)
       .setRotation(backAngle)
       .setScale(0.52 + intensity * 0.36, 0.34 + intensity * 0.18)
-      .setTint(dashing ? 0xd8f7ff : 0xb66dff)
+      .setTint(heatActive ? 0xff7a24 : (dashing ? 0xd8f7ff : 0xb66dff))
       .setAlpha(glowAlpha);
     this.playerBoosterCore
       ?.setPosition(baseX + Math.cos(backAngle) * 10, baseY + Math.sin(backAngle) * 8)
       .setRotation(backAngle)
       .setScale(0.28 + intensity * 0.18, 0.16 + intensity * 0.08)
+      .setTint(heatActive ? 0xffd18a : 0xf6f0ff)
       .setAlpha(moving ? 0.22 + intensity * 0.24 : 0.06);
 
     (this.playerBoosterStreaks || []).forEach((streak, index) => {
@@ -37057,6 +38533,7 @@ class SurvivalScene extends Phaser.Scene {
         .setPosition(x, y)
         .setRotation(backAngle)
         .setScale((0.38 + index * 0.08) * (0.9 + intensity * 0.7), 0.045 + intensity * 0.055)
+        .setTint(heatActive ? (index === 1 ? 0xffd18a : 0xff7a24) : (index === 1 ? 0xffffff : 0x9be8ff))
         .setAlpha(moving ? (0.18 + intensity * 0.34) * (1 - index * 0.12) : 0.03);
     });
   }
@@ -37066,16 +38543,7 @@ class SurvivalScene extends Phaser.Scene {
     const startY = this.playerHitbox.y - 56;
     this.robotState.x = startX;
     this.robotState.y = startY;
-    const fieldPoint = this.getRecoveryFieldGroundPoint();
-
-    this.robotRecoveryField = this.add
-      .image(fieldPoint.x, fieldPoint.y, this.getRecoveryFieldTextureKey())
-      .setOrigin(0.5, 0.5)
-      .setDepth(this.getRecoveryFieldVisualDepth())
-      .setAlpha(RECOVERY_FIELD_VISUAL_CONFIG.alphaMin)
-      .setAngle(0)
-      .setRotation(0)
-      .setBlendMode(Phaser.BlendModes.NORMAL);
+    this.robotRecoveryField = null;
 
     this.robotShadow = this.add
       .ellipse(startX, startY + 42, 58, 16, 0x000000, 0.24)
@@ -37096,7 +38564,6 @@ class SurvivalScene extends Phaser.Scene {
 
     this.robotEffectsLayer.add(this.robotMuzzleGlow);
     this.updateRobotVisualLevel(true);
-    this.updateRobotRecoveryFieldVisual(0);
     this.updateRobotBarrierVisual(0);
   }
 
@@ -37171,34 +38638,22 @@ class SurvivalScene extends Phaser.Scene {
 
   getRecoveryFieldAssetLevel(level = this.robotState?.healLevel || 1) {
     const normalizedLevel = Phaser.Math.Clamp(Math.floor(Number(level) || 1), 1, ROBOT_MAX_LEVEL);
-    if (normalizedLevel <= ROBOT_BASE_MAX_LEVEL) {
-      return normalizedLevel;
+    if (normalizedLevel <= 2) {
+      return 1;
     }
-    if (normalizedLevel <= 14) {
-      return 11;
-    }
-    if (normalizedLevel <= 19) {
-      return 15;
-    }
-    return 20;
+    return Math.min(ROBOT_MAX_LEVEL, Math.ceil(normalizedLevel / 2) * 2);
   }
 
   getRecoveryFieldAssetForLevel(level = this.robotState?.healLevel || 1) {
     const preferredLevel = this.getRecoveryFieldAssetLevel(level);
-    const fallbackLevels = [preferredLevel];
-    if (preferredLevel >= 20) {
-      fallbackLevels.push(15, 11, 10);
-    } else if (preferredLevel >= 15) {
-      fallbackLevels.push(11, 10);
-    } else if (preferredLevel >= 11) {
-      fallbackLevels.push(10);
-    }
-
-    const lowLevelStart = Math.min(preferredLevel, ROBOT_BASE_MAX_LEVEL);
-    for (let candidateLevel = lowLevelStart; candidateLevel >= 1; candidateLevel -= 1) {
-      fallbackLevels.push(candidateLevel);
-    }
-
+    const fallbackLevels = [
+      ...ROBOT_RECOVERY_FIELD_ASSET_LEVELS
+        .filter((candidateLevel) => candidateLevel <= preferredLevel)
+        .sort((a, b) => b - a),
+      ...ROBOT_RECOVERY_FIELD_ASSET_LEVELS
+        .filter((candidateLevel) => candidateLevel > preferredLevel)
+        .sort((a, b) => a - b)
+    ];
     const uniqueLevels = [...new Set(fallbackLevels)];
     for (const candidateLevel of uniqueLevels) {
       const asset = ROBOT_IMAGE_ASSETS.recoveryFields.find((entry) => entry?.textureKey === `robot-recovery-field-${candidateLevel}`);
@@ -37222,81 +38677,6 @@ class SurvivalScene extends Phaser.Scene {
     return this.getRecoveryFieldTextureKey(level);
   }
 
-  getRecoveryFieldPlayerMode() {
-    if (this.isFinalBossRaidActive?.()) {
-      return "finalRaid";
-    }
-    return this.isDepth10HumanPlayerVisualActive?.() ? "human" : "robot";
-  }
-
-  getRecoveryFieldGroundPoint() {
-    const x = this.playerHitbox?.x ?? this.playerSprite?.x ?? GAME_WIDTH / 2;
-    const mode = this.getRecoveryFieldPlayerMode();
-    const offsetConfig = RECOVERY_FIELD_VISUAL_CONFIG.groundOffsets[mode]
-      || RECOVERY_FIELD_VISUAL_CONFIG.groundOffsets.robot;
-    const spriteHeight = Math.max(
-      this.playerSprite?.displayHeight || (mode === "robot" ? PLAYER_ROBOT_DISPLAY_HEIGHT : PLAYER_FALLBACK_DISPLAY_HEIGHT),
-      1
-    );
-    const spriteY = this.playerSprite?.y ?? ((this.playerHitbox?.y ?? GAME_HEIGHT / 2) + PLAYER_SPRITE_OFFSET_Y);
-    const offsetY = Phaser.Math.Clamp(
-      spriteHeight * offsetConfig.ratio,
-      offsetConfig.min,
-      offsetConfig.max
-    );
-    return { x, y: spriteY + offsetY };
-  }
-
-  getRecoveryFieldVisualDepth() {
-    const baseDepth = RECOVERY_FIELD_VISUAL_CONFIG.baseDepth;
-    const playerDepth = Number(this.playerSprite?.depth);
-    if (!Number.isFinite(playerDepth)) {
-      return baseDepth;
-    }
-    return Math.min(baseDepth, playerDepth - RECOVERY_FIELD_VISUAL_CONFIG.depthOffsetFromPlayer);
-  }
-
-  getRecoveryFieldVisualScale(level = this.robotState?.healLevel || 1) {
-    const normalizedLevel = Phaser.Math.Clamp(Math.floor(Number(level) || 1), 1, ROBOT_MAX_LEVEL);
-    const widths = RECOVERY_FIELD_VISUAL_CONFIG.widths;
-    const baseWidth = Math.max(widths.lv1 || 1, 1);
-    if (normalizedLevel <= ROBOT_BASE_MAX_LEVEL) {
-      const progress = ROBOT_BASE_MAX_LEVEL <= 1 ? 0 : (normalizedLevel - 1) / (ROBOT_BASE_MAX_LEVEL - 1);
-      return Phaser.Math.Linear(widths.lv1, widths.lv10, progress) / baseWidth;
-    }
-    if (normalizedLevel <= 14) {
-      return widths.lv11 / baseWidth;
-    }
-    if (normalizedLevel <= 19) {
-      return widths.lv15 / baseWidth;
-    }
-    return widths.lv20 / baseWidth;
-  }
-
-  getRecoveryFieldVisualWidth(level = this.robotState?.healLevel || 1) {
-    return Math.round(RECOVERY_FIELD_VISUAL_CONFIG.widths.lv1 * this.getRecoveryFieldVisualScale(level));
-  }
-
-  getRecoveryFieldVisualAspectRatio(level = this.robotState?.healLevel || 1, textureKey = this.getRecoveryFieldTextureKey(level)) {
-    const match = String(textureKey || "").match(/robot-recovery-field-(\d+)/);
-    const assetLevel = match ? Number(match[1]) : this.getRecoveryFieldAssetLevel(level);
-    return assetLevel <= ROBOT_BASE_MAX_LEVEL
-      ? RECOVERY_FIELD_VISUAL_CONFIG.aspectRatios.base
-      : RECOVERY_FIELD_VISUAL_CONFIG.aspectRatios.extended;
-  }
-
-  getRecoveryFieldDisplaySize(level = this.robotState?.healLevel || 1, pulseScale = 1, textureKey = this.getRecoveryFieldTextureKey(level)) {
-    const width = this.getRecoveryFieldVisualWidth(level) * pulseScale;
-    return {
-      width,
-      height: width * this.getRecoveryFieldVisualAspectRatio(level, textureKey)
-    };
-  }
-
-  getRecoveryFieldVisualLongestSide(level = this.robotState?.healLevel || 1) {
-    return this.getRecoveryFieldVisualWidth(level);
-  }
-
   isRecoveryFieldScaleDebugEnabled() {
     try {
       return new URLSearchParams(window.location.search).get(RECOVERY_FIELD_DEBUG_QUERY_PARAM) === "1";
@@ -37305,70 +38685,37 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
-  logRecoveryFieldScaleDebug(details, force = false) {
+  logRecoveryFieldHudIconDebug(details, force = false) {
     if (!this.isRecoveryFieldScaleDebugEnabled()) {
       return;
     }
     const now = this.time?.now || 0;
     const signature = [
+      details.hud,
       details.level,
       details.textureKey,
-      Math.round(details.displayWidth),
-      Math.round(details.displayHeight),
-      details.playerMode
+      Math.round(details.displayWidth || 0),
+      Math.round(details.displayHeight || 0)
     ].join(":");
-    if (!force && now - (this.recoveryFieldDebugLastLogAt || 0) < RECOVERY_FIELD_VISUAL_CONFIG.debugLogIntervalMs) {
+    if (!force && now - (this.recoveryFieldDebugLastLogAt || 0) < RECOVERY_FIELD_HUD_ICON_CONFIG.debugLogIntervalMs) {
       return;
     }
     this.recoveryFieldDebugSignature = signature;
     this.recoveryFieldDebugLastLogAt = now;
-    console.log("[RECOVERY FIELD SCALE]", JSON.stringify(details));
+    console.log("[RECOVERY FIELD HUD]", JSON.stringify(details));
   }
 
-  applyRecoveryFieldVisual(delta = 0) {
-    if (!this.robotRecoveryField || !this.robotState || !this.playerHitbox) {
+  destroyRecoveryFieldGroundVisual() {
+    if (!this.robotRecoveryField) {
       return;
     }
+    this.tweens?.killTweensOf?.(this.robotRecoveryField);
+    this.robotRecoveryField.destroy?.();
+    this.robotRecoveryField = null;
+  }
 
-    const level = this.robotState?.healLevel || 1;
-    const textureKey = this.getRecoveryFieldTextureKey(level);
-    const textureChanged = this.robotRecoveryField.texture?.key !== textureKey;
-    if (textureChanged) {
-      this.robotRecoveryField.setTexture(textureKey);
-    }
-
-    const pulse = (Math.sin(this.robotState.bobTimer * 1.3) + 1) * 0.5;
-    const syncActive = this.isRobotSyncActive();
-    const alphaMin = syncActive ? RECOVERY_FIELD_VISUAL_CONFIG.syncAlphaMin : RECOVERY_FIELD_VISUAL_CONFIG.alphaMin;
-    const alphaMax = syncActive ? RECOVERY_FIELD_VISUAL_CONFIG.syncAlphaMax : RECOVERY_FIELD_VISUAL_CONFIG.alphaMax;
-    const alpha = Phaser.Math.Linear(alphaMin, alphaMax, pulse);
-    const pulseScale = Phaser.Math.Linear(1, RECOVERY_FIELD_VISUAL_CONFIG.pulseScaleMax, pulse);
-    const groundPoint = this.getRecoveryFieldGroundPoint();
-    const size = this.getRecoveryFieldDisplaySize(level, pulseScale, textureKey);
-    const depth = this.getRecoveryFieldVisualDepth();
-
-    this.robotRecoveryField
-      .setOrigin(0.5, 0.5)
-      .setPosition(groundPoint.x, groundPoint.y)
-      .setDepth(depth)
-      .setAlpha(alpha)
-      .setTint(syncActive ? 0xdffcff : 0xffffff)
-      .setAngle(0)
-      .setRotation(0)
-      .setBlendMode(Phaser.BlendModes.NORMAL)
-      .setDisplaySize(size.width, size.height);
-
-    this.logRecoveryFieldScaleDebug({
-      level,
-      textureKey,
-      displayWidth: Number(this.robotRecoveryField.displayWidth.toFixed(2)),
-      displayHeight: Number(this.robotRecoveryField.displayHeight.toFixed(2)),
-      alpha: Number(this.robotRecoveryField.alpha.toFixed(3)),
-      angle: Number(this.robotRecoveryField.angle.toFixed(3)),
-      rotation: Number(this.robotRecoveryField.rotation.toFixed(4)),
-      depth: this.robotRecoveryField.depth,
-      playerMode: this.getRecoveryFieldPlayerMode()
-    }, textureChanged || delta === 0);
+  applyRecoveryFieldVisual() {
+    this.destroyRecoveryFieldGroundVisual();
   }
 
   getRobotImageAssetForLevel(assetList, level) {
@@ -37420,10 +38767,6 @@ class SurvivalScene extends Phaser.Scene {
       this.scaleWorldImageToFit(this.robotSprite, Math.min(124, 72 + visualLevel * 3.4));
     }
 
-    if (this.robotRecoveryField) {
-      this.robotRecoveryField.setTexture(this.getRecoveryFieldTextureKey(this.robotState.healLevel));
-      this.applyRecoveryFieldVisual(0);
-    }
   }
 
   getRobotSubsystemXpRequirement(type, level = 1) {
@@ -38513,6 +39856,5055 @@ class SurvivalScene extends Phaser.Scene {
     return this.mobileMoveVector || { x: 0, y: 0 };
   }
 
+  createAcContinuousBoostState(direction = AC_MOVEMENT_CONFIG.defaultLastMoveDirection) {
+    const directionX = Number.isFinite(direction?.x) ? direction.x : AC_MOVEMENT_CONFIG.defaultLastMoveDirection.x;
+    const directionY = Number.isFinite(direction?.y) ? direction.y : AC_MOVEMENT_CONFIG.defaultLastMoveDirection.y;
+    const directionLength = Math.hypot(directionX, directionY) || 1;
+    return {
+      active: false,
+      startedAt: 0,
+      heldMs: 0,
+      releasedAt: 0,
+      endedAt: 0,
+      endReason: AC_QUICK_BOOST_END_REASON.NONE,
+      consumedEnergy: 0,
+      drainPerSecond: 0,
+      terminalSpeed: 0,
+      rampRatio: 0,
+      timeToEmptyMs: 0,
+      direction: {
+        x: directionX / directionLength,
+        y: directionY / directionLength
+      }
+    };
+  }
+
+  createAcMovementLeanState() {
+    return {
+      mode: "IDLE",
+      forwardDot: 0,
+      sideDot: 0,
+      angle: 0,
+      offset: 0,
+      offsetX: 0,
+      offsetY: 0,
+      movementAngle: 0,
+      facingAngle: 0
+    };
+  }
+
+  createAcFullOverheatState() {
+    return {
+      active: false,
+      startedAt: 0,
+      endedAt: 0,
+      reason: AC_QUICK_BOOST_END_REASON.NONE,
+      requiresFullRecharge: false,
+      fullRechargeReached: false,
+      regenMultiplier: 1,
+      regenDelayUntil: 0,
+      minimumVisualUntil: 0,
+      recoveryProgress: 1
+    };
+  }
+
+  createAcVariableQuickBoostState(direction = AC_MOVEMENT_CONFIG.defaultLastMoveDirection) {
+    const directionX = Number.isFinite(direction?.x) ? direction.x : AC_MOVEMENT_CONFIG.defaultLastMoveDirection.x;
+    const directionY = Number.isFinite(direction?.y) ? direction.y : AC_MOVEMENT_CONFIG.defaultLastMoveDirection.y;
+    const directionLength = Math.hypot(directionX, directionY) || 1;
+    return {
+      active: false,
+      holdStartedAt: 0,
+      holdEndedAt: 0,
+      holdMs: 0,
+      holdRatio: 0,
+      rawHoldRatio: 0,
+      smoothedHoldRatio: 0,
+      effectiveRatio: 0,
+      powerRatio: 0,
+      speedRatio: 0,
+      costRatio: 0,
+      visualRatio: 0,
+      glideRatio: 0,
+      consumedCost: 0,
+      targetCost: 0,
+      maxCost: 0,
+      minCost: 0,
+      maxHoldMs: 0,
+      maxHoldRemainingMs: 0,
+      postBoostGlideDurationMs: 0,
+      direction: {
+        x: directionX / directionLength,
+        y: directionY / directionLength
+      },
+      released: false,
+      endedByMaxHold: false,
+      endedByLowEn: false,
+      endReason: AC_QUICK_BOOST_END_REASON.NONE
+    };
+  }
+
+  createAcAirBrakeState(direction = AC_MOVEMENT_CONFIG.defaultLastMoveDirection) {
+    const directionX = Number.isFinite(direction?.x) ? direction.x : AC_MOVEMENT_CONFIG.defaultLastMoveDirection.x;
+    const directionY = Number.isFinite(direction?.y) ? direction.y : AC_MOVEMENT_CONFIG.defaultLastMoveDirection.y;
+    const directionLength = Math.hypot(directionX, directionY) || 1;
+    return {
+      active: false,
+      startedAt: 0,
+      until: 0,
+      cooldownUntil: 0,
+      inputOpposeStartedAt: 0,
+      lastTriggerAt: 0,
+      lastOpposingDot: 1,
+      lastBlockReason: AC_AIR_BRAKE_REASON.DISABLED,
+      direction: {
+        x: directionX / directionLength,
+        y: directionY / directionLength
+      },
+      velocityBefore: { x: 0, y: 0 },
+      speedBefore: 0,
+      speedCurrent: 0,
+      targetSpeed: 0,
+      targetSpeedRatio: 0,
+      strength: 0,
+      regenBlockedUntil: 0,
+      durationRemainingMs: 0,
+      endReason: "NONE"
+    };
+  }
+
+  normalizeAcAirBrakeState(airBrake, direction = AC_MOVEMENT_CONFIG.defaultLastMoveDirection) {
+    const state = airBrake && typeof airBrake === "object"
+      ? airBrake
+      : this.createAcAirBrakeState(direction);
+    state.active = Boolean(state.active);
+    state.startedAt = Number.isFinite(state.startedAt) ? Math.max(0, state.startedAt) : 0;
+    state.until = Number.isFinite(state.until) ? Math.max(0, state.until) : 0;
+    state.cooldownUntil = Number.isFinite(state.cooldownUntil) ? Math.max(0, state.cooldownUntil) : 0;
+    state.inputOpposeStartedAt = Number.isFinite(state.inputOpposeStartedAt)
+      ? Math.max(0, state.inputOpposeStartedAt)
+      : 0;
+    state.lastTriggerAt = Number.isFinite(state.lastTriggerAt) ? Math.max(0, state.lastTriggerAt) : 0;
+    state.lastOpposingDot = Number.isFinite(state.lastOpposingDot)
+      ? Phaser.Math.Clamp(state.lastOpposingDot, -1, 1)
+      : 1;
+    state.lastBlockReason = typeof state.lastBlockReason === "string"
+      ? state.lastBlockReason
+      : AC_AIR_BRAKE_REASON.DISABLED;
+    if (!state.direction || typeof state.direction !== "object") {
+      state.direction = { ...direction };
+    }
+    const directionX = Number.isFinite(state.direction.x) ? state.direction.x : Number(direction?.x) || 0;
+    const directionY = Number.isFinite(state.direction.y) ? state.direction.y : Number(direction?.y) || 1;
+    const directionLength = Math.hypot(directionX, directionY) || 1;
+    state.direction.x = directionX / directionLength;
+    state.direction.y = directionY / directionLength;
+    if (!state.velocityBefore || typeof state.velocityBefore !== "object") {
+      state.velocityBefore = { x: 0, y: 0 };
+    }
+    state.velocityBefore.x = Number.isFinite(state.velocityBefore.x) ? state.velocityBefore.x : 0;
+    state.velocityBefore.y = Number.isFinite(state.velocityBefore.y) ? state.velocityBefore.y : 0;
+    state.speedBefore = Number.isFinite(state.speedBefore) ? Math.max(0, state.speedBefore) : 0;
+    state.speedCurrent = Number.isFinite(state.speedCurrent) ? Math.max(0, state.speedCurrent) : 0;
+    state.targetSpeed = Number.isFinite(state.targetSpeed) ? Math.max(0, state.targetSpeed) : 0;
+    state.targetSpeedRatio = Number.isFinite(state.targetSpeedRatio)
+      ? Phaser.Math.Clamp(state.targetSpeedRatio, 0, 1)
+      : 0;
+    state.strength = Number.isFinite(state.strength) ? Phaser.Math.Clamp(state.strength, 0, 1) : 0;
+    state.regenBlockedUntil = Number.isFinite(state.regenBlockedUntil) ? Math.max(0, state.regenBlockedUntil) : 0;
+    state.durationRemainingMs = Number.isFinite(state.durationRemainingMs) ? Math.max(0, state.durationRemainingMs) : 0;
+    state.endReason = typeof state.endReason === "string" ? state.endReason : "NONE";
+    return state;
+  }
+
+  createAcEvadeWindowState() {
+    return {
+      active: false,
+      startedAt: 0,
+      until: 0,
+      durationMs: 0,
+      source: "NONE",
+      lastReason: "NONE",
+      triggeredThisBoost: false,
+      negatedDamageCount: 0,
+      lastNegatedAt: 0,
+      lastNegatedSource: "NONE",
+      lastNegatedAmount: 0,
+      ringGraphics: null,
+      shieldGraphics: null,
+      textObjects: [],
+      activeTweens: []
+    };
+  }
+
+  normalizeAcEvadeWindowState(evadeWindow) {
+    const state = evadeWindow && typeof evadeWindow === "object"
+      ? evadeWindow
+      : this.createAcEvadeWindowState();
+    state.active = Boolean(state.active);
+    state.startedAt = Number.isFinite(state.startedAt) ? Math.max(0, state.startedAt) : 0;
+    state.until = Number.isFinite(state.until) ? Math.max(0, state.until) : 0;
+    state.durationMs = Number.isFinite(state.durationMs) ? Math.max(0, state.durationMs) : 0;
+    state.source = typeof state.source === "string" ? state.source : "NONE";
+    state.lastReason = typeof state.lastReason === "string" ? state.lastReason : "NONE";
+    state.triggeredThisBoost = Boolean(state.triggeredThisBoost);
+    state.negatedDamageCount = Number.isFinite(state.negatedDamageCount)
+      ? Math.max(0, Math.floor(state.negatedDamageCount))
+      : 0;
+    state.lastNegatedAt = Number.isFinite(state.lastNegatedAt) ? Math.max(0, state.lastNegatedAt) : 0;
+    state.lastNegatedSource = typeof state.lastNegatedSource === "string" ? state.lastNegatedSource : "NONE";
+    state.lastNegatedAmount = Number.isFinite(state.lastNegatedAmount) ? Math.max(0, state.lastNegatedAmount) : 0;
+    state.ringGraphics = state.ringGraphics || null;
+    state.shieldGraphics = state.shieldGraphics || null;
+    state.textObjects = Array.isArray(state.textObjects) ? state.textObjects : [];
+    state.activeTweens = Array.isArray(state.activeTweens) ? state.activeTweens : [];
+    return state;
+  }
+
+  createAcTargetFireState() {
+    return {
+      enabled: false,
+      active: false,
+      lastBurstAt: 0,
+      nextShotAt: 0,
+      burstShotIndex: 0,
+      burstCount: 0,
+      target: null,
+      targetId: "",
+      lastTargetAt: 0,
+      lastMuzzleSide: 1,
+      activeTracers: [],
+      activeImpacts: [],
+      activeMuzzles: [],
+      activeTweens: [],
+      suppressedReason: AC_TARGET_FIRE_SUPPRESSION_REASON.NONE,
+      mode: AC_TARGET_FIRE_MODE.OFF,
+      style: "segmented",
+      palette: AC_TARGET_FIRE_PALETTE.AMBER,
+      currentSpreadDeg: 0,
+      lastTracerTravelMs: 0,
+      segmentRatio: 0,
+      tracerCoreWidth: 0,
+      tracerGlowWidth: 0,
+      tracerOuterGlowWidth: 0,
+      tracerCoreAlpha: 0,
+      tracerGlowAlpha: 0,
+      tracerOuterGlowAlpha: 0,
+      shotIntervalMs: 0,
+      muzzleOffsetSide: 0
+    };
+  }
+
+  normalizeAcTargetFireState(targetFire) {
+    const state = targetFire && typeof targetFire === "object"
+      ? targetFire
+      : this.createAcTargetFireState();
+    state.enabled = Boolean(state.enabled);
+    state.active = Boolean(state.active);
+    state.lastBurstAt = Number.isFinite(state.lastBurstAt) ? Math.max(0, state.lastBurstAt) : 0;
+    state.nextShotAt = Number.isFinite(state.nextShotAt) ? Math.max(0, state.nextShotAt) : 0;
+    state.burstShotIndex = Number.isFinite(state.burstShotIndex) ? Math.max(0, Math.floor(state.burstShotIndex)) : 0;
+    state.burstCount = Number.isFinite(state.burstCount) ? Math.max(0, Math.floor(state.burstCount)) : 0;
+    state.target = state.target || null;
+    state.targetId = typeof state.targetId === "string" ? state.targetId : "";
+    state.lastTargetAt = Number.isFinite(state.lastTargetAt) ? Math.max(0, state.lastTargetAt) : 0;
+    state.lastMuzzleSide = Number(state.lastMuzzleSide) < 0 ? -1 : 1;
+    state.activeTracers = Array.isArray(state.activeTracers) ? state.activeTracers : [];
+    state.activeImpacts = Array.isArray(state.activeImpacts) ? state.activeImpacts : [];
+    state.activeMuzzles = Array.isArray(state.activeMuzzles) ? state.activeMuzzles : [];
+    state.activeTweens = Array.isArray(state.activeTweens) ? state.activeTweens : [];
+    state.suppressedReason = typeof state.suppressedReason === "string"
+      ? state.suppressedReason
+      : AC_TARGET_FIRE_SUPPRESSION_REASON.NONE;
+    state.mode = typeof state.mode === "string" ? state.mode : AC_TARGET_FIRE_MODE.OFF;
+    state.style = typeof state.style === "string" ? state.style : "segmented";
+    state.palette = typeof state.palette === "string" ? state.palette : AC_TARGET_FIRE_PALETTE.AMBER;
+    state.currentSpreadDeg = Number.isFinite(state.currentSpreadDeg) ? Math.max(0, state.currentSpreadDeg) : 0;
+    state.lastTracerTravelMs = Number.isFinite(state.lastTracerTravelMs) ? Math.max(0, state.lastTracerTravelMs) : 0;
+    state.segmentRatio = Number.isFinite(state.segmentRatio) ? Phaser.Math.Clamp(state.segmentRatio, 0, 1) : 0;
+    state.tracerCoreWidth = Number.isFinite(state.tracerCoreWidth) ? Math.max(0, state.tracerCoreWidth) : 0;
+    state.tracerGlowWidth = Number.isFinite(state.tracerGlowWidth) ? Math.max(0, state.tracerGlowWidth) : 0;
+    state.tracerOuterGlowWidth = Number.isFinite(state.tracerOuterGlowWidth) ? Math.max(0, state.tracerOuterGlowWidth) : 0;
+    state.tracerCoreAlpha = Number.isFinite(state.tracerCoreAlpha) ? Phaser.Math.Clamp(state.tracerCoreAlpha, 0, 1) : 0;
+    state.tracerGlowAlpha = Number.isFinite(state.tracerGlowAlpha) ? Phaser.Math.Clamp(state.tracerGlowAlpha, 0, 1) : 0;
+    state.tracerOuterGlowAlpha = Number.isFinite(state.tracerOuterGlowAlpha) ? Phaser.Math.Clamp(state.tracerOuterGlowAlpha, 0, 1) : 0;
+    state.shotIntervalMs = Number.isFinite(state.shotIntervalMs) ? Math.max(0, state.shotIntervalMs) : 0;
+    state.muzzleOffsetSide = Number.isFinite(state.muzzleOffsetSide) ? Math.max(0, state.muzzleOffsetSide) : 0;
+    return state;
+  }
+
+  createAcQuickBoostSeState() {
+    return {
+      activeCount: 0,
+      lastPlayedAt: 0,
+      lastPan: 0,
+      lastScreenX: 0,
+      lastRatio: 0.5,
+      lastMode: "THREE_ZONE",
+      lastZone: "CENTER",
+      lastKey: "",
+      lastRuntimePanEnabled: false,
+      lastReason: "NONE",
+      panSupported: false,
+      activeSounds: []
+    };
+  }
+
+  initializeAcMovementState() {
+    const defaultDirection = AC_MOVEMENT_CONFIG.defaultLastMoveDirection || { x: 0, y: 1 };
+    const directionX = Number.isFinite(defaultDirection.x) ? defaultDirection.x : 0;
+    const directionY = Number.isFinite(defaultDirection.y) ? defaultDirection.y : 1;
+    const directionLength = Math.hypot(directionX, directionY) || 1;
+    return {
+      velocity: { x: 0, y: 0 },
+      lastMoveDirection: {
+        x: directionX / directionLength,
+        y: directionY / directionLength
+      },
+      lastDashDown: false,
+      lastDashInput: {
+        isDown: false,
+        justPressed: false,
+        justReleased: false
+      },
+      lastInputVector: {
+        x: 0,
+        y: 0,
+        magnitude: 0,
+        normalizedX: 0,
+        normalizedY: 0,
+        hasInput: false
+      },
+      quickBoostUntil: 0,
+      cooldownUntil: 0,
+      quickBoostSe: this.createAcQuickBoostSeState(),
+      lastQuickBoostAt: 0,
+      lastQuickBoostAttemptAt: 0,
+      lastQuickBoostSuccessAt: 0,
+      lastQuickBoostEndAt: 0,
+      lastQuickBoostSpeed: 0,
+      postBoostGlideUntil: 0,
+      boostChainCount: 0,
+      lastQuickBoostFailAt: 0,
+      lastQuickBoostFailReason: "",
+      lastQuickBoostSucceeded: false,
+      lastAllowedSpeed: 0,
+      speedLimitMode: AC_MOVEMENT_CONFIG.glideMode,
+      steering: {
+        enabled: false,
+        mode: "NONE",
+        inputAccepted: false,
+        inputInfluence: 0,
+        velocityAngle: 0,
+        inputAngle: 0,
+        angleDelta: 0,
+        turnRateLimit: 0,
+        quickBoostHardLockRemainingMs: 0
+      },
+      thrusterVisualState: AC_THRUSTER_STATE.OFF,
+      visualMode: AC_LOCOMOTION_VISUAL_MODE.WALK_IDLE,
+      spriteMode: AC_SPRITE_MODE.WALK,
+      thrusterImageActive: false,
+      strongBoostVisualActive: false,
+      residualTrailActive: false,
+      heat: {
+        level: 0,
+        state: AC_HEAT_STATE.NORMAL,
+        warningUntil: 0,
+        overheatUntil: 0,
+        lastOverheatAt: 0,
+        lastHeatVentAt: 0,
+        lastReason: ""
+      },
+      boostRegenBlockedUntil: 0,
+      boostLockoutUntil: 0,
+      boostEmptyAt: 0,
+      boostLockoutReason: "",
+      mustReleaseDashBeforeBoost: false,
+      boostMode: AC_CONTINUOUS_BOOST_MODE.OFF,
+      quickBoostHardLockUntil: 0,
+      quickBoostDirection: {
+        x: directionX / directionLength,
+        y: directionY / directionLength
+      },
+      continuousBoost: this.createAcContinuousBoostState({
+        x: directionX / directionLength,
+        y: directionY / directionLength
+      }),
+      fullOverheat: this.createAcFullOverheatState(),
+      variableQuickBoost: this.createAcVariableQuickBoostState({
+        x: directionX / directionLength,
+        y: directionY / directionLength
+      }),
+      airBrake: this.createAcAirBrakeState({
+        x: directionX / directionLength,
+        y: directionY / directionLength
+      }),
+      evadeWindow: this.createAcEvadeWindowState(),
+      targetFire: this.createAcTargetFireState(),
+      facingDirection: {
+        x: directionX / directionLength,
+        y: directionY / directionLength
+      },
+      facingSource: "LAST",
+      acFacingTarget: null,
+      acFacingTargetId: "",
+      acFacingTargetType: "",
+      acFacingTargetDistance: 0,
+      acFacingTargetNextScanAt: 0,
+      acFacingTargetStickyUntil: 0,
+      movementLean: this.createAcMovementLeanState(),
+      mode: AC_MOVEMENT_CONFIG.glideMode,
+      visuals: this.initializeAcMovementVisualState()
+    };
+  }
+
+  resetAcMovementState(reason = "reset") {
+    this.cleanupAcMovementVisuals(reason);
+    this.destroyAcMovementDebugHud(reason);
+    this.acMovementState = this.initializeAcMovementState();
+    return this.acMovementState;
+  }
+
+  resetAcAirBrakeState(reason = "reset") {
+    const state = this.acMovementState;
+    if (!state) {
+      return;
+    }
+
+    const now = Math.max(0, Number(this.time?.now) || 0);
+    const airBrakeRegenBlockActive = now < (Number(state.airBrake?.regenBlockedUntil) || 0);
+    state.airBrake = this.createAcAirBrakeState(state.lastMoveDirection || AC_MOVEMENT_CONFIG.defaultLastMoveDirection);
+    if (airBrakeRegenBlockActive) {
+      state.boostRegenBlockedUntil = Math.min(Number(state.boostRegenBlockedUntil) || 0, now);
+      this.dashRegenBlockedUntil = Math.min(Number(this.dashRegenBlockedUntil) || 0, now);
+    }
+    if (
+      state.boostMode === AC_CONTINUOUS_BOOST_MODE.AIR_BRAKE ||
+      state.boostMode === AC_CONTINUOUS_BOOST_MODE.AIR_BRAKE_COOLDOWN
+    ) {
+      state.boostMode = AC_CONTINUOUS_BOOST_MODE.OFF;
+    }
+  }
+
+  ensureAcMovementState() {
+    if (!this.acMovementState || typeof this.acMovementState !== "object") {
+      return this.resetAcMovementState();
+    }
+
+    const state = this.acMovementState;
+    if (!state.velocity || typeof state.velocity !== "object") {
+      state.velocity = { x: 0, y: 0 };
+    }
+    state.velocity.x = Number.isFinite(state.velocity.x) ? state.velocity.x : 0;
+    state.velocity.y = Number.isFinite(state.velocity.y) ? state.velocity.y : 0;
+
+    if (!state.lastMoveDirection || typeof state.lastMoveDirection !== "object") {
+      state.lastMoveDirection = { ...AC_MOVEMENT_CONFIG.defaultLastMoveDirection };
+    }
+    const directionX = Number.isFinite(state.lastMoveDirection.x) ? state.lastMoveDirection.x : 0;
+    const directionY = Number.isFinite(state.lastMoveDirection.y) ? state.lastMoveDirection.y : 1;
+    const directionLength = Math.hypot(directionX, directionY) || 1;
+    state.lastMoveDirection.x = directionX / directionLength;
+    state.lastMoveDirection.y = directionY / directionLength;
+
+    state.lastDashDown = Boolean(state.lastDashDown);
+    if (!state.lastDashInput || typeof state.lastDashInput !== "object") {
+      state.lastDashInput = { isDown: false, justPressed: false, justReleased: false };
+    }
+    state.lastDashInput.isDown = Boolean(state.lastDashInput.isDown);
+    state.lastDashInput.justPressed = Boolean(state.lastDashInput.justPressed);
+    state.lastDashInput.justReleased = Boolean(state.lastDashInput.justReleased);
+    if (!state.lastInputVector || typeof state.lastInputVector !== "object") {
+      state.lastInputVector = { x: 0, y: 0, magnitude: 0, normalizedX: 0, normalizedY: 0, hasInput: false };
+    }
+    state.lastInputVector.x = Number.isFinite(state.lastInputVector.x) ? state.lastInputVector.x : 0;
+    state.lastInputVector.y = Number.isFinite(state.lastInputVector.y) ? state.lastInputVector.y : 0;
+    state.lastInputVector.magnitude = Number.isFinite(state.lastInputVector.magnitude) ? state.lastInputVector.magnitude : 0;
+    state.lastInputVector.normalizedX = Number.isFinite(state.lastInputVector.normalizedX) ? state.lastInputVector.normalizedX : 0;
+    state.lastInputVector.normalizedY = Number.isFinite(state.lastInputVector.normalizedY) ? state.lastInputVector.normalizedY : 0;
+    state.lastInputVector.hasInput = Boolean(state.lastInputVector.hasInput);
+    state.quickBoostUntil = Number.isFinite(state.quickBoostUntil) ? state.quickBoostUntil : 0;
+    state.cooldownUntil = Number.isFinite(state.cooldownUntil) ? state.cooldownUntil : 0;
+    if (!state.quickBoostSe || typeof state.quickBoostSe !== "object") {
+      state.quickBoostSe = this.createAcQuickBoostSeState();
+    }
+    state.quickBoostSe.activeCount = Number.isFinite(state.quickBoostSe.activeCount)
+      ? Math.max(0, Math.floor(state.quickBoostSe.activeCount))
+      : 0;
+    state.quickBoostSe.lastPlayedAt = Number.isFinite(state.quickBoostSe.lastPlayedAt)
+      ? Math.max(0, state.quickBoostSe.lastPlayedAt)
+      : 0;
+    state.quickBoostSe.lastPan = Number.isFinite(state.quickBoostSe.lastPan)
+      ? Phaser.Math.Clamp(state.quickBoostSe.lastPan, -1, 1)
+      : 0;
+    state.quickBoostSe.lastScreenX = Number.isFinite(state.quickBoostSe.lastScreenX)
+      ? state.quickBoostSe.lastScreenX
+      : 0;
+    state.quickBoostSe.lastRatio = Number.isFinite(state.quickBoostSe.lastRatio)
+      ? Phaser.Math.Clamp(state.quickBoostSe.lastRatio, 0, 1)
+      : 0.5;
+    state.quickBoostSe.lastMode = typeof state.quickBoostSe.lastMode === "string"
+      ? state.quickBoostSe.lastMode
+      : "THREE_ZONE";
+    state.quickBoostSe.lastZone = typeof state.quickBoostSe.lastZone === "string"
+      ? state.quickBoostSe.lastZone
+      : "CENTER";
+    state.quickBoostSe.lastKey = typeof state.quickBoostSe.lastKey === "string"
+      ? state.quickBoostSe.lastKey
+      : "";
+    state.quickBoostSe.lastRuntimePanEnabled = Boolean(state.quickBoostSe.lastRuntimePanEnabled);
+    state.quickBoostSe.lastReason = typeof state.quickBoostSe.lastReason === "string"
+      ? state.quickBoostSe.lastReason
+      : "NONE";
+    state.quickBoostSe.panSupported = Boolean(state.quickBoostSe.panSupported);
+    state.quickBoostSe.activeSounds = Array.isArray(state.quickBoostSe.activeSounds)
+      ? state.quickBoostSe.activeSounds.filter((sound) => sound && sound.isDestroyed !== true)
+      : [];
+    state.lastQuickBoostAt = Number.isFinite(state.lastQuickBoostAt) ? state.lastQuickBoostAt : 0;
+    state.lastQuickBoostAttemptAt = Number.isFinite(state.lastQuickBoostAttemptAt) ? state.lastQuickBoostAttemptAt : 0;
+    state.lastQuickBoostSuccessAt = Number.isFinite(state.lastQuickBoostSuccessAt) ? state.lastQuickBoostSuccessAt : 0;
+    state.lastQuickBoostEndAt = Number.isFinite(state.lastQuickBoostEndAt) ? state.lastQuickBoostEndAt : 0;
+    state.lastQuickBoostSpeed = Number.isFinite(state.lastQuickBoostSpeed) ? state.lastQuickBoostSpeed : 0;
+    state.postBoostGlideUntil = Number.isFinite(state.postBoostGlideUntil) ? state.postBoostGlideUntil : 0;
+    state.boostChainCount = Number.isFinite(state.boostChainCount) ? Math.max(0, Math.floor(state.boostChainCount)) : 0;
+    state.lastQuickBoostFailAt = Number.isFinite(state.lastQuickBoostFailAt) ? state.lastQuickBoostFailAt : 0;
+    state.lastQuickBoostFailReason = typeof state.lastQuickBoostFailReason === "string" ? state.lastQuickBoostFailReason : "";
+    state.lastQuickBoostSucceeded = Boolean(state.lastQuickBoostSucceeded);
+    state.lastAllowedSpeed = Number.isFinite(state.lastAllowedSpeed) ? Math.max(0, state.lastAllowedSpeed) : 0;
+    state.speedLimitMode = typeof state.speedLimitMode === "string" ? state.speedLimitMode : AC_MOVEMENT_CONFIG.glideMode;
+    if (!state.steering || typeof state.steering !== "object") {
+      state.steering = {};
+    }
+    state.steering.enabled = Boolean(state.steering.enabled);
+    state.steering.mode = typeof state.steering.mode === "string" ? state.steering.mode : "NONE";
+    state.steering.inputAccepted = Boolean(state.steering.inputAccepted);
+    state.steering.inputInfluence = Number.isFinite(state.steering.inputInfluence) ? Phaser.Math.Clamp(state.steering.inputInfluence, 0, 1) : 0;
+    state.steering.velocityAngle = Number.isFinite(state.steering.velocityAngle) ? state.steering.velocityAngle : 0;
+    state.steering.inputAngle = Number.isFinite(state.steering.inputAngle) ? state.steering.inputAngle : 0;
+    state.steering.angleDelta = Number.isFinite(state.steering.angleDelta) ? state.steering.angleDelta : 0;
+    state.steering.turnRateLimit = Number.isFinite(state.steering.turnRateLimit) ? Math.max(0, state.steering.turnRateLimit) : 0;
+    state.steering.quickBoostHardLockRemainingMs = Number.isFinite(state.steering.quickBoostHardLockRemainingMs)
+      ? Math.max(0, state.steering.quickBoostHardLockRemainingMs)
+      : 0;
+    state.thrusterVisualState = typeof state.thrusterVisualState === "string" ? state.thrusterVisualState : AC_THRUSTER_STATE.OFF;
+    if (!state.heat || typeof state.heat !== "object") {
+      state.heat = {
+        level: 0,
+        state: AC_HEAT_STATE.NORMAL,
+        warningUntil: 0,
+        overheatUntil: 0,
+        lastOverheatAt: 0,
+        lastHeatVentAt: 0,
+        lastReason: ""
+      };
+    }
+    state.heat.level = Number.isFinite(state.heat.level) ? Phaser.Math.Clamp(state.heat.level, 0, 100) : 0;
+    state.heat.state = typeof state.heat.state === "string" ? state.heat.state : AC_HEAT_STATE.NORMAL;
+    state.heat.warningUntil = Number.isFinite(state.heat.warningUntil) ? state.heat.warningUntil : 0;
+    state.heat.overheatUntil = Number.isFinite(state.heat.overheatUntil) ? state.heat.overheatUntil : 0;
+    state.heat.lastOverheatAt = Number.isFinite(state.heat.lastOverheatAt) ? state.heat.lastOverheatAt : 0;
+    state.heat.lastHeatVentAt = Number.isFinite(state.heat.lastHeatVentAt) ? state.heat.lastHeatVentAt : 0;
+    state.heat.lastReason = typeof state.heat.lastReason === "string" ? state.heat.lastReason : "";
+    state.boostRegenBlockedUntil = Number.isFinite(state.boostRegenBlockedUntil) ? state.boostRegenBlockedUntil : 0;
+    state.boostLockoutUntil = Number.isFinite(state.boostLockoutUntil) ? state.boostLockoutUntil : 0;
+    state.boostEmptyAt = Number.isFinite(state.boostEmptyAt) ? state.boostEmptyAt : 0;
+    state.boostLockoutReason = typeof state.boostLockoutReason === "string" ? state.boostLockoutReason : "";
+    state.mustReleaseDashBeforeBoost = Boolean(state.mustReleaseDashBeforeBoost);
+    state.boostMode = typeof state.boostMode === "string" ? state.boostMode : AC_CONTINUOUS_BOOST_MODE.OFF;
+    state.quickBoostHardLockUntil = Number.isFinite(state.quickBoostHardLockUntil) ? state.quickBoostHardLockUntil : 0;
+    if (!state.quickBoostDirection || typeof state.quickBoostDirection !== "object") {
+      state.quickBoostDirection = { ...state.lastMoveDirection };
+    }
+    const boostDirectionX = Number.isFinite(state.quickBoostDirection.x) ? state.quickBoostDirection.x : state.lastMoveDirection.x;
+    const boostDirectionY = Number.isFinite(state.quickBoostDirection.y) ? state.quickBoostDirection.y : state.lastMoveDirection.y;
+    const boostDirectionLength = Math.hypot(boostDirectionX, boostDirectionY) || 1;
+    state.quickBoostDirection.x = boostDirectionX / boostDirectionLength;
+    state.quickBoostDirection.y = boostDirectionY / boostDirectionLength;
+    if (!state.continuousBoost || typeof state.continuousBoost !== "object") {
+      state.continuousBoost = this.createAcContinuousBoostState(state.quickBoostDirection);
+    }
+    const continuousBoost = state.continuousBoost;
+    continuousBoost.active = Boolean(continuousBoost.active);
+    continuousBoost.startedAt = Number.isFinite(continuousBoost.startedAt) ? continuousBoost.startedAt : 0;
+    continuousBoost.heldMs = Number.isFinite(continuousBoost.heldMs) ? Math.max(0, continuousBoost.heldMs) : 0;
+    continuousBoost.releasedAt = Number.isFinite(continuousBoost.releasedAt) ? continuousBoost.releasedAt : 0;
+    continuousBoost.endedAt = Number.isFinite(continuousBoost.endedAt) ? continuousBoost.endedAt : 0;
+    continuousBoost.endReason = typeof continuousBoost.endReason === "string"
+      ? continuousBoost.endReason
+      : AC_QUICK_BOOST_END_REASON.NONE;
+    continuousBoost.consumedEnergy = Number.isFinite(continuousBoost.consumedEnergy) ? Math.max(0, continuousBoost.consumedEnergy) : 0;
+    continuousBoost.drainPerSecond = Number.isFinite(continuousBoost.drainPerSecond) ? Math.max(0, continuousBoost.drainPerSecond) : 0;
+    continuousBoost.terminalSpeed = Number.isFinite(continuousBoost.terminalSpeed) ? Math.max(0, continuousBoost.terminalSpeed) : 0;
+    continuousBoost.rampRatio = Number.isFinite(continuousBoost.rampRatio) ? Phaser.Math.Clamp(continuousBoost.rampRatio, 0, 1) : 0;
+    continuousBoost.timeToEmptyMs = Number.isFinite(continuousBoost.timeToEmptyMs) ? Math.max(0, continuousBoost.timeToEmptyMs) : 0;
+    if (!continuousBoost.direction || typeof continuousBoost.direction !== "object") {
+      continuousBoost.direction = { ...state.quickBoostDirection };
+    }
+    const continuousDirectionX = Number.isFinite(continuousBoost.direction.x) ? continuousBoost.direction.x : state.quickBoostDirection.x;
+    const continuousDirectionY = Number.isFinite(continuousBoost.direction.y) ? continuousBoost.direction.y : state.quickBoostDirection.y;
+    const continuousDirectionLength = Math.hypot(continuousDirectionX, continuousDirectionY) || 1;
+    continuousBoost.direction.x = continuousDirectionX / continuousDirectionLength;
+    continuousBoost.direction.y = continuousDirectionY / continuousDirectionLength;
+    if (!state.fullOverheat || typeof state.fullOverheat !== "object") {
+      state.fullOverheat = this.createAcFullOverheatState();
+    }
+    const fullOverheat = state.fullOverheat;
+    fullOverheat.active = Boolean(fullOverheat.active);
+    fullOverheat.startedAt = Number.isFinite(fullOverheat.startedAt) ? Math.max(0, fullOverheat.startedAt) : 0;
+    fullOverheat.endedAt = Number.isFinite(fullOverheat.endedAt) ? Math.max(0, fullOverheat.endedAt) : 0;
+    fullOverheat.reason = typeof fullOverheat.reason === "string" ? fullOverheat.reason : AC_QUICK_BOOST_END_REASON.NONE;
+    fullOverheat.requiresFullRecharge = Boolean(fullOverheat.requiresFullRecharge);
+    fullOverheat.fullRechargeReached = Boolean(fullOverheat.fullRechargeReached);
+    fullOverheat.regenMultiplier = Number.isFinite(fullOverheat.regenMultiplier)
+      ? Math.max(0, fullOverheat.regenMultiplier)
+      : 1;
+    fullOverheat.regenDelayUntil = Number.isFinite(fullOverheat.regenDelayUntil) ? Math.max(0, fullOverheat.regenDelayUntil) : 0;
+    fullOverheat.minimumVisualUntil = Number.isFinite(fullOverheat.minimumVisualUntil) ? Math.max(0, fullOverheat.minimumVisualUntil) : 0;
+    fullOverheat.recoveryProgress = Number.isFinite(fullOverheat.recoveryProgress)
+      ? Phaser.Math.Clamp(fullOverheat.recoveryProgress, 0, 1)
+      : 1;
+    if (!state.variableQuickBoost || typeof state.variableQuickBoost !== "object") {
+      state.variableQuickBoost = this.createAcVariableQuickBoostState(state.quickBoostDirection);
+    }
+    const variableQuickBoost = state.variableQuickBoost;
+    variableQuickBoost.active = Boolean(variableQuickBoost.active);
+    variableQuickBoost.holdStartedAt = Number.isFinite(variableQuickBoost.holdStartedAt) ? variableQuickBoost.holdStartedAt : 0;
+    variableQuickBoost.holdEndedAt = Number.isFinite(variableQuickBoost.holdEndedAt) ? variableQuickBoost.holdEndedAt : 0;
+    variableQuickBoost.holdMs = Number.isFinite(variableQuickBoost.holdMs) ? Math.max(0, variableQuickBoost.holdMs) : 0;
+    variableQuickBoost.holdRatio = Number.isFinite(variableQuickBoost.holdRatio) ? Phaser.Math.Clamp(variableQuickBoost.holdRatio, 0, 1) : 0;
+    variableQuickBoost.rawHoldRatio = Number.isFinite(variableQuickBoost.rawHoldRatio) ? Phaser.Math.Clamp(variableQuickBoost.rawHoldRatio, 0, 1) : variableQuickBoost.holdRatio;
+    variableQuickBoost.smoothedHoldRatio = Number.isFinite(variableQuickBoost.smoothedHoldRatio) ? Phaser.Math.Clamp(variableQuickBoost.smoothedHoldRatio, 0, 1) : variableQuickBoost.holdRatio;
+    variableQuickBoost.effectiveRatio = Number.isFinite(variableQuickBoost.effectiveRatio) ? Phaser.Math.Clamp(variableQuickBoost.effectiveRatio, 0, 1) : 0;
+    variableQuickBoost.powerRatio = Number.isFinite(variableQuickBoost.powerRatio)
+      ? Phaser.Math.Clamp(variableQuickBoost.powerRatio, 0, 1)
+      : variableQuickBoost.effectiveRatio;
+    variableQuickBoost.speedRatio = Number.isFinite(variableQuickBoost.speedRatio) ? Phaser.Math.Clamp(variableQuickBoost.speedRatio, 0, 1) : 0;
+    variableQuickBoost.costRatio = Number.isFinite(variableQuickBoost.costRatio) ? Phaser.Math.Clamp(variableQuickBoost.costRatio, 0, 1) : 0;
+    variableQuickBoost.visualRatio = Number.isFinite(variableQuickBoost.visualRatio)
+      ? Phaser.Math.Clamp(variableQuickBoost.visualRatio, 0, 1)
+      : variableQuickBoost.effectiveRatio;
+    variableQuickBoost.glideRatio = Number.isFinite(variableQuickBoost.glideRatio)
+      ? Phaser.Math.Clamp(variableQuickBoost.glideRatio, 0, 1)
+      : variableQuickBoost.holdRatio;
+    variableQuickBoost.consumedCost = Number.isFinite(variableQuickBoost.consumedCost) ? Math.max(0, variableQuickBoost.consumedCost) : 0;
+    variableQuickBoost.targetCost = Number.isFinite(variableQuickBoost.targetCost)
+      ? Math.max(0, variableQuickBoost.targetCost)
+      : variableQuickBoost.consumedCost;
+    variableQuickBoost.maxCost = Number.isFinite(variableQuickBoost.maxCost) ? Math.max(0, variableQuickBoost.maxCost) : 0;
+    variableQuickBoost.minCost = Number.isFinite(variableQuickBoost.minCost) ? Math.max(0, variableQuickBoost.minCost) : 0;
+    variableQuickBoost.maxHoldMs = Number.isFinite(variableQuickBoost.maxHoldMs) ? Math.max(0, variableQuickBoost.maxHoldMs) : 0;
+    variableQuickBoost.maxHoldRemainingMs = Number.isFinite(variableQuickBoost.maxHoldRemainingMs) ? Math.max(0, variableQuickBoost.maxHoldRemainingMs) : 0;
+    variableQuickBoost.postBoostGlideDurationMs = Number.isFinite(variableQuickBoost.postBoostGlideDurationMs)
+      ? Math.max(0, variableQuickBoost.postBoostGlideDurationMs)
+      : 0;
+    if (!variableQuickBoost.direction || typeof variableQuickBoost.direction !== "object") {
+      variableQuickBoost.direction = { ...state.quickBoostDirection };
+    }
+    const variableDirectionX = Number.isFinite(variableQuickBoost.direction.x) ? variableQuickBoost.direction.x : state.quickBoostDirection.x;
+    const variableDirectionY = Number.isFinite(variableQuickBoost.direction.y) ? variableQuickBoost.direction.y : state.quickBoostDirection.y;
+    const variableDirectionLength = Math.hypot(variableDirectionX, variableDirectionY) || 1;
+    variableQuickBoost.direction.x = variableDirectionX / variableDirectionLength;
+    variableQuickBoost.direction.y = variableDirectionY / variableDirectionLength;
+    variableQuickBoost.released = Boolean(variableQuickBoost.released);
+    variableQuickBoost.endedByMaxHold = Boolean(variableQuickBoost.endedByMaxHold);
+    variableQuickBoost.endedByLowEn = Boolean(variableQuickBoost.endedByLowEn);
+    variableQuickBoost.endReason = typeof variableQuickBoost.endReason === "string"
+      ? variableQuickBoost.endReason
+      : AC_QUICK_BOOST_END_REASON.NONE;
+    state.airBrake = this.normalizeAcAirBrakeState(state.airBrake, state.quickBoostDirection || state.lastMoveDirection);
+    state.evadeWindow = this.normalizeAcEvadeWindowState(state.evadeWindow);
+    state.targetFire = this.normalizeAcTargetFireState(state.targetFire);
+    if (!state.facingDirection || typeof state.facingDirection !== "object") {
+      state.facingDirection = { ...state.lastMoveDirection };
+    }
+    const facingDirectionX = Number.isFinite(state.facingDirection.x) ? state.facingDirection.x : state.lastMoveDirection.x;
+    const facingDirectionY = Number.isFinite(state.facingDirection.y) ? state.facingDirection.y : state.lastMoveDirection.y;
+    const facingDirectionLength = Math.hypot(facingDirectionX, facingDirectionY) || 1;
+    state.facingDirection.x = facingDirectionX / facingDirectionLength;
+    state.facingDirection.y = facingDirectionY / facingDirectionLength;
+    state.facingSource = typeof state.facingSource === "string" ? state.facingSource : "LAST";
+    state.acFacingTarget = state.acFacingTarget || null;
+    state.acFacingTargetId = typeof state.acFacingTargetId === "string" ? state.acFacingTargetId : "";
+    state.acFacingTargetType = typeof state.acFacingTargetType === "string" ? state.acFacingTargetType : "";
+    state.acFacingTargetDistance = Number.isFinite(state.acFacingTargetDistance) ? Math.max(0, state.acFacingTargetDistance) : 0;
+    state.acFacingTargetNextScanAt = Number.isFinite(state.acFacingTargetNextScanAt) ? state.acFacingTargetNextScanAt : 0;
+    state.acFacingTargetStickyUntil = Number.isFinite(state.acFacingTargetStickyUntil) ? state.acFacingTargetStickyUntil : 0;
+    if (!state.movementLean || typeof state.movementLean !== "object") {
+      state.movementLean = this.createAcMovementLeanState();
+    }
+    const movementLean = state.movementLean;
+    movementLean.mode = typeof movementLean.mode === "string" ? movementLean.mode : "IDLE";
+    movementLean.forwardDot = Number.isFinite(movementLean.forwardDot) ? Phaser.Math.Clamp(movementLean.forwardDot, -1, 1) : 0;
+    movementLean.sideDot = Number.isFinite(movementLean.sideDot) ? Phaser.Math.Clamp(movementLean.sideDot, -1, 1) : 0;
+    movementLean.angle = Number.isFinite(movementLean.angle) ? movementLean.angle : 0;
+    movementLean.offset = Number.isFinite(movementLean.offset) ? movementLean.offset : 0;
+    movementLean.offsetX = Number.isFinite(movementLean.offsetX) ? movementLean.offsetX : 0;
+    movementLean.offsetY = Number.isFinite(movementLean.offsetY) ? movementLean.offsetY : 0;
+    movementLean.movementAngle = Number.isFinite(movementLean.movementAngle) ? movementLean.movementAngle : 0;
+    movementLean.facingAngle = Number.isFinite(movementLean.facingAngle) ? movementLean.facingAngle : 0;
+    state.mode = state.mode || AC_MOVEMENT_CONFIG.glideMode;
+    state.visualMode = typeof state.visualMode === "string" ? state.visualMode : AC_LOCOMOTION_VISUAL_MODE.WALK_IDLE;
+    state.spriteMode = typeof state.spriteMode === "string" ? state.spriteMode : AC_SPRITE_MODE.WALK;
+    state.thrusterImageActive = Boolean(state.thrusterImageActive);
+    state.strongBoostVisualActive = Boolean(state.strongBoostVisualActive);
+    state.residualTrailActive = Boolean(state.residualTrailActive);
+    state.visuals = this.ensureAcMovementVisualState(state);
+    return state;
+  }
+
+  initializeAcMovementVisualState() {
+    return {
+      lastAfterimageAt: 0,
+      lastQuickBoostVisualAt: 0,
+      activeAfterimages: [],
+      thrustTrailGraphics: null,
+      overheatGraphics: null,
+      quickBoostGlowGraphics: null,
+      energyWarningGraphics: null,
+      energyWarningText: null,
+      lockonRingGraphics: null,
+      lockonRingTarget: null,
+      lockonRingTargetType: "",
+      lockonRingDistance: 0,
+      lockonRingVisible: false,
+      lockonRingSwitchAt: 0,
+      boostVectorGraphics: null,
+      boostVectorVisible: false,
+      boostVectorAngle: 0,
+      boostVectorAvailable: false,
+      boostVectorBlockReason: "NONE",
+      groundSkidGraphics: null,
+      groundSkidActive: false,
+      groundSkidPulseUntil: 0,
+      groundSkidDirection: { x: 0, y: 1 },
+      groundSkidMarks: [],
+      lastGroundSkidAt: 0,
+      groundSkidIntensity: 0,
+      quickTurnGraphics: null,
+      quickTurnSparks: [],
+      quickTurnCooldownUntil: 0,
+      quickTurnAngleDelta: 0,
+      quickTurnSideSlip: 0,
+      quickTurnActive: false,
+      attitudeJetGraphics: null,
+      attitudeJetIntensity: 0,
+      attitudeJetActive: false,
+      airBrakeGraphics: null,
+      airBrakeSparks: [],
+      airBrakeActive: false,
+      airBrakeIntensity: 0,
+      airBrakeDirection: { x: 0, y: 1 },
+      weightShadowActive: false,
+      weightShadowIntensity: 0,
+      weightShadowScaleX: 1,
+      weightShadowScaleY: 1,
+      weightShadowRotation: 0,
+      activeTweens: [],
+      originalSpriteAngle: 0,
+      acLeanAngle: 0
+    };
+  }
+
+  ensureAcMovementVisualState(state = this.acMovementState) {
+    const visuals = state?.visuals && typeof state.visuals === "object"
+      ? state.visuals
+      : this.initializeAcMovementVisualState();
+    visuals.lastAfterimageAt = Number.isFinite(visuals.lastAfterimageAt) ? visuals.lastAfterimageAt : 0;
+    visuals.lastQuickBoostVisualAt = Number.isFinite(visuals.lastQuickBoostVisualAt) ? visuals.lastQuickBoostVisualAt : 0;
+    visuals.activeAfterimages = Array.isArray(visuals.activeAfterimages) ? visuals.activeAfterimages : [];
+    visuals.activeTweens = Array.isArray(visuals.activeTweens) ? visuals.activeTweens : [];
+    visuals.thrustTrailGraphics = visuals.thrustTrailGraphics || null;
+    visuals.overheatGraphics = visuals.overheatGraphics || null;
+    visuals.quickBoostGlowGraphics = visuals.quickBoostGlowGraphics || null;
+    visuals.energyWarningGraphics = visuals.energyWarningGraphics || null;
+    visuals.energyWarningText = visuals.energyWarningText || null;
+    visuals.lockonRingGraphics = visuals.lockonRingGraphics || null;
+    visuals.lockonRingTarget = visuals.lockonRingTarget || null;
+    visuals.lockonRingTargetType = typeof visuals.lockonRingTargetType === "string" ? visuals.lockonRingTargetType : "";
+    visuals.lockonRingDistance = Number.isFinite(visuals.lockonRingDistance) ? Math.max(0, visuals.lockonRingDistance) : 0;
+    visuals.lockonRingVisible = Boolean(visuals.lockonRingVisible);
+    visuals.lockonRingSwitchAt = Number.isFinite(visuals.lockonRingSwitchAt) ? visuals.lockonRingSwitchAt : 0;
+    visuals.boostVectorGraphics = visuals.boostVectorGraphics || null;
+    visuals.boostVectorVisible = Boolean(visuals.boostVectorVisible);
+    visuals.boostVectorAngle = Number.isFinite(visuals.boostVectorAngle) ? visuals.boostVectorAngle : 0;
+    visuals.boostVectorAvailable = Boolean(visuals.boostVectorAvailable);
+    visuals.boostVectorBlockReason = typeof visuals.boostVectorBlockReason === "string" ? visuals.boostVectorBlockReason : "NONE";
+    visuals.groundSkidGraphics = visuals.groundSkidGraphics || null;
+    visuals.groundSkidActive = Boolean(visuals.groundSkidActive);
+    visuals.groundSkidPulseUntil = Number.isFinite(visuals.groundSkidPulseUntil) ? visuals.groundSkidPulseUntil : 0;
+    visuals.groundSkidDirection = visuals.groundSkidDirection && typeof visuals.groundSkidDirection === "object"
+      ? visuals.groundSkidDirection
+      : { x: 0, y: 1 };
+    visuals.groundSkidDirection.x = Number.isFinite(visuals.groundSkidDirection.x) ? visuals.groundSkidDirection.x : 0;
+    visuals.groundSkidDirection.y = Number.isFinite(visuals.groundSkidDirection.y) ? visuals.groundSkidDirection.y : 1;
+    visuals.groundSkidMarks = Array.isArray(visuals.groundSkidMarks) ? visuals.groundSkidMarks : [];
+    visuals.lastGroundSkidAt = Number.isFinite(visuals.lastGroundSkidAt) ? visuals.lastGroundSkidAt : 0;
+    visuals.groundSkidIntensity = Number.isFinite(visuals.groundSkidIntensity) ? Phaser.Math.Clamp(visuals.groundSkidIntensity, 0, 1) : 0;
+    visuals.quickTurnGraphics = visuals.quickTurnGraphics || null;
+    visuals.quickTurnSparks = Array.isArray(visuals.quickTurnSparks) ? visuals.quickTurnSparks : [];
+    visuals.quickTurnCooldownUntil = Number.isFinite(visuals.quickTurnCooldownUntil) ? visuals.quickTurnCooldownUntil : 0;
+    visuals.quickTurnAngleDelta = Number.isFinite(visuals.quickTurnAngleDelta) ? Math.max(0, visuals.quickTurnAngleDelta) : 0;
+    visuals.quickTurnSideSlip = Number.isFinite(visuals.quickTurnSideSlip) ? Phaser.Math.Clamp(visuals.quickTurnSideSlip, 0, 1) : 0;
+    visuals.quickTurnActive = Boolean(visuals.quickTurnActive);
+    visuals.attitudeJetGraphics = visuals.attitudeJetGraphics || null;
+    visuals.attitudeJetIntensity = Number.isFinite(visuals.attitudeJetIntensity) ? Phaser.Math.Clamp(visuals.attitudeJetIntensity, 0, 1) : 0;
+    visuals.attitudeJetActive = Boolean(visuals.attitudeJetActive);
+    visuals.airBrakeGraphics = visuals.airBrakeGraphics || null;
+    visuals.airBrakeSparks = Array.isArray(visuals.airBrakeSparks) ? visuals.airBrakeSparks : [];
+    visuals.airBrakeActive = Boolean(visuals.airBrakeActive);
+    visuals.airBrakeIntensity = Number.isFinite(visuals.airBrakeIntensity) ? Phaser.Math.Clamp(visuals.airBrakeIntensity, 0, 1) : 0;
+    visuals.airBrakeDirection = visuals.airBrakeDirection && typeof visuals.airBrakeDirection === "object"
+      ? visuals.airBrakeDirection
+      : { x: 0, y: 1 };
+    visuals.airBrakeDirection.x = Number.isFinite(visuals.airBrakeDirection.x) ? visuals.airBrakeDirection.x : 0;
+    visuals.airBrakeDirection.y = Number.isFinite(visuals.airBrakeDirection.y) ? visuals.airBrakeDirection.y : 1;
+    visuals.weightShadowActive = Boolean(visuals.weightShadowActive);
+    visuals.weightShadowIntensity = Number.isFinite(visuals.weightShadowIntensity) ? Phaser.Math.Clamp(visuals.weightShadowIntensity, 0, 1) : 0;
+    visuals.weightShadowScaleX = Number.isFinite(visuals.weightShadowScaleX) ? Math.max(0.1, visuals.weightShadowScaleX) : 1;
+    visuals.weightShadowScaleY = Number.isFinite(visuals.weightShadowScaleY) ? Math.max(0.1, visuals.weightShadowScaleY) : 1;
+    visuals.weightShadowRotation = Number.isFinite(visuals.weightShadowRotation) ? visuals.weightShadowRotation : 0;
+    visuals.originalSpriteAngle = Number.isFinite(visuals.originalSpriteAngle) ? visuals.originalSpriteAngle : 0;
+    visuals.acLeanAngle = Number.isFinite(visuals.acLeanAngle) ? visuals.acLeanAngle : 0;
+    if (state) {
+      state.visuals = visuals;
+    }
+    return visuals;
+  }
+
+  hasAcMovementVisuals() {
+    const visuals = this.acMovementState?.visuals;
+    return Boolean(
+      visuals?.thrustTrailGraphics ||
+      visuals?.overheatGraphics ||
+      visuals?.quickBoostGlowGraphics ||
+      visuals?.energyWarningGraphics ||
+      visuals?.energyWarningText ||
+      visuals?.lockonRingGraphics ||
+      visuals?.boostVectorGraphics ||
+      visuals?.groundSkidGraphics ||
+      visuals?.quickTurnGraphics ||
+      visuals?.attitudeJetGraphics ||
+      visuals?.airBrakeGraphics ||
+      (visuals?.activeAfterimages || []).length > 0 ||
+      (visuals?.activeTweens || []).length > 0 ||
+      (visuals?.groundSkidMarks || []).length > 0 ||
+      (visuals?.quickTurnSparks || []).length > 0 ||
+      (visuals?.airBrakeSparks || []).length > 0 ||
+      (this.acMovementState?.targetFire?.activeTracers || []).length > 0 ||
+      (this.acMovementState?.targetFire?.activeImpacts || []).length > 0 ||
+      (this.acMovementState?.targetFire?.activeMuzzles || []).length > 0 ||
+      (this.acMovementState?.targetFire?.activeTweens || []).length > 0 ||
+      Boolean(this.acMovementState?.evadeWindow?.ringGraphics) ||
+      Boolean(this.acMovementState?.evadeWindow?.shieldGraphics) ||
+      (this.acMovementState?.evadeWindow?.textObjects || []).length > 0 ||
+      (this.acMovementState?.evadeWindow?.activeTweens || []).length > 0 ||
+      Boolean(visuals?.weightShadowActive) ||
+      Math.abs(Number(this.playerRobotMotion?.acVisualLeanAngle) || 0) > 0.01 ||
+      Math.abs(Number(this.playerRobotMotion?.acLeanOffsetX) || 0) > 0.01 ||
+      Math.abs(Number(this.playerRobotMotion?.acLeanOffsetY) || 0) > 0.01
+    );
+  }
+
+  safeDestroyAcVisualObject(object) {
+    if (!object || typeof object.destroy !== "function") {
+      return;
+    }
+
+    try {
+      this.tweens?.killTweensOf?.(object);
+      object.destroy();
+    } catch (error) {
+      // Visual cleanup should never break gameplay cleanup.
+    }
+  }
+
+  removeAcVisualObject(object, visuals = this.acMovementState?.visuals) {
+    if (!visuals || !object) {
+      return;
+    }
+
+    visuals.activeAfterimages = (visuals.activeAfterimages || []).filter((entry) => entry !== object);
+  }
+
+  removeAcVisualTween(tween, visuals = this.acMovementState?.visuals) {
+    if (!visuals || !tween) {
+      return;
+    }
+
+    visuals.activeTweens = (visuals.activeTweens || []).filter((entry) => entry !== tween);
+  }
+
+  removeAcTargetFireFxObject(object, targetFire = this.acMovementState?.targetFire) {
+    if (!targetFire || !object) {
+      return;
+    }
+
+    targetFire.activeTracers = (targetFire.activeTracers || []).filter((entry) => entry !== object);
+    targetFire.activeImpacts = (targetFire.activeImpacts || []).filter((entry) => entry !== object);
+    targetFire.activeMuzzles = (targetFire.activeMuzzles || []).filter((entry) => entry !== object);
+  }
+
+  removeAcTargetFireTween(tween, targetFire = this.acMovementState?.targetFire) {
+    if (!targetFire || !tween) {
+      return;
+    }
+
+    targetFire.activeTweens = (targetFire.activeTweens || []).filter((entry) => entry !== tween);
+  }
+
+  stopAcTargetFireObjectTween(object, targetFire = this.acMovementState?.targetFire) {
+    const tween = object?.__acTargetFireTween;
+    if (!tween) {
+      return;
+    }
+
+    try {
+      tween.stop?.();
+    } catch (error) {
+      // Ignore cleanup-only tween failures.
+    }
+    this.removeAcTargetFireTween(tween, targetFire);
+    object.__acTargetFireTween = null;
+  }
+
+  removeAcEvadeWindowFxObject(object, evadeWindow = this.acMovementState?.evadeWindow) {
+    if (!evadeWindow || !object) {
+      return;
+    }
+
+    evadeWindow.textObjects = (evadeWindow.textObjects || []).filter((entry) => entry !== object);
+    if (evadeWindow.ringGraphics === object) {
+      evadeWindow.ringGraphics = null;
+    }
+    if (evadeWindow.shieldGraphics === object) {
+      evadeWindow.shieldGraphics = null;
+    }
+  }
+
+  removeAcEvadeWindowTween(tween, evadeWindow = this.acMovementState?.evadeWindow) {
+    if (!evadeWindow || !tween) {
+      return;
+    }
+
+    evadeWindow.activeTweens = (evadeWindow.activeTweens || []).filter((entry) => entry !== tween);
+  }
+
+  cleanupAcEvadeWindowFx(reason = "cleanup") {
+    const evadeWindow = this.acMovementState?.evadeWindow;
+    if (!evadeWindow) {
+      return;
+    }
+
+    (evadeWindow.activeTweens || []).slice().forEach((tween) => {
+      try {
+        tween?.stop?.();
+      } catch (error) {
+        // Ignore cleanup-only tween failures.
+      }
+    });
+    [
+      evadeWindow.ringGraphics,
+      evadeWindow.shieldGraphics,
+      ...(evadeWindow.textObjects || [])
+    ].forEach((object) => this.safeDestroyAcVisualObject(object));
+    evadeWindow.ringGraphics = null;
+    evadeWindow.shieldGraphics = null;
+    evadeWindow.textObjects = [];
+    evadeWindow.activeTweens = [];
+    evadeWindow.active = false;
+    evadeWindow.until = 0;
+    evadeWindow.source = "NONE";
+    evadeWindow.lastReason = reason === "cleanup" ? "NONE" : String(reason || "cleanup");
+  }
+
+  resetAcEvadeWindowState(reason = "reset") {
+    const state = this.acMovementState;
+    if (!state) {
+      return;
+    }
+
+    this.cleanupAcEvadeWindowFx(reason);
+    state.evadeWindow = this.createAcEvadeWindowState();
+  }
+
+  getAcEvadeWindowVisualCount(evadeWindow = this.acMovementState?.evadeWindow) {
+    if (!evadeWindow) {
+      return 0;
+    }
+
+    const shieldActive = evadeWindow.shieldGraphics?.scene && evadeWindow.shieldGraphics.active !== false && evadeWindow.shieldGraphics.visible !== false;
+    const ringActive = evadeWindow.ringGraphics?.scene && evadeWindow.ringGraphics.active !== false && evadeWindow.ringGraphics.visible !== false;
+    const textCount = (evadeWindow.textObjects || []).filter((object) => (
+      object?.scene &&
+      object.active !== false &&
+      object.visible !== false
+    )).length;
+    return (shieldActive ? 1 : 0) + (ringActive ? 1 : 0) + textCount;
+  }
+
+  cleanupAcTargetFireFx(reason = "cleanup") {
+    const targetFire = this.acMovementState?.targetFire;
+    if (!targetFire) {
+      return;
+    }
+
+    (targetFire.activeTweens || []).slice().forEach((tween) => {
+      try {
+        tween?.stop?.();
+      } catch (error) {
+        // Ignore cleanup-only tween failures.
+      }
+    });
+    [
+      ...(targetFire.activeTracers || []),
+      ...(targetFire.activeImpacts || []),
+      ...(targetFire.activeMuzzles || [])
+    ].forEach((object) => this.safeDestroyAcVisualObject(object));
+    targetFire.activeTracers = [];
+    targetFire.activeImpacts = [];
+    targetFire.activeMuzzles = [];
+    targetFire.activeTweens = [];
+    targetFire.active = false;
+    targetFire.target = null;
+    targetFire.targetId = "";
+    targetFire.burstShotIndex = 0;
+    targetFire.burstCount = 0;
+    targetFire.nextShotAt = 0;
+    targetFire.suppressedReason = reason === "cleanup"
+      ? AC_TARGET_FIRE_SUPPRESSION_REASON.NONE
+      : reason;
+    targetFire.mode = AC_TARGET_FIRE_MODE.OFF;
+    targetFire.style = "segmented";
+    targetFire.palette = AC_TARGET_FIRE_PALETTE.AMBER;
+    targetFire.currentSpreadDeg = 0;
+    targetFire.lastTracerTravelMs = 0;
+    targetFire.segmentRatio = 0;
+    targetFire.tracerCoreWidth = 0;
+    targetFire.tracerGlowWidth = 0;
+    targetFire.tracerOuterGlowWidth = 0;
+    targetFire.tracerCoreAlpha = 0;
+    targetFire.tracerGlowAlpha = 0;
+    targetFire.tracerOuterGlowAlpha = 0;
+    targetFire.shotIntervalMs = 0;
+    targetFire.muzzleOffsetSide = 0;
+  }
+
+  resetAcTargetFireState(reason = "reset") {
+    const state = this.acMovementState;
+    if (!state) {
+      return;
+    }
+
+    this.cleanupAcTargetFireFx(reason);
+    state.targetFire = this.createAcTargetFireState();
+  }
+
+  resetAcRobotLeanVisual() {
+    if (this.playerRobotMotion) {
+      this.playerRobotMotion.acVisualLeanAngle = 0;
+      this.playerRobotMotion.acLeanOffsetX = 0;
+      this.playerRobotMotion.acLeanOffsetY = 0;
+    }
+    if (this.acMovementState?.movementLean) {
+      this.acMovementState.movementLean = this.createAcMovementLeanState();
+    }
+    const baseAngle = Number(this.playerRobotMotion?.tiltAngle) || 0;
+    if (this.playerSprite?.active !== false && typeof this.playerSprite?.setAngle === "function") {
+      this.playerSprite.setAngle(baseAngle);
+    }
+  }
+
+  resetAcWeightShadowVisual() {
+    if (this.playerShadow && this.playerShadow.active !== false) {
+      this.playerShadow
+        .setScale?.(1, 1)
+        .setAlpha?.(0.28)
+        .setRotation?.(0)
+        .setDepth?.(15);
+    }
+    const visuals = this.acMovementState?.visuals;
+    if (visuals) {
+      visuals.weightShadowActive = false;
+      visuals.weightShadowIntensity = 0;
+      visuals.weightShadowScaleX = 1;
+      visuals.weightShadowScaleY = 1;
+      visuals.weightShadowRotation = 0;
+    }
+  }
+
+  cleanupAcTacticalVisuals(visuals = this.acMovementState?.visuals) {
+    if (!visuals) {
+      return;
+    }
+
+    [
+      "energyWarningGraphics",
+      "energyWarningText",
+      "lockonRingGraphics",
+      "boostVectorGraphics",
+      "groundSkidGraphics",
+      "quickTurnGraphics",
+      "attitudeJetGraphics",
+      "airBrakeGraphics"
+    ].forEach((key) => {
+      const object = visuals[key];
+      if (object) {
+        try {
+          object.clear?.();
+        } catch (error) {
+          // Ignore cleanup-only graphics failures.
+        }
+        this.safeDestroyAcVisualObject(object);
+      }
+      visuals[key] = null;
+    });
+
+    visuals.lockonRingTarget = null;
+    visuals.lockonRingTargetType = "";
+    visuals.lockonRingDistance = 0;
+    visuals.lockonRingVisible = false;
+    visuals.lockonRingSwitchAt = 0;
+    visuals.boostVectorVisible = false;
+    visuals.boostVectorAngle = 0;
+    visuals.boostVectorAvailable = false;
+    visuals.boostVectorBlockReason = "NONE";
+    visuals.groundSkidActive = false;
+    visuals.groundSkidPulseUntil = 0;
+    visuals.groundSkidDirection = { x: 0, y: 1 };
+    visuals.groundSkidMarks = [];
+    visuals.lastGroundSkidAt = 0;
+    visuals.groundSkidIntensity = 0;
+    visuals.quickTurnSparks = [];
+    visuals.quickTurnCooldownUntil = 0;
+    visuals.quickTurnAngleDelta = 0;
+    visuals.quickTurnSideSlip = 0;
+    visuals.quickTurnActive = false;
+    visuals.attitudeJetIntensity = 0;
+    visuals.attitudeJetActive = false;
+    visuals.airBrakeSparks = [];
+    visuals.airBrakeActive = false;
+    visuals.airBrakeIntensity = 0;
+    visuals.airBrakeDirection = { x: 0, y: 1 };
+    this.resetAcWeightShadowVisual();
+  }
+
+  cleanupAcQuickBoostSeSounds(reason = "cleanup", state = this.acMovementState) {
+    const quickBoostSe = state?.quickBoostSe;
+    if (!quickBoostSe || typeof quickBoostSe !== "object") {
+      return;
+    }
+
+    const activeSounds = Array.isArray(quickBoostSe.activeSounds) ? quickBoostSe.activeSounds.slice() : [];
+    activeSounds.forEach((sound) => {
+      try {
+        sound?.off?.("complete");
+        sound?.stop?.();
+        sound?.destroy?.();
+      } catch (error) {
+        // Ignore cleanup-only sound failures.
+      }
+    });
+    quickBoostSe.activeSounds = [];
+    quickBoostSe.activeCount = 0;
+    if (reason === "sceneShutdown" || reason === "sceneDestroy" || reason === "reset") {
+      quickBoostSe.lastReason = "CLEANUP";
+    }
+  }
+
+  cleanupAcMovementVisuals(reason = "cleanup") {
+    const visuals = this.acMovementState?.visuals;
+    this.cleanupAcQuickBoostSeSounds(reason);
+    this.resetAcRobotLeanVisual();
+    this.resetAcAirBrakeState(reason);
+    this.resetAcEvadeWindowState(reason);
+    this.resetAcTargetFireState(reason);
+    if (!visuals) {
+      return;
+    }
+
+    this.cleanupAcTacticalVisuals(visuals);
+    (visuals.activeTweens || []).slice().forEach((tween) => {
+      try {
+        tween?.stop?.();
+      } catch (error) {
+        // Ignore stopped or already destroyed tweens.
+      }
+    });
+    (visuals.activeAfterimages || []).slice().forEach((object) => this.safeDestroyAcVisualObject(object));
+    if (visuals.thrustTrailGraphics) {
+      try {
+        visuals.thrustTrailGraphics.clear?.();
+        visuals.thrustTrailGraphics.destroy?.();
+      } catch (error) {
+        // Ignore cleanup-only graphics failures.
+      }
+    }
+    if (visuals.overheatGraphics) {
+      try {
+        visuals.overheatGraphics.clear?.();
+        visuals.overheatGraphics.destroy?.();
+      } catch (error) {
+        // Ignore cleanup-only graphics failures.
+      }
+    }
+    if (visuals.quickBoostGlowGraphics) {
+      try {
+        visuals.quickBoostGlowGraphics.clear?.();
+        visuals.quickBoostGlowGraphics.destroy?.();
+      } catch (error) {
+        // Ignore cleanup-only graphics failures.
+      }
+    }
+
+    visuals.activeTweens = [];
+    visuals.activeAfterimages = [];
+    visuals.thrustTrailGraphics = null;
+    visuals.overheatGraphics = null;
+    visuals.quickBoostGlowGraphics = null;
+    visuals.acLeanAngle = 0;
+    if (reason === "sceneShutdown" || reason === "sceneDestroy") {
+      visuals.lastAfterimageAt = 0;
+      visuals.lastQuickBoostVisualAt = 0;
+    }
+  }
+
+  resetAcMovementVisuals(reason = "reset") {
+    this.cleanupAcMovementVisuals(reason);
+    const state = this.acMovementState;
+    if (state) {
+      state.visuals = this.initializeAcMovementVisualState();
+      return state.visuals;
+    }
+    return this.initializeAcMovementVisualState();
+  }
+
+  shouldUseAcMovementVisuals() {
+    return Boolean(
+      AC_MOVEMENT_CONFIG.visualsEnabled &&
+      this.shouldUseAcMovement() &&
+      this.playerSprite &&
+      this.playerSprite.active !== false &&
+      this.playerHitbox &&
+      this.playerHitbox.active !== false &&
+      !this.isDepth10HumanPlayerVisualActive?.()
+    );
+  }
+
+  getAcMovementVisualDirection(state = this.ensureAcMovementState()) {
+    const tuning = this.getActiveAcMovementTuning();
+    const useQuickBoostDirection = state.mode === AC_MOVEMENT_CONFIG.quickBoostMode
+      && Number(this.time?.now || 0) < state.quickBoostUntil;
+    const source = useQuickBoostDirection ? state.quickBoostDirection : state.velocity;
+    const sourceX = Number(source?.x) || 0;
+    const sourceY = Number(source?.y) || 0;
+    const sourceLength = Math.hypot(sourceX, sourceY);
+    if (sourceLength >= tuning.minVelocityForDirectionUpdate) {
+      return {
+        x: sourceX / sourceLength,
+        y: sourceY / sourceLength
+      };
+    }
+
+    const lastX = Number(state?.lastMoveDirection?.x) || AC_MOVEMENT_CONFIG.defaultLastMoveDirection.x;
+    const lastY = Number(state?.lastMoveDirection?.y) || AC_MOVEMENT_CONFIG.defaultLastMoveDirection.y;
+    const lastLength = Math.hypot(lastX, lastY) || 1;
+    return {
+      x: lastX / lastLength,
+      y: lastY / lastLength
+    };
+  }
+
+  getAcMovementSpeedRatio(state = this.ensureAcMovementState()) {
+    const tuning = this.getActiveAcMovementTuning();
+    const speed = Math.hypot(Number(state?.velocity?.x) || 0, Number(state?.velocity?.y) || 0);
+    const maxSpeed = Math.max(1, this.getAcMovementBaseSpeed() * tuning.quickBoostMaxSpeedMultiplier);
+    return Phaser.Math.Clamp(speed / maxSpeed, 0, 1);
+  }
+
+  getAcQuickBoostVisualIntensity(state = this.ensureAcMovementState()) {
+    if (!this.isAcVariableQuickBoostEnabled()) {
+      return 1;
+    }
+
+    const variableQuickBoost = state?.variableQuickBoost;
+    const ratio = Number(variableQuickBoost?.visualRatio ?? variableQuickBoost?.effectiveRatio);
+    if (Number.isFinite(ratio) && ratio > 0) {
+      return Phaser.Math.Clamp(ratio, this.isAcV3MovementPreset() ? 0.45 : 0.35, 1);
+    }
+    return 1;
+  }
+
+  isAcV3MovementPreset() {
+    return this.isAcMovementPresetEnabled("acV3");
+  }
+
+  isAcHeatEnabled() {
+    return Boolean(this.isAcV3MovementPreset() && this.shouldUseAcMovement());
+  }
+
+  isAcFullOverheatEnabled(tuning = this.getActiveAcMovementTuning()) {
+    return Boolean(this.isAcContinuousBoostEnabled(tuning) && tuning?.overheatRequiresFullRecharge === true);
+  }
+
+  isAcFullOverheatActive(state = this.ensureAcMovementState()) {
+    return Boolean(this.isAcFullOverheatEnabled() && state?.fullOverheat?.active);
+  }
+
+  getAcFullOverheatRegenMultiplier(tuning = this.getActiveAcMovementTuning()) {
+    return Phaser.Math.Clamp(Number(tuning.overheatRegenMultiplier) || 0.35, 0.05, 1);
+  }
+
+  getAcFullOverheatRechargeEpsilon(tuning = this.getActiveAcMovementTuning()) {
+    return Math.max(0, Number(tuning.overheatFullRechargeEpsilon) || 0.5);
+  }
+
+  getAcOverheatRecoveryProgress(state = this.ensureAcMovementState()) {
+    const maxStamina = Math.max(0, Number(this.stats?.maxStamina) || 0);
+    const currentStamina = Math.max(0, Number(this.stats?.stamina ?? maxStamina) || 0);
+    return {
+      current: Math.min(currentStamina, maxStamina),
+      max: maxStamina,
+      ratio: maxStamina > 0 ? Phaser.Math.Clamp(currentStamina / maxStamina, 0, 1) : 1
+    };
+  }
+
+  getAcFullOverheatStateName(state = this.ensureAcMovementState(), now = this.time?.now || 0) {
+    const fullOverheat = state?.fullOverheat || {};
+    if (fullOverheat.active) {
+      const progress = this.getAcOverheatRecoveryProgress(state);
+      const tuning = this.getActiveAcMovementTuning();
+      const fullRechargeReached = progress.max <= 0
+        || progress.current >= progress.max - this.getAcFullOverheatRechargeEpsilon(tuning);
+      if (fullRechargeReached) {
+        return state.mustReleaseDashBeforeBoost
+          ? AC_FULL_OVERHEAT_STATE.READY_NEEDS_RELEASE
+          : AC_FULL_OVERHEAT_STATE.READY;
+      }
+      return Math.max(0, Number(now) || 0) < (Number(fullOverheat.regenDelayUntil) || 0)
+        ? AC_FULL_OVERHEAT_STATE.FULL_OVERHEAT
+        : AC_FULL_OVERHEAT_STATE.RECOVERING;
+    }
+
+    if (fullOverheat.fullRechargeReached) {
+      return state.mustReleaseDashBeforeBoost
+        ? AC_FULL_OVERHEAT_STATE.READY_NEEDS_RELEASE
+        : AC_FULL_OVERHEAT_STATE.READY;
+    }
+
+    return AC_FULL_OVERHEAT_STATE.NONE;
+  }
+
+  getAcFullOverheatBlockReason(state = this.ensureAcMovementState(), now = this.time?.now || 0) {
+    const fullOverheat = state?.fullOverheat || {};
+    if (!this.isAcFullOverheatEnabled() || !fullOverheat.active) {
+      return "";
+    }
+    const progress = this.getAcOverheatRecoveryProgress(state);
+    const tuning = this.getActiveAcMovementTuning();
+    const fullRechargeReached = progress.max <= 0
+      || progress.current >= progress.max - this.getAcFullOverheatRechargeEpsilon(tuning);
+    if (fullRechargeReached) {
+      return state.mustReleaseDashBeforeBoost ? AC_QUICK_BOOST_FAIL_REASON.NEED_RELEASE : "";
+    }
+    if (Math.max(0, Number(now) || 0) < (Number(fullOverheat.regenDelayUntil) || 0)) {
+      return AC_QUICK_BOOST_FAIL_REASON.FULL_OVERHEAT;
+    }
+    return AC_QUICK_BOOST_FAIL_REASON.NEED_FULL_RECHARGE;
+  }
+
+  triggerAcFullOverheatStartVisual(now = this.time?.now || 0) {
+    if (!this.isAcHeatEnabled()) {
+      return;
+    }
+    this.triggerAcBoostEmptyOverheatVisual(now);
+    const state = this.ensureAcMovementState();
+    const tuning = this.getActiveAcMovementTuning();
+    const heat = state.heat;
+    const minimumVisualMs = Math.max(0, Number(tuning.overheatMinimumVisualMs) || Number(tuning.boostEmptyLockoutMs) || 0);
+    heat.warningUntil = Math.max(heat.warningUntil || 0, now + minimumVisualMs);
+    heat.overheatUntil = Math.max(heat.overheatUntil || 0, now + minimumVisualMs);
+  }
+
+  triggerAcFullOverheatRecoveredVisual(now = this.time?.now || 0) {
+    if (!this.isAcHeatEnabled()) {
+      return;
+    }
+    const state = this.ensureAcMovementState();
+    const tuning = this.getActiveAcMovementTuning();
+    const heat = state.heat;
+    heat.overheatUntil = Math.min(Number(heat.overheatUntil) || now, now);
+    heat.warningUntil = Math.max(heat.warningUntil || 0, now + 520);
+    heat.level = Math.min(Number(heat.level) || 0, Math.max(0, (Number(tuning.heatWarningThreshold) || 60) - 4));
+    heat.lastReason = "COOLING_COMPLETE";
+  }
+
+  startAcFullOverheat(state = this.ensureAcMovementState(), now = this.time?.now || 0, reason = AC_QUICK_BOOST_END_REASON.EN_EMPTY) {
+    const tuning = this.getActiveAcMovementTuning();
+    if (!this.isAcFullOverheatEnabled(tuning)) {
+      return false;
+    }
+
+    const safeNow = Math.max(0, Number(now) || 0);
+    const regenDelayMs = Math.max(0, Number(tuning.overheatRegenDelayMs) || Number(tuning.boostEmptyRegenDelayMs) || 0);
+    const minimumVisualMs = Math.max(0, Number(tuning.overheatMinimumVisualMs) || Number(tuning.boostEmptyLockoutMs) || 0);
+    const progress = this.getAcOverheatRecoveryProgress(state);
+    state.fullOverheat = {
+      active: true,
+      startedAt: safeNow,
+      endedAt: 0,
+      reason: String(reason || AC_QUICK_BOOST_END_REASON.EN_EMPTY),
+      requiresFullRecharge: true,
+      fullRechargeReached: false,
+      regenMultiplier: this.getAcFullOverheatRegenMultiplier(tuning),
+      regenDelayUntil: safeNow + regenDelayMs,
+      minimumVisualUntil: safeNow + minimumVisualMs,
+      recoveryProgress: progress.ratio
+    };
+
+    if (this.stats) {
+      const maxStamina = Math.max(0, Number(this.stats.maxStamina) || 0);
+      this.stats.stamina = Phaser.Math.Clamp(Number(this.stats.stamina) || 0, 0, maxStamina);
+    }
+
+    const dampingMultiplier = Math.max(1, Number(tuning.fullOverheatVelocityDampingMultiplier) || 1);
+    if (state.velocity && dampingMultiplier > 1) {
+      state.velocity.x = (Number(state.velocity.x) || 0) / dampingMultiplier;
+      state.velocity.y = (Number(state.velocity.y) || 0) / dampingMultiplier;
+    }
+
+    if (state.continuousBoost) {
+      state.continuousBoost.active = false;
+      state.continuousBoost.endReason = AC_QUICK_BOOST_END_REASON.FULL_OVERHEAT;
+    }
+    if (state.variableQuickBoost) {
+      state.variableQuickBoost.active = false;
+      state.variableQuickBoost.endReason = AC_QUICK_BOOST_END_REASON.FULL_OVERHEAT;
+      state.variableQuickBoost.endedByLowEn = true;
+    }
+    state.quickBoostUntil = Math.min(Number(state.quickBoostUntil) || safeNow, safeNow);
+    state.postBoostGlideUntil = 0;
+    state.cooldownUntil = safeNow;
+    state.boostLockoutUntil = safeNow + minimumVisualMs;
+    state.boostRegenBlockedUntil = Math.max(Number(state.boostRegenBlockedUntil) || 0, safeNow + regenDelayMs);
+    state.boostLockoutReason = AC_QUICK_BOOST_FAIL_REASON.FULL_OVERHEAT;
+    state.mustReleaseDashBeforeBoost = true;
+    state.boostMode = AC_CONTINUOUS_BOOST_MODE.FULL_OVERHEAT;
+    state.mode = AC_MOVEMENT_CONFIG.glideMode;
+    this.clearAcEvadeWindow("FULL_OVERHEAT", state);
+    this.dashRegenBlockedUntil = state.boostRegenBlockedUntil;
+    this.setAcQuickBoostFailReason(AC_QUICK_BOOST_FAIL_REASON.FULL_OVERHEAT, safeNow);
+    this.triggerAcFullOverheatStartVisual(safeNow);
+    this.logAcQuickBoostEvent("full overheat started", {
+      reason,
+      regenDelayMs,
+      regenMultiplier: state.fullOverheat.regenMultiplier,
+      requiredStamina: progress.max
+    });
+    return true;
+  }
+
+  clearAcFullOverheat(state = this.ensureAcMovementState(), now = this.time?.now || 0) {
+    const fullOverheat = state?.fullOverheat;
+    if (!fullOverheat?.active) {
+      return false;
+    }
+
+    const safeNow = Math.max(0, Number(now) || 0);
+    fullOverheat.active = false;
+    fullOverheat.endedAt = safeNow;
+    fullOverheat.fullRechargeReached = true;
+    fullOverheat.recoveryProgress = 1;
+    state.boostLockoutUntil = Math.min(Number(state.boostLockoutUntil) || safeNow, safeNow);
+    state.boostLockoutReason = "";
+    state.boostEmptyAt = 0;
+    state.boostMode = state.mustReleaseDashBeforeBoost
+      ? AC_CONTINUOUS_BOOST_MODE.READY_NEEDS_RELEASE
+      : AC_CONTINUOUS_BOOST_MODE.READY;
+    this.triggerAcFullOverheatRecoveredVisual(safeNow);
+    this.logAcQuickBoostEvent("full overheat recovered", {
+      mustReleaseDashBeforeBoost: state.mustReleaseDashBeforeBoost
+    });
+    return true;
+  }
+
+  updateAcFullOverheatRecovery(now = this.time?.now || 0, delta = 0, dashInput = null) {
+    const state = this.ensureAcMovementState();
+    const tuning = this.getActiveAcMovementTuning();
+    if (!this.isAcFullOverheatEnabled(tuning)) {
+      return state.fullOverheat || this.createAcFullOverheatState();
+    }
+
+    const fullOverheat = state.fullOverheat || this.createAcFullOverheatState();
+    state.fullOverheat = fullOverheat;
+    if (!dashInput?.isDown && state.mustReleaseDashBeforeBoost) {
+      state.mustReleaseDashBeforeBoost = false;
+    }
+
+    if (!fullOverheat.active) {
+      if (fullOverheat.fullRechargeReached) {
+        state.boostMode = state.mustReleaseDashBeforeBoost
+          ? AC_CONTINUOUS_BOOST_MODE.READY_NEEDS_RELEASE
+          : AC_CONTINUOUS_BOOST_MODE.READY;
+      }
+      return fullOverheat;
+    }
+
+    const safeNow = Math.max(0, Number(now) || 0);
+    const progress = this.getAcOverheatRecoveryProgress(state);
+    fullOverheat.recoveryProgress = progress.ratio;
+    const rechargeReached = progress.max <= 0
+      || progress.current >= progress.max - this.getAcFullOverheatRechargeEpsilon(tuning);
+    fullOverheat.fullRechargeReached = rechargeReached;
+
+    const heat = state.heat;
+    heat.level = Math.max(Number(heat.level) || 0, 88);
+    heat.warningUntil = Math.max(Number(heat.warningUntil) || 0, safeNow + 120);
+    heat.overheatUntil = Math.max(Number(heat.overheatUntil) || 0, safeNow + 120);
+    heat.lastReason = fullOverheat.reason || AC_QUICK_BOOST_END_REASON.EN_EMPTY;
+
+    if (rechargeReached) {
+      this.clearAcFullOverheat(state, safeNow);
+    } else {
+      state.boostMode = safeNow < (Number(fullOverheat.regenDelayUntil) || 0)
+        ? AC_CONTINUOUS_BOOST_MODE.FULL_OVERHEAT
+        : AC_CONTINUOUS_BOOST_MODE.OVERHEAT_RECOVERY;
+      state.mode = AC_MOVEMENT_CONFIG.glideMode;
+    }
+
+    return fullOverheat;
+  }
+
+  addAcHeat(amount, now = this.time?.now || 0, reason = "heat") {
+    if (!this.isAcHeatEnabled()) {
+      return;
+    }
+
+    const state = this.ensureAcMovementState();
+    const heat = state.heat;
+    const tuning = this.getActiveAcMovementTuning();
+    heat.level = Phaser.Math.Clamp((Number(heat.level) || 0) + Math.max(0, Number(amount) || 0), 0, 100);
+    heat.warningUntil = Math.max(heat.warningUntil || 0, now + Math.max(0, Number(tuning.heatWarningDurationMs) || 0));
+    heat.lastReason = String(reason || "heat");
+    const chainOverheatCount = Math.max(1, Math.floor(Number(tuning.heatChainOverheatCount) || 999));
+    const shouldOverheat = heat.level >= (Number(tuning.heatOverheatThreshold) || 100)
+      || reason === AC_QUICK_BOOST_FAIL_REASON.LOW_EN
+      || reason === AC_QUICK_BOOST_END_REASON.EN_EMPTY
+      || reason === AC_QUICK_BOOST_FAIL_REASON.BOOST_LOCKOUT
+      || Math.max(0, Number(state.boostChainCount) || 0) >= chainOverheatCount;
+    if (shouldOverheat) {
+      heat.overheatUntil = Math.max(heat.overheatUntil || 0, now + Math.max(0, Number(tuning.heatOverheatDurationMs) || 0));
+      heat.lastOverheatAt = now;
+    }
+  }
+
+  triggerAcOverheatVisual(reason = "heat", now = this.time?.now || 0) {
+    if (!this.isAcHeatEnabled()) {
+      return;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const amount = reason === AC_QUICK_BOOST_FAIL_REASON.LOW_EN
+      ? tuning.heatLowEnergyPulse
+      : Math.max(12, Number(tuning.heatPerQuickBoost) || 0);
+    this.addAcHeat(amount, now, reason);
+  }
+
+  triggerAcBoostEmptyOverheatVisual(now = this.time?.now || 0) {
+    if (!this.isAcHeatEnabled()) {
+      return;
+    }
+
+    const state = this.ensureAcMovementState();
+    const tuning = this.getActiveAcMovementTuning();
+    const heat = state.heat;
+    heat.level = 100;
+    heat.warningUntil = Math.max(
+      heat.warningUntil || 0,
+      now + Math.max(0, Number(tuning.boostOverheatVisualDurationMs) || Number(tuning.heatWarningDurationMs) || 0)
+    );
+    heat.overheatUntil = Math.max(
+      heat.overheatUntil || 0,
+      now + Math.max(0, Number(tuning.boostOverheatVisualDurationMs) || Number(tuning.heatOverheatDurationMs) || 0)
+    );
+    heat.lastOverheatAt = now;
+    heat.lastReason = AC_QUICK_BOOST_END_REASON.EN_EMPTY;
+  }
+
+  updateAcHeatState(time, delta, quickBoostStarted = false) {
+    const state = this.ensureAcMovementState();
+    const heat = state.heat;
+    if (!this.isAcHeatEnabled()) {
+      heat.level = 0;
+      heat.state = AC_HEAT_STATE.NORMAL;
+      heat.warningUntil = 0;
+      heat.overheatUntil = 0;
+      return heat;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const now = Math.max(0, Number(time) || 0);
+    if (quickBoostStarted) {
+      const chainBonus = Math.max(0, Number(tuning.heatChainBonus) || 0)
+        * Math.max(0, (Number(state.boostChainCount) || 1) - 1);
+      this.addAcHeat((Number(tuning.heatPerQuickBoost) || 0) + chainBonus, now, "QUICK_BOOST");
+    }
+
+    if (this.isAcFullOverheatActive(state)) {
+      heat.level = Math.max(Number(heat.level) || 0, 88);
+      heat.warningUntil = Math.max(Number(heat.warningUntil) || 0, now + 120);
+      heat.overheatUntil = Math.max(Number(heat.overheatUntil) || 0, now + 120);
+    }
+
+    const dt = this.clampAcMovementDelta(delta);
+    const decay = Math.max(0, Number(tuning.heatDecayPerSecond) || 0) * dt;
+    if (decay > 0 && now >= (Number(heat.overheatUntil) || 0)) {
+      heat.level = Math.max(0, (Number(heat.level) || 0) - decay);
+    }
+
+    const maxStamina = Math.max(0, Number(this.stats?.maxStamina) || 0);
+    const currentStamina = Math.max(0, Number(this.stats?.stamina ?? maxStamina) || 0);
+    const staminaRatio = maxStamina > 0 ? currentStamina / maxStamina : 1;
+    const warningRatio = Phaser.Math.Clamp(Number(tuning.heatWarningStaminaRatio) || 0, 0, 1);
+    if (staminaRatio <= warningRatio && currentStamina < this.getAcQuickBoostCost()) {
+      heat.warningUntil = Math.max(heat.warningUntil || 0, now + Math.max(0, Number(tuning.heatWarningDurationMs) || 0));
+    }
+
+    if (now < (Number(heat.overheatUntil) || 0)) {
+      heat.state = AC_HEAT_STATE.OVERHEAT;
+    } else if (now < (Number(heat.warningUntil) || 0) || heat.level >= (Number(tuning.heatWarningThreshold) || 100)) {
+      heat.state = AC_HEAT_STATE.WARNING;
+    } else {
+      heat.state = AC_HEAT_STATE.NORMAL;
+    }
+    return heat;
+  }
+
+  getAcThrusterVisualState(state = this.ensureAcMovementState(), time = this.time?.now || 0, speed = null) {
+    const tuning = this.getActiveAcMovementTuning();
+    const velocitySpeed = Number.isFinite(speed)
+      ? Math.max(0, speed)
+      : Math.hypot(Number(state?.velocity?.x) || 0, Number(state?.velocity?.y) || 0);
+    const quickBoostActive = Number(time || 0) < (Number(state?.quickBoostUntil) || 0);
+    const postBoostActive = !quickBoostActive && Number(time || 0) < (Number(state?.postBoostGlideUntil) || 0);
+    const heatState = state?.heat?.state || AC_HEAT_STATE.NORMAL;
+
+    const offThreshold = Math.max(0, Number(tuning.thrusterOffSpeedThreshold) || tuning.velocityStopEpsilon || 0);
+    if (this.isAcV3MovementPreset() && (this.isAcFullOverheatActive(state) || heatState === AC_HEAT_STATE.OVERHEAT)) {
+      return AC_THRUSTER_STATE.OVERHEAT;
+    }
+    if (quickBoostActive) {
+      return AC_THRUSTER_STATE.STRONG;
+    }
+    if (velocitySpeed <= offThreshold) {
+      return AC_THRUSTER_STATE.OFF;
+    }
+    if (postBoostActive) {
+      return AC_THRUSTER_STATE.RESIDUAL;
+    }
+    const weakThreshold = Math.max(offThreshold, Number(tuning.thrusterWeakSpeedThreshold) || tuning.speedTrailThreshold || offThreshold);
+    return velocitySpeed >= weakThreshold ? AC_THRUSTER_STATE.WEAK : AC_THRUSTER_STATE.OFF;
+  }
+
+  getAcLocomotionVisualMode(state = this.ensureAcMovementState(), time = this.time?.now || 0, speed = null) {
+    const tuning = this.getActiveAcMovementTuning();
+    const now = Math.max(0, Number(time) || 0);
+    const velocitySpeed = Number.isFinite(speed)
+      ? Math.max(0, speed)
+      : Math.hypot(Number(state?.velocity?.x) || 0, Number(state?.velocity?.y) || 0);
+    const quickBoostActive = now < (Number(state?.quickBoostUntil) || 0);
+    const postBoostActive = !quickBoostActive && now < (Number(state?.postBoostGlideUntil) || 0);
+    if (this.isAcV3MovementPreset() && (this.isAcFullOverheatActive(state) || state?.heat?.state === AC_HEAT_STATE.OVERHEAT)) {
+      return AC_LOCOMOTION_VISUAL_MODE.OVERHEAT;
+    }
+    if (this.isAcV3MovementPreset() && state?.airBrake?.active) {
+      return AC_LOCOMOTION_VISUAL_MODE.AIR_BRAKE;
+    }
+    if (quickBoostActive) {
+      return AC_LOCOMOTION_VISUAL_MODE.QUICK_BOOST;
+    }
+    if (postBoostActive && velocitySpeed > Math.max(0, Number(tuning.velocityStopEpsilon) || 0)) {
+      return AC_LOCOMOTION_VISUAL_MODE.POST_BOOST_GLIDE;
+    }
+    if (velocitySpeed > Math.max(0, Number(tuning.velocityStopEpsilon) || 0)) {
+      return AC_LOCOMOTION_VISUAL_MODE.WALK_MOVE;
+    }
+    return AC_LOCOMOTION_VISUAL_MODE.WALK_IDLE;
+  }
+
+  getAcSpriteModeForVisualMode(visualMode) {
+    return visualMode === AC_LOCOMOTION_VISUAL_MODE.QUICK_BOOST
+      ? AC_SPRITE_MODE.BOOST
+      : AC_SPRITE_MODE.WALK;
+  }
+
+  updateAcRobotLocomotionVisualState(state = this.ensureAcMovementState(), time = this.time?.now || 0, speed = null) {
+    if (!this.isAcV3MovementPreset()) {
+      state.visualMode = AC_LOCOMOTION_VISUAL_MODE.WALK_MOVE;
+      state.spriteMode = AC_SPRITE_MODE.WALK;
+      state.thrusterImageActive = false;
+      state.strongBoostVisualActive = false;
+      state.residualTrailActive = false;
+      return state.visualMode;
+    }
+
+    const velocitySpeed = Number.isFinite(speed)
+      ? Math.max(0, speed)
+      : Math.hypot(Number(state?.velocity?.x) || 0, Number(state?.velocity?.y) || 0);
+    const visualMode = this.getAcLocomotionVisualMode(state, time, velocitySpeed);
+    const spriteMode = this.getAcSpriteModeForVisualMode(visualMode);
+    state.visualMode = visualMode;
+    state.spriteMode = spriteMode;
+    state.thrusterImageActive = spriteMode === AC_SPRITE_MODE.BOOST;
+    state.strongBoostVisualActive = visualMode === AC_LOCOMOTION_VISUAL_MODE.QUICK_BOOST;
+    state.residualTrailActive = visualMode === AC_LOCOMOTION_VISUAL_MODE.POST_BOOST_GLIDE
+      && velocitySpeed > Math.max(0, Number(this.getActiveAcMovementTuning().velocityStopEpsilon) || 0);
+    return visualMode;
+  }
+
+  shouldUseAcBoostSpriteVariant(state = this.ensureAcMovementState()) {
+    return Boolean(this.isAcV3MovementPreset() && state?.spriteMode === AC_SPRITE_MODE.BOOST);
+  }
+
+  isAcStrongBoostVisualActive(state = this.ensureAcMovementState()) {
+    return Boolean(this.isAcV3MovementPreset() && state?.strongBoostVisualActive);
+  }
+
+  isAcResidualTrailActive(state = this.ensureAcMovementState()) {
+    return Boolean(this.isAcV3MovementPreset() && state?.residualTrailActive);
+  }
+
+  createAcAfterimageObject(x, y, index, total, alphaScale = 1) {
+    const tuning = this.getActiveAcMovementTuning();
+    const sprite = this.playerSprite;
+    const scaleDecay = Phaser.Math.Clamp(tuning.afterimageScaleDecay, 0, 0.4);
+    const scaleFactor = Math.max(0.2, 1 - index * scaleDecay);
+    const visualIntensity = Phaser.Math.Clamp(Number(alphaScale) || 1, 0.25, 1);
+    const maxAlpha = Math.max(0, Number(tuning.afterimageAlpha) || 0);
+    const minAlpha = Number.isFinite(tuning.afterimageAlphaMin)
+      ? Math.max(0, Number(tuning.afterimageAlphaMin) || 0)
+      : maxAlpha * 0.55;
+    const alpha = Phaser.Math.Linear(minAlpha, maxAlpha, visualIntensity)
+      * Math.max(0.25, 1 - index / Math.max(1, total) * 0.42)
+      * (this.isAcV3MovementPreset() ? 1 : visualIntensity);
+    const depth = (Number(sprite?.depth) || 20) - 0.18 - index * 0.02;
+    const textureKey = sprite?.texture?.key || "";
+    const frameName = sprite?.frame?.name;
+
+    if (textureKey && this.textures.exists(textureKey)) {
+      try {
+        const image = this.add
+          .image(x, y, textureKey, frameName && frameName !== "__BASE" ? frameName : undefined)
+          .setOrigin(sprite.originX ?? 0.5, sprite.originY ?? 0.5)
+          .setScale((Number(sprite.scaleX) || 1) * scaleFactor, (Number(sprite.scaleY) || 1) * scaleFactor)
+          .setAngle(Number(sprite.angle) || 0)
+          .setDepth(depth)
+          .setAlpha(alpha)
+          .setTint(0xa8f8ff)
+          .setBlendMode(Phaser.BlendModes.ADD);
+        image.setFlipX?.(Boolean(sprite.flipX));
+        image.setFlipY?.(Boolean(sprite.flipY));
+        return image;
+      } catch (error) {
+        // Fall through to the graphics silhouette if a frame cannot be copied.
+      }
+    }
+
+    const width = Math.max(36, Number(sprite?.displayWidth) || PLAYER_ROBOT_DISPLAY_HEIGHT * 0.72);
+    const height = Math.max(42, Number(sprite?.displayHeight) || PLAYER_ROBOT_DISPLAY_HEIGHT);
+    const graphics = this.add
+      .graphics()
+      .setPosition(x, y)
+      .setRotation(Number(sprite?.rotation) || 0)
+      .setDepth(depth)
+      .setAlpha(alpha)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    graphics.fillStyle(0x8fefff, 0.72);
+    graphics.fillEllipse(0, 0, width * scaleFactor, height * scaleFactor);
+    graphics.lineStyle(2, 0xffffff, 0.22);
+    graphics.strokeEllipse(0, 0, width * scaleFactor, height * scaleFactor);
+    return graphics;
+  }
+
+  enforceAcVisualObjectLimit(visuals = this.acMovementState?.visuals) {
+    if (!visuals) {
+      return;
+    }
+
+    const maxObjects = Math.max(1, Math.floor(Number(AC_MOVEMENT_CONFIG.visualCleanupMaxObjects) || 1));
+    while ((visuals.activeAfterimages || []).length > maxObjects) {
+      const object = visuals.activeAfterimages.shift();
+      this.safeDestroyAcVisualObject(object);
+    }
+  }
+
+  spawnAcQuickBoostAfterimages(direction, now = this.time?.now || 0, intensity = 1) {
+    if (!AC_MOVEMENT_CONFIG.afterimageEnabled || !this.shouldUseAcMovementVisuals() || !direction) {
+      return;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const state = this.ensureAcMovementState();
+    const visuals = this.ensureAcMovementVisualState(state);
+    const visualIntensity = Phaser.Math.Clamp(
+      Number(intensity) || this.getAcQuickBoostVisualIntensity(state),
+      this.isAcV3MovementPreset() ? 0.45 : 0.35,
+      1
+    );
+    const minInterval = Math.max(0, Number(tuning.afterimageMinIntervalMs) || 0);
+    if (now - visuals.lastAfterimageAt < minInterval) {
+      return;
+    }
+
+    const maxAfterimageCount = Math.max(4, Math.floor(Number(tuning.afterimageMaxCount) || 4));
+    const minAfterimageCount = Phaser.Math.Clamp(Math.floor(Number(tuning.afterimageMinCount) || 2), 1, maxAfterimageCount);
+    const configuredCount = Phaser.Math.Clamp(Math.floor(Number(tuning.afterimageCount) || 0), 1, maxAfterimageCount);
+    const count = Phaser.Math.Clamp(Math.round(Phaser.Math.Linear(minAfterimageCount, configuredCount, visualIntensity)), 1, maxAfterimageCount);
+    const directionLength = Math.hypot(direction.x, direction.y) || 1;
+    const dirX = direction.x / directionLength;
+    const dirY = direction.y / directionLength;
+    const spacing = Math.max(4, Number(tuning.afterimageSpacing) || 4);
+    visuals.lastAfterimageAt = now;
+
+    for (let index = 0; index < count; index += 1) {
+      const offset = spacing * (index + 1);
+      const x = (this.playerSprite?.x ?? this.playerHitbox.x) - dirX * offset;
+      const y = (this.playerSprite?.y ?? this.playerHitbox.y) - dirY * offset * 0.72;
+      const object = this.createAcAfterimageObject(x, y, index, count, visualIntensity);
+      if (!object) {
+        continue;
+      }
+
+      visuals.activeAfterimages.push(object);
+      const tween = this.tweens.add({
+        targets: object,
+        alpha: 0,
+        scaleX: (Number(object.scaleX) || 1) * Math.max(0.5, 1 - tuning.afterimageScaleDecay),
+        scaleY: (Number(object.scaleY) || 1) * Math.max(0.5, 1 - tuning.afterimageScaleDecay),
+        duration: Math.max(
+          40,
+          Number.isFinite(tuning.afterimageLifetimeMsMin)
+            ? Phaser.Math.Linear(
+              Math.max(40, Number(tuning.afterimageLifetimeMsMin) || 40),
+              Math.max(40, Number(tuning.afterimageLifetimeMs) || 40),
+              visualIntensity
+            )
+            : Number(tuning.afterimageLifetimeMs) || 40
+        ),
+        ease: "Cubic.easeOut",
+        onComplete: () => {
+          this.removeAcVisualObject(object, visuals);
+          this.removeAcVisualTween(tween, visuals);
+          this.safeDestroyAcVisualObject(object);
+        }
+      });
+      visuals.activeTweens.push(tween);
+    }
+
+    this.enforceAcVisualObjectLimit(visuals);
+  }
+
+  triggerAcQuickBoostCameraFeedback(time = this.time?.now || 0, intensity = 1) {
+    if (!AC_MOVEMENT_CONFIG.quickBoostCameraShakeEnabled || !this.shouldUseAcMovementVisuals()) {
+      return;
+    }
+
+    const camera = this.cameras?.main;
+    if (typeof camera?.shake !== "function") {
+      return;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const visualIntensity = Phaser.Math.Clamp(Number(intensity) || 1, 0.35, 1);
+    camera.shake(
+      Math.max(0, Number(tuning.quickBoostCameraShakeDurationMs) || 0) * Phaser.Math.Linear(0.55, 1, visualIntensity),
+      Math.max(0, Number(tuning.quickBoostCameraShakeIntensity) || 0) * Phaser.Math.Linear(0.45, 1, visualIntensity)
+    );
+    const visuals = this.ensureAcMovementVisualState(this.ensureAcMovementState());
+    visuals.lastQuickBoostVisualAt = time;
+  }
+
+  triggerAcQuickBoostBurstVisual(time = this.time?.now || 0, direction = null, intensity = 1) {
+    const tuning = this.getActiveAcMovementTuning();
+    if (!tuning.quickBoostBurstRingEnabled || !this.shouldUseAcMovementVisuals()) {
+      return;
+    }
+
+    const state = this.ensureAcMovementState();
+    const visuals = this.ensureAcMovementVisualState(state);
+    const visualIntensity = Phaser.Math.Clamp(Number(intensity) || this.getAcQuickBoostVisualIntensity(state), 0.35, 1);
+    const graphics = this.add.graphics()
+      .setPosition(this.playerHitbox?.x ?? this.playerSprite?.x ?? 0, this.playerSprite?.y ?? this.playerHitbox?.y ?? 0)
+      .setDepth((Number(this.playerSprite?.depth) || 20) - 0.08)
+      .setAlpha(Phaser.Math.Linear(0.48, 0.82, visualIntensity))
+      .setBlendMode(Phaser.BlendModes.ADD);
+    graphics.lineStyle(3, 0xbdfcff, 0.9);
+    graphics.strokeEllipse(0, 0, 92, 34);
+    graphics.lineStyle(1, 0xffffff, 0.5);
+    graphics.strokeEllipse(0, 0, 62, 22);
+
+    if (direction && Number.isFinite(direction.x) && Number.isFinite(direction.y)) {
+      graphics.setRotation(Math.atan2(direction.y, direction.x));
+    }
+
+    visuals.activeAfterimages.push(graphics);
+    const scale = Math.max(1, Number(tuning.quickBoostBurstScale) || 1.3) * Phaser.Math.Linear(0.62, 1, visualIntensity);
+    const tween = this.tweens.add({
+      targets: graphics,
+      alpha: 0,
+      scaleX: scale,
+      scaleY: scale,
+      duration: Math.max(60, Number(tuning.quickBoostBurstLifetimeMs) || 160),
+      ease: "Cubic.easeOut",
+      onComplete: () => {
+        this.removeAcVisualObject(graphics, visuals);
+        this.removeAcVisualTween(tween, visuals);
+        this.safeDestroyAcVisualObject(graphics);
+      }
+    });
+    visuals.activeTweens.push(tween);
+    this.enforceAcVisualObjectLimit(visuals);
+  }
+
+  triggerAcQuickBoostVisuals(time, direction, intensity = 1) {
+    if (!this.shouldUseAcMovementVisuals()) {
+      return;
+    }
+
+    const visualIntensity = Phaser.Math.Clamp(Number(intensity) || 1, 0.35, 1);
+    this.spawnAcQuickBoostAfterimages(direction, time, visualIntensity);
+    this.triggerAcQuickBoostBurstVisual(time, direction, visualIntensity);
+    this.triggerAcQuickBoostCameraFeedback(time, visualIntensity);
+  }
+
+  getAcQuickBoostSeScreenRatio() {
+    const fallback = {
+      ratio: 0.5,
+      screenX: 0
+    };
+    const camera = this.cameras?.main;
+    if (!camera || !this.playerHitbox || !(Number(camera.width) > 0)) {
+      return fallback;
+    }
+
+    const screenX = this.playerHitbox.x - camera.scrollX;
+    const ratio = Phaser.Math.Clamp(screenX / camera.width, 0, 1);
+    return {
+      ratio,
+      screenX
+    };
+  }
+
+  getAcQuickBoostSeZone(ratio = this.getAcQuickBoostSeScreenRatio().ratio) {
+    const normalizedRatio = Phaser.Math.Clamp(Number(ratio) || 0.5, 0, 1);
+    const leftThreshold = Phaser.Math.Clamp(Number(AC_MOVEMENT_CONFIG.quickBoostSeLeftThreshold) || 0.38, 0, 1);
+    const rightThreshold = Phaser.Math.Clamp(Number(AC_MOVEMENT_CONFIG.quickBoostSeRightThreshold) || 0.62, leftThreshold, 1);
+    if (normalizedRatio < leftThreshold) {
+      return "LEFT";
+    }
+    if (normalizedRatio > rightThreshold) {
+      return "RIGHT";
+    }
+    return "CENTER";
+  }
+
+  getAcQuickBoostSeKeyForZone(zone = "CENTER") {
+    switch (zone) {
+      case "LEFT":
+        return AC_MOVEMENT_CONFIG.quickBoostSeLeftAudioKey;
+      case "RIGHT":
+        return AC_MOVEMENT_CONFIG.quickBoostSeRightAudioKey;
+      case "CENTER":
+      default:
+        return AC_MOVEMENT_CONFIG.quickBoostSeCenterAudioKey;
+    }
+  }
+
+  getAcQuickBoostSeAssetStatus() {
+    const exists = (key) => Boolean(key && this.cache?.audio?.exists?.(key));
+    return {
+      loadedL: exists(AC_MOVEMENT_CONFIG.quickBoostSeLeftAudioKey),
+      loadedM: exists(AC_MOVEMENT_CONFIG.quickBoostSeCenterAudioKey),
+      loadedR: exists(AC_MOVEMENT_CONFIG.quickBoostSeRightAudioKey),
+      loadedLegacy: exists(AC_MOVEMENT_CONFIG.quickBoostSeLegacyAudioKey)
+    };
+  }
+
+  areAcQuickBoostSeThreeZoneAssetsLoaded(status = this.getAcQuickBoostSeAssetStatus()) {
+    return Boolean(status.loadedL && status.loadedM && status.loadedR);
+  }
+
+  isAcQuickBoostSeRuntimePanEnabled() {
+    return Boolean(
+      AC_MOVEMENT_CONFIG.quickBoostSeUseRuntimePan ||
+      this.isAcMovementQueryFlagEnabled(AC_MOVEMENT_CONFIG.boostSeRuntimePanDebugQueryParam)
+    );
+  }
+
+  getAcQuickBoostSePanInfo() {
+    const screenInfo = this.getAcQuickBoostSeScreenRatio();
+    const ratio = Phaser.Math.Clamp(Number(screenInfo.ratio) || 0.5, 0, 1);
+    const panStrength = Math.max(0, Number(AC_MOVEMENT_CONFIG.quickBoostSePanStrength) || 0);
+    const panClamp = Phaser.Math.Clamp(Number(AC_MOVEMENT_CONFIG.quickBoostSePanClamp) || 1, 0, 1);
+    const centerDeadzone = Phaser.Math.Clamp(Number(AC_MOVEMENT_CONFIG.quickBoostSeCenterDeadzone) || 0, 0, 1);
+    let pan = ratio * 2 - 1;
+    pan *= panStrength;
+    pan = Phaser.Math.Clamp(pan, -panClamp, panClamp);
+    if (Math.abs(pan) < centerDeadzone) {
+      pan = 0;
+    }
+
+    return {
+      pan,
+      ratio,
+      screenX: screenInfo.screenX,
+      mode: "NORMAL_SCREEN_X"
+    };
+  }
+
+  getAcQuickBoostSePlaybackConfig(zone = null) {
+    const screenInfo = this.getAcQuickBoostSeScreenRatio();
+    const ratio = Phaser.Math.Clamp(Number(screenInfo.ratio) || 0.5, 0, 1);
+    const resolvedZone = zone || this.getAcQuickBoostSeZone(ratio);
+    const requestedKey = this.getAcQuickBoostSeKeyForZone(resolvedZone);
+    const status = this.getAcQuickBoostSeAssetStatus();
+    const threeZoneReady = this.areAcQuickBoostSeThreeZoneAssetsLoaded(status);
+    const runtimePanEnabled = this.isAcQuickBoostSeRuntimePanEnabled();
+    const panInfo = this.getAcQuickBoostSePanInfo();
+    const runtimePan = runtimePanEnabled ? panInfo.pan : 0;
+    if (threeZoneReady && this.cache?.audio?.exists?.(requestedKey)) {
+      return {
+        key: requestedKey,
+        zone: resolvedZone,
+        mode: AC_MOVEMENT_CONFIG.quickBoostSeMode || "THREE_ZONE",
+        pan: runtimePan,
+        runtimePanEnabled,
+        ratio,
+        screenX: screenInfo.screenX,
+        loaded: true,
+        fallback: false,
+        ...status
+      };
+    }
+
+    if (AC_MOVEMENT_CONFIG.quickBoostSeFallbackToLegacy && status.loadedLegacy) {
+      return {
+        key: AC_MOVEMENT_CONFIG.quickBoostSeLegacyAudioKey,
+        zone: "FALLBACK",
+        mode: "LEGACY_FALLBACK",
+        pan: 0,
+        runtimePanEnabled: false,
+        ratio,
+        screenX: screenInfo.screenX,
+        loaded: true,
+        fallback: true,
+        ...status
+      };
+    }
+
+    return {
+      key: "",
+      zone: threeZoneReady ? resolvedZone : "FALLBACK",
+      mode: threeZoneReady ? (AC_MOVEMENT_CONFIG.quickBoostSeMode || "THREE_ZONE") : "AUDIO_MISSING",
+      pan: 0,
+      runtimePanEnabled: false,
+      ratio,
+      screenX: screenInfo.screenX,
+      loaded: false,
+      fallback: false,
+      ...status
+    };
+  }
+
+  triggerAcQuickBoostSe(time = this.time?.now || 0, state = this.ensureAcMovementState()) {
+    const quickBoostSe = state.quickBoostSe || this.createAcQuickBoostSeState();
+    state.quickBoostSe = quickBoostSe;
+    const now = Math.max(0, Number(time) || 0);
+
+    if (!this.shouldUseAcQuickBoostSe()) {
+      quickBoostSe.lastReason = this.getAcBoostSeActivationSource();
+      return false;
+    }
+    const overheatState = this.getAcFullOverheatStateName(state, now);
+    if (
+      overheatState === AC_FULL_OVERHEAT_STATE.FULL_OVERHEAT ||
+      overheatState === AC_FULL_OVERHEAT_STATE.RECOVERING
+    ) {
+      quickBoostSe.lastReason = overheatState;
+      quickBoostSe.lastPan = 0;
+      quickBoostSe.panSupported = false;
+      return false;
+    }
+    const playback = this.getAcQuickBoostSePlaybackConfig();
+    quickBoostSe.lastScreenX = playback.screenX;
+    quickBoostSe.lastRatio = playback.ratio;
+    quickBoostSe.lastMode = playback.mode;
+    quickBoostSe.lastZone = playback.zone;
+    quickBoostSe.lastKey = playback.key;
+    quickBoostSe.lastRuntimePanEnabled = Boolean(playback.runtimePanEnabled);
+    if (!playback.loaded || !playback.key) {
+      quickBoostSe.lastReason = "AUDIO_MISSING";
+      quickBoostSe.lastPan = 0;
+      quickBoostSe.panSupported = false;
+      return false;
+    }
+    if (!this.sound || typeof this.sound.add !== "function") {
+      quickBoostSe.lastReason = "SOUND_UNAVAILABLE";
+      quickBoostSe.lastPan = 0;
+      quickBoostSe.panSupported = false;
+      return false;
+    }
+
+    const cooldownMs = Math.max(0, Number(AC_MOVEMENT_CONFIG.quickBoostSeCooldownMs) || 0);
+    if (cooldownMs > 0 && now - (Number(quickBoostSe.lastPlayedAt) || 0) < cooldownMs) {
+      quickBoostSe.lastReason = "COOLDOWN";
+      return false;
+    }
+
+    const overlapLimit = Math.max(1, Math.floor(Number(AC_MOVEMENT_CONFIG.quickBoostSeOverlapLimit) || 1));
+    if ((Number(quickBoostSe.activeCount) || 0) >= overlapLimit) {
+      quickBoostSe.lastReason = "OVERLAP_LIMIT";
+      return false;
+    }
+
+    const volume = Phaser.Math.Clamp(Number(AC_MOVEMENT_CONFIG.quickBoostSeVolume) || 0.72, 0, 1);
+    let sound = null;
+    try {
+      sound = this.sound.add(playback.key, { loop: false, volume });
+      const panSupported = Boolean(sound && typeof sound.setPan === "function");
+      const playPan = panSupported ? Phaser.Math.Clamp(Number(playback.pan) || 0, -1, 1) : 0;
+      if (panSupported) {
+        sound.setPan(playPan);
+      }
+
+      quickBoostSe.activeCount = Math.max(0, Math.floor(Number(quickBoostSe.activeCount) || 0)) + 1;
+      quickBoostSe.lastPlayedAt = now;
+      quickBoostSe.lastPan = playPan;
+      quickBoostSe.lastScreenX = playback.screenX;
+      quickBoostSe.lastRatio = playback.ratio;
+      quickBoostSe.lastMode = playback.mode;
+      quickBoostSe.lastZone = playback.zone;
+      quickBoostSe.lastKey = playback.key;
+      quickBoostSe.lastRuntimePanEnabled = Boolean(playback.runtimePanEnabled);
+      quickBoostSe.lastReason = "PLAYED";
+      quickBoostSe.panSupported = panSupported;
+      quickBoostSe.activeSounds = Array.isArray(quickBoostSe.activeSounds) ? quickBoostSe.activeSounds : [];
+      quickBoostSe.activeSounds.push(sound);
+
+      let cleaned = false;
+      const cleanup = () => {
+        if (cleaned) {
+          return;
+        }
+        cleaned = true;
+        if (Array.isArray(quickBoostSe.activeSounds)) {
+          quickBoostSe.activeSounds = quickBoostSe.activeSounds.filter((activeSound) => activeSound !== sound);
+        }
+        quickBoostSe.activeCount = Math.max(0, Math.floor(Number(quickBoostSe.activeCount) || 0) - 1);
+        if (sound && typeof sound.destroy === "function") {
+          sound.destroy();
+        }
+      };
+      if (typeof sound.once === "function") {
+        sound.once("complete", cleanup);
+      } else {
+        this.time?.delayedCall?.(1200, cleanup);
+      }
+      sound.play({ loop: false, volume });
+      return true;
+    } catch (error) {
+      quickBoostSe.activeCount = Math.max(0, Math.floor(Number(quickBoostSe.activeCount) || 0) - 1);
+      quickBoostSe.lastReason = "PLAY_FAILED";
+      quickBoostSe.lastPan = 0;
+      quickBoostSe.lastMode = playback?.mode || "AUDIO_MISSING";
+      quickBoostSe.lastZone = playback?.zone || "FALLBACK";
+      quickBoostSe.lastKey = playback?.key || "";
+      quickBoostSe.lastRuntimePanEnabled = false;
+      if (Array.isArray(quickBoostSe.activeSounds) && sound) {
+        quickBoostSe.activeSounds = quickBoostSe.activeSounds.filter((activeSound) => activeSound !== sound);
+      }
+      if (sound && typeof sound.destroy === "function") {
+        sound.destroy();
+      }
+      return false;
+    }
+  }
+
+  getAcThrustTrailGraphics(visuals = this.ensureAcMovementVisualState(this.ensureAcMovementState())) {
+    if (visuals.thrustTrailGraphics && visuals.thrustTrailGraphics.active !== false) {
+      return visuals.thrustTrailGraphics;
+    }
+
+    visuals.thrustTrailGraphics = this.add
+      .graphics()
+      .setDepth(19.26)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setVisible(false);
+    return visuals.thrustTrailGraphics;
+  }
+
+  getAcOverheatGraphics(visuals = this.ensureAcMovementVisualState(this.ensureAcMovementState())) {
+    if (visuals.overheatGraphics && visuals.overheatGraphics.active !== false) {
+      return visuals.overheatGraphics;
+    }
+
+    visuals.overheatGraphics = this.add
+      .graphics()
+      .setDepth(19.58)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setVisible(false);
+    return visuals.overheatGraphics;
+  }
+
+  getAcQuickBoostGlowGraphics(visuals = this.ensureAcMovementVisualState(this.ensureAcMovementState())) {
+    if (visuals.quickBoostGlowGraphics && visuals.quickBoostGlowGraphics.active !== false) {
+      return visuals.quickBoostGlowGraphics;
+    }
+
+    visuals.quickBoostGlowGraphics = this.add
+      .graphics()
+      .setDepth(19.5)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setVisible(false);
+    return visuals.quickBoostGlowGraphics;
+  }
+
+  getAcEnergyWarningGraphics(visuals = this.ensureAcMovementVisualState(this.ensureAcMovementState())) {
+    if (visuals.energyWarningGraphics && visuals.energyWarningGraphics.active !== false) {
+      return visuals.energyWarningGraphics;
+    }
+
+    visuals.energyWarningGraphics = this.add
+      .graphics()
+      .setScrollFactor(1)
+      .setDepth(19.47)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setVisible(false);
+    return visuals.energyWarningGraphics;
+  }
+
+  getAcEnergyWarningText(visuals = this.ensureAcMovementVisualState(this.ensureAcMovementState())) {
+    if (visuals.energyWarningText && visuals.energyWarningText.active !== false) {
+      return visuals.energyWarningText;
+    }
+
+    visuals.energyWarningText = this.add
+      .text(DASH_HUD_CONFIG.x, DASH_HUD_CONFIG.y + DASH_HUD_CONFIG.radius + 18, "", {
+        fontFamily: "Consolas, 'Courier New', monospace",
+        fontSize: "10px",
+        color: "#bff8ff",
+        align: "center"
+      })
+      .setOrigin(0.5, 0.5)
+      .setScrollFactor(0)
+      .setDepth(207)
+      .setVisible(false);
+    visuals.energyWarningText.setShadow(0, 0, "#4bdfff", 3, true, true);
+    return visuals.energyWarningText;
+  }
+
+  getAcLockonRingGraphics(visuals = this.ensureAcMovementVisualState(this.ensureAcMovementState())) {
+    if (visuals.lockonRingGraphics && visuals.lockonRingGraphics.active !== false) {
+      return visuals.lockonRingGraphics;
+    }
+
+    visuals.lockonRingGraphics = this.add
+      .graphics()
+      .setDepth(19.66)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setVisible(false);
+    return visuals.lockonRingGraphics;
+  }
+
+  getAcBoostVectorGraphics(visuals = this.ensureAcMovementVisualState(this.ensureAcMovementState())) {
+    if (visuals.boostVectorGraphics && visuals.boostVectorGraphics.active !== false) {
+      return visuals.boostVectorGraphics;
+    }
+
+    visuals.boostVectorGraphics = this.add
+      .graphics()
+      .setDepth(19.62)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setVisible(false);
+    return visuals.boostVectorGraphics;
+  }
+
+  getAcGroundSkidGraphics(visuals = this.ensureAcMovementVisualState(this.ensureAcMovementState())) {
+    if (visuals.groundSkidGraphics && visuals.groundSkidGraphics.active !== false) {
+      visuals.groundSkidGraphics.setDepth?.(Number(this.getActiveAcMovementTuning().groundSkidDepth) || 19.22);
+      return visuals.groundSkidGraphics;
+    }
+
+    visuals.groundSkidGraphics = this.add
+      .graphics()
+      .setDepth(Number(this.getActiveAcMovementTuning().groundSkidDepth) || 19.22)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setVisible(false);
+    return visuals.groundSkidGraphics;
+  }
+
+  getAcQuickTurnGraphics(visuals = this.ensureAcMovementVisualState(this.ensureAcMovementState())) {
+    if (visuals.quickTurnGraphics && visuals.quickTurnGraphics.active !== false) {
+      visuals.quickTurnGraphics.setDepth?.(Number(this.getActiveAcMovementTuning().quickTurnDepth) || 20.14);
+      return visuals.quickTurnGraphics;
+    }
+
+    visuals.quickTurnGraphics = this.add
+      .graphics()
+      .setDepth(Number(this.getActiveAcMovementTuning().quickTurnDepth) || 20.14)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setVisible(false);
+    return visuals.quickTurnGraphics;
+  }
+
+  getAcAttitudeJetGraphics(visuals = this.ensureAcMovementVisualState(this.ensureAcMovementState())) {
+    if (visuals.attitudeJetGraphics && visuals.attitudeJetGraphics.active !== false) {
+      visuals.attitudeJetGraphics.setDepth?.(Number(this.getActiveAcMovementTuning().attitudeJetDepth) || 19.7);
+      return visuals.attitudeJetGraphics;
+    }
+
+    visuals.attitudeJetGraphics = this.add
+      .graphics()
+      .setDepth(Number(this.getActiveAcMovementTuning().attitudeJetDepth) || 19.7)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setVisible(false);
+    return visuals.attitudeJetGraphics;
+  }
+
+  getAcAirBrakeGraphics(visuals = this.ensureAcMovementVisualState(this.ensureAcMovementState())) {
+    const depth = Number(this.getActiveAcMovementTuning().airBrakeDepth) || 20.18;
+    if (visuals.airBrakeGraphics && visuals.airBrakeGraphics.active !== false) {
+      visuals.airBrakeGraphics.setDepth?.(depth);
+      return visuals.airBrakeGraphics;
+    }
+
+    visuals.airBrakeGraphics = this.add
+      .graphics()
+      .setDepth(depth)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setVisible(false);
+    return visuals.airBrakeGraphics;
+  }
+
+  getAcEvadeWindowBaseDurationMs(tuning = this.getActiveAcMovementTuning()) {
+    const baseMs = Number(tuning?.evadeWindowBaseMs);
+    return Math.max(0, Number.isFinite(baseMs) && baseMs > 0 ? baseMs : 70);
+  }
+
+  getAcEvadeWindowMaxDurationMs(tuning = this.getActiveAcMovementTuning()) {
+    const baseMs = this.getAcEvadeWindowBaseDurationMs(tuning);
+    return Math.max(
+      baseMs,
+      Number(tuning?.evasiveFirmwareMaxEvadeMs) || 0,
+      Number(tuning?.evadeWindowMaxMs) || 0,
+      EVASIVE_FIRMWARE_CONFIG.maxEvadeMs
+    );
+  }
+
+  getAcEvasiveFirmwareDurationTable(tuning = this.getActiveAcMovementTuning()) {
+    return Array.isArray(tuning?.evasiveFirmwareDurationMsByLevel)
+      ? tuning.evasiveFirmwareDurationMsByLevel
+      : EVASIVE_FIRMWARE_CONFIG.durationMsByLevel;
+  }
+
+  getAcEvasiveFirmwareDurationMsForLevel(level = this.getEvasiveFirmwareLevel(), tuning = this.getActiveAcMovementTuning(), options = {}) {
+    const maxLevel = this.getEvasiveFirmwareMaxLevel(tuning);
+    const safeLevel = Phaser.Math.Clamp(Math.floor(Number(level) || 0), 0, maxLevel);
+    const baseMs = this.getAcEvadeWindowBaseDurationMs(tuning);
+    const maxMs = this.getAcEvadeWindowMaxDurationMs(tuning);
+    if (options.preview !== true && !this.shouldUseAcEvasionPassive(tuning)) {
+      return Phaser.Math.Clamp(baseMs, 0, maxMs);
+    }
+
+    const durationTable = this.getAcEvasiveFirmwareDurationTable(tuning);
+    const tableDurationMs = Number(durationTable[safeLevel]);
+    if (Number.isFinite(tableDurationMs) && tableDurationMs >= 0) {
+      return Phaser.Math.Clamp(tableDurationMs, 0, maxMs);
+    }
+
+    const bonusTable = Array.isArray(tuning?.evasiveFirmwareBonusMsByLevel)
+      ? tuning.evasiveFirmwareBonusMsByLevel
+      : EVASIVE_FIRMWARE_CONFIG.bonusMsByLevel;
+    const bonusMs = Math.max(0, Number(bonusTable[safeLevel]) || 0);
+    return Phaser.Math.Clamp(baseMs + bonusMs, 0, maxMs);
+  }
+
+  getAcEvasiveFirmwareCurrentDurationMs(tuning = this.getActiveAcMovementTuning()) {
+    return this.getAcEvasiveFirmwareDurationMsForLevel(this.getEvasiveFirmwareLevel(tuning), tuning);
+  }
+
+  getAcEvasiveFirmwareBonusMs(level = this.getEvasiveFirmwareLevel(), tuning = this.getActiveAcMovementTuning(), options = {}) {
+    if (options.preview !== true && !this.shouldUseAcEvasionPassive(tuning)) {
+      return 0;
+    }
+
+    const durationMs = this.getAcEvasiveFirmwareDurationMsForLevel(level, tuning, options);
+    return Math.max(0, durationMs - this.getAcEvadeWindowBaseDurationMs(tuning));
+  }
+
+  getAcEvadeWindowDurationBreakdown(level = this.getEvasiveFirmwareLevel(), tuning = this.getActiveAcMovementTuning(), options = {}) {
+    const baseMs = this.getAcEvadeWindowBaseDurationMs(tuning);
+    const maxMs = this.getAcEvadeWindowMaxDurationMs(tuning);
+    const maxLevel = this.getEvasiveFirmwareMaxLevel(tuning);
+    const safeLevel = Phaser.Math.Clamp(Math.floor(Number(level) || 0), 0, maxLevel);
+    const durationMs = this.getAcEvasiveFirmwareDurationMsForLevel(safeLevel, tuning, options);
+    const bonusMs = Math.max(0, durationMs - baseMs);
+    const nextLevel = Math.min(maxLevel, safeLevel + 1);
+    const nextDurationMs = this.getAcEvasiveFirmwareDurationMsForLevel(nextLevel, tuning, { ...options, preview: true });
+    return {
+      baseMs,
+      bonusMs,
+      durationMs,
+      nextDurationMs,
+      stepMs: Math.max(0, nextDurationMs - durationMs),
+      maxMs,
+      level: safeLevel,
+      nextLevel,
+      maxLevel
+    };
+  }
+
+  getAcEvadeWindowDurationMs(tuning = this.getActiveAcMovementTuning()) {
+    return this.getAcEvasiveFirmwareCurrentDurationMs(tuning);
+  }
+
+  getAcEvadeWindowRemainingMs(time = this.time?.now || 0, state = this.ensureAcMovementState()) {
+    const evadeWindow = state?.evadeWindow || this.createAcEvadeWindowState();
+    return Math.max(0, (Number(evadeWindow.until) || 0) - Math.max(0, Number(time) || 0));
+  }
+
+  isAcEvadeWindowActive(time = this.time?.now || 0, state = this.ensureAcMovementState()) {
+    const evadeWindow = state?.evadeWindow || this.createAcEvadeWindowState();
+    return Boolean(
+      this.shouldUseAcEvadeWindow() &&
+      evadeWindow.active &&
+      this.getAcEvadeWindowRemainingMs(time, state) > 0 &&
+      state?.mode !== AC_MOVEMENT_CONFIG.postBoostGlideMode &&
+      state?.mode !== AC_MOVEMENT_CONFIG.airBrakeMode &&
+      !this.isAcFullOverheatActive(state)
+    );
+  }
+
+  canTriggerAcEvadeWindow(time = this.time?.now || 0, state = this.ensureAcMovementState(), tuning = this.getActiveAcMovementTuning()) {
+    if (!this.shouldUseAcEvadeWindow(tuning)) {
+      return false;
+    }
+
+    const evadeWindow = state.evadeWindow || this.createAcEvadeWindowState();
+    state.evadeWindow = evadeWindow;
+    if (evadeWindow.triggeredThisBoost) {
+      return false;
+    }
+    if (this.isAcFullOverheatActive(state) && tuning.evadeWindowTriggerOnFullOverheat !== true) {
+      return false;
+    }
+    if ((state.airBrake?.active || state.mode === AC_MOVEMENT_CONFIG.airBrakeMode) && tuning.evadeWindowTriggerOnAirBrake !== true) {
+      return false;
+    }
+    if (state.mode === AC_MOVEMENT_CONFIG.postBoostGlideMode && tuning.evadeWindowTriggerOnPostBoost !== true) {
+      return false;
+    }
+    if (tuning.evadeWindowTriggerOnBoostStart !== true) {
+      return false;
+    }
+    return this.getAcEvadeWindowDurationMs(tuning) > 0 && Math.max(0, Number(time) || 0) >= 0;
+  }
+
+  triggerAcEvadeWindow(time = this.time?.now || 0, source = "BOOST_START", state = this.ensureAcMovementState()) {
+    const tuning = this.getActiveAcMovementTuning();
+    if (!this.canTriggerAcEvadeWindow(time, state, tuning)) {
+      return false;
+    }
+
+    const safeNow = Math.max(0, Number(time) || 0);
+    const durationMs = this.getAcEvadeWindowDurationMs(tuning);
+    const evadeWindow = this.normalizeAcEvadeWindowState(state.evadeWindow);
+    evadeWindow.active = true;
+    evadeWindow.startedAt = safeNow;
+    evadeWindow.until = safeNow + durationMs;
+    evadeWindow.durationMs = durationMs;
+    evadeWindow.source = String(source || "BOOST_START");
+    evadeWindow.lastReason = "ACTIVE";
+    evadeWindow.triggeredThisBoost = true;
+    state.evadeWindow = evadeWindow;
+    this.triggerAcEvadeWindowVisual(safeNow, evadeWindow);
+    return true;
+  }
+
+  clearAcEvadeWindow(reason = "CLEAR", state = this.acMovementState) {
+    const evadeWindow = state?.evadeWindow;
+    if (!evadeWindow) {
+      return false;
+    }
+
+    const wasActive = Boolean(evadeWindow.active);
+    evadeWindow.active = false;
+    evadeWindow.until = 0;
+    evadeWindow.source = "NONE";
+    evadeWindow.lastReason = String(reason || "CLEAR");
+    if (evadeWindow.shieldGraphics && evadeWindow.shieldGraphics.active !== false) {
+      try {
+        evadeWindow.shieldGraphics.clear?.();
+        evadeWindow.shieldGraphics.setVisible?.(false);
+      } catch (error) {
+        // Ignore visual-only cleanup failures.
+      }
+    }
+    return wasActive;
+  }
+
+  resetAcEvadeWindowForNextBoost(reason = "BOOST_END", state = this.acMovementState) {
+    const evadeWindow = state?.evadeWindow;
+    if (!evadeWindow) {
+      return;
+    }
+
+    this.clearAcEvadeWindow(reason, state);
+    evadeWindow.triggeredThisBoost = false;
+  }
+
+  shouldNegatePlayerDamageByAcEvade(source = "playerDamage", amount = 0, meta = null) {
+    if (!this.shouldUseAcEvadeWindow()) {
+      return false;
+    }
+
+    const finalAmount = Math.max(0, Number(amount) || 0);
+    if (finalAmount <= 0) {
+      return false;
+    }
+
+    const state = this.ensureAcMovementState();
+    const now = Math.max(0, Number(this.time?.now) || 0);
+    if (!this.isAcEvadeWindowActive(now, state)) {
+      return false;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    if (tuning.evadeWindowSuppressDamage !== true) {
+      return false;
+    }
+
+    const evadeWindow = this.normalizeAcEvadeWindowState(state.evadeWindow);
+    const damageSource = String(meta?.source || source || "playerDamage");
+    evadeWindow.negatedDamageCount += 1;
+    evadeWindow.lastNegatedAt = now;
+    evadeWindow.lastNegatedSource = damageSource;
+    evadeWindow.lastNegatedAmount = finalAmount;
+    evadeWindow.lastReason = "DAMAGE_NEGATED";
+    state.evadeWindow = evadeWindow;
+    this.triggerAcEvadeNegateVisual(now, evadeWindow);
+    if (tuning.evadeWindowConsumeOnFirstDamage === true) {
+      this.clearAcEvadeWindow("DAMAGE_CONSUMED", state);
+    }
+    return true;
+  }
+
+  getAcEvadeWindowShieldGraphics(evadeWindow = this.ensureAcMovementState().evadeWindow) {
+    const tuning = this.getActiveAcMovementTuning();
+    const depth = Number(tuning.evadeWindowDepth) || 20.31;
+    if (evadeWindow.shieldGraphics && evadeWindow.shieldGraphics.active !== false) {
+      evadeWindow.shieldGraphics.setDepth?.(depth);
+      return evadeWindow.shieldGraphics;
+    }
+
+    evadeWindow.shieldGraphics = this.add
+      .graphics()
+      .setDepth(depth)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setVisible(false);
+    return evadeWindow.shieldGraphics;
+  }
+
+  getAcEvadeWindowPlayerMetrics() {
+    const x = Number(this.playerSprite?.x ?? this.playerHitbox?.x) || 0;
+    const y = Number(this.playerSprite?.y ?? this.playerHitbox?.y) || 0;
+    const width = Math.max(54, Number(this.playerSprite?.displayWidth) || Number(this.playerHitbox?.body?.width) || 54);
+    const height = Math.max(48, Number(this.playerSprite?.displayHeight) || Number(this.playerHitbox?.body?.height) || 48);
+    return { x, y, width, height };
+  }
+
+  drawAcEvadeWindowShield(graphics, ratio = 1) {
+    if (!graphics || graphics.active === false) {
+      return;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const state = this.ensureAcMovementState();
+    const evadeWindow = state?.evadeWindow || this.createAcEvadeWindowState();
+    const now = Math.max(0, Number(this.time?.now) || 0);
+    const elapsedMs = Math.max(0, now - (Number(evadeWindow.startedAt) || now));
+    const durationMs = Math.max(1, Number(evadeWindow.durationMs) || this.getAcEvadeWindowDurationMs(tuning));
+    const endFadeMs = Math.max(40, Number(tuning.evadeWindowEndFadeMs) || 120);
+    const endFadeRatio = Phaser.Math.Clamp(this.getAcEvadeWindowRemainingMs(now, state) / endFadeMs, 0, 1);
+    const startLifetimeMs = Math.max(40, Number(tuning.evadeWindowStartRingLifetimeMs) || Number(tuning.evadeWindowRingLifetimeMs) || 180);
+    const startRatio = Phaser.Math.Clamp(1 - elapsedMs / startLifetimeMs, 0, 1);
+    const sustainPulseMs = Math.max(120, Number(tuning.evadeWindowSustainPulseMs) || 560);
+    const sustainPulse = tuning.evadeWindowSustainPulseEnabled === false
+      ? 0.5
+      : 0.5 + Math.sin((now / sustainPulseMs) * Math.PI * 2) * 0.5;
+    const metrics = this.getAcEvadeWindowPlayerMetrics();
+    const safeRatio = Phaser.Math.Clamp(Number(ratio) || 0, 0, 1);
+    const burstAlpha = Phaser.Math.Clamp(Number(tuning.evadeWindowShieldAlpha) || 0.22, 0, 1);
+    const sustainAlpha = Phaser.Math.Clamp(Number(tuning.evadeWindowSustainAlpha) || 0.14, 0, burstAlpha);
+    const alpha = Phaser.Math.Linear(
+      sustainAlpha * Phaser.Math.Linear(0.78, 1.08, sustainPulse),
+      burstAlpha,
+      startRatio
+    ) * Phaser.Math.Linear(0.38, 1, Math.min(safeRatio, endFadeRatio));
+    const widthPulse = Phaser.Math.Linear(1.05, 1.1, sustainPulse) + startRatio * 0.1;
+    const heightPulse = Phaser.Math.Linear(0.62, 0.68, sustainPulse) + startRatio * 0.08;
+    const width = metrics.width * widthPulse;
+    const height = metrics.height * heightPulse;
+    graphics
+      .clear()
+      .setPosition(metrics.x, metrics.y)
+      .setVisible(true)
+      .setAlpha(1);
+    graphics.fillStyle(0x8ff7ff, alpha * Phaser.Math.Linear(0.08, 0.2, startRatio));
+    graphics.fillEllipse(0, 0, width * 0.86, height * 0.86);
+    graphics.lineStyle(4, 0xbdfdff, alpha);
+    graphics.strokeEllipse(0, 0, width, height);
+    graphics.lineStyle(1.5, 0xffffff, alpha * 0.78);
+    graphics.strokeEllipse(0, 0, width * 0.72, height * 0.7);
+  }
+
+  triggerAcEvadeWindowVisual(time = this.time?.now || 0, evadeWindow = this.ensureAcMovementState().evadeWindow) {
+    const tuning = this.getActiveAcMovementTuning();
+    if (tuning.evadeWindowVisualEnabled === false || !this.shouldUseAcMovementVisuals()) {
+      return;
+    }
+
+    const metrics = this.getAcEvadeWindowPlayerMetrics();
+    if (evadeWindow.ringGraphics) {
+      const previousTween = evadeWindow.ringGraphics.__acEvadeWindowTween;
+      if (previousTween) {
+        try {
+          previousTween.stop?.();
+        } catch (error) {
+          // Ignore cleanup-only tween failures.
+        }
+        this.removeAcEvadeWindowTween(previousTween, evadeWindow);
+      }
+      this.safeDestroyAcVisualObject(evadeWindow.ringGraphics);
+      evadeWindow.ringGraphics = null;
+    }
+
+    const graphics = this.add
+      .graphics()
+      .setPosition(metrics.x, metrics.y)
+      .setDepth(Number(tuning.evadeWindowDepth) || 20.31)
+      .setAlpha(Phaser.Math.Clamp(Number(tuning.evadeWindowRingAlpha) || 0.46, 0, 1))
+      .setBlendMode(Phaser.BlendModes.ADD);
+    graphics.lineStyle(5, 0x91faff, 0.78);
+    graphics.strokeEllipse(0, 0, metrics.width * 0.95, metrics.height * 0.56);
+    graphics.lineStyle(2, 0xffffff, 0.72);
+    graphics.strokeEllipse(0, 0, metrics.width * 0.66, metrics.height * 0.4);
+    evadeWindow.ringGraphics = graphics;
+    const tween = this.tweens.add({
+      targets: graphics,
+      alpha: 0,
+      scaleX: 1.46,
+      scaleY: 1.46,
+      duration: Math.max(40, Number(tuning.evadeWindowStartRingLifetimeMs) || Number(tuning.evadeWindowRingLifetimeMs) || 180),
+      ease: "Cubic.easeOut",
+      onComplete: () => {
+        this.removeAcEvadeWindowTween(tween, evadeWindow);
+        this.removeAcEvadeWindowFxObject(graphics, evadeWindow);
+        graphics.__acEvadeWindowTween = null;
+        this.safeDestroyAcVisualObject(graphics);
+      }
+    });
+    graphics.__acEvadeWindowTween = tween;
+    evadeWindow.activeTweens.push(tween);
+    this.updateAcEvadeWindowVisuals(time, 0, this.ensureAcMovementState());
+  }
+
+  triggerAcEvadeNegateVisual(time = this.time?.now || 0, evadeWindow = this.ensureAcMovementState().evadeWindow) {
+    const tuning = this.getActiveAcMovementTuning();
+    if (tuning.evadeWindowVisualEnabled === false || !this.shouldUseAcMovementVisuals()) {
+      return;
+    }
+
+    const metrics = this.getAcEvadeWindowPlayerMetrics();
+    const text = this.add
+      .text(metrics.x, metrics.y - metrics.height * 0.48, String(tuning.evadeWindowText || "EVADE"), {
+        fontFamily: "Consolas, 'Courier New', monospace",
+        fontSize: "13px",
+        fontStyle: "bold",
+        color: "#ffffff",
+        stroke: "#42eaff",
+        strokeThickness: 3
+      })
+      .setOrigin(0.5, 0.5)
+      .setDepth(Number(tuning.evadeWindowTextDepth) || 20.32)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    text.setShadow(0, 0, "#6ff8ff", 6, true, true);
+    evadeWindow.textObjects.push(text);
+    const tween = this.tweens.add({
+      targets: text,
+      y: text.y - 22,
+      alpha: 0,
+      duration: Math.max(120, Number(tuning.evadeWindowTextLifetimeMs) || 420),
+      ease: "Cubic.easeOut",
+      onComplete: () => {
+        this.removeAcEvadeWindowTween(tween, evadeWindow);
+        this.removeAcEvadeWindowFxObject(text, evadeWindow);
+        text.__acEvadeWindowTween = null;
+        this.safeDestroyAcVisualObject(text);
+      }
+    });
+    text.__acEvadeWindowTween = tween;
+    evadeWindow.activeTweens.push(tween);
+  }
+
+  updateAcEvadeWindowVisuals(time = this.time?.now || 0, delta = 0, state = this.ensureAcMovementState()) {
+    const evadeWindow = state?.evadeWindow;
+    if (!evadeWindow) {
+      return;
+    }
+
+    const shield = evadeWindow.shieldGraphics;
+    if (!evadeWindow.active || !this.isAcEvadeWindowActive(time, state)) {
+      if (shield && shield.active !== false) {
+        shield.clear?.();
+        shield.setVisible?.(false);
+      }
+      return;
+    }
+
+    if (this.getActiveAcMovementTuning().evadeWindowVisualEnabled === false || !this.shouldUseAcMovementVisuals()) {
+      return;
+    }
+
+    const durationMs = Math.max(1, Number(evadeWindow.durationMs) || this.getAcEvadeWindowDurationMs());
+    const ratio = Phaser.Math.Clamp(this.getAcEvadeWindowRemainingMs(time, state) / durationMs, 0, 1);
+    this.drawAcEvadeWindowShield(this.getAcEvadeWindowShieldGraphics(evadeWindow), ratio);
+  }
+
+  updateAcEvadeWindow(time = this.time?.now || 0, delta = 0, state = this.ensureAcMovementState()) {
+    const evadeWindow = this.normalizeAcEvadeWindowState(state.evadeWindow);
+    state.evadeWindow = evadeWindow;
+    if (!this.shouldUseAcEvadeWindow()) {
+      if (evadeWindow.active || evadeWindow.ringGraphics || evadeWindow.shieldGraphics || (evadeWindow.textObjects || []).length > 0) {
+        this.cleanupAcEvadeWindowFx("disabled");
+      }
+      return evadeWindow;
+    }
+
+    const now = Math.max(0, Number(time) || 0);
+    if (evadeWindow.active && now >= (Number(evadeWindow.until) || 0)) {
+      this.clearAcEvadeWindow("EXPIRED", state);
+    }
+    if (
+      evadeWindow.active &&
+      (
+        this.isAcFullOverheatActive(state) ||
+        state.airBrake?.active ||
+        state.mode === AC_MOVEMENT_CONFIG.airBrakeMode ||
+        state.mode === AC_MOVEMENT_CONFIG.postBoostGlideMode
+      )
+    ) {
+      this.clearAcEvadeWindow("MODE_EXIT", state);
+    }
+    this.updateAcEvadeWindowVisuals(now, delta, state);
+    return evadeWindow;
+  }
+
+  getAcLocalMoveLabel(forwardDot, sideDot, speed = 0) {
+    if (Math.max(0, Number(speed) || 0) < 8) {
+      return "IDLE";
+    }
+
+    const absForward = Math.abs(Number(forwardDot) || 0);
+    const absSide = Math.abs(Number(sideDot) || 0);
+    if (absForward > 0.35 && absSide > 0.35) {
+      return "DIAGONAL";
+    }
+    if (absSide > 0.35) {
+      return sideDot > 0 ? "STRAFE_R" : "STRAFE_L";
+    }
+    if (forwardDot > 0.35) {
+      return "FORWARD";
+    }
+    if (forwardDot < -0.35) {
+      return "BACK";
+    }
+    return "IDLE";
+  }
+
+  getAcLocalMovementComponents(state = this.ensureAcMovementState(), input = state?.lastInputVector) {
+    const tuning = this.getActiveAcMovementTuning();
+    const velocityX = Number(state?.velocity?.x) || 0;
+    const velocityY = Number(state?.velocity?.y) || 0;
+    const speed = Math.hypot(velocityX, velocityY);
+    const velocityLength = speed || 1;
+    const velocityDirX = speed > 0 ? velocityX / velocityLength : 0;
+    const velocityDirY = speed > 0 ? velocityY / velocityLength : 1;
+    const inputMagnitude = Math.max(0, Number(input?.magnitude) || 0);
+    const hasInput = Boolean(input?.hasInput && inputMagnitude > (Number(tuning.inputDeadzone) || 0.04));
+    const inputLength = Math.hypot(Number(input?.normalizedX) || 0, Number(input?.normalizedY) || 0) || 1;
+    const inputDirX = hasInput ? (Number(input?.normalizedX) || 0) / inputLength : 0;
+    const inputDirY = hasInput ? (Number(input?.normalizedY) || 0) / inputLength : 0;
+    const movementDirX = speed >= Math.max(4, Number(tuning.minVelocityForDirectionUpdate) || 7)
+      ? velocityDirX
+      : hasInput
+        ? inputDirX
+        : 0;
+    const movementDirY = speed >= Math.max(4, Number(tuning.minVelocityForDirectionUpdate) || 7)
+      ? velocityDirY
+      : hasInput
+        ? inputDirY
+        : 1;
+    const facingX = Number(state?.facingDirection?.x) || Number(state?.lastMoveDirection?.x) || AC_MOVEMENT_CONFIG.defaultLastMoveDirection.x;
+    const facingY = Number(state?.facingDirection?.y) || Number(state?.lastMoveDirection?.y) || AC_MOVEMENT_CONFIG.defaultLastMoveDirection.y;
+    const facingLength = Math.hypot(facingX, facingY) || 1;
+    const facingDirX = facingX / facingLength;
+    const facingDirY = facingY / facingLength;
+    const forwardDot = Phaser.Math.Clamp(facingDirX * movementDirX + facingDirY * movementDirY, -1, 1);
+    const sideDot = Phaser.Math.Clamp(facingDirX * movementDirY - facingDirY * movementDirX, -1, 1);
+    const velocityAngle = Math.atan2(velocityDirY, velocityDirX);
+    const inputAngle = hasInput ? Math.atan2(inputDirY, inputDirX) : velocityAngle;
+    const angleDelta = hasInput && speed > 1
+      ? Math.abs(Phaser.Math.Angle.Wrap(inputAngle - velocityAngle)) * 180 / Math.PI
+      : 0;
+    const facingMovementAngleDelta = speed > 1
+      ? Math.abs(Phaser.Math.Angle.Wrap(Math.atan2(movementDirY, movementDirX) - Math.atan2(facingDirY, facingDirX))) * 180 / Math.PI
+      : 0;
+
+    return {
+      speed,
+      velocityDirX,
+      velocityDirY,
+      inputDirX,
+      inputDirY,
+      hasInput,
+      movementDirX,
+      movementDirY,
+      facingDirX,
+      facingDirY,
+      forwardDot,
+      sideDot,
+      sideSlip: Math.abs(sideDot),
+      angleDelta,
+      facingMovementAngleDelta,
+      localMove: this.getAcLocalMoveLabel(forwardDot, sideDot, speed),
+      targetFacingEffective: Boolean(this.shouldUseAcTargetFacing() && state?.acFacingTarget)
+    };
+  }
+
+  getAcAirBrakeComponents(state = this.ensureAcMovementState(), input = state?.lastInputVector) {
+    const tuning = this.getActiveAcMovementTuning();
+    const velocityX = Number(state?.velocity?.x) || 0;
+    const velocityY = Number(state?.velocity?.y) || 0;
+    const speed = Math.hypot(velocityX, velocityY);
+    const velocityDirX = speed > 0 ? velocityX / speed : Number(state?.lastMoveDirection?.x) || 0;
+    const velocityDirY = speed > 0 ? velocityY / speed : Number(state?.lastMoveDirection?.y) || 1;
+    const inputMagnitude = Math.max(0, Math.min(1, Number(input?.magnitude) || 0));
+    const hasInput = Boolean(input?.hasInput && inputMagnitude > (Number(tuning.inputDeadzone) || 0.04));
+    const inputLength = Math.hypot(Number(input?.normalizedX) || 0, Number(input?.normalizedY) || 0) || 1;
+    const inputDirX = hasInput ? (Number(input?.normalizedX) || 0) / inputLength : 0;
+    const inputDirY = hasInput ? (Number(input?.normalizedY) || 0) / inputLength : 0;
+    const opposingDot = hasInput && speed > 0
+      ? Phaser.Math.Clamp(velocityDirX * inputDirX + velocityDirY * inputDirY, -1, 1)
+      : 1;
+    return {
+      speed,
+      velocityDirX,
+      velocityDirY,
+      inputMagnitude,
+      hasInput,
+      inputDirX,
+      inputDirY,
+      opposingDot
+    };
+  }
+
+  isAcAirBrakeBoostBlocked(state = this.ensureAcMovementState(), now = this.time?.now || 0) {
+    return Boolean(
+      state?.continuousBoost?.active ||
+      state?.variableQuickBoost?.active ||
+      Math.max(0, Number(now) || 0) < (Number(state?.quickBoostUntil) || 0)
+    );
+  }
+
+  updateAcAirBrakeOpposingInput(time, state = this.ensureAcMovementState(), input = state?.lastInputVector, components = null) {
+    const airBrake = state.airBrake || this.createAcAirBrakeState(state.lastMoveDirection);
+    const tuning = this.getActiveAcMovementTuning();
+    const now = Math.max(0, Number(time) || 0);
+    const data = components || this.getAcAirBrakeComponents(state, input);
+    const minSpeed = Math.max(0, Number(tuning.airBrakeMinSpeed) || 220);
+    const minInput = Phaser.Math.Clamp(Number(tuning.airBrakeMinInputMagnitude) || 0.55, 0, 1);
+    const dotThreshold = Phaser.Math.Clamp(Number(tuning.airBrakeDotThreshold) || -0.65, -1, 0);
+    const canTrack = Boolean(
+      this.shouldUseAcAirBrake() &&
+      !airBrake.active &&
+      !this.isAcFullOverheatActive(state) &&
+      !this.isAcAirBrakeBoostBlocked(state, now) &&
+      now >= (Number(airBrake.cooldownUntil) || 0) &&
+      data.hasInput &&
+      data.inputMagnitude >= minInput &&
+      data.speed >= minSpeed &&
+      data.opposingDot <= dotThreshold
+    );
+
+    airBrake.lastOpposingDot = data.opposingDot;
+    if (canTrack) {
+      if (!airBrake.inputOpposeStartedAt) {
+        airBrake.inputOpposeStartedAt = now;
+      }
+    } else {
+      airBrake.inputOpposeStartedAt = 0;
+    }
+    state.airBrake = airBrake;
+    return data;
+  }
+
+  getAcAirBrakeBlockReason(time = this.time?.now || 0, state = this.ensureAcMovementState(), input = state?.lastInputVector, components = null) {
+    const tuning = this.getActiveAcMovementTuning();
+    const airBrake = state.airBrake || this.createAcAirBrakeState(state.lastMoveDirection);
+    const now = Math.max(0, Number(time) || 0);
+    const data = components || this.getAcAirBrakeComponents(state, input);
+
+    if (!this.isAcMovementActivationRequested()) {
+      return AC_AIR_BRAKE_REASON.DISABLED;
+    }
+    if (!this.isAcV3MovementPreset() || tuning?.airBrakeEnabled === false) {
+      return AC_AIR_BRAKE_REASON.PRESET;
+    }
+    if (!this.getAcAirBrakeEffectiveEnabled(tuning)) {
+      return AC_AIR_BRAKE_REASON.DISABLED;
+    }
+    if (!this.shouldUseAcMovement() || !this.playerHitbox?.body) {
+      return AC_AIR_BRAKE_REASON.NO_BODY;
+    }
+    if (this.isFinalBossRaidActive?.()) {
+      return AC_AIR_BRAKE_REASON.FINAL_RAID;
+    }
+    if (this.isAcFullOverheatActive(state)) {
+      return AC_AIR_BRAKE_REASON.FULL_OVERHEAT;
+    }
+    if (airBrake.active) {
+      return AC_AIR_BRAKE_REASON.ACTIVE;
+    }
+    if (this.isAcAirBrakeBoostBlocked(state, now)) {
+      return AC_AIR_BRAKE_REASON.BOOST_ACTIVE;
+    }
+    if (now < (Number(airBrake.cooldownUntil) || 0)) {
+      return AC_AIR_BRAKE_REASON.COOLDOWN;
+    }
+    if (!data.hasInput) {
+      return AC_AIR_BRAKE_REASON.NO_INPUT;
+    }
+
+    const minInput = Phaser.Math.Clamp(Number(tuning.airBrakeMinInputMagnitude) || 0.55, 0, 1);
+    if (data.inputMagnitude < minInput) {
+      return AC_AIR_BRAKE_REASON.LOW_INPUT;
+    }
+    const minSpeed = Math.max(0, Number(tuning.airBrakeMinSpeed) || 220);
+    if (data.speed < minSpeed) {
+      return AC_AIR_BRAKE_REASON.LOW_SPEED;
+    }
+    const dotThreshold = Phaser.Math.Clamp(Number(tuning.airBrakeDotThreshold) || -0.65, -1, 0);
+    if (data.opposingDot > dotThreshold) {
+      return AC_AIR_BRAKE_REASON.NOT_OPPOSING;
+    }
+    const holdMs = Math.max(0, Number(tuning.airBrakeInputHoldMs) || 70);
+    const opposeMs = airBrake.inputOpposeStartedAt > 0 ? now - airBrake.inputOpposeStartedAt : 0;
+    if (opposeMs < holdMs) {
+      return AC_AIR_BRAKE_REASON.HOLDING;
+    }
+    return AC_AIR_BRAKE_REASON.READY;
+  }
+
+  getAcKineticFxCount(visuals = this.acMovementState?.visuals) {
+    if (!visuals) {
+      return 0;
+    }
+
+    const countObject = (object) => (object?.scene && object.active !== false && object.visible ? 1 : 0);
+    return countObject(visuals.quickTurnGraphics) +
+      countObject(visuals.groundSkidGraphics) +
+      countObject(visuals.attitudeJetGraphics) +
+      countObject(visuals.airBrakeGraphics) +
+      (visuals.weightShadowActive ? 1 : 0);
+  }
+
+  getAcKineticVisualDepthMode(state = this.ensureAcMovementState(), now = this.time?.now || 0) {
+    if (!this.shouldUseAcMovementVisuals() || !this.isAcV3MovementPreset()) {
+      return "OFF";
+    }
+    if (this.isFinalBossRaidActive?.()) {
+      return "FINAL_RAID_OFF";
+    }
+    if (this.isAcFullOverheatActive(state)) {
+      return "FULL_OVERHEAT";
+    }
+
+    const visualMode = state?.visualMode || AC_LOCOMOTION_VISUAL_MODE.WALK_IDLE;
+    if (visualMode === AC_LOCOMOTION_VISUAL_MODE.AIR_BRAKE || state?.airBrake?.active) {
+      return "AIR_BRAKE";
+    }
+    if (visualMode === AC_LOCOMOTION_VISUAL_MODE.QUICK_BOOST || state?.continuousBoost?.active || state?.variableQuickBoost?.active) {
+      return "BOOST";
+    }
+    if (visualMode === AC_LOCOMOTION_VISUAL_MODE.POST_BOOST_GLIDE || now < (Number(state?.postBoostGlideUntil) || 0)) {
+      return "GLIDE";
+    }
+    if (visualMode === AC_LOCOMOTION_VISUAL_MODE.WALK_MOVE) {
+      return "WALK";
+    }
+    return "IDLE";
+  }
+
+  isAcKineticFxModeActive(state = this.ensureAcMovementState(), now = this.time?.now || 0) {
+    const depthMode = this.getAcKineticVisualDepthMode(state, now);
+    return depthMode === "BOOST" || depthMode === "GLIDE" || depthMode === "AIR_BRAKE";
+  }
+
+  getAcGroundSkidIntensity(components = this.getAcLocalMovementComponents(), state = this.ensureAcMovementState(), now = this.time?.now || 0) {
+    if (!this.isAcGroundSkidFxEnabled() || !this.playerHitbox || !this.isAcKineticFxModeActive(state, now)) {
+      return 0;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const speed = Math.max(0, Number(components?.speed) || 0);
+    const minSpeed = Math.max(0, Number(tuning.groundSkidMinSpeed) || 170);
+    const speedRange = Math.max(40, this.getAcMovementBaseSpeed() * 1.4 - minSpeed);
+    const speedRatio = Phaser.Math.Clamp((speed - minSpeed) / speedRange, 0, 1);
+    const minSideSlip = Phaser.Math.Clamp(Number(tuning.groundSkidMinSideSlip) || 0.38, 0, 0.95);
+    const sideSlip = Phaser.Math.Clamp(Number(components?.sideSlip) || 0, 0, 1);
+    const sideRatio = Phaser.Math.Clamp((sideSlip - minSideSlip) / Math.max(0.05, 1 - minSideSlip), 0, 1);
+    const angleRatio = Phaser.Math.Clamp((Number(components?.angleDelta) || 0) / 120, 0, 1);
+    const visualMode = state?.visualMode || AC_LOCOMOTION_VISUAL_MODE.WALK_IDLE;
+    let modeMultiplier = 0.35;
+    if (visualMode === AC_LOCOMOTION_VISUAL_MODE.AIR_BRAKE || state?.airBrake?.active) {
+      modeMultiplier = 1.05;
+    } else if (visualMode === AC_LOCOMOTION_VISUAL_MODE.QUICK_BOOST || state?.continuousBoost?.active) {
+      modeMultiplier = 0.82;
+    } else if (visualMode === AC_LOCOMOTION_VISUAL_MODE.POST_BOOST_GLIDE || now < (Number(state?.postBoostGlideUntil) || 0)) {
+      modeMultiplier = 1;
+    }
+    return Phaser.Math.Clamp(Math.max(speedRatio * 0.7, sideRatio, angleRatio * 0.55) * modeMultiplier, 0, 1);
+  }
+
+  getAcAttitudeJetIntensity(components = this.getAcLocalMovementComponents(), state = this.ensureAcMovementState(), now = this.time?.now || 0) {
+    if (!this.isAcAttitudeJetsEnabled() || !this.playerHitbox || !this.isAcKineticFxModeActive(state, now)) {
+      return { intensity: 0, sideAmount: 0, backAmount: 0, speedRatio: 0 };
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const speed = Math.max(0, Number(components?.speed) || 0);
+    const minSpeed = Math.max(0, Number(tuning.attitudeJetMinSpeed) || 150);
+    const speedRange = Math.max(40, this.getAcMovementBaseSpeed() * 1.35 - minSpeed);
+    const speedRatio = Phaser.Math.Clamp((speed - minSpeed) / speedRange, 0, 1);
+    const minSideDot = Phaser.Math.Clamp(Number(tuning.attitudeJetMinSideDot) || 0.38, 0, 0.95);
+    const sideSlip = Phaser.Math.Clamp(Number(components?.sideSlip) || 0, 0, 1);
+    const sideAmount = Phaser.Math.Clamp((sideSlip - minSideDot) / Math.max(0.05, 1 - minSideDot), 0, 1);
+    const minBackDot = Phaser.Math.Clamp(Number(tuning.attitudeJetMinBackDot) || -0.35, -0.95, 0);
+    const forwardDot = Phaser.Math.Clamp(Number(components?.forwardDot) || 0, -1, 1);
+    const backAmount = forwardDot < minBackDot
+      ? Phaser.Math.Clamp((minBackDot - forwardDot) / Math.max(0.05, 1 + minBackDot), 0, 1)
+      : 0;
+    const targetFacingBoost = components?.targetFacingEffective
+      ? Math.max(1, Number(tuning.attitudeJetTargetFacingBoost) || 1.35)
+      : 1;
+    const visualMode = state?.visualMode || AC_LOCOMOTION_VISUAL_MODE.WALK_IDLE;
+    const modeMultiplier = visualMode === AC_LOCOMOTION_VISUAL_MODE.AIR_BRAKE
+      ? 1.2
+      : visualMode === AC_LOCOMOTION_VISUAL_MODE.POST_BOOST_GLIDE
+      ? 0.88
+      : 1.12;
+    const intensity = Phaser.Math.Clamp(Math.max(sideAmount, backAmount * 0.85) * (0.35 + speedRatio * 0.65) * modeMultiplier * targetFacingBoost, 0, 1);
+    return { intensity, sideAmount, backAmount, speedRatio };
+  }
+
+  shouldTriggerAcQuickTurnFx(time, components = this.getAcLocalMovementComponents(), state = this.ensureAcMovementState(), visuals = this.ensureAcMovementVisualState(state)) {
+    if (!this.isAcQuickTurnFxEnabled() || !this.playerHitbox || !this.isAcKineticFxModeActive(state, time)) {
+      return false;
+    }
+    if (!components?.hasInput || time < (Number(visuals.quickTurnCooldownUntil) || 0)) {
+      return false;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const minSpeed = Math.max(0, Number(tuning.quickTurnMinSpeed) || 190);
+    const minAngle = Math.max(0, Number(tuning.quickTurnMinAngleDeg) || 40);
+    const minSideSlip = Phaser.Math.Clamp(Number(tuning.quickTurnMinSideSlip) || 0.46, 0, 0.98);
+    return (
+      (Number(components.speed) || 0) >= minSpeed &&
+      ((Number(components.angleDelta) || 0) >= minAngle || (Number(components.sideSlip) || 0) >= minSideSlip)
+    );
+  }
+
+  triggerAcQuickTurnFx(time = this.time?.now || 0, components = this.getAcLocalMovementComponents(), state = this.ensureAcMovementState(), visuals = this.ensureAcMovementVisualState(state)) {
+    if (!this.isAcQuickTurnFxEnabled() || !this.playerHitbox) {
+      return;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const safeTime = Math.max(0, Number(time) || 0);
+    const movementX = Number(components?.movementDirX) || Number(components?.velocityDirX) || 0;
+    const movementY = Number(components?.movementDirY) || Number(components?.velocityDirY) || 1;
+    const movementLength = Math.hypot(movementX, movementY) || 1;
+    const dirX = movementX / movementLength;
+    const dirY = movementY / movementLength;
+    const sideX = -dirY;
+    const sideY = dirX;
+    const sideSign = (Number(components?.sideDot) || 0) >= 0 ? 1 : -1;
+    const baseX = this.playerHitbox.x - dirX * 9;
+    const baseY = this.playerHitbox.y + 16 - dirY * 6;
+    const count = Phaser.Math.Clamp(Math.floor(Number(tuning.quickTurnSparkCount) || 4), 2, 8);
+    const lifetime = Math.max(60, Number(tuning.quickTurnSparkLifetimeMs) || 180);
+    const baseLength = Math.max(8, Number(tuning.quickTurnSparkLength) || 24);
+    const alpha = Phaser.Math.Clamp(Number(tuning.quickTurnSparkAlpha) || 0.62, 0.1, 1);
+    const color = state?.visualMode === AC_LOCOMOTION_VISUAL_MODE.POST_BOOST_GLIDE ? 0xffd58a : 0x9ffcff;
+
+    visuals.quickTurnCooldownUntil = safeTime + Math.max(40, Number(tuning.quickTurnCooldownMs) || 110);
+    visuals.quickTurnAngleDelta = Math.max(0, Number(components?.angleDelta) || 0);
+    visuals.quickTurnSideSlip = Phaser.Math.Clamp(Number(components?.sideSlip) || 0, 0, 1);
+    visuals.quickTurnActive = true;
+
+    for (let i = 0; i < count; i += 1) {
+      const spread = 9 + i * 3 + Phaser.Math.FloatBetween(-2, 3);
+      const along = Phaser.Math.FloatBetween(-8, 8);
+      const sparkDirX = -dirX + sideX * sideSign * Phaser.Math.FloatBetween(0.16, 0.42);
+      const sparkDirY = -dirY + sideY * sideSign * Phaser.Math.FloatBetween(0.16, 0.42);
+      const sparkLength = Math.hypot(sparkDirX, sparkDirY) || 1;
+      visuals.quickTurnSparks.push({
+        x: baseX + sideX * sideSign * spread + dirX * along,
+        y: baseY + sideY * sideSign * spread + dirY * along,
+        directionX: sparkDirX / sparkLength,
+        directionY: sparkDirY / sparkLength,
+        length: baseLength * Phaser.Math.FloatBetween(0.75, 1.28),
+        width: Phaser.Math.FloatBetween(1, 2.4),
+        createdAt: safeTime,
+        lifetime,
+        color,
+        alpha
+      });
+    }
+
+    const maxSparkCount = Math.max(8, count * 3);
+    visuals.quickTurnSparks = visuals.quickTurnSparks.slice(-maxSparkCount);
+  }
+
+  updateAcQuickTurnFx(time, delta) {
+    const state = this.ensureAcMovementState();
+    const visuals = this.ensureAcMovementVisualState(state);
+    const graphics = this.getAcQuickTurnGraphics(visuals);
+    if (!this.isAcQuickTurnFxEnabled() || !this.playerHitbox) {
+      graphics.clear();
+      graphics.setVisible(false);
+      visuals.quickTurnSparks = [];
+      visuals.quickTurnActive = false;
+      visuals.quickTurnAngleDelta = 0;
+      visuals.quickTurnSideSlip = 0;
+      return;
+    }
+
+    const now = Math.max(0, Number(time) || 0);
+    const components = this.getAcLocalMovementComponents(state, state?.lastInputVector);
+    if (this.shouldTriggerAcQuickTurnFx(now, components, state, visuals)) {
+      this.triggerAcQuickTurnFx(now, components, state, visuals);
+    }
+
+    visuals.quickTurnSparks = (visuals.quickTurnSparks || []).filter((spark) => {
+      const lifetime = Math.max(1, Number(spark.lifetime) || 1);
+      return now - (Number(spark.createdAt) || 0) <= lifetime;
+    });
+
+    if (!visuals.quickTurnSparks.length) {
+      graphics.clear();
+      graphics.setVisible(false);
+      visuals.quickTurnActive = false;
+      return;
+    }
+
+    graphics.clear();
+    graphics.setVisible(true);
+    visuals.quickTurnSparks.forEach((spark) => {
+      const age = Math.max(0, now - (Number(spark.createdAt) || 0));
+      const lifetime = Math.max(1, Number(spark.lifetime) || 1);
+      const ratio = Phaser.Math.Clamp(age / lifetime, 0, 1);
+      const fade = 1 - ratio;
+      const alpha = Phaser.Math.Clamp((Number(spark.alpha) || 0.62) * fade, 0, 1);
+      const length = Math.max(2, Number(spark.length) || 20) * (0.72 + ratio * 0.35);
+      const dirX = Number(spark.directionX) || 0;
+      const dirY = Number(spark.directionY) || 1;
+      const startX = Number(spark.x) || 0;
+      const startY = Number(spark.y) || 0;
+      graphics.lineStyle(Math.max(1, Number(spark.width) || 1), Number(spark.color) || 0x9ffcff, alpha);
+      graphics.beginPath();
+      graphics.moveTo(startX, startY);
+      graphics.lineTo(startX + dirX * length, startY + dirY * length);
+      graphics.strokePath();
+      if (ratio < 0.45) {
+        graphics.fillStyle(0xffffff, alpha * 0.48);
+        graphics.fillCircle(startX, startY, Math.max(1, (Number(spark.width) || 1) * 1.15));
+      }
+    });
+    visuals.quickTurnActive = true;
+  }
+
+  pushAcGroundSkidMark(visuals, time, x, y, directionX, directionY, reason = "glide", intensity = 0.5, sideSign = 1) {
+    if (!visuals) {
+      return;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const dirLength = Math.hypot(Number(directionX) || 0, Number(directionY) || 0) || 1;
+    const sparkReason = reason === "boostStart" || reason === "quickTurn";
+    const lifetime = sparkReason
+      ? Math.max(60, Number(tuning.groundSkidSparkLifetimeMs) || 170)
+      : Math.max(60, Number(tuning.groundSkidLineLifetimeMs) || Number(tuning.groundSkidTrailMs) || 240);
+    visuals.groundSkidMarks.push({
+      x,
+      y,
+      directionX: (Number(directionX) || 0) / dirLength,
+      directionY: (Number(directionY) || 1) / dirLength,
+      sideSign: sideSign >= 0 ? 1 : -1,
+      createdAt: Math.max(0, Number(time) || 0),
+      reason,
+      intensity: Phaser.Math.Clamp(Number(intensity) || 0, 0, 1),
+      lifetime,
+      spark: sparkReason
+    });
+    const maxMarks = Math.max(6, Math.floor(Number(tuning.groundSkidMaxObjects) || 16));
+    visuals.groundSkidMarks = visuals.groundSkidMarks.slice(-maxMarks);
+  }
+
+  drawAcAttitudeJetPlume(graphics, originX, originY, dirX, dirY, length, width, color, alpha) {
+    const safeLength = Math.max(1, Number(length) || 1);
+    const safeWidth = Math.max(1, Number(width) || 1);
+    const dirLength = Math.hypot(Number(dirX) || 0, Number(dirY) || 0) || 1;
+    const normX = (Number(dirX) || 0) / dirLength;
+    const normY = (Number(dirY) || 1) / dirLength;
+    const sideX = -normY;
+    const sideY = normX;
+    const tipX = originX + normX * safeLength;
+    const tipY = originY + normY * safeLength;
+    graphics.fillStyle(color, alpha);
+    graphics.beginPath();
+    graphics.moveTo(originX - sideX * safeWidth * 0.35, originY - sideY * safeWidth * 0.35);
+    graphics.lineTo(tipX + sideX * safeWidth, tipY + sideY * safeWidth);
+    graphics.lineTo(tipX - sideX * safeWidth, tipY - sideY * safeWidth);
+    graphics.closePath();
+    graphics.fillPath();
+    graphics.lineStyle(1, 0xffffff, alpha * 0.28);
+    graphics.beginPath();
+    graphics.moveTo(originX, originY);
+    graphics.lineTo(tipX, tipY);
+    graphics.strokePath();
+  }
+
+  triggerAcAirBrakeCameraFeedback(time = this.time?.now || 0, intensity = 1) {
+    const tuning = this.getActiveAcMovementTuning();
+    if (!this.isAcAirBrakeFxEnabled() || tuning.airBrakeCameraShakeEnabled === false) {
+      return;
+    }
+
+    const camera = this.cameras?.main;
+    if (typeof camera?.shake !== "function") {
+      return;
+    }
+
+    const visualIntensity = Phaser.Math.Clamp(Number(intensity) || 1, 0.25, 1);
+    camera.shake(
+      Math.max(0, Number(tuning.airBrakeCameraShakeDurationMs) || 44),
+      Math.max(0, Number(tuning.airBrakeCameraShakeIntensity) || 0.002) * Phaser.Math.Linear(0.55, 1, visualIntensity)
+    );
+  }
+
+  triggerAcAirBrakeFx(time = this.time?.now || 0, state = this.ensureAcMovementState()) {
+    if (!this.isAcAirBrakeFxEnabled() || !this.playerHitbox) {
+      return;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const visuals = this.ensureAcMovementVisualState(state);
+    const airBrake = state.airBrake || {};
+    const now = Math.max(0, Number(time) || 0);
+    const velocityX = Number(state.velocity?.x) || Number(airBrake.velocityBefore?.x) || 0;
+    const velocityY = Number(state.velocity?.y) || Number(airBrake.velocityBefore?.y) || 0;
+    const velocitySpeed = Math.hypot(velocityX, velocityY) || 1;
+    const dirX = velocityX / velocitySpeed;
+    const dirY = velocityY / velocitySpeed;
+    const sideX = -dirY;
+    const sideY = dirX;
+    const baseX = this.playerHitbox.x - dirX * 12;
+    const baseY = this.playerHitbox.y + 16 - dirY * 5;
+    const count = Phaser.Math.Clamp(Math.floor(Number(tuning.airBrakeSparkCount) || 7), 3, 12);
+    const lifetime = Math.max(60, Number(tuning.airBrakeSparkLifetimeMs) || 190);
+    const baseLength = Math.max(8, Number(tuning.airBrakeSparkLength) || 24);
+    const alpha = Phaser.Math.Clamp(Number(tuning.airBrakeSparkAlpha) || 0.68, 0.1, 1);
+    const strength = Phaser.Math.Clamp(Number(airBrake.strength) || 0.5, 0.25, 1);
+
+    visuals.airBrakeActive = true;
+    visuals.airBrakeIntensity = strength;
+    visuals.airBrakeDirection = { x: dirX, y: dirY };
+
+    for (let index = 0; index < count; index += 1) {
+      const side = Phaser.Math.FloatBetween(-18, 18);
+      const along = Phaser.Math.FloatBetween(-6, 16);
+      const sparkDirX = -dirX + sideX * Phaser.Math.FloatBetween(-0.32, 0.32);
+      const sparkDirY = -dirY + sideY * Phaser.Math.FloatBetween(-0.32, 0.32);
+      const sparkLength = Math.hypot(sparkDirX, sparkDirY) || 1;
+      visuals.airBrakeSparks.push({
+        x: baseX + sideX * side + dirX * along,
+        y: baseY + sideY * side + dirY * along,
+        directionX: sparkDirX / sparkLength,
+        directionY: sparkDirY / sparkLength,
+        length: baseLength * Phaser.Math.FloatBetween(0.82, 1.42) * (0.72 + strength * 0.42),
+        width: Phaser.Math.FloatBetween(1.1, 2.8),
+        createdAt: now,
+        lifetime: lifetime * Phaser.Math.FloatBetween(0.8, 1.18),
+        color: index % 3 === 0 ? 0xffffff : (index % 2 === 0 ? 0xffd58a : 0xff8b3d),
+        alpha
+      });
+    }
+
+    visuals.airBrakeSparks = visuals.airBrakeSparks.slice(-Math.max(12, count * 3));
+    this.triggerAcAirBrakeCameraFeedback(now, strength);
+  }
+
+  updateAcAirBrakeFx(time, delta) {
+    const state = this.ensureAcMovementState();
+    const visuals = this.ensureAcMovementVisualState(state);
+    const graphics = this.getAcAirBrakeGraphics(visuals);
+    if (!this.isAcAirBrakeFxEnabled() || !this.playerHitbox) {
+      graphics.clear();
+      graphics.setVisible(false);
+      visuals.airBrakeSparks = [];
+      visuals.airBrakeActive = false;
+      visuals.airBrakeIntensity = 0;
+      return;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const now = Math.max(0, Number(time) || 0);
+    const airBrake = state.airBrake || {};
+    visuals.airBrakeSparks = (visuals.airBrakeSparks || []).filter((spark) => {
+      const lifetime = Math.max(1, Number(spark.lifetime) || 1);
+      return now - (Number(spark.createdAt) || 0) <= lifetime;
+    });
+
+    const active = Boolean(airBrake.active);
+    const strength = Phaser.Math.Clamp(Number(airBrake.strength) || Number(visuals.airBrakeIntensity) || 0, 0, 1);
+    if (!active && !visuals.airBrakeSparks.length) {
+      graphics.clear();
+      graphics.setVisible(false);
+      visuals.airBrakeActive = false;
+      visuals.airBrakeIntensity = 0;
+      return;
+    }
+
+    graphics.clear();
+    graphics.setVisible(true);
+
+    if (active) {
+      const direction = visuals.airBrakeDirection || airBrake.direction || AC_MOVEMENT_CONFIG.defaultLastMoveDirection;
+      const dirLength = Math.hypot(Number(direction.x) || 0, Number(direction.y) || 0) || 1;
+      const dirX = (Number(direction.x) || 0) / dirLength;
+      const dirY = (Number(direction.y) || 1) / dirLength;
+      const sideX = -dirY;
+      const sideY = dirX;
+      const centerX = this.playerHitbox.x;
+      const centerY = this.playerHitbox.y + 7;
+      const length = Math.max(8, Number(tuning.airBrakeJetLength) || 28) * (0.78 + strength * 0.42);
+      const width = Math.max(3, Number(tuning.airBrakeJetWidth) || 9) * (0.78 + strength * 0.45);
+      const alpha = Phaser.Math.Clamp(Number(tuning.airBrakeJetAlpha) || 0.52, 0.1, 0.85) * (0.72 + Math.sin(now / 35) * 0.12 + strength * 0.22);
+      this.drawAcAttitudeJetPlume(
+        graphics,
+        centerX + sideX * 20 + dirX * 5,
+        centerY + sideY * 14 + dirY * 5,
+        -dirX,
+        -dirY,
+        length,
+        width,
+        0xffb45d,
+        alpha
+      );
+      this.drawAcAttitudeJetPlume(
+        graphics,
+        centerX - sideX * 20 + dirX * 5,
+        centerY - sideY * 14 + dirY * 5,
+        -dirX,
+        -dirY,
+        length * 0.92,
+        width * 0.84,
+        0xffffff,
+        alpha * 0.58
+      );
+    }
+
+    visuals.airBrakeSparks.forEach((spark) => {
+      const age = Math.max(0, now - (Number(spark.createdAt) || 0));
+      const lifetime = Math.max(1, Number(spark.lifetime) || 1);
+      const ratio = Phaser.Math.Clamp(age / lifetime, 0, 1);
+      const fade = 1 - ratio;
+      const alpha = Phaser.Math.Clamp((Number(spark.alpha) || 0.68) * fade, 0, 1);
+      const startX = Number(spark.x) || 0;
+      const startY = Number(spark.y) || 0;
+      const dirX = Number(spark.directionX) || 0;
+      const dirY = Number(spark.directionY) || 1;
+      const length = Math.max(2, Number(spark.length) || 20) * (0.78 + ratio * 0.38);
+      graphics.lineStyle(Math.max(1, Number(spark.width) || 1), Number(spark.color) || 0xffd58a, alpha);
+      graphics.beginPath();
+      graphics.moveTo(startX, startY);
+      graphics.lineTo(startX + dirX * length, startY + dirY * length * 0.82);
+      graphics.strokePath();
+      if (ratio < 0.42) {
+        graphics.fillStyle(Number(spark.color) || 0xffd58a, alpha * 0.45);
+        graphics.fillCircle(startX, startY, Math.max(1, Number(spark.width) || 1));
+      }
+    });
+
+    visuals.airBrakeActive = active || visuals.airBrakeSparks.length > 0;
+    visuals.airBrakeIntensity = strength;
+  }
+
+  updateAcAttitudeControlJets(time, delta) {
+    const state = this.ensureAcMovementState();
+    const visuals = this.ensureAcMovementVisualState(state);
+    const graphics = this.getAcAttitudeJetGraphics(visuals);
+    if (!this.isAcAttitudeJetsEnabled() || !this.playerHitbox) {
+      graphics.clear();
+      graphics.setVisible(false);
+      visuals.attitudeJetActive = false;
+      visuals.attitudeJetIntensity = 0;
+      return;
+    }
+
+    const now = Math.max(0, Number(time) || 0);
+    const components = this.getAcLocalMovementComponents(state, state?.lastInputVector);
+    const jet = this.getAcAttitudeJetIntensity(components, state, now);
+    const intensity = Phaser.Math.Clamp(Number(jet.intensity) || 0, 0, 1);
+    if (intensity <= 0.02) {
+      graphics.clear();
+      graphics.setVisible(false);
+      visuals.attitudeJetActive = false;
+      visuals.attitudeJetIntensity = 0;
+      return;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const centerX = this.playerHitbox.x;
+    const centerY = this.playerHitbox.y + 6;
+    const facingX = Number(components.facingDirX) || 0;
+    const facingY = Number(components.facingDirY) || 1;
+    const sideX = -facingY;
+    const sideY = facingX;
+    const maxLength = Math.max(8, Number(tuning.attitudeJetMaxLength) || 30);
+    const maxWidth = Math.max(3, Number(tuning.attitudeJetMaxWidth) || 10);
+    const alpha = Phaser.Math.Clamp((Number(tuning.attitudeJetAlpha) || 0.56) * (0.45 + intensity * 0.7), 0, 0.9);
+    const length = maxLength * (0.45 + intensity * 0.72);
+    const width = maxWidth * (0.42 + intensity * 0.68);
+
+    graphics.clear();
+    graphics.setVisible(true);
+    if (jet.sideAmount > 0.02) {
+      const sideSign = (Number(components.sideDot) || 0) >= 0 ? -1 : 1;
+      const mountX = centerX + sideX * sideSign * 24 - facingX * 4;
+      const mountY = centerY + sideY * sideSign * 18 - facingY * 4;
+      this.drawAcAttitudeJetPlume(
+        graphics,
+        mountX,
+        mountY,
+        sideX * sideSign,
+        sideY * sideSign,
+        length,
+        width,
+        0x9ffcff,
+        alpha
+      );
+    }
+    if (jet.backAmount > 0.02) {
+      const mountX = centerX + facingX * 22;
+      const mountY = centerY + facingY * 16;
+      this.drawAcAttitudeJetPlume(
+        graphics,
+        mountX,
+        mountY,
+        facingX,
+        facingY,
+        length * 0.82,
+        width * 0.78,
+        0xffd58a,
+        alpha * 0.86
+      );
+    }
+    visuals.attitudeJetActive = true;
+    visuals.attitudeJetIntensity = intensity;
+  }
+
+  updateAcWeightShadowVisual(time, delta) {
+    const state = this.ensureAcMovementState();
+    const visuals = this.ensureAcMovementVisualState(state);
+    if (!this.isAcWeightShadowEnabled() || !this.playerShadow || this.playerShadow.active === false) {
+      this.resetAcWeightShadowVisual();
+      return;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const components = this.getAcLocalMovementComponents(state, state?.lastInputVector);
+    const baseScaleX = Math.max(0.1, Number(tuning.weightShadowBaseScaleX) || 1);
+    const baseScaleY = Math.max(0.1, Number(tuning.weightShadowBaseScaleY) || 1);
+    const speed = Math.max(0, Number(components.speed) || 0);
+    const speedCap = Math.max(1, this.getAcMovementBaseSpeed() * Math.max(1, Number(tuning.quickBoostMaxSpeedMultiplier) || 2.7));
+    const speedRatio = Phaser.Math.Clamp(speed / speedCap, 0, 1);
+    const visualMode = state?.visualMode || AC_LOCOMOTION_VISUAL_MODE.WALK_IDLE;
+    let modeMultiplier = 0.32;
+    if (visualMode === AC_LOCOMOTION_VISUAL_MODE.AIR_BRAKE || state?.airBrake?.active) {
+      modeMultiplier = 0.96;
+    } else if (visualMode === AC_LOCOMOTION_VISUAL_MODE.QUICK_BOOST || state?.continuousBoost?.active) {
+      modeMultiplier = 1.18;
+    } else if (visualMode === AC_LOCOMOTION_VISUAL_MODE.POST_BOOST_GLIDE || this.isAcKineticFxModeActive(state, time)) {
+      modeMultiplier = 0.92;
+    } else if (visualMode === AC_LOCOMOTION_VISUAL_MODE.OVERHEAT) {
+      modeMultiplier = 0.46;
+    }
+    const intensity = Phaser.Math.Clamp(speedRatio * modeMultiplier, 0, 1);
+    const stretch = Math.max(0, Number(tuning.weightShadowSpeedStretch) || 0.22) * intensity;
+    const targetScaleX = baseScaleX + stretch;
+    const targetScaleY = Math.max(0.58, baseScaleY - stretch * 0.34);
+    const targetAlpha = Phaser.Math.Clamp((Number(tuning.weightShadowAlpha) || 0.3) + intensity * 0.08, 0.16, 0.42);
+    const targetRotation = speed > 10 ? Math.atan2(Number(state.velocity?.y) || 0, Number(state.velocity?.x) || 0) : 0;
+    const smoothing = Phaser.Math.Clamp(Number(tuning.weightShadowSmoothing) || 0.22, 0.02, 1);
+    const frameBlend = Phaser.Math.Clamp(1 - Math.pow(1 - smoothing, Math.max(1, Number(delta) || 16.67) / 16.67), 0.02, 1);
+
+    const currentScaleX = Number(visuals.weightShadowScaleX) || baseScaleX;
+    const currentScaleY = Number(visuals.weightShadowScaleY) || baseScaleY;
+    const currentRotation = Number(visuals.weightShadowRotation) || 0;
+    visuals.weightShadowScaleX = Phaser.Math.Linear(currentScaleX, targetScaleX, frameBlend);
+    visuals.weightShadowScaleY = Phaser.Math.Linear(currentScaleY, targetScaleY, frameBlend);
+    visuals.weightShadowRotation = currentRotation + Phaser.Math.Angle.Wrap(targetRotation - currentRotation) * frameBlend * 0.2;
+    visuals.weightShadowIntensity = intensity;
+    visuals.weightShadowActive = intensity > 0.02;
+
+    this.playerShadow
+      .setScale?.(visuals.weightShadowScaleX, visuals.weightShadowScaleY)
+      .setAlpha?.(targetAlpha)
+      .setRotation?.(visuals.weightShadowRotation)
+      .setDepth?.(Number(tuning.weightShadowDepth) || 15);
+  }
+
+  getAcEnergyRatio() {
+    const maxStamina = Math.max(0, Number(this.stats?.maxStamina) || 0);
+    const currentStamina = Math.max(0, Number(this.stats?.stamina ?? maxStamina) || 0);
+    return maxStamina > 0 ? Phaser.Math.Clamp(currentStamina / maxStamina, 0, 1) : 1;
+  }
+
+  getAcEnergyWarningState(state = this.ensureAcMovementState()) {
+    const tuning = this.getActiveAcMovementTuning();
+    const ratio = this.getAcEnergyRatio();
+    if (this.isAcFullOverheatActive(state)) {
+      return AC_ENERGY_WARNING_STATE.FULL_OVERHEAT;
+    }
+    if (ratio <= Math.max(0, Number(tuning.energyWarningCriticalRatio) || 0.07)) {
+      return AC_ENERGY_WARNING_STATE.CRITICAL;
+    }
+    if (ratio <= Math.max(0, Number(tuning.energyWarningWarningRatio) || 0.15)) {
+      return AC_ENERGY_WARNING_STATE.WARNING;
+    }
+    if (ratio <= Math.max(0, Number(tuning.energyWarningCautionRatio) || 0.3)) {
+      return AC_ENERGY_WARNING_STATE.CAUTION;
+    }
+    return AC_ENERGY_WARNING_STATE.NORMAL;
+  }
+
+  getAcEnergyWarningColor(energyState) {
+    switch (energyState) {
+      case AC_ENERGY_WARNING_STATE.FULL_OVERHEAT:
+        return 0xff5e24;
+      case AC_ENERGY_WARNING_STATE.CRITICAL:
+        return 0xff384d;
+      case AC_ENERGY_WARNING_STATE.WARNING:
+        return 0xff8b3d;
+      case AC_ENERGY_WARNING_STATE.CAUTION:
+        return 0xffd85a;
+      default:
+        return 0x63e6ff;
+    }
+  }
+
+  getAcPredictedBoostDirection(input = this.ensureAcMovementState().lastInputVector, state = this.ensureAcMovementState()) {
+    return this.getAcQuickBoostDirection(input, state);
+  }
+
+  getAcBoostAvailabilityState(state = this.ensureAcMovementState(), now = this.time?.now || 0) {
+    const tuning = this.getActiveAcMovementTuning();
+    if (!this.isAcContinuousBoostEnabled(tuning)) {
+      return { available: false, reason: AC_QUICK_BOOST_FAIL_REASON.DISABLED };
+    }
+    if (state?.continuousBoost?.active) {
+      return { available: false, reason: "ACTIVE" };
+    }
+    const startCheck = this.canStartAcContinuousBoost(state, now, tuning);
+    return {
+      available: Boolean(startCheck.allowed),
+      reason: startCheck.allowed ? "NONE" : (startCheck.reason || "NONE"),
+      requiredStamina: Math.max(0, Number(startCheck.requiredStamina) || 0),
+      currentStamina: Math.max(0, Number(startCheck.currentStamina ?? this.stats?.stamina) || 0)
+    };
+  }
+
+  getAcLockonRingRadius(target, tuning = this.getActiveAcMovementTuning()) {
+    const baseRadius = Math.max(16, Number(tuning.lockonRingBaseRadius) || 34);
+    if (target?.isBoss || this.isNemesisBoss?.(target)) {
+      return baseRadius * Math.max(1, Number(tuning.lockonRingBossRadiusMultiplier) || 1.38);
+    }
+    if (target?.isElite) {
+      return baseRadius * Math.max(1, Number(tuning.lockonRingEliteRadiusMultiplier) || 1.18);
+    }
+    return baseRadius;
+  }
+
+  isAcWorldPointInCameraView(x, y, padding = 0) {
+    const view = this.cameras?.main?.worldView;
+    if (!view) {
+      return true;
+    }
+    const safePadding = Math.max(0, Number(padding) || 0);
+    return (
+      x >= view.x - safePadding &&
+      x <= view.x + view.width + safePadding &&
+      y >= view.y - safePadding &&
+      y <= view.y + view.height + safePadding
+    );
+  }
+
+  getAcTacticalVisualCount(visuals = this.acMovementState?.visuals) {
+    if (!visuals) {
+      return 0;
+    }
+
+    const countObject = (object) => (object?.scene && object.active !== false && object.visible ? 1 : 0);
+    return countObject(visuals.energyWarningGraphics) +
+      countObject(visuals.energyWarningText) +
+      countObject(visuals.lockonRingGraphics) +
+      countObject(visuals.boostVectorGraphics);
+  }
+
+  updateAcEnergyWarningVisuals(time, delta) {
+    const state = this.ensureAcMovementState();
+    const visuals = this.ensureAcMovementVisualState(state);
+    const graphics = this.getAcEnergyWarningGraphics(visuals);
+    const text = visuals.energyWarningText || null;
+    if (!this.isAcEnergyWarningEnabled()) {
+      graphics.clear();
+      graphics.setVisible(false);
+      text?.setVisible(false);
+      return;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const energyState = this.getAcEnergyWarningState(state);
+    const ratio = this.getAcEnergyRatio();
+    const color = this.getAcEnergyWarningColor(energyState);
+    const pulseMs = Math.max(120, Number(tuning.energyWarningPulseMs) || 420);
+    const pulse = (Math.sin((Number(time) || 0) / pulseMs * Math.PI * 2) + 1) * 0.5;
+    const urgent = energyState !== AC_ENERGY_WARNING_STATE.NORMAL;
+    const fullOverheat = energyState === AC_ENERGY_WARNING_STATE.FULL_OVERHEAT;
+    const alpha = urgent ? Phaser.Math.Linear(0.42, 0.82, pulse) : 0.16;
+    const x = this.playerHitbox?.x ?? this.playerSprite?.x ?? 0;
+    const y = (this.playerHitbox?.y ?? this.playerSprite?.y ?? 0) + 8;
+    const playerWidth = Math.max(80, Number(this.playerSprite?.displayWidth) || PLAYER_ROBOT_DISPLAY_HEIGHT * 0.72);
+    const radius = Phaser.Math.Clamp(playerWidth * 0.46, 46, 68);
+    const ringRadius = radius + (urgent ? Phaser.Math.Linear(1, 4, pulse) : 1);
+    const haloRadius = radius + (urgent ? Phaser.Math.Linear(6, 10, pulse) : 6);
+
+    graphics.clear();
+    graphics.setVisible(true);
+    if (urgent) {
+      graphics.fillStyle(color, fullOverheat ? 0.08 + pulse * 0.04 : 0.04 + pulse * 0.03);
+      graphics.fillCircle(x, y, radius + 10);
+    }
+    graphics.lineStyle(fullOverheat ? 10 : 8, color, alpha);
+    graphics.strokeCircle(x, y, ringRadius);
+    graphics.lineStyle(2, 0xffffff, urgent ? 0.2 + pulse * 0.12 : 0.1);
+    graphics.strokeCircle(x, y, haloRadius);
+    if (urgent) {
+      graphics.lineStyle(7, color, 0.18 + pulse * 0.18);
+      graphics.beginPath();
+      graphics.arc(x, y, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0.02, ratio), false);
+      graphics.strokePath();
+    }
+
+    text?.setVisible(false);
+  }
+
+  updateAcLockonRingVisual(time, delta) {
+    const state = this.ensureAcMovementState();
+    const visuals = this.ensureAcMovementVisualState(state);
+    const graphics = this.getAcLockonRingGraphics(visuals);
+    const tuning = this.getActiveAcMovementTuning();
+    const target = state.acFacingTarget;
+    if (
+      !this.isAcLockonRingEnabled() ||
+      !this.isAcFacingTargetValid(target, tuning.targetFacingRange) ||
+      !this.isAcWorldPointInCameraView(target.x, target.y, this.getAcLockonRingRadius(target, tuning) + 18)
+    ) {
+      graphics.clear();
+      graphics.setVisible(false);
+      visuals.lockonRingTarget = null;
+      visuals.lockonRingTargetType = "";
+      visuals.lockonRingDistance = 0;
+      visuals.lockonRingVisible = false;
+      return;
+    }
+
+    const now = Math.max(0, Number(time) || 0);
+    if (visuals.lockonRingTarget !== target) {
+      visuals.lockonRingTarget = target;
+      visuals.lockonRingSwitchAt = now;
+    }
+
+    const targetType = this.getAcFacingTargetLabel(target);
+    const distance = Phaser.Math.Distance.Between(this.playerHitbox.x, this.playerHitbox.y, target.x, target.y);
+    const baseRadius = this.getAcLockonRingRadius(target, tuning);
+    const pulseMs = Math.max(160, Number(tuning.lockonRingScanPulseMs) || 520);
+    const switchPulse = Phaser.Math.Clamp(1 - (now - (Number(visuals.lockonRingSwitchAt) || now)) / pulseMs, 0, 1);
+    const pulse = (Math.sin(now / pulseMs * Math.PI * 2) + 1) * 0.5;
+    const radius = baseRadius + pulse * 2 + switchPulse * 8;
+    const color = target?.isBoss || this.isNemesisBoss?.(target)
+      ? 0xffd264
+      : target?.isElite
+        ? 0x9af7ff
+        : 0x61e6ff;
+    const alpha = Phaser.Math.Clamp(0.42 + pulse * 0.18 + switchPulse * 0.24, 0.28, 0.9);
+    const notch = Math.max(7, radius * 0.18);
+
+    graphics.clear();
+    graphics.setVisible(true);
+    graphics.lineStyle(2, color, alpha);
+    graphics.strokeCircle(target.x, target.y, radius);
+    graphics.lineStyle(1, 0xffffff, alpha * 0.42);
+    graphics.strokeCircle(target.x, target.y, Math.max(10, radius - 8));
+    graphics.lineStyle(2, color, alpha * 0.72);
+    graphics.beginPath();
+    graphics.moveTo(target.x - radius - notch, target.y);
+    graphics.lineTo(target.x - radius + notch * 0.2, target.y);
+    graphics.moveTo(target.x + radius + notch, target.y);
+    graphics.lineTo(target.x + radius - notch * 0.2, target.y);
+    graphics.moveTo(target.x, target.y - radius - notch);
+    graphics.lineTo(target.x, target.y - radius + notch * 0.2);
+    graphics.moveTo(target.x, target.y + radius + notch);
+    graphics.lineTo(target.x, target.y + radius - notch * 0.2);
+    graphics.strokePath();
+
+    visuals.lockonRingTargetType = targetType;
+    visuals.lockonRingDistance = distance;
+    visuals.lockonRingVisible = true;
+  }
+
+  isValidAcTargetFireTarget(target, maxDistance = this.getActiveAcMovementTuning().targetFireMaxRange) {
+    const tuning = this.getActiveAcMovementTuning();
+    const range = Math.max(0, Number(maxDistance) || Number(tuning.targetFacingRange) || 0);
+    return this.isAcFacingTargetValid(target, range);
+  }
+
+  getAcTargetFireTarget(state = this.ensureAcMovementState()) {
+    const target = state?.acFacingTarget || state?.visuals?.lockonRingTarget || state?.targetFire?.target || null;
+    return this.isValidAcTargetFireTarget(target) ? target : null;
+  }
+
+  updateAcTargetFireTargetCache(time = this.time?.now || 0, state = this.ensureAcMovementState()) {
+    const targetFire = state.targetFire = this.normalizeAcTargetFireState(state.targetFire);
+    const target = this.getAcTargetFireTarget(state);
+    if (!target) {
+      targetFire.target = null;
+      targetFire.targetId = "";
+      return null;
+    }
+
+    if (targetFire.target !== target) {
+      targetFire.active = false;
+      targetFire.burstShotIndex = 0;
+      targetFire.burstCount = 0;
+      targetFire.nextShotAt = Math.max(Number(targetFire.nextShotAt) || 0, Math.max(0, Number(time) || 0) + 40);
+    }
+    targetFire.target = target;
+    targetFire.targetId = this.getAcFacingTargetLabel(target);
+    targetFire.lastTargetAt = Math.max(0, Number(time) || 0);
+    return target;
+  }
+
+  getAcTargetFireTargetPoint(target) {
+    const displayHeight = Math.max(0, Number(target?.displayHeight || target?.body?.height) || 0);
+    return {
+      x: Number(target?.x) || 0,
+      y: (Number(target?.y) || 0) - Phaser.Math.Clamp(displayHeight * 0.08, 0, 18)
+    };
+  }
+
+  getAcTargetFireFacingDirection(target) {
+    const originX = Number(this.playerHitbox?.x ?? this.playerSprite?.x) || 0;
+    const originY = Number(this.playerHitbox?.y ?? this.playerSprite?.y) || 0;
+    const point = this.getAcTargetFireTargetPoint(target);
+    const deltaX = point.x - originX;
+    const deltaY = point.y - originY;
+    const length = Math.hypot(deltaX, deltaY) || 1;
+    return {
+      x: deltaX / length,
+      y: deltaY / length
+    };
+  }
+
+  getAcPerpendicularVector(direction) {
+    const dirX = Number(direction?.x) || 0;
+    const dirY = Number(direction?.y) || 1;
+    const length = Math.hypot(dirX, dirY) || 1;
+    return {
+      x: -dirY / length,
+      y: dirX / length
+    };
+  }
+
+  getAcTargetFireMuzzleOrigin(target, side = 1, state = this.ensureAcMovementState()) {
+    const tuning = this.getActiveAcMovementTuning();
+    const direction = this.getAcTargetFireFacingDirection(target);
+    const perpendicular = this.getAcPerpendicularVector(direction);
+    const forwardOffset = Math.max(0, Number(tuning.targetFireMuzzleForwardOffset) || 18);
+    const sideOffset = Math.max(0, Number(tuning.targetFireMuzzleSideOffset) || 10);
+    const sideKick = Math.max(0, Number(tuning.targetFireMuzzleSideKickPx) || 0);
+    const visualSideOffset = sideOffset + sideKick;
+    const boostBackOffset = state?.continuousBoost?.active
+      ? Math.max(0, Number(tuning.targetFireBoostBackOffset) || 4)
+      : 0;
+    const baseX = Number(this.playerHitbox?.x ?? this.playerSprite?.x) || 0;
+    const baseY = Number(this.playerHitbox?.y ?? this.playerSprite?.y) || 0;
+    return {
+      x: baseX + direction.x * (forwardOffset - boostBackOffset) + perpendicular.x * visualSideOffset * side,
+      y: baseY + direction.y * (forwardOffset - boostBackOffset) + perpendicular.y * visualSideOffset * side,
+      direction,
+      perpendicular,
+      sideOffset: visualSideOffset
+    };
+  }
+
+  getAcTargetFireMode(state = this.ensureAcMovementState(), suppressedReason = AC_TARGET_FIRE_SUPPRESSION_REASON.NONE) {
+    if (suppressedReason === AC_TARGET_FIRE_SUPPRESSION_REASON.FULL_OVERHEAT) {
+      return AC_TARGET_FIRE_MODE.OVERHEAT_SUPPRESSED;
+    }
+    if (suppressedReason === AC_TARGET_FIRE_SUPPRESSION_REASON.AIR_BRAKE) {
+      return AC_TARGET_FIRE_MODE.AIR_BRAKE_SUPPRESSED;
+    }
+    if (!this.shouldUseAcTargetFire()) {
+      return AC_TARGET_FIRE_MODE.OFF;
+    }
+    if (state?.continuousBoost?.active || state?.mode === AC_MOVEMENT_CONFIG.quickBoostMode) {
+      return AC_TARGET_FIRE_MODE.BOOST;
+    }
+    if (state?.mode === AC_MOVEMENT_CONFIG.postBoostGlideMode) {
+      return AC_TARGET_FIRE_MODE.POST_GLIDE;
+    }
+    return AC_TARGET_FIRE_MODE.WALK;
+  }
+
+  canUseAcTargetFire(time = this.time?.now || 0, state = this.ensureAcMovementState()) {
+    const now = Math.max(0, Number(time) || 0);
+    const tuning = this.getActiveAcMovementTuning();
+    const targetFire = state.targetFire = this.normalizeAcTargetFireState(state.targetFire);
+    if (!this.shouldUseAcMovementVisuals()) {
+      return { allowed: false, reason: AC_TARGET_FIRE_SUPPRESSION_REASON.VISUALS_DISABLED, target: null };
+    }
+    if (!this.isAcV3MovementPreset()) {
+      return { allowed: false, reason: AC_TARGET_FIRE_SUPPRESSION_REASON.PRESET, target: null };
+    }
+    if (this.isFinalBossRaidActive?.()) {
+      return { allowed: false, reason: AC_TARGET_FIRE_SUPPRESSION_REASON.FINAL_RAID, target: null };
+    }
+    if (!this.shouldUseAcTargetFire()) {
+      return { allowed: false, reason: AC_TARGET_FIRE_SUPPRESSION_REASON.DISABLED, target: null };
+    }
+    if (!this.playerHitbox?.body) {
+      return { allowed: false, reason: AC_TARGET_FIRE_SUPPRESSION_REASON.NO_BODY, target: null };
+    }
+    if (tuning.targetFireFullOverheatSuppressed !== false && this.isAcFullOverheatActive(state)) {
+      return { allowed: false, reason: AC_TARGET_FIRE_SUPPRESSION_REASON.FULL_OVERHEAT, target: null };
+    }
+    if (tuning.targetFireAirBrakeSuppressed !== false && state.airBrake?.active) {
+      return { allowed: false, reason: AC_TARGET_FIRE_SUPPRESSION_REASON.AIR_BRAKE, target: null };
+    }
+
+    const target = this.updateAcTargetFireTargetCache(now, state);
+    if (!target) {
+      return { allowed: false, reason: AC_TARGET_FIRE_SUPPRESSION_REASON.NO_TARGET, target: null };
+    }
+    if (!this.isValidAcTargetFireTarget(target, tuning.targetFireMaxRange)) {
+      return { allowed: false, reason: AC_TARGET_FIRE_SUPPRESSION_REASON.TARGET_INVALID, target };
+    }
+    if (!this.isAcWorldPointInCameraView(target.x, target.y, 96)) {
+      return { allowed: false, reason: AC_TARGET_FIRE_SUPPRESSION_REASON.TARGET_OFFSCREEN, target };
+    }
+
+    const cooldownReadyAt = Math.max(
+      Number(targetFire.nextShotAt) || 0,
+      (Number(targetFire.lastBurstAt) || 0) + Math.max(0, Number(tuning.targetFireBurstCooldownMs) || 440)
+    );
+    if (!targetFire.active && now < cooldownReadyAt) {
+      return { allowed: false, reason: AC_TARGET_FIRE_SUPPRESSION_REASON.COOLDOWN, target };
+    }
+    return {
+      allowed: true,
+      reason: targetFire.active ? AC_TARGET_FIRE_SUPPRESSION_REASON.BURST : AC_TARGET_FIRE_SUPPRESSION_REASON.READY,
+      target
+    };
+  }
+
+  getAcTargetFireVisualCount(targetFire = this.acMovementState?.targetFire) {
+    if (!targetFire) {
+      return 0;
+    }
+    const countActive = (items) => (items || []).filter((object) => object?.scene && object.active !== false).length;
+    return countActive(targetFire.activeTracers) + countActive(targetFire.activeImpacts) + countActive(targetFire.activeMuzzles);
+  }
+
+  pruneAcTargetFireFx(targetFire = this.acMovementState?.targetFire) {
+    if (!targetFire) {
+      return;
+    }
+    const isLiveObject = (object) => object?.scene && object.active !== false;
+    targetFire.activeTracers = (targetFire.activeTracers || []).filter(isLiveObject);
+    targetFire.activeImpacts = (targetFire.activeImpacts || []).filter(isLiveObject);
+    targetFire.activeMuzzles = (targetFire.activeMuzzles || []).filter(isLiveObject);
+    targetFire.activeTweens = (targetFire.activeTweens || []).filter((tween) => (
+      tween && (typeof tween.isPlaying !== "function" || tween.isPlaying())
+    ));
+  }
+
+  enforceAcTargetFireFxLimit(targetFire = this.acMovementState?.targetFire) {
+    if (!targetFire) {
+      return;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const maxTracers = Phaser.Math.Clamp(Math.floor(Number(tuning.targetFireMaxActiveTracers) || 20), 4, 60);
+    const trimBucket = (bucketName, maxCount) => {
+      const bucket = Array.isArray(targetFire[bucketName]) ? targetFire[bucketName] : [];
+      while (bucket.length > maxCount) {
+        const object = bucket.shift();
+        this.stopAcTargetFireObjectTween(object, targetFire);
+        this.safeDestroyAcVisualObject(object);
+      }
+      targetFire[bucketName] = bucket;
+    };
+    trimBucket("activeTracers", maxTracers);
+    trimBucket("activeImpacts", maxTracers);
+    trimBucket("activeMuzzles", maxTracers);
+    this.pruneAcTargetFireFx(targetFire);
+  }
+
+  trackAcTargetFireFxObject(object, bucketName, lifetimeMs, targetFire = this.acMovementState?.targetFire) {
+    if (!targetFire || !object) {
+      return null;
+    }
+
+    targetFire[bucketName] = Array.isArray(targetFire[bucketName]) ? targetFire[bucketName] : [];
+    targetFire[bucketName].push(object);
+    const tween = this.tweens?.add({
+      targets: object,
+      alpha: 0,
+      duration: Math.max(30, Number(lifetimeMs) || 90),
+      ease: "Quad.Out",
+      onComplete: () => {
+        this.removeAcTargetFireFxObject(object, targetFire);
+        this.removeAcTargetFireTween(tween, targetFire);
+        this.safeDestroyAcVisualObject(object);
+      }
+    });
+    if (tween) {
+      targetFire.activeTweens = Array.isArray(targetFire.activeTweens) ? targetFire.activeTweens : [];
+      targetFire.activeTweens.push(tween);
+    }
+    this.enforceAcTargetFireFxLimit(targetFire);
+    return object;
+  }
+
+  tryStartAcTargetFireBurst(time = this.time?.now || 0, target = null, state = this.ensureAcMovementState()) {
+    const targetFire = state.targetFire = this.normalizeAcTargetFireState(state.targetFire);
+    if (!target || targetFire.active) {
+      return false;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    targetFire.active = true;
+    targetFire.burstShotIndex = 0;
+    targetFire.burstCount = Phaser.Math.Clamp(Math.floor(Number(tuning.targetFireBurstSize) || 10), 1, 14);
+    targetFire.nextShotAt = Math.max(0, Number(time) || 0);
+    targetFire.target = target;
+    targetFire.targetId = this.getAcFacingTargetLabel(target);
+    targetFire.suppressedReason = AC_TARGET_FIRE_SUPPRESSION_REASON.BURST;
+    return true;
+  }
+
+  getAcTargetFireStyle() {
+    return "segmented";
+  }
+
+  getAcTargetFireSpreadForMode(mode = AC_TARGET_FIRE_MODE.WALK, tuning = this.getActiveAcMovementTuning()) {
+    if (mode === AC_TARGET_FIRE_MODE.BOOST) {
+      return Math.max(0, Number(tuning.targetFireBoostSpreadDeg) || 0);
+    }
+    if (mode === AC_TARGET_FIRE_MODE.POST_GLIDE) {
+      return Math.max(0, Number(tuning.targetFirePostGlideSpreadDeg) || Number(tuning.targetFireWalkSpreadDeg) || 0);
+    }
+    return Math.max(0, Number(tuning.targetFireWalkSpreadDeg) || 0);
+  }
+
+  getAcTargetFireMuzzleMotionOffset(state = this.ensureAcMovementState(), mode = AC_TARGET_FIRE_MODE.WALK) {
+    if (mode !== AC_TARGET_FIRE_MODE.BOOST && mode !== AC_TARGET_FIRE_MODE.POST_GLIDE) {
+      return { x: 0, y: 0 };
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const velocityX = Number(state?.velocity?.x) || 0;
+    const velocityY = Number(state?.velocity?.y) || 0;
+    const speed = Math.hypot(velocityX, velocityY);
+    if (speed <= 1) {
+      return { x: 0, y: 0 };
+    }
+
+    const offsetSeconds = Phaser.Math.Clamp(Number(tuning.targetFireInheritPlayerVelocityVisualOffset) || 0, 0, 0.1);
+    const maxOffset = mode === AC_TARGET_FIRE_MODE.BOOST ? 22 : 14;
+    const offsetLength = Phaser.Math.Clamp(speed * offsetSeconds, 0, maxOffset);
+    return {
+      x: (velocityX / speed) * offsetLength,
+      y: (velocityY / speed) * offsetLength
+    };
+  }
+
+  getAcTargetFireShotSnapshot(target, side = 1, state = this.ensureAcMovementState(), mode = AC_TARGET_FIRE_MODE.WALK) {
+    const tuning = this.getActiveAcMovementTuning();
+    const muzzle = this.getAcTargetFireMuzzleOrigin(target, side, state);
+    const motionOffset = this.getAcTargetFireMuzzleMotionOffset(state, mode);
+    const muzzleJitter = Math.max(0, Number(tuning.targetFireMuzzleMotionJitterPx) || 0);
+    const jitterX = mode === AC_TARGET_FIRE_MODE.WALK ? 0 : Phaser.Math.FloatBetween(-muzzleJitter, muzzleJitter);
+    const jitterY = mode === AC_TARGET_FIRE_MODE.WALK ? 0 : Phaser.Math.FloatBetween(-muzzleJitter, muzzleJitter);
+    const origin = {
+      x: muzzle.x + motionOffset.x + jitterX,
+      y: muzzle.y + motionOffset.y + jitterY
+    };
+    const rawTargetPoint = this.getAcTargetFireTargetPoint(target);
+    const deltaX = rawTargetPoint.x - origin.x;
+    const deltaY = rawTargetPoint.y - origin.y;
+    const distance = Math.max(1, Math.hypot(deltaX, deltaY));
+    const direction = {
+      x: deltaX / distance,
+      y: deltaY / distance
+    };
+    const perpendicular = this.getAcPerpendicularVector(direction);
+    const spreadDeg = this.getAcTargetFireSpreadForMode(mode, tuning);
+    const spreadPx = Math.min(54, Math.abs(Math.tan((Phaser.Math.FloatBetween(-spreadDeg, spreadDeg) * Math.PI) / 180) * distance));
+    const signedSpread = spreadPx * (Math.random() < 0.5 ? -1 : 1);
+    const endJitter = mode === AC_TARGET_FIRE_MODE.BOOST ? Phaser.Math.FloatBetween(-5, 5) : Phaser.Math.FloatBetween(-2, 2);
+    const targetPoint = {
+      x: rawTargetPoint.x + perpendicular.x * (signedSpread + endJitter),
+      y: rawTargetPoint.y + perpendicular.y * (signedSpread + endJitter * 0.72)
+    };
+    const shotDistance = Math.max(1, Phaser.Math.Distance.Between(origin.x, origin.y, targetPoint.x, targetPoint.y));
+    const configuredRatio = Phaser.Math.Clamp(Number(tuning.targetFireTracerSegmentLengthRatio) || 0.12, 0.04, 0.4);
+    const minLength = Math.max(8, Number(tuning.targetFireTracerMinLengthPx) || 44);
+    const maxLength = Math.max(minLength, Number(tuning.targetFireTracerMaxLengthPx) || 118);
+    const segmentRatio = Phaser.Math.Clamp(
+      Math.max(configuredRatio, minLength / shotDistance),
+      0.035,
+      Math.min(0.72, Math.max(0.04, maxLength / shotDistance))
+    );
+
+    return {
+      origin,
+      targetPoint,
+      direction,
+      perpendicular,
+      side: side < 0 ? -1 : 1,
+      muzzleOffsetSide: Math.max(0, Number(muzzle.sideOffset) || 0),
+      distance: shotDistance,
+      mode,
+      spreadDeg,
+      segmentRatio,
+      travelMs: Math.max(60, Number(tuning.targetFireTracerTravelMs) || Number(tuning.targetFireTracerLifetimeMs) || 150)
+    };
+  }
+
+  getAcTargetFireColors(palette = this.getAcTargetFirePalette()) {
+    if (palette === AC_TARGET_FIRE_PALETTE.RED) {
+      return {
+        palette: AC_TARGET_FIRE_PALETTE.RED,
+        core: 0xfff4e6,
+        mid: 0xff8f46,
+        glow: 0xff3a1f,
+        outerGlow: 0xff2b2b,
+        head: 0xffffff,
+        muzzleCore: 0xffffff,
+        muzzleGlow: 0xff6330,
+        muzzleOuter: 0xff2b2b,
+        impactCore: 0xfff2d8,
+        impactGlow: 0xff6330,
+        impactOuter: 0xff2d1b
+      };
+    }
+    return {
+      palette: AC_TARGET_FIRE_PALETTE.AMBER,
+      core: 0xffffcc,
+      mid: 0xfff6b0,
+      glow: 0xffc247,
+      outerGlow: 0xff7a1a,
+      head: 0xffffff,
+      muzzleCore: 0xffffff,
+      muzzleGlow: 0xffc247,
+      muzzleOuter: 0xff8a00,
+      impactCore: 0xfff6b0,
+      impactGlow: 0xffd36a,
+      impactOuter: 0xff7a1a
+    };
+  }
+
+  createAcTargetMuzzleFlash(origin, direction, intensity = 1, sideSign = 1, palette = this.getAcTargetFirePalette()) {
+    if (!origin || !direction) {
+      return null;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const colors = this.getAcTargetFireColors(palette);
+    const lifetime = Math.max(30, Number(tuning.targetFireMuzzleFlashLifetimeMs) || 76);
+    const depth = Number(tuning.targetFireMuzzleDepth) || 20.24;
+    const coreAlpha = Phaser.Math.Clamp(Number(tuning.targetFireMuzzleFlashCoreAlpha) || 0.92, 0.2, 1);
+    const glowAlpha = Phaser.Math.Clamp(Number(tuning.targetFireMuzzleFlashGlowAlpha) || 0.52, 0.08, 0.85);
+    const radiusMin = Math.max(2, Number(tuning.targetFireMuzzleFlashRadiusMin) || 5);
+    const radiusMax = Math.max(radiusMin, Number(tuning.targetFireMuzzleFlashRadiusMax) || 12);
+    const radius = Phaser.Math.Clamp(radiusMin + intensity * (radiusMax - radiusMin), radiusMin, radiusMax);
+    const length = Phaser.Math.Clamp(radius * 1.65 + intensity * 9, 12, 32);
+    const width = Phaser.Math.Clamp(radius * 0.55 + intensity * 3, 4, 11);
+    const dirLength = Math.hypot(Number(direction.x) || 0, Number(direction.y) || 0) || 1;
+    const dir = { x: (Number(direction.x) || 0) / dirLength, y: (Number(direction.y) || 0) / dirLength };
+    const side = this.getAcPerpendicularVector(dir);
+    const sideDirection = sideSign < 0 ? -1 : 1;
+    const graphics = this.add
+      .graphics()
+      .setDepth(depth)
+      .setAlpha(1)
+      .setBlendMode(Phaser.BlendModes.ADD);
+
+    graphics.fillStyle(colors.muzzleOuter, glowAlpha * 0.22);
+    graphics.fillCircle(origin.x, origin.y, radius * 1.35);
+    graphics.fillStyle(colors.muzzleGlow, glowAlpha * 0.56);
+    graphics.beginPath();
+    graphics.moveTo(origin.x - dir.x * 2, origin.y - dir.y * 2);
+    graphics.lineTo(origin.x + dir.x * length + side.x * width, origin.y + dir.y * length + side.y * width);
+    graphics.lineTo(origin.x + dir.x * (length + radius * 0.36), origin.y + dir.y * (length + radius * 0.36));
+    graphics.lineTo(origin.x + dir.x * length - side.x * width, origin.y + dir.y * length - side.y * width);
+    graphics.closePath();
+    graphics.fillPath();
+    graphics.lineStyle(2, colors.muzzleGlow, glowAlpha * 0.78);
+    graphics.strokeCircle(origin.x, origin.y, radius);
+    graphics.lineStyle(1.4, colors.muzzleCore, coreAlpha * 0.78);
+    graphics.strokeCircle(origin.x + dir.x * radius * 0.18, origin.y + dir.y * radius * 0.18, radius * 0.58);
+    graphics.fillStyle(colors.muzzleCore, coreAlpha * 0.74);
+    graphics.fillCircle(origin.x + dir.x * (length * 0.34), origin.y + dir.y * (length * 0.34), Math.max(2.2, radius * 0.36));
+
+    const sparkLength = radius * 1.15;
+    for (let i = 0; i < 3; i += 1) {
+      const sideWeight = sideDirection * (0.78 - i * 0.44);
+      const sparkX = dir.x * (0.86 + i * 0.1) + side.x * sideWeight;
+      const sparkY = dir.y * (0.86 + i * 0.1) + side.y * sideWeight;
+      const sparkLengthNormalizer = Math.hypot(sparkX, sparkY) || 1;
+      const unitX = sparkX / sparkLengthNormalizer;
+      const unitY = sparkY / sparkLengthNormalizer;
+      const startX = origin.x + unitX * radius * 0.44;
+      const startY = origin.y + unitY * radius * 0.44;
+      graphics.lineStyle(i === 1 ? 1.5 : 1, colors.muzzleCore, coreAlpha * (0.72 - i * 0.12));
+      graphics.beginPath();
+      graphics.moveTo(startX, startY);
+      graphics.lineTo(startX + unitX * sparkLength, startY + unitY * sparkLength);
+      graphics.strokePath();
+    }
+    return this.trackAcTargetFireFxObject(graphics, "activeMuzzles", lifetime);
+  }
+
+  getAcTargetFireTracerStyle(intensity = 1) {
+    const tuning = this.getActiveAcMovementTuning();
+    const palette = this.getAcTargetFirePalette(tuning);
+    const colors = this.getAcTargetFireColors(palette);
+    const masterAlpha = Phaser.Math.Clamp(Number(tuning.targetFireTracerAlpha) || 0.96, 0.35, 1)
+      * Phaser.Math.Clamp(0.78 + intensity * 0.26, 0.55, 1);
+    const glowWidth = Phaser.Math.Clamp(Number(tuning.targetFireTracerGlowWidth) || Number(tuning.targetFireTracerWidth) || 5.8, 1, 10);
+    const coreWidth = Phaser.Math.Clamp(Number(tuning.targetFireTracerCoreWidth) || 2.2, 0.5, 4);
+    const outerGlowWidth = Phaser.Math.Clamp(
+      Number(tuning.targetFireTracerOuterGlowWidth) || glowWidth + 5,
+      glowWidth,
+      16
+    );
+    return {
+      palette,
+      width: glowWidth,
+      coreWidth,
+      glowWidth,
+      outerGlowWidth,
+      alpha: masterAlpha,
+      coreAlpha: Phaser.Math.Clamp(Number(tuning.targetFireTracerCoreAlpha) || 0.98, 0.25, 1),
+      glowAlpha: Phaser.Math.Clamp(Number(tuning.targetFireTracerGlowAlpha) || 0.58, 0.08, 0.85),
+      outerGlowAlpha: Phaser.Math.Clamp(Number(tuning.targetFireTracerOuterGlowAlpha) || 0.24, 0.04, 0.45),
+      midAlpha: Phaser.Math.Clamp(0.45 + intensity * 0.18, 0.35, 0.72),
+      outerGlowColor: colors.outerGlow,
+      glowColor: colors.glow,
+      midColor: colors.mid,
+      coreColor: intensity > 0.8 ? colors.head : colors.core,
+      headColor: colors.head
+    };
+  }
+
+  drawAcTargetFireTracerSegment(graphics, shot, progress = 0) {
+    if (!graphics?.scene || !shot) {
+      return;
+    }
+
+    const p = Phaser.Math.Clamp(Number(progress) || 0, 0, 1);
+    const segmentRatio = Phaser.Math.Clamp(Number(shot.segmentRatio) || 0.12, 0.02, 0.72);
+    const headRatio = Phaser.Math.Clamp(Math.max(p, Math.min(0.055, segmentRatio)), 0, 1);
+    const tailRatio = Phaser.Math.Clamp(headRatio - segmentRatio, 0, 1);
+    const start = shot.origin || { x: 0, y: 0 };
+    const end = shot.targetPoint || start;
+    const tail = {
+      x: Phaser.Math.Linear(start.x, end.x, tailRatio),
+      y: Phaser.Math.Linear(start.y, end.y, tailRatio)
+    };
+    const head = {
+      x: Phaser.Math.Linear(start.x, end.x, headRatio),
+      y: Phaser.Math.Linear(start.y, end.y, headRatio)
+    };
+    const ramp = Phaser.Math.Clamp(p / 0.08, 0, 1);
+    const fade = 1 - Phaser.Math.Clamp((p - 0.82) / 0.18, 0, 1);
+    const alpha = Phaser.Math.Clamp((Number(shot.alpha) || 0.85) * ramp * fade, 0, 1);
+    const style = shot.style || this.getAcTargetFireTracerStyle(1);
+
+    graphics.clear();
+    if (alpha <= 0.02) {
+      return;
+    }
+
+    graphics.lineStyle(style.outerGlowWidth, style.outerGlowColor, alpha * style.outerGlowAlpha);
+    graphics.beginPath();
+    graphics.moveTo(tail.x, tail.y);
+    graphics.lineTo(head.x, head.y);
+    graphics.strokePath();
+    graphics.lineStyle(style.glowWidth, style.glowColor, alpha * style.glowAlpha);
+    graphics.beginPath();
+    graphics.moveTo(tail.x, tail.y);
+    graphics.lineTo(head.x, head.y);
+    graphics.strokePath();
+    graphics.lineStyle(Math.max(style.coreWidth + 1.15, style.glowWidth * 0.52), style.midColor, alpha * style.midAlpha);
+    graphics.beginPath();
+    graphics.moveTo(tail.x, tail.y);
+    graphics.lineTo(head.x, head.y);
+    graphics.strokePath();
+    graphics.lineStyle(style.coreWidth, style.coreColor, alpha * style.coreAlpha);
+    graphics.beginPath();
+    graphics.moveTo(tail.x, tail.y);
+    graphics.lineTo(head.x, head.y);
+    graphics.strokePath();
+    graphics.fillStyle(style.headColor, alpha * 0.86);
+    graphics.fillCircle(head.x, head.y, Math.max(1.8, style.coreWidth + 0.9));
+  }
+
+  createAcTargetTracerSegmentShot(snapshot, intensity = 1, style = null) {
+    const targetFire = this.acMovementState?.targetFire;
+    if (!targetFire || !snapshot) {
+      return null;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const depth = Number(tuning.targetFireTracerDepth) || 20.12;
+    const graphics = this.add
+      .graphics()
+      .setDepth(depth)
+      .setAlpha(1)
+      .setBlendMode(Phaser.BlendModes.ADD);
+
+    const shot = {
+      ...snapshot,
+      style: style || this.getAcTargetFireTracerStyle(intensity),
+      alpha: Phaser.Math.Clamp(0.76 + intensity * 0.2, 0.62, 1)
+    };
+    const progressState = { progress: 0 };
+    targetFire.activeTracers = Array.isArray(targetFire.activeTracers) ? targetFire.activeTracers : [];
+    targetFire.activeTracers.push(graphics);
+    this.drawAcTargetFireTracerSegment(graphics, shot, 0.035);
+    const tween = this.tweens?.add({
+      targets: progressState,
+      progress: 1,
+      duration: Math.max(60, Number(snapshot.travelMs) || 150),
+      ease: "Linear",
+      onUpdate: () => {
+        this.drawAcTargetFireTracerSegment(graphics, shot, progressState.progress);
+      },
+      onComplete: () => {
+        this.createAcTargetImpactSpark(snapshot.targetPoint, intensity, shot.style.palette);
+        this.removeAcTargetFireFxObject(graphics, targetFire);
+        this.removeAcTargetFireTween(tween, targetFire);
+        graphics.__acTargetFireTween = null;
+        this.safeDestroyAcVisualObject(graphics);
+      }
+    });
+    if (tween) {
+      graphics.__acTargetFireTween = tween;
+      targetFire.activeTweens = Array.isArray(targetFire.activeTweens) ? targetFire.activeTweens : [];
+      targetFire.activeTweens.push(tween);
+    }
+    this.enforceAcTargetFireFxLimit(targetFire);
+    return graphics;
+  }
+
+  createAcTargetImpactSpark(targetPoint, intensity = 1, palette = this.getAcTargetFirePalette()) {
+    if (!targetPoint) {
+      return null;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const colors = this.getAcTargetFireColors(palette);
+    const lifetime = Math.max(40, Number(tuning.targetFireImpactLifetimeMs) || 145);
+    const depth = Number(tuning.targetFireImpactDepth) || 20.1;
+    const configuredRadius = Number(tuning.targetFireImpactRadius) || 8;
+    const radius = Phaser.Math.Clamp(configuredRadius + intensity * 2.2, 4, 12);
+    const alpha = Phaser.Math.Clamp(Number(tuning.targetFireImpactAlpha) || 0.62, 0.18, 0.9);
+    const glowAlpha = Phaser.Math.Clamp(Number(tuning.targetFireImpactGlowAlpha) || 0.28, 0.05, 0.55);
+    const sparkCount = Phaser.Math.Clamp(Math.floor(Number(tuning.targetFireImpactSparkCount) || 5), 3, 8);
+    const graphics = this.add
+      .graphics()
+      .setDepth(depth)
+      .setAlpha(1)
+      .setBlendMode(Phaser.BlendModes.ADD);
+
+    graphics.lineStyle(radius * 0.55, colors.impactOuter, glowAlpha * 0.64);
+    graphics.strokeCircle(targetPoint.x, targetPoint.y, radius * 0.78);
+    graphics.lineStyle(2, colors.impactGlow, alpha * 0.72);
+    graphics.strokeCircle(targetPoint.x, targetPoint.y, radius);
+    graphics.lineStyle(1.2, colors.impactCore, alpha);
+    for (let i = 0; i < sparkCount; i += 1) {
+      const angle = (Math.PI * 2 * i) / sparkCount + Phaser.Math.FloatBetween(-0.18, 0.18);
+      const inner = radius * Phaser.Math.FloatBetween(0.22, 0.42);
+      const outer = radius * Phaser.Math.FloatBetween(1.05, 1.45);
+      graphics.beginPath();
+      graphics.moveTo(targetPoint.x + Math.cos(angle) * inner, targetPoint.y + Math.sin(angle) * inner);
+      graphics.lineTo(targetPoint.x + Math.cos(angle) * outer, targetPoint.y + Math.sin(angle) * outer);
+      graphics.strokePath();
+    }
+    graphics.fillStyle(colors.impactCore, alpha * 0.38);
+    graphics.fillCircle(targetPoint.x, targetPoint.y, radius * 0.48);
+    return this.trackAcTargetFireFxObject(graphics, "activeImpacts", lifetime);
+  }
+
+  fireAcTargetTracerShot(time = this.time?.now || 0, target = null, state = this.ensureAcMovementState()) {
+    const targetFire = state.targetFire = this.normalizeAcTargetFireState(state.targetFire);
+    const liveTarget = target || targetFire.target;
+    if (!this.isValidAcTargetFireTarget(liveTarget)) {
+      targetFire.active = false;
+      targetFire.suppressedReason = AC_TARGET_FIRE_SUPPRESSION_REASON.TARGET_INVALID;
+      return false;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const muzzleSide = targetFire.lastMuzzleSide >= 0 ? -1 : 1;
+    targetFire.lastMuzzleSide = muzzleSide;
+    const mode = this.getAcTargetFireMode(state, targetFire.suppressedReason);
+    const snapshot = this.getAcTargetFireShotSnapshot(liveTarget, muzzleSide, state, mode);
+    const intensity = mode === AC_TARGET_FIRE_MODE.BOOST ? 0.92 : (mode === AC_TARGET_FIRE_MODE.POST_GLIDE ? 0.78 : 0.6);
+    const tracerStyle = this.getAcTargetFireTracerStyle(intensity);
+    const shotIntervalMs = Math.max(24, Number(tuning.targetFireShotIntervalMs) || 46);
+
+    this.createAcTargetMuzzleFlash(snapshot.origin, snapshot.direction, intensity, muzzleSide, tracerStyle.palette);
+    this.createAcTargetTracerSegmentShot(snapshot, intensity, tracerStyle);
+    targetFire.burstShotIndex += 1;
+    targetFire.nextShotAt = Math.max(0, Number(time) || 0) + shotIntervalMs;
+    targetFire.suppressedReason = AC_TARGET_FIRE_SUPPRESSION_REASON.BURST;
+    targetFire.style = this.getAcTargetFireStyle();
+    targetFire.palette = tracerStyle.palette;
+    targetFire.mode = mode;
+    targetFire.currentSpreadDeg = Math.max(0, Number(snapshot.spreadDeg) || 0);
+    targetFire.lastTracerTravelMs = Math.max(0, Number(snapshot.travelMs) || 0);
+    targetFire.segmentRatio = Phaser.Math.Clamp(Number(snapshot.segmentRatio) || 0, 0, 1);
+    targetFire.tracerCoreWidth = Math.max(0, Number(tracerStyle.coreWidth) || 0);
+    targetFire.tracerGlowWidth = Math.max(0, Number(tracerStyle.glowWidth) || 0);
+    targetFire.tracerOuterGlowWidth = Math.max(0, Number(tracerStyle.outerGlowWidth) || 0);
+    targetFire.tracerCoreAlpha = Phaser.Math.Clamp(Number(tracerStyle.coreAlpha) || 0, 0, 1);
+    targetFire.tracerGlowAlpha = Phaser.Math.Clamp(Number(tracerStyle.glowAlpha) || 0, 0, 1);
+    targetFire.tracerOuterGlowAlpha = Phaser.Math.Clamp(Number(tracerStyle.outerGlowAlpha) || 0, 0, 1);
+    targetFire.shotIntervalMs = shotIntervalMs;
+    targetFire.muzzleOffsetSide = Math.max(0, Number(snapshot.muzzleOffsetSide) || Number(tuning.targetFireMuzzleSideOffset) || 0);
+    return true;
+  }
+
+  updateAcTargetFire(time, delta) {
+    const state = this.ensureAcMovementState();
+    const targetFire = state.targetFire = this.normalizeAcTargetFireState(state.targetFire);
+    this.pruneAcTargetFireFx(targetFire);
+    targetFire.enabled = this.shouldUseAcTargetFire();
+    const now = Math.max(0, Number(time) || 0);
+    const availability = this.canUseAcTargetFire(now, state);
+    targetFire.suppressedReason = availability.reason;
+    targetFire.mode = this.getAcTargetFireMode(state, availability.reason);
+
+    if (!availability.allowed) {
+      targetFire.active = false;
+      if (
+        availability.reason === AC_TARGET_FIRE_SUPPRESSION_REASON.NO_TARGET ||
+        availability.reason === AC_TARGET_FIRE_SUPPRESSION_REASON.TARGET_INVALID ||
+        availability.reason === AC_TARGET_FIRE_SUPPRESSION_REASON.TARGET_OFFSCREEN
+      ) {
+        targetFire.target = null;
+        targetFire.targetId = "";
+      }
+      return;
+    }
+
+    const target = availability.target;
+    if (!targetFire.active) {
+      this.tryStartAcTargetFireBurst(now, target, state);
+    }
+    if (targetFire.active && now >= (Number(targetFire.nextShotAt) || 0)) {
+      this.fireAcTargetTracerShot(now, target, state);
+      if (targetFire.burstShotIndex >= Math.max(1, Number(targetFire.burstCount) || 1)) {
+        const cooldown = Math.max(80, Number(this.getActiveAcMovementTuning().targetFireBurstCooldownMs) || 440);
+        targetFire.active = false;
+        targetFire.lastBurstAt = now;
+        targetFire.nextShotAt = now + cooldown;
+        targetFire.suppressedReason = AC_TARGET_FIRE_SUPPRESSION_REASON.COOLDOWN;
+      }
+    }
+  }
+
+  updateAcBoostVectorIndicator(time, delta) {
+    const state = this.ensureAcMovementState();
+    const visuals = this.ensureAcMovementVisualState(state);
+    const graphics = this.getAcBoostVectorGraphics(visuals);
+    if (!this.isAcBoostVectorIndicatorEnabled()) {
+      graphics.clear();
+      graphics.setVisible(false);
+      visuals.boostVectorVisible = false;
+      return;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const now = Math.max(0, Number(time) || 0);
+    const input = state.lastInputVector || {};
+    const dash = state.lastDashInput || {};
+    const availability = this.getAcBoostAvailabilityState(state, now);
+    const direction = this.getAcPredictedBoostDirection(input, state);
+    const length = Math.hypot(direction.x, direction.y) || 1;
+    const dirX = direction.x / length;
+    const dirY = direction.y / length;
+    const speed = Math.hypot(Number(state.velocity?.x) || 0, Number(state.velocity?.y) || 0);
+    const inPostGlide = now < (Number(state.postBoostGlideUntil) || 0);
+    const blocked = !availability.available && availability.reason !== "ACTIVE";
+    const shouldShow = Boolean(
+      dash.isDown ||
+      input.hasInput ||
+      state.continuousBoost?.active ||
+      inPostGlide ||
+      blocked ||
+      this.isAcFullOverheatActive(state)
+    );
+
+    visuals.boostVectorAngle = Math.atan2(dirY, dirX);
+    visuals.boostVectorAvailable = Boolean(availability.available || availability.reason === "ACTIVE");
+    visuals.boostVectorBlockReason = availability.reason || "NONE";
+
+    if (!shouldShow || !this.playerHitbox) {
+      graphics.clear();
+      graphics.setVisible(false);
+      visuals.boostVectorVisible = false;
+      return;
+    }
+
+    const pulseMs = Math.max(120, Number(tuning.boostVectorPulseMs) || 360);
+    const pulse = (Math.sin(now / pulseMs * Math.PI * 2) + 1) * 0.5;
+    const color = blocked
+      ? (this.isAcFullOverheatActive(state) ? 0xff5638 : 0xffa24a)
+      : availability.reason === "ACTIVE"
+        ? 0xffffff
+        : 0x75efff;
+    const alpha = blocked ? Phaser.Math.Linear(0.56, 0.92, pulse) : Phaser.Math.Linear(0.36, 0.62, pulse);
+    const baseRadius = Math.max(16, Number(tuning.boostVectorRadius) || 58);
+    const vectorLength = blocked
+      ? Math.max(18, Number(tuning.boostVectorBlockedLength) || 48)
+      : Math.max(24, Number(tuning.boostVectorLength) || 70);
+    const originX = this.playerHitbox.x + dirX * baseRadius;
+    const originY = this.playerHitbox.y + dirY * baseRadius * 0.72;
+    const endX = this.playerHitbox.x + dirX * (baseRadius + vectorLength);
+    const endY = this.playerHitbox.y + dirY * (baseRadius + vectorLength) * 0.72;
+    const sideX = -dirY;
+    const sideY = dirX;
+    const head = blocked ? 8 : 12;
+    const headX = endX - dirX * head;
+    const headY = endY - dirY * head * 0.72;
+    const width = blocked ? 5 : Phaser.Math.Clamp(4 + speed / 160, 4, 10);
+
+    graphics.clear();
+    graphics.setVisible(true);
+    graphics.lineStyle(blocked ? 2 : 3, color, alpha);
+    graphics.beginPath();
+    graphics.moveTo(originX, originY);
+    graphics.lineTo(endX, endY);
+    graphics.strokePath();
+    graphics.fillStyle(color, alpha * 0.86);
+    graphics.beginPath();
+    graphics.moveTo(endX, endY);
+    graphics.lineTo(headX + sideX * width, headY + sideY * width * 0.72);
+    graphics.lineTo(headX - sideX * width, headY - sideY * width * 0.72);
+    graphics.closePath();
+    graphics.fillPath();
+    graphics.lineStyle(1, 0xffffff, alpha * 0.28);
+    graphics.strokeCircle(this.playerHitbox.x, this.playerHitbox.y, baseRadius + pulse * 2);
+
+    visuals.boostVectorVisible = true;
+  }
+
+  triggerAcGroundSkidFx(time = this.time?.now || 0, direction = null, reason = "boostStart") {
+    if (!this.isAcGroundSkidFxEnabled() || !this.playerHitbox) {
+      return;
+    }
+
+    const state = this.ensureAcMovementState();
+    const visuals = this.ensureAcMovementVisualState(state);
+    const tuning = this.getActiveAcMovementTuning();
+    const dirX = Number(direction?.x) || 0;
+    const dirY = Number(direction?.y) || 1;
+    const length = Math.hypot(dirX, dirY) || 1;
+    const components = this.getAcLocalMovementComponents(state, state?.lastInputVector);
+    const intensity = Math.max(0.42, this.getAcGroundSkidIntensity(components, state, time));
+    visuals.groundSkidActive = true;
+    visuals.groundSkidPulseUntil = Math.max(Number(visuals.groundSkidPulseUntil) || 0, Number(time) + Math.max(80, Number(tuning.groundSkidPulseMs) || 260));
+    visuals.groundSkidDirection = { x: dirX / length, y: dirY / length };
+    visuals.groundSkidIntensity = Math.max(Number(visuals.groundSkidIntensity) || 0, intensity);
+    this.pushAcGroundSkidMark(
+      visuals,
+      time,
+      this.playerHitbox.x,
+      this.playerHitbox.y + 18,
+      dirX / length,
+      dirY / length,
+      reason,
+      intensity,
+      (Number(components.sideDot) || 0) >= 0 ? 1 : -1
+    );
+  }
+
+  updateAcGroundSkidFx(time, delta) {
+    const state = this.ensureAcMovementState();
+    const visuals = this.ensureAcMovementVisualState(state);
+    const graphics = this.getAcGroundSkidGraphics(visuals);
+    if (!this.isAcGroundSkidFxEnabled() || !this.playerHitbox) {
+      graphics.clear();
+      graphics.setVisible(false);
+      visuals.groundSkidMarks = [];
+      visuals.groundSkidActive = false;
+      visuals.groundSkidIntensity = 0;
+      return;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const now = Math.max(0, Number(time) || 0);
+    const components = this.getAcLocalMovementComponents(state, state?.lastInputVector);
+    const intensity = this.getAcGroundSkidIntensity(components, state, now);
+    const pulseInterval = Phaser.Math.Clamp(110 - intensity * 46, 52, 110);
+    if (intensity > 0.05 && now - (Number(visuals.lastGroundSkidAt) || 0) >= pulseInterval) {
+      const direction = components.speed > 4
+        ? { x: components.movementDirX, y: components.movementDirY }
+        : this.getAcMovementVisualDirection(state);
+      const reason = (Number(components.angleDelta) || 0) >= Math.max(0, Number(tuning.quickTurnMinAngleDeg) || 40)
+        ? "quickTurn"
+        : "glide";
+      this.pushAcGroundSkidMark(
+        visuals,
+        now,
+        this.playerHitbox.x,
+        this.playerHitbox.y + 18,
+        direction.x,
+        direction.y,
+        reason,
+        intensity,
+        (Number(components.sideDot) || 0) >= 0 ? 1 : -1
+      );
+      visuals.lastGroundSkidAt = now;
+    }
+
+    visuals.groundSkidMarks = (visuals.groundSkidMarks || []).filter((mark) => {
+      const lifetime = Math.max(1, Number(mark.lifetime) || Number(tuning.groundSkidTrailMs) || 180);
+      return now - (Number(mark.createdAt) || 0) <= lifetime;
+    });
+    const pulseRemaining = Math.max(0, (Number(visuals.groundSkidPulseUntil) || 0) - now);
+    const pulseRatio = pulseRemaining > 0
+      ? Phaser.Math.Clamp(pulseRemaining / Math.max(1, Number(tuning.groundSkidPulseMs) || 260), 0, 1)
+      : 0;
+    visuals.groundSkidIntensity = Phaser.Math.Clamp(Math.max(intensity, pulseRatio * 0.72), 0, 1);
+    if (!visuals.groundSkidMarks.length && pulseRatio <= 0.01 && visuals.groundSkidIntensity <= 0.01) {
+      graphics.clear();
+      graphics.setVisible(false);
+      visuals.groundSkidActive = false;
+      visuals.groundSkidIntensity = 0;
+      return;
+    }
+
+    graphics.clear();
+    graphics.setVisible(true);
+    if (pulseRatio > 0.01) {
+      const ratio = 1 - pulseRatio;
+      const dir = visuals.groundSkidDirection || AC_MOVEMENT_CONFIG.defaultLastMoveDirection;
+      const sideX = -dir.y;
+      const sideY = dir.x;
+      const baseX = this.playerHitbox.x - dir.x * 10;
+      const baseY = this.playerHitbox.y + 20 - dir.y * 8;
+      graphics.lineStyle(2, 0xffd58a, (1 - ratio) * 0.62 * pulseRatio);
+      graphics.beginPath();
+      graphics.moveTo(baseX + sideX * 14, baseY + sideY * 8);
+      graphics.lineTo(baseX - sideX * 14, baseY - sideY * 8);
+      graphics.strokePath();
+    }
+
+    visuals.groundSkidMarks.forEach((mark) => {
+      const age = now - (Number(mark.createdAt) || 0);
+      const lifetime = Math.max(1, Number(mark.lifetime) || Number(tuning.groundSkidTrailMs) || 180);
+      const markIntensity = Phaser.Math.Clamp(Number(mark.intensity) || 0.35, 0, 1);
+      const alphaBase = mark.spark
+        ? Phaser.Math.Clamp(Number(tuning.groundSkidSparkAlpha) || 0.58, 0.1, 1)
+        : Phaser.Math.Clamp(Number(tuning.groundSkidTrailAlpha) || 0.24, 0.05, 0.8);
+      const alpha = Phaser.Math.Clamp(1 - age / lifetime, 0, 1) * alphaBase * (0.72 + markIntensity * 0.62);
+      const dirX = Number(mark.directionX) || 0;
+      const dirY = Number(mark.directionY) || 1;
+      const sideX = -dirY;
+      const sideY = dirX;
+      const sideSign = mark.sideSign >= 0 ? 1 : -1;
+      const length = (mark.reason === "boostStart" ? 34 : mark.reason === "quickTurn" ? 28 : 22) * (0.82 + markIntensity * 0.48);
+      const color = mark.reason === "boostStart"
+        ? 0xffb86a
+        : mark.reason === "quickTurn"
+          ? 0xffd58a
+          : 0x83efff;
+      graphics.lineStyle(mark.spark ? 2 : 1, color, alpha);
+      graphics.beginPath();
+      graphics.moveTo(mark.x - sideX * 5, mark.y - sideY * 4);
+      graphics.lineTo(mark.x - sideX * 5 - dirX * length, mark.y - sideY * 4 - dirY * length * 0.7);
+      graphics.moveTo(mark.x + sideX * 5, mark.y + sideY * 4);
+      graphics.lineTo(mark.x + sideX * 5 - dirX * length, mark.y + sideY * 4 - dirY * length * 0.7);
+      graphics.strokePath();
+      if (mark.spark) {
+        graphics.fillStyle(color, alpha * 0.72);
+        graphics.fillCircle(mark.x + sideX * sideSign * 8, mark.y + sideY * sideSign * 5, 1.5 + markIntensity * 1.6);
+      }
+    });
+    visuals.groundSkidActive = visuals.groundSkidIntensity > 0.01 || visuals.groundSkidMarks.length > 0;
+  }
+
+  updateAcQuickBoostPoweredVisuals(time, delta) {
+    const state = this.ensureAcMovementState();
+    const visuals = this.ensureAcMovementVisualState(state);
+    const graphics = this.getAcQuickBoostGlowGraphics(visuals);
+    if (!this.shouldUseAcMovementVisuals() || !this.isAcV3MovementPreset() || !this.isAcStrongBoostVisualActive(state)) {
+      graphics.clear();
+      graphics.setVisible(false);
+      return;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const visualIntensity = this.getAcQuickBoostVisualIntensity(state);
+    const direction = this.getAcMovementVisualDirection(state);
+    const directionLength = Math.hypot(direction.x, direction.y) || 1;
+    const dirX = direction.x / directionLength;
+    const dirY = direction.y / directionLength;
+    const angle = Math.atan2(dirY, dirX);
+    const backAngle = angle + Math.PI;
+    const sideAngle = backAngle + Math.PI * 0.5;
+    const now = Math.max(0, Number(time) || 0);
+    const pulse = (Math.sin(now / 34) + 1) * 0.5;
+    const radius = Phaser.Math.Linear(
+      Math.max(12, Number(tuning.quickBoostGlowRadiusMin) || 38),
+      Math.max(18, Number(tuning.quickBoostGlowRadiusMax) || 68),
+      visualIntensity
+    );
+    const alpha = Phaser.Math.Linear(
+      Phaser.Math.Clamp(Number(tuning.quickBoostGlowAlphaMin) || 0.42, 0, 1),
+      Phaser.Math.Clamp(Number(tuning.quickBoostGlowAlphaMax) || 0.86, 0, 1),
+      visualIntensity
+    ) * (0.86 + pulse * 0.14);
+    const baseX = this.playerHitbox.x + Math.cos(backAngle) * 50;
+    const baseY = (this.playerSprite?.y ?? this.playerHitbox.y + PLAYER_SPRITE_OFFSET_Y)
+      + Math.sin(backAngle) * 36
+      + 7;
+    const sideX = Math.cos(sideAngle);
+    const sideY = Math.sin(sideAngle);
+
+    graphics.clear();
+    graphics.setVisible(true);
+    graphics.fillStyle(0x74dfff, alpha * 0.2);
+    graphics.fillEllipse(baseX, baseY, radius * 2.2, radius * 0.92);
+    graphics.fillStyle(0xd8fbff, alpha * 0.34);
+    graphics.fillEllipse(baseX + Math.cos(backAngle) * 8, baseY + Math.sin(backAngle) * 6, radius * 1.2, radius * 0.42);
+    if (tuning.quickBoostBlueWhiteCoreEnabled) {
+      graphics.fillStyle(0xffffff, alpha * 0.48);
+      graphics.fillEllipse(baseX + Math.cos(backAngle) * 14, baseY + Math.sin(backAngle) * 8, radius * 0.58, radius * 0.18);
+      graphics.lineStyle(1, 0xbdfcff, alpha * 0.52);
+      graphics.beginPath();
+      graphics.moveTo(baseX + sideX * radius * 0.35, baseY + sideY * radius * 0.35);
+      graphics.lineTo(baseX - sideX * radius * 0.35, baseY - sideY * radius * 0.35);
+      graphics.lineTo(baseX + Math.cos(backAngle) * radius * 1.42, baseY + Math.sin(backAngle) * radius * 0.92);
+      graphics.closePath();
+      graphics.strokePath();
+    }
+
+    this.spawnAcQuickBoostAfterimages(direction, now, visualIntensity);
+  }
+
+  updateAcOverheatVisuals(time, delta) {
+    const state = this.ensureAcMovementState();
+    const visuals = this.ensureAcMovementVisualState(state);
+    const graphics = this.getAcOverheatGraphics(visuals);
+    if (!this.shouldUseAcMovementVisuals() || !this.isAcV3MovementPreset()) {
+      graphics.clear();
+      graphics.setVisible(false);
+      return;
+    }
+
+    const heat = state.heat || {};
+    const heatLevel = Phaser.Math.Clamp(Number(heat.level) || 0, 0, 100);
+    const heatState = heat.state || AC_HEAT_STATE.NORMAL;
+    if (heatLevel <= 1 && heatState === AC_HEAT_STATE.NORMAL) {
+      graphics.clear();
+      graphics.setVisible(false);
+      return;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const now = Math.max(0, Number(time) || 0);
+    const ventInterval = Math.max(30, Number(tuning.heatVentIntervalMs) || 58);
+    if (now - (Number(heat.lastHeatVentAt) || 0) < ventInterval && heatState !== AC_HEAT_STATE.OVERHEAT) {
+      return;
+    }
+    heat.lastHeatVentAt = now;
+
+    const motionAngle = Number(this.playerRobotMotion?.angle);
+    const angle = Number.isFinite(motionAngle) ? motionAngle : this.playerAimAngle || Math.PI * 0.5;
+    const backAngle = angle + Math.PI;
+    const sideAngle = backAngle + Math.PI * 0.5;
+    const baseX = this.playerHitbox.x + Math.cos(backAngle) * 54;
+    const baseY = (this.playerSprite?.y ?? this.playerHitbox.y + PLAYER_SPRITE_OFFSET_Y)
+      + Math.sin(backAngle) * 40
+      + 8;
+    const pulse = (Math.sin(now / 44) + 1) * 0.5;
+    const alphaBase = Phaser.Math.Clamp(0.18 + heatLevel / 100 * 0.48 + pulse * 0.12, 0.12, 0.82);
+    const count = heatState === AC_HEAT_STATE.OVERHEAT ? 7 : 4;
+
+    graphics.clear();
+    graphics.setVisible(true);
+    for (let index = 0; index < count; index += 1) {
+      const phase = now / (54 + index * 8) + index * 1.73;
+      const side = Math.sin(phase) * (14 + index * 2.5);
+      const travel = 4 + index * 8 + pulse * 8;
+      const radius = heatState === AC_HEAT_STATE.OVERHEAT ? 4.8 - index * 0.22 : 3.6 - index * 0.18;
+      const x = baseX + Math.cos(sideAngle) * side + Math.cos(backAngle) * travel;
+      const y = baseY + Math.sin(sideAngle) * side * 0.7 + Math.sin(backAngle) * travel * 0.72;
+      const color = heatState === AC_HEAT_STATE.OVERHEAT
+        ? (index % 2 === 0 ? 0xff6a21 : 0xffc26a)
+        : (index % 2 === 0 ? 0xffa143 : 0xffdf86);
+      graphics.fillStyle(color, alphaBase * (1 - index / (count + 1)));
+      graphics.fillCircle(x, y, Math.max(1.2, radius));
+    }
+  }
+
+  updateAcThrustTrailVisual(time, delta) {
+    const state = this.ensureAcMovementState();
+    const visuals = this.ensureAcMovementVisualState(state);
+    const graphics = this.getAcThrustTrailGraphics(visuals);
+    const tuning = this.getActiveAcMovementTuning();
+    if (!AC_MOVEMENT_CONFIG.thrustTrailEnabled || !this.shouldUseAcMovementVisuals()) {
+      graphics.clear();
+      graphics.setVisible(false);
+      return;
+    }
+
+    const speed = Math.hypot(state.velocity.x, state.velocity.y);
+    const quickBoostActive = time < state.quickBoostUntil;
+    const thrusterState = state.thrusterVisualState || this.getAcThrusterVisualState(state, time, speed);
+    const acV3VisualMode = this.isAcV3MovementPreset();
+    const strongBoostVisual = acV3VisualMode ? this.isAcStrongBoostVisualActive(state) : (quickBoostActive || thrusterState === AC_THRUSTER_STATE.STRONG);
+    const residualTrailVisual = acV3VisualMode ? this.isAcResidualTrailActive(state) : thrusterState === AC_THRUSTER_STATE.RESIDUAL;
+    if (acV3VisualMode && !strongBoostVisual && !residualTrailVisual) {
+      graphics.clear();
+      graphics.setVisible(false);
+      return;
+    }
+    if (!acV3VisualMode && (thrusterState === AC_THRUSTER_STATE.OFF || (!quickBoostActive && speed < tuning.speedTrailThreshold && thrusterState !== AC_THRUSTER_STATE.RESIDUAL))) {
+      graphics.clear();
+      graphics.setVisible(false);
+      return;
+    }
+    if (!strongBoostVisual && !residualTrailVisual && tuning.walkTrailEnabled === false) {
+      graphics.clear();
+      graphics.setVisible(false);
+      return;
+    }
+
+    const direction = this.getAcMovementVisualDirection(state);
+    const angle = Math.atan2(direction.y, direction.x);
+    const backAngle = angle + Math.PI;
+    const sideAngle = backAngle + Math.PI * 0.5;
+    const speedRatio = this.getAcMovementSpeedRatio(state);
+    const quickBoostVisualIntensity = this.getAcQuickBoostVisualIntensity(state);
+    const boostRatio = strongBoostVisual
+      ? quickBoostVisualIntensity
+      : speedRatio;
+    const postBoostLength = Number(tuning.thrustTrailPostBoostLength) || AC_MOVEMENT_CONFIG.thrustTrailPostBoostLength;
+    const quickBoostLength = Number(tuning.thrustTrailQuickBoostLength) || AC_MOVEMENT_CONFIG.thrustTrailQuickBoostLength;
+    const baseLength = Number(tuning.thrustTrailBaseLength) || AC_MOVEMENT_CONFIG.thrustTrailBaseLength;
+    const length = strongBoostVisual
+      ? Phaser.Math.Linear(
+        Number(tuning.quickBoostTrailLengthMin) || postBoostLength,
+        Number(tuning.quickBoostTrailLengthMax) || quickBoostLength,
+        quickBoostVisualIntensity
+      )
+      : residualTrailVisual && acV3VisualMode
+        ? Math.max(8, Number(tuning.postBoostResidualTrailLength) || 42)
+        : thrusterState === AC_THRUSTER_STATE.RESIDUAL || thrusterState === AC_THRUSTER_STATE.OVERHEAT
+          ? Phaser.Math.Linear(baseLength, postBoostLength, Math.max(0.35, speedRatio))
+          : Phaser.Math.Linear(baseLength, postBoostLength, boostRatio);
+    const width = strongBoostVisual
+      ? Phaser.Math.Linear(
+        Number(tuning.quickBoostTrailWidthMin) || tuning.thrustTrailBaseWidth,
+        Number(tuning.quickBoostTrailWidthMax) || tuning.thrustTrailQuickBoostWidth,
+        quickBoostVisualIntensity
+      )
+      : residualTrailVisual && acV3VisualMode
+        ? Math.max(2, Number(tuning.postBoostResidualTrailWidth) || 8)
+        : Phaser.Math.Linear(
+          tuning.thrustTrailBaseWidth,
+          tuning.thrustTrailQuickBoostWidth,
+          Math.min(0.62, 0.22 + speedRatio * 0.5)
+        );
+    const alphaPulse = 0.82 + Math.sin(time / Math.max(1, tuning.thrustTrailLifetimeMs * 0.28)) * 0.18;
+    const heatActive = state.heat?.state === AC_HEAT_STATE.OVERHEAT || thrusterState === AC_THRUSTER_STATE.OVERHEAT;
+    const residualAlpha = residualTrailVisual && acV3VisualMode
+      ? Phaser.Math.Clamp(Number(tuning.postBoostResidualTrailAlpha) || 0.18, 0, 0.45)
+      : thrusterState === AC_THRUSTER_STATE.RESIDUAL
+        ? 0.68
+        : 0.48;
+    const alphaBase = strongBoostVisual
+      ? Phaser.Math.Linear(
+        Phaser.Math.Clamp(Number(tuning.quickBoostGlowAlphaMin) || 0.46, 0, 1),
+        Phaser.Math.Clamp(Number(tuning.quickBoostGlowAlphaMax) || 0.9, 0, 1),
+        quickBoostVisualIntensity
+      )
+      : residualAlpha + speedRatio * (acV3VisualMode ? 0.08 : 0.3);
+    const alpha = Phaser.Math.Clamp(
+      tuning.thrustTrailAlpha * alphaPulse * alphaBase,
+      0,
+      0.9
+    );
+    const baseDistance = strongBoostVisual ? 58 : 48;
+    const baseX = this.playerHitbox.x + Math.cos(backAngle) * baseDistance;
+    const baseY = (this.playerSprite?.y ?? this.playerHitbox.y + PLAYER_SPRITE_OFFSET_Y)
+      + Math.sin(backAngle) * baseDistance * 0.72
+      + 7;
+    const sideX = Math.cos(sideAngle);
+    const sideY = Math.sin(sideAngle);
+    const backX = Math.cos(backAngle);
+    const backY = Math.sin(backAngle);
+    const tailX = baseX + backX * length;
+    const tailY = baseY + backY * length;
+
+    graphics.clear();
+    graphics.setVisible(true);
+    graphics.fillStyle(
+      heatActive ? 0xff7a24 : (strongBoostVisual ? 0xbdfcff : 0x63ddff),
+      alpha * (heatActive ? 0.62 : 0.55)
+    );
+    graphics.beginPath();
+    graphics.moveTo(baseX + sideX * width * 0.5, baseY + sideY * width * 0.5);
+    graphics.lineTo(baseX - sideX * width * 0.5, baseY - sideY * width * 0.5);
+    graphics.lineTo(tailX, tailY);
+    graphics.closePath();
+    graphics.fillPath();
+
+    graphics.fillStyle(heatActive ? 0xffd18a : (strongBoostVisual ? 0xffffff : 0x9bfff4), alpha * 0.72);
+    graphics.beginPath();
+    graphics.moveTo(baseX + sideX * width * 0.22, baseY + sideY * width * 0.22);
+    graphics.lineTo(baseX - sideX * width * 0.22, baseY - sideY * width * 0.22);
+    graphics.lineTo(baseX + backX * length * 0.66, baseY + backY * length * 0.66);
+    graphics.closePath();
+    graphics.fillPath();
+  }
+
+  updateAcRobotLeanVisual(delta) {
+    if (!AC_MOVEMENT_CONFIG.robotLeanEnabled || !this.shouldUseAcMovementVisuals() || !this.playerRobotMotion) {
+      this.resetAcRobotLeanVisual();
+      return;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const state = this.ensureAcMovementState();
+    const speedRatio = this.getAcMovementSpeedRatio(state);
+    const quickBoostActive = Number(this.time?.now || 0) < state.quickBoostUntil;
+    if (this.isAcV3MovementPreset() && tuning.movementLeanEnabled) {
+      const velocityX = Number(state.velocity?.x) || 0;
+      const velocityY = Number(state.velocity?.y) || 0;
+      const velocitySpeed = Math.hypot(velocityX, velocityY);
+      const input = state.lastInputVector || {};
+      const leanMinSpeed = Math.max(0, Number(tuning.leanMinSpeed) || 0);
+      let movementX = 0;
+      let movementY = 0;
+      if (velocitySpeed >= leanMinSpeed) {
+        movementX = velocityX / velocitySpeed;
+        movementY = velocityY / velocitySpeed;
+      } else if (input.hasInput && Math.hypot(Number(input.normalizedX) || 0, Number(input.normalizedY) || 0) > 0) {
+        const inputLength = Math.hypot(Number(input.normalizedX) || 0, Number(input.normalizedY) || 0) || 1;
+        movementX = (Number(input.normalizedX) || 0) / inputLength;
+        movementY = (Number(input.normalizedY) || 0) / inputLength;
+      }
+
+      const movementLength = Math.hypot(movementX, movementY);
+      const facingX = Number(state.facingDirection?.x) || state.lastMoveDirection.x || AC_MOVEMENT_CONFIG.defaultLastMoveDirection.x;
+      const facingY = Number(state.facingDirection?.y) || state.lastMoveDirection.y || AC_MOVEMENT_CONFIG.defaultLastMoveDirection.y;
+      const facingLength = Math.hypot(facingX, facingY) || 1;
+      const normFacingX = facingX / facingLength;
+      const normFacingY = facingY / facingLength;
+      const visualMode = state.visualMode || AC_LOCOMOTION_VISUAL_MODE.WALK_IDLE;
+      let multiplier = Number(tuning.leanWalkMultiplier) || 0.45;
+      if (visualMode === AC_LOCOMOTION_VISUAL_MODE.QUICK_BOOST) {
+        multiplier = Number(tuning.leanQuickBoostMultiplier) || 1.5;
+      } else if (visualMode === AC_LOCOMOTION_VISUAL_MODE.AIR_BRAKE) {
+        multiplier = Math.max(Number(tuning.leanPostBoostMultiplier) || 1, 1.08);
+      } else if (visualMode === AC_LOCOMOTION_VISUAL_MODE.POST_BOOST_GLIDE) {
+        multiplier = Number(tuning.leanPostBoostMultiplier) || 1;
+      } else if (visualMode === AC_LOCOMOTION_VISUAL_MODE.OVERHEAT) {
+        multiplier = this.isAcFullOverheatActive(state)
+          ? Phaser.Math.Clamp(Number(tuning.fullOverheatLeanMultiplier) || 0.32, 0, 0.6)
+          : 0.2;
+      }
+
+      let forwardDot = 0;
+      let sideDot = 0;
+      let leanMode = "IDLE";
+      let targetAngle = 0;
+      let targetOffsetX = 0;
+      let targetOffsetY = 0;
+      if (movementLength > 0 && visualMode !== AC_LOCOMOTION_VISUAL_MODE.WALK_IDLE) {
+        forwardDot = Phaser.Math.Clamp(normFacingX * movementX + normFacingY * movementY, -1, 1);
+        sideDot = Phaser.Math.Clamp(normFacingX * movementY - normFacingY * movementX, -1, 1);
+        const absForward = Math.abs(forwardDot);
+        const absSide = Math.abs(sideDot);
+        if (absSide > 0.35 && absForward > 0.35) {
+          leanMode = "DIAGONAL";
+        } else if (absSide > 0.35) {
+          leanMode = sideDot > 0 ? "STRAFE_R" : "STRAFE_L";
+        } else if (forwardDot > 0.35) {
+          leanMode = "FORWARD";
+        } else if (forwardDot < -0.35) {
+          leanMode = "BACK";
+        }
+
+        const sideAngle = Math.max(0, Number(tuning.leanSideMaxDeg) || 0) * sideDot;
+        const forwardAngle = forwardDot >= 0
+          ? -Math.max(0, Number(tuning.leanForwardMaxDeg) || 0) * Math.max(0, forwardDot) * 0.22
+          : Math.max(0, Number(tuning.leanBackMaxDeg) || 0) * Math.max(0, -forwardDot) * 0.18;
+        const speedInfluence = Phaser.Math.Clamp(speedRatio * 2.2, 0, 1);
+        targetAngle = (sideAngle + forwardAngle) * multiplier * speedInfluence;
+        const offset = Math.max(0, Number(tuning.leanOffsetMaxPx) || 0) * multiplier * speedInfluence;
+        targetOffsetX = movementX * offset;
+        targetOffsetY = movementY * offset * 0.72;
+      }
+
+      const smoothingBase = Phaser.Math.Clamp(Number(tuning.leanSmoothing) || 0.24, 0.02, 1);
+      const returnSpeed = Math.max(0, Number(tuning.leanReturnSpeed) || 10);
+      const smooth = Phaser.Math.Clamp(
+        1 - Math.pow(1 - smoothingBase, Math.max(1, Number(delta) || 16.67) / 16.67) + returnSpeed * (Number(delta) || 0) / 1000 * 0.04,
+        0.02,
+        1
+      );
+      const currentAngle = Number(this.playerRobotMotion.acVisualLeanAngle) || 0;
+      const currentOffsetX = Number(this.playerRobotMotion.acLeanOffsetX) || 0;
+      const currentOffsetY = Number(this.playerRobotMotion.acLeanOffsetY) || 0;
+      this.playerRobotMotion.acVisualLeanAngle = Phaser.Math.Linear(currentAngle, targetAngle, smooth);
+      this.playerRobotMotion.acLeanOffsetX = Phaser.Math.Linear(currentOffsetX, targetOffsetX, smooth);
+      this.playerRobotMotion.acLeanOffsetY = Phaser.Math.Linear(currentOffsetY, targetOffsetY, smooth);
+      state.movementLean = {
+        mode: leanMode,
+        forwardDot,
+        sideDot,
+        angle: this.playerRobotMotion.acVisualLeanAngle,
+        offset: Math.hypot(this.playerRobotMotion.acLeanOffsetX, this.playerRobotMotion.acLeanOffsetY),
+        offsetX: this.playerRobotMotion.acLeanOffsetX,
+        offsetY: this.playerRobotMotion.acLeanOffsetY,
+        movementAngle: movementLength > 0 ? Math.atan2(movementY, movementX) : 0,
+        facingAngle: Math.atan2(normFacingY, normFacingX)
+      };
+      return;
+    }
+
+    const direction = this.getAcMovementVisualDirection(state);
+    const horizontalRatio = Phaser.Math.Clamp(
+      direction.x / Math.max(Math.abs(direction.x) + Math.abs(direction.y), 1),
+      -1,
+      1
+    );
+    const maxAngle = Math.max(0, Number(tuning.robotLeanMaxAngleDeg) || 0);
+    const intensity = quickBoostActive
+      ? 0.45 * Math.max(1, Number(tuning.robotLeanQuickBoostMultiplier) || 1)
+      : 0.18 + speedRatio * 0.2;
+    const target = speedRatio > 0.04 || quickBoostActive
+      ? horizontalRatio * maxAngle * intensity
+      : 0;
+    const returnSpeed = Phaser.Math.Clamp(Number(tuning.robotLeanReturnSpeed) || 0.2, 0.02, 1);
+    this.playerRobotMotion.acVisualLeanAngle = Phaser.Math.Linear(
+      Number(this.playerRobotMotion.acVisualLeanAngle) || 0,
+      target,
+      quickBoostActive ? 0.28 : returnSpeed
+    );
+    this.playerRobotMotion.acLeanOffsetX = 0;
+    this.playerRobotMotion.acLeanOffsetY = 0;
+  }
+
+  updateAcMovementVisuals(time, delta) {
+    if (!this.shouldUseAcMovementVisuals()) {
+      if (this.hasAcMovementVisuals()) {
+        this.cleanupAcMovementVisuals("acVisualsDisabled");
+      }
+      return;
+    }
+
+    this.updateAcWeightShadowVisual(time, delta);
+    this.updateAcQuickBoostPoweredVisuals(time, delta);
+    this.updateAcThrustTrailVisual(time, delta);
+    this.updateAcOverheatVisuals(time, delta);
+    this.updateAcEnergyWarningVisuals(time, delta);
+    this.updateAcLockonRingVisual(time, delta);
+    this.updateAcTargetFire(time, delta);
+    this.updateAcBoostVectorIndicator(time, delta);
+    this.updateAcGroundSkidFx(time, delta);
+    this.updateAcQuickTurnFx(time, delta);
+    this.updateAcAirBrakeFx(time, delta);
+    this.updateAcAttitudeControlJets(time, delta);
+    this.enforceAcVisualObjectLimit(this.acMovementState?.visuals);
+  }
+
+  getPlayerMoveInputVector() {
+    const editorUsesArrows = this.isStageCollisionEditorAdjustingSelection?.() === true;
+    const mobileVector = this.getMobileMoveVector();
+    const keys = this.keys || {};
+    const moveX = ((!editorUsesArrows && keys.left?.isDown) || keys.a?.isDown ? -1 : 0) +
+      ((!editorUsesArrows && keys.right?.isDown) || keys.d?.isDown ? 1 : 0) +
+      (Number(mobileVector.x) || 0);
+    const moveY = ((!editorUsesArrows && keys.up?.isDown) || keys.w?.isDown ? -1 : 0) +
+      ((!editorUsesArrows && keys.down?.isDown) || keys.s?.isDown ? 1 : 0) +
+      (Number(mobileVector.y) || 0);
+    const magnitude = Math.hypot(moveX, moveY);
+    return {
+      x: moveX,
+      y: moveY,
+      magnitude,
+      normalizedX: magnitude > 0 ? moveX / magnitude : 0,
+      normalizedY: magnitude > 0 ? moveY / magnitude : 0,
+      hasInput: magnitude > 0
+    };
+  }
+
   handleRankingNameKeyDown(event) {
     if (!this.rankingNameEntryActive || (!this.gameOver && !this.extractionComplete) || this.pendingRankingSaved) {
       return;
@@ -39463,6 +45855,7 @@ class SurvivalScene extends Phaser.Scene {
     const robotTextureKey = this.getRobotTextureKey(visualLevel);
     const fieldTextureKey = this.getRecoveryFieldTextureKey(fieldLevel);
     const { robotSlot, fieldSlot } = this.hudRobotPanel;
+    const fieldIconPreviousTextureKey = fieldSlot.icon?.texture?.key || "";
 
     robotSlot.levelText.setText(`ROBOT\nLv.${missileLevel}/${missileCap}`);
     const shieldText = this.getRobotBarrierHudText();
@@ -39495,6 +45888,15 @@ class SurvivalScene extends Phaser.Scene {
     if (this.textures.exists(fieldTextureKey)) {
       fieldSlot.icon.setVisible(true);
       this.setHudIconToFit(fieldSlot.icon, fieldTextureKey, this.hudRobotPanel.fieldIconMaxSize);
+      this.logRecoveryFieldHudIconDebug({
+        hud: "standard",
+        level: fieldLevel,
+        assetLevel: this.getRecoveryFieldAssetLevel(fieldLevel),
+        textureKey: fieldTextureKey,
+        displayWidth: Number(fieldSlot.icon.displayWidth.toFixed(2)),
+        displayHeight: Number(fieldSlot.icon.displayHeight.toFixed(2)),
+        maxSize: this.hudRobotPanel.fieldIconMaxSize
+      }, fieldIconPreviousTextureKey !== fieldTextureKey);
     } else {
       fieldSlot.icon.setVisible(false);
     }
@@ -40027,8 +46429,9 @@ class SurvivalScene extends Phaser.Scene {
       wordWrap: { width: 760 }
     });
 
-    this.renderPermanentUpgradeCards(-530, -150, 360, 92, 14);
-    this.renderSupportLinkShopCard(-530, 168, 360, 128);
+    const showReactorCooling = this.shouldShowReactorCoolingShopUpgrade();
+    this.renderPermanentUpgradeCards(-530, -150, 360, showReactorCooling ? 84 : 92, showReactorCooling ? 8 : 14);
+    this.renderSupportLinkShopCard(-530, showReactorCooling ? 218 : 168, 360, showReactorCooling ? 100 : 128);
     this.renderCleaningRobotShopPanel(-116, -150, 622, 362);
   }
 
@@ -42540,9 +48943,11 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   renderPermanentUpgradeCards(originX, originY, cardWidth = 360, cardHeight = 110, gapY = 18) {
-    Object.values(SHOP_UPGRADE_DEFINITIONS).forEach((definition, index) => {
-      this.createPermanentUpgradeCard(definition, originX, originY + index * (cardHeight + gapY), cardWidth, cardHeight);
-    });
+    Object.values(SHOP_UPGRADE_DEFINITIONS)
+      .filter((definition) => !definition.debugOnly || definition.id !== REACTOR_COOLING_UPGRADE_ID || this.shouldShowReactorCoolingShopUpgrade())
+      .forEach((definition, index) => {
+        this.createPermanentUpgradeCard(definition, originX, originY + index * (cardHeight + gapY), cardWidth, cardHeight);
+      });
   }
 
   createPermanentUpgradeCard(definition, x, y, width, height) {
@@ -43864,7 +50269,10 @@ class SurvivalScene extends Phaser.Scene {
     this.resetRunEquipmentCombatLinkState("gameStart");
     this.captureRunEquipmentBonuses("gameStart");
     this.captureRunEquipmentCombatLinkSnapshot(this.runEquipmentLoadoutSnapshot, "gameStart");
+    this.acMovementDebugStartStaminaApplied = false;
     this.rebuildStartingStats();
+    this.resetAcMovementState("gameStart");
+    this.applyAcMovementDebugStartStamina("gameStart");
     const pendingShopEpilogue = this.peekPendingShopEpilogueComms?.() || "";
     this.clearFinalRaidLegendRewardRuntimeState("gameStart");
     this.cleanupCommsEpilogueTimers?.("gameStart");
@@ -45780,6 +52188,7 @@ class SurvivalScene extends Phaser.Scene {
       targetDepth,
       maxAbsoluteDepthReached: this.getRunMaxAbsoluteDepthReached(this.runDepthProgressState)
     });
+    this.resetAcMovementState("depthTransition");
     this.initializeEquipmentProductionDropState(this.stageDepth, "depthTransition");
     this.updateRunRankingDepthProgress(this.stageDepth);
     this.gateInstabilityStacks = Math.max(0, Math.floor(Number(transition?.nextInstabilityStacks) || 0));
@@ -46962,6 +53371,7 @@ class SurvivalScene extends Phaser.Scene {
       this.updateHud();
     }
     this.updateMobileControlsVisibility();
+    this.updateAcMovementDebugHud(time, delta);
     this.queueDebugCommsMessagesIfNeeded("update");
     this.tryQueueDebugCommsEpilogueSequenceIfNeeded("update");
     this.tryQueueDebugCommsStoryDepthIfNeeded("update");
@@ -46982,6 +53392,9 @@ class SurvivalScene extends Phaser.Scene {
     this.tryOpenPendingDepthDirectiveSelection();
 
     if (this.gameOver) {
+      if (this.hasAcMovementVisuals()) {
+        this.cleanupAcMovementVisuals("gameOver");
+      }
       if (!this.rankingNameEntryActive && (
         Phaser.Input.Keyboard.JustDown(this.keys.restart) ||
         Phaser.Input.Keyboard.JustDown(this.keys.enter)
@@ -46992,10 +53405,16 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     if (this.shopActive) {
+      if (this.hasAcMovementVisuals()) {
+        this.cleanupAcMovementVisuals("shopActive");
+      }
       return;
     }
 
     if (this.levelUpActive) {
+      if (this.hasAcMovementVisuals()) {
+        this.cleanupAcMovementVisuals("levelUpActive");
+      }
       return;
     }
 
@@ -47003,6 +53422,9 @@ class SurvivalScene extends Phaser.Scene {
     const finalBossRaidActive = this.isFinalBossRaidActive();
 
     if (this.gateChoiceActive || this.extractionComplete) {
+      if (this.hasAcMovementVisuals()) {
+        this.cleanupAcMovementVisuals("gateOrExtraction");
+      }
       return;
     }
 
@@ -47022,10 +53444,14 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     if (this.gameOver || this.gateChoiceActive) {
+      if (this.hasAcMovementVisuals()) {
+        this.cleanupAcMovementVisuals("gameOverOrGate");
+      }
       return;
     }
 
     this.updatePlayerMovement(delta);
+    this.updateAcMovementDebugHud(time, delta);
     this.updateVoidHunterStationarySummon(delta, this.playerRobotMotion?.isMoving === true);
     if (finalBossRaidActive) {
       this.updateFinalBossRaidCamera();
@@ -47110,8 +53536,2733 @@ class SurvivalScene extends Phaser.Scene {
     return this.isDashing;
   }
 
+  clampAcMovementDelta(delta) {
+    const tuning = this.getActiveAcMovementTuning();
+    const seconds = Math.max(0, Number(delta) || 0) / 1000;
+    return Math.min(seconds, tuning.maxDeltaSeconds);
+  }
+
+  moveAcVelocityTowards(velocity, targetX, targetY, maxDelta) {
+    if (!velocity) {
+      return;
+    }
+
+    const deltaX = targetX - velocity.x;
+    const deltaY = targetY - velocity.y;
+    const distance = Math.hypot(deltaX, deltaY);
+    const step = Math.max(0, Number(maxDelta) || 0);
+    if (distance <= step || distance <= 0) {
+      velocity.x = targetX;
+      velocity.y = targetY;
+      return;
+    }
+
+    velocity.x += (deltaX / distance) * step;
+    velocity.y += (deltaY / distance) * step;
+  }
+
+  limitAcMovementVelocity(velocity, maxSpeed) {
+    if (!velocity) {
+      return 0;
+    }
+
+    const speed = Math.hypot(velocity.x, velocity.y);
+    const safeMaxSpeed = Math.max(0, Number(maxSpeed) || 0);
+    if (safeMaxSpeed <= 0) {
+      velocity.x = 0;
+      velocity.y = 0;
+      return 0;
+    }
+
+    if (speed > safeMaxSpeed) {
+      const scale = safeMaxSpeed / speed;
+      velocity.x *= scale;
+      velocity.y *= scale;
+      return safeMaxSpeed;
+    }
+
+    return speed;
+  }
+
+  dampAcVelocityAboveLimit(velocity, maxSpeed, dampingPerSecond, dt) {
+    if (!velocity) {
+      return 0;
+    }
+
+    let speed = Math.hypot(velocity.x, velocity.y);
+    const safeMaxSpeed = Math.max(0, Number(maxSpeed) || 0);
+    if (!Number.isFinite(speed) || !Number.isFinite(safeMaxSpeed)) {
+      velocity.x = 0;
+      velocity.y = 0;
+      return 0;
+    }
+    if (safeMaxSpeed <= 0) {
+      velocity.x = 0;
+      velocity.y = 0;
+      return 0;
+    }
+    if (speed <= safeMaxSpeed) {
+      return speed;
+    }
+
+    const damping = Math.max(0, Number(dampingPerSecond) || 0) * Math.max(0, Number(dt) || 0);
+    const nextSpeed = Math.max(safeMaxSpeed, speed - damping);
+    const scale = nextSpeed / Math.max(speed, 1);
+    velocity.x *= scale;
+    velocity.y *= scale;
+    return nextSpeed;
+  }
+
+  normalizeAcAngleDelta(radians) {
+    let value = Number(radians) || 0;
+    while (value > Math.PI) {
+      value -= Math.PI * 2;
+    }
+    while (value < -Math.PI) {
+      value += Math.PI * 2;
+    }
+    return value;
+  }
+
+  getAcInputDirection(input, tuning = this.getActiveAcMovementTuning()) {
+    const magnitude = Math.max(0, Math.min(1, Number(input?.magnitude) || 0));
+    if (!input?.hasInput || magnitude <= (Number(tuning.inputDeadzone) || 0)) {
+      return null;
+    }
+
+    const inputX = Number(input.normalizedX) || 0;
+    const inputY = Number(input.normalizedY) || 0;
+    const inputLength = Math.hypot(inputX, inputY);
+    if (inputLength <= 0) {
+      return null;
+    }
+
+    return {
+      x: inputX / inputLength,
+      y: inputY / inputLength,
+      magnitude
+    };
+  }
+
+  getAcSteeringAngleInfo(state, inputDirection) {
+    const velocityX = Number(state?.velocity?.x) || 0;
+    const velocityY = Number(state?.velocity?.y) || 0;
+    const velocitySpeed = Math.hypot(velocityX, velocityY);
+    const velocityAngle = velocitySpeed > 0 ? Math.atan2(velocityY, velocityX) : 0;
+    const inputAngle = inputDirection ? Math.atan2(inputDirection.y, inputDirection.x) : 0;
+    const angleDelta = inputDirection && velocitySpeed > 0
+      ? this.normalizeAcAngleDelta(inputAngle - velocityAngle)
+      : 0;
+    return {
+      velocitySpeed,
+      velocityAngle,
+      inputAngle,
+      angleDelta
+    };
+  }
+
+  setAcSteeringDiagnostics(state, options = {}) {
+    if (!state) {
+      return null;
+    }
+
+    const inputDirection = options.inputDirection || null;
+    const angleInfo = this.getAcSteeringAngleInfo(state, inputDirection);
+    state.steering = {
+      enabled: Boolean(options.enabled),
+      mode: typeof options.mode === "string" ? options.mode : "NONE",
+      inputAccepted: Boolean(options.inputAccepted),
+      inputInfluence: Number.isFinite(options.inputInfluence) ? Phaser.Math.Clamp(options.inputInfluence, 0, 1) : 0,
+      velocityAngle: angleInfo.velocityAngle,
+      inputAngle: inputDirection ? angleInfo.inputAngle : 0,
+      angleDelta: inputDirection ? angleInfo.angleDelta : 0,
+      turnRateLimit: Number.isFinite(options.turnRateLimit) ? Math.max(0, options.turnRateLimit) : 0,
+      quickBoostHardLockRemainingMs: Number.isFinite(options.quickBoostHardLockRemainingMs)
+        ? Math.max(0, options.quickBoostHardLockRemainingMs)
+        : 0
+    };
+    return state.steering;
+  }
+
+  getAcQuickBoostHardLockRemainingMs(state, now, tuning = this.getActiveAcMovementTuning()) {
+    if (!state || now >= state.quickBoostUntil) {
+      return 0;
+    }
+
+    const hardLockUntil = Number.isFinite(state.quickBoostHardLockUntil)
+      ? state.quickBoostHardLockUntil
+      : (Number(state.lastQuickBoostAt) || 0) + Math.max(0, Number(tuning.quickBoostHardLockMs) || 0);
+    return Math.max(0, hardLockUntil - Math.max(0, Number(now) || 0));
+  }
+
+  applyAcVelocitySteeringTowardInput(state, input, dt, baseMoveSpeed, maxAllowedSpeed, steeringMode, tuning = this.getActiveAcMovementTuning(), options = {}) {
+    const inputDirection = this.getAcInputDirection(input, tuning);
+    const turnRateLimit = Math.max(0, Number(options.turnRateDegPerSecond) || 0);
+    const hardLockRemainingMs = Math.max(0, Number(options.quickBoostHardLockRemainingMs) || 0);
+    if (!state?.velocity || !inputDirection || hardLockRemainingMs > 0) {
+      this.setAcSteeringDiagnostics(state, {
+        enabled: Boolean(options.enabled),
+        mode: hardLockRemainingMs > 0 ? "LOCKED" : "NONE",
+        inputAccepted: false,
+        inputInfluence: 0,
+        inputDirection,
+        turnRateLimit,
+        quickBoostHardLockRemainingMs: hardLockRemainingMs
+      });
+      return false;
+    }
+
+    const velocityX = Number(state.velocity.x) || 0;
+    const velocityY = Number(state.velocity.y) || 0;
+    const speed = Math.hypot(velocityX, velocityY);
+    if (!Number.isFinite(speed) || speed <= Math.max(0.001, Number(tuning.velocityStopEpsilon) || 0)) {
+      this.setAcSteeringDiagnostics(state, {
+        enabled: Boolean(options.enabled),
+        mode: steeringMode,
+        inputAccepted: false,
+        inputInfluence: 0,
+        inputDirection,
+        turnRateLimit,
+        quickBoostHardLockRemainingMs: 0
+      });
+      return false;
+    }
+
+    const inputMagnitude = inputDirection.magnitude;
+    const multiplier = Math.max(0, Number(options.inputMultiplier) || 0);
+    const influence = Phaser.Math.Clamp(inputMagnitude * multiplier, 0, 1);
+    if (influence <= 0 || turnRateLimit <= 0) {
+      this.setAcSteeringDiagnostics(state, {
+        enabled: Boolean(options.enabled),
+        mode: steeringMode,
+        inputAccepted: false,
+        inputInfluence: 0,
+        inputDirection,
+        turnRateLimit,
+        quickBoostHardLockRemainingMs: 0
+      });
+      return false;
+    }
+
+    const velocityAngle = Math.atan2(velocityY, velocityX);
+    const inputAngle = Math.atan2(inputDirection.y, inputDirection.x);
+    const angleDelta = this.normalizeAcAngleDelta(inputAngle - velocityAngle);
+    const maxTurnRadians = turnRateLimit * (Math.PI / 180) * Math.max(0, Number(dt) || 0) * influence;
+    const appliedTurn = Phaser.Math.Clamp(angleDelta, -maxTurnRadians, maxTurnRadians);
+    const nextAngle = velocityAngle + appliedTurn;
+    const velocityDirX = velocityX / speed;
+    const velocityDirY = velocityY / speed;
+    const dot = Phaser.Math.Clamp(velocityDirX * inputDirection.x + velocityDirY * inputDirection.y, -1, 1);
+    const reverseFactor = Math.max(0, -dot);
+    const retention = Phaser.Math.Clamp(Number(options.speedRetention) || 1, 0.01, 1);
+    const speedScale = Math.pow(retention, Math.max(0, Number(dt) || 0) * inputMagnitude * (0.35 + reverseFactor * 1.65));
+    let nextSpeed = speed * speedScale;
+    const minSpeedRatio = Phaser.Math.Clamp(Number(options.minSpeedRatio) || 0, 0, 1);
+    const minSteerSpeed = Math.max(0, Number(baseMoveSpeed) || 0) * minSpeedRatio * inputMagnitude;
+    if (speed >= minSteerSpeed) {
+      nextSpeed = Math.max(nextSpeed, minSteerSpeed);
+    }
+
+    state.velocity.x = Math.cos(nextAngle) * nextSpeed;
+    state.velocity.y = Math.sin(nextAngle) * nextSpeed;
+
+    const steerAcceleration = Math.max(0, Number(options.steerAcceleration) || 0) * influence;
+    if (steerAcceleration > 0) {
+      const targetSpeed = Math.max(minSteerSpeed, Math.min(nextSpeed, Math.max(0, Number(maxAllowedSpeed) || 0) || nextSpeed));
+      this.moveAcVelocityTowards(
+        state.velocity,
+        inputDirection.x * targetSpeed,
+        inputDirection.y * targetSpeed,
+        steerAcceleration * Math.max(0, Number(dt) || 0)
+      );
+    }
+
+    this.setAcSteeringDiagnostics(state, {
+      enabled: Boolean(options.enabled),
+      mode: steeringMode,
+      inputAccepted: true,
+      inputInfluence: influence,
+      inputDirection,
+      turnRateLimit,
+      quickBoostHardLockRemainingMs: 0
+    });
+    return true;
+  }
+
+  getAcMovementModeSpeedLimit(mode, baseMoveSpeed, tuning = this.getActiveAcMovementTuning()) {
+    const safeBaseSpeed = Math.max(0, Number(baseMoveSpeed) || 0);
+    if (mode === AC_MOVEMENT_CONFIG.quickBoostMode) {
+      return safeBaseSpeed * tuning.quickBoostMaxSpeedMultiplier;
+    }
+    if (mode === AC_MOVEMENT_CONFIG.postBoostGlideMode) {
+      return safeBaseSpeed * tuning.quickBoostExitSpeedMultiplier;
+    }
+    return safeBaseSpeed * tuning.maxCruiseSpeedMultiplier;
+  }
+
+  getAcMovementBaseSpeed() {
+    if (!this.stats) {
+      return 0;
+    }
+
+    const moveSpeed = Number(this.stats.moveSpeed);
+    const baseSpeed = Number.isFinite(moveSpeed) && moveSpeed > 0 ? moveSpeed : 0;
+    return baseSpeed
+      * this.getOverdriveMoveSpeedMultiplier()
+      * this.getFinalBossRaidPlayerMoveMultiplier();
+  }
+
+  applyAcMovementWallDamping(state) {
+    if (!AC_MOVEMENT_CONFIG.wallDampingEnabled || !state?.velocity || !this.playerHitbox?.body) {
+      return;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const body = this.playerHitbox.body;
+    const blocked = body.blocked || {};
+    const touching = body.touching || {};
+    const damping = Math.max(0, Math.min(1, tuning.wallDampingFactor));
+    const epsilon = tuning.velocityStopEpsilon;
+    if ((blocked.left || touching.left) && state.velocity.x < 0) {
+      state.velocity.x *= damping;
+    }
+    if ((blocked.right || touching.right) && state.velocity.x > 0) {
+      state.velocity.x *= damping;
+    }
+    if ((blocked.up || touching.up) && state.velocity.y < 0) {
+      state.velocity.y *= damping;
+    }
+    if ((blocked.down || touching.down) && state.velocity.y > 0) {
+      state.velocity.y *= damping;
+    }
+    if (Math.abs(state.velocity.x) < epsilon) {
+      state.velocity.x = 0;
+    }
+    if (Math.abs(state.velocity.y) < epsilon) {
+      state.velocity.y = 0;
+    }
+  }
+
+  updateAcMovementDirectionFromVelocity(state, speed) {
+    if (!state?.velocity) {
+      return;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    if (speed >= tuning.minVelocityForDirectionUpdate) {
+      state.lastMoveDirection.x = state.velocity.x / speed;
+      state.lastMoveDirection.y = state.velocity.y / speed;
+      this.playerAimAngle = Math.atan2(state.velocity.y, state.velocity.x);
+    }
+  }
+
+  getPlayerDashInputDown() {
+    return this.isDashKeyDown();
+  }
+
+  getAcQuickBoostInputState(state = this.ensureAcMovementState()) {
+    const isDown = this.getPlayerDashInputDown();
+    const wasDown = Boolean(state?.lastDashDown);
+    return {
+      isDown,
+      justPressed: isDown && !wasDown,
+      justReleased: !isDown && wasDown
+    };
+  }
+
+  getAcQuickBoostCost() {
+    const tuning = this.getActiveAcMovementTuning();
+    const baseCost = Math.max(0, Number(tuning.quickBoostCost) || 0);
+    return baseCost * this.getAcDashDrainMultiplier();
+  }
+
+  isAcVariableQuickBoostEnabled(tuning = this.getActiveAcMovementTuning()) {
+    return Boolean(this.isAcV3MovementPreset() && tuning?.variableQuickBoostEnabled === true);
+  }
+
+  isAcContinuousBoostEnabled(tuning = this.getActiveAcMovementTuning()) {
+    return Boolean(this.isAcV3MovementPreset() && tuning?.continuousBoostEnabled === true);
+  }
+
+  getAcDashDrainMultiplier() {
+    const rawDrainMultiplier = Number(this.getTriadDashStaminaDrainMultiplier?.());
+    return Number.isFinite(rawDrainMultiplier) ? Math.max(0, rawDrainMultiplier) : 1;
+  }
+
+  getAcContinuousBoostStartCost(tuning = this.getActiveAcMovementTuning()) {
+    return Math.max(0, Number(tuning.boostStartCost) || 0) * this.getAcDashDrainMultiplier();
+  }
+
+  getAcContinuousBoostMinStartStamina(tuning = this.getActiveAcMovementTuning()) {
+    return Math.max(
+      Math.max(0, Number(tuning.boostMinStaminaToStart) || 0),
+      this.getAcContinuousBoostStartCost(tuning)
+    );
+  }
+
+  getAcContinuousBoostRestartStaminaThreshold(tuning = this.getActiveAcMovementTuning()) {
+    return Math.max(
+      this.getAcContinuousBoostMinStartStamina(tuning),
+      Number(tuning.boostRestartStaminaThreshold) || 0
+    );
+  }
+
+  getAcContinuousBoostRampRatio(heldMs, tuning = this.getActiveAcMovementTuning()) {
+    const rampMs = Math.max(1, Number(tuning.boostSustainRampMs) || 1);
+    return Phaser.Math.Clamp(Math.max(0, Number(heldMs) || 0) / rampMs, 0, 1);
+  }
+
+  getAcContinuousBoostDrainPerSecond(rampRatio = 1, tuning = this.getActiveAcMovementTuning()) {
+    const baseDrain = Math.max(0, Number(tuning.boostSustainDrainPerSecond) || 0);
+    const maxMultiplier = Math.max(1, Number(tuning.boostSustainDrainMaxMultiplier) || 1);
+    const ratio = Phaser.Math.Clamp(Number(rampRatio) || 0, 0, 1);
+    return baseDrain * this.getAcDashDrainMultiplier() * Phaser.Math.Linear(1, maxMultiplier, ratio);
+  }
+
+  getAcContinuousBoostTerminalSpeed(baseMoveSpeed, tuning = this.getActiveAcMovementTuning()) {
+    return Math.max(0, Number(baseMoveSpeed) || 0) * Math.max(0.1, Number(tuning.boostTerminalSpeedMultiplier) || tuning.quickBoostMaxSpeedMultiplier || 1);
+  }
+
+  getAcBoostLockoutRemainingMs(state = this.ensureAcMovementState(), now = this.time?.now || 0) {
+    return Math.max(0, (Number(state?.boostLockoutUntil) || 0) - Math.max(0, Number(now) || 0));
+  }
+
+  getAcContinuousBoostTimeToEmptyMs(currentStamina, drainPerSecond) {
+    const stamina = Math.max(0, Number(currentStamina) || 0);
+    const drain = Math.max(0, Number(drainPerSecond) || 0);
+    if (drain <= 0) {
+      return 0;
+    }
+    return (stamina / drain) * 1000;
+  }
+
+  canStartAcContinuousBoost(state = this.ensureAcMovementState(), now = this.time?.now || 0, tuning = this.getActiveAcMovementTuning()) {
+    if (!this.isAcContinuousBoostEnabled(tuning)) {
+      return { allowed: false, reason: AC_QUICK_BOOST_FAIL_REASON.DISABLED };
+    }
+    if (!this.shouldUseAcMovement()) {
+      return { allowed: false, reason: AC_QUICK_BOOST_FAIL_REASON.DISABLED };
+    }
+    if (this.isFinalBossRaidActive?.()) {
+      return { allowed: false, reason: AC_QUICK_BOOST_FAIL_REASON.FINAL_RAID_DISABLED };
+    }
+    if (!this.stats || !this.playerHitbox?.body) {
+      return { allowed: false, reason: AC_QUICK_BOOST_FAIL_REASON.DISABLED };
+    }
+    const fullOverheatBlockReason = this.getAcFullOverheatBlockReason(state, now);
+    if (fullOverheatBlockReason) {
+      return { allowed: false, reason: fullOverheatBlockReason };
+    }
+    if (this.getAcBoostLockoutRemainingMs(state, now) > 0) {
+      return { allowed: false, reason: AC_QUICK_BOOST_FAIL_REASON.BOOST_LOCKOUT };
+    }
+    if (this.shouldUseAcAirBrake() && state.airBrake?.active) {
+      return { allowed: false, reason: AC_QUICK_BOOST_FAIL_REASON.AIR_BRAKE };
+    }
+    if (state.mustReleaseDashBeforeBoost) {
+      return { allowed: false, reason: AC_QUICK_BOOST_FAIL_REASON.NEED_RELEASE };
+    }
+    if (now < (Number(state.cooldownUntil) || 0)) {
+      return { allowed: false, reason: AC_QUICK_BOOST_FAIL_REASON.COOLDOWN };
+    }
+    const maxStamina = Math.max(0, Number(this.stats.maxStamina) || 0);
+    const currentStamina = Math.max(0, Number(this.stats.stamina ?? maxStamina) || 0);
+    const requiredStamina = this.isAcFullOverheatEnabled(tuning)
+      ? this.getAcContinuousBoostMinStartStamina(tuning)
+      : state.boostEmptyAt > 0
+      ? this.getAcContinuousBoostRestartStaminaThreshold(tuning)
+      : this.getAcContinuousBoostMinStartStamina(tuning);
+    if (currentStamina + 0.001 < requiredStamina) {
+      return { allowed: false, reason: AC_QUICK_BOOST_FAIL_REASON.LOW_EN, requiredStamina, currentStamina };
+    }
+    return { allowed: true, reason: "", requiredStamina, currentStamina };
+  }
+
+  getAcVariableQuickBoostMinCost(maxCost, tuning = this.getActiveAcMovementTuning()) {
+    const costRatio = Phaser.Math.Clamp(Number(tuning.quickBoostMinCostRatio) || 0.5, 0, 1);
+    return Math.max(0, Number(maxCost) || 0) * costRatio;
+  }
+
+  getAcVariableQuickBoostMaxCost(maxCost = this.getAcQuickBoostCost(), tuning = this.getActiveAcMovementTuning()) {
+    const costRatio = Phaser.Math.Clamp(Number(tuning.quickBoostMaxCostRatio) || 1, 0, 1);
+    return Math.max(0, Number(maxCost) || 0) * costRatio;
+  }
+
+  getAcVariableQuickBoostHoldRatio(holdMs, tuning = this.getActiveAcMovementTuning()) {
+    const minHoldMs = Math.max(0, Number(tuning.quickBoostMinHoldMs) || 0);
+    const maxHoldMs = Math.max(minHoldMs + 1, Number(tuning.quickBoostMaxHoldMs) || Number(tuning.quickBoostDurationMs) || minHoldMs + 1);
+    const safeHoldMs = Math.max(0, Number(holdMs) || 0);
+    if (tuning.quickBoostUseMinHoldRatio === false) {
+      return Phaser.Math.Clamp(safeHoldMs / Math.max(1, maxHoldMs), 0, 1);
+    }
+    return Phaser.Math.Clamp((safeHoldMs - minHoldMs) / Math.max(1, maxHoldMs - minHoldMs), 0, 1);
+  }
+
+  getAcVariableQuickBoostCurveRatio(ratio, curveName = "linear") {
+    const value = Phaser.Math.Clamp(Number(ratio) || 0, 0, 1);
+    switch (String(curveName || "linear").toLowerCase()) {
+      case "smoothstep":
+        return value * value * (3 - 2 * value);
+      case "easeout":
+      case "ease-out":
+        return 1 - Math.pow(1 - value, 2);
+      case "easein":
+      case "ease-in":
+        return value * value;
+      default:
+        return value;
+    }
+  }
+
+  getAcVariableQuickBoostSmoothedRatio(holdRatio, tuning = this.getActiveAcMovementTuning()) {
+    return this.getAcVariableQuickBoostCurveRatio(holdRatio, tuning.quickBoostPowerCurve || "linear");
+  }
+
+  getAcVariableQuickBoostEffectiveRatio(holdRatio, tuning = this.getActiveAcMovementTuning()) {
+    return this.getAcVariableQuickBoostPowerRatio(holdRatio, tuning);
+  }
+
+  getAcVariableQuickBoostPowerRatio(holdRatio, tuning = this.getActiveAcMovementTuning()) {
+    const minPowerRatio = Phaser.Math.Clamp(Number(tuning.quickBoostMinPowerRatio) || 0.5, 0.05, 1);
+    const curvedRatio = this.getAcVariableQuickBoostCurveRatio(holdRatio, tuning.quickBoostPowerCurve || "linear");
+    return Phaser.Math.Clamp(Phaser.Math.Linear(minPowerRatio, 1, curvedRatio), 0, 1);
+  }
+
+  getAcVariableQuickBoostSpeedRatio(holdRatio, tuning = this.getActiveAcMovementTuning()) {
+    const minSpeedMultiplier = Phaser.Math.Clamp(Number(tuning.quickBoostMinSpeedMultiplier) || 0.5, 0.05, 1);
+    const curvedRatio = this.getAcVariableQuickBoostCurveRatio(holdRatio, tuning.quickBoostSpeedCurve || tuning.quickBoostPowerCurve || "linear");
+    return Phaser.Math.Clamp(Phaser.Math.Linear(minSpeedMultiplier, 1, curvedRatio), 0, 1);
+  }
+
+  getAcVariableQuickBoostCostRatio(holdRatio, tuning = this.getActiveAcMovementTuning()) {
+    const minRatio = Phaser.Math.Clamp(Number(tuning.quickBoostMinCostRatio) || 0.5, 0, 1);
+    const maxRatio = Phaser.Math.Clamp(Number(tuning.quickBoostMaxCostRatio) || 1, minRatio, 1);
+    const curvedRatio = this.getAcVariableQuickBoostCurveRatio(holdRatio, tuning.quickBoostCostCurve || "linear");
+    return Phaser.Math.Clamp(Phaser.Math.Linear(minRatio, maxRatio, curvedRatio), 0, 1);
+  }
+
+  getAcVariableQuickBoostVisualRatio(holdRatio, tuning = this.getActiveAcMovementTuning()) {
+    const minRatio = Phaser.Math.Clamp(Number(tuning.quickBoostMinVisualRatio) || 0.35, 0, 1);
+    const maxRatio = Phaser.Math.Clamp(Number(tuning.quickBoostMaxVisualRatio) || 1, minRatio, 1);
+    const curvedRatio = this.getAcVariableQuickBoostCurveRatio(holdRatio, tuning.quickBoostVisualCurve || tuning.quickBoostPowerCurve || "linear");
+    return Phaser.Math.Clamp(Phaser.Math.Linear(minRatio, maxRatio, curvedRatio), 0, 1);
+  }
+
+  getAcVariableQuickBoostGlideRatio(holdRatio, tuning = this.getActiveAcMovementTuning()) {
+    return this.getAcVariableQuickBoostCurveRatio(holdRatio, tuning.quickBoostGlideCurve || tuning.quickBoostPowerCurve || "linear");
+  }
+
+  getAcVariableQuickBoostInitialImpulseRatio(powerRatio, tuning = this.getActiveAcMovementTuning()) {
+    const ratio = Phaser.Math.Clamp(Number(tuning.quickBoostInitialImpulseRatio) || 1, 0.05, 1);
+    const floorRatio = Phaser.Math.Clamp(Number(tuning.quickBoostInitialImpulseFloorRatio) || 0, 0, 1);
+    return Phaser.Math.Clamp(Math.max(floorRatio, (Number(powerRatio) || 0) * ratio), 0, 1);
+  }
+
+  getAcVariableQuickBoostSustainRatio(powerRatio, tuning = this.getActiveAcMovementTuning()) {
+    const scale = Phaser.Math.Clamp(Number(tuning.quickBoostSustainThrustRatio) || 1, 0.05, 1.5);
+    const minRatio = Phaser.Math.Clamp(Number(tuning.quickBoostSustainMinRatio) || 0.35, 0, 1);
+    return Phaser.Math.Clamp(Phaser.Math.Linear(minRatio, 1, Phaser.Math.Clamp(Number(powerRatio) || 0, 0, 1)) * scale, 0, 1.5);
+  }
+
+  getAcVariableQuickBoostTargetCost(costRatio, variableQuickBoost = this.ensureAcMovementState().variableQuickBoost, tuning = this.getActiveAcMovementTuning()) {
+    const ratio = Phaser.Math.Clamp(Number(costRatio) || 0, 0, 1);
+    const minCost = Math.max(0, Number(variableQuickBoost?.minCost) || 0);
+    const maxCost = Math.max(minCost, Number(variableQuickBoost?.maxCost) || this.getAcQuickBoostCost());
+    if (!tuning.quickBoostHoldCostScalingEnabled) {
+      return maxCost;
+    }
+    return Phaser.Math.Clamp(maxCost * ratio, minCost, maxCost);
+  }
+
+  getAcVariablePostBoostGlideDuration(holdRatio, tuning = this.getActiveAcMovementTuning()) {
+    if (!tuning.postBoostGlideDurationByHoldRatio) {
+      return Math.max(0, Number(tuning.postBoostGlideDurationMs) || 0);
+    }
+
+    const ratio = Phaser.Math.Clamp(Number(holdRatio) || 0, 0, 1);
+    const minDuration = Math.max(0, Number(tuning.postBoostGlideMinDurationMs) || Number(tuning.postBoostGlideDurationMs) || 0);
+    const maxDuration = Math.max(minDuration, Number(tuning.postBoostGlideMaxDurationMs) || Number(tuning.postBoostGlideDurationMs) || minDuration);
+    return Phaser.Math.Linear(minDuration, maxDuration, ratio);
+  }
+
+  consumeAcVariableQuickBoostCostDelta(state, targetCost, now = this.time?.now || 0) {
+    const variableQuickBoost = state?.variableQuickBoost;
+    if (!this.stats || !variableQuickBoost) {
+      return false;
+    }
+
+    const currentTargetCost = Math.max(0, Number(targetCost) || 0);
+    const consumedCost = Math.max(0, Number(variableQuickBoost.consumedCost) || 0);
+    const costDelta = Math.max(0, currentTargetCost - consumedCost);
+    if (costDelta <= 0.001) {
+      return true;
+    }
+
+    const currentStamina = Math.max(0, Number(this.stats.stamina ?? this.stats.maxStamina) || 0);
+    if (currentStamina + 0.001 < costDelta) {
+      variableQuickBoost.consumedCost = consumedCost + currentStamina;
+      this.stats.stamina = 0;
+      this.endAcVariableQuickBoost(state, now, AC_QUICK_BOOST_END_REASON.LOW_EN);
+      this.setAcQuickBoostFailReason(AC_QUICK_BOOST_FAIL_REASON.LOW_EN, now);
+      this.triggerAcOverheatVisual(AC_QUICK_BOOST_FAIL_REASON.LOW_EN, now);
+      return false;
+    }
+
+    this.stats.stamina = Math.max(0, currentStamina - costDelta);
+    variableQuickBoost.consumedCost = currentTargetCost;
+    return true;
+  }
+
+  getAcBoostRegenPerSecond() {
+    return this.getBoostEnergyBaseRegenPerSecond() * this.getTotalBoostEnergyRegenMultiplier();
+  }
+
+  recoverAcBoostEnergy(delta, now, quickBoostActive) {
+    if (!this.stats || quickBoostActive) {
+      return;
+    }
+
+    const state = this.ensureAcMovementState();
+    if (now < state.boostRegenBlockedUntil) {
+      return;
+    }
+
+    const maxStamina = Math.max(0, Number(this.stats.maxStamina) || 0);
+    if (maxStamina <= 0) {
+      return;
+    }
+
+    const currentStamina = Math.max(0, Number(this.stats.stamina ?? maxStamina) || 0);
+    if (currentStamina >= maxStamina) {
+      this.stats.stamina = maxStamina;
+      return;
+    }
+
+    const dt = this.clampAcMovementDelta(delta);
+    const tuning = this.getActiveAcMovementTuning();
+    const regenMultiplier = this.isAcFullOverheatActive(state)
+      ? this.getAcFullOverheatRegenMultiplier(tuning)
+      : 1;
+    this.stats.stamina = Math.min(maxStamina, currentStamina + this.getAcBoostRegenPerSecond() * regenMultiplier * dt);
+  }
+
+  applyAcAirBrakeRegenBlock(state = this.ensureAcMovementState(), time = this.time?.now || 0) {
+    const airBrake = state?.airBrake;
+    if (!airBrake) {
+      return;
+    }
+
+    const now = Math.max(0, Number(time) || 0);
+    const blockUntil = Math.max(0, Number(airBrake.regenBlockedUntil) || 0);
+    if (blockUntil <= now) {
+      return;
+    }
+
+    state.boostRegenBlockedUntil = Math.max(Number(state.boostRegenBlockedUntil) || 0, blockUntil);
+    this.dashRegenBlockedUntil = Math.max(Number(this.dashRegenBlockedUntil) || 0, blockUntil);
+  }
+
+  startAcAirBrake(state = this.ensureAcMovementState(), time = this.time?.now || 0, components = null) {
+    if (!state?.airBrake || !state?.velocity) {
+      return false;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const airBrake = state.airBrake;
+    const now = Math.max(0, Number(time) || 0);
+    const data = components || this.getAcAirBrakeComponents(state, state.lastInputVector);
+    const durationMs = Math.max(40, Number(tuning.airBrakeDurationMs) || 200);
+    const cooldownMs = Math.max(0, Number(tuning.airBrakeCooldownMs) || 600);
+    const regenBlockMs = Math.max(0, Number(tuning.airBrakeRegenBlockMs) || 300);
+    const speedBefore = Math.max(0, Number(data.speed) || Math.hypot(Number(state.velocity.x) || 0, Number(state.velocity.y) || 0));
+    const targetRatio = Phaser.Math.Clamp(Number(tuning.airBrakeTargetSpeedRatio) || 0.52, 0.1, 0.95);
+    const dotThreshold = Math.abs(Phaser.Math.Clamp(Number(tuning.airBrakeDotThreshold) || -0.65, -1, 0));
+    const dotStrength = Phaser.Math.Clamp((Math.abs(Number(data.opposingDot) || 0) - dotThreshold) / Math.max(0.05, 1 - dotThreshold), 0, 1);
+    const speedStrength = Phaser.Math.Clamp((speedBefore - Math.max(0, Number(tuning.airBrakeMinSpeed) || 220)) / Math.max(80, this.getAcMovementBaseSpeed()), 0, 1);
+    const inputStrength = Phaser.Math.Clamp(Number(data.inputMagnitude) || 0, 0, 1);
+    const strength = Phaser.Math.Clamp(0.35 + dotStrength * 0.32 + speedStrength * 0.2 + inputStrength * 0.13, 0.35, 1);
+
+    airBrake.active = true;
+    airBrake.startedAt = now;
+    airBrake.until = now + durationMs;
+    airBrake.cooldownUntil = airBrake.until + cooldownMs;
+    airBrake.lastTriggerAt = now;
+    airBrake.lastBlockReason = AC_AIR_BRAKE_REASON.ACTIVE;
+    airBrake.lastOpposingDot = Number(data.opposingDot) || 1;
+    airBrake.direction.x = Number.isFinite(data.inputDirX) ? data.inputDirX : -(Number(data.velocityDirX) || 0);
+    airBrake.direction.y = Number.isFinite(data.inputDirY) ? data.inputDirY : -(Number(data.velocityDirY) || 1);
+    const directionLength = Math.hypot(airBrake.direction.x, airBrake.direction.y) || 1;
+    airBrake.direction.x /= directionLength;
+    airBrake.direction.y /= directionLength;
+    airBrake.velocityBefore.x = Number(state.velocity.x) || 0;
+    airBrake.velocityBefore.y = Number(state.velocity.y) || 0;
+    airBrake.speedBefore = speedBefore;
+    airBrake.speedCurrent = speedBefore;
+    airBrake.targetSpeedRatio = targetRatio;
+    airBrake.targetSpeed = speedBefore * targetRatio;
+    airBrake.strength = strength;
+    airBrake.durationRemainingMs = durationMs;
+    airBrake.regenBlockedUntil = Math.max(Number(airBrake.regenBlockedUntil) || 0, airBrake.until + regenBlockMs);
+    airBrake.endReason = "ACTIVE";
+
+    state.boostMode = AC_CONTINUOUS_BOOST_MODE.AIR_BRAKE;
+    state.mode = AC_MOVEMENT_CONFIG.airBrakeMode;
+    state.visualMode = AC_LOCOMOTION_VISUAL_MODE.AIR_BRAKE;
+    this.applyAcAirBrakeRegenBlock(state, now);
+    this.triggerAcAirBrakeFx(now, state);
+    this.logAcQuickBoostEvent("air brake started", {
+      speedBefore,
+      targetSpeed: airBrake.targetSpeed,
+      dot: airBrake.lastOpposingDot,
+      strength
+    });
+    return true;
+  }
+
+  endAcAirBrake(state = this.ensureAcMovementState(), time = this.time?.now || 0, reason = "END") {
+    const airBrake = state?.airBrake;
+    if (!airBrake) {
+      return;
+    }
+
+    const now = Math.max(0, Number(time) || 0);
+    airBrake.active = false;
+    airBrake.until = Math.min(Number(airBrake.until) || now, now);
+    airBrake.durationRemainingMs = 0;
+    airBrake.inputOpposeStartedAt = 0;
+    airBrake.endReason = reason;
+    airBrake.speedCurrent = Math.hypot(Number(state.velocity?.x) || 0, Number(state.velocity?.y) || 0);
+    airBrake.lastBlockReason = reason;
+    if (state.boostMode === AC_CONTINUOUS_BOOST_MODE.AIR_BRAKE) {
+      state.boostMode = now < (Number(airBrake.cooldownUntil) || 0)
+        ? AC_CONTINUOUS_BOOST_MODE.AIR_BRAKE_COOLDOWN
+        : AC_CONTINUOUS_BOOST_MODE.OFF;
+    }
+  }
+
+  applyAcAirBrakeVelocity(state = this.ensureAcMovementState(), time = this.time?.now || 0, delta = 16.67) {
+    const airBrake = state?.airBrake;
+    if (!airBrake?.active || !state?.velocity) {
+      return false;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const now = Math.max(0, Number(time) || 0);
+    const dt = this.clampAcMovementDelta(delta);
+    const durationMs = Math.max(1, (Number(airBrake.until) || now) - (Number(airBrake.startedAt) || now));
+    const elapsedRatio = Phaser.Math.Clamp((now - (Number(airBrake.startedAt) || now)) / durationMs, 0, 1);
+    const eased = 1 - Math.pow(1 - elapsedRatio, 3);
+    const currentSpeed = Math.hypot(Number(state.velocity.x) || 0, Number(state.velocity.y) || 0);
+    const beforeSpeed = Math.max(currentSpeed, Number(airBrake.speedBefore) || currentSpeed);
+    const targetSpeedRatio = Phaser.Math.Clamp(Number(airBrake.targetSpeedRatio) || Number(tuning.airBrakeTargetSpeedRatio) || 0.52, 0.1, 0.95);
+    const targetSpeed = beforeSpeed * Phaser.Math.Linear(1, targetSpeedRatio, eased);
+    const dampingPerSecond = Math.max(0, Number(tuning.airBrakeVelocityDampingPerSecond) || 6.2);
+    const damping = Phaser.Math.Clamp(1 - Math.exp(-dampingPerSecond * dt * Math.max(0.25, Number(airBrake.strength) || 0.5)), 0, 1);
+    const counterThrust = Math.max(0, Number(tuning.airBrakeCounterThrustPerSecond) || 480)
+      * dt
+      * Phaser.Math.Linear(0.42, 1, Phaser.Math.Clamp(Number(airBrake.strength) || 0.5, 0, 1));
+    const frameTargetSpeed = Math.max(targetSpeed, currentSpeed - counterThrust);
+    const nextSpeed = Math.max(0, Phaser.Math.Linear(currentSpeed, Math.min(currentSpeed, frameTargetSpeed), damping));
+    const fallbackX = Number(airBrake.velocityBefore?.x) || Number(state.lastMoveDirection?.x) || 0;
+    const fallbackY = Number(airBrake.velocityBefore?.y) || Number(state.lastMoveDirection?.y) || 1;
+    const fallbackLength = Math.hypot(fallbackX, fallbackY) || 1;
+    const dirX = currentSpeed > 0 ? state.velocity.x / currentSpeed : fallbackX / fallbackLength;
+    const dirY = currentSpeed > 0 ? state.velocity.y / currentSpeed : fallbackY / fallbackLength;
+    state.velocity.x = dirX * nextSpeed;
+    state.velocity.y = dirY * nextSpeed;
+    airBrake.speedCurrent = nextSpeed;
+    airBrake.targetSpeed = targetSpeed;
+    airBrake.durationRemainingMs = Math.max(0, (Number(airBrake.until) || now) - now);
+    state.boostMode = AC_CONTINUOUS_BOOST_MODE.AIR_BRAKE;
+    state.mode = AC_MOVEMENT_CONFIG.airBrakeMode;
+    state.visualMode = AC_LOCOMOTION_VISUAL_MODE.AIR_BRAKE;
+    this.applyAcAirBrakeRegenBlock(state, now);
+
+    const exitSpeed = Math.max(0, Number(tuning.airBrakeExitSpeedEpsilon) || 20);
+    if (now >= (Number(airBrake.until) || 0)) {
+      this.endAcAirBrake(state, now, "DURATION");
+      return false;
+    }
+    if (nextSpeed <= exitSpeed) {
+      this.endAcAirBrake(state, now, "LOW_SPEED");
+      return false;
+    }
+    return true;
+  }
+
+  updateAcAirBrake(time = this.time?.now || 0, delta = 16.67, input = null) {
+    const state = this.ensureAcMovementState();
+    state.airBrake = this.normalizeAcAirBrakeState(state.airBrake, state.lastMoveDirection);
+    const airBrake = state.airBrake;
+    const now = Math.max(0, Number(time) || 0);
+    const components = this.updateAcAirBrakeOpposingInput(now, state, input || state.lastInputVector);
+
+    if (airBrake.active) {
+      if (!this.shouldUseAcAirBrake()) {
+        this.endAcAirBrake(state, now, AC_AIR_BRAKE_REASON.DISABLED);
+        return false;
+      }
+      if (this.isAcFullOverheatActive(state)) {
+        this.endAcAirBrake(state, now, AC_AIR_BRAKE_REASON.FULL_OVERHEAT);
+        return false;
+      }
+      if (this.isAcAirBrakeBoostBlocked(state, now)) {
+        this.endAcAirBrake(state, now, AC_AIR_BRAKE_REASON.BOOST_ACTIVE);
+        return false;
+      }
+      return this.applyAcAirBrakeVelocity(state, now, delta);
+    }
+
+    const reason = this.getAcAirBrakeBlockReason(now, state, input || state.lastInputVector, components);
+    airBrake.lastBlockReason = reason;
+    airBrake.durationRemainingMs = 0;
+    airBrake.speedCurrent = components.speed;
+    airBrake.targetSpeed = 0;
+    if (reason === AC_AIR_BRAKE_REASON.READY) {
+      return this.startAcAirBrake(state, now, components);
+    }
+    if (reason === AC_AIR_BRAKE_REASON.COOLDOWN && state.boostMode === AC_CONTINUOUS_BOOST_MODE.OFF) {
+      state.boostMode = AC_CONTINUOUS_BOOST_MODE.AIR_BRAKE_COOLDOWN;
+    }
+    return false;
+  }
+
+  getAcQuickBoostDirection(input, state = this.ensureAcMovementState()) {
+    const tuning = this.getActiveAcMovementTuning();
+    const inputMagnitude = Math.max(0, Math.min(1, Number(input?.magnitude) || 0));
+    if (input?.hasInput && inputMagnitude > tuning.inputDeadzone) {
+      const inputLength = Math.hypot(input.normalizedX, input.normalizedY);
+      if (inputLength > 0) {
+        return {
+          x: input.normalizedX / inputLength,
+          y: input.normalizedY / inputLength
+        };
+      }
+    }
+
+    const velocityX = Number(state?.velocity?.x) || 0;
+    const velocityY = Number(state?.velocity?.y) || 0;
+    const velocitySpeed = Math.hypot(velocityX, velocityY);
+    if (velocitySpeed >= tuning.quickBoostMinDirectionSpeed) {
+      return {
+        x: velocityX / velocitySpeed,
+        y: velocityY / velocitySpeed
+      };
+    }
+
+    const lastX = Number(state?.lastMoveDirection?.x);
+    const lastY = Number(state?.lastMoveDirection?.y);
+    const lastLength = Math.hypot(lastX, lastY);
+    if (lastLength > 0) {
+      return {
+        x: lastX / lastLength,
+        y: lastY / lastLength
+      };
+    }
+
+    return { ...AC_MOVEMENT_CONFIG.defaultLastMoveDirection };
+  }
+
+  applyAcQuickBoostImpulse(state, direction, baseSpeed, powerRatio = 1, speedRatio = powerRatio) {
+    if (!state?.velocity || !direction) {
+      return;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const safeBaseSpeed = Math.max(0, Number(baseSpeed) || 0);
+    const safePowerRatio = Phaser.Math.Clamp(Number(powerRatio) || 0, 0, 1);
+    const safeSpeedRatio = Phaser.Math.Clamp(Number(speedRatio) || safePowerRatio, 0, 1);
+    const impulseSpeed = safeBaseSpeed * tuning.quickBoostImpulseMultiplier * safePowerRatio;
+    const maxBoostSpeed = safeBaseSpeed * tuning.quickBoostMaxSpeedMultiplier * safeSpeedRatio;
+    const directionLength = Math.hypot(direction.x, direction.y) || 1;
+    const dirX = direction.x / directionLength;
+    const dirY = direction.y / directionLength;
+    const currentAlong = (state.velocity.x * dirX) + (state.velocity.y * dirY);
+    const lateralX = state.velocity.x - dirX * currentAlong;
+    const lateralY = state.velocity.y - dirY * currentAlong;
+    const boostedAlong = Math.max(0, currentAlong) + impulseSpeed;
+    const lateralRetention = Math.max(0, Math.min(1, tuning.quickBoostLateralRetention));
+    state.velocity.x = dirX * boostedAlong + lateralX * lateralRetention;
+    state.velocity.y = dirY * boostedAlong + lateralY * lateralRetention;
+    if (maxBoostSpeed > 0) {
+      this.limitAcMovementVelocity(state.velocity, maxBoostSpeed);
+    }
+  }
+
+  startAcContinuousBoost(state, direction, baseSpeed, now, currentStamina) {
+    const tuning = this.getActiveAcMovementTuning();
+    const normalizedDirection = {
+      x: Number(direction?.x) || 0,
+      y: Number(direction?.y) || 0
+    };
+    const directionLength = Math.hypot(normalizedDirection.x, normalizedDirection.y) || 1;
+    normalizedDirection.x /= directionLength;
+    normalizedDirection.y /= directionLength;
+
+    const startCost = this.getAcContinuousBoostStartCost(tuning);
+    const maxStamina = Math.max(0, Number(this.stats?.maxStamina) || 0);
+    const safeCurrentStamina = Math.max(0, Number(currentStamina ?? this.stats?.stamina ?? maxStamina) || 0);
+    const consumedStartCost = Math.min(safeCurrentStamina, startCost);
+    const continuousBoost = this.createAcContinuousBoostState(normalizedDirection);
+    continuousBoost.active = true;
+    continuousBoost.startedAt = now;
+    continuousBoost.consumedEnergy = consumedStartCost;
+    continuousBoost.drainPerSecond = this.getAcContinuousBoostDrainPerSecond(0, tuning);
+    continuousBoost.terminalSpeed = this.getAcContinuousBoostTerminalSpeed(baseSpeed, tuning);
+    continuousBoost.timeToEmptyMs = this.getAcContinuousBoostTimeToEmptyMs(safeCurrentStamina - consumedStartCost, continuousBoost.drainPerSecond);
+    state.continuousBoost = continuousBoost;
+
+    const variableQuickBoost = this.createAcVariableQuickBoostState(normalizedDirection);
+    const visualRatio = this.getAcVariableQuickBoostVisualRatio(0, tuning);
+    variableQuickBoost.active = true;
+    variableQuickBoost.holdStartedAt = now;
+    variableQuickBoost.holdRatio = 0;
+    variableQuickBoost.rawHoldRatio = 0;
+    variableQuickBoost.smoothedHoldRatio = 0;
+    variableQuickBoost.effectiveRatio = this.getAcVariableQuickBoostPowerRatio(0, tuning);
+    variableQuickBoost.powerRatio = variableQuickBoost.effectiveRatio;
+    variableQuickBoost.speedRatio = this.getAcVariableQuickBoostSpeedRatio(0, tuning);
+    variableQuickBoost.costRatio = 0;
+    variableQuickBoost.visualRatio = visualRatio;
+    variableQuickBoost.glideRatio = 0;
+    variableQuickBoost.minCost = consumedStartCost;
+    variableQuickBoost.maxCost = 0;
+    variableQuickBoost.consumedCost = consumedStartCost;
+    variableQuickBoost.targetCost = consumedStartCost;
+    variableQuickBoost.maxHoldMs = 0;
+    variableQuickBoost.maxHoldRemainingMs = 0;
+    variableQuickBoost.endReason = AC_QUICK_BOOST_END_REASON.NONE;
+    state.variableQuickBoost = variableQuickBoost;
+
+    this.stats.stamina = Math.max(0, safeCurrentStamina - consumedStartCost);
+    this.applyAcQuickBoostImpulse(
+      state,
+      normalizedDirection,
+      baseSpeed,
+      Phaser.Math.Clamp(Number(tuning.boostInitialImpulseRatio) || 0.3, 0.05, 1),
+      1
+    );
+
+    const previousSuccessAt = Math.max(0, Number(state.lastQuickBoostSuccessAt) || 0);
+    const chainWindowMs = Math.max(0, Number(tuning.quickBoostChainWindowMs) || 0);
+    state.boostChainCount = previousSuccessAt > 0 && now - previousSuccessAt <= chainWindowMs
+      ? Math.max(1, Math.floor(Number(state.boostChainCount) || 0) + 1)
+      : 1;
+    state.quickBoostUntil = now + Math.max(16, Number(tuning.boostInitialBurstMs) || 90);
+    state.cooldownUntil = now;
+    state.lastQuickBoostAt = now;
+    state.lastQuickBoostSuccessAt = now;
+    state.lastQuickBoostEndAt = state.quickBoostUntil;
+    state.lastQuickBoostSpeed = Math.hypot(state.velocity.x, state.velocity.y);
+    state.postBoostGlideUntil = 0;
+    state.boostRegenBlockedUntil = now + Math.max(0, Number(tuning.quickBoostRegenDelayMs) || 0);
+    state.boostLockoutReason = "";
+    state.boostEmptyAt = 0;
+    state.fullOverheat = this.createAcFullOverheatState();
+    state.quickBoostHardLockUntil = now + Math.max(0, Number(tuning.quickBoostHardLockMs) || 0);
+    state.quickBoostDirection.x = normalizedDirection.x;
+    state.quickBoostDirection.y = normalizedDirection.y;
+    state.lastMoveDirection.x = normalizedDirection.x;
+    state.lastMoveDirection.y = normalizedDirection.y;
+    state.boostMode = AC_CONTINUOUS_BOOST_MODE.START_BURST;
+    state.mode = AC_MOVEMENT_CONFIG.quickBoostMode;
+    this.playerAimAngle = Math.atan2(normalizedDirection.y, normalizedDirection.x);
+    this.dashRegenBlockedUntil = state.boostRegenBlockedUntil;
+    this.dashLockedUntilRelease = false;
+    this.isDashing = true;
+    this.clearAcQuickBoostFailReason(now);
+    this.triggerAcEvadeWindow(now, "BOOST_START", state);
+    this.triggerAcQuickBoostVisuals(now, normalizedDirection, visualRatio);
+    this.triggerAcQuickBoostSe(now, state);
+    this.triggerAcGroundSkidFx(now, normalizedDirection, "boostStart");
+    this.logAcQuickBoostEvent("continuous boost started", {
+      startCost: consumedStartCost,
+      drainPerSecond: continuousBoost.drainPerSecond,
+      terminalSpeed: continuousBoost.terminalSpeed,
+      direction: normalizedDirection
+    });
+    return true;
+  }
+
+  endAcContinuousBoost(state, now, reason = AC_QUICK_BOOST_END_REASON.RELEASE) {
+    const continuousBoost = state?.continuousBoost;
+    const variableQuickBoost = state?.variableQuickBoost;
+    if (!continuousBoost) {
+      return;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const heldMs = Math.max(0, now - (Number(continuousBoost.startedAt) || now));
+    const rampRatio = this.getAcContinuousBoostRampRatio(heldMs, tuning);
+    const smoothedRatio = this.getAcVariableQuickBoostSmoothedRatio(rampRatio, tuning);
+    const powerRatio = this.getAcVariableQuickBoostPowerRatio(rampRatio, tuning);
+    const speedRatio = this.getAcVariableQuickBoostSpeedRatio(rampRatio, tuning);
+    const visualRatio = this.getAcVariableQuickBoostVisualRatio(rampRatio, tuning);
+    const glideRatio = this.getAcVariableQuickBoostGlideRatio(rampRatio, tuning);
+    const emptyEnd = reason === AC_QUICK_BOOST_END_REASON.EN_EMPTY || reason === AC_QUICK_BOOST_END_REASON.LOW_EN;
+    const fullOverheatEnd = Boolean(emptyEnd && this.isAcFullOverheatEnabled(tuning));
+
+    continuousBoost.active = false;
+    continuousBoost.heldMs = heldMs;
+    continuousBoost.rampRatio = rampRatio;
+    continuousBoost.endedAt = now;
+    continuousBoost.endReason = reason;
+    continuousBoost.timeToEmptyMs = 0;
+
+    if (variableQuickBoost) {
+      variableQuickBoost.active = false;
+      variableQuickBoost.holdEndedAt = now;
+      variableQuickBoost.holdMs = heldMs;
+      variableQuickBoost.holdRatio = rampRatio;
+      variableQuickBoost.rawHoldRatio = rampRatio;
+      variableQuickBoost.smoothedHoldRatio = smoothedRatio;
+      variableQuickBoost.effectiveRatio = powerRatio;
+      variableQuickBoost.powerRatio = powerRatio;
+      variableQuickBoost.speedRatio = speedRatio;
+      variableQuickBoost.costRatio = rampRatio;
+      variableQuickBoost.visualRatio = visualRatio;
+      variableQuickBoost.glideRatio = glideRatio;
+      variableQuickBoost.maxHoldRemainingMs = 0;
+      variableQuickBoost.released = reason === AC_QUICK_BOOST_END_REASON.RELEASE;
+      variableQuickBoost.endedByMaxHold = false;
+      variableQuickBoost.endedByLowEn = emptyEnd;
+      variableQuickBoost.endReason = fullOverheatEnd ? AC_QUICK_BOOST_END_REASON.FULL_OVERHEAT : reason;
+      variableQuickBoost.postBoostGlideDurationMs = fullOverheatEnd
+        ? 0
+        : this.getAcVariablePostBoostGlideDuration(glideRatio, tuning)
+        * (emptyEnd ? Math.max(0.25, Number(tuning.boostEmptyGlideSpeedMultiplier) || 0.64) : 1);
+    }
+
+    const glideSpeedScale = emptyEnd
+      ? Phaser.Math.Clamp(Number(tuning.boostEmptyGlideSpeedMultiplier) || 0.64, 0, 1)
+      : Phaser.Math.Clamp(Number(tuning.boostReleaseGlideSpeedMultiplier) || 1, 0, 1.2);
+    if (state?.velocity && glideSpeedScale < 1) {
+      state.velocity.x *= glideSpeedScale;
+      state.velocity.y *= glideSpeedScale;
+    }
+
+    state.quickBoostUntil = Math.min(Number(state.quickBoostUntil) || now, now);
+    state.lastQuickBoostEndAt = now;
+    state.lastQuickBoostSpeed = Math.hypot(Number(state.velocity?.x) || 0, Number(state.velocity?.y) || 0);
+    const glideDuration = Math.max(0, Number(variableQuickBoost?.postBoostGlideDurationMs) || 0);
+    state.postBoostGlideUntil = now + glideDuration;
+    state.boostRegenBlockedUntil = Math.max(
+      Number(state.boostRegenBlockedUntil) || 0,
+      now + Math.max(
+        0,
+        Number(fullOverheatEnd ? tuning.overheatRegenDelayMs : emptyEnd ? tuning.boostEmptyRegenDelayMs : tuning.quickBoostRegenDelayMs) || 0
+      )
+    );
+    state.cooldownUntil = now + Math.max(0, Number(emptyEnd ? 0 : tuning.boostReleaseCooldownMs) || 0);
+    state.boostMode = emptyEnd
+      ? AC_CONTINUOUS_BOOST_MODE.EN_EMPTY
+      : AC_CONTINUOUS_BOOST_MODE.RELEASED;
+    this.resetAcEvadeWindowForNextBoost(reason, state);
+    if (emptyEnd) {
+      if (fullOverheatEnd) {
+        this.startAcFullOverheat(state, now, reason);
+      } else {
+        state.boostEmptyAt = now;
+        state.boostLockoutUntil = now + Math.max(0, Number(tuning.boostEmptyLockoutMs) || 0);
+        state.boostLockoutReason = AC_QUICK_BOOST_END_REASON.EN_EMPTY;
+        state.mustReleaseDashBeforeBoost = true;
+        this.setAcQuickBoostFailReason(AC_QUICK_BOOST_FAIL_REASON.BOOST_LOCKOUT, now);
+        this.triggerAcBoostEmptyOverheatVisual(now);
+      }
+    }
+    this.dashRegenBlockedUntil = state.boostRegenBlockedUntil;
+    this.logAcQuickBoostEvent("continuous boost ended", {
+      reason,
+      heldMs,
+      rampRatio,
+      consumedEnergy: continuousBoost.consumedEnergy,
+      glideDuration,
+      lockoutUntil: state.boostLockoutUntil
+    });
+  }
+
+  updateAcContinuousBoost(now, delta, input, dashInput, baseMoveSpeed) {
+    const state = this.ensureAcMovementState();
+    const tuning = this.getActiveAcMovementTuning();
+    const continuousBoost = state.continuousBoost;
+    const variableQuickBoost = state.variableQuickBoost;
+    if (!continuousBoost?.active) {
+      if (this.isAcFullOverheatActive(state)) {
+        state.boostMode = this.getAcFullOverheatStateName(state, now) === AC_FULL_OVERHEAT_STATE.FULL_OVERHEAT
+          ? AC_CONTINUOUS_BOOST_MODE.FULL_OVERHEAT
+          : AC_CONTINUOUS_BOOST_MODE.OVERHEAT_RECOVERY;
+        if (variableQuickBoost) {
+          variableQuickBoost.maxHoldRemainingMs = 0;
+          variableQuickBoost.active = false;
+        }
+        return false;
+      }
+      if (!dashInput?.isDown && state.mustReleaseDashBeforeBoost) {
+        state.mustReleaseDashBeforeBoost = false;
+      }
+      if (this.getAcBoostLockoutRemainingMs(state, now) > 0) {
+        state.boostMode = AC_CONTINUOUS_BOOST_MODE.LOCKOUT;
+      } else if (now < (Number(state.postBoostGlideUntil) || 0)) {
+        state.boostMode = AC_CONTINUOUS_BOOST_MODE.POST_GLIDE;
+      } else if (state.boostMode === AC_CONTINUOUS_BOOST_MODE.EN_EMPTY || state.boostMode === AC_CONTINUOUS_BOOST_MODE.LOCKOUT) {
+        state.boostMode = AC_CONTINUOUS_BOOST_MODE.OVERHEAT;
+      } else if (state.fullOverheat?.fullRechargeReached) {
+        state.boostMode = state.mustReleaseDashBeforeBoost
+          ? AC_CONTINUOUS_BOOST_MODE.READY_NEEDS_RELEASE
+          : AC_CONTINUOUS_BOOST_MODE.READY;
+      } else if (now >= (Number(state.postBoostGlideUntil) || 0)) {
+        state.boostMode = AC_CONTINUOUS_BOOST_MODE.OFF;
+      }
+      if (variableQuickBoost) {
+        variableQuickBoost.maxHoldRemainingMs = 0;
+      }
+      return false;
+    }
+
+    if (!this.isAcContinuousBoostEnabled(tuning)) {
+      this.endAcContinuousBoost(state, now, AC_QUICK_BOOST_END_REASON.DISABLED);
+      return false;
+    }
+
+    if (dashInput?.justReleased || !dashInput?.isDown) {
+      this.endAcContinuousBoost(state, now, AC_QUICK_BOOST_END_REASON.RELEASE);
+      return false;
+    }
+
+    const dt = this.clampAcMovementDelta(delta);
+    const heldMs = Math.max(0, now - Math.max(0, Number(continuousBoost.startedAt) || now));
+    const rampRatio = this.getAcContinuousBoostRampRatio(heldMs, tuning);
+    const smoothedRatio = this.getAcVariableQuickBoostSmoothedRatio(rampRatio, tuning);
+    const powerRatio = this.getAcVariableQuickBoostPowerRatio(rampRatio, tuning);
+    const speedRatio = this.getAcVariableQuickBoostSpeedRatio(rampRatio, tuning);
+    const visualRatio = this.getAcVariableQuickBoostVisualRatio(rampRatio, tuning);
+    const glideRatio = this.getAcVariableQuickBoostGlideRatio(rampRatio, tuning);
+    const drainPerSecond = this.getAcContinuousBoostDrainPerSecond(rampRatio, tuning);
+    const drainAmount = drainPerSecond * dt;
+    const maxStamina = Math.max(0, Number(this.stats?.maxStamina) || 0);
+    const currentStamina = Math.max(0, Number(this.stats?.stamina ?? maxStamina) || 0);
+    const emptyEpsilon = Math.max(0, Number(tuning.boostEmptyEpsilon) || 0);
+
+    if (currentStamina <= emptyEpsilon || currentStamina <= drainAmount + emptyEpsilon) {
+      continuousBoost.consumedEnergy += currentStamina;
+      continuousBoost.drainPerSecond = drainPerSecond;
+      continuousBoost.heldMs = heldMs;
+      continuousBoost.rampRatio = rampRatio;
+      this.stats.stamina = 0;
+      this.endAcContinuousBoost(state, now, AC_QUICK_BOOST_END_REASON.EN_EMPTY);
+      return false;
+    }
+
+    this.stats.stamina = Math.max(0, currentStamina - drainAmount);
+    continuousBoost.consumedEnergy += drainAmount;
+    continuousBoost.heldMs = heldMs;
+    continuousBoost.rampRatio = rampRatio;
+    continuousBoost.drainPerSecond = drainPerSecond;
+    continuousBoost.terminalSpeed = this.getAcContinuousBoostTerminalSpeed(baseMoveSpeed, tuning);
+    continuousBoost.timeToEmptyMs = this.getAcContinuousBoostTimeToEmptyMs(this.stats.stamina, drainPerSecond);
+
+    const inputDirection = this.getAcInputDirection(input, tuning);
+    if (inputDirection) {
+      const currentAngle = Math.atan2(continuousBoost.direction.y, continuousBoost.direction.x);
+      const inputAngle = Math.atan2(inputDirection.y, inputDirection.x);
+      const angleDelta = this.normalizeAcAngleDelta(inputAngle - currentAngle);
+      const maxTurn = Math.max(0, Number(tuning.boostHeldTurnRateDegPerSecond) || 0)
+        * (Math.PI / 180)
+        * dt
+        * Phaser.Math.Clamp((Number(tuning.boostHeldInputInfluence) || 0) * inputDirection.magnitude, 0, 1);
+      const nextAngle = currentAngle + Phaser.Math.Clamp(angleDelta, -maxTurn, maxTurn);
+      continuousBoost.direction.x = Math.cos(nextAngle);
+      continuousBoost.direction.y = Math.sin(nextAngle);
+    }
+
+    const directionLength = Math.hypot(continuousBoost.direction.x, continuousBoost.direction.y) || 1;
+    const dirX = continuousBoost.direction.x / directionLength;
+    const dirY = continuousBoost.direction.y / directionLength;
+    continuousBoost.direction.x = dirX;
+    continuousBoost.direction.y = dirY;
+    state.quickBoostDirection.x = dirX;
+    state.quickBoostDirection.y = dirY;
+    state.lastMoveDirection.x = dirX;
+    state.lastMoveDirection.y = dirY;
+
+    const terminalSpeed = continuousBoost.terminalSpeed * speedRatio;
+    const sustainAcceleration = Math.max(0, Number(tuning.boostSustainAccelerationPerSecond) || 0);
+    if (terminalSpeed > 0 && sustainAcceleration > 0) {
+      const sustainRatio = this.getAcVariableQuickBoostSustainRatio(powerRatio, tuning);
+      this.moveAcVelocityTowards(
+        state.velocity,
+        dirX * terminalSpeed,
+        dirY * terminalSpeed,
+        sustainAcceleration * sustainRatio * dt
+      );
+      this.limitAcMovementVelocity(state.velocity, terminalSpeed);
+    }
+
+    if (variableQuickBoost) {
+      variableQuickBoost.active = true;
+      variableQuickBoost.holdMs = heldMs;
+      variableQuickBoost.holdRatio = rampRatio;
+      variableQuickBoost.rawHoldRatio = rampRatio;
+      variableQuickBoost.smoothedHoldRatio = smoothedRatio;
+      variableQuickBoost.effectiveRatio = powerRatio;
+      variableQuickBoost.powerRatio = powerRatio;
+      variableQuickBoost.speedRatio = speedRatio;
+      variableQuickBoost.costRatio = rampRatio;
+      variableQuickBoost.visualRatio = visualRatio;
+      variableQuickBoost.glideRatio = glideRatio;
+      variableQuickBoost.consumedCost = continuousBoost.consumedEnergy;
+      variableQuickBoost.targetCost = continuousBoost.consumedEnergy + drainAmount;
+      variableQuickBoost.maxCost = 0;
+      variableQuickBoost.maxHoldMs = 0;
+      variableQuickBoost.maxHoldRemainingMs = 0;
+      variableQuickBoost.endReason = AC_QUICK_BOOST_END_REASON.NONE;
+    }
+
+    const burstMs = Math.max(0, Number(tuning.boostInitialBurstMs) || 0);
+    state.quickBoostUntil = now + 34;
+    state.lastQuickBoostEndAt = state.quickBoostUntil;
+    state.lastQuickBoostSpeed = Math.hypot(Number(state.velocity?.x) || 0, Number(state.velocity?.y) || 0);
+    state.boostRegenBlockedUntil = now + Math.max(0, Number(tuning.quickBoostRegenDelayMs) || 0);
+    state.boostMode = heldMs <= burstMs ? AC_CONTINUOUS_BOOST_MODE.START_BURST : AC_CONTINUOUS_BOOST_MODE.SUSTAIN;
+    state.mode = AC_MOVEMENT_CONFIG.quickBoostMode;
+    return true;
+  }
+
+  startAcVariableQuickBoost(state, direction, baseSpeed, now, maxCost, minCost, currentStamina) {
+    const tuning = this.getActiveAcMovementTuning();
+    const normalizedDirection = {
+      x: Number(direction?.x) || 0,
+      y: Number(direction?.y) || 0
+    };
+    const directionLength = Math.hypot(normalizedDirection.x, normalizedDirection.y) || 1;
+    normalizedDirection.x /= directionLength;
+    normalizedDirection.y /= directionLength;
+
+    const rawHoldRatio = 0;
+    const smoothedHoldRatio = this.getAcVariableQuickBoostSmoothedRatio(rawHoldRatio, tuning);
+    const powerRatio = this.getAcVariableQuickBoostPowerRatio(rawHoldRatio, tuning);
+    const speedRatio = this.getAcVariableQuickBoostSpeedRatio(rawHoldRatio, tuning);
+    const costRatio = this.getAcVariableQuickBoostCostRatio(rawHoldRatio, tuning);
+    const visualRatio = this.getAcVariableQuickBoostVisualRatio(rawHoldRatio, tuning);
+    const glideRatio = this.getAcVariableQuickBoostGlideRatio(rawHoldRatio, tuning);
+    const initialImpulseRatio = this.getAcVariableQuickBoostInitialImpulseRatio(powerRatio, tuning);
+    const maxHoldMs = Math.max(
+      Math.max(0, Number(tuning.quickBoostMinHoldMs) || 0) + 1,
+      Number(tuning.quickBoostMaxHoldMs) || Number(tuning.quickBoostDurationMs) || 1
+    );
+    const minDurationMs = Math.max(0, Number(tuning.quickBoostMinDurationMs) || 0);
+    const variableQuickBoost = this.createAcVariableQuickBoostState(normalizedDirection);
+    variableQuickBoost.active = true;
+    variableQuickBoost.holdStartedAt = now;
+    variableQuickBoost.holdEndedAt = 0;
+    variableQuickBoost.holdMs = 0;
+    variableQuickBoost.holdRatio = rawHoldRatio;
+    variableQuickBoost.rawHoldRatio = rawHoldRatio;
+    variableQuickBoost.smoothedHoldRatio = smoothedHoldRatio;
+    variableQuickBoost.effectiveRatio = powerRatio;
+    variableQuickBoost.powerRatio = powerRatio;
+    variableQuickBoost.speedRatio = speedRatio;
+    variableQuickBoost.costRatio = costRatio;
+    variableQuickBoost.visualRatio = visualRatio;
+    variableQuickBoost.glideRatio = glideRatio;
+    variableQuickBoost.maxCost = Math.max(0, Number(maxCost) || 0);
+    variableQuickBoost.minCost = Math.max(0, Number(minCost) || 0);
+    variableQuickBoost.consumedCost = variableQuickBoost.minCost;
+    variableQuickBoost.targetCost = variableQuickBoost.minCost;
+    variableQuickBoost.maxHoldMs = maxHoldMs;
+    variableQuickBoost.maxHoldRemainingMs = maxHoldMs;
+    variableQuickBoost.postBoostGlideDurationMs = 0;
+    variableQuickBoost.released = false;
+    variableQuickBoost.endedByMaxHold = false;
+    variableQuickBoost.endedByLowEn = false;
+    variableQuickBoost.endReason = AC_QUICK_BOOST_END_REASON.NONE;
+    state.variableQuickBoost = variableQuickBoost;
+
+    this.stats.stamina = Math.max(0, Math.max(0, Number(currentStamina) || 0) - variableQuickBoost.minCost);
+    this.applyAcQuickBoostImpulse(state, normalizedDirection, baseSpeed, initialImpulseRatio, speedRatio);
+
+    const previousSuccessAt = Math.max(0, Number(state.lastQuickBoostSuccessAt) || 0);
+    const chainWindowMs = Math.max(0, Number(tuning.quickBoostChainWindowMs) || 0);
+    state.boostChainCount = previousSuccessAt > 0 && now - previousSuccessAt <= chainWindowMs
+      ? Math.max(1, Math.floor(Number(state.boostChainCount) || 0) + 1)
+      : 1;
+    state.quickBoostUntil = now + minDurationMs;
+    state.cooldownUntil = now + Math.max(0, Number(tuning.quickBoostCooldownMs) || 0);
+    state.lastQuickBoostAt = now;
+    state.lastQuickBoostSuccessAt = now;
+    state.lastQuickBoostEndAt = state.quickBoostUntil;
+    state.lastQuickBoostSpeed = Math.hypot(state.velocity.x, state.velocity.y);
+    state.postBoostGlideUntil = 0;
+    state.boostRegenBlockedUntil = now + Math.max(0, Number(tuning.quickBoostRegenDelayMs) || 0);
+    state.quickBoostHardLockUntil = now + Math.max(0, Number(tuning.quickBoostHardLockMs) || 0);
+    state.quickBoostDirection.x = normalizedDirection.x;
+    state.quickBoostDirection.y = normalizedDirection.y;
+    state.lastMoveDirection.x = normalizedDirection.x;
+    state.lastMoveDirection.y = normalizedDirection.y;
+    state.mode = AC_MOVEMENT_CONFIG.quickBoostMode;
+    this.playerAimAngle = Math.atan2(normalizedDirection.y, normalizedDirection.x);
+    this.dashRegenBlockedUntil = state.boostRegenBlockedUntil;
+    this.dashLockedUntilRelease = false;
+    this.isDashing = true;
+    this.clearAcQuickBoostFailReason(now);
+    this.triggerAcEvadeWindow(now, "BOOST_START", state);
+    this.triggerAcQuickBoostVisuals(now, normalizedDirection, visualRatio);
+    this.triggerAcQuickBoostSe(now, state);
+    this.logAcQuickBoostEvent("variable quick boost", {
+      minCost: variableQuickBoost.minCost,
+      maxCost: variableQuickBoost.maxCost,
+      direction: normalizedDirection,
+      rawHoldRatio,
+      powerRatio,
+      speedRatio,
+      costRatio,
+      visualRatio,
+      initialImpulseRatio
+    });
+    return true;
+  }
+
+  endAcVariableQuickBoost(state, now, reason = AC_QUICK_BOOST_END_REASON.RELEASE) {
+    const variableQuickBoost = state?.variableQuickBoost;
+    if (!variableQuickBoost) {
+      return;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const holdStartedAt = Math.max(0, Number(variableQuickBoost.holdStartedAt) || now);
+    const maxHoldMs = Math.max(
+      Math.max(0, Number(tuning.quickBoostMinHoldMs) || 0) + 1,
+      Number(variableQuickBoost.maxHoldMs) || Number(tuning.quickBoostMaxHoldMs) || Number(tuning.quickBoostDurationMs) || 1
+    );
+    const holdMs = Math.min(Math.max(0, now - holdStartedAt), maxHoldMs);
+    const rawHoldRatio = this.getAcVariableQuickBoostHoldRatio(holdMs, tuning);
+    const smoothedHoldRatio = this.getAcVariableQuickBoostSmoothedRatio(rawHoldRatio, tuning);
+    const powerRatio = this.getAcVariableQuickBoostPowerRatio(rawHoldRatio, tuning);
+    const speedRatio = this.getAcVariableQuickBoostSpeedRatio(rawHoldRatio, tuning);
+    const costRatio = this.getAcVariableQuickBoostCostRatio(rawHoldRatio, tuning);
+    const visualRatio = this.getAcVariableQuickBoostVisualRatio(rawHoldRatio, tuning);
+    const glideRatio = this.getAcVariableQuickBoostGlideRatio(rawHoldRatio, tuning);
+    variableQuickBoost.active = false;
+    variableQuickBoost.holdEndedAt = now;
+    variableQuickBoost.holdMs = holdMs;
+    variableQuickBoost.holdRatio = rawHoldRatio;
+    variableQuickBoost.rawHoldRatio = rawHoldRatio;
+    variableQuickBoost.smoothedHoldRatio = smoothedHoldRatio;
+    variableQuickBoost.effectiveRatio = powerRatio;
+    variableQuickBoost.powerRatio = powerRatio;
+    variableQuickBoost.speedRatio = speedRatio;
+    variableQuickBoost.costRatio = costRatio;
+    variableQuickBoost.visualRatio = visualRatio;
+    variableQuickBoost.glideRatio = glideRatio;
+    variableQuickBoost.targetCost = this.getAcVariableQuickBoostTargetCost(costRatio, variableQuickBoost, tuning);
+    variableQuickBoost.maxHoldRemainingMs = 0;
+    variableQuickBoost.released = reason === AC_QUICK_BOOST_END_REASON.RELEASE;
+    variableQuickBoost.endedByMaxHold = reason === AC_QUICK_BOOST_END_REASON.MAX_HOLD;
+    variableQuickBoost.endedByLowEn = reason === AC_QUICK_BOOST_END_REASON.LOW_EN;
+    variableQuickBoost.endReason = reason;
+    variableQuickBoost.postBoostGlideDurationMs = this.getAcVariablePostBoostGlideDuration(glideRatio, tuning);
+
+    state.quickBoostUntil = Math.min(Number(state.quickBoostUntil) || now, now);
+    state.lastQuickBoostEndAt = now;
+    state.lastQuickBoostSpeed = Math.hypot(Number(state.velocity?.x) || 0, Number(state.velocity?.y) || 0);
+    state.postBoostGlideUntil = now + variableQuickBoost.postBoostGlideDurationMs;
+    state.boostRegenBlockedUntil = Math.max(
+      Number(state.boostRegenBlockedUntil) || 0,
+      now + Math.max(0, Number(tuning.quickBoostRegenDelayMs) || 0)
+    );
+    this.resetAcEvadeWindowForNextBoost(reason, state);
+    this.dashRegenBlockedUntil = state.boostRegenBlockedUntil;
+    this.logAcQuickBoostEvent("variable quick boost ended", {
+      reason,
+      holdMs,
+      rawHoldRatio,
+      smoothedHoldRatio,
+      powerRatio,
+      costRatio,
+      consumedCost: variableQuickBoost.consumedCost,
+      postBoostGlideDurationMs: variableQuickBoost.postBoostGlideDurationMs
+    });
+  }
+
+  updateAcVariableQuickBoost(now, delta, input, dashInput, baseMoveSpeed) {
+    const state = this.ensureAcMovementState();
+    const tuning = this.getActiveAcMovementTuning();
+    if (this.isAcContinuousBoostEnabled(tuning)) {
+      return this.updateAcContinuousBoost(now, delta, input, dashInput, baseMoveSpeed);
+    }
+
+    const variableQuickBoost = state.variableQuickBoost;
+    if (!variableQuickBoost?.active) {
+      if (variableQuickBoost) {
+        variableQuickBoost.maxHoldRemainingMs = 0;
+      }
+      return false;
+    }
+
+    if (!this.isAcVariableQuickBoostEnabled(tuning)) {
+      this.endAcVariableQuickBoost(state, now, AC_QUICK_BOOST_END_REASON.DISABLED);
+      return false;
+    }
+
+    const minHoldMs = Math.max(0, Number(tuning.quickBoostMinHoldMs) || 0);
+    const maxHoldMs = Math.max(minHoldMs + 1, Number(tuning.quickBoostMaxHoldMs) || Number(tuning.quickBoostDurationMs) || minHoldMs + 1);
+    const rawHoldMs = Math.max(0, now - Math.max(0, Number(variableQuickBoost.holdStartedAt) || now));
+    const holdMs = Math.min(rawHoldMs, maxHoldMs);
+    const rawHoldRatio = this.getAcVariableQuickBoostHoldRatio(holdMs, tuning);
+    const smoothedHoldRatio = this.getAcVariableQuickBoostSmoothedRatio(rawHoldRatio, tuning);
+    const powerRatio = this.getAcVariableQuickBoostPowerRatio(rawHoldRatio, tuning);
+    const speedRatio = this.getAcVariableQuickBoostSpeedRatio(rawHoldRatio, tuning);
+    const costRatio = this.getAcVariableQuickBoostCostRatio(rawHoldRatio, tuning);
+    const visualRatio = this.getAcVariableQuickBoostVisualRatio(rawHoldRatio, tuning);
+    const glideRatio = this.getAcVariableQuickBoostGlideRatio(rawHoldRatio, tuning);
+
+    variableQuickBoost.holdMs = holdMs;
+    variableQuickBoost.holdRatio = rawHoldRatio;
+    variableQuickBoost.rawHoldRatio = rawHoldRatio;
+    variableQuickBoost.smoothedHoldRatio = smoothedHoldRatio;
+    variableQuickBoost.effectiveRatio = powerRatio;
+    variableQuickBoost.powerRatio = powerRatio;
+    variableQuickBoost.speedRatio = speedRatio;
+    variableQuickBoost.costRatio = costRatio;
+    variableQuickBoost.visualRatio = visualRatio;
+    variableQuickBoost.glideRatio = glideRatio;
+    variableQuickBoost.maxHoldMs = maxHoldMs;
+    variableQuickBoost.maxHoldRemainingMs = Math.max(0, maxHoldMs - holdMs);
+
+    const targetCost = this.getAcVariableQuickBoostTargetCost(costRatio, variableQuickBoost, tuning);
+    variableQuickBoost.targetCost = targetCost;
+    if (!this.consumeAcVariableQuickBoostCostDelta(state, targetCost, now)) {
+      return false;
+    }
+
+    const directionLength = Math.hypot(variableQuickBoost.direction.x, variableQuickBoost.direction.y) || 1;
+    const dirX = variableQuickBoost.direction.x / directionLength;
+    const dirY = variableQuickBoost.direction.y / directionLength;
+    const dt = this.clampAcMovementDelta(delta);
+    const maxSpeed = Math.max(0, Number(baseMoveSpeed) || 0) * tuning.quickBoostMaxSpeedMultiplier * speedRatio;
+    const sustainAcceleration = Math.max(0, Number(tuning.quickBoostSustainAccelerationPerSecond) || 0);
+    if (maxSpeed > 0 && sustainAcceleration > 0) {
+      const sustainRatio = this.getAcVariableQuickBoostSustainRatio(powerRatio, tuning);
+      this.moveAcVelocityTowards(
+        state.velocity,
+        dirX * maxSpeed,
+        dirY * maxSpeed,
+        sustainAcceleration * sustainRatio * dt
+      );
+      this.limitAcMovementVelocity(state.velocity, maxSpeed);
+    }
+
+    const minDurationMs = Math.max(0, Number(tuning.quickBoostMinDurationMs) || 0);
+    const maxDurationMs = Math.max(minDurationMs, Number(tuning.quickBoostMaxDurationMs) || Number(tuning.quickBoostDurationMs) || minDurationMs);
+    const effectiveDurationMs = Phaser.Math.Linear(minDurationMs, maxDurationMs, smoothedHoldRatio);
+    const maxQuickBoostUntil = variableQuickBoost.holdStartedAt + maxDurationMs;
+    state.quickBoostUntil = Math.min(maxQuickBoostUntil, Math.max(now + 16, variableQuickBoost.holdStartedAt + effectiveDurationMs));
+    state.lastQuickBoostEndAt = state.quickBoostUntil;
+    state.lastQuickBoostSpeed = Math.hypot(Number(state.velocity?.x) || 0, Number(state.velocity?.y) || 0);
+
+    if (tuning.quickBoostReleaseEndsPoweredPhase && dashInput?.justReleased) {
+      this.endAcVariableQuickBoost(state, now, AC_QUICK_BOOST_END_REASON.RELEASE);
+      return false;
+    }
+
+    if (tuning.quickBoostReleaseEndsPoweredPhase && !dashInput?.isDown) {
+      this.endAcVariableQuickBoost(state, now, AC_QUICK_BOOST_END_REASON.RELEASE);
+      return false;
+    }
+
+    if (tuning.quickBoostAutoReleaseAtMaxHold && rawHoldMs >= maxHoldMs) {
+      this.endAcVariableQuickBoost(state, now, AC_QUICK_BOOST_END_REASON.MAX_HOLD);
+      return false;
+    }
+
+    return true;
+  }
+
+  logAcQuickBoostEvent(message, payload = {}) {
+    if (!AC_MOVEMENT_CONFIG.quickBoostDebugLog) {
+      return;
+    }
+
+    console.info(`[AC MOVEMENT] ${message}`, payload);
+  }
+
+  setAcQuickBoostFailReason(reason, now = this.time?.now || 0) {
+    const state = this.ensureAcMovementState();
+    state.lastQuickBoostFailReason = reason;
+    state.lastQuickBoostFailAt = Math.max(0, Number(now) || 0);
+    state.lastQuickBoostSucceeded = false;
+  }
+
+  clearAcQuickBoostFailReason(now = this.time?.now || 0) {
+    const state = this.ensureAcMovementState();
+    state.lastQuickBoostFailReason = "";
+    state.lastQuickBoostFailAt = 0;
+    state.lastQuickBoostAttemptAt = Math.max(0, Number(now) || 0);
+    state.lastQuickBoostSucceeded = true;
+  }
+
+  tryStartAcQuickBoost(input, baseSpeed, now) {
+    const state = this.ensureAcMovementState();
+    const tuning = this.getActiveAcMovementTuning();
+    state.lastQuickBoostAttemptAt = Math.max(0, Number(now) || 0);
+
+    if (!this.stats || !this.playerHitbox?.body || this.isFinalBossRaidActive?.()) {
+      if (state.variableQuickBoost) {
+        state.variableQuickBoost.endReason = AC_QUICK_BOOST_END_REASON.DISABLED;
+      }
+      this.setAcQuickBoostFailReason(
+        this.isFinalBossRaidActive?.() ? AC_QUICK_BOOST_FAIL_REASON.FINAL_RAID_DISABLED : AC_QUICK_BOOST_FAIL_REASON.DISABLED,
+        now
+      );
+      return false;
+    }
+
+    const continuousBoostEnabled = this.isAcContinuousBoostEnabled(tuning);
+    if (continuousBoostEnabled) {
+      const startCheck = this.canStartAcContinuousBoost(state, now, tuning);
+      if (!startCheck.allowed) {
+        const fullOverheatBlocked = startCheck.reason === AC_QUICK_BOOST_FAIL_REASON.FULL_OVERHEAT
+          || startCheck.reason === AC_QUICK_BOOST_FAIL_REASON.NEED_FULL_RECHARGE
+          || startCheck.reason === AC_QUICK_BOOST_FAIL_REASON.OVERHEAT_RECOVERY;
+        state.mode = fullOverheatBlocked
+          ? AC_MOVEMENT_CONFIG.glideMode
+          : startCheck.reason === AC_QUICK_BOOST_FAIL_REASON.BOOST_LOCKOUT
+          ? AC_MOVEMENT_CONFIG.cooldownMode
+          : AC_MOVEMENT_CONFIG.exhaustedMode;
+        if (startCheck.reason === AC_QUICK_BOOST_FAIL_REASON.BOOST_LOCKOUT) {
+          state.boostMode = AC_CONTINUOUS_BOOST_MODE.LOCKOUT;
+        } else if (startCheck.reason === AC_QUICK_BOOST_FAIL_REASON.FULL_OVERHEAT) {
+          state.boostMode = AC_CONTINUOUS_BOOST_MODE.FULL_OVERHEAT;
+        } else if (
+          startCheck.reason === AC_QUICK_BOOST_FAIL_REASON.NEED_FULL_RECHARGE
+          || startCheck.reason === AC_QUICK_BOOST_FAIL_REASON.OVERHEAT_RECOVERY
+        ) {
+          state.boostMode = AC_CONTINUOUS_BOOST_MODE.OVERHEAT_RECOVERY;
+        } else if (startCheck.reason === AC_QUICK_BOOST_FAIL_REASON.NEED_RELEASE && state.fullOverheat?.fullRechargeReached) {
+          state.boostMode = AC_CONTINUOUS_BOOST_MODE.READY_NEEDS_RELEASE;
+        }
+        if (state.variableQuickBoost) {
+          state.variableQuickBoost.endReason = startCheck.reason === AC_QUICK_BOOST_FAIL_REASON.NEED_RELEASE
+            ? AC_QUICK_BOOST_END_REASON.NEED_RELEASE
+            : startCheck.reason;
+        }
+        this.setAcQuickBoostFailReason(startCheck.reason, now);
+        if (startCheck.reason === AC_QUICK_BOOST_FAIL_REASON.LOW_EN) {
+          this.triggerAcOverheatVisual(AC_QUICK_BOOST_FAIL_REASON.LOW_EN, now);
+        }
+        this.logAcQuickBoostEvent("continuous boost failed", startCheck);
+        return false;
+      }
+
+      const direction = this.getAcQuickBoostDirection(input, state);
+      const directionLength = Math.hypot(direction.x, direction.y);
+      if (directionLength <= 0) {
+        this.setAcQuickBoostFailReason(AC_QUICK_BOOST_FAIL_REASON.NO_DIRECTION, now);
+        return false;
+      }
+
+      return this.startAcContinuousBoost(
+        state,
+        {
+          x: direction.x / directionLength,
+          y: direction.y / directionLength
+        },
+        baseSpeed,
+        now,
+        startCheck.currentStamina
+      );
+    }
+
+    if (now < state.cooldownUntil) {
+      if (state.variableQuickBoost) {
+        state.variableQuickBoost.endReason = AC_QUICK_BOOST_END_REASON.COOLDOWN;
+      }
+      this.setAcQuickBoostFailReason(AC_QUICK_BOOST_FAIL_REASON.COOLDOWN, now);
+      return false;
+    }
+
+    const variableQuickBoostEnabled = this.isAcVariableQuickBoostEnabled(tuning);
+    const cost = this.getAcQuickBoostCost();
+    const variableMaxCost = this.getAcVariableQuickBoostMaxCost(cost, tuning);
+    const variableMinCost = this.getAcVariableQuickBoostMinCost(variableMaxCost, tuning);
+    const requiredStamina = variableQuickBoostEnabled
+      ? variableMinCost
+      : Math.max(cost, tuning.minimumStaminaToQuickBoost);
+    const currentStamina = Math.max(0, Number(this.stats.stamina ?? this.stats.maxStamina) || 0);
+    if (currentStamina < requiredStamina) {
+      state.mode = AC_MOVEMENT_CONFIG.exhaustedMode;
+      this.isDashing = false;
+      if (state.variableQuickBoost) {
+        state.variableQuickBoost.endReason = AC_QUICK_BOOST_END_REASON.LOW_EN;
+      }
+      this.setAcQuickBoostFailReason(AC_QUICK_BOOST_FAIL_REASON.LOW_EN, now);
+      this.triggerAcOverheatVisual(AC_QUICK_BOOST_FAIL_REASON.LOW_EN, now);
+      this.logAcQuickBoostEvent("quick boost failed: stamina", { currentStamina, requiredStamina, cost });
+      return false;
+    }
+
+    const direction = this.getAcQuickBoostDirection(input, state);
+    const directionLength = Math.hypot(direction.x, direction.y);
+    if (directionLength <= 0) {
+      this.setAcQuickBoostFailReason(AC_QUICK_BOOST_FAIL_REASON.NO_DIRECTION, now);
+      return false;
+    }
+
+    const normalizedDirection = {
+      x: direction.x / directionLength,
+      y: direction.y / directionLength
+    };
+    if (variableQuickBoostEnabled) {
+      return this.startAcVariableQuickBoost(
+        state,
+        normalizedDirection,
+        baseSpeed,
+        now,
+        variableMaxCost,
+        variableMinCost,
+        currentStamina
+      );
+    }
+
+    this.stats.stamina = Math.max(0, currentStamina - cost);
+    this.applyAcQuickBoostImpulse(state, normalizedDirection, baseSpeed);
+    const previousSuccessAt = Math.max(0, Number(state.lastQuickBoostSuccessAt) || 0);
+    const chainWindowMs = Math.max(0, Number(tuning.quickBoostChainWindowMs) || 0);
+    state.boostChainCount = previousSuccessAt > 0 && now - previousSuccessAt <= chainWindowMs
+      ? Math.max(1, Math.floor(Number(state.boostChainCount) || 0) + 1)
+      : 1;
+    state.quickBoostUntil = now + tuning.quickBoostDurationMs;
+    state.cooldownUntil = now + tuning.quickBoostCooldownMs;
+    state.lastQuickBoostAt = now;
+    state.lastQuickBoostSuccessAt = now;
+    state.lastQuickBoostEndAt = state.quickBoostUntil;
+    state.lastQuickBoostSpeed = Math.hypot(state.velocity.x, state.velocity.y);
+    state.postBoostGlideUntil = state.quickBoostUntil + Math.max(0, Number(tuning.postBoostGlideDurationMs) || 0);
+    state.boostRegenBlockedUntil = now + tuning.quickBoostRegenDelayMs;
+    state.quickBoostHardLockUntil = now + Math.max(0, Number(tuning.quickBoostHardLockMs) || 0);
+    state.quickBoostDirection.x = normalizedDirection.x;
+    state.quickBoostDirection.y = normalizedDirection.y;
+    state.lastMoveDirection.x = normalizedDirection.x;
+    state.lastMoveDirection.y = normalizedDirection.y;
+    state.mode = AC_MOVEMENT_CONFIG.quickBoostMode;
+    this.playerAimAngle = Math.atan2(normalizedDirection.y, normalizedDirection.x);
+    this.dashRegenBlockedUntil = state.boostRegenBlockedUntil;
+    this.dashLockedUntilRelease = false;
+    this.isDashing = true;
+    this.clearAcQuickBoostFailReason(now);
+    this.triggerAcEvadeWindow(now, "BOOST_START", state);
+    this.triggerAcQuickBoostVisuals(now, normalizedDirection);
+    this.triggerAcQuickBoostSe(now, state);
+    this.logAcQuickBoostEvent("quick boost", { cost, direction: normalizedDirection });
+    return true;
+  }
+
+  shouldUseAcMovement() {
+    return Boolean(
+      this.isAcMovementActivationRequested() &&
+      !this.gameOver &&
+      !this.shopActive &&
+      !this.levelUpActive &&
+      !this.gateChoiceActive &&
+      !this.extractionComplete &&
+      this.playerHitbox?.body &&
+      !this.isFinalBossRaidActive?.()
+    );
+  }
+
+  shouldShowAcMovementDebugHud() {
+    return Boolean(
+      this.isAcMovementHudDebugEnabled() &&
+      this.shouldUseAcMovement() &&
+      !this.isFinalBossRaidActive?.()
+    );
+  }
+
+  getAcFacingFallbackDirection(movementDirection, input, state = this.ensureAcMovementState()) {
+    const inputMagnitude = Math.max(0, Math.min(1, Number(input?.magnitude) || 0));
+    if (input?.hasInput && inputMagnitude > this.getActiveAcMovementTuning().inputDeadzone) {
+      const inputLength = Math.hypot(input.normalizedX, input.normalizedY);
+      if (inputLength > 0) {
+        state.facingSource = "INPUT";
+        return {
+          x: input.normalizedX / inputLength,
+          y: input.normalizedY / inputLength
+        };
+      }
+    }
+
+    const movementX = Number(movementDirection?.x) || 0;
+    const movementY = Number(movementDirection?.y) || 0;
+    const movementLength = Math.hypot(movementX, movementY);
+    if (movementLength >= this.getActiveAcMovementTuning().minVelocityForDirectionUpdate) {
+      state.facingSource = "VELOCITY";
+      return {
+        x: movementX / movementLength,
+        y: movementY / movementLength
+      };
+    }
+
+    const lastX = Number(state.lastMoveDirection?.x) || AC_MOVEMENT_CONFIG.defaultLastMoveDirection.x;
+    const lastY = Number(state.lastMoveDirection?.y) || AC_MOVEMENT_CONFIG.defaultLastMoveDirection.y;
+    const lastLength = Math.hypot(lastX, lastY) || 1;
+    state.facingSource = "LAST";
+    return {
+      x: lastX / lastLength,
+      y: lastY / lastLength
+    };
+  }
+
+  isAcFacingTargetValid(target, maxDistance = this.getActiveAcMovementTuning().targetFacingRange) {
+    if (
+      !target ||
+      !target.scene ||
+      target.active === false ||
+      target.isDying ||
+      target.isFinalBossRaidGiantWeapon ||
+      target.body?.enable === false ||
+      !this.playerHitbox
+    ) {
+      return false;
+    }
+    if (this.isFinalBossRaidActive?.() || this.isDepth10HumanPlayerVisualActive?.()) {
+      return false;
+    }
+
+    const distance = Phaser.Math.Distance.Between(this.playerHitbox.x, this.playerHitbox.y, target.x, target.y);
+    return distance <= Math.max(0, Number(maxDistance) || 0);
+  }
+
+  getAcFacingTargetLabel(target) {
+    if (!target) {
+      return "-";
+    }
+    if (target.enemyTypeId) {
+      return String(target.enemyTypeId);
+    }
+    if (target.enemyDefinition?.id) {
+      return String(target.enemyDefinition.id);
+    }
+    if (target.isBoss) {
+      return "boss";
+    }
+    if (target.isElite) {
+      return "elite";
+    }
+    return "enemy";
+  }
+
+  findNearestAcFacingEnemy(now = this.time?.now || 0) {
+    if (!this.playerHitbox || !this.enemies?.children) {
+      return null;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const originX = this.playerHitbox.x;
+    const originY = this.playerHitbox.y;
+    const range = Math.max(0, Number(tuning.targetFacingRange) || 0);
+    const rangeSq = range * range;
+    let best = null;
+    this.enemies.children.each((enemy) => {
+      if (!enemy?.active || !enemy.scene || enemy.isDying || enemy.isFinalBossRaidGiantWeapon || enemy.body?.enable === false) {
+        return;
+      }
+      if (!this.isFinalBossRaidEnemyTargetable(enemy)) {
+        return;
+      }
+
+      const distanceSq = Phaser.Math.Distance.Squared(originX, originY, enemy.x, enemy.y);
+      if (distanceSq > rangeSq) {
+        return;
+      }
+
+      const priorityMultiplier = enemy.isBoss || this.isNemesisBoss?.(enemy)
+        ? 0.42
+        : enemy.isElite
+          ? 0.62
+          : 1;
+      const score = distanceSq * priorityMultiplier;
+      if (!best || score < best.score) {
+        best = {
+          enemy,
+          score,
+          distance: Math.sqrt(distanceSq)
+        };
+      }
+    });
+
+    return best;
+  }
+
+  updateAcTargetFacingDirection(now, delta, movementDirection, input, state = this.ensureAcMovementState()) {
+    const fallback = this.getAcFacingFallbackDirection(movementDirection, input, state);
+    if (!this.shouldUseAcTargetFacing()) {
+      state.acFacingTarget = null;
+      state.acFacingTargetId = "";
+      state.acFacingTargetType = "";
+      state.acFacingTargetDistance = 0;
+      state.facingDirection.x = fallback.x;
+      state.facingDirection.y = fallback.y;
+      return new Phaser.Math.Vector2(fallback.x, fallback.y);
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const scanIntervalMs = Math.max(60, Number(tuning.targetFacingSearchIntervalMs) || 150);
+    let target = state.acFacingTarget;
+    const stickyActive = this.isAcFacingTargetValid(target, tuning.targetFacingRange)
+      && now < (Number(state.acFacingTargetStickyUntil) || 0);
+    if (!stickyActive && (!this.isAcFacingTargetValid(target, tuning.targetFacingRange) || now >= state.acFacingTargetNextScanAt)) {
+      const nextTarget = this.findNearestAcFacingEnemy(now);
+      target = nextTarget?.enemy || null;
+      state.acFacingTarget = target;
+      state.acFacingTargetDistance = nextTarget?.distance || 0;
+      state.acFacingTargetType = this.getAcFacingTargetLabel(target);
+      state.acFacingTargetId = state.acFacingTargetType;
+      state.acFacingTargetNextScanAt = now + scanIntervalMs;
+      state.acFacingTargetStickyUntil = target
+        ? now + Math.max(scanIntervalMs, Number(tuning.targetFacingStickyMs) || scanIntervalMs)
+        : 0;
+    }
+
+    if (!this.isAcFacingTargetValid(target, tuning.targetFacingRange)) {
+      state.acFacingTarget = null;
+      state.acFacingTargetId = "";
+      state.acFacingTargetType = "";
+      state.acFacingTargetDistance = 0;
+      state.acFacingTargetStickyUntil = 0;
+      state.facingDirection.x = fallback.x;
+      state.facingDirection.y = fallback.y;
+      return new Phaser.Math.Vector2(fallback.x, fallback.y);
+    }
+
+    const deltaX = target.x - this.playerHitbox.x;
+    const deltaY = target.y - this.playerHitbox.y;
+    const distance = Math.hypot(deltaX, deltaY);
+    if (distance <= 0) {
+      state.facingDirection.x = fallback.x;
+      state.facingDirection.y = fallback.y;
+      return new Phaser.Math.Vector2(fallback.x, fallback.y);
+    }
+
+    const targetX = deltaX / distance;
+    const targetY = deltaY / distance;
+    const smoothing = Phaser.Math.Clamp(Number(tuning.targetFacingSmoothing) || 0.28, 0.02, 1);
+    const currentX = Number(state.facingDirection?.x) || fallback.x;
+    const currentY = Number(state.facingDirection?.y) || fallback.y;
+    const mixedX = Phaser.Math.Linear(currentX, targetX, smoothing);
+    const mixedY = Phaser.Math.Linear(currentY, targetY, smoothing);
+    const mixedLength = Math.hypot(mixedX, mixedY) || 1;
+    state.facingDirection.x = mixedX / mixedLength;
+    state.facingDirection.y = mixedY / mixedLength;
+    state.acFacingTargetDistance = distance;
+    state.acFacingTargetType = this.getAcFacingTargetLabel(target);
+    state.acFacingTargetId = state.acFacingTargetType;
+    state.facingSource = "TARGET";
+    return new Phaser.Math.Vector2(state.facingDirection.x, state.facingDirection.y);
+  }
+
+  destroyAcMovementDebugHud(reason = "cleanup") {
+    const hud = this.acMovementDebugHud;
+    if (hud?.container?.scene && hud.container.active !== false) {
+      hud.container.destroy(true);
+    }
+    this.acMovementDebugHud = null;
+  }
+
+  createAcMovementDebugHud() {
+    if (this.acMovementDebugHud?.container?.scene && this.acMovementDebugHud.container.active !== false) {
+      return this.acMovementDebugHud;
+    }
+
+    const width = Math.max(260, Number(AC_MOVEMENT_CONFIG.debugHudWidth) || 344);
+    const height = Math.max(160, Number(AC_MOVEMENT_CONFIG.debugHudHeight) || 218);
+    const panel = this.add.graphics();
+    panel.fillStyle(0x03111a, 0.78);
+    panel.fillRoundedRect(0, 0, width, height, 8);
+    panel.lineStyle(1, 0x5ee6ff, 0.68);
+    panel.strokeRoundedRect(0.5, 0.5, width - 1, height - 1, 8);
+    panel.lineStyle(1, 0x173a46, 0.8);
+    panel.strokeRect(8, 8, width - 16, height - 16);
+
+    const text = this.add.text(12, 10, "", {
+      fontFamily: "Consolas, 'Courier New', monospace",
+      fontSize: `${Math.max(9, Number(AC_MOVEMENT_CONFIG.debugHudFontSize) || 11)}px`,
+      color: "#dffaff",
+      lineSpacing: 2
+    });
+    text.setShadow(0, 0, "#49d7ff", 2, true, true);
+
+    const container = this.add.container(
+      Number(AC_MOVEMENT_CONFIG.debugHudX) || 306,
+      Number(AC_MOVEMENT_CONFIG.debugHudY) || 462,
+      [panel, text]
+    );
+    container.setDepth(Number(AC_MOVEMENT_CONFIG.debugHudDepth) || 710);
+    container.setScrollFactor(0);
+
+    this.acMovementDebugHud = { container, panel, text };
+    return this.acMovementDebugHud;
+  }
+
+  getAcMovementDiagnostics(time = this.time?.now || 0) {
+    const state = this.ensureAcMovementState();
+    const tuning = this.getActiveAcMovementTuning();
+    const velocityX = Number(state.velocity?.x) || 0;
+    const velocityY = Number(state.velocity?.y) || 0;
+    const input = state.lastInputVector || {};
+    const dash = state.lastDashInput || {};
+    const visuals = state.visuals || {};
+    const afterimageCount = Array.isArray(visuals.activeAfterimages)
+      ? visuals.activeAfterimages.filter((object) => object?.scene && object.active !== false).length
+      : 0;
+    const trailActive = Boolean(
+      visuals.thrustTrailGraphics &&
+      visuals.thrustTrailGraphics.scene &&
+      visuals.thrustTrailGraphics.active !== false &&
+      visuals.thrustTrailGraphics.visible
+    );
+    const overheatVisualActive = Boolean(
+      visuals.overheatGraphics &&
+      visuals.overheatGraphics.scene &&
+      visuals.overheatGraphics.active !== false &&
+      visuals.overheatGraphics.visible
+    );
+    const quickBoostGlowActive = Boolean(
+      visuals.quickBoostGlowGraphics &&
+      visuals.quickBoostGlowGraphics.scene &&
+      visuals.quickBoostGlowGraphics.active !== false &&
+      visuals.quickBoostGlowGraphics.visible
+    );
+    const energyWarningActive = Boolean(
+      visuals.energyWarningGraphics &&
+      visuals.energyWarningGraphics.scene &&
+      visuals.energyWarningGraphics.active !== false &&
+      visuals.energyWarningGraphics.visible
+    );
+    const lockonRingActive = Boolean(
+      visuals.lockonRingGraphics &&
+      visuals.lockonRingGraphics.scene &&
+      visuals.lockonRingGraphics.active !== false &&
+      visuals.lockonRingGraphics.visible
+    );
+    const boostVectorActive = Boolean(
+      visuals.boostVectorGraphics &&
+      visuals.boostVectorGraphics.scene &&
+      visuals.boostVectorGraphics.active !== false &&
+      visuals.boostVectorGraphics.visible
+    );
+    const groundSkidActive = Boolean(
+      visuals.groundSkidGraphics &&
+      visuals.groundSkidGraphics.scene &&
+      visuals.groundSkidGraphics.active !== false &&
+      visuals.groundSkidGraphics.visible
+    );
+    const quickTurnFxActive = Boolean(
+      visuals.quickTurnGraphics &&
+      visuals.quickTurnGraphics.scene &&
+      visuals.quickTurnGraphics.active !== false &&
+      visuals.quickTurnGraphics.visible
+    );
+    const attitudeJetActive = Boolean(
+      visuals.attitudeJetGraphics &&
+      visuals.attitudeJetGraphics.scene &&
+      visuals.attitudeJetGraphics.active !== false &&
+      visuals.attitudeJetGraphics.visible
+    );
+    const airBrakeFxActive = Boolean(
+      visuals.airBrakeGraphics &&
+      visuals.airBrakeGraphics.scene &&
+      visuals.airBrakeGraphics.active !== false &&
+      visuals.airBrakeGraphics.visible
+    );
+    const kineticFxCount = this.getAcKineticFxCount(visuals);
+    const tacticalVisualCount = this.getAcTacticalVisualCount(visuals);
+    const now = Math.max(0, Number(time) || 0);
+    const maxStamina = Math.max(0, Number(this.stats?.maxStamina) || 0);
+    const currentStamina = Math.max(0, Number(this.stats?.stamina ?? maxStamina) || 0);
+    const steering = state.steering || {};
+    const variableQuickBoost = state.variableQuickBoost || {};
+    const variableQuickBoostEnabled = this.isAcVariableQuickBoostEnabled(tuning);
+    const continuousBoost = state.continuousBoost || {};
+    const continuousBoostEnabled = this.isAcContinuousBoostEnabled(tuning);
+    const continuousBoostActive = Boolean(continuousBoost.active);
+    const boostLockoutRemainingMs = this.getAcBoostLockoutRemainingMs(state, now);
+    const boostRegenBlockedRemainingMs = Math.max(0, (Number(state.boostRegenBlockedUntil) || 0) - now);
+    const quickBoostRemainingMs = Math.max(0, (Number(state.quickBoostUntil) || 0) - now);
+    const postBoostGlideRemainingMs = Math.max(0, (Number(state.postBoostGlideUntil) || 0) - now);
+    const cooldownRemainingMs = Math.max(0, (Number(state.cooldownUntil) || 0) - now);
+    const boostStartCheck = continuousBoostEnabled
+      ? this.canStartAcContinuousBoost(state, now, tuning)
+      : { allowed: false, reason: AC_QUICK_BOOST_FAIL_REASON.DISABLED, requiredStamina: 0, currentStamina };
+    const boostRampRatio = Phaser.Math.Clamp(Number(continuousBoost.rampRatio) || 0, 0, 1);
+    const boostDrainPerSecond = continuousBoostEnabled
+      ? Math.max(0, Number(continuousBoost.drainPerSecond) || this.getAcContinuousBoostDrainPerSecond(boostRampRatio, tuning))
+      : 0;
+    const boostTimeToEmptyMs = continuousBoostEnabled
+      ? Math.max(0, Number(continuousBoost.timeToEmptyMs) || this.getAcContinuousBoostTimeToEmptyMs(currentStamina, boostDrainPerSecond))
+      : 0;
+    const movementLean = state.movementLean || {};
+    const fullOverheat = state.fullOverheat || {};
+    const overheatProgress = this.getAcOverheatRecoveryProgress(state);
+    const overheatState = this.getAcFullOverheatStateName(state, now);
+    const configuredOverheatRegenMultiplier = this.getAcFullOverheatRegenMultiplier(tuning);
+    const overheatRegenMultiplier = this.isAcFullOverheatActive(state)
+      ? Math.max(0, Number(fullOverheat.regenMultiplier) || configuredOverheatRegenMultiplier)
+      : configuredOverheatRegenMultiplier;
+    const overheatRegenDelayRemainingMs = Math.max(0, (Number(fullOverheat.regenDelayUntil) || 0) - now);
+    const boostBlockReason = boostStartCheck.allowed
+      ? "NONE"
+      : (boostStartCheck.reason || "NONE");
+    const energyRatio = this.getAcEnergyRatio();
+    const energyState = this.getAcEnergyWarningState(state);
+    const predictedBoostDirection = this.getAcPredictedBoostDirection(input, state);
+    const predictedBoostAngle = Math.atan2(predictedBoostDirection.y, predictedBoostDirection.x);
+    const boostVectorAvailable = Boolean(boostStartCheck.allowed || continuousBoostActive);
+    const boostVectorBlockReason = continuousBoostActive
+      ? "ACTIVE"
+      : boostBlockReason;
+    const localMovement = this.getAcLocalMovementComponents(state, input);
+    const visualDepthMode = this.getAcKineticVisualDepthMode(state, now);
+    const airBrake = state.airBrake || this.createAcAirBrakeState(state.lastMoveDirection);
+    const airBrakeComponents = this.getAcAirBrakeComponents(state, input);
+    const airBrakeBlockReason = this.getAcAirBrakeBlockReason(now, state, input, airBrakeComponents);
+    const airBrakeDefaultEnabled = this.isAcAirBrakeDefaultEnabled(tuning);
+    const airBrakeEffectiveEnabled = this.shouldUseAcAirBrake();
+    const airBrakeOverride = this.getAcAirBrakeOverrideMode();
+    const airBrakeOpposeMs = airBrake.inputOpposeStartedAt > 0
+      ? Math.max(0, now - airBrake.inputOpposeStartedAt)
+      : 0;
+    const airBrakeActive = Boolean(airBrake.active);
+    const airBrakeCooldownRemainingMs = Math.max(0, (Number(airBrake.cooldownUntil) || 0) - now);
+    const airBrakeDurationRemainingMs = Math.max(0, (Number(airBrake.until) || 0) - now);
+    const airBrakeRegenBlockRemainingMs = Math.max(0, (Number(airBrake.regenBlockedUntil) || 0) - now);
+    const quickBoostRegenActive = quickBoostRemainingMs > 0 || Boolean(variableQuickBoost.active);
+    const baseRegenPerSecond = this.getBoostEnergyBaseRegenPerSecond();
+    const equipmentRegenMultiplier = this.getEquipmentBoostEnergyRegenMultiplier();
+    const reactorCoolingEnabled = this.isAcReactorCoolingShopDebugEnabled();
+    const reactorCoolingLevel = this.getReactorCoolingLevel();
+    const reactorCoolingMaxLevel = this.getReactorCoolingMaxLevel();
+    const reactorCoolingMultiplier = this.getReactorCoolingRegenMultiplier();
+    const totalRegenPerSecond = this.getAcBoostRegenPerSecond();
+    const overheatRegenPerSecond = totalRegenPerSecond * overheatRegenMultiplier;
+    const regenBlockedReason = quickBoostRegenActive
+      ? "BOOST_ACTIVE"
+      : airBrakeRegenBlockRemainingMs > 0
+        ? "AIR_BRAKE"
+        : overheatRegenDelayRemainingMs > 0
+          ? "FULL_OVERHEAT_DELAY"
+          : boostRegenBlockedRemainingMs > 0
+            ? "BOOST_REGEN_DELAY"
+            : currentStamina >= maxStamina
+              ? "FULL"
+              : "NONE";
+    const currentPostBoostGlideDurationMs = Number(variableQuickBoost.postBoostGlideDurationMs) > 0
+      ? Number(variableQuickBoost.postBoostGlideDurationMs)
+      : Math.max(0, Number(tuning.postBoostGlideDurationMs) || 0);
+    const evadeWindow = state.evadeWindow || this.createAcEvadeWindowState();
+    const evadeWindowVisualCount = this.getAcEvadeWindowVisualCount(evadeWindow);
+    const evadeWindowActive = this.isAcEvadeWindowActive(now, state);
+    const evadeWindowRemainingMs = this.getAcEvadeWindowRemainingMs(now, state);
+    const evadeWindowDurationBreakdown = this.getAcEvadeWindowDurationBreakdown(this.getEvasiveFirmwareLevel(tuning), tuning);
+    const evadeWindowLastAgeMs = evadeWindow.lastNegatedAt > 0
+      ? Math.max(0, now - evadeWindow.lastNegatedAt)
+      : 0;
+    const targetFire = state.targetFire || this.createAcTargetFireState();
+    const targetFireVisualCount = this.getAcTargetFireVisualCount(targetFire);
+    const targetFireTarget = targetFire.target || state.acFacingTarget || null;
+    const targetFireTargetDistance = targetFireTarget && this.playerHitbox
+      ? Phaser.Math.Distance.Between(this.playerHitbox.x, this.playerHitbox.y, targetFireTarget.x, targetFireTarget.y)
+      : 0;
+    const targetFireCooldownReadyAt = Math.max(
+      Number(targetFire.nextShotAt) || 0,
+      (Number(targetFire.lastBurstAt) || 0) + Math.max(0, Number(tuning.targetFireBurstCooldownMs) || 440)
+    );
+    const targetFireStyle = this.getAcTargetFireTracerStyle(0.78);
+    const targetFireMuzzleSide = Number(targetFire.lastMuzzleSide) < 0 ? -1 : 1;
+    const targetFireMuzzleOffsetSide = Math.max(
+      0,
+      Number(targetFire.muzzleOffsetSide)
+      || (Number(tuning.targetFireMuzzleSideOffset) || 0) + (Number(tuning.targetFireMuzzleSideKickPx) || 0)
+    );
+    const shouldUseAcMovement = this.shouldUseAcMovement();
+    const acRcEnabled = this.shouldUseAcMovementReleaseCandidate();
+    const activationSource = this.getAcMovementActivationSource();
+    const defaultAcMovementEnabled = this.isAcMovementDefaultEnabled();
+    const legacyMovementForced = this.isLegacyMovementForced();
+    const acRcAliasEnabled = activationSource === AC_MOVEMENT_ACTIVATION_SOURCE.AC_RC_ALIAS;
+    const targetFacingEnabled = this.shouldUseAcTargetFacing();
+    const energyWarningEnabled = this.isAcEnergyWarningEnabled();
+    const lockonRingEnabled = this.isAcLockonRingEnabled();
+    const targetFireEnabled = this.getAcTargetFireEffectiveEnabled(tuning);
+    const evadeWindowEnabled = this.getAcEvadeWindowEffectiveEnabled(tuning);
+    const evasiveFirmwareEnabled = this.shouldUseAcEvasionPassive(tuning);
+    const boostVectorEnabled = this.isAcBoostVectorIndicatorEnabled();
+    const groundSkidFxEnabled = this.isAcGroundSkidFxEnabled();
+    const quickTurnFxEnabled = this.isAcQuickTurnFxEnabled();
+    const attitudeJetsEnabled = this.isAcAttitudeJetsEnabled();
+    const weightShadowEnabled = this.isAcWeightShadowEnabled();
+    const tacticalFxEnabled = Boolean(this.shouldUseAcTacticalVisuals());
+    const quickBoostSe = state.quickBoostSe || this.createAcQuickBoostSeState();
+    const boostSePanInfo = this.getAcQuickBoostSePanInfo();
+    const boostSePlaybackConfig = this.getAcQuickBoostSePlaybackConfig();
+    const boostSeEnabled = this.shouldUseAcQuickBoostSe();
+    const boostSeActiveVoices = Array.isArray(quickBoostSe.activeSounds)
+      ? quickBoostSe.activeSounds.filter((sound) => sound && sound.isDestroyed !== true).length
+      : Math.max(0, Math.floor(Number(quickBoostSe.activeCount) || 0));
+    const boostSeLastPlayedAt = Number(quickBoostSe.lastPlayedAt) || 0;
+
+    return {
+      shouldUseAcMovement,
+      acRcEnabled,
+      acRcAliasEnabled,
+      defaultAcMovementEnabled,
+      defaultAcMovementActive: activationSource === AC_MOVEMENT_ACTIVATION_SOURCE.DEFAULT_ACV3,
+      legacyMovementForced,
+      activationSource,
+      finalRaidExcluded: Boolean(this.isFinalBossRaidActive?.()),
+      presetName: this.getAcMovementPresetName(),
+      featureBundleTargetFacing: targetFacingEnabled,
+      featureBundleTargetFire: targetFireEnabled,
+      featureBundleEvasion: evadeWindowEnabled,
+      featureBundleEvasiveFirmware: evasiveFirmwareEnabled,
+      featureBundleReactorCooling: reactorCoolingEnabled,
+      featureBundleAirBrake: airBrakeEffectiveEnabled,
+      featureBundleTacticalFx: tacticalFxEnabled,
+      targetFireOverrideState: this.getAcFeatureOverrideState(AC_MOVEMENT_CONFIG.targetFireDebugQueryParam, targetFireEnabled),
+      airBrakeOverrideState: this.getAcFeatureOverrideState(AC_MOVEMENT_CONFIG.airBrakeDebugQueryParam, airBrakeEffectiveEnabled),
+      reactorCoolingOverrideState: this.getAcFeatureOverrideState(AC_MOVEMENT_CONFIG.reactorCoolingShopDebugQueryParam, reactorCoolingEnabled),
+      evadeWindowOverrideState: this.getAcFeatureOverrideState(AC_MOVEMENT_CONFIG.evadeWindowDebugQueryParam, evadeWindowEnabled),
+      boostSeEnabled,
+      boostSeDefault: this.isAcBoostSeDefaultEnabled(),
+      boostSeOverride: this.getAcBoostSeOverrideMode(),
+      boostSeActivationSource: this.getAcBoostSeActivationSource(),
+      boostSePan: boostSePanInfo.pan,
+      boostSeMode: boostSePlaybackConfig.mode,
+      boostSeZone: boostSePlaybackConfig.zone,
+      boostSeKey: boostSePlaybackConfig.key || "-",
+      boostSeScreenX: boostSePlaybackConfig.screenX,
+      boostSeScreenRatio: boostSePlaybackConfig.ratio,
+      boostSeRatio: boostSePlaybackConfig.ratio,
+      boostSeRuntimePan: Boolean(boostSePlaybackConfig.runtimePanEnabled),
+      boostSeVolume: Phaser.Math.Clamp(Number(AC_MOVEMENT_CONFIG.quickBoostSeVolume) || 0.72, 0, 1),
+      boostSeCooldownMs: Math.max(0, Number(AC_MOVEMENT_CONFIG.quickBoostSeCooldownMs) || 0),
+      boostSeOverlapLimit: Math.max(1, Math.floor(Number(AC_MOVEMENT_CONFIG.quickBoostSeOverlapLimit) || 1)),
+      boostSeLastPlayedMs: boostSeLastPlayedAt > 0 ? Math.max(0, now - boostSeLastPlayedAt) : -1,
+      boostSeLastPan: Number(quickBoostSe.lastPan) || 0,
+      boostSeLastMode: quickBoostSe.lastMode || "THREE_ZONE",
+      boostSeLastZone: quickBoostSe.lastZone || "CENTER",
+      boostSeLastKey: quickBoostSe.lastKey || "-",
+      boostSeLastRuntimePan: Boolean(quickBoostSe.lastRuntimePanEnabled),
+      boostSeLastReason: quickBoostSe.lastReason || "NONE",
+      boostSeSuppressedReason: quickBoostSe.lastReason || "NONE",
+      boostSeActiveCount: Math.max(0, Math.floor(Number(quickBoostSe.activeCount) || 0)),
+      boostSeActiveVoices,
+      boostSePanSupported: Boolean(quickBoostSe.panSupported),
+      boostSeLoadedL: Boolean(boostSePlaybackConfig.loadedL),
+      boostSeLoadedM: Boolean(boostSePlaybackConfig.loadedM),
+      boostSeLoadedR: Boolean(boostSePlaybackConfig.loadedR),
+      boostSeLoadedLegacy: Boolean(boostSePlaybackConfig.loadedLegacy),
+      mode: state.mode || AC_MOVEMENT_CONFIG.glideMode,
+      velocityX,
+      velocityY,
+      speed: Math.hypot(velocityX, velocityY),
+      allowedSpeed: Number(state.lastAllowedSpeed) || this.getAcMovementModeSpeedLimit(state.speedLimitMode || AC_MOVEMENT_CONFIG.glideMode, this.getAcMovementBaseSpeed(), tuning),
+      speedLimitMode: state.speedLimitMode || AC_MOVEMENT_CONFIG.glideMode,
+      inputX: Number(input.x) || 0,
+      inputY: Number(input.y) || 0,
+      inputMagnitude: Number(input.magnitude) || 0,
+      dashDown: Boolean(dash.isDown),
+      dashJustPressed: Boolean(dash.justPressed),
+      dashJustReleased: Boolean(dash.justReleased),
+      boostCurrent: currentStamina,
+      boostMax: maxStamina,
+      quickBoostRemainingMs,
+      postBoostGlideRemainingMs,
+      cooldownRemainingMs,
+      regenBlockedRemainingMs: boostRegenBlockedRemainingMs,
+      quickBoostHardLockRemainingMs: Math.max(
+        0,
+        Number(steering.quickBoostHardLockRemainingMs) || this.getAcQuickBoostHardLockRemainingMs(state, now, tuning)
+      ),
+      continuousBoostEnabled,
+      boostMode: state.boostMode || AC_CONTINUOUS_BOOST_MODE.OFF,
+      continuousBoostActive,
+      boostHeldMs: Math.max(0, Number(continuousBoost.heldMs) || Number(variableQuickBoost.holdMs) || 0),
+      boostEndReason: continuousBoost.endReason || variableQuickBoost.endReason || AC_QUICK_BOOST_END_REASON.NONE,
+      boostDrainPerSecond,
+      boostConsumedEnergy: Math.max(0, Number(continuousBoost.consumedEnergy) || 0),
+      boostTimeToEmptyMs,
+      boostLockoutRemainingMs,
+      boostRegenBlockedRemainingMs,
+      canBoostNow: Boolean(shouldUseAcMovement && continuousBoostEnabled && !continuousBoostActive && boostStartCheck.allowed),
+      boostStartBlockedReason: boostBlockReason,
+      boostBlockReason,
+      boostRequiredStamina: Math.max(0, Number(boostStartCheck.requiredStamina) || 0),
+      mustReleaseDashBeforeBoost: Boolean(state.mustReleaseDashBeforeBoost),
+      reactorCoolingEnabled,
+      reactorCoolingLv: reactorCoolingLevel,
+      reactorCoolingMaxLv: reactorCoolingMaxLevel,
+      reactorCoolingMultiplier,
+      baseRegenPerSec: baseRegenPerSecond,
+      equipmentRegenMultiplier,
+      reactorCoolingRegenMultiplier: reactorCoolingMultiplier,
+      totalRegenPerSec: totalRegenPerSecond,
+      overheatRegenPerSec: overheatRegenPerSecond,
+      regenBlockedReason,
+      fullOverheatActive: Boolean(fullOverheat.active),
+      overheatState,
+      overheatReason: fullOverheat.reason || AC_QUICK_BOOST_END_REASON.NONE,
+      overheatRequiresFullRecharge: Boolean(fullOverheat.requiresFullRecharge),
+      overheatRegenMultiplier,
+      overheatRecoveryCurrent: overheatProgress.current,
+      overheatRecoveryMax: overheatProgress.max,
+      overheatRecoveryRatio: overheatProgress.ratio,
+      overheatRecoveryProgress: overheatProgress.ratio,
+      overheatRegenDelayRemainingMs,
+      overheatMinimumVisualRemainingMs: Math.max(0, (Number(fullOverheat.minimumVisualUntil) || 0) - now),
+      fullRechargeReached: Boolean(fullOverheat.fullRechargeReached),
+      overheatCanBoost: Boolean(shouldUseAcMovement && continuousBoostEnabled && !continuousBoostActive && boostStartCheck.allowed),
+      energyWarningEnabled,
+      energyState,
+      energyRatio,
+      evadeWindowEnabled,
+      evasiveFirmwareEnabled,
+      evasiveFirmwareLv: evadeWindowDurationBreakdown.level,
+      evasiveFirmwareMaxLv: evadeWindowDurationBreakdown.maxLevel,
+      evadeBaseMs: evadeWindowDurationBreakdown.baseMs,
+      evadeBonusMs: evadeWindowDurationBreakdown.bonusMs,
+      evadeDurationMs: evadeWindowDurationBreakdown.durationMs,
+      evadeNextDurationMs: evadeWindowDurationBreakdown.nextDurationMs,
+      evadeStepMs: evadeWindowDurationBreakdown.stepMs,
+      evadeWindowActive,
+      evadeWindowRemainingMs,
+      evadeWindowDurationMs: Math.max(0, Number(evadeWindow.durationMs) || evadeWindowDurationBreakdown.durationMs),
+      evadeWindowCanTrigger: this.canTriggerAcEvadeWindow(now, state, tuning),
+      evadeWindowSource: evadeWindow.source || "NONE",
+      evadeWindowReason: evadeWindow.lastReason || "NONE",
+      evadeNegatedDamageCount: Math.max(0, Math.floor(Number(evadeWindow.negatedDamageCount) || 0)),
+      evadeNegatedCount: Math.max(0, Math.floor(Number(evadeWindow.negatedDamageCount) || 0)),
+      lastEvadeAt: Math.max(0, Number(evadeWindow.lastNegatedAt) || 0),
+      lastEvadeAgeMs: evadeWindowLastAgeMs,
+      lastEvadeReason: evadeWindow.lastReason || "NONE",
+      evadeLastSource: evadeWindow.lastNegatedSource || "NONE",
+      evadeLastAmount: Math.max(0, Number(evadeWindow.lastNegatedAmount) || 0),
+      evadeWindowVisualCount,
+      lockonRingEnabled,
+      lockonRingVisible: Boolean(visuals.lockonRingVisible),
+      lockonRingActive,
+      lockonTargetType: visuals.lockonRingTargetType || state.acFacingTargetType || "-",
+      lockonDistance: Number(visuals.lockonRingDistance || state.acFacingTargetDistance) || 0,
+      targetFireEnabled,
+      targetFireStyle: targetFire.style || this.getAcTargetFireStyle(),
+      targetFireActive: Boolean(targetFire.active),
+      targetFireSuppressedReason: targetFire.suppressedReason || AC_TARGET_FIRE_SUPPRESSION_REASON.NONE,
+      targetFireTargetType: targetFire.targetId || state.acFacingTargetType || "-",
+      targetFireTargetDistance,
+      targetFireBurstShotIndex: Math.max(0, Math.floor(Number(targetFire.burstShotIndex) || 0)),
+      targetFireBurstSize: Math.max(0, Math.floor(Number(targetFire.burstCount) || Number(tuning.targetFireBurstSize) || 0)),
+      targetFireNextShotMs: Math.max(0, (Number(targetFire.nextShotAt) || 0) - now),
+      targetFireCooldownMs: targetFire.active ? 0 : Math.max(0, targetFireCooldownReadyAt - now),
+      targetFireActiveTracers: (targetFire.activeTracers || []).filter((object) => object?.scene && object.active !== false).length,
+      targetFireActiveImpacts: (targetFire.activeImpacts || []).filter((object) => object?.scene && object.active !== false).length,
+      targetFireActiveMuzzles: (targetFire.activeMuzzles || []).filter((object) => object?.scene && object.active !== false).length,
+      targetFireMuzzleSide,
+      targetFireMuzzleSideLabel: targetFireMuzzleSide < 0 ? "L" : "R",
+      targetFireMuzzleOffsetSide,
+      targetFireMode: targetFire.mode || this.getAcTargetFireMode(state, targetFire.suppressedReason),
+      targetFireTracerTravelMs: Math.max(0, Number(targetFire.lastTracerTravelMs) || Number(tuning.targetFireTracerTravelMs) || 0),
+      targetFireSegmentRatio: Phaser.Math.Clamp(Number(targetFire.segmentRatio) || Number(tuning.targetFireTracerSegmentLengthRatio) || 0, 0, 1),
+      targetFireSpreadDeg: Math.max(0, Number(targetFire.currentSpreadDeg) || this.getAcTargetFireSpreadForMode(targetFire.mode || AC_TARGET_FIRE_MODE.WALK, tuning)),
+      targetFirePalette: targetFireStyle.palette || targetFire.palette || this.getAcTargetFirePalette(tuning),
+      targetFireTracerCoreWidth: Math.max(0, Number(targetFire.tracerCoreWidth) || Number(targetFireStyle.coreWidth) || 0),
+      targetFireTracerGlowWidth: Math.max(0, Number(targetFire.tracerGlowWidth) || Number(targetFireStyle.glowWidth) || 0),
+      targetFireTracerOuterGlowWidth: Math.max(0, Number(targetFire.tracerOuterGlowWidth) || Number(targetFireStyle.outerGlowWidth) || 0),
+      targetFireTracerCoreAlpha: Phaser.Math.Clamp(Number(targetFire.tracerCoreAlpha) || Number(targetFireStyle.coreAlpha) || 0, 0, 1),
+      targetFireTracerGlowAlpha: Phaser.Math.Clamp(Number(targetFire.tracerGlowAlpha) || Number(targetFireStyle.glowAlpha) || 0, 0, 1),
+      targetFireTracerOuterGlowAlpha: Phaser.Math.Clamp(Number(targetFire.tracerOuterGlowAlpha) || Number(targetFireStyle.outerGlowAlpha) || 0, 0, 1),
+      targetFireShotIntervalMs: Math.max(0, Number(targetFire.shotIntervalMs) || Number(tuning.targetFireShotIntervalMs) || 0),
+      targetFireVisualCount,
+      boostVectorEnabled,
+      boostVectorVisible: Boolean(visuals.boostVectorVisible),
+      boostVectorActive,
+      predictedBoostAngle,
+      boostAvailable: boostVectorAvailable,
+      boostBlockReasonTactical: boostVectorBlockReason,
+      groundSkidFxEnabled,
+      groundSkidFxActive: groundSkidActive,
+      groundSkidMarkCount: (visuals.groundSkidMarks || []).length,
+      groundSkidIntensity: Phaser.Math.Clamp(Number(visuals.groundSkidIntensity) || 0, 0, 1),
+      quickTurnFxEnabled,
+      quickTurnFxActive,
+      quickTurnSparkCount: (visuals.quickTurnSparks || []).length,
+      quickTurnCooldownRemainingMs: Math.max(0, (Number(visuals.quickTurnCooldownUntil) || 0) - now),
+      quickTurnAngleDelta: Math.max(0, Number(visuals.quickTurnAngleDelta) || 0),
+      quickTurnSideSlip: Phaser.Math.Clamp(Number(visuals.quickTurnSideSlip) || 0, 0, 1),
+      attitudeJetsEnabled,
+      attitudeJetActive,
+      attitudeJetIntensity: Phaser.Math.Clamp(Number(visuals.attitudeJetIntensity) || 0, 0, 1),
+      airBrakeEnabled: airBrakeEffectiveEnabled,
+      airBrakeEffectiveEnabled,
+      airBrakeDefaultEnabled,
+      airBrakeOverride,
+      airBrakeActive,
+      airBrakeAvailable: airBrakeBlockReason === AC_AIR_BRAKE_REASON.READY,
+      airBrakeBlockReason,
+      airBrakeCooldownRemainingMs,
+      airBrakeOpposeMs,
+      airBrakeDot: Number(airBrakeComponents.opposingDot) || 1,
+      airBrakeDurationRemainingMs,
+      airBrakeStrength: Phaser.Math.Clamp(Number(airBrake.strength) || 0, 0, 1),
+      airBrakeSpeedBefore: Math.max(0, Number(airBrake.speedBefore) || 0),
+      airBrakeSpeedCurrent: Math.max(0, Number(airBrake.speedCurrent) || airBrakeComponents.speed || 0),
+      airBrakeTargetSpeedRatio: Phaser.Math.Clamp(Number(airBrake.targetSpeedRatio) || Number(tuning.airBrakeTargetSpeedRatio) || 0, 0, 1),
+      airBrakeTargetSpeed: Math.max(0, Number(airBrake.targetSpeed) || 0),
+      airBrakeRegenBlockRemainingMs,
+      airBrakeFxActive,
+      airBrakeSparkCount: (visuals.airBrakeSparks || []).length,
+      weightShadowEnabled,
+      weightShadowActive: Boolean(visuals.weightShadowActive),
+      weightShadowIntensity: Phaser.Math.Clamp(Number(visuals.weightShadowIntensity) || 0, 0, 1),
+      weightShadowScaleX: Number(visuals.weightShadowScaleX) || 1,
+      weightShadowScaleY: Number(visuals.weightShadowScaleY) || 1,
+      localMove: localMovement.localMove || "IDLE",
+      localForwardDot: Number(localMovement.forwardDot) || 0,
+      localSideDot: Number(localMovement.sideDot) || 0,
+      localSideSlip: Phaser.Math.Clamp(Number(localMovement.sideSlip) || 0, 0, 1),
+      localTurnAngleDelta: Math.max(0, Number(localMovement.angleDelta) || 0),
+      kineticFxCount,
+      visualDepthMode,
+      tacticalVisualCount,
+      variableQuickBoostEnabled,
+      dashHoldMs: Math.max(0, Number(variableQuickBoost.holdMs) || 0),
+      holdRatio: Phaser.Math.Clamp(Number(variableQuickBoost.holdRatio) || 0, 0, 1),
+      rawHoldRatio: Phaser.Math.Clamp(Number(variableQuickBoost.rawHoldRatio) || 0, 0, 1),
+      smoothedHoldRatio: Phaser.Math.Clamp(Number(variableQuickBoost.smoothedHoldRatio) || 0, 0, 1),
+      qbEffectiveRatio: variableQuickBoostEnabled
+        ? Phaser.Math.Clamp(Number(variableQuickBoost.effectiveRatio) || 0, 0, 1)
+        : 1,
+      qbPowerRatio: variableQuickBoostEnabled
+        ? Phaser.Math.Clamp(Number(variableQuickBoost.powerRatio ?? variableQuickBoost.effectiveRatio) || 0, 0, 1)
+        : 1,
+      qbSpeedRatio: variableQuickBoostEnabled
+        ? Phaser.Math.Clamp(Number(variableQuickBoost.speedRatio) || 0, 0, 1)
+        : 1,
+      qbCostRatio: variableQuickBoostEnabled
+        ? Phaser.Math.Clamp(Number(variableQuickBoost.costRatio) || 0, 0, 1)
+        : 1,
+      qbVisualRatio: variableQuickBoostEnabled
+        ? Phaser.Math.Clamp(Number(variableQuickBoost.visualRatio ?? variableQuickBoost.effectiveRatio) || 0, 0, 1)
+        : 1,
+      qbGlideRatio: variableQuickBoostEnabled
+        ? Phaser.Math.Clamp(Number(variableQuickBoost.glideRatio ?? variableQuickBoost.holdRatio) || 0, 0, 1)
+        : 1,
+      qbConsumedCost: Math.max(0, Number(variableQuickBoost.consumedCost) || 0),
+      qbTargetCost: Math.max(0, Number(variableQuickBoost.targetCost) || Number(variableQuickBoost.consumedCost) || 0),
+      qbMaxCost: continuousBoostEnabled ? 0 : Math.max(0, Number(variableQuickBoost.maxCost) || this.getAcQuickBoostCost()),
+      qbEndReason: variableQuickBoost.endReason || AC_QUICK_BOOST_END_REASON.NONE,
+      poweredPhase: Boolean(variableQuickBoost.active),
+      maxHoldRemainingMs: continuousBoostEnabled ? -1 : Math.max(0, Number(variableQuickBoost.maxHoldRemainingMs) || 0),
+      postBoostGlideDurationCurrentMs: currentPostBoostGlideDurationMs,
+      steeringEnabled: Boolean(steering.enabled),
+      steeringMode: steering.mode || "NONE",
+      inputAccepted: Boolean(steering.inputAccepted),
+      inputInfluence: Number(steering.inputInfluence) || 0,
+      steeringInputInfluence: Number(steering.inputInfluence) || 0,
+      velocityAngle: Number(steering.velocityAngle) || 0,
+      inputAngle: Number(steering.inputAngle) || 0,
+      angleDelta: Number(steering.angleDelta) || 0,
+      turnRateLimit: Number(steering.turnRateLimit) || 0,
+      boostChainCount: Math.max(0, Math.floor(Number(state.boostChainCount) || 0)),
+      lastMoveX: Number(state.lastMoveDirection?.x) || 0,
+      lastMoveY: Number(state.lastMoveDirection?.y) || 0,
+      lastQuickBoostFailReason: state.lastQuickBoostFailReason || "-",
+      lastQuickBoostSucceeded: Boolean(state.lastQuickBoostSucceeded),
+      targetFacingEnabled,
+      targetFacingEffective: Boolean(localMovement.targetFacingEffective),
+      targetFacingAuto: this.isAcTargetFacingAutoEnabled() && !this.isAcTargetFacingDebugDisabled(),
+      targetType: state.acFacingTargetType || "-",
+      targetDistance: Number(state.acFacingTargetDistance) || 0,
+      facingSource: state.facingSource || "-",
+      thrusterState: state.thrusterVisualState || AC_THRUSTER_STATE.OFF,
+      visualMode: state.visualMode || "-",
+      spriteMode: state.spriteMode || "-",
+      thrusterImageActive: Boolean(state.thrusterImageActive),
+      strongBoostVisual: Boolean(state.strongBoostVisualActive),
+      residualTrail: Boolean(state.residualTrailActive),
+      heatLevel: Number(state.heat?.level) || 0,
+      heatState: state.heat?.state || AC_HEAT_STATE.NORMAL,
+      movementLeanEnabled: Boolean(this.isAcV3MovementPreset() && tuning.movementLeanEnabled),
+      leanMode: movementLean.mode || "IDLE",
+      leanForwardDot: Number(movementLean.forwardDot) || 0,
+      leanSideDot: Number(movementLean.sideDot) || 0,
+      leanAngle: Number(movementLean.angle) || 0,
+      leanOffset: Number(movementLean.offset) || 0,
+      leanOffsetX: Number(movementLean.offsetX) || 0,
+      leanOffsetY: Number(movementLean.offsetY) || 0,
+      movementAngle: Number(movementLean.movementAngle) || 0,
+      facingAngle: Number(movementLean.facingAngle) || 0,
+      normalCruiseMultiplier: Number(tuning.maxCruiseSpeedMultiplier) || 0,
+      walkSpeed: this.getAcMovementBaseSpeed() * (Number(tuning.maxCruiseSpeedMultiplier) || 0),
+      cruiseAcceleration: Number(tuning.accelerationPerSecond) || 0,
+      isNormalDepth10Robot: Math.floor(Number(this.stageDepth) || 1) === PLAYER_HUMAN_VISUAL_DEPTH
+        && !this.isFinalBossRaidActive?.()
+        && !this.isDepth10HumanPlayerVisualActive?.(),
+      isFinalRaidHumanVisual: this.isDepth10HumanPlayerVisualActive?.() === true,
+      visualObjectCount: afterimageCount + (trailActive ? 1 : 0) + (overheatVisualActive ? 1 : 0) + (quickBoostGlowActive ? 1 : 0) + tacticalVisualCount + kineticFxCount + targetFireVisualCount + evadeWindowVisualCount,
+      afterimageCount,
+      trailActive,
+      quickBoostGlowActive,
+      overheatVisualActive,
+      energyWarningActive
+    };
+  }
+
+  formatAcMovementDebugHudText(diagnostics) {
+    const formatNumber = (value, digits = 1) => Number(value || 0).toFixed(digits);
+    const formatMs = (value) => `${Math.ceil(Math.max(0, Number(value) || 0))}ms`;
+    const formatOptionalMs = (value) => (Number(value) >= 0 ? formatMs(value) : "N/A");
+    const maxHoldLabel = diagnostics.maxHoldRemainingMs < 0 ? "N/A" : formatMs(diagnostics.maxHoldRemainingMs);
+    return [
+      "AC MOVEMENT DEBUG",
+      `enabled:${diagnostics.shouldUseAcMovement ? "Y" : "N"} preset:${diagnostics.presetName} finalRaid:${diagnostics.finalRaidExcluded ? "Y" : "N"}`,
+      `defaultAcMovement:${diagnostics.defaultAcMovementActive ? "ON" : "OFF"} defaultAvailable:${diagnostics.defaultAcMovementEnabled ? "ON" : "OFF"} legacyOverride:${diagnostics.legacyMovementForced ? "ON" : "OFF"} acRcAlias:${diagnostics.acRcAliasEnabled ? "ON" : "OFF"} acRc:${diagnostics.acRcEnabled ? "ON" : "OFF"} source:${diagnostics.activationSource}`,
+      `bundle targetFacing:${diagnostics.featureBundleTargetFacing ? "ON" : "OFF"} targetFire:${diagnostics.featureBundleTargetFire ? "ON" : "OFF"} evasion:${diagnostics.featureBundleEvasion ? "ON" : "OFF"} evasiveFw:${diagnostics.featureBundleEvasiveFirmware ? "ON" : "OFF"} reactor:${diagnostics.featureBundleReactorCooling ? "ON" : "OFF"} airBrake:${diagnostics.featureBundleAirBrake ? "ON" : "OFF"} tacticalFx:${diagnostics.featureBundleTacticalFx ? "ON" : "OFF"}`,
+      `override targetFire:${diagnostics.targetFireOverrideState} airBrake:${diagnostics.airBrakeOverrideState} reactor:${diagnostics.reactorCoolingOverrideState} evade:${diagnostics.evadeWindowOverrideState} boostRegen:${formatNumber(diagnostics.totalRegenPerSec, 1)}/s`,
+      `boostSe:${diagnostics.boostSeEnabled ? "ON" : "OFF"} boostSeDefault:${diagnostics.boostSeDefault ? "ON" : "OFF"} override:${diagnostics.boostSeOverride} src:${diagnostics.boostSeActivationSource} mode:${diagnostics.boostSeMode}`,
+      `boostSe zone:${diagnostics.boostSeZone} key:${diagnostics.boostSeKey} ratio:${formatNumber(diagnostics.boostSeScreenRatio, 2)} runtimePan:${diagnostics.boostSeRuntimePan ? "ON" : "OFF"} pan:${formatNumber(diagnostics.boostSePan, 2)} vol:${formatNumber(diagnostics.boostSeVolume, 2)} cd:${formatMs(diagnostics.boostSeCooldownMs)} overlap:${diagnostics.boostSeOverlapLimit}`,
+      `boostSe lastZone:${diagnostics.boostSeLastZone} lastKey:${diagnostics.boostSeLastKey} age:${formatOptionalMs(diagnostics.boostSeLastPlayedMs)} reason:${diagnostics.boostSeSuppressedReason} voices:${diagnostics.boostSeActiveVoices}/${diagnostics.boostSeOverlapLimit} count:${diagnostics.boostSeActiveCount} loadedL/M/R:${diagnostics.boostSeLoadedL ? "Y" : "N"}/${diagnostics.boostSeLoadedM ? "Y" : "N"}/${diagnostics.boostSeLoadedR ? "Y" : "N"} legacy:${diagnostics.boostSeLoadedLegacy ? "Y" : "N"} panApi:${diagnostics.boostSePanSupported ? "Y" : "N"}`,
+      `mode:${diagnostics.mode}`,
+      `speed:${formatNumber(diagnostics.speed)} / allow:${formatNumber(diagnostics.allowedSpeed)} ${diagnostics.speedLimitMode}`,
+      `vx:${formatNumber(diagnostics.velocityX)} vy:${formatNumber(diagnostics.velocityY)}`,
+      `input x:${formatNumber(diagnostics.inputX, 2)} y:${formatNumber(diagnostics.inputY, 2)} mag:${formatNumber(diagnostics.inputMagnitude, 2)}`,
+      `dash down:${diagnostics.dashDown ? "Y" : "N"} just:${diagnostics.dashJustPressed ? "Y" : "N"} rel:${diagnostics.dashJustReleased ? "Y" : "N"}`,
+      `BOOST EN:${formatNumber(diagnostics.boostCurrent, 0)}/${formatNumber(diagnostics.boostMax, 0)}`,
+      `reactorCooling:${diagnostics.reactorCoolingEnabled ? "ON" : "OFF"} Lv:${diagnostics.reactorCoolingLv}/${diagnostics.reactorCoolingMaxLv} x${formatNumber(diagnostics.reactorCoolingMultiplier, 2)} base:${formatNumber(diagnostics.baseRegenPerSec, 1)}/s eq:x${formatNumber(diagnostics.equipmentRegenMultiplier, 2)} rc:x${formatNumber(diagnostics.reactorCoolingRegenMultiplier, 2)} total:${formatNumber(diagnostics.totalRegenPerSec, 1)}/s oh:${formatNumber(diagnostics.overheatRegenPerSec, 1)}/s block:${diagnostics.regenBlockedReason}`,
+      `QB:${formatMs(diagnostics.quickBoostRemainingMs)} glide:${formatMs(diagnostics.postBoostGlideRemainingMs)} lock:${formatMs(diagnostics.quickBoostHardLockRemainingMs)} chain:${diagnostics.boostChainCount}`,
+      `boostMode:${diagnostics.boostMode} continuous:${diagnostics.continuousBoostEnabled ? "ON" : "OFF"} active:${diagnostics.continuousBoostActive ? "ON" : "OFF"} held:${formatMs(diagnostics.boostHeldMs)} end:${diagnostics.boostEndReason}`,
+      `boostDrain:${formatNumber(diagnostics.boostDrainPerSecond, 1)}/s used:${formatNumber(diagnostics.boostConsumedEnergy, 1)} tEmpty:${formatMs(diagnostics.boostTimeToEmptyMs)} lockout:${formatMs(diagnostics.boostLockoutRemainingMs)} regen:${formatMs(diagnostics.boostRegenBlockedRemainingMs)}`,
+      `boostReady:${diagnostics.canBoostNow ? "Y" : "N"} block:${diagnostics.boostStartBlockedReason} reqEN:${formatNumber(diagnostics.boostRequiredStamina, 0)} mustRelease:${diagnostics.mustReleaseDashBeforeBoost ? "Y" : "N"}`,
+      `overheat:${diagnostics.fullOverheatActive ? "ON" : "OFF"} state:${diagnostics.overheatState} reason:${diagnostics.overheatReason} fullReq:${diagnostics.overheatRequiresFullRecharge ? "Y" : "N"} full:${diagnostics.fullRechargeReached ? "Y" : "N"}`,
+      `ohRegen:${formatNumber(diagnostics.overheatRegenMultiplier, 2)} progress:${formatNumber(diagnostics.overheatRecoveryCurrent, 0)}/${formatNumber(diagnostics.overheatRecoveryMax, 0)} ${formatNumber(diagnostics.overheatRecoveryRatio * 100, 0)}% delay:${formatMs(diagnostics.overheatRegenDelayRemainingMs)} can:${diagnostics.overheatCanBoost ? "Y" : "N"}`,
+      `energyWarn:${diagnostics.energyWarningEnabled ? "ON" : "OFF"} state:${diagnostics.energyState} ratio:${formatNumber(diagnostics.energyRatio * 100, 0)}% fx:${diagnostics.energyWarningActive ? "Y" : "N"} ohProgress:${formatNumber(diagnostics.overheatRecoveryProgress * 100, 0)}%`,
+      `evasiveFirmware:${diagnostics.evasiveFirmwareEnabled ? "ON" : "OFF"} Lv:${diagnostics.evasiveFirmwareLv}/${diagnostics.evasiveFirmwareMaxLv} duration:${formatMs(diagnostics.evadeDurationMs)} next:${formatMs(diagnostics.evadeNextDurationMs)} step:+${formatMs(diagnostics.evadeStepMs)} base:${formatMs(diagnostics.evadeBaseMs)} bonus:${formatMs(diagnostics.evadeBonusMs)}`,
+      `evadeWindow:${diagnostics.evadeWindowEnabled ? "ON" : "OFF"} active:${diagnostics.evadeWindowActive ? "Y" : "N"} remain:${formatMs(diagnostics.evadeWindowRemainingMs)} dur:${formatMs(diagnostics.evadeWindowDurationMs)} can:${diagnostics.evadeWindowCanTrigger ? "Y" : "N"} src:${diagnostics.evadeWindowSource} reason:${diagnostics.evadeWindowReason}`,
+      `evade neg:${diagnostics.evadeNegatedCount} lastAt:${formatMs(diagnostics.lastEvadeAt)} age:${formatMs(diagnostics.lastEvadeAgeMs)} lastReason:${diagnostics.lastEvadeReason} dmg:${diagnostics.evadeLastSource}/${formatNumber(diagnostics.evadeLastAmount, 0)} fx:${diagnostics.evadeWindowVisualCount}`,
+      `lockonRing:${diagnostics.lockonRingEnabled ? "ON" : "OFF"} visible:${diagnostics.lockonRingVisible ? "Y" : "N"} active:${diagnostics.lockonRingActive ? "Y" : "N"} target:${diagnostics.lockonTargetType} dist:${formatNumber(diagnostics.lockonDistance, 0)}`,
+      `targetFire:${diagnostics.targetFireEnabled ? "ON" : "OFF"} style:${diagnostics.targetFireStyle} palette:${diagnostics.targetFirePalette} active:${diagnostics.targetFireActive ? "true" : "false"} reason:${diagnostics.targetFireSuppressedReason} mode:${diagnostics.targetFireMode}`,
+      `targetFire target:${diagnostics.targetFireTargetType} dist:${formatNumber(diagnostics.targetFireTargetDistance, 0)} shot:${diagnostics.targetFireBurstShotIndex}/${diagnostics.targetFireBurstSize} interval:${formatMs(diagnostics.targetFireShotIntervalMs)} next:${formatMs(diagnostics.targetFireNextShotMs)} cd:${formatMs(diagnostics.targetFireCooldownMs)}`,
+      `targetFire fx tracers:${diagnostics.targetFireActiveTracers} impacts:${diagnostics.targetFireActiveImpacts} muzzle:${diagnostics.targetFireActiveMuzzles} side:${diagnostics.targetFireMuzzleSideLabel} offS:${formatNumber(diagnostics.targetFireMuzzleOffsetSide, 1)} travel:${formatMs(diagnostics.targetFireTracerTravelMs)} seg:${formatNumber(diagnostics.targetFireSegmentRatio, 2)} spread:${formatNumber(diagnostics.targetFireSpreadDeg, 1)}`,
+      `targetFire beam coreW:${formatNumber(diagnostics.targetFireTracerCoreWidth, 1)} glowW:${formatNumber(diagnostics.targetFireTracerGlowWidth, 1)} outerW:${formatNumber(diagnostics.targetFireTracerOuterGlowWidth, 1)} a:${formatNumber(diagnostics.targetFireTracerCoreAlpha, 2)}/${formatNumber(diagnostics.targetFireTracerGlowAlpha, 2)}/${formatNumber(diagnostics.targetFireTracerOuterGlowAlpha, 2)}`,
+      `boostVector:${diagnostics.boostVectorEnabled ? "ON" : "OFF"} visible:${diagnostics.boostVectorVisible ? "Y" : "N"} angle:${formatNumber(diagnostics.predictedBoostAngle, 2)} avail:${diagnostics.boostAvailable ? "Y" : "N"} block:${diagnostics.boostBlockReasonTactical}`,
+      `quickTurnFx:${diagnostics.quickTurnFxEnabled ? "ON" : "OFF"} active:${diagnostics.quickTurnFxActive ? "Y" : "N"} sparks:${diagnostics.quickTurnSparkCount} cd:${formatMs(diagnostics.quickTurnCooldownRemainingMs)} turn:${formatNumber(diagnostics.quickTurnAngleDelta, 0)} side:${formatNumber(diagnostics.quickTurnSideSlip, 2)}`,
+      `groundSkidFx:${diagnostics.groundSkidFxEnabled ? "ON" : "OFF"} active:${diagnostics.groundSkidFxActive ? "Y" : "N"} intensity:${formatNumber(diagnostics.groundSkidIntensity, 2)} marks:${diagnostics.groundSkidMarkCount}`,
+      `attitudeJets:${diagnostics.attitudeJetsEnabled ? "ON" : "OFF"} active:${diagnostics.attitudeJetActive ? "Y" : "N"} intensity:${formatNumber(diagnostics.attitudeJetIntensity, 2)} weightShadow:${diagnostics.weightShadowEnabled ? "ON" : "OFF"} active:${diagnostics.weightShadowActive ? "Y" : "N"} i:${formatNumber(diagnostics.weightShadowIntensity, 2)}`,
+      `airBrakeEffective:${diagnostics.airBrakeEffectiveEnabled ? "ON" : "OFF"} default:${diagnostics.airBrakeDefaultEnabled ? "ON" : "OFF"} override:${diagnostics.airBrakeOverride}`,
+      `airBrake:${diagnostics.airBrakeEnabled ? "ON" : "OFF"} active:${diagnostics.airBrakeActive ? "Y" : "N"} avail:${diagnostics.airBrakeAvailable ? "Y" : "N"} block:${diagnostics.airBrakeBlockReason} cd:${formatMs(diagnostics.airBrakeCooldownRemainingMs)} oppose:${formatMs(diagnostics.airBrakeOpposeMs)} dot:${formatNumber(diagnostics.airBrakeDot, 2)}`,
+      `airBrake spd:${formatNumber(diagnostics.airBrakeSpeedBefore, 0)}>${formatNumber(diagnostics.airBrakeSpeedCurrent, 0)} target:${formatNumber(diagnostics.airBrakeTargetSpeed, 0)} r:${formatNumber(diagnostics.airBrakeTargetSpeedRatio, 2)} dur:${formatMs(diagnostics.airBrakeDurationRemainingMs)} str:${formatNumber(diagnostics.airBrakeStrength, 2)} regen:${formatMs(diagnostics.airBrakeRegenBlockRemainingMs)} fx:${diagnostics.airBrakeFxActive ? "Y" : "N"} sparks:${diagnostics.airBrakeSparkCount}`,
+      `localMove:${diagnostics.localMove} f:${formatNumber(diagnostics.localForwardDot, 2)} s:${formatNumber(diagnostics.localSideDot, 2)} slip:${formatNumber(diagnostics.localSideSlip, 2)} turn:${formatNumber(diagnostics.localTurnAngleDelta, 0)} kineticFx:${diagnostics.kineticFxCount} tacticalFx:${diagnostics.tacticalVisualCount} depth:${diagnostics.visualDepthMode}`,
+      `variableQB:${diagnostics.variableQuickBoostEnabled ? "ON" : "OFF"} powered:${diagnostics.poweredPhase ? "ON" : "OFF"} hold:${formatMs(diagnostics.dashHoldMs)} raw:${formatNumber(diagnostics.rawHoldRatio, 2)} smooth:${formatNumber(diagnostics.smoothedHoldRatio, 2)}`,
+      `qbRatio power:${formatNumber(diagnostics.qbPowerRatio, 2)} speed:${formatNumber(diagnostics.qbSpeedRatio, 2)} cost:${formatNumber(diagnostics.qbCostRatio, 2)} visual:${formatNumber(diagnostics.qbVisualRatio, 2)} glide:${formatNumber(diagnostics.qbGlideRatio, 2)}`,
+      `qbCost:${formatNumber(diagnostics.qbConsumedCost, 1)}/${formatNumber(diagnostics.qbTargetCost, 1)}/${formatNumber(diagnostics.qbMaxCost, 1)} end:${diagnostics.qbEndReason} maxHold:${maxHoldLabel} glideDur:${formatMs(diagnostics.postBoostGlideDurationCurrentMs)}`,
+      `cd:${formatMs(diagnostics.cooldownRemainingMs)} regen:${formatMs(diagnostics.regenBlockedRemainingMs)}`,
+      `steering:${diagnostics.steeringEnabled ? "ON" : "OFF"} mode:${diagnostics.steeringMode} inputAccepted:${diagnostics.inputAccepted ? "true" : "false"} inf:${formatNumber(diagnostics.inputInfluence, 2)}`,
+      `angle vel:${formatNumber(diagnostics.velocityAngle, 2)} input:${formatNumber(diagnostics.inputAngle, 2)} delta:${formatNumber(diagnostics.angleDelta, 2)} turn:${formatNumber(diagnostics.turnRateLimit, 0)}`,
+      `lastDir x:${formatNumber(diagnostics.lastMoveX, 2)} y:${formatNumber(diagnostics.lastMoveY, 2)}`,
+      `targetFacing:${diagnostics.targetFacingEnabled ? "ON" : "OFF"} eff:${diagnostics.targetFacingEffective ? "ON" : "OFF"} auto:${diagnostics.targetFacingAuto ? "ON" : "OFF"} src:${diagnostics.facingSource}`,
+      `target:${diagnostics.targetType} dist:${formatNumber(diagnostics.targetDistance, 0)}`,
+      `visualMode:${diagnostics.visualMode} sprite:${diagnostics.spriteMode} thrusterImg:${diagnostics.thrusterImageActive ? "Y" : "N"} strongFx:${diagnostics.strongBoostVisual ? "Y" : "N"} residual:${diagnostics.residualTrail ? "Y" : "N"}`,
+      `lean:${diagnostics.movementLeanEnabled ? diagnostics.leanMode : "OFF"} f:${formatNumber(diagnostics.leanForwardDot, 2)} s:${formatNumber(diagnostics.leanSideDot, 2)} angle:${formatNumber(diagnostics.leanAngle, 1)} off:${formatNumber(diagnostics.leanOffset, 1)} move:${formatNumber(diagnostics.movementAngle, 2)} face:${formatNumber(diagnostics.facingAngle, 2)}`,
+      `thruster:${diagnostics.thrusterState} heat:${formatNumber(diagnostics.heatLevel, 0)}% ${diagnostics.heatState}`,
+      `cruiseMul:${formatNumber(diagnostics.normalCruiseMultiplier, 2)} walkSpeed:${formatNumber(diagnostics.walkSpeed, 1)} accel:${formatNumber(diagnostics.cruiseAcceleration, 0)} normalD10Robot:${diagnostics.isNormalDepth10Robot ? "Y" : "N"} raidHuman:${diagnostics.isFinalRaidHumanVisual ? "Y" : "N"}`,
+      `fail:${diagnostics.lastQuickBoostFailReason} success:${diagnostics.lastQuickBoostSucceeded ? "Y" : "N"}`,
+      `visuals objects:${diagnostics.visualObjectCount} after:${diagnostics.afterimageCount} trail:${diagnostics.trailActive ? "Y" : "N"} qbGlow:${diagnostics.quickBoostGlowActive ? "Y" : "N"} heatFx:${diagnostics.overheatVisualActive ? "Y" : "N"} tactical:${diagnostics.tacticalVisualCount} targetFire:${diagnostics.targetFireVisualCount} evade:${diagnostics.evadeWindowVisualCount}`
+    ].join("\n");
+  }
+
+  updateAcMovementDebugHud(time, delta) {
+    if (!this.shouldShowAcMovementDebugHud()) {
+      if (this.acMovementDebugHud) {
+        this.destroyAcMovementDebugHud("disabled");
+      }
+      return;
+    }
+
+    const hud = this.createAcMovementDebugHud();
+    hud.text.setText(this.formatAcMovementDebugHudText(this.getAcMovementDiagnostics(time)));
+  }
+
+  logAcMovementDebugBranchEnabled() {
+    if (this.acMovementDebugBranchLogged) {
+      return;
+    }
+
+    this.acMovementDebugBranchLogged = true;
+    console.info("[AC MOVEMENT] movement branch enabled", {
+      source: this.getAcMovementActivationSource(),
+      preset: this.getAcMovementPresetName(),
+      defaultEnabled: this.isAcMovementDefaultEnabled(),
+      legacyForced: this.isLegacyMovementForced(),
+      rc: this.shouldUseAcMovementReleaseCandidate()
+    });
+  }
+
+  updateAcPlayerMovement(delta) {
+    const state = this.ensureAcMovementState();
+    const tuning = this.getActiveAcMovementTuning();
+    this.logAcMovementDebugBranchEnabled();
+
+    const now = Math.max(0, Number(this.time?.now) || 0);
+    const dt = this.clampAcMovementDelta(delta);
+    const input = this.getPlayerMoveInputVector();
+    const inputMagnitude = Math.max(0, Math.min(1, input.magnitude));
+    const hasInput = input.hasInput && inputMagnitude > tuning.inputDeadzone;
+    const dashInput = this.getAcQuickBoostInputState(state);
+    state.lastInputVector = {
+      x: Number.isFinite(input.x) ? input.x : 0,
+      y: Number.isFinite(input.y) ? input.y : 0,
+      magnitude: inputMagnitude,
+      normalizedX: Number.isFinite(input.normalizedX) ? input.normalizedX : 0,
+      normalizedY: Number.isFinite(input.normalizedY) ? input.normalizedY : 0,
+      hasInput
+    };
+    state.lastDashInput = {
+      isDown: Boolean(dashInput.isDown),
+      justPressed: Boolean(dashInput.justPressed),
+      justReleased: Boolean(dashInput.justReleased)
+    };
+    const baseMoveSpeed = this.getAcMovementBaseSpeed();
+    const quickBoostActiveBeforeInput = now < state.quickBoostUntil || Boolean(state.variableQuickBoost?.active);
+
+    this.recoverAcBoostEnergy(delta, now, quickBoostActiveBeforeInput);
+    this.updateAcFullOverheatRecovery(now, delta, dashInput);
+    const quickBoostStarted = dashInput.justPressed && this.tryStartAcQuickBoost(input, baseMoveSpeed, now);
+    this.updateAcVariableQuickBoost(now, delta, input, dashInput, baseMoveSpeed);
+    this.updateAcFullOverheatRecovery(now, delta, dashInput);
+    const fullOverheatActive = this.isAcFullOverheatActive(state);
+    const fullOverheatCruiseMultiplier = fullOverheatActive
+      ? Phaser.Math.Clamp(Number(tuning.fullOverheatCruiseSpeedMultiplier) || 0.88, 0.35, 1)
+      : 1;
+    const maxCruiseSpeed = baseMoveSpeed * tuning.maxCruiseSpeedMultiplier * fullOverheatCruiseMultiplier;
+    const exhaustedThisFrame = !quickBoostStarted && dashInput.justPressed && state.mode === AC_MOVEMENT_CONFIG.exhaustedMode;
+    const quickBoostActive = now < state.quickBoostUntil;
+    const postBoostGlideActive = !quickBoostActive && now < state.postBoostGlideUntil;
+    let speedLimitMode = quickBoostActive
+      ? AC_MOVEMENT_CONFIG.quickBoostMode
+      : postBoostGlideActive
+        ? AC_MOVEMENT_CONFIG.postBoostGlideMode
+        : AC_MOVEMENT_CONFIG.glideMode;
+    let maxAllowedSpeed = this.getAcMovementModeSpeedLimit(speedLimitMode, baseMoveSpeed, tuning);
+    if (fullOverheatActive && speedLimitMode === AC_MOVEMENT_CONFIG.glideMode) {
+      maxAllowedSpeed *= fullOverheatCruiseMultiplier;
+    }
+    if (quickBoostActive && this.isAcVariableQuickBoostEnabled(tuning)) {
+      maxAllowedSpeed *= this.getAcVariableQuickBoostSpeedRatio(state.variableQuickBoost?.holdRatio, tuning);
+    }
+    const quickBoostHardLockRemainingMs = this.getAcQuickBoostHardLockRemainingMs(state, now, tuning);
+    this.updateAcHeatState(now, delta, quickBoostStarted);
+    this.isDashing = quickBoostActive;
+    this.dashLockedUntilRelease = false;
+
+    state.velocity.x = Number.isFinite(state.velocity.x) ? state.velocity.x : 0;
+    state.velocity.y = Number.isFinite(state.velocity.y) ? state.velocity.y : 0;
+    const airBrakeActive = this.updateAcAirBrake(now, delta, input);
+    if (airBrakeActive) {
+      speedLimitMode = AC_MOVEMENT_CONFIG.airBrakeMode;
+      maxAllowedSpeed = Math.max(maxAllowedSpeed, Math.hypot(state.velocity.x, state.velocity.y));
+    }
+
+    const acV3SteeringEnabled = this.isAcV3MovementPreset();
+    const postBoostSteeringEnabled = acV3SteeringEnabled
+      && Boolean(tuning.postBoostInputSteerEnabled)
+      && postBoostGlideActive
+      && hasInput
+      && !airBrakeActive;
+    const quickBoostLateSteeringEnabled = acV3SteeringEnabled
+      && quickBoostActive
+      && quickBoostHardLockRemainingMs <= 0
+      && hasInput
+      && !airBrakeActive;
+    if (airBrakeActive) {
+      this.setAcSteeringDiagnostics(state, {
+        enabled: acV3SteeringEnabled,
+        mode: AC_MOVEMENT_CONFIG.airBrakeMode,
+        inputAccepted: false,
+        inputInfluence: inputMagnitude,
+        inputDirection: this.getAcInputDirection(input, tuning),
+        turnRateLimit: 0,
+        quickBoostHardLockRemainingMs: 0
+      });
+    } else if (quickBoostActive && quickBoostHardLockRemainingMs > 0) {
+      this.setAcSteeringDiagnostics(state, {
+        enabled: acV3SteeringEnabled,
+        mode: "LOCKED",
+        inputAccepted: false,
+        inputInfluence: 0,
+        inputDirection: this.getAcInputDirection(input, tuning),
+        turnRateLimit: 0,
+        quickBoostHardLockRemainingMs
+      });
+    } else if (quickBoostLateSteeringEnabled) {
+      this.applyAcVelocitySteeringTowardInput(
+        state,
+        input,
+        dt,
+        baseMoveSpeed,
+        maxAllowedSpeed,
+        "GLIDE",
+        tuning,
+        {
+          enabled: true,
+          inputMultiplier: Number(tuning.quickBoostLateInputSteerMultiplier) || 0,
+          turnRateDegPerSecond: Number(tuning.quickBoostLateTurnRateDegPerSecond) || 0,
+          speedRetention: Number(tuning.postBoostInputSpeedRetention) || 1,
+          minSpeedRatio: Number(tuning.postBoostInputMinSpeedRatio) || 0,
+          steerAcceleration: Number(tuning.postBoostInputSteerAcceleration) || 0,
+          quickBoostHardLockRemainingMs: 0
+        }
+      );
+    } else if (postBoostSteeringEnabled) {
+      this.applyAcVelocitySteeringTowardInput(
+        state,
+        input,
+        dt,
+        baseMoveSpeed,
+        maxAllowedSpeed,
+        "POST_BOOST",
+        tuning,
+        {
+          enabled: true,
+          inputMultiplier: Number(tuning.postBoostInputSteerMultiplier) || 0,
+          turnRateDegPerSecond: Number(tuning.postBoostInputTurnRateDegPerSecond) || 0,
+          speedRetention: Number(tuning.postBoostInputSpeedRetention) || 1,
+          minSpeedRatio: Number(tuning.postBoostInputMinSpeedRatio) || 0,
+          steerAcceleration: Number(tuning.postBoostInputSteerAcceleration) || 0,
+          quickBoostHardLockRemainingMs: 0
+        }
+      );
+    } else if (!quickBoostActive && hasInput) {
+      const targetSpeed = maxCruiseSpeed * inputMagnitude;
+      const targetX = input.normalizedX * targetSpeed;
+      const targetY = input.normalizedY * targetSpeed;
+      const currentSpeed = Math.hypot(state.velocity.x, state.velocity.y);
+      const targetDot = (state.velocity.x * targetX) + (state.velocity.y * targetY);
+      const turning = currentSpeed >= tuning.minVelocityForDirectionUpdate && targetSpeed > 0 && targetDot < 0;
+      const turnAssist = tuning.turnAssistMultiplier * (postBoostGlideActive ? tuning.postBoostTurnAssistMultiplier : 1);
+      const accel = tuning.accelerationPerSecond * (turning ? turnAssist : 1);
+      this.moveAcVelocityTowards(state.velocity, targetX, targetY, accel * dt);
+      this.setAcSteeringDiagnostics(state, {
+        enabled: acV3SteeringEnabled,
+        mode: "GLIDE",
+        inputAccepted: true,
+        inputInfluence: inputMagnitude,
+        inputDirection: this.getAcInputDirection(input, tuning),
+        turnRateLimit: 0,
+        quickBoostHardLockRemainingMs: 0
+      });
+    } else if (!quickBoostActive) {
+      const deceleration = Math.max(
+        tuning.decelerationPerSecond,
+        tuning.noInputFrictionPerSecond
+      ) * (postBoostGlideActive ? tuning.postBoostFrictionMultiplier : 1);
+      this.moveAcVelocityTowards(state.velocity, 0, 0, deceleration * dt);
+      this.setAcSteeringDiagnostics(state, {
+        enabled: acV3SteeringEnabled,
+        mode: "NONE",
+        inputAccepted: false,
+        inputInfluence: 0,
+        inputDirection: this.getAcInputDirection(input, tuning),
+        turnRateLimit: 0,
+        quickBoostHardLockRemainingMs: 0
+      });
+    } else {
+      this.setAcSteeringDiagnostics(state, {
+        enabled: acV3SteeringEnabled,
+        mode: "NONE",
+        inputAccepted: false,
+        inputInfluence: 0,
+        inputDirection: this.getAcInputDirection(input, tuning),
+        turnRateLimit: 0,
+        quickBoostHardLockRemainingMs: 0
+      });
+    }
+
+    const speedLimitDamping = speedLimitMode === AC_MOVEMENT_CONFIG.airBrakeMode
+      ? Math.max(0, Number(tuning.airBrakeVelocityDampingPerSecond) || tuning.speedLimitDampingPerSecond)
+      : postBoostGlideActive
+      ? tuning.postBoostSpeedDampingPerSecond
+      : tuning.speedLimitDampingPerSecond;
+    this.dampAcVelocityAboveLimit(state.velocity, maxAllowedSpeed, speedLimitDamping, dt);
+    state.lastAllowedSpeed = maxAllowedSpeed;
+    state.speedLimitMode = speedLimitMode;
+    this.applyAcMovementWallDamping(state);
+
+    let velocitySpeed = Math.hypot(state.velocity.x, state.velocity.y);
+    const stopEpsilon = quickBoostActive
+      ? tuning.quickBoostStopEpsilon
+      : tuning.velocityStopEpsilon;
+    if (velocitySpeed < stopEpsilon) {
+      state.velocity.x = 0;
+      state.velocity.y = 0;
+      velocitySpeed = 0;
+    }
+
+    this.updateAcMovementDirectionFromVelocity(state, velocitySpeed);
+    const direction = velocitySpeed > 0
+      ? new Phaser.Math.Vector2(state.velocity.x, state.velocity.y)
+      : new Phaser.Math.Vector2(state.lastMoveDirection.x, state.lastMoveDirection.y);
+    const visualDirection = this.updateAcTargetFacingDirection(now, delta, direction, input, state);
+    const isMoving = velocitySpeed > tuning.velocityStopEpsilon;
+    const forceFacingDirectionUpdate = state.facingSource === "TARGET";
+
+    this.playerHitbox.body.setVelocity(state.velocity.x, state.velocity.y);
+    state.lastDashDown = dashInput.isDown;
+    if (airBrakeActive) {
+      state.mode = AC_MOVEMENT_CONFIG.airBrakeMode;
+    } else if (quickBoostActive) {
+      state.mode = AC_MOVEMENT_CONFIG.quickBoostMode;
+    } else if (exhaustedThisFrame) {
+      state.mode = AC_MOVEMENT_CONFIG.exhaustedMode;
+    } else if (postBoostGlideActive && velocitySpeed > tuning.velocityStopEpsilon) {
+      state.mode = AC_MOVEMENT_CONFIG.postBoostGlideMode;
+    } else if (!hasInput && velocitySpeed <= tuning.velocityStopEpsilon) {
+      state.mode = AC_MOVEMENT_CONFIG.idleMode;
+    } else if (now < state.cooldownUntil) {
+      state.mode = AC_MOVEMENT_CONFIG.cooldownMode;
+    } else {
+      state.mode = AC_MOVEMENT_CONFIG.glideMode;
+    }
+    state.thrusterVisualState = this.getAcThrusterVisualState(state, now, velocitySpeed);
+    this.updateAcRobotLocomotionVisualState(state, now, velocitySpeed);
+
+    const boostPoseActive = this.isAcV3MovementPreset()
+      ? this.shouldUseAcBoostSpriteVariant(state)
+      : isMoving;
+    this.updatePlayerRobotMotion(delta, visualDirection || direction, isMoving, quickBoostActive, forceFacingDirectionUpdate, boostPoseActive);
+    this.updateAcRobotLeanVisual(delta);
+
+    if (this.time.now < this.invincibleUntil) {
+      this.playerSprite.alpha = Math.floor(this.time.now / 70) % 2 === 0 ? 0.42 : 1;
+    } else {
+      this.playerSprite.alpha = 1;
+    }
+
+    this.syncPlayerVisuals();
+    this.constrainPlayerToMovementBounds();
+    this.updateAcEvadeWindow(now, delta, state);
+    this.updatePlayerRobotBoostVisuals(delta);
+    this.updateAcMovementVisuals(now, delta);
+    this.updateDashStaminaGauge();
+  }
+
   updatePlayerMovement(delta) {
     this.constrainPlayerToMovementBounds();
+    if (this.shouldUseAcMovement()) {
+      this.updateAcPlayerMovement(delta);
+      return;
+    }
+    if (this.hasAcMovementVisuals()) {
+      this.cleanupAcMovementVisuals("acMovementDisabled");
+    }
+
     const editorUsesArrows = this.isStageCollisionEditorAdjustingSelection();
     const mobileVector = this.getMobileMoveVector();
     const moveX = ((!editorUsesArrows && this.keys.left.isDown) || this.keys.a.isDown ? -1 : 0) +
@@ -47161,9 +56312,15 @@ class SurvivalScene extends Phaser.Scene {
     const hoverSpeed = useHumanVisual ? (moving ? 0.02 : 0.006) : (moving ? 0.012 : 0.0065);
     const hoverAmount = useHumanVisual ? (moving ? 1.4 : 0.4) : (moving ? 3.6 : 2.2);
     const hover = Math.sin((motion.hoverMs || 0) * hoverSpeed) * hoverAmount;
+    const acVisualLeanAngle = Number(motion.acVisualLeanAngle) || 0;
+    const acLeanOffsetX = Number(motion.acLeanOffsetX) || 0;
+    const acLeanOffsetY = Number(motion.acLeanOffsetY) || 0;
     this.playerSprite
-      .setPosition(this.playerHitbox.x, this.playerHitbox.y + PLAYER_SPRITE_OFFSET_Y + hover + (motion.lift || 0))
-      .setAngle(motion.tiltAngle || 0);
+      .setPosition(
+        this.playerHitbox.x + acLeanOffsetX,
+        this.playerHitbox.y + PLAYER_SPRITE_OFFSET_Y + hover + (motion.lift || 0) + acLeanOffsetY
+      )
+      .setAngle((motion.tiltAngle || 0) + acVisualLeanAngle);
     this.playerShadow
       ?.setPosition(this.playerHitbox.x, this.playerHitbox.y + PLAYER_SHADOW_OFFSET_Y)
       .setScale(motion.shadowScale || 1, 1)
@@ -47204,7 +56361,6 @@ class SurvivalScene extends Phaser.Scene {
 
     this.robotShadow?.setPosition(this.robotState.x, this.robotState.y + 44);
     this.robotMuzzleGlow?.setPosition(this.robotState.x, this.robotState.y + bob + 4);
-    this.updateRobotRecoveryFieldVisual(delta);
   }
 
   canCleaningRobotCollectDrops() {
@@ -47513,8 +56669,8 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
-  updateRobotRecoveryFieldVisual(delta) {
-    this.applyRecoveryFieldVisual(delta);
+  updateRobotRecoveryFieldVisual() {
+    this.applyRecoveryFieldVisual();
   }
 
   getRobotRecoveryRadius() {
@@ -51477,6 +60633,9 @@ class SurvivalScene extends Phaser.Scene {
     missile.expireAt = this.time.now + this.getRobotMissileLifetimeMs();
     missile.frameTimer = shotIndex * 32;
     missile.bombardment = false;
+    missile.smokeTrailTimerMs = Phaser.Math.Between(0, ROBOT_MISSILE_SMOKE_TRAIL_CONFIG.intervalMs);
+    missile.lastSmokeTrailX = startX;
+    missile.lastSmokeTrailY = startY;
     this.scaleRobotMissileSprite(missile, false);
     this.configureRobotMissileBody(missile, 12);
     this.physics.velocityFromRotation(angle, missile.speed, missile.body.velocity);
@@ -52214,6 +61373,64 @@ class SurvivalScene extends Phaser.Scene {
     missile.body.updateFromGameObject();
   }
 
+  updateRobotMissileSmokeTrail(missile, delta) {
+    if (!missile?.active || missile.bombardment === true || missile.napalm === true) {
+      return;
+    }
+
+    const config = ROBOT_MISSILE_SMOKE_TRAIL_CONFIG;
+    const safeDelta = Math.max(0, Number(delta) || 0);
+    missile.smokeTrailTimerMs = (Number(missile.smokeTrailTimerMs) || 0) + safeDelta;
+    const lastX = Number.isFinite(missile.lastSmokeTrailX) ? missile.lastSmokeTrailX : missile.x;
+    const lastY = Number.isFinite(missile.lastSmokeTrailY) ? missile.lastSmokeTrailY : missile.y;
+    const movedDistance = Phaser.Math.Distance.Between(lastX, lastY, missile.x, missile.y);
+    if (missile.smokeTrailTimerMs < config.intervalMs || movedDistance < config.minDistance) {
+      return;
+    }
+
+    missile.smokeTrailTimerMs = 0;
+    missile.lastSmokeTrailX = missile.x;
+    missile.lastSmokeTrailY = missile.y;
+    this.spawnRobotMissileSmokePuff(missile);
+  }
+
+  spawnRobotMissileSmokePuff(missile) {
+    if (!missile?.active || !this.add || !this.tweens) {
+      return;
+    }
+
+    const config = ROBOT_MISSILE_SMOKE_TRAIL_CONFIG;
+    const angle = Number.isFinite(missile.rotation) ? missile.rotation : 0;
+    const forwardX = Math.cos(angle);
+    const forwardY = Math.sin(angle);
+    const sideX = Math.cos(angle + Math.PI * 0.5);
+    const sideY = Math.sin(angle + Math.PI * 0.5);
+    const sideJitter = Phaser.Math.Between(-config.sideJitter, config.sideJitter);
+    const startX = missile.x - forwardX * config.backOffset + sideX * sideJitter;
+    const startY = missile.y - forwardY * config.backOffset + sideY * sideJitter;
+    const radius = Phaser.Math.FloatBetween(config.radiusMin, config.radiusMax);
+    const puff = this.add
+      .circle(startX, startY, radius, config.color, config.alpha)
+      .setDepth(config.depth)
+      .setRotation(angle + Phaser.Math.FloatBetween(-0.42, 0.42))
+      .setScale(config.startScaleX, config.startScaleY)
+      .setBlendMode(Phaser.BlendModes.SCREEN);
+
+    this.tweens.add({
+      targets: puff,
+      x: startX - forwardX * config.driftDistance + Phaser.Math.Between(-4, 4),
+      y: startY - forwardY * config.driftDistance + Phaser.Math.Between(-4, 4),
+      scaleX: config.endScaleX,
+      scaleY: config.endScaleY,
+      alpha: 0,
+      duration: config.lifetimeMs + Phaser.Math.Between(-35, 45),
+      ease: "Quad.Out",
+      onComplete: () => {
+        puff.destroy();
+      }
+    });
+  }
+
   updateRobotMissiles(time, delta) {
     this.robotMissiles.children.each((missile) => {
       if (!missile.active) {
@@ -52255,6 +61472,8 @@ class SurvivalScene extends Phaser.Scene {
       } else if (missile.lockOnTarget) {
         this.detachRobotMissileLock(missile);
       }
+
+      this.updateRobotMissileSmokeTrail(missile, delta);
     });
   }
 
@@ -52802,7 +62021,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   updateRobotHealing(delta) {
-    if (!this.robotState || !this.robotRecoveryField) {
+    if (!this.robotState || !this.playerHitbox || !this.stats) {
       return;
     }
 
@@ -53472,7 +62691,7 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
-  applyDamageToPlayer(amount) {
+  applyDamageToPlayer(amount, meta = null) {
     if (this.levelUpActive || this.gateChoiceActive || this.extractionComplete || this.overlayContainer?.visible) {
       return false;
     }
@@ -53481,22 +62700,27 @@ class SurvivalScene extends Phaser.Scene {
       return false;
     }
 
-    this.invincibleUntil = this.time.now + 900;
     const finalAmount = Math.max(0, Math.round((Number(amount) || 0) * this.getOverdriveModDamageTakenMultiplier()));
+    const damageSource = String(meta?.source || "playerDamage");
+    if (this.shouldNegatePlayerDamageByAcEvade(damageSource, finalAmount, meta)) {
+      return false;
+    }
+
+    this.invincibleUntil = this.time.now + 900;
     const barrierResult = this.applyRobotBarrierToIncomingDamage(finalAmount);
     const guildReductionResult = this.applyFinalRaidGuildDamageReduction?.(barrierResult.hpDamage || 0, {
-      source: "playerDamage",
+      source: damageSource,
       incomingDamage: finalAmount,
       robotBarrierAbsorbed: barrierResult.absorbed || 0
     }) || { remainingDamage: barrierResult.hpDamage || 0, reducedDamage: 0, reductionRatio: 0 };
     const rescueShieldResult = this.consumeFinalRaidRescueShield?.(guildReductionResult.remainingDamage || 0, {
-      source: "playerDamage",
+      source: damageSource,
       incomingDamage: finalAmount,
       robotBarrierAbsorbed: barrierResult.absorbed || 0,
       guildReducedDamage: guildReductionResult.reducedDamage || 0
     }) || { remainingDamage: guildReductionResult.remainingDamage || 0, absorbedDamage: 0 };
     const legendGuardResult = this.consumeFinalRaidLegendGuard?.(rescueShieldResult.remainingDamage || 0, {
-      source: "playerDamage",
+      source: damageSource,
       incomingDamage: finalAmount,
       robotBarrierAbsorbed: barrierResult.absorbed || 0,
       guildReducedDamage: guildReductionResult.reducedDamage || 0,
@@ -53537,7 +62761,10 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    const tookDamage = this.applyDamageToPlayer(this.getEnemyOutgoingDamage(enemy, enemy.contactDamage));
+    const tookDamage = this.applyDamageToPlayer(
+      this.getEnemyOutgoingDamage(enemy, enemy.contactDamage),
+      { source: "enemyContact" }
+    );
     if (!tookDamage) {
       return;
     }
@@ -53551,7 +62778,7 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    this.applyDamageToPlayer(projectile.damage || 8);
+    this.applyDamageToPlayer(projectile.damage || 8, { source: "enemyProjectile" });
     projectile.destroy();
   }
 
@@ -59284,7 +68511,8 @@ class SurvivalScene extends Phaser.Scene {
       openingBoost: isStartingDraft,
       allowEquipmentOverlimit: !isStartingDraft
     });
-    const passiveChoices = Phaser.Utils.Array.Shuffle(this.getPassiveUpgradeChoices());
+    let passiveChoices = Phaser.Utils.Array.Shuffle(this.getPassiveUpgradeChoices());
+    passiveChoices = this.prioritizeEvasiveFirmwareChoice(passiveChoices);
     const skillChoiceLimit = Math.min(passiveChoices.length > 0 ? Math.min(2, choiceLimit - 1) : choiceLimit, skillChoices.length);
     const upgrades = [...skillChoices.slice(0, skillChoiceLimit), ...passiveChoices].slice(0, choiceLimit);
 
@@ -59374,7 +68602,56 @@ class SurvivalScene extends Phaser.Scene {
       });
     }
 
+    const evasiveFirmwareChoice = this.createEvasiveFirmwarePassiveChoice();
+    if (evasiveFirmwareChoice) {
+      choices.push(evasiveFirmwareChoice);
+    }
+
     return choices.map((choice) => this.buildPassiveUpgradeChoice(choice)).filter(Boolean);
+  }
+
+  createEvasiveFirmwarePassiveChoice() {
+    if (!this.isEvasiveFirmwareCandidateAllowed()) {
+      return null;
+    }
+
+    const tuning = this.getActiveAcMovementTuning();
+    const maxLevel = this.getEvasiveFirmwareMaxLevel(tuning);
+    const currentLevel = this.getEvasiveFirmwareLevel(tuning);
+    if (currentLevel >= maxLevel) {
+      return null;
+    }
+
+    const nextLevel = Math.min(maxLevel, currentLevel + 1);
+    const currentBreakdown = this.getAcEvadeWindowDurationBreakdown(currentLevel, tuning, { preview: true });
+    const nextBreakdown = this.getAcEvadeWindowDurationBreakdown(nextLevel, tuning, { preview: true });
+    const deltaMs = Math.max(0, nextBreakdown.durationMs - currentBreakdown.durationMs);
+
+    return {
+      id: EVASIVE_FIRMWARE_PASSIVE_ID,
+      type: "passive",
+      title: "EVASIVE FIRMWARE",
+      description: `Quick Boost Evade Window ${Math.round(currentBreakdown.durationMs)}ms -> ${Math.round(nextBreakdown.durationMs)}ms`,
+      cardDescription: `ブースト開始時の瞬間回避時間 ${Math.round(currentBreakdown.durationMs)}ms -> ${Math.round(nextBreakdown.durationMs)}ms`,
+      chipLabel: `EVADE +${Math.round(deltaMs)}ms`,
+      maxLevel,
+      onSelect: () => {}
+    };
+  }
+
+  prioritizeEvasiveFirmwareChoice(passiveChoices) {
+    if (!this.isAcEvasionPassiveForceCandidateDebugEnabled() || !this.isEvasiveFirmwareCandidateAllowed()) {
+      return passiveChoices;
+    }
+
+    const choices = Array.isArray(passiveChoices) ? [...passiveChoices] : [];
+    const index = choices.findIndex((choice) => choice?.id === EVASIVE_FIRMWARE_PASSIVE_ID);
+    if (index <= 0) {
+      return choices;
+    }
+
+    const [evasiveFirmwareChoice] = choices.splice(index, 1);
+    return [evasiveFirmwareChoice, ...choices];
   }
 
   getAvailableSkillChoices(options = {}) {
@@ -59681,9 +68958,9 @@ class SurvivalScene extends Phaser.Scene {
       typeTextColor: typeMeta.textColor,
       title: meta.displayName || option.title,
       stageLabel: "Rank +1",
-      description: meta.description || option.description,
+      description: option.cardDescription || meta.description || option.description,
       stageProgress: "",
-      chips: [{ label: meta.chipLabel || option.description || "Rank +1", priority: 100 }],
+      chips: [{ label: option.chipLabel || meta.chipLabel || option.description || "Rank +1", priority: 100 }],
       newEffects: [],
       themeColor: meta.themeColor,
       glowColor: meta.themeColor,
