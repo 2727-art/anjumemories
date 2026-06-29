@@ -249,10 +249,83 @@ const DASH_STAMINA_REGEN_PER_SECOND = 24;
 const DASH_STAMINA_REGEN_DELAY_MS = 320;
 const DASH_MIN_START_STAMINA = 8;
 const DASH_HUD_CONFIG = {
-  x: 684,
-  y: 642,
-  radius: 45
+  x: 44,
+  y: 126,
+  width: 18,
+  height: 382,
+  radius: 45,
+  compact: { x: 44, y: 126, width: 18, height: 382 },
+  detail: { x: 44, y: 126, width: 18, height: 382 }
 };
+const STANDARD_HUD_MODES = Object.freeze({
+  COMPACT: "compact",
+  DETAIL: "detail"
+});
+const COMPACT_HUD_LAYOUT = Object.freeze({
+  graphicsDepth: 203,
+  textDepth: 204,
+  ap: { x: 142, y: 18, barX: 144, barY: 82, barWidth: 212, barHeight: 8, labelY: 64 },
+  xp: { x: 144, y: 106, width: 190, height: 4, labelY: 94 },
+  timer: { x: GAME_WIDTH / 2, y: 14 },
+  gate: { x: GAME_WIDTH / 2, y: 58 },
+  right: { x: GAME_WIDTH - 28, y: 18, width: 248 },
+  boost: { labelOffsetY: -26, valueOffsetY: 394 },
+  objective: { x: GAME_WIDTH / 2, y: 96, width: 520 },
+  chips: { x: 324, y: GAME_HEIGHT - 42, width: 112, height: 22, gap: 8 },
+  toggle: { x: GAME_WIDTH - 128, y: GAME_HEIGHT - 44, width: 112, height: 30 }
+});
+const COMPACT_RADAR_CONFIG = Object.freeze({
+  label: "TACTICAL RADAR",
+  panel: { x: 74, y: GAME_HEIGHT - 212, width: 176, height: 178 },
+  centerOffset: { x: 88, y: 96 },
+  radius: 68,
+  range: 1250,
+  enemyDensityRange: 1350,
+  closeEnemyRange: 560,
+  maxEnemyBlips: 16,
+  sectors: 16,
+  sectorFullCount: 9,
+  outerClampInset: 7,
+  sweepMs: 3400,
+  playerSize: 8
+});
+const DETAIL_HUD_LAYOUT = Object.freeze({
+  graphicsDepth: 206,
+  textDepth: 207,
+  panels: {
+    run: { x: GAME_WIDTH - 332, y: 88, width: 304, height: 86, title: "RUN SYSTEMS" },
+    robot: { x: GAME_WIDTH - 332, y: 184, width: 304, height: 94, title: "ROBOT SYSTEMS" },
+    loot: { x: GAME_WIDTH - 332, y: 288, width: 304, height: 90, title: "LOOT / REWARD" },
+    build: { x: 322, y: GAME_HEIGHT - 98, width: 590, height: 52, title: "BUILD DIAGNOSTICS" }
+  },
+  textInsetX: 12,
+  titleY: 7,
+  bodyY: 23,
+  radarLegend: {
+    x: COMPACT_RADAR_CONFIG.panel.x + 14,
+    y: COMPACT_RADAR_CONFIG.panel.y + COMPACT_RADAR_CONFIG.panel.height - 22
+  }
+});
+const OBJECTIVE_MARKER_CONFIG = Object.freeze({
+  maxTargets: 3,
+  graphicsDepth: 742,
+  textDepth: 744,
+  labelMs: 1800,
+  scanMs: 1500,
+  urgentMs: 10000,
+  closeDistance: 80,
+  overlapOffset: 32,
+  safeArea: { left: 92, top: 64, right: GAME_WIDTH - 40, bottom: GAME_HEIGHT - 92 },
+  palette: {
+    gate: { primary: 0x65e6ff, secondary: 0xb8fbff, text: "#b8fbff" },
+    gateSignal: { primary: 0xf0c463, secondary: 0x65e6ff, text: "#f3d58f" },
+    gateUrgent: { primary: 0xff6f5e, secondary: 0xffc857, text: "#ffd4ba" },
+    gateUnstable: { primary: 0xff4fb8, secondary: 0x8f54ff, text: "#ffb3e6" },
+    boss: { primary: 0xff7a55, secondary: 0xffc857, text: "#ffd0b8" },
+    nemesis: { primary: 0xc06bff, secondary: 0xff8cff, text: "#f0c8ff" },
+    voidHunter: { primary: 0x9f6bff, secondary: 0xff4fb8, text: "#ead8ff" }
+  }
+});
 const AC_MOVEMENT_DEBUG_QUERY_PARAM = "debugAcMovement";
 const AC_MOVEMENT_RC_QUERY_PARAM = "acMovementRc";
 const AC_MOVEMENT_LEGACY_QUERY_PARAM = "legacyMovement";
@@ -1021,6 +1094,9 @@ const MOBILE_DASH_BUTTON_X = GAME_WIDTH - 126;
 const MOBILE_DASH_BUTTON_Y = 350;
 const MOBILE_DASH_BUTTON_RADIUS = 58;
 const MOBILE_FINAL_RAID_DASH_BUTTON_Y = GAME_HEIGHT - MOBILE_DASH_BUTTON_RADIUS - 34;
+const MOBILE_DASH_FLOAT_MIN_X = GAME_WIDTH * 0.6;
+const MOBILE_DASH_FLOAT_MIN_Y = 126;
+const MOBILE_DASH_FLOAT_TOGGLE_GAP = 24;
 const SHOP_LOADING_MIN_VISIBLE_MS = 650;
 const SHOP_LOADING_GEEK_STEP_MS = 110;
 const SHOP_LOADING_GEEK_COMPLETE_MS = 320;
@@ -4518,12 +4594,6 @@ const ROBOT_TUNING_UI_META = {
     iconTone: "CARE"
   }
 };
-const HUD_IMAGE_ASSETS = {
-  overlayFrame: {
-    textureKey: "hud-overlay-frame",
-    imagePath: "./画像/ui/hud/hud_overlay_frame.png"
-  }
-};
 const ITEM_IMAGE_ASSETS = {
   bronzeBox: {
     textureKey: "rare-box-bronze",
@@ -6181,9 +6251,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   preloadHudAssets() {
-    Object.values(HUD_IMAGE_ASSETS).forEach((asset) => {
-      this.loadImageIfNeeded(asset.textureKey, asset.imagePath);
-    });
+    // Standard combat HUD is drawn with Phaser primitives.
   }
 
   preloadItemAssets() {
@@ -7906,10 +7974,26 @@ class SurvivalScene extends Phaser.Scene {
     this.acMovementDebugBranchLogged = false;
     this.acMovementDebugStartStaminaApplied = false;
     this.acMovementDebugHud = null;
+    this.standardHudMode = STANDARD_HUD_MODES.COMPACT;
+    this.standardHudDetailObjects = [];
+    this.standardHudCompactObjects = [];
+    this.standardHudLegacyObjects = [];
+    this.standardHudSharedObjects = [];
+    this.standardHudModeToggleObjects = [];
+    this.standardHudDetailLayerVisible = false;
+    this.standardHudDetailVisibilityBeforeCompact = null;
+    this.standardHudDetailDefaultVisibility = null;
+    this.hudCompact = null;
+    this.hudDetailLayer = null;
+    this.hudDashGaugeObjects = [];
+    this.objectiveMarkerHud = null;
+    this.objectiveMarkerHudObjects = [];
+    this.objectiveMarkerState = { seenAtByKey: new Map(), nextTargetId: 1 };
     this.mobileControlsEnabled = this.shouldUseMobileControls();
     this.mobileControlPointerIds = { move: null, dash: null };
     this.mobileMoveVector = new Phaser.Math.Vector2(0, 0);
     this.mobileJoystickCenter = { x: MOBILE_JOYSTICK_DEFAULT_X, y: MOBILE_JOYSTICK_DEFAULT_Y };
+    this.mobileDashCenter = { x: MOBILE_DASH_BUTTON_X, y: MOBILE_DASH_BUTTON_Y };
     this.mobileDashHeld = false;
     this.mobileControlsContainer = null;
     this.mobileControlVisuals = null;
@@ -39529,6 +39613,7 @@ class SurvivalScene extends Phaser.Scene {
       d: Phaser.Input.Keyboard.KeyCodes.D,
       dash: Phaser.Input.Keyboard.KeyCodes.SHIFT,
       dashAlt: Phaser.Input.Keyboard.KeyCodes.SPACE,
+      hudToggle: Phaser.Input.Keyboard.KeyCodes.H,
       restart: Phaser.Input.Keyboard.KeyCodes.R,
       enter: Phaser.Input.Keyboard.KeyCodes.ENTER
     });
@@ -39674,10 +39759,37 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getMobileDashButtonPosition() {
+    if (this.isFinalBossRaidActive?.()) {
+      return this.getDefaultMobileDashButtonPosition();
+    }
+    return this.mobileDashCenter || this.getDefaultMobileDashButtonPosition();
+  }
+
+  getDefaultMobileDashButtonPosition() {
     return {
       x: MOBILE_DASH_BUTTON_X,
       y: this.isFinalBossRaidActive?.() ? MOBILE_FINAL_RAID_DASH_BUTTON_Y : MOBILE_DASH_BUTTON_Y
     };
+  }
+
+  clampMobileDashCenter(point) {
+    const layout = COMPACT_HUD_LAYOUT.toggle;
+    const maxYBeforeToggle = layout.y - MOBILE_DASH_BUTTON_RADIUS - MOBILE_DASH_FLOAT_TOGGLE_GAP;
+    return {
+      x: Phaser.Math.Clamp(point?.x ?? MOBILE_DASH_BUTTON_X, MOBILE_DASH_FLOAT_MIN_X, GAME_WIDTH - MOBILE_CONTROL_MIN_MARGIN),
+      y: Phaser.Math.Clamp(point?.y ?? MOBILE_DASH_BUTTON_Y, MOBILE_DASH_FLOAT_MIN_Y, Math.max(MOBILE_DASH_FLOAT_MIN_Y, maxYBeforeToggle))
+    };
+  }
+
+  setMobileDashCenter(point) {
+    this.mobileDashCenter = this.clampMobileDashCenter(point);
+    this.layoutMobileControlVisuals();
+  }
+
+  resetMobileDashCenter() {
+    const defaultPosition = this.getDefaultMobileDashButtonPosition();
+    this.mobileDashCenter = { x: defaultPosition.x, y: defaultPosition.y };
+    this.layoutMobileControlVisuals();
   }
 
   layoutMobileControlVisuals() {
@@ -39726,6 +39838,10 @@ class SurvivalScene extends Phaser.Scene {
   isMobileDashPoint(point) {
     if (!point) {
       return false;
+    }
+
+    if (!this.isFinalBossRaidActive?.() && point.x >= MOBILE_TOUCH_LEFT_BOUNDARY && !this.isPointInsideStandardHudToggle(point)) {
+      return true;
     }
 
     const dash = this.getMobileDashButtonPosition();
@@ -39792,6 +39908,7 @@ class SurvivalScene extends Phaser.Scene {
   releaseMobileControlPointers() {
     this.mobileControlPointerIds = { move: null, dash: null };
     this.mobileDashHeld = false;
+    this.resetMobileDashCenter();
     this.resetMobileJoystickVisuals();
     this.updateMobileDashVisual();
   }
@@ -39805,6 +39922,9 @@ class SurvivalScene extends Phaser.Scene {
     const pointerId = this.getMobilePointerId(pointer);
     if (this.isMobileDashPoint(point)) {
       this.mobileControlPointerIds.dash = pointerId;
+      if (!this.isFinalBossRaidActive?.()) {
+        this.setMobileDashCenter(point);
+      }
       this.mobileDashHeld = true;
       this.updateMobileDashVisual();
       this.preventMobilePointerDefault(pointer);
@@ -44952,17 +45072,8 @@ class SurvivalScene extends Phaser.Scene {
 
   createHud() {
     const hudObjectStartIndex = this.uiObjects?.length || 0;
-    this.hudUsesFrameAsset = this.textures.exists(HUD_IMAGE_ASSETS.overlayFrame.textureKey);
-    if (this.hudUsesFrameAsset) {
-      this.hudFrameOverlay = this.registerUiObject(
-        this.add
-          .image(0, 0, HUD_IMAGE_ASSETS.overlayFrame.textureKey)
-          .setOrigin(0, 0)
-          .setDisplaySize(GAME_WIDTH, GAME_HEIGHT)
-          .setScrollFactor(0)
-          .setDepth(200)
-      );
-    }
+    this.hudUsesFrameAsset = false;
+    this.hudFrameOverlay = null;
 
     this.hudPanel = this.createHudPanel(12, 12, 316, 146);
 
@@ -45343,10 +45454,1250 @@ class SurvivalScene extends Phaser.Scene {
       );
     }
 
+    const legacyHudObjectEndIndex = this.uiObjects?.length || 0;
+    this.createCompactHud();
+    this.createStandardHudDetailLayer();
+    this.createStandardHudModeToggleButton();
+    this.createObjectiveMarkerHud();
+
+    const sharedObjects = [
+      ...(this.hudDashGaugeObjects || []),
+      this.minimapGraphics,
+      ...(this.objectiveMarkerHudObjects || []),
+      this.debugHudText,
+      this.stageCollisionEditorHudText,
+      this.stageCollisionEditorMessageText
+    ].filter(Boolean);
+    const sharedObjectSet = new Set(sharedObjects);
+    this.standardHudSharedObjects = sharedObjects;
+    this.standardHudLegacyObjects = ((this.uiObjects || []).slice(hudObjectStartIndex, legacyHudObjectEndIndex))
+      .filter((object) => !sharedObjectSet.has(object));
+    this.standardHudDetailDefaultVisibility = new Map(
+      this.standardHudDetailObjects.map((object) => [object, object?.visible !== false])
+    );
     this.standardHudObjects = (this.uiObjects || []).slice(hudObjectStartIndex);
     this.standardHudVisibilityBeforeFinalRaid = null;
     this.standardHudSuppressed = false;
+    this.applyStandardHudModeVisibility({ force: true });
     this.setFinalBossRaidStandardHudSuppressed(this.isFinalBossRaidActive?.() === true);
+  }
+
+  isStandardHudCompact() {
+    return this.standardHudMode !== STANDARD_HUD_MODES.DETAIL;
+  }
+
+  canToggleStandardHudMode() {
+    return Boolean(
+      !this.isFinalBossRaidActive?.() &&
+      !this.shopActive &&
+      !this.levelUpActive &&
+      !this.gateChoiceActive &&
+      !this.extractionComplete &&
+      !this.gameOver &&
+      !this.overlayContainer?.visible
+    );
+  }
+
+  updateStandardHudModeInput() {
+    if (!this.keys?.hudToggle || !Phaser.Input.Keyboard.JustDown(this.keys.hudToggle)) {
+      return;
+    }
+    if (!this.canToggleStandardHudMode()) {
+      return;
+    }
+    this.toggleStandardHudMode("keyboard");
+  }
+
+  toggleStandardHudMode(reason = "toggle") {
+    const nextMode = this.isStandardHudCompact()
+      ? STANDARD_HUD_MODES.DETAIL
+      : STANDARD_HUD_MODES.COMPACT;
+    this.setStandardHudMode(nextMode, reason);
+  }
+
+  setStandardHudMode(mode = STANDARD_HUD_MODES.COMPACT, reason = "set") {
+    const normalizedMode = mode === STANDARD_HUD_MODES.DETAIL
+      ? STANDARD_HUD_MODES.DETAIL
+      : STANDARD_HUD_MODES.COMPACT;
+    if (this.standardHudMode === normalizedMode && reason !== "force") {
+      this.updateStandardHudModeToggleVisual();
+      return;
+    }
+    this.standardHudMode = normalizedMode;
+    this.applyStandardHudModeVisibility({ force: true });
+    this.updateDashStaminaGauge();
+    this.updateCompactHud();
+    this.updateStandardHudDetailLayer();
+    this.updateMinimap(true);
+  }
+
+  setHudObjectListVisible(objects, visible) {
+    objects?.forEach((object) => {
+      object?.setVisible?.(visible);
+    });
+  }
+
+  applyStandardHudModeVisibility() {
+    if (this.standardHudSuppressed || this.isFinalBossRaidActive?.()) {
+      return;
+    }
+
+    this.setHudObjectListVisible(this.standardHudLegacyObjects, false);
+    this.setHudObjectListVisible(this.standardHudCompactObjects, true);
+    this.setHudObjectListVisible(this.standardHudSharedObjects, true);
+    this.setHudObjectListVisible(this.standardHudModeToggleObjects, true);
+    this.updateStandardHudDetailLayer();
+    this.updateStandardHudModeToggleVisual();
+    this.updateObjectiveMarkerHud?.();
+  }
+
+  refreshStandardHudDetailConditionalVisibility() {
+    this.updateStandardHudDetailLayer?.();
+  }
+
+  createCompactHud() {
+    const compactObjectStartIndex = this.uiObjects?.length || 0;
+    const layout = COMPACT_HUD_LAYOUT;
+    const graphics = this.registerUiObject(
+      this.add.graphics().setScrollFactor(0).setDepth(layout.graphicsDepth)
+    );
+    const fontFamily = "Consolas, 'Courier New', monospace";
+    const apText = this.createHudText(layout.ap.x, layout.ap.y, "100", {
+      fontFamily,
+      fontSize: "48px",
+      color: "#72ff9a",
+      fontStyle: "bold",
+      depth: layout.textDepth
+    }).setOrigin(0, 0);
+    const apLabelText = this.createHudText(layout.ap.x + 4, layout.ap.labelY, "AP", {
+      fontFamily,
+      fontSize: "12px",
+      color: "#72ff9a",
+      fontStyle: "bold",
+      depth: layout.textDepth
+    });
+    const levelXpText = this.createHudText(layout.ap.x + 4, layout.xp.labelY, "LV 1 / XP 0%", {
+      fontFamily,
+      fontSize: "11px",
+      color: "#b8ffd2",
+      fontStyle: "bold",
+      depth: layout.textDepth
+    });
+    const timerText = this.createHudText(layout.timer.x, layout.timer.y, "00:00", {
+      fontFamily,
+      fontSize: "30px",
+      color: "#eafff1",
+      fontStyle: "bold",
+      align: "center",
+      depth: layout.textDepth
+    }).setOrigin(0.5, 0);
+    const depthText = this.createHudText(layout.timer.x - 116, layout.timer.y + 42, "DEPTH 1", {
+      fontFamily,
+      fontSize: "15px",
+      color: "#8dffb0",
+      fontStyle: "bold",
+      align: "right",
+      depth: layout.textDepth
+    }).setOrigin(1, 0);
+    const gateText = this.createHudText(layout.gate.x + 116, layout.gate.y, "GATE --:--", {
+      fontFamily,
+      fontSize: "15px",
+      color: "#9ab7cc",
+      fontStyle: "bold",
+      align: "left",
+      depth: layout.textDepth
+    });
+    const geekText = this.createHudText(layout.right.x, layout.right.y, "GEEK 0", {
+      fontFamily,
+      fontSize: "18px",
+      color: "#f0c463",
+      fontStyle: "bold",
+      align: "right",
+      depth: layout.textDepth
+    }).setOrigin(1, 0);
+    const killsText = this.createHudText(layout.right.x, layout.right.y + 28, "KILLS 0", {
+      fontFamily,
+      fontSize: "13px",
+      color: "#b8ffd2",
+      fontStyle: "bold",
+      align: "right",
+      depth: layout.textDepth
+    }).setOrigin(1, 0);
+    const objectiveText = this.createHudText(layout.objective.x, layout.objective.y, "", {
+      fontFamily,
+      fontSize: "13px",
+      color: "#b8ffd2",
+      fontStyle: "bold",
+      align: "center",
+      depth: layout.textDepth + 1,
+      wordWrap: { width: layout.objective.width }
+    }).setOrigin(0.5, 0).setVisible(false);
+    const skillChips = [];
+    for (let index = 0; index < 5; index += 1) {
+      const chipX = layout.chips.x + index * (layout.chips.width + layout.chips.gap);
+      const text = this.createHudText(chipX + layout.chips.width / 2, layout.chips.y + 4, "", {
+        fontFamily,
+        fontSize: "11px",
+        color: "#9ffcff",
+        fontStyle: "bold",
+        align: "center",
+        depth: layout.textDepth + 1
+      }).setOrigin(0.5, 0);
+      skillChips.push({ text, x: chipX, y: layout.chips.y });
+    }
+    const radarPanel = COMPACT_RADAR_CONFIG.panel;
+    const radarLabelText = this.createHudText(radarPanel.x + 12, radarPanel.y + 8, COMPACT_RADAR_CONFIG.label, {
+      fontFamily,
+      fontSize: "10px",
+      color: "#8ff5ff",
+      fontStyle: "bold",
+      depth: layout.textDepth
+    });
+
+    this.hudCompact = {
+      graphics,
+      apText,
+      apLabelText,
+      levelXpText,
+      timerText,
+      depthText,
+      gateText,
+      geekText,
+      killsText,
+      objectiveText,
+      skillChips,
+      radarLabelText
+    };
+    this.standardHudCompactObjects = (this.uiObjects || []).slice(compactObjectStartIndex);
+    this.updateCompactHud();
+  }
+
+  createStandardHudDetailLayer() {
+    const detailObjectStartIndex = this.uiObjects?.length || 0;
+    const layout = DETAIL_HUD_LAYOUT;
+    const panels = this.getStandardHudDetailPanelLayout();
+    const fontFamily = "Consolas, 'Courier New', monospace";
+    const graphics = this.registerUiObject(
+      this.add.graphics().setScrollFactor(0).setDepth(layout.graphicsDepth)
+    );
+    const createPanelBody = (panel, options = {}) => this.createHudText(
+      panel.x + layout.textInsetX,
+      panel.y + layout.bodyY,
+      "",
+      {
+        fontFamily,
+        fontSize: options.fontSize || "10px",
+        color: options.color || "#c8ffff",
+        fontStyle: "bold",
+        lineSpacing: options.lineSpacing ?? 2,
+        depth: layout.textDepth,
+        wordWrap: { width: panel.width - layout.textInsetX * 2 }
+      }
+    );
+    const createPanelTitle = (panel) => this.createHudText(
+      panel.x + layout.textInsetX,
+      panel.y + layout.titleY,
+      panel.title,
+      {
+        fontFamily,
+        fontSize: "10px",
+        color: "#8ff5ff",
+        fontStyle: "bold",
+        depth: layout.textDepth
+      }
+    );
+
+    Object.values(panels).forEach((panel) => createPanelTitle(panel));
+    const runText = createPanelBody(panels.run, { fontSize: "10px" });
+    const robotText = createPanelBody(panels.robot, { fontSize: "10px" });
+    const lootText = createPanelBody(panels.loot, { fontSize: "10px" });
+    const buildText = createPanelBody(panels.build, { fontSize: "10px", lineSpacing: 1 });
+    const radarLegendText = this.createHudText(layout.radarLegend.x, layout.radarLegend.y, "", {
+      fontFamily,
+      fontSize: "9px",
+      color: "#9ffcff",
+      fontStyle: "bold",
+      depth: layout.textDepth
+    });
+
+    this.hudDetailLayer = {
+      graphics,
+      panels,
+      runText,
+      robotText,
+      lootText,
+      buildText,
+      radarLegendText
+    };
+    this.standardHudDetailObjects = (this.uiObjects || []).slice(detailObjectStartIndex);
+    this.setHudObjectListVisible(this.standardHudDetailObjects, false);
+    this.updateStandardHudDetailLayer();
+  }
+
+  getStandardHudDetailPanelLayout() {
+    const base = DETAIL_HUD_LAYOUT.panels;
+    if (!this.mobileControlsEnabled) {
+      return base;
+    }
+    const rightPanel = {
+      x: GAME_WIDTH - 488,
+      width: 284
+    };
+    return {
+      run: { ...base.run, ...rightPanel },
+      robot: { ...base.robot, ...rightPanel },
+      loot: { ...base.loot, ...rightPanel },
+      build: { ...base.build }
+    };
+  }
+
+  drawHudMicroPanel(graphics, panel, accent = 0x65e6ff) {
+    const corner = 18;
+    graphics.fillStyle(0x02070a, 0.48);
+    graphics.fillRect(panel.x, panel.y, panel.width, panel.height);
+    graphics.lineStyle(1, accent, 0.28);
+    graphics.strokeRect(panel.x + 0.5, panel.y + 0.5, panel.width - 1, panel.height - 1);
+    graphics.lineStyle(1, accent, 0.58);
+    [
+      [panel.x, panel.y, 1, 1],
+      [panel.x + panel.width, panel.y, -1, 1],
+      [panel.x, panel.y + panel.height, 1, -1],
+      [panel.x + panel.width, panel.y + panel.height, -1, -1]
+    ].forEach(([x, y, sx, sy]) => {
+      graphics.beginPath();
+      graphics.moveTo(x, y + sy * corner);
+      graphics.lineTo(x, y);
+      graphics.lineTo(x + sx * corner, y);
+      graphics.strokePath();
+    });
+    graphics.lineStyle(1, 0xffffff, 0.08);
+    graphics.lineBetween(panel.x + 10, panel.y + 19, panel.x + panel.width - 10, panel.y + 19);
+  }
+
+  isStandardHudDetailLayerSuppressed() {
+    return Boolean(
+      this.standardHudSuppressed ||
+      this.isFinalBossRaidActive?.() ||
+      this.shopActive ||
+      this.gameOver ||
+      this.extractionComplete ||
+      this.gateChoiceActive ||
+      this.levelUpActive ||
+      !this.playerHitbox?.active
+    );
+  }
+
+  setStandardHudDetailLayerVisible(visible) {
+    const normalizedVisible = Boolean(visible);
+    this.standardHudDetailLayerVisible = normalizedVisible;
+    this.setHudObjectListVisible(this.standardHudDetailObjects, normalizedVisible);
+    if (!normalizedVisible) {
+      this.hudDetailLayer?.graphics?.clear?.();
+    }
+  }
+
+  getDetailSkillDiagnosticLine(skillId, label) {
+    const state = this.playerSkills?.[skillId];
+    if (!state) {
+      return `${label} --`;
+    }
+    const stage = Math.max(0, Math.floor(Number(state.currentStage?.stage) || 0));
+    const mutationLine = this.getSkillMutationHudLine?.(skillId) || "";
+    const overlimit = this.getRunEquipmentSkillOverlimitHudPresentation?.(skillId);
+    const tags = [];
+    if (mutationLine) {
+      tags.push(mutationLine.replace(/\s+/g, " "));
+    } else if (stage >= (state.definition?.stages?.length || 8)) {
+      tags.push("FINAL");
+    }
+    if (overlimit?.label) {
+      tags.push(overlimit.label);
+    }
+    return `${label} S${stage}${tags.length ? ` ${tags.join(" ")}` : ""}`;
+  }
+
+  getDetailLostArmDiagnosticLine(armId) {
+    const definition = this.getLostArmDefinition?.(armId);
+    const label = definition?.hudLabel || (armId === "abyssRail" ? "ABYSS" : "GRAV");
+    const level = Math.max(0, Math.floor(Number(this.getLostArmRuntimeLevel?.(armId)) || 0));
+    const entry = this.getLostArmsResonanceEntry?.(armId);
+    const tags = [];
+    if (this.isLostArmPending?.(armId)) {
+      tags.push("UNSEC");
+    }
+    if (entry?.evolutionId) {
+      tags.push("EVO");
+    } else if ((entry?.points || 0) > 0) {
+      tags.push(`RES ${entry.points}/${LOST_ARMS_RESONANCE_CONFIG.pointsRequired}`);
+    } else if (this.isLostArmsResonanceUnlocked?.()) {
+      tags.push("RES 0");
+    }
+    return `${label} L${level}${tags.length ? ` ${tags.join(" ")}` : ""}`;
+  }
+
+  getDetailBuildDiagnosticsLines() {
+    return [
+      [
+        this.getDetailSkillDiagnosticLine("basicSkill", "ORB"),
+        this.getDetailSkillDiagnosticLine("tornadoSkill", "TND")
+      ].join("   "),
+      [
+        this.getDetailSkillDiagnosticLine("rabbitThunderSkill", "RBT"),
+        this.getDetailLostArmDiagnosticLine("abyssRail"),
+        this.getDetailLostArmDiagnosticLine("gravitySeed")
+      ].join("   ")
+    ];
+  }
+
+  getDetailRobotSystemsLines() {
+    const missileInfo = this.getRobotSubsystemXpInfo?.("missile");
+    const fieldInfo = this.getRobotSubsystemXpInfo?.("field");
+    const syncActive = this.isRobotSyncActive?.() === true;
+    const syncRatio = syncActive ? this.getRobotSyncActiveRatio?.() : this.getRobotSyncGaugeRatio?.();
+    const syncText = syncActive
+      ? `SYNC ${Math.ceil((this.robotState?.syncActiveMs || 0) / 1000)}s`
+      : `SYNC ${Math.floor((Number(syncRatio) || 0) * 100)}%`;
+    const shieldText = this.getRobotBarrierHudText?.() || "SH --";
+    const napalmText = this.isRobotNapalmUnlocked?.() ? `NPLM L${this.getRobotEffectiveNapalmLevel?.() || this.robotState?.missileLevel || 1}` : "NPLM --";
+    const cleanerLevel = Math.max(0, Math.floor(Number(this.getCleaningRobotLevel?.()) || 0));
+    return [
+      `MSL Lv.${missileInfo?.level || 1}/${missileInfo?.cap || ROBOT_MAX_LEVEL} ${missileInfo?.isMaxed ? "MAX" : `${missileInfo?.xp || 0}/${missileInfo?.required || 1}`}  TUNE FR${this.robotState?.fireRateLevel || 0} DM${this.robotState?.damageLevel || 0}`,
+      `FLD Lv.${fieldInfo?.level || 1}/${fieldInfo?.cap || ROBOT_MAX_LEVEL} ${fieldInfo?.isMaxed ? "MAX" : `${fieldInfo?.xp || 0}/${fieldInfo?.required || 1}`}  TUNE CY${this.robotState?.healIntervalLevel || 0} RC${this.robotState?.healAmountLevel || 0}`,
+      `${syncText}  ${shieldText}  ${napalmText}  CLEAN ${cleanerLevel || "--"}`
+    ];
+  }
+
+  getDetailRunSystemsLines() {
+    const contract = this.getActiveAnomalyContract?.();
+    const directive = this.getActiveDepthDirective?.();
+    const depthLine = this.hudInstabilityText?.text || this.hudGateText?.text || "GATE --";
+    const contractLine = contract
+      ? `CONTRACT ${this.getAnomalyContractHudTitle?.(contract) || contract.id || "--"} / ${this.getAnomalyContractPrimarySummary?.(contract) || ""}`.trim()
+      : "CONTRACT --";
+    const directiveLine = directive
+      ? `DIR ${this.getDepthDirectiveHudTitle?.(directive) || "--"} ${this.getDepthDirectiveProgressText?.(directive) || ""}`.trim()
+      : (this.depthDirectiveState?.pendingSelection ? `DIR READY D${this.depthDirectiveState.pendingDepth || this.stageDepth}` : "DIR --");
+    return [
+      this.hudOverflowText?.text || "OD 0%   ST 0% x0",
+      `${depthLine}  ${this.hudCoinMultiplierText?.text || "GEEK x1.00"}`,
+      contractLine,
+      directiveLine
+    ];
+  }
+
+  getDetailLootRewardLines() {
+    const heal = this.countActiveSpecialItems?.("heal") || 0;
+    const magnet = this.countActiveSpecialItems?.("magnet") || 0;
+    const support = this.countActiveSpecialItems?.("bomb") || 0;
+    const equipmentText = (this.hudEquipmentText?.text || "SEALED EQ --").replace(/\n+/g, " / ");
+    const dataCache = Math.max(0, Math.floor(Number(this.runStats?.dataCacheCount) || 0));
+    const record = (this.hudResourceText?.text || "").split("\n").filter(Boolean)[0] || "RECORD --";
+    const resonanceReady = (this.lostArmsResonanceState?.pendingEvolutionQueue || []).length;
+    return [
+      `FIELD HEAL ${heal} / MAG ${magnet} / SUP ${support}`,
+      `${equipmentText} / DATA CACHE ${dataCache}`,
+      `LOST ARMS ECHO ${resonanceReady > 0 ? `READY x${resonanceReady}` : "--"}`,
+      record
+    ];
+  }
+
+  updateStandardHudDetailLayer() {
+    const layer = this.hudDetailLayer;
+    if (!layer) {
+      return;
+    }
+    const visible = !this.isStandardHudCompact() && !this.isStandardHudDetailLayerSuppressed();
+    this.setStandardHudDetailLayerVisible(visible);
+    if (!visible) {
+      return;
+    }
+
+    const panels = layer.panels || this.getStandardHudDetailPanelLayout();
+    const graphics = layer.graphics;
+    graphics.clear();
+    this.drawHudMicroPanel(graphics, panels.run, 0x65e6ff);
+    this.drawHudMicroPanel(graphics, panels.robot, 0x9ffcff);
+    this.drawHudMicroPanel(graphics, panels.loot, 0xf0c463);
+    this.drawHudMicroPanel(graphics, panels.build, 0x64ff92);
+    layer.runText.setText(this.getDetailRunSystemsLines().join("\n"));
+    layer.robotText.setText(this.getDetailRobotSystemsLines().join("\n"));
+    layer.lootText.setText(this.getDetailLootRewardLines().join("\n"));
+    layer.buildText.setText(this.getDetailBuildDiagnosticsLines().join("\n"));
+    layer.radarLegendText.setText("GATE <>  BOSS []  THREAT ARC");
+  }
+
+  createStandardHudModeToggleButton() {
+    const toggleObjectStartIndex = this.uiObjects?.length || 0;
+    const layout = COMPACT_HUD_LAYOUT.toggle;
+    const graphics = this.registerUiObject(
+      this.add.graphics().setScrollFactor(0).setDepth(754)
+    );
+    const label = this.createHudText(layout.x + layout.width / 2, layout.y + 8, "", {
+      fontFamily: "Consolas, 'Courier New', monospace",
+      fontSize: "11px",
+      color: "#b8ffd2",
+      fontStyle: "bold",
+      align: "center",
+      depth: 756
+    }).setOrigin(0.5, 0);
+    const hitZone = this.registerUiObject(
+      this.add
+        .zone(layout.x, layout.y, layout.width, layout.height)
+        .setOrigin(0, 0)
+        .setScrollFactor(0)
+        .setDepth(757)
+        .setInteractive({ useHandCursor: true })
+    );
+    hitZone.on("pointerup", (pointer, localX, localY, event) => {
+      event?.stopPropagation?.();
+      if (!this.canToggleStandardHudMode()) {
+        return;
+      }
+      this.toggleStandardHudMode("button");
+      this.preventMobilePointerDefault(pointer);
+    });
+    this.hudModeToggle = { graphics, label, hitZone };
+    this.standardHudModeToggleObjects = (this.uiObjects || []).slice(toggleObjectStartIndex);
+    this.updateStandardHudModeToggleVisual();
+  }
+
+  updateStandardHudModeToggleVisual() {
+    const toggle = this.hudModeToggle;
+    if (!toggle?.graphics || !toggle.label) {
+      return;
+    }
+    const layout = COMPACT_HUD_LAYOUT.toggle;
+    const compact = this.isStandardHudCompact();
+    const stroke = compact ? 0x64ff92 : 0x9ffcff;
+    toggle.graphics.clear();
+    toggle.graphics.fillStyle(0x02070a, 0.78);
+    toggle.graphics.fillRect(layout.x, layout.y, layout.width, layout.height);
+    toggle.graphics.lineStyle(1, stroke, 0.64);
+    toggle.graphics.strokeRect(layout.x + 0.5, layout.y + 0.5, layout.width - 1, layout.height - 1);
+    toggle.graphics.lineStyle(1, 0xffffff, 0.18);
+    toggle.graphics.beginPath();
+    toggle.graphics.moveTo(layout.x + 8, layout.y + layout.height - 5);
+    toggle.graphics.lineTo(layout.x + layout.width - 8, layout.y + layout.height - 5);
+    toggle.graphics.strokePath();
+    toggle.label
+      .setText(compact ? "DETAIL HUD" : "MIN HUD")
+      .setColor(compact ? "#b8ffd2" : "#c8ffff");
+  }
+
+  isPointInsideStandardHudToggle(point) {
+    if (!point) {
+      return false;
+    }
+    const layout = COMPACT_HUD_LAYOUT.toggle;
+    return point.x >= layout.x &&
+      point.x <= layout.x + layout.width &&
+      point.y >= layout.y &&
+      point.y <= layout.y + layout.height;
+  }
+
+  getDashHudLayout() {
+    const modeKey = this.isStandardHudCompact() ? "compact" : "detail";
+    const base = DASH_HUD_CONFIG[modeKey] || DASH_HUD_CONFIG.compact;
+    return {
+      ...base,
+      labelX: base.x + base.width / 2,
+      labelY: base.y + COMPACT_HUD_LAYOUT.boost.labelOffsetY,
+      valueX: base.x + base.width / 2,
+      valueY: base.y + base.height + 12
+    };
+  }
+
+  getDashEnergyPresentation(ratio = 1) {
+    const state = this.getAcEnergyWarningState?.() || AC_ENERGY_WARNING_STATE.NORMAL;
+    if (state === AC_ENERGY_WARNING_STATE.FULL_OVERHEAT || this.dashLockedUntilRelease) {
+      return { label: "OVERHEAT", fill: 0xff5e24, text: "#ffb391", alpha: 0.96 };
+    }
+    if (this.isDashing || this.mobileDashHeld) {
+      return { label: "DASH", fill: 0xa8f8ff, text: "#e9ffff", alpha: 1 };
+    }
+    if (ratio <= 0.18 || state === AC_ENERGY_WARNING_STATE.CRITICAL || state === AC_ENERGY_WARNING_STATE.WARNING) {
+      return { label: "LOW EN", fill: 0xff7468, text: "#ffb3a8", alpha: 0.96 };
+    }
+    if (ratio <= 0.38 || state === AC_ENERGY_WARNING_STATE.CAUTION) {
+      return { label: "BOOST EN", fill: 0xf0c463, text: "#ffe4a0", alpha: 0.92 };
+    }
+    return { label: "BOOST EN", fill: 0x64ff92, text: "#b8ffd2", alpha: 0.9 };
+  }
+
+  getCompactHudSkillChipModels() {
+    const skillLabels = {
+      basicSkill: "ORB",
+      tornadoSkill: "TND",
+      rabbitThunderSkill: "RBT"
+    };
+    const skillModels = Object.keys(skillLabels).map((skillId) => {
+      const state = this.playerSkills?.[skillId];
+      const stage = Math.max(0, Math.floor(Number(state?.currentStage?.stage) || 0));
+      const mutationLine = state ? this.getSkillMutationHudLine(skillId) : "";
+      return {
+        text: state ? `${skillLabels[skillId]} S${stage}${mutationLine ? "*" : ""}` : `${skillLabels[skillId]} --`,
+        color: state ? (mutationLine ? "#ffd98e" : "#9ffcff") : "#6f8b96",
+        stroke: state ? 0x65e6ff : 0x42606a,
+        alpha: state ? 0.78 : 0.42
+      };
+    });
+    const armModels = LOST_ARMS_IDS.map((armId) => {
+      const definition = this.getLostArmDefinition(armId);
+      const runtimeLevel = Math.max(0, Math.floor(Number(this.getLostArmRuntimeLevel(armId)) || 0));
+      const pending = this.isLostArmPending(armId);
+      const label = definition?.hudLabel || (armId === "abyssRail" ? "ABYSS" : "GRAV");
+      const active = runtimeLevel > 0;
+      return {
+        text: active ? `${label} L${runtimeLevel}${pending ? "*" : ""}` : `${label} --`,
+        color: active ? (pending ? "#ffd98e" : "#c8ffff") : "#6f8b96",
+        stroke: active ? (definition?.tint || 0x9ffcff) : 0x42606a,
+        alpha: active ? 0.82 : 0.42
+      };
+    });
+    return [...skillModels, ...armModels].slice(0, 5);
+  }
+
+  getCompactHudObjectiveText(context = {}) {
+    const lines = [];
+    const pickupText = context.pickupText || "";
+    if (pickupText) {
+      lines.push(pickupText.replace(/^ITEM\s+/, ""));
+    }
+    const nemesis = this.getActiveNemesisBoss?.();
+    if (nemesis) {
+      lines.push(`NEMESIS ${nemesis.nemesisDefinition?.title || ""}`.trim());
+    }
+    const activeBoss = context.activeBoss || this.getActiveWaveBoss();
+    if (activeBoss) {
+      const wave = context.wave || this.getCurrentWaveDefinition();
+      lines.push(`BOSS ACTIVE  FOES ${context.activeEnemies ?? this.getActiveEnemyCount()}/${wave.maxEnemies}`);
+    } else {
+      const bossEtaMs = Math.max(0, (this.nextBossSpawnAt || 0) - (this.survivalTime || 0));
+      if (bossEtaMs <= 10000) {
+        lines.push(`BOSS ETA ${this.formatTimeMs(bossEtaMs)}`);
+      }
+    }
+    if (this.gateState?.status && this.gateState.status !== "closed") {
+      lines.push(this.hudGateText?.text || "GATE ACTIVE");
+    }
+    const directive = this.getActiveDepthDirective?.();
+    if (directive) {
+      lines.push(`DIR ${this.getDepthDirectiveHudTitle(directive)} ${this.getDepthDirectiveProgressText(directive)}`);
+    } else if (this.depthDirectiveState?.pendingSelection) {
+      lines.push(`DIRECTIVE READY D${this.depthDirectiveState.pendingDepth || this.stageDepth}`);
+    }
+    const contract = this.getActiveAnomalyContract?.();
+    if (contract) {
+      lines.push(`CONTRACT ${this.getAnomalyContractHudTitle(contract)}`);
+    }
+    return lines.filter(Boolean).slice(0, 2).join(" / ");
+  }
+
+  drawCompactHudGraphics(context = {}) {
+    const hud = this.hudCompact;
+    if (!hud?.graphics) {
+      return;
+    }
+    const graphics = hud.graphics;
+    graphics.clear();
+
+    const layout = COMPACT_HUD_LAYOUT;
+    const hpRatio = Phaser.Math.Clamp(Number(context.hpRatio) || 0, 0, 1);
+    const xpRatio = Phaser.Math.Clamp(Number(context.xpRatio) || 0, 0, 1);
+    const hpColor = hpRatio <= 0.25 ? 0xff7468 : 0x64ff92;
+
+    graphics.lineStyle(1, 0x64ff92, 0.28);
+    graphics.beginPath();
+    graphics.moveTo(layout.ap.barX, layout.ap.barY + layout.ap.barHeight + 5);
+    graphics.lineTo(layout.ap.barX + layout.ap.barWidth, layout.ap.barY + layout.ap.barHeight + 5);
+    graphics.strokePath();
+    graphics.fillStyle(0x03100a, 0.78);
+    graphics.fillRect(layout.ap.barX, layout.ap.barY, layout.ap.barWidth, layout.ap.barHeight);
+    graphics.fillStyle(hpColor, 0.94);
+    graphics.fillRect(layout.ap.barX, layout.ap.barY, Math.max(0, layout.ap.barWidth * hpRatio), layout.ap.barHeight);
+    graphics.fillStyle(0x061524, 0.76);
+    graphics.fillRect(layout.xp.x, layout.xp.y, layout.xp.width, layout.xp.height);
+    graphics.fillStyle(0x45a9ff, 0.86);
+    graphics.fillRect(layout.xp.x, layout.xp.y, Math.max(0, layout.xp.width * xpRatio), layout.xp.height);
+
+    graphics.lineStyle(1, 0x64ff92, 0.32);
+    graphics.beginPath();
+    graphics.moveTo(layout.timer.x - 118, layout.timer.y + 35);
+    graphics.lineTo(layout.timer.x - 28, layout.timer.y + 35);
+    graphics.moveTo(layout.timer.x + 28, layout.timer.y + 35);
+    graphics.lineTo(layout.timer.x + 118, layout.timer.y + 35);
+    graphics.strokePath();
+
+    graphics.lineStyle(1, 0x64ff92, 0.34);
+    graphics.beginPath();
+    graphics.moveTo(layout.right.x - layout.right.width, layout.right.y + 2);
+    graphics.lineTo(layout.right.x, layout.right.y + 2);
+    graphics.lineTo(layout.right.x, layout.right.y + 56);
+    graphics.strokePath();
+
+    if (context.objectiveVisible) {
+      graphics.fillStyle(0x02070a, 0.56);
+      graphics.fillRect(layout.objective.x - layout.objective.width / 2, layout.objective.y - 8, layout.objective.width, 36);
+      graphics.lineStyle(1, 0x64ff92, 0.42);
+      graphics.strokeRect(layout.objective.x - layout.objective.width / 2, layout.objective.y - 8, layout.objective.width, 36);
+    }
+
+    const chipModels = context.chipModels || [];
+    chipModels.forEach((model, index) => {
+      const chip = hud.skillChips[index];
+      if (!chip) {
+        return;
+      }
+      graphics.fillStyle(0x02070a, model.alpha ?? 0.64);
+      graphics.fillRect(chip.x, chip.y, layout.chips.width, layout.chips.height);
+      graphics.lineStyle(1, model.stroke || 0x65e6ff, model.alpha ?? 0.5);
+      graphics.strokeRect(chip.x + 0.5, chip.y + 0.5, layout.chips.width - 1, layout.chips.height - 1);
+    });
+  }
+
+  updateCompactHud(context = {}) {
+    const hud = this.hudCompact;
+    if (!hud) {
+      return;
+    }
+    if (this.standardHudSuppressed || this.isFinalBossRaidActive?.()) {
+      hud.graphics?.clear?.();
+      hud.radarLabelText?.setVisible(false);
+      return;
+    }
+
+    const stats = this.stats || {};
+    const maxHp = Math.max(1, Math.floor(Number(stats.maxHp) || 1));
+    const hp = Phaser.Math.Clamp(Math.ceil(Number(stats.hp) || 0), 0, maxHp);
+    const hpRatio = Phaser.Math.Clamp(hp / maxHp, 0, 1);
+    const levelCapped = this.isPlayerLevelCapped?.() === true;
+    const nextLevelXp = Math.max(1, Math.floor(Number(stats.nextLevelXp) || 1));
+    const xpRatio = levelCapped ? 1 : Phaser.Math.Clamp((Number(stats.xp) || 0) / nextLevelXp, 0, 1);
+    const xpLabel = levelCapped ? "MAX / OD" : `XP ${Math.floor(xpRatio * 100)}%`;
+    const chipModels = this.getCompactHudSkillChipModels();
+    const objectiveText = this.getCompactHudObjectiveText(context);
+    const gateColor = this.hudGateText?.style?.color || "#9ab7cc";
+
+    hud.apText
+      .setText(String(hp).padStart(3, "0"))
+      .setColor(hpRatio <= 0.25 ? "#ffb3a8" : "#72ff9a");
+    hud.apLabelText.setText(`AP / ${maxHp}`);
+    hud.levelXpText.setText(`LV ${stats.level || 1} / ${xpLabel}`);
+    hud.timerText.setText(context.timeLabel || this.formatTimeMs(this.survivalTime || 0));
+    hud.depthText.setText(`DEPTH ${this.stageDepth || 1}`);
+    hud.gateText
+      .setText(this.hudGateText?.text || "GATE --:--")
+      .setColor(gateColor);
+    hud.geekText.setText(`GEEK ${this.normalizeCoinAmount(this.runUnsecuredCoins).toLocaleString()}`);
+    hud.killsText.setText(`KILLS ${Math.max(0, Math.floor(Number(this.runStats?.kills) || 0)).toLocaleString()}`);
+    hud.objectiveText
+      .setVisible(Boolean(objectiveText))
+      .setText(objectiveText);
+    hud.radarLabelText?.setVisible(!this.isCompactRadarSuppressed?.());
+    chipModels.forEach((model, index) => {
+      const chip = hud.skillChips[index];
+      chip?.text
+        ?.setText(model.text)
+        .setColor(model.color);
+    });
+    this.drawCompactHudGraphics({
+      hpRatio,
+      xpRatio,
+      chipModels,
+      objectiveVisible: Boolean(objectiveText)
+    });
+  }
+
+  createObjectiveMarkerHud() {
+    const config = OBJECTIVE_MARKER_CONFIG;
+    const graphics = this.registerUiObject(
+      this.add.graphics().setScrollFactor(0).setDepth(config.graphicsDepth)
+    );
+    const texts = [];
+    for (let index = 0; index < config.maxTargets; index += 1) {
+      const text = this.registerUiObject(
+        this.add
+          .text(0, 0, "", {
+            fontFamily: "Consolas, 'Courier New', monospace",
+            fontSize: "12px",
+            color: "#b8fbff",
+            fontStyle: "bold",
+            align: "center"
+          })
+          .setOrigin(0.5, 0.5)
+          .setScrollFactor(0)
+          .setDepth(config.textDepth)
+          .setVisible(false)
+      );
+      texts.push(text);
+    }
+
+    this.objectiveMarkerHud = { graphics, texts };
+    this.objectiveMarkerHudObjects = [graphics, ...texts];
+    this.updateObjectiveMarkerHud(true);
+  }
+
+  setObjectiveMarkerHudVisible(visible) {
+    const hud = this.objectiveMarkerHud;
+    if (!hud) {
+      return;
+    }
+    hud.graphics?.setVisible?.(visible);
+    if (!visible) {
+      hud.graphics?.clear?.();
+      hud.texts?.forEach((text) => text?.setVisible?.(false));
+    }
+  }
+
+  isObjectiveMarkerHudSuppressed() {
+    return Boolean(
+      this.isFinalBossRaidActive?.() ||
+      this.shopActive ||
+      this.gameOver ||
+      this.extractionComplete ||
+      this.gateChoiceActive ||
+      this.levelUpActive ||
+      !this.playerHitbox?.active
+    );
+  }
+
+  getObjectiveMarkerSafeArea() {
+    const base = OBJECTIVE_MARKER_CONFIG.safeArea;
+    return {
+      left: base.left,
+      top: base.top,
+      right: base.right,
+      bottom: Math.min(base.bottom, COMPACT_HUD_LAYOUT.chips.y - 50)
+    };
+  }
+
+  worldToObjectiveMarkerScreenPoint(point) {
+    const camera = this.worldCamera || this.cameras?.main;
+    if (!point || !camera) {
+      return null;
+    }
+    const zoom = Math.max(0.1, Number(camera.zoom) || WORLD_CAMERA_ZOOM);
+    const view = camera.worldView || {};
+    const viewLeft = Number.isFinite(view.left) ? view.left : (Number.isFinite(view.x) ? view.x : camera.scrollX || 0);
+    const viewTop = Number.isFinite(view.top) ? view.top : (Number.isFinite(view.y) ? view.y : camera.scrollY || 0);
+    return {
+      x: (point.x - viewLeft) * zoom,
+      y: (point.y - viewTop) * zoom,
+      zoom
+    };
+  }
+
+  isObjectiveMarkerScreenPointVisible(point) {
+    return Boolean(
+      point &&
+      point.x >= 0 &&
+      point.y >= 0 &&
+      point.x <= GAME_WIDTH &&
+      point.y <= GAME_HEIGHT
+    );
+  }
+
+  getObjectiveMarkerEdgePosition(screenPoint) {
+    const safe = this.getObjectiveMarkerSafeArea();
+    const center = { x: GAME_WIDTH / 2, y: GAME_HEIGHT / 2 };
+    let dx = (screenPoint?.x ?? center.x) - center.x;
+    let dy = (screenPoint?.y ?? center.y) - center.y;
+    if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) {
+      dy = -1;
+    }
+
+    const tx = dx > 0
+      ? (safe.right - center.x) / dx
+      : (dx < 0 ? (safe.left - center.x) / dx : Number.POSITIVE_INFINITY);
+    const ty = dy > 0
+      ? (safe.bottom - center.y) / dy
+      : (dy < 0 ? (safe.top - center.y) / dy : Number.POSITIVE_INFINITY);
+    const t = Math.max(0, Math.min(tx > 0 ? tx : Number.POSITIVE_INFINITY, ty > 0 ? ty : Number.POSITIVE_INFINITY));
+    const x = Phaser.Math.Clamp(center.x + dx * t, safe.left, safe.right);
+    const y = Phaser.Math.Clamp(center.y + dy * t, safe.top, safe.bottom);
+    const distances = {
+      left: Math.abs(x - safe.left),
+      right: Math.abs(x - safe.right),
+      top: Math.abs(y - safe.top),
+      bottom: Math.abs(y - safe.bottom)
+    };
+    const side = Object.entries(distances).sort((a, b) => a[1] - b[1])[0]?.[0] || "top";
+    return {
+      x,
+      y,
+      side,
+      angle: Math.atan2(dy, dx)
+    };
+  }
+
+  getObjectiveMarkerDistanceLabel(target) {
+    if (!this.playerHitbox?.active || !target?.world) {
+      return "";
+    }
+    const distance = Phaser.Math.Distance.Between(this.playerHitbox.x, this.playerHitbox.y, target.world.x, target.world.y);
+    if (distance < OBJECTIVE_MARKER_CONFIG.closeDistance) {
+      return "";
+    }
+    return `${Math.max(10, Math.round(distance / 10) * 10)}m`;
+  }
+
+  getObjectiveMarkerPalette(target) {
+    const palette = OBJECTIVE_MARKER_CONFIG.palette;
+    return palette[target?.paletteKey] || palette.boss;
+  }
+
+  getObjectiveMarkerKeyForEnemy(enemy, prefix) {
+    if (!enemy) {
+      return `${prefix}:missing`;
+    }
+    if (!enemy.objectiveMarkerKey) {
+      const state = this.objectiveMarkerState || (this.objectiveMarkerState = { seenAtByKey: new Map(), nextTargetId: 1 });
+      enemy.objectiveMarkerKey = `${prefix}:${state.nextTargetId || 1}`;
+      state.nextTargetId = (state.nextTargetId || 1) + 1;
+    }
+    return enemy.objectiveMarkerKey;
+  }
+
+  getGateObjectiveMarkerTarget() {
+    if (this.isFinalBossRaidActive?.()) {
+      return null;
+    }
+
+    const tension = this.getGateTensionState?.();
+    const gateStatus = this.gateState?.status || "closed";
+    if (this.stageGate?.container?.active && gateStatus !== "closed") {
+      const remainingMs = Math.max(0, this.getCurrentGateStableDurationMs() - (this.gateState?.activeElapsedMs || 0));
+      const unstable = gateStatus === "unstable";
+      const urgent = unstable || remainingMs <= OBJECTIVE_MARKER_CONFIG.urgentMs;
+      return {
+        key: `gate:${this.gateState?.protocolGateId || this.stageDepth || 1}`,
+        kind: "gate",
+        label: unstable ? "UNSTABLE GATE" : (urgent ? "GATE COLLAPSE" : "GATE ONLINE"),
+        shortLabel: "GATE",
+        priority: 1,
+        world: { x: this.stageGate.container.x, y: this.stageGate.container.y },
+        radius: 54,
+        urgent,
+        paletteKey: unstable ? "gateUnstable" : (urgent ? "gateUrgent" : "gate")
+      };
+    }
+
+    if (tension?.phase === "incoming") {
+      const center = this.getStageGateCenter?.();
+      if (!center) {
+        return null;
+      }
+      return {
+        key: `gateSignal:${this.stageDepth || 1}`,
+        kind: "gate",
+        label: "GATE SIGNAL",
+        shortLabel: "GATE",
+        priority: 5,
+        world: { x: center.x, y: center.y },
+        radius: 44,
+        urgent: tension.urgent === true,
+        subdued: true,
+        paletteKey: tension.urgent ? "gateUrgent" : "gateSignal"
+      };
+    }
+
+    return null;
+  }
+
+  buildBossObjectiveMarkerTarget(enemy, kind, label, priority) {
+    if (!enemy?.active || enemy.isDying) {
+      return null;
+    }
+    const paletteKey = kind === "voidHunter"
+      ? "voidHunter"
+      : (kind === "nemesis" ? "nemesis" : "boss");
+    const radius = Math.max(
+      30,
+      Math.min(96, Math.max(Number(enemy.displayWidth) || 0, Number(enemy.displayHeight) || 0) * 0.42 || Number(enemy.hitRadius) || 38)
+    );
+    return {
+      key: this.getObjectiveMarkerKeyForEnemy(enemy, kind),
+      kind,
+      label,
+      shortLabel: kind === "waveBoss" ? "BOSS" : label,
+      priority,
+      world: { x: enemy.x, y: enemy.y },
+      object: enemy,
+      radius,
+      urgent: false,
+      paletteKey
+    };
+  }
+
+  collectObjectiveMarkerTargets() {
+    if (this.isObjectiveMarkerHudSuppressed()) {
+      return [];
+    }
+
+    const targets = [];
+    const gateTarget = this.getGateObjectiveMarkerTarget();
+    if (gateTarget) {
+      targets.push(gateTarget);
+    }
+    targets.push(
+      this.buildBossObjectiveMarkerTarget(this.getActiveVoidHunterBoss?.(), "voidHunter", "VOID HUNTER", 2),
+      this.buildBossObjectiveMarkerTarget(this.getActiveNemesisBoss?.(), "nemesis", "NEMESIS", 3),
+      this.buildBossObjectiveMarkerTarget(this.getActiveWaveBoss?.(), "waveBoss", "BOSS", 4)
+    );
+
+    const activeTargets = targets
+      .filter(Boolean)
+      .sort((a, b) => a.priority - b.priority)
+      .slice(0, OBJECTIVE_MARKER_CONFIG.maxTargets);
+    this.prepareObjectiveMarkerTargetState(activeTargets);
+    return activeTargets;
+  }
+
+  prepareObjectiveMarkerTargetState(targets) {
+    const state = this.objectiveMarkerState || (this.objectiveMarkerState = { seenAtByKey: new Map(), nextTargetId: 1 });
+    if (!(state.seenAtByKey instanceof Map)) {
+      state.seenAtByKey = new Map();
+    }
+    const now = this.time?.now || 0;
+    const activeKeys = new Set();
+    targets.forEach((target) => {
+      activeKeys.add(target.key);
+      if (!state.seenAtByKey.has(target.key)) {
+        state.seenAtByKey.set(target.key, now);
+      }
+      target.seenAt = state.seenAtByKey.get(target.key) || now;
+      target.ageMs = Math.max(0, now - target.seenAt);
+      target.recent = target.ageMs <= OBJECTIVE_MARKER_CONFIG.labelMs;
+      target.scanActive = target.ageMs <= OBJECTIVE_MARKER_CONFIG.scanMs;
+      target.showLabel = target.recent || target.urgent === true;
+    });
+
+    Array.from(state.seenAtByKey.keys()).forEach((key) => {
+      if (!activeKeys.has(key)) {
+        state.seenAtByKey.delete(key);
+      }
+    });
+  }
+
+  buildObjectiveMarkerModels(targets) {
+    const safe = this.getObjectiveMarkerSafeArea();
+    return targets.map((target) => {
+      const screen = this.worldToObjectiveMarkerScreenPoint(target.world);
+      if (!screen) {
+        return null;
+      }
+      const onScreen = this.isObjectiveMarkerScreenPointVisible(screen);
+      const edgePosition = onScreen ? null : this.getObjectiveMarkerEdgePosition(screen);
+      const palette = this.getObjectiveMarkerPalette(target);
+      const distanceLabel = this.getObjectiveMarkerDistanceLabel(target);
+      const label = target.showLabel
+        ? `${target.label}${distanceLabel ? ` ${distanceLabel}` : ""}`
+        : (distanceLabel || target.shortLabel || target.label);
+      const pulse = (Math.sin((this.time?.now || 0) / (target.urgent ? 90 : 190)) + 1) * 0.5;
+      return {
+        target,
+        screen,
+        edge: !onScreen,
+        x: edgePosition?.x ?? Phaser.Math.Clamp(screen.x, safe.left, safe.right),
+        y: edgePosition?.y ?? Phaser.Math.Clamp(screen.y, safe.top, safe.bottom),
+        side: edgePosition?.side || "inside",
+        angle: edgePosition?.angle ?? Math.atan2(screen.y - GAME_HEIGHT / 2, screen.x - GAME_WIDTH / 2),
+        label,
+        palette,
+        pulse,
+        strong: target.urgent || target.recent,
+        scanActive: target.scanActive,
+        size: target.kind === "gate" ? 18 : (target.kind === "voidHunter" ? 18 : 15),
+        lockRadius: Math.max(24, Math.min(86, (target.radius || 42) * (screen.zoom || 1) * 0.72))
+      };
+    }).filter(Boolean);
+  }
+
+  resolveObjectiveMarkerOverlaps(models) {
+    const safe = this.getObjectiveMarkerSafeArea();
+    const offset = OBJECTIVE_MARKER_CONFIG.overlapOffset;
+    ["left", "right", "top", "bottom"].forEach((side) => {
+      const group = models.filter((model) => model.edge && model.side === side);
+      group.sort((a, b) => (side === "left" || side === "right" ? a.y - b.y : a.x - b.x));
+      group.forEach((model, index) => {
+        const delta = (index - (group.length - 1) / 2) * offset;
+        if (side === "left" || side === "right") {
+          model.y = Phaser.Math.Clamp(model.y + delta, safe.top, safe.bottom);
+        } else {
+          model.x = Phaser.Math.Clamp(model.x + delta, safe.left, safe.right);
+        }
+      });
+    });
+  }
+
+  updateObjectiveMarkerHud() {
+    const hud = this.objectiveMarkerHud;
+    if (!hud?.graphics) {
+      return;
+    }
+    if (this.isObjectiveMarkerHudSuppressed()) {
+      this.setObjectiveMarkerHudVisible(false);
+      return;
+    }
+
+    const targets = this.collectObjectiveMarkerTargets();
+    const models = this.buildObjectiveMarkerModels(targets);
+    this.resolveObjectiveMarkerOverlaps(models);
+    const graphics = hud.graphics;
+    graphics.setVisible(true);
+    graphics.clear();
+    hud.texts?.forEach((text) => text?.setVisible(false));
+
+    models.forEach((model, index) => {
+      if (model.scanActive) {
+        this.drawObjectiveMarkerScanLine(graphics, model);
+      }
+      if (model.edge) {
+        this.drawObjectiveEdgeMarker(graphics, model);
+        this.updateObjectiveMarkerText(hud.texts?.[index], model, true);
+      } else {
+        this.drawObjectiveLockBracket(graphics, model);
+        this.updateObjectiveMarkerText(hud.texts?.[index], model, model.target.showLabel || model.target.urgent);
+      }
+    });
+  }
+
+  updateObjectiveMarkerText(text, model, visible) {
+    if (!text) {
+      return;
+    }
+    if (!visible || !model.label) {
+      text.setVisible(false);
+      return;
+    }
+    const safe = this.getObjectiveMarkerSafeArea();
+    const textY = model.edge && model.y > GAME_HEIGHT - 160 ? model.y - 26 : model.y + 26;
+    text
+      .setText(model.label)
+      .setColor(model.palette.text)
+      .setPosition(
+        Phaser.Math.Clamp(model.x, safe.left + 52, safe.right - 52),
+        Phaser.Math.Clamp(textY, safe.top + 12, safe.bottom - 12)
+      )
+      .setVisible(true);
+  }
+
+  drawObjectiveMarkerScanLine(graphics, model) {
+    const elapsed = model.target.ageMs || 0;
+    const ratio = Phaser.Math.Clamp(1 - elapsed / OBJECTIVE_MARKER_CONFIG.scanMs, 0, 1);
+    if (ratio <= 0) {
+      return;
+    }
+    const centerX = GAME_WIDTH / 2;
+    const centerY = GAME_HEIGHT / 2;
+    const endX = model.edge ? model.x : model.screen.x;
+    const endY = model.edge ? model.y : model.screen.y;
+    graphics.lineStyle(model.strong ? 2 : 1, model.palette.primary, ratio * (model.strong ? 0.34 : 0.22));
+    graphics.lineBetween(centerX, centerY, endX, endY);
+    graphics.lineStyle(1, model.palette.secondary, ratio * 0.2);
+    graphics.lineBetween(centerX + 10, centerY, endX, endY);
+  }
+
+  drawObjectiveEdgeMarker(graphics, model) {
+    if (model.target.kind === "gate") {
+      this.drawGateObjectiveMarker(graphics, model);
+      return;
+    }
+    this.drawBossObjectiveMarker(graphics, model);
+  }
+
+  drawGateObjectiveMarker(graphics, model) {
+    const { x, y, size, pulse, palette } = model;
+    const alpha = model.target.subdued ? 0.34 + pulse * 0.16 : 0.62 + pulse * (model.strong ? 0.28 : 0.16);
+    const outer = size + (model.strong ? pulse * 5 : pulse * 2);
+    graphics.lineStyle(model.strong ? 3 : 2, palette.primary, alpha);
+    graphics.beginPath();
+    graphics.moveTo(x, y - outer);
+    graphics.lineTo(x + outer, y);
+    graphics.lineTo(x, y + outer);
+    graphics.lineTo(x - outer, y);
+    graphics.closePath();
+    graphics.strokePath();
+    graphics.lineStyle(1, palette.secondary, alpha * 0.72);
+    graphics.strokeCircle(x, y, outer + 6 + pulse * 6);
+    const ux = Math.cos(model.angle);
+    const uy = Math.sin(model.angle);
+    const px = -uy;
+    const py = ux;
+    graphics.lineStyle(2, palette.secondary, Math.min(0.95, alpha + 0.12));
+    graphics.lineBetween(x - ux * 7 - px * 6, y - uy * 7 - py * 6, x + ux * 9, y + uy * 9);
+    graphics.lineBetween(x - ux * 7 + px * 6, y - uy * 7 + py * 6, x + ux * 9, y + uy * 9);
+  }
+
+  drawBossObjectiveMarker(graphics, model) {
+    const { x, y, size, pulse, palette } = model;
+    const strong = model.strong || model.target.kind === "voidHunter";
+    const alpha = 0.58 + pulse * (strong ? 0.32 : 0.16);
+    const ux = Math.cos(model.angle);
+    const uy = Math.sin(model.angle);
+    const px = -uy;
+    const py = ux;
+    const tipX = x + ux * (size + 4);
+    const tipY = y + uy * (size + 4);
+    const backX = x - ux * (size * 0.7);
+    const backY = y - uy * (size * 0.7);
+
+    if (model.target.kind === "nemesis" || model.target.kind === "voidHunter") {
+      graphics.lineStyle(model.target.kind === "voidHunter" ? 3 : 2, palette.primary, alpha * 0.9);
+      graphics.strokeCircle(x, y, size + 7 + pulse * 5);
+    }
+
+    graphics.fillStyle(palette.primary, alpha * 0.58);
+    graphics.fillTriangle(
+      tipX,
+      tipY,
+      backX + px * size * 0.62,
+      backY + py * size * 0.62,
+      backX - px * size * 0.62,
+      backY - py * size * 0.62
+    );
+    graphics.lineStyle(2, palette.secondary, alpha);
+    graphics.lineBetween(x - px * (size + 8), y - py * (size + 8), x - px * (size + 2), y - py * (size + 2));
+    graphics.lineBetween(x + px * (size + 2), y + py * (size + 2), x + px * (size + 8), y + py * (size + 8));
+    graphics.lineBetween(backX - px * size * 0.78, backY - py * size * 0.78, backX + px * size * 0.78, backY + py * size * 0.78);
+  }
+
+  drawObjectiveLockBracket(graphics, model) {
+    const x = model.screen.x;
+    const y = model.screen.y;
+    const radius = model.lockRadius + (model.strong ? model.pulse * 8 : model.pulse * 3);
+    const alpha = (model.target.subdued ? 0.24 : 0.36) + model.pulse * (model.strong ? 0.22 : 0.1);
+    if (model.target.kind === "gate") {
+      graphics.lineStyle(model.strong ? 2 : 1, model.palette.primary, alpha);
+      graphics.beginPath();
+      graphics.moveTo(x, y - radius);
+      graphics.lineTo(x + radius, y);
+      graphics.lineTo(x, y + radius);
+      graphics.lineTo(x - radius, y);
+      graphics.closePath();
+      graphics.strokePath();
+      graphics.lineStyle(1, model.palette.secondary, alpha * 0.72);
+      graphics.strokeCircle(x, y, radius + 8);
+      return;
+    }
+
+    const size = radius;
+    const length = Math.max(9, Math.min(18, size * 0.35));
+    graphics.lineStyle(model.strong ? 2 : 1, model.palette.primary, alpha);
+    [
+      [x - size, y - size, x - size + length, y - size],
+      [x - size, y - size, x - size, y - size + length],
+      [x + size, y - size, x + size - length, y - size],
+      [x + size, y - size, x + size, y - size + length],
+      [x - size, y + size, x - size + length, y + size],
+      [x - size, y + size, x - size, y + size - length],
+      [x + size, y + size, x + size - length, y + size],
+      [x + size, y + size, x + size, y + size - length]
+    ].forEach(([x1, y1, x2, y2]) => graphics.lineBetween(x1, y1, x2, y2));
+    if (model.target.kind === "nemesis" || model.target.kind === "voidHunter") {
+      graphics.lineStyle(1, model.palette.secondary, alpha * 0.8);
+      graphics.strokeCircle(x, y, size + 8);
+    }
   }
 
   createRobotHudPanel() {
@@ -45472,21 +46823,34 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   createDashStaminaGauge() {
-    const { x, y, radius } = DASH_HUD_CONFIG;
-    this.hudDashGaugeConfig = { x, y, radius };
+    this.hudDashGaugeConfig = { ...DASH_HUD_CONFIG };
     this.hudDashGaugeGraphics = this.registerUiObject(
       this.add
         .graphics()
         .setScrollFactor(0)
         .setDepth(204)
     );
-    this.hudDashIcon = this.registerUiObject(
-      this.add
-        .image(x, y, "hud-icon-dash")
-        .setDisplaySize(42, 42)
-        .setScrollFactor(0)
-        .setDepth(205)
-    );
+    this.hudDashLabelText = this.createHudText(0, 0, "BOOST EN", {
+      fontFamily: "Consolas, 'Courier New', monospace",
+      fontSize: "10px",
+      color: "#b8ffd2",
+      fontStyle: "bold",
+      align: "center",
+      depth: 205
+    }).setOrigin(0.5, 0);
+    this.hudDashValueText = this.createHudText(0, 0, "100%", {
+      fontFamily: "Consolas, 'Courier New', monospace",
+      fontSize: "11px",
+      color: "#b8ffd2",
+      fontStyle: "bold",
+      align: "center",
+      depth: 205
+    }).setOrigin(0.5, 0);
+    this.hudDashGaugeObjects = [
+      this.hudDashGaugeGraphics,
+      this.hudDashLabelText,
+      this.hudDashValueText
+    ].filter(Boolean);
     this.updateDashStaminaGauge();
   }
 
@@ -45495,48 +46859,52 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    const { x, y, radius } = this.hudDashGaugeConfig;
+    const layout = this.getDashHudLayout();
+    const { x, y, width, height } = layout;
     const maxStamina = Math.max(1, this.stats.maxStamina || 1);
     const ratio = Phaser.Math.Clamp((this.stats.stamina ?? maxStamina) / maxStamina, 0, 1);
-    const fillColor = this.isDashing
-      ? 0xa8f8ff
-      : (ratio <= 0.18 ? 0xff7468 : (ratio <= 0.38 ? 0xf0c463 : 0x60e0ac));
+    const presentation = this.getDashEnergyPresentation(ratio);
     const graphics = this.hudDashGaugeGraphics;
+    const fillHeight = Math.max(0, height * ratio);
 
     graphics.clear();
-    graphics.fillStyle(0x02070a, this.hudUsesFrameAsset ? 0.54 : 0.78);
-    graphics.fillCircle(x, y, radius + 8);
-    graphics.lineStyle(2, 0x0f2229, 0.92);
-    graphics.strokeCircle(x, y, radius + 7);
-    graphics.lineStyle(8, 0x203038, 0.78);
-    graphics.strokeCircle(x, y, radius);
-
-    if (ratio > 0.001) {
-      graphics.lineStyle(8, fillColor, this.isDashing ? 1 : 0.92);
+    graphics.fillStyle(0x02070a, this.isStandardHudCompact() ? 0.48 : 0.66);
+    graphics.fillRect(x - 7, y - 8, width + 14, height + 16);
+    graphics.lineStyle(1, 0x64ff92, this.isStandardHudCompact() ? 0.5 : 0.34);
+    graphics.strokeRect(x - 7.5, y - 8.5, width + 15, height + 17);
+    graphics.fillStyle(0x06120d, 0.9);
+    graphics.fillRect(x, y, width, height);
+    graphics.lineStyle(1, 0x9fffb8, 0.24);
+    for (let mark = 0; mark <= 5; mark += 1) {
+      const markY = y + (height * mark) / 5;
       graphics.beginPath();
-      graphics.arc(x, y, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ratio, false);
+      graphics.moveTo(x + width + 5, markY);
+      graphics.lineTo(x + width + 12, markY);
       graphics.strokePath();
     }
+    if (fillHeight > 0.5) {
+      graphics.fillStyle(presentation.fill, presentation.alpha);
+      graphics.fillRect(x, y + height - fillHeight, width, fillHeight);
+      graphics.lineStyle(1, 0xffffff, this.isDashing ? 0.48 : 0.22);
+      graphics.strokeRect(x + 0.5, y + height - fillHeight + 0.5, width - 1, Math.max(0, fillHeight - 1));
+    }
+    if (presentation.label === "OVERHEAT") {
+      graphics.fillStyle(0xff5e24, 0.92);
+      graphics.fillRect(x, y + height - Math.max(5, height * 0.22), width, Math.max(5, height * 0.22));
+    }
 
-    graphics.lineStyle(1, 0xc8f7ff, 0.34);
-    graphics.strokeCircle(x, y, radius - 10);
-    graphics.lineStyle(1, 0xffffff, this.isDashing ? 0.5 : 0.22);
-    graphics.strokeCircle(x, y, radius + 1);
-
-    this.hudDashIcon?.setAlpha(this.dashLockedUntilRelease ? 0.38 : (this.isDashing ? 1 : 0.84));
+    this.hudDashLabelText
+      ?.setPosition(layout.labelX, layout.labelY)
+      .setText(presentation.label)
+      .setColor(presentation.text);
+    this.hudDashValueText
+      ?.setPosition(layout.valueX, layout.valueY)
+      .setText(`${Math.round(ratio * 100)}%`)
+      .setColor(presentation.text)
+      .setAlpha(this.dashLockedUntilRelease ? 0.58 : 0.96);
   }
 
   createHudPanel(x, y, width, height, options = {}) {
-    if (this.hudUsesFrameAsset && !options.forceShape) {
-      return this.registerUiObject(
-        this.add
-          .zone(x, y, width, height)
-          .setOrigin(0, 0)
-          .setScrollFactor(0)
-          .setDepth(options.depth ?? 200)
-      );
-    }
-
     const hudPalette = this.getAnjuHudSkinPalette?.() || {};
     return this.registerUiObject(
       this.add
@@ -45553,7 +46921,7 @@ class SurvivalScene extends Phaser.Scene {
     return this.registerUiObject(
       this.add
         .text(x, y, text, {
-          fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+          fontFamily: options.fontFamily ?? "Segoe UI, Yu Gothic UI, sans-serif",
           fontSize: options.fontSize ?? "16px",
           color: options.color ?? hudPalette.text ?? HUD_STYLE.text,
           fontStyle: options.fontStyle ?? "",
@@ -45856,6 +47224,7 @@ class SurvivalScene extends Phaser.Scene {
     const fieldTextureKey = this.getRecoveryFieldTextureKey(fieldLevel);
     const { robotSlot, fieldSlot } = this.hudRobotPanel;
     const fieldIconPreviousTextureKey = fieldSlot.icon?.texture?.key || "";
+    const showDetailIcons = false;
 
     robotSlot.levelText.setText(`ROBOT\nLv.${missileLevel}/${missileCap}`);
     const shieldText = this.getRobotBarrierHudText();
@@ -45879,15 +47248,15 @@ class SurvivalScene extends Phaser.Scene {
     this.updateHudRobotXpSlot(fieldSlot, this.getRobotSubsystemXpInfo("field"));
 
     if (this.textures.exists(robotTextureKey)) {
-      robotSlot.icon.setVisible(true);
       this.setHudIconToFit(robotSlot.icon, robotTextureKey, this.hudRobotPanel.robotIconMaxSize);
+      robotSlot.icon.setVisible(showDetailIcons);
     } else {
       robotSlot.icon.setVisible(false);
     }
 
     if (this.textures.exists(fieldTextureKey)) {
-      fieldSlot.icon.setVisible(true);
       this.setHudIconToFit(fieldSlot.icon, fieldTextureKey, this.hudRobotPanel.fieldIconMaxSize);
+      fieldSlot.icon.setVisible(showDetailIcons);
       this.logRecoveryFieldHudIconDebug({
         hud: "standard",
         level: fieldLevel,
@@ -45921,6 +47290,437 @@ class SurvivalScene extends Phaser.Scene {
     }).length;
   }
 
+  drawObjectiveMarkerMinimapIcons(graphics, mapX, mapY) {
+    const targets = this.collectObjectiveMarkerTargets();
+    targets.forEach((target) => {
+      const x = mapX(target.world.x);
+      const y = mapY(target.world.y);
+      const palette = this.getObjectiveMarkerPalette(target);
+      const pulse = (Math.sin((this.time?.now || 0) / (target.urgent ? 95 : 190)) + 1) * 0.5;
+      if (target.kind === "gate") {
+        this.drawGateObjectiveMinimapIcon(graphics, x, y, palette, pulse, target);
+      } else {
+        this.drawBossObjectiveMinimapIcon(graphics, x, y, palette, pulse, target);
+      }
+    });
+  }
+
+  drawGateObjectiveMinimapIcon(graphics, x, y, palette, pulse, target) {
+    const size = target.urgent ? 6.2 + pulse * 1.8 : 5.4 + pulse * 1.1;
+    const alpha = target.subdued ? 0.45 + pulse * 0.16 : 0.72 + pulse * 0.22;
+    graphics.lineStyle(target.urgent ? 2 : 1, palette.primary, alpha);
+    graphics.beginPath();
+    graphics.moveTo(x, y - size);
+    graphics.lineTo(x + size, y);
+    graphics.lineTo(x, y + size);
+    graphics.lineTo(x - size, y);
+    graphics.closePath();
+    graphics.strokePath();
+    graphics.lineStyle(1, palette.secondary, Math.max(0.18, alpha * 0.55));
+    graphics.strokeCircle(x, y, size + 4 + pulse * (target.urgent ? 4 : 2));
+  }
+
+  drawBossObjectiveMinimapIcon(graphics, x, y, palette, pulse, target) {
+    const size = target.kind === "voidHunter" ? 7.4 + pulse * 1.8 : 6 + pulse * 1.2;
+    const alpha = 0.72 + pulse * 0.22;
+    if (target.kind === "nemesis" || target.kind === "voidHunter") {
+      graphics.lineStyle(target.kind === "voidHunter" ? 2 : 1, palette.secondary, alpha);
+      graphics.strokeCircle(x, y, size + 4);
+    }
+    graphics.lineStyle(2, palette.primary, alpha);
+    graphics.strokeRect(x - size, y - size, size * 2, size * 2);
+    graphics.fillStyle(palette.primary, 0.62 + pulse * 0.22);
+    graphics.fillCircle(x, y, target.kind === "waveBoss" ? 2.2 : 2.8);
+  }
+
+  drawPlayerMinimapIcon(graphics, x, y) {
+    graphics.fillStyle(0xeef8ff, 1);
+    graphics.fillTriangle(x, y - 5, x - 4.5, y + 4, x + 4.5, y + 4);
+    graphics.lineStyle(1, 0x65e6ff, 0.9);
+    graphics.lineBetween(x, y - 5, x - 4.5, y + 4);
+    graphics.lineBetween(x - 4.5, y + 4, x + 4.5, y + 4);
+    graphics.lineBetween(x + 4.5, y + 4, x, y - 5);
+  }
+
+  isCompactRadarSuppressed() {
+    return Boolean(
+      this.isFinalBossRaidActive?.() ||
+      this.standardHudSuppressed ||
+      this.shopActive ||
+      this.gameOver ||
+      this.extractionComplete ||
+      this.gateChoiceActive ||
+      this.levelUpActive ||
+      !this.playerHitbox?.active
+    );
+  }
+
+  setCompactRadarLabelVisible(visible) {
+    this.hudCompact?.radarLabelText?.setVisible?.(visible);
+  }
+
+  getCompactRadarLayout() {
+    const config = COMPACT_RADAR_CONFIG;
+    const panel = config.panel;
+    return {
+      x: panel.x,
+      y: panel.y,
+      width: panel.width,
+      height: panel.height,
+      centerX: panel.x + config.centerOffset.x,
+      centerY: panel.y + config.centerOffset.y,
+      radius: config.radius
+    };
+  }
+
+  getCompactRadarHeadingAngle() {
+    const state = this.acMovementState || {};
+    const candidates = [
+      state.facingDirection,
+      state.velocity,
+      this.playerHitbox?.body?.velocity,
+      state.lastInputVector?.hasInput
+        ? { x: state.lastInputVector.normalizedX, y: state.lastInputVector.normalizedY }
+        : null,
+      state.lastMoveDirection
+    ];
+
+    for (const vector of candidates) {
+      const x = Number(vector?.x) || 0;
+      const y = Number(vector?.y) || 0;
+      if (Math.hypot(x, y) > 0.05) {
+        return Math.atan2(y, x);
+      }
+    }
+
+    return Math.PI / 2;
+  }
+
+  getCompactRadarPoint(world, layout, clampToRing = false) {
+    if (!world || !this.playerHitbox?.active) {
+      return null;
+    }
+
+    const dx = Number(world.x) - this.playerHitbox.x;
+    const dy = Number(world.y) - this.playerHitbox.y;
+    const distance = Math.hypot(dx, dy);
+    const angle = distance > 0.001 ? Math.atan2(dy, dx) : 0;
+    const maxRadius = Math.max(1, layout.radius - (clampToRing ? COMPACT_RADAR_CONFIG.outerClampInset : 0));
+    const ratio = Phaser.Math.Clamp(distance / COMPACT_RADAR_CONFIG.range, 0, 1);
+    const radius = ratio * maxRadius;
+
+    return {
+      x: layout.centerX + Math.cos(angle) * radius,
+      y: layout.centerY + Math.sin(angle) * radius,
+      angle,
+      distance,
+      outOfRange: distance > COMPACT_RADAR_CONFIG.range
+    };
+  }
+
+  drawCompactRadarTriangle(graphics, x, y, angle, length, width, color, alpha = 1, strokeColor = 0xeef8ff) {
+    const tipX = x + Math.cos(angle) * length;
+    const tipY = y + Math.sin(angle) * length;
+    const backX = x - Math.cos(angle) * length * 0.62;
+    const backY = y - Math.sin(angle) * length * 0.62;
+    const sideX = -Math.sin(angle) * width;
+    const sideY = Math.cos(angle) * width;
+    const leftX = backX + sideX;
+    const leftY = backY + sideY;
+    const rightX = backX - sideX;
+    const rightY = backY - sideY;
+
+    graphics.fillStyle(color, alpha);
+    graphics.fillTriangle(tipX, tipY, leftX, leftY, rightX, rightY);
+    graphics.lineStyle(1, strokeColor, Math.min(1, alpha + 0.18));
+    graphics.lineBetween(tipX, tipY, leftX, leftY);
+    graphics.lineBetween(leftX, leftY, rightX, rightY);
+    graphics.lineBetween(rightX, rightY, tipX, tipY);
+  }
+
+  drawCompactRadarBase(graphics, layout) {
+    const config = COMPACT_RADAR_CONFIG;
+    const mobileAlphaOffset = this.mobileControlsEnabled ? -0.08 : 0;
+    const now = this.time?.now || 0;
+    const heading = this.getCompactRadarHeadingAngle();
+    const sweep = ((now % config.sweepMs) / config.sweepMs) * Math.PI * 2 - Math.PI / 2;
+
+    graphics.fillStyle(0x02070a, 0.64 + mobileAlphaOffset);
+    graphics.fillRoundedRect(layout.x, layout.y, layout.width, layout.height, 6);
+    graphics.lineStyle(1, 0x65e6ff, 0.32);
+    graphics.strokeRoundedRect(layout.x + 0.5, layout.y + 0.5, layout.width - 1, layout.height - 1, 6);
+    graphics.lineStyle(1, 0x65e6ff, 0.18);
+    graphics.beginPath();
+    graphics.moveTo(layout.x + 12, layout.y + 24);
+    graphics.lineTo(layout.x + layout.width - 12, layout.y + 24);
+    graphics.strokePath();
+
+    graphics.fillStyle(0x03131a, 0.58 + mobileAlphaOffset);
+    graphics.fillCircle(layout.centerX, layout.centerY, layout.radius + 5);
+    [0.34, 0.66, 1].forEach((ratio, index) => {
+      graphics.lineStyle(index === 2 ? 1.5 : 1, 0x65e6ff, index === 2 ? 0.46 : 0.18);
+      graphics.strokeCircle(layout.centerX, layout.centerY, layout.radius * ratio);
+    });
+    graphics.lineStyle(1, 0x65e6ff, 0.12);
+    graphics.lineBetween(layout.centerX - layout.radius, layout.centerY, layout.centerX + layout.radius, layout.centerY);
+    graphics.lineBetween(layout.centerX, layout.centerY - layout.radius, layout.centerX, layout.centerY + layout.radius);
+
+    const fcsRadius = layout.radius * 0.58;
+    graphics.lineStyle(1, 0x8ff5ff, 0.18);
+    graphics.lineBetween(
+      layout.centerX,
+      layout.centerY,
+      layout.centerX + Math.cos(heading) * fcsRadius,
+      layout.centerY + Math.sin(heading) * fcsRadius
+    );
+    graphics.lineStyle(1, 0x8ff5ff, 0.09);
+    [-0.34, 0.34].forEach((offset) => {
+      graphics.lineBetween(
+        layout.centerX,
+        layout.centerY,
+        layout.centerX + Math.cos(heading + offset) * layout.radius * 0.44,
+        layout.centerY + Math.sin(heading + offset) * layout.radius * 0.44
+      );
+    });
+
+    graphics.lineStyle(1, 0x8ff5ff, 0.28);
+    graphics.lineBetween(
+      layout.centerX,
+      layout.centerY,
+      layout.centerX + Math.cos(sweep) * layout.radius,
+      layout.centerY + Math.sin(sweep) * layout.radius
+    );
+    graphics.lineStyle(1, 0x65e6ff, 0.08);
+    graphics.beginPath();
+    graphics.arc(layout.centerX, layout.centerY, layout.radius * 0.92, sweep - 0.26, sweep, false);
+    graphics.strokePath();
+  }
+
+  getCompactRadarEnemySensorData() {
+    const config = COMPACT_RADAR_CONFIG;
+    const sectors = Array.from({ length: config.sectors }, () => 0);
+    const closeBlips = [];
+    const sectorAngle = (Math.PI * 2) / config.sectors;
+    const enemies = this.enemies?.getChildren?.() || [];
+
+    enemies.forEach((enemy) => {
+      if (
+        !enemy?.active ||
+        enemy.isDying ||
+        enemy.isBoss ||
+        enemy.isWaveBoss ||
+        this.isNemesisBoss?.(enemy) ||
+        this.isVoidHunterBoss?.(enemy)
+      ) {
+        return;
+      }
+
+      const dx = Number(enemy.x) - this.playerHitbox.x;
+      const dy = Number(enemy.y) - this.playerHitbox.y;
+      const distance = Math.hypot(dx, dy);
+      if (!Number.isFinite(distance) || distance <= 0 || distance > config.enemyDensityRange) {
+        return;
+      }
+
+      const angle = Math.atan2(dy, dx);
+      const normalized = (angle + Math.PI * 2) % (Math.PI * 2);
+      const sectorIndex = Math.floor(normalized / sectorAngle) % config.sectors;
+      sectors[sectorIndex] += enemy.isElite ? 2 : 1;
+
+      if (distance <= config.closeEnemyRange) {
+        closeBlips.push({ enemy, distance });
+      }
+    });
+
+    closeBlips.sort((a, b) => a.distance - b.distance);
+    return {
+      sectors,
+      closeBlips: closeBlips.slice(0, config.maxEnemyBlips)
+    };
+  }
+
+  drawCompactRadarEnemyDensity(graphics, layout, sensorData) {
+    const config = COMPACT_RADAR_CONFIG;
+    const sectorAngle = (Math.PI * 2) / config.sectors;
+    sensorData.sectors.forEach((count, index) => {
+      if (count <= 0) {
+        return;
+      }
+      const strength = Phaser.Math.Clamp(count / config.sectorFullCount, 0.12, 1);
+      const angle = index * sectorAngle + sectorAngle / 2;
+      const start = angle - sectorAngle * 0.31;
+      const end = angle + sectorAngle * 0.31;
+      const radius = layout.radius - 8 - strength * 5;
+      graphics.lineStyle(1 + strength * 2.4, 0xff5e5e, 0.12 + strength * 0.38);
+      graphics.beginPath();
+      graphics.arc(layout.centerX, layout.centerY, radius, start, end, false);
+      graphics.strokePath();
+    });
+  }
+
+  drawCompactRadarEnemyBlips(graphics, layout, sensorData) {
+    sensorData.closeBlips.forEach(({ enemy, distance }) => {
+      const point = this.getCompactRadarPoint(enemy, layout, false);
+      if (!point || point.outOfRange) {
+        return;
+      }
+      const closeRatio = 1 - Phaser.Math.Clamp(distance / COMPACT_RADAR_CONFIG.closeEnemyRange, 0, 1);
+      graphics.fillStyle(enemy.isElite ? 0xff8a58 : 0xff5e5e, 0.34 + closeRatio * 0.34);
+      graphics.fillCircle(point.x, point.y, enemy.isElite ? 2.2 : 1.45);
+    });
+  }
+
+  drawCompactRadarGateBlip(graphics, point, palette, pulse, target) {
+    const size = target.urgent ? 6.2 + pulse * 2 : 5.2 + pulse;
+    const alpha = target.subdued ? 0.42 + pulse * 0.18 : 0.72 + pulse * 0.2;
+    graphics.lineStyle(target.urgent ? 2 : 1, palette.primary, alpha);
+    graphics.beginPath();
+    graphics.moveTo(point.x, point.y - size);
+    graphics.lineTo(point.x + size, point.y);
+    graphics.lineTo(point.x, point.y + size);
+    graphics.lineTo(point.x - size, point.y);
+    graphics.closePath();
+    graphics.strokePath();
+    if (target.urgent || point.outOfRange || target.paletteKey === "gateUnstable") {
+      graphics.lineStyle(target.paletteKey === "gateUnstable" ? 2 : 1, palette.secondary, 0.32 + pulse * 0.35);
+      graphics.strokeCircle(point.x, point.y, size + 4 + pulse * 3);
+    }
+  }
+
+  drawCompactRadarBossBlip(graphics, point, palette, pulse, target) {
+    const isSpecial = target.kind === "nemesis" || target.kind === "voidHunter";
+    const alpha = 0.7 + pulse * 0.22;
+    const size = target.kind === "voidHunter" ? 7 + pulse * 1.6 : 6 + pulse;
+    if (point.outOfRange && target.kind === "waveBoss") {
+      this.drawCompactRadarTriangle(graphics, point.x, point.y, point.angle, 8 + pulse, 6, palette.primary, alpha, palette.secondary);
+      return;
+    }
+
+    if (isSpecial) {
+      graphics.lineStyle(target.kind === "voidHunter" ? 2 : 1, palette.secondary, 0.5 + pulse * 0.32);
+      graphics.strokeCircle(point.x, point.y, size + (target.kind === "voidHunter" ? 6 : 4));
+    }
+    graphics.lineStyle(2, palette.primary, alpha);
+    graphics.strokeRect(point.x - size, point.y - size, size * 2, size * 2);
+    graphics.lineStyle(1, palette.secondary, 0.45 + pulse * 0.26);
+    graphics.lineBetween(point.x - size - 4, point.y - size, point.x - size - 4, point.y - size + 6);
+    graphics.lineBetween(point.x + size + 4, point.y + size, point.x + size + 4, point.y + size - 6);
+    graphics.fillStyle(palette.primary, 0.62 + pulse * 0.22);
+    graphics.fillCircle(point.x, point.y, target.kind === "waveBoss" ? 2.3 : 2.8);
+  }
+
+  drawCompactRadarImportantTargets(graphics, layout, targets) {
+    targets.forEach((target) => {
+      const point = this.getCompactRadarPoint(target.world, layout, true);
+      if (!point) {
+        return;
+      }
+      const palette = this.getObjectiveMarkerPalette(target);
+      const pulse = (Math.sin((this.time?.now || 0) / (target.urgent ? 90 : 190)) + 1) * 0.5;
+      if (point.outOfRange) {
+        graphics.lineStyle(1, palette.primary, 0.26 + pulse * 0.22);
+        graphics.lineBetween(
+          layout.centerX + Math.cos(point.angle) * (layout.radius - 18),
+          layout.centerY + Math.sin(point.angle) * (layout.radius - 18),
+          point.x,
+          point.y
+        );
+      }
+
+      if (target.kind === "gate") {
+        this.drawCompactRadarGateBlip(graphics, point, palette, pulse, target);
+      } else {
+        this.drawCompactRadarBossBlip(graphics, point, palette, pulse, target);
+      }
+    });
+  }
+
+  drawCompactRadarDetailBlips(graphics, layout) {
+    if (this.isStandardHudCompact()) {
+      return;
+    }
+
+    const drawDiamond = (world, color, alpha = 0.58) => {
+      const point = this.getCompactRadarPoint(world, layout, true);
+      if (!point) {
+        return;
+      }
+      const size = point.outOfRange ? 4.8 : 3.8;
+      graphics.lineStyle(1, color, alpha);
+      graphics.beginPath();
+      graphics.moveTo(point.x, point.y - size);
+      graphics.lineTo(point.x + size, point.y);
+      graphics.lineTo(point.x, point.y + size);
+      graphics.lineTo(point.x - size, point.y);
+      graphics.closePath();
+      graphics.strokePath();
+    };
+    const drawSquare = (world, color, alpha = 0.54) => {
+      const point = this.getCompactRadarPoint(world, layout, true);
+      if (!point) {
+        return;
+      }
+      const size = point.outOfRange ? 4.8 : 3.6;
+      graphics.lineStyle(1, color, alpha);
+      graphics.strokeRect(point.x - size, point.y - size, size * 2, size * 2);
+    };
+
+    this.lostArmItems?.getChildren?.().forEach((item) => {
+      if (item?.active) {
+        drawDiamond(item, item.itemDefinition?.tint || 0xc06bff, 0.64);
+      }
+    });
+    this.equipmentBoxItems?.getChildren?.().forEach((item) => {
+      if (item?.active) {
+        drawSquare(item, 0xf0c463, 0.58);
+      }
+    });
+    this.rareItems?.getChildren?.().forEach((item) => {
+      if (item?.active && this.isDataCacheDrop?.(item)) {
+        drawDiamond(item, 0x9ffcff, 0.48);
+      }
+    });
+  }
+
+  drawCompactRadarPlayer(graphics, layout) {
+    const heading = this.getCompactRadarHeadingAngle();
+    this.drawCompactRadarTriangle(
+      graphics,
+      layout.centerX,
+      layout.centerY,
+      heading,
+      COMPACT_RADAR_CONFIG.playerSize,
+      COMPACT_RADAR_CONFIG.playerSize * 0.68,
+      0xeef8ff,
+      0.94,
+      0x65e6ff
+    );
+    graphics.fillStyle(0x65e6ff, 0.9);
+    graphics.fillCircle(layout.centerX, layout.centerY, 1.8);
+  }
+
+  drawCompactRadar() {
+    const graphics = this.minimapGraphics;
+    if (!graphics) {
+      return;
+    }
+    graphics.clear();
+    if (this.isCompactRadarSuppressed()) {
+      this.setCompactRadarLabelVisible(false);
+      return;
+    }
+
+    this.setCompactRadarLabelVisible(true);
+    const layout = this.getCompactRadarLayout();
+    this.drawCompactRadarBase(graphics, layout);
+    const sensorData = this.getCompactRadarEnemySensorData();
+    this.drawCompactRadarEnemyDensity(graphics, layout, sensorData);
+    this.drawCompactRadarEnemyBlips(graphics, layout, sensorData);
+    this.drawCompactRadarImportantTargets(graphics, layout, this.collectObjectiveMarkerTargets());
+    this.drawCompactRadarDetailBlips(graphics, layout);
+    this.drawCompactRadarPlayer(graphics, layout);
+  }
+
   updateMinimap(force = false) {
     if (!this.minimapGraphics || !this.minimapConfig) {
       return;
@@ -45930,6 +47730,9 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     this.nextMinimapRefreshAt = this.time.now + 160;
+    this.drawCompactRadar();
+    return;
+
     const { x, y, width, height } = this.minimapConfig;
     const worldBounds = this.getStageWorldBounds(this.currentStage);
     const mapBounds = this.getStagePlayBounds(this.currentStage) || {
@@ -45978,30 +47781,9 @@ class SurvivalScene extends Phaser.Scene {
 
     graphics.fillStyle(0xd45252, 0.82);
     this.enemies.getChildren().slice(0, 80).forEach((enemy) => {
-      if (enemy.active && !enemy.isBoss) {
+      if (enemy.active && !enemy.isBoss && !this.isNemesisBoss?.(enemy) && !this.isVoidHunterBoss?.(enemy)) {
         graphics.fillCircle(mapX(enemy.x), mapY(enemy.y), enemy.isElite ? 2.2 : 1.4);
       }
-    });
-
-    const activeBosses = this.enemies.getChildren().filter((enemy) => enemy.active && enemy.isBoss && !enemy.isDying);
-    activeBosses.forEach((boss) => {
-      const bossX = mapX(boss.x);
-      const bossY = mapY(boss.y);
-      const pulse = (Math.sin(this.time.now / 210) + 1) * 0.5;
-      const radius = 5.6 + pulse * 1.2;
-
-      graphics.lineStyle(2, 0xffffff, 0.9);
-      graphics.strokeCircle(bossX, bossY, radius + 2.2);
-      graphics.fillStyle(0xff3fe6, 0.95);
-      graphics.fillTriangle(bossX, bossY - radius, bossX - radius, bossY, bossX, bossY + radius);
-      graphics.fillTriangle(bossX, bossY - radius, bossX + radius, bossY, bossX, bossY + radius);
-      graphics.fillStyle(0xffffff, 0.95);
-      graphics.fillCircle(bossX, bossY, 1.8);
-      graphics.lineStyle(1, 0xff3fe6, 0.9);
-      graphics.lineBetween(bossX - radius - 3, bossY, bossX - radius - 1, bossY);
-      graphics.lineBetween(bossX + radius + 1, bossY, bossX + radius + 3, bossY);
-      graphics.lineBetween(bossX, bossY - radius - 3, bossX, bossY - radius - 1);
-      graphics.lineBetween(bossX, bossY + radius + 1, bossX, bossY + radius + 3);
     });
 
     this.lostArmItems?.getChildren().forEach((item) => {
@@ -46019,15 +47801,8 @@ class SurvivalScene extends Phaser.Scene {
       graphics.strokeCircle(itemX, itemY, 4.4 + pulse * 1.8);
     });
 
-    graphics.fillStyle(0xeef8ff, 1);
-    graphics.fillTriangle(
-      mapX(this.playerHitbox.x),
-      mapY(this.playerHitbox.y) - 4,
-      mapX(this.playerHitbox.x) - 4,
-      mapY(this.playerHitbox.y) + 4,
-      mapX(this.playerHitbox.x) + 4,
-      mapY(this.playerHitbox.y) + 4
-    );
+    this.drawObjectiveMarkerMinimapIcons(graphics, mapX, mapY);
+    this.drawPlayerMinimapIcon(graphics, mapX(this.playerHitbox.x), mapY(this.playerHitbox.y));
   }
 
   createOverlay() {
@@ -53364,6 +55139,7 @@ class SurvivalScene extends Phaser.Scene {
     this.updateRobotCompanion(delta);
     this.updateCleaningRobotCompanion(delta);
     this.updateGateVisuals(delta);
+    this.updateStandardHudModeInput();
     const finalBossRaidActiveAtFrameStart = this.isFinalBossRaidActive();
     if (finalBossRaidActiveAtFrameStart) {
       this.setFinalBossRaidStandardHudSuppressed(true);
@@ -70941,6 +72717,11 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   updateHud() {
+    if (this.isFinalBossRaidActive?.()) {
+      this.setFinalBossRaidStandardHudSuppressed(true);
+      return;
+    }
+
     const timeLabel = this.formatTimeMs(this.survivalTime);
     const wave = this.getCurrentWaveDefinition();
     const activeEnemies = this.getActiveEnemyCount();
@@ -71027,6 +72808,19 @@ class SurvivalScene extends Phaser.Scene {
     this.updateHudSkillSlots();
     this.updateHudRobotPanel();
     this.updateMinimap();
+    this.applyStandardHudModeVisibility();
+    this.updateCompactHud({
+      timeLabel,
+      wave,
+      activeEnemies,
+      activeBoss,
+      bossLabel,
+      hpRatio,
+      xpRatio,
+      pickupText
+    });
+    this.updateStandardHudDetailLayer();
+    this.updateObjectiveMarkerHud();
 
     if (this.debugHudText) {
       this.debugHudText.setText(
