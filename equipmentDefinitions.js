@@ -61,15 +61,16 @@
       label: "LEGEND ARRAY"
     })
   ]);
+  const LEGEND_LABELS_VISIBLE_FROM_START = true;
   const freezeWeights = (weights) => Object.freeze({ ...weights });
   const EQUIPMENT_RARITY_DROP_TABLES = Object.freeze([
     Object.freeze({ minDepth: 1, maxDepth: 3, weights: freezeWeights({ N: 70, R: 25, SR: 5, SSR: 0, LEGEND: 0 }) }),
     Object.freeze({ minDepth: 4, maxDepth: 5, weights: freezeWeights({ N: 52, R: 34, SR: 12, SSR: 2, LEGEND: 0 }) }),
     Object.freeze({ minDepth: 6, maxDepth: 8, weights: freezeWeights({ N: 35, R: 40, SR: 20, SSR: 5, LEGEND: 0 }) }),
     Object.freeze({ minDepth: 9, maxDepth: 10, weights: freezeWeights({ N: 22, R: 38, SR: 30, SSR: 10, LEGEND: 0 }) }),
-    Object.freeze({ minDepth: 11, maxDepth: 12, weights: freezeWeights({ N: 5, R: 15, SR: 25, SSR: 50, LEGEND: 5 }) }),
-    Object.freeze({ minDepth: 13, maxDepth: 14, weights: freezeWeights({ N: 2, R: 8, SR: 15, SSR: 60, LEGEND: 15 }) }),
-    Object.freeze({ minDepth: 15, maxDepth: Infinity, weights: freezeWeights({ N: 0, R: 3, SR: 7, SSR: 65, LEGEND: 25 }) })
+    Object.freeze({ minDepth: 11, maxDepth: 12, weights: freezeWeights({ N: 5, R: 15, SR: 72.5, SSR: 5, LEGEND: 2.5 }) }),
+    Object.freeze({ minDepth: 13, maxDepth: 14, weights: freezeWeights({ N: 2, R: 8, SR: 67.5, SSR: 15, LEGEND: 7.5 }) }),
+    Object.freeze({ minDepth: 15, maxDepth: Infinity, weights: freezeWeights({ N: 0, R: 3, SR: 59.5, SSR: 25, LEGEND: 12.5 }) })
   ]);
   const EQUIPMENT_RANK_DROP_TABLES = Object.freeze([
     Object.freeze({ minDepth: 1, maxDepth: 3, weights: freezeWeights({ 1: 55, 2: 30, 3: 12, 4: 3, 5: 0 }) }),
@@ -373,7 +374,7 @@
     const equippedSlotCount = slotValues.filter((slot) => slot.occupied).length;
     const ssrPlusCount = slotValues.filter((slot) => slot.ssrPlus).length;
     const legendCount = slotValues.filter((slot) => slot.legend).length;
-    const legendVisible = normalizedState.legendDiscovered === true;
+    const legendVisible = LEGEND_LABELS_VISIBLE_FROM_START || normalizedState.legendDiscovered === true;
     return {
       totalSlotCount: SLOTS.length,
       equippedSlotCount,
@@ -433,7 +434,7 @@
         matchedSlotCount,
         requiredSlotCount: definition.requiredSlotCount,
         complete: matchedSlotCount >= definition.requiredSlotCount,
-        visible: definition.minimumRarity !== "LEGEND" || normalizedState.legendDiscovered === true
+        visible: definition.minimumRarity !== "LEGEND" || LEGEND_LABELS_VISIBLE_FROM_START || normalizedState.legendDiscovered === true
       };
     });
     const highestCompletedTier = getHighestCompletedEquipmentSetTier(tiers);
@@ -1149,6 +1150,7 @@
     ANALYSIS_COSTS: Object.freeze({ ...ANALYSIS_COSTS }),
     EQUIPMENT_BONUS_CONFIG,
     EQUIPMENT_SET_DEFINITIONS,
+    LEGEND_LABELS_VISIBLE_FROM_START,
     setDefinitions: EQUIPMENT_SET_DEFINITIONS,
     RANK_MIN,
     RANK_MAX,

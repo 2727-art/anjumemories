@@ -103,8 +103,8 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - `?debugRecoveryFieldScale=1`: デバッグ用。Recovery Field の HUD アイコン選択画像、表示サイズ、HUD種別を console に出します。
 - `?debugShopLoading=geek|shop|sequence`: デバッグ用。保存データを書き換えず、ショップローディングの GEEK 確定、ショップ起動、連続遷移を表示確認します。`debugShopLoadingAmount=12340` で表示額だけ指定できます。
 - `?debugEquipmentState=1`: デバッグ用。装備保存状態、品質スコア境界、レアリティ別の未解析箱数を `[EQUIPMENT]` prefix で console に出します。サンプル装備や箱は追加しません。
-- `?debugEquipmentHub=1`: デバッグ用。OPERATIONS HUB の GEEKSHOP / EQUIPMENT ANALYSIS を表示専用サンプルで開きます。LEGEND未発見状態として表示し、保存データは変更しません。
-- `?debugEquipmentHub=1&debugEquipmentHubLegend=1`: デバッグ用。EQUIPMENT ANALYSIS のLEGEND発見済み表示を確認します。LEGEND装備とLEGEND箱の表示サンプルを使いますが、保存データは変更しません。
+- `?debugEquipmentHub=1`: デバッグ用。OPERATIONS HUB の GEEKSHOP / EQUIPMENT ANALYSIS を初期表示サンプルで開きます。保存データは変更しません。
+- `?debugEquipmentHub=1&debugEquipmentHubLegend=1`: デバッグ用。EQUIPMENT ANALYSIS のLEGEND装備入り表示を確認します。LEGEND装備とLEGEND箱の表示サンプルを使いますが、保存データは変更しません。
 - `?debugEquipmentAnalysis=1`: デバッグ用。実際に保存済み未解析箱を解析した時だけ、費用、無料クレジット、重複返金、保存成否、残箱数、統計を `[EQUIPMENT ANALYSIS]` prefix で console に出します。
 - `?debugEquipmentBonuses=1`: デバッグ用。出撃開始時の装備スナップショット、部位別スコア、合計品質スコア、各倍率、開始ステータスの適用前後、Final Raid攻撃系抑制を `[EQUIPMENT BONUSES]` prefix で console に出します。
 - `?debugEquipmentBonusPreset=empty|n1|ssr5|legend5|mixed`: デバッグ用。出撃開始時の `runEquipmentLoadoutSnapshot` だけを指定プリセットに差し替えます。`lastmemoVansabaEquipmentState`、未解析箱、GEEK、統計、`bestBySlot` 保存値は変更しません。通常は `debugEquipmentBonuses=1` と併用します。
@@ -666,12 +666,12 @@ GEEKSHOP / BASE CALIBRATION:
 GEEKSHOP / EQUIPMENT ANALYSIS:
 
 - `SENSOR`、`FRAME`、`BOOSTER`、`ARMAMENT`、`CORE` の5部位に、保存済み `bestBySlot` のレアリティと Rank I〜V を表示します。空スロットは `NO DATA` です。保存schemaの内部slot IDは互換性のため `head` / `clothes` / `shoes` / `weapon` / `accessory` のままです。
-- 未解析箱は `N`、`R`、`SR`、`SSR`、LEGEND発見後のみ `LEGEND` の個数を表示します。箱のslot、rank、sourceDepth、sourceType、id、analysisCostOverrideは表示しません。
-- `legendDiscovered=false` の間は、UI上に `LEGEND` や虹色枠を表示しません。未発見状態でLEGEND箱が内部にある場合は `UNKNOWN SIGNAL` として表示します。
+- 未解析箱は `N`、`R`、`SR`、`SSR`、`LEGEND` の個数を表示します。箱のslot、rank、sourceDepth、sourceType、id、analysisCostOverrideは表示しません。
+- `EQUIPMENT ANALYSIS` では初期状態から `LEGEND`、`LEGEND ARRAY`、`LEGEND COLLECTION` と虹色枠を表示します。`legendDiscovered=false` は「LEGEND解析がまだ成功していない」履歴として保持しますが、画面上のLEGEND表記は隠しません。
 - LEGEND表示は最高レアリティとして、CURRENT LOADOUT、解析結果、未解析一覧、SET RESONANCE、COLLECTION STATUSで滑らかな虹色グラデーション枠と発光文字を使います。
-- `SET RESONANCE` は5部位の `bestBySlot` レアリティからセット進捗を導出して表示します。SSR以上5部位は `SSR+ ARRAY`、LEGEND 5部位は `LEGEND ARRAY` として判定しますが、LEGEND未発見時はLEGENDセット名やLEGEND部位数を表示しません。
-- セット進捗は `EQUIPPED SLOTS`、`SSR+ ARRAY`、LEGEND発見後の `LEGEND ARRAY` を `STANDBY` / `QUALIFIED` として示します。SSR+ 5部位では `COMBAT LINK I: READY` / `OVERLIMIT CAP: I`、LEGEND発見済みのLEGEND 5部位では `COMBAT LINK II: READY` / `OVERLIMIT CAP: II` を表示します。LEGEND未発見時はLEGEND名や虹色枠を出さず、SSR+側の表示に留めます。
-- `COLLECTION STATUS` では `bestBySlot` から導出した `SSR+ COLLECTION` と、LEGEND発見後の `LEGEND COLLECTION` 進捗を確認できます。未解析箱は進捗に含めず、LEGEND未発見中は `HIGHER SIGNAL / LOCKED` として秘匿します。LEGEND 5部位コンプは長期目標で、進捗や完成状態はランキング / Firebase / Deep Result へ送信しません。
+- `SET RESONANCE` は5部位の `bestBySlot` レアリティからセット進捗を導出して表示します。SSR以上5部位は `SSR+ ARRAY`、LEGEND 5部位は `LEGEND ARRAY` として判定します。
+- セット進捗は `EQUIPPED SLOTS`、`SSR+ ARRAY`、`LEGEND ARRAY` を `STANDBY` / `QUALIFIED` として示します。SSR+ 5部位では `COMBAT LINK I: READY` / `OVERLIMIT CAP: I`、LEGEND 5部位では `COMBAT LINK II: READY` / `OVERLIMIT CAP: II` を表示します。
+- `COLLECTION STATUS` では `bestBySlot` から導出した `SSR+ COLLECTION` と `LEGEND COLLECTION` 進捗を確認できます。未解析箱は進捗に含めません。LEGEND 5部位コンプは長期目標で、進捗や完成状態はランキング / Firebase / Deep Result へ送信しません。
 - 解析費用は `N 500`、`R 2,000`、`SR 8,000`、`SSR 30,000`、`LEGEND 100,000` GEEKです。箱に `analysisCostOverride` がある場合はそれを最優先し、override が無い場合だけ `freeAnalysisCredits` を先に消費します。override 0 は無料ですが無料解析クレジットを消費しません。
 - 解析時は開始前に `actualCost` 全額を所持している必要があります。既存bestより高品質なら `bestBySlot` を更新し、同品質以下の重複なら `Math.floor(actualCost * 0.5)` を返金扱いにして、実際の支払いは差額だけになります。無料解析の重複返金は0です。
 - 同じslotに既存LEGEND bestがあり、より低いまたは同品質のLEGENDを解析した場合は `DUPLICATE LEGEND SIGNAL` として表示し、slot別の `LEGEND RESONANCE` として記録します。RESONANCEは現段階では表示専用で、Rank、戦闘効果、ドロップ率、交換、pity、未所持slot補完、ランキング / Firebase には影響しません。
@@ -688,12 +688,12 @@ GEEKSHOP / EQUIPMENT ANALYSIS:
 - 本番装備箱は通常 Wave Boss 45%、通常 Elite 15%、NEMESIS 100%、Gold Slime 35%、Silver Slime 25% で抽選します。通常敵、Final Raid ボス/Add/巨大兵器、元素騎士イベント対象、Directive Slime、VOID HUNTER、報酬抑制対象からは落ちません。
 - 本番装備箱は1 Depth につき最大1個だけ出現します。`?debugEquipmentDrop=...` の直接出現箱や Final Raid 初回確定報酬はこの上限に含めません。
 - Depth1 で Equipment 進行が完全に空の場合、最初の通常 Wave Boss だけ本番ドロップ抽選を100%にします。中身のレアリティ、Rank、部位はDepth1用テーブルで通常どおり決まります。
-- LEGEND の本番ドロップは Depth11 以降かつ `finalRaidLegendRewardClaimed=true` の時だけ解禁されます。未解禁時の LEGEND 重みは SSR に再配分され、`legendDiscovered` では解禁されません。
+- LEGEND の本番ドロップは Depth11 以降かつ `finalRaidLegendRewardClaimed=true` の時だけ解禁されます。Depth11 以降の本番レアリティ抽選では、SSR を旧LEGEND相当の確率に下げ、LEGEND は旧LEGENDの半分の確率に調整しています。未解禁時の LEGEND 重みは SSR に再配分され、`legendDiscovered` では解禁されません。
 - 装備箱を拾うとラン内の `runUnsecuredEquipmentBoxes` にだけ入り、拾った瞬間には `lastmemoVansabaEquipmentState`、`securedBoxes`、`legendDiscovered`、`stats`、確定 GEEK、未確定 GEEK を変更しません。
 - Depth10 以上で通常 `EXTRACT` に成功した場合は、拾得箱とは別に深層抽出の未解析 Equipment Cache を1個だけ `securedBoxes` へ保存します。`sourceDepth` はそのランの最大到達絶対Depthで、DEPTH RELAY の `rewardDepthReached` は使いません。Depth10 / Depth20 / Depth30 Relay でも通常抽出なら対象ですが、EMERGENCY EXTRACT、ゲームオーバー、Final Raid専用帰還、進行注入系debugラン、プレビューでは付与しません。
 - 通常 `EXTRACT` と Final Raid の解放帰還では、拾得済み装備箱をすべて `securedBoxes` に保存します。`EMERGENCY EXTRACT` では `rarityIndex * 5 + rank` の品質スコアが最も高い1箱だけ保存し、同点の場合は先に拾った箱を保存します。
 - Depth10 初回 Final Raid では、ボス撃破時に未登録Equipment信号を一度だけ表示し、専用の `ドールを解放する` 帰還が成功した時だけ固定ID `final-raid-equipment-reward-v1` のLEGEND未解析箱を `securedBoxes` の先頭へ保存します。Rank は Rank2 75% / Rank3 25%、slot は5部位均等、`sourceDepth=10`、`sourceType=finalRaid`、`analysisCostOverride=0` です。
-- Final Raid 確定箱は解析前に `UNKNOWN SIGNAL` として表示され、`LEGEND`、Rank、slot は解析成功時の `LEGEND CLASS CONFIRMED` で初めて公開されます。override 0 のため解析費用は無料で、初回無料解析クレジットは消費しません。
+- Final Raid 確定箱は `EQUIPMENT ANALYSIS` の未解析一覧では `LEGEND` 箱として個数だけ表示され、Rank、slot は解析成功時の `LEGEND CLASS CONFIRMED` で初めて公開されます。override 0 のため解析費用は無料で、初回無料解析クレジットは消費しません。
 - `finalRaidLegendRewardClaimed` は「Final Raid初回LEGEND確定箱をEquipment保存状態へ正常に確定済み」を表します。Depth10 Final Raid を装備システム実装前に討伐済みで、このフラグが false の保存データには、起動時に同じ固定ID報酬を1回だけ遡及付与します。claimed が true の場合は、箱が残っていなくても解析済みの可能性を優先して再付与しません。
 - 保存失敗時は Equipment 状態を抽出前に戻し、ラン内箱は保持したまま `EQUIPMENT SAVE FAILED` を表示します。その後ショップ復帰などでランが終了する場合、未保存箱は破棄されます。
 - 戦闘HUDには拾得済み箱のレアリティ別個数だけを `SEALED EQ` として表示します。`legendDiscovered=false` の間、LEGEND箱は `UNKNOWN SIGNAL` 扱いで、LEGEND文字、虹色枠、rank、slot、id、sourceTypeは表示しません。
@@ -825,7 +825,7 @@ sessionStorage キー:
 
 `evaluateEquipmentSetStatus()` は保存済み `bestBySlot` から5部位セット進捗を毎回導出する純粋関数です。Rank、`securedBoxes`、`stats` はセット判定に使わず、セット状態用の保存フィールドや保存versionは追加しません。
 
-保存キーは `lastmemoVansabaEquipmentState` です。初期状態は `version: 1`、`legendDiscovered: false`、`finalRaidLegendRewardClaimed: false`、`freeAnalysisCredits: 1`、5部位すべて `null` の `bestBySlot`、空の `securedBoxes`、全slot 0の `legendResonanceBySlot`、`opened/upgrades/duplicates` が0の `stats` です。Phase 7 でも保存キーと `version` は増やしません。ラン中に拾った未抽出箱は `runUnsecuredEquipmentBoxes` の一時状態だけで持ち、通常 / 緊急 / Final Raid 解放帰還の抽出成功時にだけ `securedBoxes` へ追記して `lastmemoVansabaEquipmentState` を保存します。Depth10 以上の通常EXTRACTで得る深層 Equipment Cache は中身を Deep Result や RUN ARCHIVE / ranking / Firebase へ公開せず、EQUIPMENT ANALYSIS で解析するまで未解析箱として扱います。LEGEND未発見状態では既存ルールどおりLEGEND表示を秘匿します。Emergency Extract、ゲームオーバー、Final Raid専用帰還、debugプレビューでは深層 Equipment Cache は付与されません。深層 Equipment Cacheの中身やsourceDepthはランキング / Firebaseへ送信しません。Depth10 Final Raid 初回確定箱はラン中箱とは別系統の自動報酬で、専用帰還成功時に固定IDで `securedBoxes` 先頭へ保存します。
+保存キーは `lastmemoVansabaEquipmentState` です。初期状態は `version: 1`、`legendDiscovered: false`、`finalRaidLegendRewardClaimed: false`、`freeAnalysisCredits: 1`、5部位すべて `null` の `bestBySlot`、空の `securedBoxes`、全slot 0の `legendResonanceBySlot`、`opened/upgrades/duplicates` が0の `stats` です。Phase 7 でも保存キーと `version` は増やしません。ラン中に拾った未抽出箱は `runUnsecuredEquipmentBoxes` の一時状態だけで持ち、通常 / 緊急 / Final Raid 解放帰還の抽出成功時にだけ `securedBoxes` へ追記して `lastmemoVansabaEquipmentState` を保存します。Depth10 以上の通常EXTRACTで得る深層 Equipment Cache は中身を Deep Result や RUN ARCHIVE / ranking / Firebase へ公開せず、EQUIPMENT ANALYSIS で解析するまで未解析箱として扱います。EQUIPMENT ANALYSIS 上の LEGEND 表記と進捗は初期状態から表示しますが、`legendDiscovered` は解析成功履歴として false から始まります。Emergency Extract、ゲームオーバー、Final Raid専用帰還、debugプレビューでは深層 Equipment Cache は付与されません。深層 Equipment Cacheの中身やsourceDepthはランキング / Firebaseへ送信しません。Depth10 Final Raid 初回確定箱はラン中箱とは別系統の自動報酬で、専用帰還成功時に固定IDで `securedBoxes` 先頭へ保存します。
 
 OPERATIONS HUB の GEEKSHOP / EQUIPMENT ANALYSIS から保存済み `securedBoxes` を解析すると、`legendDiscovered`、`freeAnalysisCredits`、`bestBySlot`、`securedBoxes`、`legendResonanceBySlot`、`stats.opened/upgrades/duplicates` を更新します。`legendResonanceBySlot` は真の重複LEGENDだけでslot別に増える表示専用記録で、LEGENDコンプの長期目標を短縮しません。`finalRaidLegendRewardClaimed` は Final Raid 初回LEGEND確定箱の保存成功、または同じ固定ID箱が既に存在する状態の修復保存成功でだけ true になります。解析、通常戦闘ドロップ、抽出保存では変更しません。ラン中のステータス補正は出撃開始時に `bestBySlot` から作る `runEquipmentLoadoutSnapshot` と `runEquipmentBonuses` だけを参照し、`lastmemoVansabaEquipmentState` 自体には保存しません。
 

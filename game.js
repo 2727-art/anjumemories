@@ -15171,6 +15171,11 @@ class SurvivalScene extends Phaser.Scene {
     return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
   }
 
+  shouldShowEquipmentHubLegendLabels() {
+    const equipmentSystem = this.getEquipmentSystem();
+    return equipmentSystem?.LEGEND_LABELS_VISIBLE_FROM_START !== false;
+  }
+
   createEquipmentHubDebugItem(id, rarity, rank, slot) {
     return {
       id,
@@ -15255,10 +15260,41 @@ class SurvivalScene extends Phaser.Scene {
     return counts;
   }
 
+  applyEquipmentHubLegendSetVisibility(setStatus) {
+    if (!setStatus || !this.shouldShowEquipmentHubLegendLabels()) {
+      return setStatus;
+    }
+    const tiers = Array.isArray(setStatus.tiers)
+      ? setStatus.tiers.map((tier) => {
+          if (tier?.minimumRarity !== "LEGEND" && tier?.id !== "legendFive") {
+            return tier;
+          }
+          return {
+            ...tier,
+            visible: true
+          };
+        })
+      : setStatus.tiers;
+    const highestCompletedTier = Array.isArray(tiers)
+      ? tiers
+          .filter((tier) => tier?.complete && tier.visible !== false)
+          .sort((a, b) => {
+            const rarityA = EQUIPMENT_HUB_RARITY_ORDER.indexOf(a?.minimumRarity);
+            const rarityB = EQUIPMENT_HUB_RARITY_ORDER.indexOf(b?.minimumRarity);
+            return rarityB - rarityA;
+          })[0] || null
+      : null;
+    return {
+      ...setStatus,
+      tiers,
+      highestCompletedTierId: highestCompletedTier?.id || setStatus.highestCompletedTierId || null
+    };
+  }
+
   getEquipmentSetStatus(state) {
     const equipmentSystem = this.getEquipmentSystem();
     if (equipmentSystem?.evaluateEquipmentSetStatus) {
-      return equipmentSystem.evaluateEquipmentSetStatus(state);
+      return this.applyEquipmentHubLegendSetVisibility(equipmentSystem.evaluateEquipmentSetStatus(state));
     }
 
     const normalizedState = this.normalizeEquipmentState(state);
@@ -15294,14 +15330,14 @@ class SurvivalScene extends Phaser.Scene {
         matchedSlotCount: legendSlotCount,
         requiredSlotCount: EQUIPMENT_HUB_SLOT_ROWS.length,
         complete: legendSlotCount >= EQUIPMENT_HUB_SLOT_ROWS.length,
-        visible: normalizedState.legendDiscovered === true
+        visible: this.shouldShowEquipmentHubLegendLabels() || normalizedState.legendDiscovered === true
       }
     ];
     const highestCompletedTier = tiers
       .filter((tier) => tier.complete && tier.visible !== false)
       .sort((a, b) => EQUIPMENT_HUB_RARITY_ORDER.indexOf(b.minimumRarity) - EQUIPMENT_HUB_RARITY_ORDER.indexOf(a.minimumRarity))[0] || null;
 
-    return {
+    return this.applyEquipmentHubLegendSetVisibility({
       totalSlotCount: EQUIPMENT_HUB_SLOT_ROWS.length,
       equippedSlotCount,
       ssrPlusSlotCount,
@@ -15309,13 +15345,31 @@ class SurvivalScene extends Phaser.Scene {
       highestCompletedTierId: highestCompletedTier?.id || null,
       tiers,
       slotSummaries
+    });
+  }
+
+  applyEquipmentHubLegendCollectionVisibility(state, collectionProgress) {
+    if (!collectionProgress || !this.shouldShowEquipmentHubLegendLabels()) {
+      return collectionProgress;
+    }
+    const normalizedState = this.normalizeEquipmentState(state);
+    const totalSlotCount = collectionProgress.totalSlotCount || EQUIPMENT_HUB_SLOT_ROWS.length;
+    const legendCount = Math.max(0, Math.floor(Number(collectionProgress.legendCount) || 0));
+    const equipmentSystem = this.getEquipmentSystem();
+    return {
+      ...collectionProgress,
+      legendVisible: true,
+      legendComplete: legendCount >= totalSlotCount,
+      legendResonanceTotal: equipmentSystem?.getLegendResonanceTotal?.(normalizedState.legendResonanceBySlot)
+        || collectionProgress.legendResonanceTotal
+        || 0
     };
   }
 
   getEquipmentCollectionProgress(state) {
     const equipmentSystem = this.getEquipmentSystem();
     if (equipmentSystem?.evaluateEquipmentCollectionProgress) {
-      return equipmentSystem.evaluateEquipmentCollectionProgress(state);
+      return this.applyEquipmentHubLegendCollectionVisibility(state, equipmentSystem.evaluateEquipmentCollectionProgress(state));
     }
 
     const normalizedState = this.normalizeEquipmentState(state);
@@ -15340,19 +15394,20 @@ class SurvivalScene extends Phaser.Scene {
     const equippedSlotCount = slotValues.filter((slot) => slot.occupied).length;
     const ssrPlusCount = slotValues.filter((slot) => slot.ssrPlus).length;
     const legendCount = slotValues.filter((slot) => slot.legend).length;
-    return {
+    const legendVisible = this.shouldShowEquipmentHubLegendLabels() || normalizedState.legendDiscovered === true;
+    return this.applyEquipmentHubLegendCollectionVisibility(normalizedState, {
       totalSlotCount,
       equippedSlotCount,
       ssrPlusCount,
       legendCount,
       ssrPlusComplete: ssrPlusCount >= totalSlotCount,
-      legendComplete: legendCount >= totalSlotCount,
-      legendVisible: normalizedState.legendDiscovered === true,
-      legendResonanceTotal: normalizedState.legendDiscovered === true
+      legendComplete: legendVisible && legendCount >= totalSlotCount,
+      legendVisible,
+      legendResonanceTotal: legendVisible
         ? this.getEquipmentSystem()?.getLegendResonanceTotal?.(normalizedState.legendResonanceBySlot) || 0
         : 0,
       slots
-    };
+    });
   }
 
   getEquipmentSetTier(setStatus, tierId) {
@@ -15370,7 +15425,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getEquipmentHubSlotRows(state) {
-    const hiddenLegend = state.legendDiscovered !== true;
+    const hiddenLegend = !this.shouldShowEquipmentHubLegendLabels() && state.legendDiscovered !== true;
     return EQUIPMENT_HUB_SLOT_ROWS.map((entry) => {
       const item = state.bestBySlot?.[entry.slot] || null;
       if (!item) {
@@ -15417,6 +15472,7 @@ class SurvivalScene extends Phaser.Scene {
     }));
     const signature = JSON.stringify({
       legend: state.legendDiscovered === true,
+      legendLabelsVisible: this.shouldShowEquipmentHubLegendLabels(),
       slots: slotSummary,
       counts: rarityCounts,
       unknownSignalCount,
@@ -15431,8 +15487,9 @@ class SurvivalScene extends Phaser.Scene {
     }
     this.lastEquipmentHubDebugLogSignature = signature;
 
-    console.log("[EQUIPMENT HUB] debug sample", this.isEquipmentHubLegendDebugEnabled() ? "legendDiscovered" : "hiddenLegend");
+    console.log("[EQUIPMENT HUB] debug sample", this.isEquipmentHubLegendDebugEnabled() ? "legendSample" : "defaultSample");
     console.log("[EQUIPMENT HUB] legendDiscovered", state.legendDiscovered === true);
+    console.log("[EQUIPMENT HUB] legendLabelsVisible", this.shouldShowEquipmentHubLegendLabels());
     console.log("[EQUIPMENT HUB] loadout", slotSummary);
     console.log("[EQUIPMENT HUB] sealedBoxesByRarity", rarityCounts);
     console.log("[EQUIPMENT HUB] unknownSignalCount", unknownSignalCount);
@@ -49122,7 +49179,9 @@ class SurvivalScene extends Phaser.Scene {
     const rarityCounts = this.getEquipmentHubRarityCounts(state);
     const setStatus = this.getEquipmentSetStatus(state);
     const collectionProgress = this.getEquipmentCollectionProgress(state);
-    const hiddenLegendCount = state.legendDiscovered === true ? 0 : (rarityCounts.LEGEND || 0);
+    const hiddenLegendCount = (this.shouldShowEquipmentHubLegendLabels() || state.legendDiscovered === true)
+      ? 0
+      : (rarityCounts.LEGEND || 0);
 
     this.logEquipmentHubDebugSample(state, slotRows, rarityCounts, hiddenLegendCount, collectionProgress);
 
@@ -49444,7 +49503,7 @@ class SurvivalScene extends Phaser.Scene {
       }
       return result;
     }, {});
-    const visibleLegend = state.legendDiscovered === true;
+    const visibleLegend = this.shouldShowEquipmentHubLegendLabels() || state.legendDiscovered === true;
     const gap = 7;
     const nodeWidth = Math.floor((width - gap * (EQUIPMENT_HUB_SLOT_ROWS.length - 1)) / EQUIPMENT_HUB_SLOT_ROWS.length);
     EQUIPMENT_HUB_SLOT_ROWS.forEach((entry, index) => {
@@ -49720,7 +49779,8 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    const visibleRarities = state.legendDiscovered === true
+    const showLegendLabels = this.shouldShowEquipmentHubLegendLabels() || state.legendDiscovered === true;
+    const visibleRarities = showLegendLabels
       ? EQUIPMENT_HUB_RARITY_ORDER
       : EQUIPMENT_HUB_RARITY_ORDER.filter((rarity) => rarity !== "LEGEND");
     visibleRarities.forEach((rarity, index) => {
@@ -49736,7 +49796,7 @@ class SurvivalScene extends Phaser.Scene {
       );
     });
 
-    if (state.legendDiscovered !== true && hiddenLegendCount > 0) {
+    if (!showLegendLabels && hiddenLegendCount > 0) {
       this.renderSealedEquipmentCountRow(
         x + 18,
         y + 18 + visibleRarities.length * 38,
