@@ -1807,6 +1807,44 @@ const EQUIPMENT_BOX_RARITY_VISUALS = {
   LEGEND: { tint: 0xffffff, text: "#ffffff", label: "LEGEND" },
   unknown: { tint: 0x9ffcff, text: "#ecfaff", label: "?" }
 };
+const EQUIPMENT_BOX_IMAGE_ASSETS = {
+  N: { textureKey: "equipment-box-n", imagePath: "./画像/items/equipment_boxes/equipbox_n.png" },
+  R: { textureKey: "equipment-box-r", imagePath: "./画像/items/equipment_boxes/equipbox_r.png" },
+  SR: { textureKey: "equipment-box-sr", imagePath: "./画像/items/equipment_boxes/equipbox_sr.png" },
+  SSR: { textureKey: "equipment-box-ssr", imagePath: "./画像/items/equipment_boxes/equipbox_ssr.png" },
+  LEGEND: { textureKey: "equipment-box-legend", imagePath: "./画像/items/equipment_boxes/equipbox_legend.png" }
+};
+const EQUIPMENT_BOX_DROP_BASE_SCALE = 0.84;
+const EQUIPMENT_BOX_DROP_IMAGE_DISPLAY_SIZE = 64;
+const EQUIPMENT_BOX_PICKUP_RADIUS = 22;
+const EQUIPMENT_BOX_GLOW_BASE_SCALE = 1.02;
+const EQUIPMENT_BOX_RING_BASE_SCALE = 0.74;
+const EQUIPMENT_BOX_PILLAR_EFFECT_ASSETS = {
+  SSR: {
+    animationKey: "equipment-pillar-ssr",
+    frameRate: 10,
+    baseWidth: 232,
+    baseHeight: 464,
+    baseAlpha: 0.36,
+    offsetY: 60,
+    animationFrames: Array.from({ length: 8 }, (_, index) => ({
+      textureKey: `equipment-pillar-ssr-${index}`,
+      imagePath: `./画像/effects/equipment_pillars/gold_${index}.png`
+    }))
+  },
+  LEGEND: {
+    animationKey: "equipment-pillar-legend",
+    frameRate: 10,
+    baseWidth: 252,
+    baseHeight: 504,
+    baseAlpha: 0.42,
+    offsetY: 64,
+    animationFrames: Array.from({ length: 8 }, (_, index) => ({
+      textureKey: `equipment-pillar-legend-${index}`,
+      imagePath: `./画像/effects/equipment_pillars/rainbow_${index}.png`
+    }))
+  }
+};
 const FINAL_BOSS_DEBUG_QUERY_PARAM = "debugFinalBossRaid";
 const FINAL_BOSS_DEBUG_ALIAS_QUERY_PARAM = "debugFinalRaid";
 const FINAL_BOSS_DEBUG_TIME_SCALE_QUERY_PARAM = "debugFinalBossRaidScale";
@@ -6281,7 +6319,15 @@ class SurvivalScene extends Phaser.Scene {
     Object.values(ITEM_IMAGE_ASSETS).forEach((asset) => {
       this.loadImageIfNeeded(asset.textureKey, asset.imagePath);
     });
+    Object.values(EQUIPMENT_BOX_IMAGE_ASSETS).forEach((asset) => {
+      this.loadImageIfNeeded(asset.textureKey, asset.imagePath);
+    });
     Object.values(RARE_ITEM_PILLAR_EFFECT_ASSETS).forEach((asset) => {
+      asset.animationFrames.forEach((frame) => {
+        this.loadImageIfNeeded(frame.textureKey, frame.imagePath);
+      });
+    });
+    Object.values(EQUIPMENT_BOX_PILLAR_EFFECT_ASSETS).forEach((asset) => {
       asset.animationFrames.forEach((frame) => {
         this.loadImageIfNeeded(frame.textureKey, frame.imagePath);
       });
@@ -7499,7 +7545,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   createRareItemPillarAnimations() {
-    Object.values(RARE_ITEM_PILLAR_EFFECT_ASSETS).forEach((asset) => {
+    [
+      ...Object.values(RARE_ITEM_PILLAR_EFFECT_ASSETS),
+      ...Object.values(EQUIPMENT_BOX_PILLAR_EFFECT_ASSETS)
+    ].forEach((asset) => {
       if (!asset.animationKey || this.anims.exists(asset.animationKey)) {
         return;
       }
@@ -14017,6 +14066,21 @@ class SurvivalScene extends Phaser.Scene {
     return EQUIPMENT_BOX_RARITY_VISUALS[hiddenLegend ? "unknown" : normalizedBox?.rarity] || EQUIPMENT_BOX_RARITY_VISUALS.unknown;
   }
 
+  getEquipmentBoxPillarEffectAsset(box) {
+    const normalizedBox = this.normalizeEquipmentItem(box);
+    return EQUIPMENT_BOX_PILLAR_EFFECT_ASSETS[normalizedBox?.rarity] || null;
+  }
+
+  getEquipmentBoxImageAsset(box) {
+    const normalizedBox = this.normalizeEquipmentItem(box);
+    return EQUIPMENT_BOX_IMAGE_ASSETS[normalizedBox?.rarity] || null;
+  }
+
+  canCleaningRobotCollectEquipmentBoxDrop(drop) {
+    const normalizedBox = this.normalizeEquipmentItem(drop?.equipmentRecord);
+    return normalizedBox?.rarity !== "LEGEND";
+  }
+
   getEquipmentBoxRarityDisplayLabel(rarity) {
     if (rarity === "LEGEND" && this.isEquipmentLegendHidden()) {
       return "UNKNOWN SIGNAL";
@@ -14491,10 +14555,18 @@ class SurvivalScene extends Phaser.Scene {
 
     const dropPoint = this.getSafeDropPoint(x, y, 28);
     const visual = this.getEquipmentBoxRarityVisual(equipmentRecord);
-    const textureKey = this.textures.exists("rare-token") ? "rare-token" : "skill-hit-ring";
+    const imageAsset = this.getEquipmentBoxImageAsset(equipmentRecord);
+    const hasEquipmentBoxImage = imageAsset?.textureKey && this.textures.exists(imageAsset.textureKey);
+    const textureKey = hasEquipmentBoxImage
+      ? imageAsset.textureKey
+      : (this.textures.exists("rare-token") ? "rare-token" : "skill-hit-ring");
     const drop = this.physics.add.image(dropPoint.x, dropPoint.y, textureKey).setDepth(13);
     const sourceImage = drop.texture.getSourceImage();
-    const bodyRadius = 22;
+    const sourceSize = Math.max(1, sourceImage?.width || 32, sourceImage?.height || 32);
+    const baseScale = hasEquipmentBoxImage
+      ? EQUIPMENT_BOX_DROP_IMAGE_DISPLAY_SIZE / sourceSize
+      : EQUIPMENT_BOX_DROP_BASE_SCALE;
+    const bodyRadius = Math.max(8, EQUIPMENT_BOX_PICKUP_RADIUS / Math.max(0.001, baseScale));
     const bodyOffsetX = Math.max(0, (sourceImage?.width || 48) * 0.5 - bodyRadius);
     const bodyOffsetY = Math.max(0, (sourceImage?.height || 48) * 0.5 - bodyRadius);
     drop.body.setAllowGravity(false);
@@ -14503,43 +14575,75 @@ class SurvivalScene extends Phaser.Scene {
     drop.equipmentRecord = equipmentRecord;
     drop.baseX = dropPoint.x;
     drop.baseY = dropPoint.y;
-    drop.baseScale = 0.42;
+    drop.baseScale = baseScale;
+    drop.usesEquipmentBoxImage = hasEquipmentBoxImage;
     drop.floatTimer = Phaser.Math.FloatBetween(0, Math.PI * 2);
     drop.forcePullUntil = 0;
     drop.forcePullSpeed = 0;
     drop.setScale(drop.baseScale);
-    drop.setTint(visual.tint);
-    drop.setBlendMode(Phaser.BlendModes.SCREEN);
+    if (hasEquipmentBoxImage) {
+      drop.clearTint();
+      drop.setBlendMode(Phaser.BlendModes.NORMAL);
+    } else {
+      drop.setTint(visual.tint);
+      drop.setBlendMode(Phaser.BlendModes.SCREEN);
+    }
     this.prepareDropObject(drop, "equipmentBox", "equipmentBoxItems");
+
+    const pillarAsset = this.getEquipmentBoxPillarEffectAsset(equipmentRecord);
+    if (pillarAsset?.animationFrames?.length && this.textures.exists(pillarAsset.animationFrames[0].textureKey)) {
+      drop.equipmentPillarEffect = this.add
+        .sprite(dropPoint.x, dropPoint.y + (pillarAsset.offsetY || 60), pillarAsset.animationFrames[0].textureKey)
+        .setOrigin(0.5, 1)
+        .setDepth(10)
+        .setAlpha(pillarAsset.baseAlpha || 0.36)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      drop.equipmentPillarEffectBaseWidth = pillarAsset.baseWidth || 232;
+      drop.equipmentPillarEffectBaseHeight = pillarAsset.baseHeight || 464;
+      drop.equipmentPillarEffectBaseAlpha = pillarAsset.baseAlpha || 0.36;
+      drop.equipmentPillarEffectOffsetY = pillarAsset.offsetY || 60;
+      drop.equipmentPillarEffect.setDisplaySize(drop.equipmentPillarEffectBaseWidth, drop.equipmentPillarEffectBaseHeight);
+
+      if (this.anims.exists(pillarAsset.animationKey)) {
+        drop.equipmentPillarEffect.play(pillarAsset.animationKey);
+      }
+    }
 
     drop.equipmentGlow = this.add
       .image(dropPoint.x, dropPoint.y, "skill-hit-glow")
       .setDepth(12)
-      .setScale(0.74)
+      .setScale(EQUIPMENT_BOX_GLOW_BASE_SCALE)
       .setTint(visual.tint)
       .setAlpha(0.24)
       .setBlendMode(Phaser.BlendModes.ADD);
     drop.equipmentRing = this.add
       .image(dropPoint.x, dropPoint.y, "skill-hit-ring")
       .setDepth(12)
-      .setScale(0.52)
+      .setScale(EQUIPMENT_BOX_RING_BASE_SCALE)
       .setTint(visual.tint)
       .setAlpha(0.18)
       .setBlendMode(Phaser.BlendModes.ADD);
-    drop.equipmentLabel = this.add
-      .text(dropPoint.x, dropPoint.y - 2, visual.label, {
-        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
-        fontSize: visual.label.length > 2 ? "10px" : "13px",
-        color: visual.text,
-        fontStyle: "bold",
-        stroke: "#04111c",
-        strokeThickness: 4,
-        align: "center"
-      })
-      .setOrigin(0.5)
-      .setDepth(14);
+    if (!hasEquipmentBoxImage) {
+      drop.equipmentLabel = this.add
+        .text(dropPoint.x, dropPoint.y - 2, visual.label, {
+          fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+          fontSize: visual.label.length > 2 ? "10px" : "13px",
+          color: visual.text,
+          fontStyle: "bold",
+          stroke: "#04111c",
+          strokeThickness: 4,
+          align: "center"
+        })
+        .setOrigin(0.5)
+        .setDepth(14);
+    }
 
-    this.pickupEffectsLayer?.add?.([drop.equipmentGlow, drop.equipmentRing, drop.equipmentLabel].filter(Boolean));
+    this.pickupEffectsLayer?.add?.([
+      drop.equipmentPillarEffect,
+      drop.equipmentGlow,
+      drop.equipmentRing,
+      drop.equipmentLabel
+    ].filter(Boolean));
     this.equipmentBoxItems.add(drop);
     this.enforceEquipmentBoxGroundLimit("spawnEquipmentBoxDrop");
     return drop;
@@ -14594,16 +14698,25 @@ class SurvivalScene extends Phaser.Scene {
       drop.setAlpha(0.9 + pulse * 0.1);
       drop.angle = Math.sin(drop.floatTimer * 0.72) * 5;
 
+      if (drop.equipmentPillarEffect?.active) {
+        const baseWidth = drop.equipmentPillarEffectBaseWidth || 232;
+        const baseHeight = drop.equipmentPillarEffectBaseHeight || 464;
+        const baseAlpha = drop.equipmentPillarEffectBaseAlpha || 0.36;
+        drop.equipmentPillarEffect
+          .setPosition(drop.x, drop.y + (drop.equipmentPillarEffectOffsetY || 60))
+          .setDisplaySize(baseWidth * (0.98 + pulse * 0.06), baseHeight * (0.98 + pulse * 0.05))
+          .setAlpha((isForcedPull ? baseAlpha + 0.14 : baseAlpha) + pulse * 0.12);
+      }
       if (drop.equipmentGlow?.active) {
         drop.equipmentGlow
           .setPosition(drop.x, drop.y)
-          .setScale(0.68 + pulse * 0.2)
+          .setScale(EQUIPMENT_BOX_GLOW_BASE_SCALE * (0.9 + pulse * 0.24))
           .setAlpha((isForcedPull ? 0.32 : 0.18) + pulse * 0.14);
       }
       if (drop.equipmentRing?.active) {
         drop.equipmentRing
           .setPosition(drop.x, drop.y)
-          .setScale(0.48 + pulse * 0.18)
+          .setScale(EQUIPMENT_BOX_RING_BASE_SCALE * (0.9 + pulse * 0.24))
           .setAlpha(0.12 + pulse * 0.12);
         drop.equipmentRing.rotation += 0.018 * (delta / 16.6667);
       }
@@ -14617,7 +14730,14 @@ class SurvivalScene extends Phaser.Scene {
     if (!drop) {
       return;
     }
-    this.tweens?.killTweensOf?.([drop, drop.equipmentGlow, drop.equipmentRing, drop.equipmentLabel].filter(Boolean));
+    this.tweens?.killTweensOf?.([
+      drop,
+      drop.equipmentPillarEffect,
+      drop.equipmentGlow,
+      drop.equipmentRing,
+      drop.equipmentLabel
+    ].filter(Boolean));
+    drop.equipmentPillarEffect?.destroy?.();
     drop.equipmentGlow?.destroy?.();
     drop.equipmentRing?.destroy?.();
     drop.equipmentLabel?.destroy?.();
@@ -14634,6 +14754,13 @@ class SurvivalScene extends Phaser.Scene {
     const equipmentRecord = this.normalizeEquipmentItem(drop.equipmentRecord);
     if (!equipmentRecord) {
       this.removeDropSafely(drop);
+      return false;
+    }
+    if (collectorType === "cleaningRobot" && equipmentRecord.rarity === "LEGEND") {
+      this.logEquipmentRunDebug("cleaningRobotLegendSkip", {
+        id: this.getShortEquipmentBoxId(equipmentRecord.id),
+        sourceDepth: equipmentRecord.sourceDepth
+      });
       return false;
     }
     const existingRunBoxes = this.normalizeEquipmentItemList(this.runUnsecuredEquipmentBoxes);
@@ -59226,6 +59353,9 @@ class SurvivalScene extends Phaser.Scene {
     if (!this.getCleaningRobotAllowedDropCategories(this.getCleaningRobotLevel()).has(category)) {
       return false;
     }
+    if (category === "equipmentBox" && !this.canCleaningRobotCollectEquipmentBoxDrop(drop)) {
+      return false;
+    }
     if (category === "recovery" && this.stats && this.stats.hp >= this.stats.maxHp) {
       return false;
     }
@@ -59271,6 +59401,11 @@ class SurvivalScene extends Phaser.Scene {
       y: this.cleaningRobotState.y
     };
     const category = this.getDropCategory(drop);
+    if (category === "equipmentBox" && !this.canCleaningRobotCollectEquipmentBoxDrop(drop)) {
+      this.cleaningRobotState.target = null;
+      this.cleaningRobotState.nextTargetScanAt = 0;
+      return false;
+    }
     this.spawnCleaningRobotCollectEffect(proxy.x, proxy.y);
 
     if (category === "xp") {
@@ -61699,6 +61834,7 @@ class SurvivalScene extends Phaser.Scene {
       ...(drop.pillarSparkles || []),
       drop.beam,
       drop.scanLine,
+      drop.equipmentPillarEffect,
       drop.equipmentGlow,
       drop.equipmentRing,
       drop.equipmentLabel

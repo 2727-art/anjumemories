@@ -689,6 +689,7 @@ GEEKSHOP / EQUIPMENT ANALYSIS:
 - 本番装備箱は1 Depth につき最大1個だけ出現します。`?debugEquipmentDrop=...` の直接出現箱や Final Raid 初回確定報酬はこの上限に含めません。
 - Depth1 で Equipment 進行が完全に空の場合、最初の通常 Wave Boss だけ本番ドロップ抽選を100%にします。中身のレアリティ、Rank、部位はDepth1用テーブルで通常どおり決まります。
 - LEGEND の本番ドロップは Depth11 以降かつ `finalRaidLegendRewardClaimed=true` の時だけ解禁されます。Depth11 以降の本番レアリティ抽選では、SSR を旧LEGEND相当の確率に下げ、LEGEND は旧LEGENDの半分の確率に調整しています。未解禁時の LEGEND 重みは SSR に再配分され、`legendDiscovered` では解禁されません。
+- 戦闘フィールド上の装備箱は `画像/items/equipment_boxes/equipbox_n.png` / `equipbox_r.png` / `equipbox_sr.png` / `equipbox_ssr.png` / `equipbox_legend.png` をレアリティ別に使い、従来の2倍サイズ相当で表示します。SSR は `画像/effects/equipment_pillars/gold_0.png`〜`gold_7.png`、LEGEND は `rainbow_0.png`〜`rainbow_7.png` の8フレーム光柱を表示し、N / R / SR には光柱を出しません。
 - 装備箱を拾うとラン内の `runUnsecuredEquipmentBoxes` にだけ入り、拾った瞬間には `lastmemoVansabaEquipmentState`、`securedBoxes`、`legendDiscovered`、`stats`、確定 GEEK、未確定 GEEK を変更しません。
 - Depth10 以上で通常 `EXTRACT` に成功した場合は、拾得箱とは別に深層抽出の未解析 Equipment Cache を1個だけ `securedBoxes` へ保存します。`sourceDepth` はそのランの最大到達絶対Depthで、DEPTH RELAY の `rewardDepthReached` は使いません。Depth10 / Depth20 / Depth30 Relay でも通常抽出なら対象ですが、EMERGENCY EXTRACT、ゲームオーバー、Final Raid専用帰還、進行注入系debugラン、プレビューでは付与しません。
 - 通常 `EXTRACT` と Final Raid の解放帰還では、拾得済み装備箱をすべて `securedBoxes` に保存します。`EMERGENCY EXTRACT` では `rarityIndex * 5 + rank` の品質スコアが最も高い1箱だけ保存し、同点の場合は先に拾った箱を保存します。
@@ -697,7 +698,7 @@ GEEKSHOP / EQUIPMENT ANALYSIS:
 - `finalRaidLegendRewardClaimed` は「Final Raid初回LEGEND確定箱をEquipment保存状態へ正常に確定済み」を表します。Depth10 Final Raid を装備システム実装前に討伐済みで、このフラグが false の保存データには、起動時に同じ固定ID報酬を1回だけ遡及付与します。claimed が true の場合は、箱が残っていなくても解析済みの可能性を優先して再付与しません。
 - 保存失敗時は Equipment 状態を抽出前に戻し、ラン内箱は保持したまま `EQUIPMENT SAVE FAILED` を表示します。その後ショップ復帰などでランが終了する場合、未保存箱は破棄されます。
 - 戦闘HUDには拾得済み箱のレアリティ別個数だけを `SEALED EQ` として表示します。`legendDiscovered=false` の間、LEGEND箱は `UNKNOWN SIGNAL` 扱いで、LEGEND文字、虹色枠、rank、slot、id、sourceTypeは表示しません。
-- 掃除ロボは Lv5 以上で装備箱を回収できます。Lv1〜4では対象にしません。
+- 掃除ロボは Lv5 以上で装備箱を回収できますが、LEGEND 装備箱は対象にしません。Lv1〜4では装備箱全体を対象にしません。
 
 ROBOT CUSTOM:
 
