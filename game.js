@@ -1718,6 +1718,8 @@ const BEST_RECORD_STORAGE_KEY = "lastmemoVansabaBestRecord";
 const KILL_RANKING_STORAGE_KEY = "lastmemoVansabaKillRanking";
 const COIN_WALLET_STORAGE_KEY = "lastmemoVansabaCoins";
 const SHOP_STATE_STORAGE_KEY = "lastmemoVansabaShopState";
+const OPTIONS_STATE_STORAGE_KEY = "lastmemoVansabaOptionsState";
+const OPTIONS_STATE_VERSION = 1;
 const LOST_ARMS_STORAGE_KEY = "lastmemoVansabaLostArmsState";
 const FINAL_BOSS_STATE_STORAGE_KEY = "lastmemoVansabaFinalBossState";
 const DEPTH_RELAY_STATE_STORAGE_KEY = "lastmemoVansabaDepthRelayState";
@@ -3141,6 +3143,27 @@ const DEFAULT_SHOP_STATE = {
   reactorCoolingLevel: 0,
   cleaningRobotLevel: 0,
   robotCustom: { ...DEFAULT_ROBOT_CUSTOM_STATE }
+};
+const DEFAULT_OPTIONS_STATE = {
+  version: OPTIONS_STATE_VERSION,
+  bgmEnabled: true,
+  sfxEnabled: true,
+  controllerEnabled: true
+};
+const GAMEPAD_INPUT_CONFIG = {
+  deadzone: 0.18,
+  triggerThreshold: 0.35,
+  navRepeatInitialMs: 260,
+  navRepeatMs: 140,
+  buttons: {
+    confirm: [0, 9],
+    back: [1],
+    dash: [0, 5, 7],
+    up: [12],
+    down: [13],
+    left: [14],
+    right: [15]
+  }
 };
 const LOST_ARMS_MAX_LEVEL = 8;
 const LOST_ARMS_RUN_PICKUP_LIMIT = 2;
@@ -7893,6 +7916,7 @@ class SurvivalScene extends Phaser.Scene {
 
   createState() {
     this.shopState = this.loadShopState();
+    this.optionsState = this.loadOptionsState();
     this.anjuMemoryState = this.loadAnjuMemoryState();
     this.mutationAtlasState = this.loadMutationAtlasState();
     this.supportLinkState = this.loadSupportLinkState();
@@ -7997,6 +8021,7 @@ class SurvivalScene extends Phaser.Scene {
     this.mobileDashHeld = false;
     this.mobileControlsContainer = null;
     this.mobileControlVisuals = null;
+    this.gamepadState = this.createGamepadState();
     this.depthRelayStartOverlay = null;
     this.depthRelayStartChoiceRecords = [];
     this.depthRelayStartKeyHandler = null;
@@ -8103,6 +8128,7 @@ class SurvivalScene extends Phaser.Scene {
     this.activeSupportAttackBgm = null;
     this.activeSupportAttackBgmDefinitionId = null;
     this.supportAttackBgmOverrideTween = null;
+    this.managedSfxSounds = new Set();
     this.initializeScrambledCommsState();
     this.logEquipmentDebugState();
   }
@@ -12442,6 +12468,68 @@ class SurvivalScene extends Phaser.Scene {
     } catch (error) {
       // Ignore storage failures so the shop can still be used during this session.
     }
+  }
+
+  normalizeOptionsState(record = {}) {
+    return {
+      version: OPTIONS_STATE_VERSION,
+      bgmEnabled: record?.bgmEnabled !== false,
+      sfxEnabled: record?.sfxEnabled !== false,
+      controllerEnabled: record?.controllerEnabled !== false
+    };
+  }
+
+  loadOptionsState() {
+    let rawState = null;
+
+    try {
+      rawState = window.localStorage?.getItem(OPTIONS_STATE_STORAGE_KEY) || null;
+    } catch (error) {
+      rawState = null;
+    }
+
+    if (!rawState) {
+      return this.normalizeOptionsState(DEFAULT_OPTIONS_STATE);
+    }
+
+    try {
+      return this.normalizeOptionsState(JSON.parse(rawState));
+    } catch (error) {
+      return this.normalizeOptionsState(DEFAULT_OPTIONS_STATE);
+    }
+  }
+
+  saveOptionsState() {
+    this.optionsState = this.normalizeOptionsState(this.optionsState);
+
+    try {
+      window.localStorage?.setItem(OPTIONS_STATE_STORAGE_KEY, JSON.stringify(this.optionsState));
+    } catch (error) {
+      // Options are a local convenience setting. Storage failure must not block gameplay.
+    }
+
+    return this.optionsState;
+  }
+
+  updateOptionsState(patch = {}, reason = "options") {
+    const previousState = this.normalizeOptionsState(this.optionsState || DEFAULT_OPTIONS_STATE);
+    const nextState = this.normalizeOptionsState({
+      ...previousState,
+      ...patch
+    });
+    this.optionsState = nextState;
+    this.saveOptionsState();
+
+    if (previousState.bgmEnabled !== nextState.bgmEnabled) {
+      this.applyBgmEnabledChange(nextState.bgmEnabled, reason);
+    }
+    if (previousState.sfxEnabled !== nextState.sfxEnabled) {
+      if (!nextState.sfxEnabled) {
+        this.stopAllSfxCategoryAudio(reason);
+      }
+    }
+
+    return nextState;
   }
 
   getEquipmentSystem() {
@@ -18777,6 +18865,10 @@ class SurvivalScene extends Phaser.Scene {
     this.stopFinalBossRaidBgm(false, false);
     this.stopBgm();
 
+    if (!this.canPlayBgm()) {
+      return;
+    }
+
     if (!this.cache.audio.exists(phase.audioKey)) {
       this.activeFinalBossRaidBgmPhaseId = null;
       return;
@@ -18930,6 +19022,7 @@ class SurvivalScene extends Phaser.Scene {
         console.warn("[FINAL BOSS RAID] support voice cleanup failed", { reason, error });
       }
     }
+    this.untrackManagedSfx?.(voice);
   }
 
   cleanupFinalBossRaidSupportEffects(reason = "cleanup") {
@@ -23411,19 +23504,23 @@ class SurvivalScene extends Phaser.Scene {
 
   playFinalBossRaidSupportVoice(entry) {
     const state = this.finalBossRaidState;
-    if (!state?.active || !entry?.voiceKey || !this.cache.audio.exists(entry.voiceKey)) {
+    if (!state?.active || !entry?.voiceKey || !this.cache.audio.exists(entry.voiceKey) || !this.canPlaySfx()) {
       return 0;
     }
 
     this.stopFinalBossRaidSupportVoice("nextSupportVoice");
-    const voice = this.sound.add(entry.voiceKey, {
+    const voice = this.addManagedSfx(entry.voiceKey, {
       volume: Phaser.Math.Clamp(entry.voiceVolume ?? 0.9, 0, 1)
     });
+    if (!voice) {
+      return 0;
+    }
     state.supportVoiceSound = voice;
     voice.once("complete", () => {
       if (state.supportVoiceSound === voice) {
         state.supportVoiceSound = null;
       }
+      this.untrackManagedSfx(voice);
       voice.destroy();
     });
     const durationMs = Number.isFinite(voice.duration) && voice.duration > 0
@@ -27415,6 +27512,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   ensureActiveBgmPlaying() {
+    if (!this.canPlayBgm()) {
+      return false;
+    }
+
     if (!this.activeBgm) {
       return false;
     }
@@ -27435,7 +27536,151 @@ class SurvivalScene extends Phaser.Scene {
     this.activeBgmCdId = descriptor?.mode === RUN_BGM_MODES.cd ? descriptor.cdId : null;
   }
 
+  isBgmEnabled() {
+    return this.normalizeOptionsState(this.optionsState || DEFAULT_OPTIONS_STATE).bgmEnabled === true;
+  }
+
+  canPlayBgm() {
+    return Boolean(this.isBgmEnabled() && this.sound && typeof this.sound.add === "function");
+  }
+
+  applyBgmEnabledChange(enabled, reason = "options") {
+    if (!enabled) {
+      this.stopAllBgmCategoryAudio(reason);
+      return;
+    }
+
+    if (!this.canPlayBgm()) {
+      return;
+    }
+
+    if (this.isFinalBossRaidActive?.()) {
+      const phase = this.finalBossRaidState?.currentPhase || this.getFinalBossRaidPhaseForElapsed?.(this.finalBossRaidState?.elapsedMs || 0);
+      if (phase) {
+        this.playFinalBossRaidPhaseBgm(phase);
+      }
+      return;
+    }
+
+    if (this.shopActive) {
+      this.playSelectedBgm({ fadeMs: 300 });
+      return;
+    }
+
+    if (!this.gameOver && !this.extractionComplete) {
+      this.syncDepthBgmForCurrentDepth(reason, { fadeMs: 300 });
+    }
+  }
+
+  stopAllBgmCategoryAudio(reason = "options") {
+    this.stopSupportAttackBgmOverride?.(null, false, false);
+    this.stopGensoKnightsBgm?.(false, false);
+    this.stopFinalBossRaidBgm?.(false, false);
+    this.stopBgm();
+    this.supportAttackBgmDuckingCount = 0;
+    this.supportAttackBgmDuckingVolume = SUPPORT_ATTACK_BGM_DUCK_VOLUME;
+    this.debugLogEndlessVoidBgm?.("stopped by option", { reason, depth: this.stageDepth });
+  }
+
+  isSfxEnabled() {
+    return this.normalizeOptionsState(this.optionsState || DEFAULT_OPTIONS_STATE).sfxEnabled === true;
+  }
+
+  canPlaySfx() {
+    return Boolean(this.isSfxEnabled() && this.sound && typeof this.sound.add === "function");
+  }
+
+  trackManagedSfx(sound) {
+    if (!sound) {
+      return null;
+    }
+    if (!this.managedSfxSounds) {
+      this.managedSfxSounds = new Set();
+    }
+    this.managedSfxSounds.add(sound);
+    return sound;
+  }
+
+  untrackManagedSfx(sound) {
+    this.managedSfxSounds?.delete?.(sound);
+  }
+
+  addManagedSfx(audioKey, config = {}) {
+    if (!audioKey || !this.cache.audio.exists(audioKey) || !this.canPlaySfx()) {
+      return null;
+    }
+
+    try {
+      return this.trackManagedSfx(this.sound.add(audioKey, config));
+    } catch (error) {
+      return null;
+    }
+  }
+
+  playManagedSfx(audioKey, config = {}) {
+    const sound = this.addManagedSfx(audioKey, config);
+    if (!sound) {
+      return null;
+    }
+
+    let cleaned = false;
+    const cleanup = (destroy = true) => {
+      if (cleaned) {
+        return;
+      }
+      cleaned = true;
+      this.untrackManagedSfx(sound);
+      if (destroy && sound && typeof sound.destroy === "function") {
+        sound.destroy();
+      }
+    };
+    sound.once?.("complete", () => cleanup(true));
+    sound.once?.("stop", () => cleanup(false));
+
+    try {
+      sound.play(config);
+    } catch (error) {
+      cleanup(true);
+      return null;
+    }
+
+    return sound;
+  }
+
+  stopAllSfxCategoryAudio(reason = "options") {
+    if (this.activeSupportCutinVoice) {
+      try {
+        this.activeSupportCutinVoice.stop();
+        this.activeSupportCutinVoice.destroy();
+      } catch (error) {
+        // Optional voice cleanup should not affect the option toggle.
+      }
+      this.untrackManagedSfx(this.activeSupportCutinVoice);
+      this.activeSupportCutinVoice = null;
+    }
+
+    this.stopFinalBossRaidSupportVoice?.(reason);
+    this.stopScrambledCommsVoice?.(reason);
+    this.cleanupAcQuickBoostSeSounds?.(reason);
+
+    const activeSounds = this.managedSfxSounds ? Array.from(this.managedSfxSounds) : [];
+    activeSounds.forEach((sound) => {
+      try {
+        sound?.stop?.();
+        sound?.destroy?.();
+      } catch (error) {
+        // Ignore optional one-shot audio cleanup failures.
+      }
+    });
+    this.managedSfxSounds?.clear?.();
+  }
+
   playRunBgmDescriptor(descriptor, reason = "sync", options = {}) {
+    if (!this.canPlayBgm()) {
+      this.stopAllBgmCategoryAudio(reason);
+      return false;
+    }
+
     if (!descriptor?.audioKey || !this.cache.audio.exists(descriptor.audioKey)) {
       return false;
     }
@@ -27650,6 +27895,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   restoreNormalBgmVolume(durationMs = SUPPORT_ATTACK_BGM_DUCK_OUT_MS) {
+    if (!this.canPlayBgm()) {
+      return;
+    }
+
     if (this.gameOver || this.extractionComplete || this.shopActive) {
       return;
     }
@@ -27671,6 +27920,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   startSupportAttackBgmDucking(targetVolume = SUPPORT_ATTACK_BGM_DUCK_VOLUME) {
+    if (!this.canPlayBgm()) {
+      return;
+    }
+
     const duckVolume = Phaser.Math.Clamp(Number(targetVolume), 0, 1);
     this.supportAttackBgmDuckingCount = Math.max(0, (this.supportAttackBgmDuckingCount || 0) + 1);
     this.supportAttackBgmDuckingVolume = this.supportAttackBgmDuckingCount === 1
@@ -27724,6 +27977,10 @@ class SurvivalScene extends Phaser.Scene {
 
   playSupportAttackBgmOverride(definition) {
     this.stopSupportAttackBgmOverride(null, false, false);
+
+    if (!this.canPlayBgm()) {
+      return;
+    }
 
     if (!definition?.supportBgmKey || !this.cache.audio.exists(definition.supportBgmKey)) {
       const fallbackVolume = this.getSupportAttackNormalBgmVolume(definition, SUPPORT_ATTACK_BGM_DUCK_VOLUME);
@@ -35125,7 +35382,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   playScrambledCommsVoice(message) {
-    if (!this.isScrambledCommsMessage(message) || !message?.voiceKey) {
+    if (!this.isScrambledCommsMessage(message) || !message?.voiceKey || !this.canPlaySfx()) {
       return false;
     }
     const state = this.scrambledCommsState || this.initializeScrambledCommsState("voice");
@@ -35142,18 +35399,23 @@ class SurvivalScene extends Phaser.Scene {
       0,
       1
     );
-    const voice = this.sound.add(message.voiceKey, { loop: false, volume });
+    const voice = this.addManagedSfx(message.voiceKey, { loop: false, volume });
+    if (!voice) {
+      return false;
+    }
     state.currentVoice = voice;
     voice.once("complete", () => {
       if (state.currentVoice === voice) {
         state.currentVoice = null;
       }
+      this.untrackManagedSfx(voice);
       voice.destroy();
     });
     voice.once("stop", () => {
       if (state.currentVoice === voice) {
         state.currentVoice = null;
       }
+      this.untrackManagedSfx(voice);
     });
     voice.play({ loop: false, volume });
     return true;
@@ -35172,6 +35434,7 @@ class SurvivalScene extends Phaser.Scene {
     } catch (error) {
       // Voice clips are optional; cleanup failures should not affect gameplay.
     }
+    this.untrackManagedSfx?.(voice);
     this.debugLogScrambledComms?.("voice stop", { reason });
     return true;
   }
@@ -39622,6 +39885,7 @@ class SurvivalScene extends Phaser.Scene {
     this.input.keyboard.on("keydown", this.handleRankingNameKeyDown, this);
     this.rearmInputManagerListeners();
     this.setupStageCollisionEditorInput();
+    this.setupGamepadInput();
   }
 
   rearmInputManagerListeners() {
@@ -39652,6 +39916,233 @@ class SurvivalScene extends Phaser.Scene {
       this.input.keyboard.enabled = true;
     }
     this.rearmInputManagerListeners();
+  }
+
+  createGamepadState() {
+    return {
+      available: false,
+      connectedName: "",
+      activePadIndex: null,
+      currentButtons: {},
+      previousButtons: {},
+      axes: [0, 0],
+      moveVector: { x: 0, y: 0 },
+      navHeldDirection: null,
+      navNextRepeatAt: 0,
+      lastUpdateAt: 0
+    };
+  }
+
+  setupGamepadInput() {
+    if (!this.gamepadState) {
+      this.gamepadState = this.createGamepadState();
+    }
+
+    const manager = this.input?.gamepad;
+    if (!manager || this.gamepadInputSetupComplete) {
+      return;
+    }
+
+    this.gamepadInputSetupComplete = true;
+    try {
+      manager.enabled = true;
+      manager.on?.("connected", () => this.updateGamepadState(this.time?.now || 0, 0));
+      manager.on?.("disconnected", () => this.updateGamepadState(this.time?.now || 0, 0));
+    } catch (error) {
+      // Gamepad support is optional in browsers and embedded webviews.
+    }
+  }
+
+  isControllerInputEnabled() {
+    return this.normalizeOptionsState(this.optionsState || DEFAULT_OPTIONS_STATE).controllerEnabled === true;
+  }
+
+  getGamepadAxisValue(pad, axisIndex) {
+    const axis = pad?.axes?.[axisIndex];
+    if (typeof axis === "number") {
+      return axis;
+    }
+    if (axis && typeof axis.getValue === "function") {
+      return Number(axis.getValue()) || 0;
+    }
+    return 0;
+  }
+
+  getGamepadButtonPressed(pad, buttonIndex) {
+    const button = pad?.buttons?.[buttonIndex];
+    if (typeof button === "number") {
+      return button > GAMEPAD_INPUT_CONFIG.triggerThreshold;
+    }
+    if (button && typeof button === "object") {
+      return Boolean(button.pressed || Number(button.value) > GAMEPAD_INPUT_CONFIG.triggerThreshold);
+    }
+    return false;
+  }
+
+  normalizeGamepadAxis(value) {
+    const deadzone = GAMEPAD_INPUT_CONFIG.deadzone;
+    const normalizedValue = Phaser.Math.Clamp(Number(value) || 0, -1, 1);
+    const magnitude = Math.abs(normalizedValue);
+    if (magnitude < deadzone) {
+      return 0;
+    }
+    return Math.sign(normalizedValue) * Phaser.Math.Clamp((magnitude - deadzone) / (1 - deadzone), 0, 1);
+  }
+
+  getActiveGamepad() {
+    if (!this.isControllerInputEnabled()) {
+      return null;
+    }
+
+    const manager = this.input?.gamepad;
+    const phaserPads = Array.isArray(manager?.gamepads)
+      ? manager.gamepads.filter((pad) => pad && pad.connected !== false)
+      : [];
+    if (phaserPads.length > 0) {
+      return phaserPads[0];
+    }
+    if (manager?.pad1 && manager.pad1.connected !== false) {
+      return manager.pad1;
+    }
+
+    try {
+      const browserPads = typeof navigator !== "undefined" && typeof navigator.getGamepads === "function"
+        ? Array.from(navigator.getGamepads()).filter((pad) => pad && pad.connected !== false)
+        : [];
+      return browserPads[0] || null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  updateGamepadState(time = 0, delta = 0) {
+    if (!this.gamepadState) {
+      this.gamepadState = this.createGamepadState();
+    }
+
+    const state = this.gamepadState;
+    state.previousButtons = { ...(state.currentButtons || {}) };
+    state.currentButtons = {};
+    state.axes = [0, 0];
+    state.moveVector = { x: 0, y: 0 };
+    state.lastUpdateAt = Math.max(0, Number(time) || 0);
+
+    const pad = this.getActiveGamepad();
+    if (!pad) {
+      state.available = false;
+      state.connectedName = "";
+      state.activePadIndex = null;
+      state.navHeldDirection = null;
+      state.navNextRepeatAt = 0;
+      return;
+    }
+
+    state.available = true;
+    state.connectedName = String(pad.id || pad.name || "GAMEPAD").slice(0, 64);
+    state.activePadIndex = Number.isInteger(pad.index) ? pad.index : null;
+
+    const buttonIds = new Set(Object.values(GAMEPAD_INPUT_CONFIG.buttons).flat());
+    buttonIds.forEach((buttonIndex) => {
+      state.currentButtons[buttonIndex] = this.getGamepadButtonPressed(pad, buttonIndex);
+    });
+
+    const axisX = this.normalizeGamepadAxis(this.getGamepadAxisValue(pad, 0));
+    const axisY = this.normalizeGamepadAxis(this.getGamepadAxisValue(pad, 1));
+    const dpadX = (state.currentButtons[14] ? -1 : 0) + (state.currentButtons[15] ? 1 : 0);
+    const dpadY = (state.currentButtons[12] ? -1 : 0) + (state.currentButtons[13] ? 1 : 0);
+    let moveX = axisX + dpadX;
+    let moveY = axisY + dpadY;
+    const magnitude = Math.hypot(moveX, moveY);
+    if (magnitude > 1) {
+      moveX /= magnitude;
+      moveY /= magnitude;
+    }
+    state.axes = [axisX, axisY];
+    state.moveVector = { x: moveX, y: moveY };
+  }
+
+  isGamepadButtonDown(buttonIndexes = []) {
+    const state = this.gamepadState;
+    if (!state?.available || !this.isControllerInputEnabled()) {
+      return false;
+    }
+    return buttonIndexes.some((buttonIndex) => state.currentButtons?.[buttonIndex] === true);
+  }
+
+  isGamepadButtonJustPressed(buttonIndexes = []) {
+    const state = this.gamepadState;
+    if (!state?.available || !this.isControllerInputEnabled()) {
+      return false;
+    }
+    return buttonIndexes.some((buttonIndex) => (
+      state.currentButtons?.[buttonIndex] === true &&
+      state.previousButtons?.[buttonIndex] !== true
+    ));
+  }
+
+  getGamepadMoveVector() {
+    if (!this.gamepadState?.available || !this.isControllerInputEnabled()) {
+      return { x: 0, y: 0 };
+    }
+    return {
+      x: Phaser.Math.Clamp(Number(this.gamepadState.moveVector?.x) || 0, -1, 1),
+      y: Phaser.Math.Clamp(Number(this.gamepadState.moveVector?.y) || 0, -1, 1)
+    };
+  }
+
+  isGamepadDashDown() {
+    return this.isGamepadButtonDown(GAMEPAD_INPUT_CONFIG.buttons.dash);
+  }
+
+  isGamepadConfirmPressed() {
+    return this.isGamepadButtonJustPressed(GAMEPAD_INPUT_CONFIG.buttons.confirm);
+  }
+
+  isGamepadBackPressed() {
+    return this.isGamepadButtonJustPressed(GAMEPAD_INPUT_CONFIG.buttons.back);
+  }
+
+  getGamepadNavDirection() {
+    const state = this.gamepadState;
+    if (!state?.available || !this.isControllerInputEnabled()) {
+      return null;
+    }
+
+    const dpadX = (state.currentButtons?.[14] ? -1 : 0) + (state.currentButtons?.[15] ? 1 : 0);
+    const dpadY = (state.currentButtons?.[12] ? -1 : 0) + (state.currentButtons?.[13] ? 1 : 0);
+    const axisX = Number(state.axes?.[0]) || 0;
+    const axisY = Number(state.axes?.[1]) || 0;
+    const navX = dpadX || (Math.abs(axisX) >= 0.55 ? Math.sign(axisX) : 0);
+    const navY = dpadY || (Math.abs(axisY) >= 0.55 ? Math.sign(axisY) : 0);
+
+    if (!navX && !navY) {
+      state.navHeldDirection = null;
+      state.navNextRepeatAt = 0;
+      return null;
+    }
+
+    if (Math.abs(navX) > Math.abs(navY)) {
+      return navX < 0 ? "left" : "right";
+    }
+    return navY < 0 ? "up" : "down";
+  }
+
+  isGamepadNavPressed(direction) {
+    const state = this.gamepadState;
+    const navDirection = this.getGamepadNavDirection();
+    if (!state || navDirection !== direction) {
+      return false;
+    }
+
+    const now = Math.max(0, Number(this.time?.now ?? state.lastUpdateAt) || 0);
+    const firstPress = state.navHeldDirection !== direction;
+    if (!firstPress && now < (Number(state.navNextRepeatAt) || 0)) {
+      return false;
+    }
+
+    state.navHeldDirection = direction;
+    state.navNextRepeatAt = now + (firstPress ? GAMEPAD_INPUT_CONFIG.navRepeatInitialMs : GAMEPAD_INPUT_CONFIG.navRepeatMs);
+    return true;
   }
 
   grantPostSelectionDamageGrace(durationMs = POST_SELECTION_DAMAGE_GRACE_MS, reason = "selection") {
@@ -42040,6 +42531,13 @@ class SurvivalScene extends Phaser.Scene {
     const quickBoostSe = state.quickBoostSe || this.createAcQuickBoostSeState();
     state.quickBoostSe = quickBoostSe;
     const now = Math.max(0, Number(time) || 0);
+
+    if (!this.canPlaySfx()) {
+      quickBoostSe.lastReason = "SFX_DISABLED";
+      quickBoostSe.lastPan = 0;
+      quickBoostSe.panSupported = false;
+      return false;
+    }
 
     if (!this.shouldUseAcQuickBoostSe()) {
       quickBoostSe.lastReason = this.getAcBoostSeActivationSource();
@@ -45007,13 +45505,21 @@ class SurvivalScene extends Phaser.Scene {
   getPlayerMoveInputVector() {
     const editorUsesArrows = this.isStageCollisionEditorAdjustingSelection?.() === true;
     const mobileVector = this.getMobileMoveVector();
+    const gamepadVector = this.getGamepadMoveVector();
     const keys = this.keys || {};
-    const moveX = ((!editorUsesArrows && keys.left?.isDown) || keys.a?.isDown ? -1 : 0) +
+    let moveX = ((!editorUsesArrows && keys.left?.isDown) || keys.a?.isDown ? -1 : 0) +
       ((!editorUsesArrows && keys.right?.isDown) || keys.d?.isDown ? 1 : 0) +
-      (Number(mobileVector.x) || 0);
-    const moveY = ((!editorUsesArrows && keys.up?.isDown) || keys.w?.isDown ? -1 : 0) +
+      (Number(mobileVector.x) || 0) +
+      (Number(gamepadVector.x) || 0);
+    let moveY = ((!editorUsesArrows && keys.up?.isDown) || keys.w?.isDown ? -1 : 0) +
       ((!editorUsesArrows && keys.down?.isDown) || keys.s?.isDown ? 1 : 0) +
-      (Number(mobileVector.y) || 0);
+      (Number(mobileVector.y) || 0) +
+      (Number(gamepadVector.y) || 0);
+    const rawMagnitude = Math.hypot(moveX, moveY);
+    if (rawMagnitude > 1) {
+      moveX /= rawMagnitude;
+      moveY /= rawMagnitude;
+    }
     const magnitude = Math.hypot(moveX, moveY);
     return {
       x: moveX,
@@ -47869,6 +48375,10 @@ class SurvivalScene extends Phaser.Scene {
   addOverlayAction(panel, onSelect, handlesOwnFlow = true, hitPadding = 0) {
     const action = { panel, onSelect, handlesOwnFlow, hitPadding };
     this.overlayActions.push(action);
+    if (!this.overlayFocusedPanel) {
+      this.overlayFocusedPanel = panel;
+      this.updateOverlayFocusRing();
+    }
     panel.on("pointerup", (pointer, localX, localY, event) => {
       if (!this.isPrimaryPointerActivation(pointer)) {
         return;
@@ -47878,6 +48388,209 @@ class SurvivalScene extends Phaser.Scene {
         this.activateOverlayAction(panel);
       }
     });
+  }
+
+  getFocusableOverlayActions() {
+    return (this.overlayActions || []).filter((action) => (
+      action?.panel &&
+      action.panel.active !== false &&
+      action.panel.visible !== false &&
+      this.getOverlayActionBounds(action)
+    ));
+  }
+
+  getOverlayActionCenter(action) {
+    const bounds = this.getOverlayActionBounds(action);
+    if (!bounds) {
+      return null;
+    }
+    return {
+      x: (bounds.left + bounds.right) / 2,
+      y: (bounds.top + bounds.bottom) / 2
+    };
+  }
+
+  setOverlayFocusedAction(action) {
+    this.overlayFocusedPanel = action?.panel || null;
+    this.updateOverlayFocusRing();
+  }
+
+  getCurrentOverlayFocusedAction(actions = this.getFocusableOverlayActions()) {
+    if (!actions.length) {
+      return null;
+    }
+    const current = actions.find((action) => action.panel === this.overlayFocusedPanel);
+    return current || actions[0];
+  }
+
+  moveOverlayFocus(direction) {
+    const actions = this.getFocusableOverlayActions();
+    if (!actions.length) {
+      this.setOverlayFocusedAction(null);
+      return;
+    }
+
+    const current = this.getCurrentOverlayFocusedAction(actions);
+    const currentCenter = this.getOverlayActionCenter(current);
+    if (!current || !currentCenter) {
+      this.setOverlayFocusedAction(actions[0]);
+      return;
+    }
+
+    const directionVectors = {
+      up: { x: 0, y: -1 },
+      down: { x: 0, y: 1 },
+      left: { x: -1, y: 0 },
+      right: { x: 1, y: 0 }
+    };
+    const vector = directionVectors[direction];
+    if (!vector) {
+      return;
+    }
+
+    let best = null;
+    actions.forEach((action) => {
+      if (action === current) {
+        return;
+      }
+      const center = this.getOverlayActionCenter(action);
+      if (!center) {
+        return;
+      }
+      const dx = center.x - currentCenter.x;
+      const dy = center.y - currentCenter.y;
+      const primary = vector.x !== 0 ? dx * vector.x : dy * vector.y;
+      if (primary <= 8) {
+        return;
+      }
+      const secondary = vector.x !== 0 ? Math.abs(dy) : Math.abs(dx);
+      const score = primary * 1000 + secondary;
+      if (!best || score < best.score) {
+        best = { action, score };
+      }
+    });
+
+    if (best?.action) {
+      this.setOverlayFocusedAction(best.action);
+      return;
+    }
+
+    const sorted = actions.slice().sort((left, right) => {
+      const leftCenter = this.getOverlayActionCenter(left) || { x: 0, y: 0 };
+      const rightCenter = this.getOverlayActionCenter(right) || { x: 0, y: 0 };
+      return direction === "left" || direction === "right"
+        ? (leftCenter.x - rightCenter.x || leftCenter.y - rightCenter.y)
+        : (leftCenter.y - rightCenter.y || leftCenter.x - rightCenter.x);
+    });
+    const currentIndex = Math.max(0, sorted.findIndex((action) => action === current));
+    const offset = direction === "left" || direction === "up" ? -1 : 1;
+    const nextIndex = (currentIndex + offset + sorted.length) % sorted.length;
+    this.setOverlayFocusedAction(sorted[nextIndex]);
+  }
+
+  getOverlayActionLocalBounds(action) {
+    const panel = action?.panel;
+    if (!panel) {
+      return null;
+    }
+
+    let width = panel.displayWidth ?? panel.width ?? 0;
+    let height = panel.displayHeight ?? panel.height ?? 0;
+    let left = panel.x - width * (panel.originX ?? 0.5);
+    let top = panel.y - height * (panel.originY ?? 0.5);
+    let parent = panel.parentContainer;
+
+    while (parent && parent !== this.overlayContainer) {
+      const scaleX = parent.scaleX ?? 1;
+      const scaleY = parent.scaleY ?? 1;
+      left = parent.x + left * scaleX;
+      top = parent.y + top * scaleY;
+      width *= scaleX;
+      height *= scaleY;
+      parent = parent.parentContainer;
+    }
+
+    if (parent !== this.overlayContainer) {
+      return null;
+    }
+
+    const padding = Math.max(0, Number(action.hitPadding) || 0) + 4;
+    return {
+      left: left - padding,
+      top: top - padding,
+      width: width + padding * 2,
+      height: height + padding * 2
+    };
+  }
+
+  updateOverlayFocusRing() {
+    if (!this.overlayContainer?.visible && !this.shopActive && !this.levelUpActive && !this.gateChoiceActive) {
+      return;
+    }
+
+    const actions = this.getFocusableOverlayActions();
+    const action = this.getCurrentOverlayFocusedAction(actions);
+    if (!action) {
+      this.overlayFocusRing?.clear?.();
+      return;
+    }
+    this.overlayFocusedPanel = action.panel;
+
+    if (!this.overlayFocusRing || this.overlayFocusRing.active === false) {
+      this.overlayFocusRing = this.add.graphics();
+      this.overlayContainer.add(this.overlayFocusRing);
+      this.overlayButtons.push(this.overlayFocusRing);
+    }
+
+    const bounds = this.getOverlayActionLocalBounds(action);
+    if (!bounds) {
+      this.overlayFocusRing.clear();
+      return;
+    }
+
+    this.overlayFocusRing.clear();
+    this.overlayFocusRing.lineStyle(3, 0xf0c463, 0.92);
+    this.overlayFocusRing.strokeRoundedRect(bounds.left, bounds.top, bounds.width, bounds.height, 8);
+    this.overlayFocusRing.lineStyle(1, 0xecfaff, 0.72);
+    this.overlayFocusRing.strokeRoundedRect(bounds.left + 4, bounds.top + 4, bounds.width - 8, bounds.height - 8, 5);
+    this.overlayContainer.bringToTop?.(this.overlayFocusRing);
+  }
+
+  updateGamepadOverlayNavigation() {
+    if (!this.overlayContainer?.visible || !this.gamepadState?.available || !this.isControllerInputEnabled()) {
+      return;
+    }
+
+    const actions = this.getFocusableOverlayActions();
+    if (!actions.length) {
+      this.overlayFocusRing?.clear?.();
+      return;
+    }
+
+    if (!actions.some((action) => action.panel === this.overlayFocusedPanel)) {
+      this.setOverlayFocusedAction(actions[0]);
+    }
+
+    ["up", "down", "left", "right"].some((direction) => {
+      if (this.isGamepadNavPressed(direction)) {
+        this.moveOverlayFocus(direction);
+        return true;
+      }
+      return false;
+    });
+
+    if (this.isGamepadBackPressed() && this.shopActive && this.shopViewMode !== "cd") {
+      this.shopViewMode = "cd";
+      this.showPreGameShop(this.shopStatusMessage);
+      return;
+    }
+
+    if (this.isGamepadConfirmPressed()) {
+      const action = this.getCurrentOverlayFocusedAction(actions);
+      if (action?.panel) {
+        this.activateOverlayAction(action.panel);
+      }
+    }
   }
 
   getSourceEventClientPosition(sourceEvent) {
@@ -48065,12 +48778,13 @@ class SurvivalScene extends Phaser.Scene {
 
   renderShopModeTabs() {
     const tabY = -236;
-    this.createShopModeTab(-272, tabY, 92, "CDSHOP", "cd");
-    this.createShopModeTab(-168, tabY, 104, "GEEKSHOP", "geek");
-    this.createShopModeTab(-45, tabY, 130, "ROBOT CUSTOM", "robotCustom");
-    this.renderShopTabGroupDivider(32, tabY, 27);
-    this.createShopModeTab(100, tabY, 122, "ANJU MEMORY", "anjuMemory");
-    this.createShopModeTab(226, tabY, 112, "ARCHIVE", "runArchive");
+    this.createShopModeTab(-288, tabY, 78, "CDSHOP", "cd");
+    this.createShopModeTab(-201, tabY, 86, "GEEKSHOP", "geek");
+    this.createShopModeTab(-93, tabY, 112, "ROBOT CUSTOM", "robotCustom");
+    this.renderShopTabGroupDivider(-26, tabY, 27);
+    this.createShopModeTab(42, tabY, 106, "ANJU MEMORY", "anjuMemory");
+    this.createShopModeTab(143, tabY, 84, "ARCHIVE", "runArchive");
+    this.createShopModeTab(232, tabY, 82, "OPTION", "options");
   }
 
   createShopModeTab(centerX, centerY, width, label, mode) {
@@ -48105,6 +48819,198 @@ class SurvivalScene extends Phaser.Scene {
     divider.lineStyle(1, 0x6fcfff, 0.32);
     divider.lineBetween(x, top, x, bottom);
     return divider;
+  }
+
+  getControllerConnectionStatusLabel() {
+    if (!this.isControllerInputEnabled()) {
+      return { text: "DISABLED", color: "#70818a" };
+    }
+
+    const pad = this.getActiveGamepad();
+    const name = String(pad?.id || pad?.name || this.gamepadState?.connectedName || "").trim();
+    if (pad || this.gamepadState?.available) {
+      return {
+        text: `CONNECTED: ${name || "GAMEPAD"}`,
+        color: "#66d25f"
+      };
+    }
+
+    return { text: "NOT DETECTED", color: "#f0c463" };
+  }
+
+  renderOptionsShopContent() {
+    const left = -530;
+    const top = -208;
+    const contentWidth = 720;
+    const contentHeight = 414;
+    const graphics = this.addOverlayChild(this.add.graphics());
+
+    graphics.fillStyle(0x06131f, 0.9);
+    graphics.fillRoundedRect(left, top, contentWidth, contentHeight, 8);
+    graphics.lineStyle(2, 0x36d7ff, 0.58);
+    graphics.strokeRoundedRect(left + 1, top + 1, contentWidth - 2, contentHeight - 2, 8);
+    graphics.lineStyle(1, 0x7df3ff, 0.18);
+    graphics.strokeRoundedRect(left + 12, top + 12, contentWidth - 24, contentHeight - 24, 5);
+
+    this.createOverlayText(left + 24, top + 20, "OPTION / SYSTEM CONFIG", {
+      fontSize: "24px",
+      color: "#ecf7ff",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(left + 24, top + 50, "音声出力と入力デバイス設定", {
+      fontSize: "13px",
+      color: "#9ab7cc"
+    });
+
+    const optionsState = this.normalizeOptionsState(this.optionsState || DEFAULT_OPTIONS_STATE);
+    this.createOptionToggleCard({
+      x: left + 24,
+      y: top + 86,
+      width: 670,
+      height: 86,
+      title: "BGM OUTPUT",
+      description: "CD選択と永続ボーナスは維持し、BGM再生だけを切り替えます",
+      enabled: optionsState.bgmEnabled,
+      accent: 0x6fcfff,
+      onToggle: () => {
+        const nextEnabled = !this.isBgmEnabled();
+        this.updateOptionsState({ bgmEnabled: nextEnabled }, "optionBgmToggle");
+        this.showPreGameShop(`BGM OUTPUT: ${nextEnabled ? "ON" : "OFF"}`);
+      }
+    });
+    this.createOptionToggleCard({
+      x: left + 24,
+      y: top + 184,
+      width: 670,
+      height: 86,
+      title: "SFX / VOICE OUTPUT",
+      description: "ブーストSE、支援SE、カットイン/通信ボイスを切り替えます",
+      enabled: optionsState.sfxEnabled,
+      accent: 0xf0c463,
+      onToggle: () => {
+        const nextEnabled = !this.isSfxEnabled();
+        this.updateOptionsState({ sfxEnabled: nextEnabled }, "optionSfxToggle");
+        this.showPreGameShop(`SFX / VOICE OUTPUT: ${nextEnabled ? "ON" : "OFF"}`);
+      }
+    });
+    this.createOptionToggleCard({
+      x: left + 24,
+      y: top + 282,
+      width: 670,
+      height: 86,
+      title: "CONTROLLER INPUT",
+      description: "Gamepad API 対応コントローラー入力を有効化します",
+      enabled: optionsState.controllerEnabled,
+      accent: 0x9ffcff,
+      status: this.getControllerConnectionStatusLabel(),
+      onToggle: () => {
+        const nextEnabled = !this.isControllerInputEnabled();
+        this.updateOptionsState({ controllerEnabled: nextEnabled }, "optionControllerToggle");
+        this.showPreGameShop(`CONTROLLER INPUT: ${nextEnabled ? "ON" : "OFF"}`);
+      }
+    });
+
+    this.renderOptionsControlMap(220, top, 330, 252);
+    this.createShopButton(385, 164, 260, 50, "RESET OPTIONS", "3項目を初期値へ戻す", () => {
+      this.updateOptionsState(DEFAULT_OPTIONS_STATE, "optionReset");
+      this.showPreGameShop("OPTIONS RESET");
+    }, 0x2a1f2f, 0x3a2a44, { kicker: "SYSTEM" });
+  }
+
+  createOptionToggleCard({ x, y, width, height, title, description, enabled, accent, status, onToggle }) {
+    const fill = enabled ? 0x0f2234 : 0x101721;
+    const panel = this.addOverlayChild(
+      this.add
+        .rectangle(x, y, width, height, fill, 0.94)
+        .setOrigin(0, 0)
+        .setStrokeStyle(2, accent, enabled ? 0.5 : 0.28)
+        .setInteractive({ useHandCursor: true })
+    );
+    panel.on("pointerover", () => panel.setFillStyle(enabled ? 0x18334a : 0x172231, 0.98));
+    panel.on("pointerout", () => panel.setFillStyle(fill, 0.94));
+    this.addOverlayAction(panel, onToggle, true, 8);
+
+    this.createOverlayText(x + 20, y + 14, title, {
+      fontSize: "18px",
+      color: "#ecf7ff",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(x + 20, y + 40, description, {
+      fontSize: "12px",
+      color: "#9ab7cc",
+      wordWrap: { width: width - 190 }
+    });
+
+    if (status?.text) {
+      this.createOverlayText(x + 20, y + 62, status.text, {
+        fontSize: status.text.length > 38 ? "10px" : "11px",
+        color: status.color || "#9ab7cc",
+        fontStyle: "bold",
+        wordWrap: { width: width - 190 }
+      });
+    }
+
+    const toggleX = x + width - 92;
+    const toggleY = y + height / 2;
+    const toggle = this.addOverlayChild(
+      this.add
+        .rectangle(toggleX, toggleY, 122, 42, enabled ? 0x123d31 : 0x2a1820, 0.96)
+        .setStrokeStyle(2, enabled ? 0x66d25f : 0xff6b7a, enabled ? 0.7 : 0.58)
+    );
+    this.createOverlayText(toggleX, toggleY - 12, enabled ? "ON" : "OFF", {
+      fontSize: "21px",
+      color: enabled ? "#b8ffd0" : "#ffb8c0",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+    this.addOverlayChild(
+      this.add.circle(toggleX + (enabled ? 38 : -38), toggleY, 12, enabled ? 0x66d25f : 0xff6b7a, 0.94)
+    );
+    return toggle;
+  }
+
+  renderOptionsControlMap(x, y, width, height) {
+    const graphics = this.addOverlayChild(this.add.graphics());
+    graphics.fillStyle(0x07111e, 0.9);
+    graphics.fillRoundedRect(x, y, width, height, 8);
+    graphics.lineStyle(2, 0x6fcfff, 0.34);
+    graphics.strokeRoundedRect(x + 1, y + 1, width - 2, height - 2, 8);
+
+    this.createOverlayText(x + 22, y + 18, "CONTROL MAP", {
+      fontSize: "17px",
+      color: "#ecf7ff",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(x + 22, y + 42, "Gamepad standard mapping", {
+      fontSize: "10px",
+      color: "#8fb5ca"
+    });
+
+    const rows = [
+      ["Left Stick / D-Pad", "MOVE / SELECT"],
+      ["A / Cross", "DECIDE / DASH"],
+      ["B / Circle", "BACK"],
+      ["RB / R1 / RT / R2", "DASH"],
+      ["Start / Menu", "DECIDE"]
+    ];
+    rows.forEach(([input, action], index) => {
+      const rowY = y + 76 + index * 31;
+      graphics.fillStyle(index % 2 === 0 ? 0x0a1c2b : 0x081722, 0.74);
+      graphics.fillRoundedRect(x + 16, rowY - 10, width - 32, 24, 4);
+      this.createOverlayText(x + 28, rowY - 9, input, {
+        fontSize: "11px",
+        color: "#b8d4e8",
+        fontStyle: "bold"
+      });
+      this.createOverlayText(x + width - 26, rowY - 9, action, {
+        fontSize: "11px",
+        color: "#9ffcff",
+        fontStyle: "bold",
+        align: "right",
+        origin: { x: 1, y: 0 }
+      });
+    });
   }
 
   isShopNoticeWarning(message = "") {
@@ -50202,6 +51108,18 @@ class SurvivalScene extends Phaser.Scene {
     this.renderShopHeaderBalances();
     this.renderHubNotice();
     this.renderShopModeTabs();
+
+    if (this.shopViewMode === "options") {
+      this.renderOptionsShopContent();
+      this.renderShopStartCta();
+
+      this.overlayBackdrop.setAlpha(1).setVisible(true);
+      this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
+      window.requestAnimationFrame?.(() => hideShopLoadingScreen());
+      scheduleMobileFullscreenResumeGate();
+      this.scheduleShopEpilogueFlush("showPreGameShop");
+      return;
+    }
 
     if (this.shopViewMode === "runArchive") {
       this.renderRunArchiveShopContent();
@@ -55157,6 +56075,8 @@ class SurvivalScene extends Phaser.Scene {
     this.tryQueueDebugCommsBanterNowIfNeeded("update");
     this.tryQueueDebugFinalRaidRescuePreviewIfNeeded("update");
     this.tryQueueDebugFinalRaidAlliedMeshPreviewIfNeeded("update");
+    this.updateGamepadState(time, delta);
+    this.updateGamepadOverlayNavigation();
     this.tryShowNextCommsMessage();
     this.tryOpenPendingSkillMutationSelection();
     this.tryOpenQueuedLostArmsEvolutionSelection();
@@ -55173,7 +56093,8 @@ class SurvivalScene extends Phaser.Scene {
       }
       if (!this.rankingNameEntryActive && (
         Phaser.Input.Keyboard.JustDown(this.keys.restart) ||
-        Phaser.Input.Keyboard.JustDown(this.keys.enter)
+        Phaser.Input.Keyboard.JustDown(this.keys.enter) ||
+        this.isGamepadConfirmPressed()
       )) {
         this.restartGame();
       }
@@ -55270,7 +56191,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   isDashKeyDown() {
-    return Boolean(this.keys?.dash?.isDown || this.keys?.dashAlt?.isDown || this.mobileDashHeld);
+    return Boolean(this.keys?.dash?.isDown || this.keys?.dashAlt?.isDown || this.mobileDashHeld || this.isGamepadDashDown());
   }
 
   updatePlayerDashState(delta, isMoving) {
@@ -66292,7 +67213,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   playSupportAttackCutinVoice(definition) {
-    if (!definition?.cutinVoiceKey || !this.cache.audio.exists(definition.cutinVoiceKey)) {
+    if (!definition?.cutinVoiceKey || !this.cache.audio.exists(definition.cutinVoiceKey) || !this.canPlaySfx()) {
       return;
     }
 
@@ -66303,23 +67224,28 @@ class SurvivalScene extends Phaser.Scene {
       this.activeSupportCutinVoice = null;
     }
 
-    const voice = this.sound.add(definition.cutinVoiceKey, { volume });
+    const voice = this.addManagedSfx(definition.cutinVoiceKey, { volume });
+    if (!voice) {
+      return;
+    }
     this.activeSupportCutinVoice = voice;
     voice.once("complete", () => {
       if (this.activeSupportCutinVoice === voice) {
         this.activeSupportCutinVoice = null;
       }
+      this.untrackManagedSfx(voice);
       voice.destroy();
     });
     voice.play();
   }
 
   playSupportAttackSe(audioKey, volume = 0.8) {
-    if (!audioKey || !this.cache.audio.exists(audioKey)) {
+    if (!audioKey || !this.cache.audio.exists(audioKey) || !this.canPlaySfx()) {
       return;
     }
 
-    this.sound.play(audioKey, {
+    this.playManagedSfx(audioKey, {
+      loop: false,
       volume: Phaser.Math.Clamp(volume, 0, 1)
     });
   }
@@ -66433,6 +67359,11 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   playGensoKnightsBgm(definition) {
+    if (!this.canPlayBgm()) {
+      this.stopGensoKnightsBgm(false, false);
+      return;
+    }
+
     this.fadeBgmToVolume(SUPPORT_ATTACK_BGM_MUTE_VOLUME, 650);
     this.stopGensoKnightsBgm(false, false);
 
@@ -72491,6 +73422,8 @@ class SurvivalScene extends Phaser.Scene {
     });
     this.overlayButtons = [];
     this.overlayActions = [];
+    this.overlayFocusedPanel = null;
+    this.overlayFocusRing = null;
   }
 
   handleOverlayPointerUp(pointer) {
@@ -72848,7 +73781,8 @@ const config = {
   },
   scene: [SurvivalScene],
   input: {
-    activePointers: 3
+    activePointers: 3,
+    gamepad: true
   },
   scale: {
     mode: Phaser.Scale.FIT,
