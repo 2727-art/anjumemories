@@ -61194,12 +61194,15 @@ class SurvivalScene extends Phaser.Scene {
 
     const editorUsesArrows = this.isStageCollisionEditorAdjustingSelection();
     const mobileVector = this.getMobileMoveVector();
+    const gamepadVector = this.getGamepadMoveVector();
     const moveX = ((!editorUsesArrows && this.keys.left.isDown) || this.keys.a.isDown ? -1 : 0) +
       ((!editorUsesArrows && this.keys.right.isDown) || this.keys.d.isDown ? 1 : 0) +
-      mobileVector.x;
+      mobileVector.x +
+      gamepadVector.x;
     const moveY = ((!editorUsesArrows && this.keys.up.isDown) || this.keys.w.isDown ? -1 : 0) +
       ((!editorUsesArrows && this.keys.down.isDown) || this.keys.s.isDown ? 1 : 0) +
-      mobileVector.y;
+      mobileVector.y +
+      gamepadVector.y;
 
     const direction = new Phaser.Math.Vector2(moveX, moveY);
     const isMoving = direction.lengthSq() > 0;
