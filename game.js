@@ -70,9 +70,209 @@ const PLAYER_ROBOT_DIRECTION_ASSETS = {
   }
 };
 const DEFAULT_SKILL_ID = "basicSkill";
+const REGALIA_BASTION_CANNON_SKILL_ID = "regaliaBastionCannon";
+const REGALIA_BASTION_CANNON_DEBUG_QUERY_PARAM = "debugRegaliaSkill";
+const REGALIA_BASTION_CANNON_CONFIG = Object.freeze({
+  maxTargetRange: 1450,
+  cameraPadding: 96,
+  beamDurationMs: 160,
+  minImpactDelayMs: 70,
+  maxImpactDelayMs: 150,
+  impactDelayDistanceDivisor: 11,
+  damageFalloffMultipliers: [1, 0.35, 0.15]
+});
+const DEFAULT_PLAYER_MECH_ID = "defaultBear";
+const REGALIA_BASTION_MECH_ID = "regaliaBastion";
+const REGALIA_BASTION_ASSET_BASE_PATH = "./画像/player/ALM-01_REGALIA_BASTION";
+const REGALIA_BASTION_SE_BASE_PATH = "./音声/se/regalia_bastion";
+const REGALIA_BASTION_SE_CONFIG = Object.freeze({
+  machinegun: {
+    key: "regalia-bastion-machinegun-se",
+    path: `${REGALIA_BASTION_SE_BASE_PATH}/machinegun.mp3`,
+    volume: 0.22
+  },
+  moveStart: {
+    key: "regalia-bastion-move-start-se",
+    path: `${REGALIA_BASTION_SE_BASE_PATH}/moove.mp3`,
+    volume: 0.42,
+    cooldownMs: 320
+  },
+  stop: {
+    key: "regalia-bastion-stop-se",
+    path: `${REGALIA_BASTION_SE_BASE_PATH}/stop.mp3`,
+    volume: 0.5,
+    cooldownMs: 280
+  },
+  cannon: {
+    key: "regalia-bastion-cannon-se",
+    path: `${REGALIA_BASTION_SE_BASE_PATH}/cannon.mp3`,
+    volume: 0.58,
+    cooldownMs: 80
+  }
+});
+const createRegaliaBastionDirectionAsset = (directionKey, angleLabel, boostFileName = `ALM_${angleLabel}_BOOST.png`) => {
+  const textureSuffix = directionKey.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`);
+  const baseFileName = `ALM_${angleLabel}`;
+  return {
+    idleKey: `player-mech-regalia-bastion-${textureSuffix}-idle`,
+    moveKey: `player-mech-regalia-bastion-${textureSuffix}-move`,
+    boostKey: `player-mech-regalia-bastion-${textureSuffix}-boost`,
+    idlePath: `${REGALIA_BASTION_ASSET_BASE_PATH}/${baseFileName}.png`,
+    movePath: `${REGALIA_BASTION_ASSET_BASE_PATH}/${baseFileName}_MOOVE.png`,
+    boostPath: `${REGALIA_BASTION_ASSET_BASE_PATH}/${boostFileName}`
+  };
+};
+const REGALIA_BASTION_DIRECTION_ASSETS = {
+  down: createRegaliaBastionDirectionAsset("down", "000"),
+  downLeft: createRegaliaBastionDirectionAsset("downLeft", "45"),
+  left: createRegaliaBastionDirectionAsset("left", "90"),
+  upLeft: createRegaliaBastionDirectionAsset("upLeft", "135", "ALM_135_BOOST.png.png"),
+  up: createRegaliaBastionDirectionAsset("up", "180"),
+  upRight: createRegaliaBastionDirectionAsset("upRight", "225"),
+  right: createRegaliaBastionDirectionAsset("right", "270"),
+  downRight: createRegaliaBastionDirectionAsset("downRight", "315")
+};
+const PLAYER_MECH_DIRECTION_ASSET_DEFINITIONS = {
+  [DEFAULT_PLAYER_MECH_ID]: PLAYER_ROBOT_DIRECTION_ASSETS,
+  [REGALIA_BASTION_MECH_ID]: REGALIA_BASTION_DIRECTION_ASSETS
+};
+const PLAYER_MECH_HANGAR_ARTWORK_REGIONS = {
+  [DEFAULT_PLAYER_MECH_ID]: { x: 0.02, y: 0.18, width: 0.20, height: 0.62 },
+  [REGALIA_BASTION_MECH_ID]: { x: 0.19, y: 0.12, width: 0.24, height: 0.66 }
+};
+const PLAYER_MECH_HANGAR_CARD_LAYOUTS = {
+  [DEFAULT_PLAYER_MECH_ID]: { x: 0.024, y: 0.59, width: 0.2, height: 0.32 },
+  [REGALIA_BASTION_MECH_ID]: { x: 0.226, y: 0.535, width: 0.25, height: 0.35 }
+};
+const REGALIA_BASTION_LANDING_FX_CONFIG = Object.freeze({
+  cooldownMs: 360,
+  minKineticMs: 120,
+  impactDurationMs: 260,
+  dustDepth: 16.2,
+  groundOffsetY: 40,
+  sinkPx: 8,
+  shadowScaleXAdd: 0.34,
+  shadowScaleYSub: 0.16,
+  shadowAlphaAdd: 0.09,
+  ringCount: 3,
+  dustCount: 12,
+  ringDurationMs: 420,
+  particleDurationMs: 460
+});
+const PLAYER_MECH_TEXTURE_OWNER_IDS = Object.freeze(
+  Object.entries(PLAYER_MECH_DIRECTION_ASSET_DEFINITIONS).reduce((ownerIds, [mechId, directionAssets]) => {
+    Object.values(directionAssets || {}).forEach((asset) => {
+      if (asset?.idleKey) {
+        ownerIds[asset.idleKey] = mechId;
+      }
+      if (asset?.moveKey) {
+        ownerIds[asset.moveKey] = mechId;
+      }
+      if (asset?.boostKey) {
+        ownerIds[asset.boostKey] = mechId;
+      }
+    });
+    return ownerIds;
+  }, {})
+);
+const PLAYER_MECH_NEUTRAL_STAT_PROFILE = {
+  maxHpAdd: 0,
+  bulletDamageMultiplier: 1,
+  moveSpeedMultiplier: 1,
+  maxStaminaAdd: 0,
+  boostDrainMultiplier: 1,
+  boostRegenMultiplier: 1,
+  evadeWindowMultiplier: 1,
+  quickBoostImpulseMultiplier: 1,
+  quickBoostMaxSpeedMultiplier: 1,
+  quickBoostExitSpeedMultiplier: 1,
+  quickBoostSustainAccelerationMultiplier: 1,
+  boostTerminalSpeedMultiplier: 1,
+  postBoostGlideDurationMultiplier: 1,
+  postBoostFrictionMultiplier: 1,
+  postBoostInputSpeedMultiplier: 1
+};
+const PLAYER_MECH_MIN_MOVE_SPEED = 120;
+const PLAYER_MECH_MIN_MAX_STAMINA = 30;
+const PLAYER_MECH_DEFAULT_PASSIVE_WEIGHTS = {
+  overchargeBolt: 1,
+  rapidSigil: 1,
+  swiftStep: 1,
+  staminaCore: 1,
+  vitalBloom: 1,
+  evasiveFirmware: 1
+};
+const PLAYER_MECH_DEFINITIONS = {
+  [DEFAULT_PLAYER_MECH_ID]: {
+    id: DEFAULT_PLAYER_MECH_ID,
+    displayName: "標準クマ型フレーム",
+    shortName: "DEFAULT FRAME",
+    role: "average",
+    startsUnlocked: true,
+    purchaseCost: 0,
+    startingSkillId: DEFAULT_SKILL_ID,
+    unlockRequirement: null,
+    visualScaleMultiplier: 1,
+    statProfile: { ...PLAYER_MECH_NEUTRAL_STAT_PROFILE },
+    passiveWeights: { ...PLAYER_MECH_DEFAULT_PASSIVE_WEIGHTS }
+  },
+  [REGALIA_BASTION_MECH_ID]: {
+    id: REGALIA_BASTION_MECH_ID,
+    displayName: "ALM-01 REGALIA BASTION",
+    shortName: "REGALIA BASTION",
+    role: "heavyAssault",
+    startsUnlocked: false,
+    purchaseCost: 10000000,
+    startingSkillId: REGALIA_BASTION_CANNON_SKILL_ID,
+    unlockRequirement: "finalBossRaidClear",
+    description: "Depth30以降の深層攻略に耐える英雄専用の重量級強襲機。",
+    shopDescription: "Depth10 Final Raid 討伐後に元素騎士の世界から転送可能になる英雄専用機。\n高AP / 高火力 / 低機動 / 高EN消費。",
+    visualScaleMultiplier: 1.5,
+    targetFireVisual: {
+      palette: "blue",
+      muzzleSideFactors: [-1.65, -0.55, 0.55, 1.65],
+      muzzleSideOffsetMultiplier: 1.18,
+      muzzleForwardOffsetAdd: 8,
+      tracerIntensityMultiplier: 1.08
+    },
+    statProfile: {
+      maxHpAdd: 100,
+      bulletDamageMultiplier: 1.2,
+      moveSpeedMultiplier: 0.75,
+      maxStaminaAdd: -25,
+      boostDrainMultiplier: 1.45,
+      boostRegenMultiplier: 0.7,
+      evadeWindowMultiplier: 0.6,
+      quickBoostImpulseMultiplier: 0.72,
+      quickBoostMaxSpeedMultiplier: 0.72,
+      quickBoostExitSpeedMultiplier: 0.48,
+      quickBoostSustainAccelerationMultiplier: 0.72,
+      boostTerminalSpeedMultiplier: 0.72,
+      postBoostGlideDurationMultiplier: 0.42,
+      postBoostFrictionMultiplier: 2.6,
+      postBoostInputSpeedMultiplier: 0.68
+    },
+    passiveWeights: {
+      vitalBloom: 2.6,
+      overchargeBolt: 1.25,
+      rapidSigil: 1.1,
+      staminaCore: 0.85,
+      swiftStep: 0.65,
+      evasiveFirmware: 0.25
+    }
+  }
+};
 const SKILL_DEFINITIONS = window.skillDefinitions || {};
 const SKILL_MUTATION_DEFINITIONS = window.skillMutationDefinitions || { cores: {}, finals: {}, skills: {} };
-const SKILL_MUTATION_SKILL_IDS = ["basicSkill", "tornadoSkill", "rabbitThunderSkill"];
+const DEFAULT_PLAYER_MECH_SKILL_MUTATION_SKILL_IDS = Object.freeze([DEFAULT_SKILL_ID, "tornadoSkill", "rabbitThunderSkill"]);
+const PLAYER_MECH_SKILL_MUTATION_SKILL_IDS = Object.freeze({
+  [DEFAULT_PLAYER_MECH_ID]: DEFAULT_PLAYER_MECH_SKILL_MUTATION_SKILL_IDS,
+  [REGALIA_BASTION_MECH_ID]: Object.freeze([REGALIA_BASTION_CANNON_SKILL_ID, "tornadoSkill", "rabbitThunderSkill"])
+});
+const SKILL_MUTATION_SKILL_IDS = DEFAULT_PLAYER_MECH_SKILL_MUTATION_SKILL_IDS;
+const SKILL_MUTATION_ARCHIVE_SKILL_IDS = Object.freeze(
+  Array.from(new Set(Object.values(PLAYER_MECH_SKILL_MUTATION_SKILL_IDS).flat()))
+);
 const SKILL_MUTATION_CORE_IDS = ["assault", "control", "reactor"];
 const SKILL_MUTATION_FINAL_IDS = ["execution", "prism", "singularity"];
 const SKILL_MUTATION_DEBUG_QUERY_PARAM = "debugSkillMutation";
@@ -135,7 +335,7 @@ const TRIAD_MATRIX_DEBUG_CORE_QUERY_PARAM = "debugTriadCore";
 const TRIAD_MATRIX_DEBUG_FINAL_QUERY_PARAM = "debugTriadFinal";
 const MUTATION_ATLAS_STORAGE_KEY = "lastmemoVansabaMutationAtlasState";
 const MUTATION_ATLAS_DEBUG_QUERY_PARAM = "debugMutationAtlas";
-const MUTATION_ATLAS_VERSION = 1;
+const MUTATION_ATLAS_VERSION = 2;
 const TRIAD_MATRIX_CORE_DEFINITIONS = {
   assault: {
     linkId: "assault_link_i",
@@ -229,6 +429,7 @@ const MUTATION_ATLAS_FINAL_COLUMNS = [
 const MUTATION_ATLAS_BUILD_IDS = MUTATION_ATLAS_CORE_ROWS.flatMap((core) =>
   MUTATION_ATLAS_FINAL_COLUMNS.map((final) => `${core.id}__${final.id}`)
 );
+const MUTATION_ATLAS_PLAYER_MECH_IDS = [DEFAULT_PLAYER_MECH_ID, REGALIA_BASTION_MECH_ID];
 const TRIAD_MATRIX_IDENTITY_MODIFIERS = {
   skillDamageMultiplier: 1,
   controlMultiplier: 1,
@@ -356,9 +557,9 @@ const AC_QUICK_BOOST_SE_LEGACY_PATH = "./音声/se/boostse.wav";
 const AC_QUICK_BOOST_SE_LEFT_KEY = "acQuickBoostSeLeft";
 const AC_QUICK_BOOST_SE_CENTER_KEY = "acQuickBoostSeCenter";
 const AC_QUICK_BOOST_SE_RIGHT_KEY = "acQuickBoostSeRight";
-const AC_QUICK_BOOST_SE_LEFT_PATH = "./音声/se/boostse_L.wav";
-const AC_QUICK_BOOST_SE_CENTER_PATH = "./音声/se/boostse_M.wav";
-const AC_QUICK_BOOST_SE_RIGHT_PATH = "./音声/se/boostse_R.wav";
+const AC_QUICK_BOOST_SE_LEFT_PATH = "./音声/se/boostse_L_v2.mp3";
+const AC_QUICK_BOOST_SE_CENTER_PATH = "./音声/se/boostse_M_v2.mp3";
+const AC_QUICK_BOOST_SE_RIGHT_PATH = "./音声/se/boostse_R_v2.mp3";
 const EVASIVE_FIRMWARE_PASSIVE_ID = "evasiveFirmware";
 const EVASIVE_FIRMWARE_DURATION_MS_BY_LEVEL = Object.freeze([70, 500, 750, 1000, 1250, 1500, 1540, 1580, 1620, 1660, 1700]);
 const EVASIVE_FIRMWARE_CONFIG = Object.freeze({
@@ -497,7 +698,8 @@ const AC_TARGET_FIRE_MODE = Object.freeze({
 });
 const AC_TARGET_FIRE_PALETTE = Object.freeze({
   AMBER: "amber",
-  RED: "red"
+  RED: "red",
+  BLUE: "blue"
 });
 const AC_MOVEMENT_ACTIVATION_SOURCE = Object.freeze({
   LEGACY: "LEGACY",
@@ -1269,6 +1471,8 @@ const DEBUG_MAX_BUILD_CONFIG = {
   moveSpeedAdd: 100
 };
 const DEBUG_ROBOT_MISSILE_LEVEL_QUERY_PARAM = "debugRobotMissileLevel";
+const DEBUG_PLAYER_MECH_QUERY_PARAM = "debugPlayerMech";
+const DEBUG_PLAYER_MECH_UNLOCK_QUERY_PARAM = "debugPlayerMechUnlock";
 const DEBUG_SKIP_OPENING_BOOST_QUERY_PARAM = "debugSkipOpeningBoost";
 const DEBUG_SKIP_OPENING_BOOST_ALIAS_QUERY_PARAM = "skipOpeningBoost";
 const RANKING_DEBUG_QUERY_PARAM = "debugRankingDepth";
@@ -1760,9 +1964,11 @@ const FINAL_RAID_LEGEND_REWARD_DEBUG_QUERY_PARAM = "debugFinalRaidLegendReward";
 const FINAL_RAID_LEGEND_PRESENTATION_DEBUG_QUERY_PARAM = "debugFinalRaidLegendPresentation";
 const FINAL_RAID_LEGEND_REWARD_PREVIEW_DEBUG_QUERY_PARAM = "debugFinalRaidLegendRewardPreview";
 const GEEK_SHOP_SUB_VIEW_BASE_CALIBRATION = "baseCalibration";
+const GEEK_SHOP_SUB_VIEW_HANGER = "hanger";
 const GEEK_SHOP_SUB_VIEW_EQUIPMENT_ANALYSIS = "equipmentAnalysis";
 const GEEK_SHOP_SUB_VIEWS = [
   { id: GEEK_SHOP_SUB_VIEW_BASE_CALIBRATION, label: "BASE CALIBRATION" },
+  { id: GEEK_SHOP_SUB_VIEW_HANGER, label: "HANGER" },
   { id: GEEK_SHOP_SUB_VIEW_EQUIPMENT_ANALYSIS, label: "EQUIPMENT ANALYSIS" }
 ];
 const EQUIPMENT_HUB_SLOT_ROWS = [
@@ -2847,6 +3053,8 @@ const FINAL_BOSS_SUPPORT_ID = "finalBossLiberatorSupport";
 const VOID_HUNTER_SUPPORT_ID = "voidHunterSupport";
 const OPENING_SHOP_BACKGROUND_TEXTURE_KEY = "opening-shop-bg";
 const OPENING_SHOP_BACKGROUND_PATH = "./画像/ui/opening_shop_bg.jpg";
+const PLAYER_MECH_HANGAR_BACKGROUND_TEXTURE_KEY = "player-mech-hangar-bg";
+const PLAYER_MECH_HANGAR_BACKGROUND_PATH = "./画像/ui/robo_select.png";
 const DEFAULT_BEST_RECORD = {
   survivalTimeMs: 0,
   level: 0,
@@ -3180,7 +3388,11 @@ const DEFAULT_SHOP_STATE = {
   },
   reactorCoolingLevel: 0,
   cleaningRobotLevel: 0,
-  robotCustom: { ...DEFAULT_ROBOT_CUSTOM_STATE }
+  robotCustom: { ...DEFAULT_ROBOT_CUSTOM_STATE },
+  playerMechs: {
+    ownedIds: [DEFAULT_PLAYER_MECH_ID],
+    selectedId: DEFAULT_PLAYER_MECH_ID
+  }
 };
 const DEFAULT_OPTIONS_STATE = {
   version: OPTIONS_STATE_VERSION,
@@ -4491,6 +4703,14 @@ const LEVEL_UP_SKILL_UI_META = {
     glowColor: 0xd4a8ff,
     accentColor: "#ffd76b",
     iconTone: "DASH"
+  },
+  [REGALIA_BASTION_CANNON_SKILL_ID]: {
+    displayName: "Regalia Bastion Cannon",
+    description: "閃光弾を撃ち込み、着弾地点を広範囲爆破する",
+    themeColor: 0xf0c463,
+    glowColor: 0x91faff,
+    accentColor: "#f0c463",
+    iconTone: "CANNON"
   }
 };
 const LEVEL_UP_PASSIVE_UI_META = {
@@ -6253,6 +6473,7 @@ class SurvivalScene extends Phaser.Scene {
     this.preloadSupportAttackAssets();
     this.preloadGensoKnightsSupportAssets();
     this.preloadAcMovementAudioAssets();
+    this.preloadRegaliaBastionAudioAssets();
     this.preloadSkillAssets();
   }
 
@@ -6260,9 +6481,12 @@ class SurvivalScene extends Phaser.Scene {
     this.loadImageIfNeeded("player-idle", "./画像/maincharactor/sprite_0.png");
     this.loadImageIfNeeded("player-walk-a", "./画像/maincharactor/sprite_3.png");
     this.loadImageIfNeeded("player-walk-b", "./画像/maincharactor/sprite_4.png");
-    Object.values(PLAYER_ROBOT_DIRECTION_ASSETS).forEach((asset) => {
-      this.loadImageIfNeeded(asset.idleKey, asset.idlePath);
-      this.loadImageIfNeeded(asset.boostKey, asset.boostPath);
+    Object.values(PLAYER_MECH_DIRECTION_ASSET_DEFINITIONS).forEach((directionAssets) => {
+      Object.values(directionAssets).forEach((asset) => {
+        this.loadImageIfNeeded(asset.idleKey, asset.idlePath);
+        this.loadImageIfNeeded(asset.moveKey, asset.movePath);
+        this.loadImageIfNeeded(asset.boostKey, asset.boostPath);
+      });
     });
   }
 
@@ -6297,15 +6521,30 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
+  preloadRegaliaBastionAudioAssets() {
+    Object.values(REGALIA_BASTION_SE_CONFIG).forEach((definition) => {
+      this.loadAudioIfNeeded(definition.key, definition.path);
+    });
+  }
+
   preloadSkillAssets() {
+    const queuedTextureKeys = new Set();
+    const loadSkillImageIfNeeded = (textureKey, imagePath) => {
+      if (!textureKey || queuedTextureKeys.has(textureKey)) {
+        return;
+      }
+      queuedTextureKeys.add(textureKey);
+      this.loadImageIfNeeded(textureKey, imagePath);
+    };
+
     Object.values(SKILL_DEFINITIONS).forEach((definition) => {
       definition.stages.forEach((stage) => {
         if (stage.textureKey && stage.imagePath) {
-          this.loadImageIfNeeded(stage.textureKey, stage.imagePath);
+          loadSkillImageIfNeeded(stage.textureKey, stage.imagePath);
         }
 
         stage.animationFrames?.forEach((frame) => {
-          this.loadImageIfNeeded(frame.textureKey, frame.imagePath);
+          loadSkillImageIfNeeded(frame.textureKey, frame.imagePath);
         });
       });
     });
@@ -6352,6 +6591,7 @@ class SurvivalScene extends Phaser.Scene {
 
   preloadShopAssets() {
     this.loadImageIfNeeded(OPENING_SHOP_BACKGROUND_TEXTURE_KEY, OPENING_SHOP_BACKGROUND_PATH);
+    this.loadImageIfNeeded(PLAYER_MECH_HANGAR_BACKGROUND_TEXTURE_KEY, PLAYER_MECH_HANGAR_BACKGROUND_PATH);
     this.loadAudioIfNeeded(ENDLESS_VOID_BGM_CONFIG.audioKey, ENDLESS_VOID_BGM_CONFIG.audioPath);
     CD_CATALOG.forEach((cd) => {
       this.loadImageIfNeeded(cd.jacketTextureKey, cd.jacketPath);
@@ -6993,16 +7233,25 @@ class SurvivalScene extends Phaser.Scene {
     return this.shouldUseAcBoostSe();
   }
 
+  normalizeAcTargetFirePalette(palette, fallback = AC_TARGET_FIRE_PALETTE.AMBER) {
+    const rawValue = String(palette || "").trim().toLowerCase();
+    return Object.values(AC_TARGET_FIRE_PALETTE).includes(rawValue)
+      ? rawValue
+      : fallback;
+  }
+
   getAcTargetFirePalette(tuning = this.getActiveAcMovementTuning()) {
-    const rawValue = String(
-      this.getUrlStageParam(AC_MOVEMENT_CONFIG.targetFirePaletteDebugQueryParam)
-      || tuning?.targetFirePalette
-      || AC_TARGET_FIRE_PALETTE.AMBER
-    ).trim().toLowerCase();
-    if (rawValue === AC_TARGET_FIRE_PALETTE.RED) {
-      return AC_TARGET_FIRE_PALETTE.RED;
+    const debugPalette = this.getUrlStageParam(AC_MOVEMENT_CONFIG.targetFirePaletteDebugQueryParam);
+    if (debugPalette) {
+      return this.normalizeAcTargetFirePalette(debugPalette);
     }
-    return AC_TARGET_FIRE_PALETTE.AMBER;
+
+    const mechPalette = this.getPlayerMechTargetFirePalette();
+    if (mechPalette) {
+      return mechPalette;
+    }
+
+    return this.normalizeAcTargetFirePalette(tuning?.targetFirePalette);
   }
 
   getAcTargetFireEffectiveEnabled(tuning = this.getActiveAcMovementTuning()) {
@@ -7107,7 +7356,9 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getTotalBoostEnergyRegenMultiplier(options = {}) {
-    return this.getEquipmentBoostEnergyRegenMultiplier() * this.getReactorCoolingRegenMultiplier(options);
+    return this.getEquipmentBoostEnergyRegenMultiplier()
+      * this.getReactorCoolingRegenMultiplier(options)
+      * this.getPlayerMechBoostRegenMultiplier();
   }
 
   getBoostEnergyBaseRegenPerSecond() {
@@ -7205,6 +7456,19 @@ class SurvivalScene extends Phaser.Scene {
       return null;
     }
     return Phaser.Math.Clamp(level, 1, ROBOT_MAX_LEVEL);
+  }
+
+  getDebugPlayerMechIdOverride() {
+    const rawMechId = String(this.getUrlStageParam(DEBUG_PLAYER_MECH_QUERY_PARAM) || "").trim();
+    if (!rawMechId) {
+      return "";
+    }
+    const definition = this.getPlayerMechDefinition(rawMechId);
+    return definition?.id || "";
+  }
+
+  isDebugPlayerMechUnlockEnabled() {
+    return this.isQueryFlagValueEnabled(this.getUrlStageParam(DEBUG_PLAYER_MECH_UNLOCK_QUERY_PARAM));
   }
 
   isDebugSkipOpeningBoostEnabled() {
@@ -7986,12 +8250,16 @@ class SurvivalScene extends Phaser.Scene {
       this.ensureRetroactiveFinalRaidLegendReward("createState");
     }
     this.initializeRunEquipmentState("createState");
+    this.initializeRunPlayerMechState("createState");
     this.anjuMemoryShopTab = "deepCd";
     this.anjuMemoryReadLogId = null;
     this.runArchiveSubView = this.isMutationAtlasDebugEnabled() ? "mutationAtlas" : "runArchive";
     this.runArchiveSelectedEntryId = null;
     this.runArchivePage = 0;
-    this.mutationAtlasSelectedBuildId = this.getValidMutationAtlasBuildId(this.mutationAtlasState?.selectedTargetId) || MUTATION_ATLAS_BUILD_IDS[0];
+    this.mutationAtlasSelectedMechId = this.getValidMutationAtlasMechId(this.mutationAtlasState?.selectedMechId);
+    this.mutationAtlasSelectedBuildId = this.getValidMutationAtlasBuildId(
+      this.getMutationAtlasScope(this.mutationAtlasState, this.mutationAtlasSelectedMechId)?.selectedTargetId
+    ) || MUTATION_ATLAS_BUILD_IDS[0];
     this.rebuildStartingStats();
 
     this.survivalTime = 0;
@@ -12221,6 +12489,9 @@ class SurvivalScene extends Phaser.Scene {
       if (!definition?.id || !Array.isArray(definition.stages) || definition.stages.length <= 0) {
         return;
       }
+      if (!this.isSkillAvailableForPlayerMech(definition.id, this.getSkillSelectionPlayerMechId())) {
+        return;
+      }
       const skillState = this.playerSkills[definition.id] || this.createSkillState(definition);
       skillState.definition = definition;
       skillState.stageIndex = definition.stages.length - 1;
@@ -12398,10 +12669,14 @@ class SurvivalScene extends Phaser.Scene {
     this.scaleWorldImageToFit(this.cleaningRobotSprite, this.getCleaningRobotVisualSize(level));
   }
 
-  rebuildStartingStats() {
+  rebuildStartingStats(options = {}) {
     this.stats = this.createBasePlayerStats();
     this.applyPermanentUpgradesToStats();
     this.applyRunEquipmentStartingStatBonuses("rebuildStartingStats");
+    if (options.applyPlayerMech === true) {
+      // Applied after shop/CD/Equipment start bonuses. debugMaxBuild remains governed by its existing forced-preset path.
+      this.applySelectedPlayerMechStatProfile();
+    }
     this.deepLevelBaseMaxHp = 0;
     this.deepLevelHpBonus = 0;
     this.syncPlayerLevelXpRequirement();
@@ -12409,17 +12684,27 @@ class SurvivalScene extends Phaser.Scene {
 
   normalizeShopState(record) {
     const catalogIds = new Set(CD_CATALOG.map((cd) => cd.id));
+    const playerMechIds = new Set(Object.keys(PLAYER_MECH_DEFINITIONS));
     const state = {
       ownedCdIds: [...DEFAULT_SHOP_STATE.ownedCdIds],
       selectedCdId: DEFAULT_SHOP_STATE.selectedCdId,
       upgrades: { ...DEFAULT_SHOP_STATE.upgrades },
       reactorCoolingLevel: DEFAULT_SHOP_STATE.reactorCoolingLevel,
       cleaningRobotLevel: DEFAULT_SHOP_STATE.cleaningRobotLevel,
-      robotCustom: { ...DEFAULT_ROBOT_CUSTOM_STATE }
+      robotCustom: { ...DEFAULT_ROBOT_CUSTOM_STATE },
+      playerMechs: {
+        ownedIds: [...DEFAULT_SHOP_STATE.playerMechs.ownedIds],
+        selectedId: DEFAULT_SHOP_STATE.playerMechs.selectedId
+      }
     };
     const addOwnedCd = (id) => {
       if (catalogIds.has(id) && !state.ownedCdIds.includes(id)) {
         state.ownedCdIds.push(id);
+      }
+    };
+    const addOwnedPlayerMech = (id) => {
+      if (playerMechIds.has(id) && !state.playerMechs.ownedIds.includes(id)) {
+        state.playerMechs.ownedIds.push(id);
       }
     };
 
@@ -12428,9 +12713,17 @@ class SurvivalScene extends Phaser.Scene {
         addOwnedCd(cd.id);
       }
     });
+    Object.values(PLAYER_MECH_DEFINITIONS).forEach((definition) => {
+      if (definition.startsUnlocked) {
+        addOwnedPlayerMech(definition.id);
+      }
+    });
 
     if (Array.isArray(record?.ownedCdIds)) {
       record.ownedCdIds.forEach((id) => addOwnedCd(id));
+    }
+    if (Array.isArray(record?.playerMechs?.ownedIds)) {
+      record.playerMechs.ownedIds.forEach((id) => addOwnedPlayerMech(id));
     }
 
     Object.entries(SHOP_UPGRADE_DEFINITIONS).forEach(([id, definition]) => {
@@ -12486,6 +12779,14 @@ class SurvivalScene extends Phaser.Scene {
       ? selectedId
       : (state.ownedCdIds[0] || DEFAULT_CD_ID);
 
+    const selectedPlayerMechId = typeof record?.playerMechs?.selectedId === "string"
+      ? record.playerMechs.selectedId
+      : state.playerMechs.selectedId;
+    state.playerMechs.selectedId = playerMechIds.has(selectedPlayerMechId)
+      && state.playerMechs.ownedIds.includes(selectedPlayerMechId)
+      ? selectedPlayerMechId
+      : DEFAULT_PLAYER_MECH_ID;
+
     return state;
   }
 
@@ -12517,6 +12818,472 @@ class SurvivalScene extends Phaser.Scene {
     } catch (error) {
       // Ignore storage failures so the shop can still be used during this session.
     }
+  }
+
+  getPlayerMechDefinitions() {
+    return PLAYER_MECH_DEFINITIONS;
+  }
+
+  getPlayerMechDefinition(mechId) {
+    return PLAYER_MECH_DEFINITIONS[mechId] || null;
+  }
+
+  getDefaultPlayerMechDefinition() {
+    return this.getPlayerMechDefinition(DEFAULT_PLAYER_MECH_ID);
+  }
+
+  getSelectedPlayerMechId() {
+    const selectedId = this.shopState?.playerMechs?.selectedId;
+    return this.getPlayerMechDefinition(selectedId) && this.isPlayerMechOwned(selectedId)
+      ? selectedId
+      : DEFAULT_PLAYER_MECH_ID;
+  }
+
+  getSelectedPlayerMechDefinition() {
+    return this.getPlayerMechDefinition(this.getSelectedPlayerMechId())
+      || this.getDefaultPlayerMechDefinition();
+  }
+
+  normalizePlayerMechStatProfile(profile = {}) {
+    const base = PLAYER_MECH_NEUTRAL_STAT_PROFILE;
+    const readNumber = (key) => {
+      const value = Number(profile?.[key]);
+      return Number.isFinite(value) ? value : base[key];
+    };
+    const readMultiplier = (key) => {
+      const value = readNumber(key);
+      return Number.isFinite(value) && value > 0 ? value : base[key];
+    };
+    return {
+      maxHpAdd: Math.round(readNumber("maxHpAdd")),
+      bulletDamageMultiplier: readMultiplier("bulletDamageMultiplier"),
+      moveSpeedMultiplier: readMultiplier("moveSpeedMultiplier"),
+      maxStaminaAdd: Math.round(readNumber("maxStaminaAdd")),
+      boostDrainMultiplier: readMultiplier("boostDrainMultiplier"),
+      boostRegenMultiplier: readMultiplier("boostRegenMultiplier"),
+      evadeWindowMultiplier: readMultiplier("evadeWindowMultiplier"),
+      quickBoostImpulseMultiplier: readMultiplier("quickBoostImpulseMultiplier"),
+      quickBoostMaxSpeedMultiplier: readMultiplier("quickBoostMaxSpeedMultiplier"),
+      quickBoostExitSpeedMultiplier: readMultiplier("quickBoostExitSpeedMultiplier"),
+      quickBoostSustainAccelerationMultiplier: readMultiplier("quickBoostSustainAccelerationMultiplier"),
+      boostTerminalSpeedMultiplier: readMultiplier("boostTerminalSpeedMultiplier"),
+      postBoostGlideDurationMultiplier: readMultiplier("postBoostGlideDurationMultiplier"),
+      postBoostFrictionMultiplier: readMultiplier("postBoostFrictionMultiplier"),
+      postBoostInputSpeedMultiplier: readMultiplier("postBoostInputSpeedMultiplier")
+    };
+  }
+
+  initializeRunPlayerMechState(reason = "init") {
+    const definition = this.getDefaultPlayerMechDefinition();
+    this.runPlayerMechId = definition?.id || DEFAULT_PLAYER_MECH_ID;
+    this.runPlayerMechDefinition = definition || null;
+    this.runPlayerMechStatProfile = this.normalizePlayerMechStatProfile(definition?.statProfile);
+    this.runPlayerMechSnapshotActive = false;
+    return this.runPlayerMechDefinition;
+  }
+
+  captureRunPlayerMechSnapshot(reason = "runStart") {
+    const debugMechId = this.getDebugPlayerMechIdOverride();
+    const definition = (debugMechId ? this.getPlayerMechDefinition(debugMechId) : null)
+      || this.getSelectedPlayerMechDefinition()
+      || this.getDefaultPlayerMechDefinition();
+    this.runPlayerMechId = definition?.id || DEFAULT_PLAYER_MECH_ID;
+    this.runPlayerMechDefinition = definition || null;
+    this.runPlayerMechStatProfile = this.normalizePlayerMechStatProfile(definition?.statProfile);
+    this.runPlayerMechSnapshotActive = true;
+    return this.runPlayerMechDefinition;
+  }
+
+  getRunPlayerMechId() {
+    return this.getPlayerMechDefinition(this.runPlayerMechId)
+      ? this.runPlayerMechId
+      : DEFAULT_PLAYER_MECH_ID;
+  }
+
+  getRunPlayerMechDefinition() {
+    return this.getPlayerMechDefinition(this.getRunPlayerMechId())
+      || this.getDefaultPlayerMechDefinition();
+  }
+
+  getRunPlayerMechStatProfile() {
+    return this.normalizePlayerMechStatProfile(
+      this.runPlayerMechStatProfile || this.getRunPlayerMechDefinition()?.statProfile
+    );
+  }
+
+  normalizePlayerMechPassiveWeights(weights = {}) {
+    const normalized = {};
+    const ids = new Set([
+      ...Object.keys(PLAYER_MECH_DEFAULT_PASSIVE_WEIGHTS),
+      ...Object.keys(weights || {})
+    ]);
+    ids.forEach((id) => {
+      const value = Number(weights?.[id]);
+      normalized[id] = Number.isFinite(value) ? value : 1;
+    });
+    return normalized;
+  }
+
+  getSelectedPlayerMechPassiveWeights() {
+    const runDefinition = this.runPlayerMechSnapshotActive && this.getPlayerMechDefinition(this.runPlayerMechId)
+      ? this.getRunPlayerMechDefinition()
+      : null;
+    const definition = runDefinition
+      || this.getSelectedPlayerMechDefinition()
+      || this.getDefaultPlayerMechDefinition();
+    return this.normalizePlayerMechPassiveWeights(definition?.passiveWeights);
+  }
+
+  getSkillSelectionPlayerMechId(options = {}) {
+    const explicitMechId = options?.mechId;
+    if (this.getPlayerMechDefinition(explicitMechId)) {
+      return explicitMechId;
+    }
+    if (this.runPlayerMechSnapshotActive && this.getPlayerMechDefinition(this.runPlayerMechId)) {
+      return this.getRunPlayerMechId();
+    }
+    const debugMechId = this.getDebugPlayerMechIdOverride?.();
+    if (debugMechId && this.getPlayerMechDefinition(debugMechId)) {
+      return debugMechId;
+    }
+    return this.getSelectedPlayerMechId();
+  }
+
+  isSkillDefinitionCompatibleWithPlayerMech(definition, mechId) {
+    if (!definition) {
+      return false;
+    }
+    const exclusiveToMechId = definition.exclusiveToMechId;
+    if (!exclusiveToMechId) {
+      return true;
+    }
+    return exclusiveToMechId === mechId;
+  }
+
+  getResolvedPlayerMechStartingSkillDefinition(mechId = null) {
+    const resolvedMechId = this.getPlayerMechDefinition(mechId)
+      ? mechId
+      : this.getSkillSelectionPlayerMechId();
+    const mechDefinition = this.getPlayerMechDefinition(resolvedMechId) || this.getDefaultPlayerMechDefinition();
+    const requestedSkillId = mechDefinition?.startingSkillId || DEFAULT_SKILL_ID;
+    const requestedDefinition = SKILL_DEFINITIONS[requestedSkillId];
+    if (
+      requestedDefinition?.stages?.length &&
+      this.isSkillDefinitionCompatibleWithPlayerMech(requestedDefinition, mechDefinition?.id)
+    ) {
+      return requestedDefinition;
+    }
+    return SKILL_DEFINITIONS[DEFAULT_SKILL_ID] || null;
+  }
+
+  getResolvedPlayerMechStartingSkillId(mechId = null) {
+    return this.getResolvedPlayerMechStartingSkillDefinition(mechId)?.id || DEFAULT_SKILL_ID;
+  }
+
+  isSkillReplacedByPlayerMechStarter(skillId, mechId = null) {
+    if (skillId !== DEFAULT_SKILL_ID) {
+      return false;
+    }
+    return this.getResolvedPlayerMechStartingSkillId(mechId) !== DEFAULT_SKILL_ID;
+  }
+
+  isSkillAvailableForPlayerMech(skillId, mechId = null) {
+    const definition = SKILL_DEFINITIONS[skillId];
+    const resolvedMechId = this.getPlayerMechDefinition(mechId)
+      ? mechId
+      : this.getSkillSelectionPlayerMechId();
+    if (!definition?.stages?.length) {
+      return false;
+    }
+    if (!this.isSkillDefinitionCompatibleWithPlayerMech(definition, resolvedMechId)) {
+      return false;
+    }
+    return !this.isSkillReplacedByPlayerMechStarter(skillId, resolvedMechId);
+  }
+
+  getPlayerSkillSlotIds(options = {}) {
+    const mechId = this.getSkillSelectionPlayerMechId(options);
+    const ids = [];
+    const addSkillId = (skillId) => {
+      if (!skillId || ids.includes(skillId) || !this.isSkillAvailableForPlayerMech(skillId, mechId)) {
+        return;
+      }
+      ids.push(skillId);
+    };
+
+    addSkillId(this.getResolvedPlayerMechStartingSkillId(mechId));
+    Object.keys(SKILL_DEFINITIONS).forEach((skillId) => addSkillId(skillId));
+    return ids.slice(0, 3);
+  }
+
+  getActivePlayerMechIdForRuntime() {
+    if (!this.shopActive && this.getPlayerMechDefinition(this.runPlayerMechId)) {
+      return this.runPlayerMechId;
+    }
+    return this.getSelectedPlayerMechId();
+  }
+
+  getPlayerMechVisualScaleMultiplier(mechId = null) {
+    const definition = this.getPlayerMechDefinition(mechId || this.getActivePlayerMechIdForRuntime());
+    const multiplier = Number(definition?.visualScaleMultiplier);
+    return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+  }
+
+  getPlayerMechTargetFireVisualDefinition(mechId = null) {
+    const definition = this.getPlayerMechDefinition(mechId || this.getActivePlayerMechIdForRuntime());
+    const visual = definition?.targetFireVisual;
+    return visual && typeof visual === "object" ? visual : null;
+  }
+
+  getPlayerMechTargetFirePalette(mechId = null) {
+    const rawPalette = String(this.getPlayerMechTargetFireVisualDefinition(mechId)?.palette || "").trim().toLowerCase();
+    return Object.values(AC_TARGET_FIRE_PALETTE).includes(rawPalette) ? rawPalette : "";
+  }
+
+  getPlayerMechTargetFireMuzzleSideFactors(mechId = null) {
+    const rawFactors = this.getPlayerMechTargetFireVisualDefinition(mechId)?.muzzleSideFactors;
+    if (!Array.isArray(rawFactors)) {
+      return null;
+    }
+    const factors = rawFactors
+      .map((value) => Phaser.Math.Clamp(Number(value) || 0, -3, 3))
+      .filter((value) => Math.abs(value) >= 0.05);
+    return factors.length > 0 ? factors.slice(0, 6) : null;
+  }
+
+  getPlayerMechTargetFireMuzzleSideOffsetMultiplier(mechId = null) {
+    const multiplier = Number(this.getPlayerMechTargetFireVisualDefinition(mechId)?.muzzleSideOffsetMultiplier);
+    return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+  }
+
+  getPlayerMechTargetFireMuzzleForwardOffsetAdd(mechId = null) {
+    const offset = Number(this.getPlayerMechTargetFireVisualDefinition(mechId)?.muzzleForwardOffsetAdd);
+    return Number.isFinite(offset) ? Phaser.Math.Clamp(offset, -24, 36) : 0;
+  }
+
+  getPlayerMechTargetFireTracerIntensityMultiplier(mechId = null) {
+    const multiplier = Number(this.getPlayerMechTargetFireVisualDefinition(mechId)?.tracerIntensityMultiplier);
+    return Number.isFinite(multiplier) && multiplier > 0 ? Phaser.Math.Clamp(multiplier, 0.5, 1.5) : 1;
+  }
+
+  applySelectedPlayerMechStatProfile() {
+    if (!this.stats) {
+      return false;
+    }
+
+    const profile = this.getRunPlayerMechStatProfile();
+    const hpAdd = Math.round(Number(profile.maxHpAdd) || 0);
+    const maxStaminaAdd = Math.round(Number(profile.maxStaminaAdd) || 0);
+    const damageMultiplier = Number(profile.bulletDamageMultiplier);
+    const moveSpeedMultiplier = Number(profile.moveSpeedMultiplier);
+    const safeDamageMultiplier = Number.isFinite(damageMultiplier) && damageMultiplier > 0 ? damageMultiplier : 1;
+    const safeMoveSpeedMultiplier = Number.isFinite(moveSpeedMultiplier) && moveSpeedMultiplier > 0 ? moveSpeedMultiplier : 1;
+
+    const beforeMaxHp = Math.max(1, Number(this.stats.maxHp) || 1);
+    const beforeHp = Phaser.Math.Clamp(Number(this.stats.hp) || beforeMaxHp, 0, beforeMaxHp);
+    this.stats.maxHp = Math.max(1, Math.round(beforeMaxHp + hpAdd));
+    this.stats.hp = Phaser.Math.Clamp(beforeHp + hpAdd, 0, this.stats.maxHp);
+    this.stats.damageMultiplier = Math.max(0, Number(this.stats.damageMultiplier) || 1) * safeDamageMultiplier;
+    this.stats.moveSpeed = Math.max(
+      PLAYER_MECH_MIN_MOVE_SPEED,
+      Math.round(Math.max(0, Number(this.stats.moveSpeed) || 0) * safeMoveSpeedMultiplier)
+    );
+
+    const beforeMaxStamina = Math.max(0, Number(this.stats.maxStamina) || 0);
+    const beforeStamina = Phaser.Math.Clamp(Number(this.stats.stamina) || beforeMaxStamina, 0, beforeMaxStamina);
+    this.stats.maxStamina = Math.max(
+      PLAYER_MECH_MIN_MAX_STAMINA,
+      Math.round(beforeMaxStamina + maxStaminaAdd)
+    );
+    this.stats.stamina = Phaser.Math.Clamp(beforeStamina + maxStaminaAdd, 0, this.stats.maxStamina);
+    return true;
+  }
+
+  getPlayerMechBoostDrainMultiplier() {
+    if (this.isFinalBossRaidActive?.()) {
+      return 1;
+    }
+    const multiplier = Number(this.getRunPlayerMechStatProfile().boostDrainMultiplier);
+    return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+  }
+
+  getPlayerMechBoostRegenMultiplier() {
+    if (this.isFinalBossRaidActive?.()) {
+      return 1;
+    }
+    const multiplier = Number(this.getRunPlayerMechStatProfile().boostRegenMultiplier);
+    return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+  }
+
+  getPlayerMechEvadeWindowMultiplier() {
+    if (this.isFinalBossRaidActive?.()) {
+      return 1;
+    }
+    const multiplier = Number(this.getRunPlayerMechStatProfile().evadeWindowMultiplier);
+    return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+  }
+
+  getPlayerMechQuickBoostImpulseMultiplier() {
+    if (this.isFinalBossRaidActive?.()) {
+      return 1;
+    }
+    const multiplier = Number(this.getRunPlayerMechStatProfile().quickBoostImpulseMultiplier);
+    return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+  }
+
+  getPlayerMechQuickBoostMaxSpeedMultiplier() {
+    if (this.isFinalBossRaidActive?.()) {
+      return 1;
+    }
+    const multiplier = Number(this.getRunPlayerMechStatProfile().quickBoostMaxSpeedMultiplier);
+    return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+  }
+
+  getPlayerMechQuickBoostExitSpeedMultiplier() {
+    if (this.isFinalBossRaidActive?.()) {
+      return 1;
+    }
+    const multiplier = Number(this.getRunPlayerMechStatProfile().quickBoostExitSpeedMultiplier);
+    return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+  }
+
+  getPlayerMechQuickBoostSustainAccelerationMultiplier() {
+    if (this.isFinalBossRaidActive?.()) {
+      return 1;
+    }
+    const multiplier = Number(this.getRunPlayerMechStatProfile().quickBoostSustainAccelerationMultiplier);
+    return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+  }
+
+  getPlayerMechBoostTerminalSpeedMultiplier() {
+    if (this.isFinalBossRaidActive?.()) {
+      return 1;
+    }
+    const multiplier = Number(this.getRunPlayerMechStatProfile().boostTerminalSpeedMultiplier);
+    return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+  }
+
+  getPlayerMechPostBoostGlideDurationMultiplier() {
+    if (this.isFinalBossRaidActive?.()) {
+      return 1;
+    }
+    const multiplier = Number(this.getRunPlayerMechStatProfile().postBoostGlideDurationMultiplier);
+    return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+  }
+
+  getPlayerMechPostBoostFrictionMultiplier() {
+    if (this.isFinalBossRaidActive?.()) {
+      return 1;
+    }
+    const multiplier = Number(this.getRunPlayerMechStatProfile().postBoostFrictionMultiplier);
+    return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+  }
+
+  getPlayerMechPostBoostInputSpeedMultiplier() {
+    if (this.isFinalBossRaidActive?.()) {
+      return 1;
+    }
+    const multiplier = Number(this.getRunPlayerMechStatProfile().postBoostInputSpeedMultiplier);
+    return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+  }
+
+  getPlayerMechAdjustedEvadeWindowDurationMs(durationMs) {
+    return Math.max(0, Math.round((Number(durationMs) || 0) * this.getPlayerMechEvadeWindowMultiplier()));
+  }
+
+  isPlayerMechOwned(mechId) {
+    const definition = this.getPlayerMechDefinition(mechId);
+    if (!definition) {
+      return false;
+    }
+    if (definition.startsUnlocked) {
+      return true;
+    }
+
+    const ownedIds = Array.isArray(this.shopState?.playerMechs?.ownedIds)
+      ? this.shopState.playerMechs.ownedIds
+      : [];
+    return ownedIds.includes(definition.id);
+  }
+
+  isPlayerMechStartsUnlocked(mechId) {
+    return this.getPlayerMechDefinition(mechId)?.startsUnlocked === true;
+  }
+
+  getPlayerMechPurchaseCost(mechId) {
+    const definition = this.getPlayerMechDefinition(mechId);
+    return Math.max(0, Math.floor(Number(definition?.purchaseCost) || 0));
+  }
+
+  isPlayerMechUnlockRequirementMet(mechId) {
+    const definition = this.getPlayerMechDefinition(mechId);
+    if (!definition) {
+      return false;
+    }
+    if (!definition.unlockRequirement) {
+      return true;
+    }
+    if (definition.unlockRequirement === "finalBossRaidClear") {
+      if (this.isDebugPlayerMechUnlockEnabled?.()) {
+        return true;
+      }
+      return typeof this.isFinalBossRaidCleared === "function"
+        ? this.isFinalBossRaidCleared() === true
+        : false;
+    }
+    return false;
+  }
+
+  canPurchasePlayerMech(mechId) {
+    const definition = this.getPlayerMechDefinition(mechId);
+    if (!definition || this.isPlayerMechOwned(definition.id)) {
+      return false;
+    }
+    if (!this.isPlayerMechUnlockRequirementMet(definition.id)) {
+      return false;
+    }
+    return this.normalizeCoinAmount(this.coins) >= this.getPlayerMechPurchaseCost(definition.id);
+  }
+
+  purchasePlayerMech(mechId) {
+    const definition = this.getPlayerMechDefinition(mechId);
+    if (!definition) {
+      return false;
+    }
+
+    this.shopState = this.normalizeShopState(this.shopState || DEFAULT_SHOP_STATE);
+    if (this.isPlayerMechOwned(definition.id)) {
+      return this.selectPlayerMech(definition.id);
+    }
+    if (!this.isPlayerMechUnlockRequirementMet(definition.id)) {
+      return false;
+    }
+
+    const cost = this.getPlayerMechPurchaseCost(definition.id);
+    if (!this.spendCoins(cost)) {
+      return false;
+    }
+
+    this.shopState.playerMechs.ownedIds.push(definition.id);
+    this.shopState.playerMechs.selectedId = definition.id;
+    this.saveShopState();
+    return true;
+  }
+
+  selectPlayerMech(mechId) {
+    const definition = this.getPlayerMechDefinition(mechId);
+    if (!definition) {
+      return false;
+    }
+
+    this.shopState = this.normalizeShopState(this.shopState || DEFAULT_SHOP_STATE);
+    if (!this.isPlayerMechOwned(definition.id)) {
+      return false;
+    }
+
+    this.shopState.playerMechs.selectedId = definition.id;
+    this.saveShopState();
+    return true;
   }
 
   normalizeOptionsState(record = {}) {
@@ -18476,7 +19243,7 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    const skillIds = Object.keys(SKILL_DEFINITIONS).slice(0, 3);
+    const skillIds = this.getPlayerSkillSlotIds();
     slots.forEach((slot, index) => {
       if (index < skillIds.length) {
         const skillId = skillIds[index];
@@ -27846,6 +28613,7 @@ class SurvivalScene extends Phaser.Scene {
     this.stopFinalBossRaidSupportVoice?.(reason);
     this.stopScrambledCommsVoice?.(reason);
     this.cleanupAcQuickBoostSeSounds?.(reason);
+    this.cleanupRegaliaBastionAudio?.(reason);
 
     const activeSounds = this.managedSfxSounds ? Array.from(this.managedSfxSounds) : [];
     activeSounds.forEach((sound) => {
@@ -30435,7 +31203,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   normalizeRunArchiveSkillMutations(record = {}) {
-    return SKILL_MUTATION_SKILL_IDS.reduce((normalized, skillId) => {
+    return this.getAllSkillMutationSkillIds().reduce((normalized, skillId) => {
       const entry = record?.[skillId] || {};
       const core = SKILL_MUTATION_CORE_IDS.includes(entry.core) ? entry.core : "";
       const final = SKILL_MUTATION_FINAL_IDS.includes(entry.final) ? entry.final : "";
@@ -30581,6 +31349,7 @@ class SurvivalScene extends Phaser.Scene {
 
       skills: {
         basicSkill: Math.max(0, Math.floor(Number(skills.basicSkill) || 0)),
+        regaliaBastionCannon: Math.max(0, Math.floor(Number(skills.regaliaBastionCannon) || 0)),
         tornadoSkill: Math.max(0, Math.floor(Number(skills.tornadoSkill) || 0)),
         rabbitThunderSkill: Math.max(0, Math.floor(Number(skills.rabbitThunderSkill) || 0))
       },
@@ -30724,6 +31493,7 @@ class SurvivalScene extends Phaser.Scene {
 
     return {
       basicSkill: getSkillLevel("basicSkill"),
+      regaliaBastionCannon: getSkillLevel(REGALIA_BASTION_CANNON_SKILL_ID),
       tornadoSkill: getSkillLevel("tornadoSkill"),
       rabbitThunderSkill: getSkillLevel("rabbitThunderSkill")
     };
@@ -30741,7 +31511,7 @@ class SurvivalScene extends Phaser.Scene {
 
   getRunArchiveSkillMutationSnapshot() {
     const snapshot = {};
-    SKILL_MUTATION_SKILL_IDS.forEach((skillId) => {
+    this.getSkillMutationTargetSkillIds().forEach((skillId) => {
       const entry = this.getSkillMutationState(skillId);
       if (!entry?.core && !entry?.final) {
         return;
@@ -31380,9 +32150,9 @@ class SurvivalScene extends Phaser.Scene {
     };
   }
 
-  initializeSkillMutationState() {
+  initializeSkillMutationState(options = {}) {
     const entries = {};
-    SKILL_MUTATION_SKILL_IDS.forEach((skillId) => {
+    this.getSkillMutationTargetSkillIds(options).forEach((skillId) => {
       entries[skillId] = this.createSkillMutationEntry();
     });
 
@@ -31439,8 +32209,31 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
+  getSkillMutationPlayerMechId(options = {}) {
+    const explicitMechId = options?.mechId;
+    if (this.getPlayerMechDefinition(explicitMechId)) {
+      return explicitMechId;
+    }
+    return this.getSkillSelectionPlayerMechId(options);
+  }
+
+  getSkillMutationTargetSkillIds(options = {}) {
+    const mechId = this.getSkillMutationPlayerMechId(options);
+    const configuredIds = PLAYER_MECH_SKILL_MUTATION_SKILL_IDS[mechId]
+      || PLAYER_MECH_SKILL_MUTATION_SKILL_IDS[DEFAULT_PLAYER_MECH_ID]
+      || SKILL_MUTATION_SKILL_IDS;
+    return configuredIds.filter((skillId) => (
+      Boolean(SKILL_DEFINITIONS[skillId]?.stages?.length) &&
+      this.isSkillAvailableForPlayerMech(skillId, mechId)
+    ));
+  }
+
+  getAllSkillMutationSkillIds() {
+    return SKILL_MUTATION_ARCHIVE_SKILL_IDS.filter((skillId) => Boolean(SKILL_DEFINITIONS[skillId]?.stages?.length));
+  }
+
   isSkillMutationTargetSkill(skillId) {
-    return SKILL_MUTATION_SKILL_IDS.includes(skillId) && Boolean(SKILL_DEFINITIONS[skillId]);
+    return this.getSkillMutationTargetSkillIds().includes(String(skillId || "")) && Boolean(SKILL_DEFINITIONS[skillId]);
   }
 
   getSkillMutationState(skillId) {
@@ -31589,9 +32382,8 @@ class SurvivalScene extends Phaser.Scene {
     };
   }
 
-  createDefaultMutationAtlasState() {
+  createDefaultMutationAtlasScope() {
     return {
-      version: MUTATION_ATLAS_VERSION,
       selectedTargetId: null,
       entries: MUTATION_ATLAS_BUILD_IDS.reduce((entries, buildId) => {
         entries[buildId] = this.createDefaultMutationAtlasEntry();
@@ -31600,9 +32392,39 @@ class SurvivalScene extends Phaser.Scene {
     };
   }
 
+  createDefaultMutationAtlasState() {
+    const mechBuilds = MUTATION_ATLAS_PLAYER_MECH_IDS.reduce((builds, mechId) => {
+      builds[mechId] = this.createDefaultMutationAtlasScope();
+      return builds;
+    }, {});
+    return {
+      version: MUTATION_ATLAS_VERSION,
+      selectedMechId: DEFAULT_PLAYER_MECH_ID,
+      // Legacy mirror for older readers; canonical data is stored under mechBuilds.
+      selectedTargetId: mechBuilds[DEFAULT_PLAYER_MECH_ID].selectedTargetId,
+      entries: mechBuilds[DEFAULT_PLAYER_MECH_ID].entries,
+      mechBuilds
+    };
+  }
+
   getValidMutationAtlasBuildId(buildId) {
     const normalized = String(buildId || "");
     return MUTATION_ATLAS_BUILD_IDS.includes(normalized) ? normalized : null;
+  }
+
+  getValidMutationAtlasMechId(mechId) {
+    const normalized = String(mechId || "");
+    return MUTATION_ATLAS_PLAYER_MECH_IDS.includes(normalized) ? normalized : DEFAULT_PLAYER_MECH_ID;
+  }
+
+  getMutationAtlasMechDefinition(mechId) {
+    return this.getPlayerMechDefinition(this.getValidMutationAtlasMechId(mechId))
+      || this.getDefaultPlayerMechDefinition();
+  }
+
+  getMutationAtlasMechLabel(mechId) {
+    const definition = this.getMutationAtlasMechDefinition(mechId);
+    return definition?.shortName || definition?.displayName || definition?.id || "PLAYER FRAME";
   }
 
   normalizeMutationAtlasEntry(entry = {}) {
@@ -31618,18 +32440,61 @@ class SurvivalScene extends Phaser.Scene {
     };
   }
 
-  normalizeMutationAtlasState(record = {}) {
-    const defaults = this.createDefaultMutationAtlasState();
+  normalizeMutationAtlasScope(record = {}) {
     const sourceEntries = record?.entries || {};
     const entries = {};
     MUTATION_ATLAS_BUILD_IDS.forEach((buildId) => {
       entries[buildId] = this.normalizeMutationAtlasEntry(sourceEntries[buildId]);
     });
     return {
-      version: MUTATION_ATLAS_VERSION,
       selectedTargetId: this.getValidMutationAtlasBuildId(record?.selectedTargetId),
       entries
     };
+  }
+
+  normalizeMutationAtlasState(record = {}) {
+    const source = record && typeof record === "object" && !Array.isArray(record)
+      ? record
+      : {};
+    const sourceMechBuilds = source.mechBuilds && typeof source.mechBuilds === "object" && !Array.isArray(source.mechBuilds)
+      ? source.mechBuilds
+      : {};
+    const legacyScope = this.normalizeMutationAtlasScope(source);
+    const mechBuilds = {};
+
+    MUTATION_ATLAS_PLAYER_MECH_IDS.forEach((mechId) => {
+      const sourceScope = sourceMechBuilds[mechId]
+        || (mechId === DEFAULT_PLAYER_MECH_ID ? legacyScope : null)
+        || this.createDefaultMutationAtlasScope();
+      mechBuilds[mechId] = this.normalizeMutationAtlasScope(sourceScope);
+    });
+
+    const selectedMechId = this.getValidMutationAtlasMechId(source.selectedMechId);
+    const legacyMirror = mechBuilds[DEFAULT_PLAYER_MECH_ID] || this.createDefaultMutationAtlasScope();
+    return {
+      version: MUTATION_ATLAS_VERSION,
+      selectedMechId,
+      selectedTargetId: legacyMirror.selectedTargetId,
+      entries: legacyMirror.entries,
+      mechBuilds
+    };
+  }
+
+  getMutationAtlasScope(state = this.mutationAtlasState, mechId = null) {
+    const normalizedState = this.normalizeMutationAtlasState(state || this.createDefaultMutationAtlasState());
+    const resolvedMechId = this.getValidMutationAtlasMechId(mechId || normalizedState.selectedMechId);
+    return normalizedState.mechBuilds?.[resolvedMechId] || normalizedState.mechBuilds?.[DEFAULT_PLAYER_MECH_ID] || this.createDefaultMutationAtlasScope();
+  }
+
+  getMutationAtlasRunMechId() {
+    if (this.runPlayerMechSnapshotActive && this.getPlayerMechDefinition(this.runPlayerMechId)) {
+      return this.getValidMutationAtlasMechId(this.runPlayerMechId);
+    }
+    const debugMechId = this.getDebugPlayerMechIdOverride?.();
+    if (debugMechId) {
+      return this.getValidMutationAtlasMechId(debugMechId);
+    }
+    return this.getValidMutationAtlasMechId(this.getSelectedPlayerMechId?.());
   }
 
   loadMutationAtlasState() {
@@ -31684,6 +32549,7 @@ class SurvivalScene extends Phaser.Scene {
       lastSignature: "",
       lastHudText: "",
       lastCompletedBuildId: null,
+      runResearchTargetMechId: DEFAULT_PLAYER_MECH_ID,
       runResearchTargetId: null,
       debugInjected: false,
       atlasPreserveBonus: null,
@@ -31718,7 +32584,10 @@ class SurvivalScene extends Phaser.Scene {
       this.triadMatrixState = this.createTriadMatrixRunState();
     }
     this.mutationAtlasState = this.normalizeMutationAtlasState(this.mutationAtlasState || this.loadMutationAtlasState());
-    this.triadMatrixState.runResearchTargetId = this.getValidMutationAtlasBuildId(this.mutationAtlasState.selectedTargetId);
+    const runMechId = this.getMutationAtlasRunMechId();
+    const runScope = this.getMutationAtlasScope(this.mutationAtlasState, runMechId);
+    this.triadMatrixState.runResearchTargetMechId = runMechId;
+    this.triadMatrixState.runResearchTargetId = this.getValidMutationAtlasBuildId(runScope.selectedTargetId);
     if (this.isTriadMatrixDebugInjectionRequested()) {
       this.applyTriadMatrixDebugPreset(reason);
     }
@@ -31745,38 +32614,36 @@ class SurvivalScene extends Phaser.Scene {
 
   getTriadMatrixDebugCorePattern() {
     const value = this.getTriadMatrixDebugParam(TRIAD_MATRIX_DEBUG_CORE_QUERY_PARAM);
+    const targetSkillIds = this.getSkillMutationTargetSkillIds();
     if (value === "trinity") {
-      return {
-        basicSkill: "assault",
-        tornadoSkill: "control",
-        rabbitThunderSkill: "reactor"
-      };
+      return targetSkillIds.reduce((pattern, skillId, index) => {
+        pattern[skillId] = SKILL_MUTATION_CORE_IDS[index % SKILL_MUTATION_CORE_IDS.length];
+        return pattern;
+      }, {});
     }
     if (SKILL_MUTATION_CORE_IDS.includes(value)) {
-      return {
-        basicSkill: value,
-        tornadoSkill: value,
-        rabbitThunderSkill: value
-      };
+      return targetSkillIds.reduce((pattern, skillId) => {
+        pattern[skillId] = value;
+        return pattern;
+      }, {});
     }
     return null;
   }
 
   getTriadMatrixDebugFinalPattern() {
     const value = this.getTriadMatrixDebugParam(TRIAD_MATRIX_DEBUG_FINAL_QUERY_PARAM);
+    const targetSkillIds = this.getSkillMutationTargetSkillIds();
     if (value === "adaptive") {
-      return {
-        basicSkill: "execution",
-        tornadoSkill: "prism",
-        rabbitThunderSkill: "singularity"
-      };
+      return targetSkillIds.reduce((pattern, skillId, index) => {
+        pattern[skillId] = SKILL_MUTATION_FINAL_IDS[index % SKILL_MUTATION_FINAL_IDS.length];
+        return pattern;
+      }, {});
     }
     if (SKILL_MUTATION_FINAL_IDS.includes(value)) {
-      return {
-        basicSkill: value,
-        tornadoSkill: value,
-        rabbitThunderSkill: value
-      };
+      return targetSkillIds.reduce((pattern, skillId) => {
+        pattern[skillId] = value;
+        return pattern;
+      }, {});
     }
     return null;
   }
@@ -31785,17 +32652,18 @@ class SurvivalScene extends Phaser.Scene {
     if (!this.skillMutationState) {
       this.initializeSkillMutationState();
     }
-    const corePattern = this.getTriadMatrixDebugCorePattern() || {
-      basicSkill: "assault",
-      tornadoSkill: "assault",
-      rabbitThunderSkill: "assault"
-    };
+    const targetSkillIds = this.getSkillMutationTargetSkillIds();
+    const corePattern = this.getTriadMatrixDebugCorePattern()
+      || targetSkillIds.reduce((pattern, skillId) => {
+        pattern[skillId] = "assault";
+        return pattern;
+      }, {});
     const finalPattern = this.getTriadMatrixDebugFinalPattern();
     if (!this.triadMatrixState) {
       this.triadMatrixState = this.createTriadMatrixRunState();
     }
     this.triadMatrixState.debugInjected = true;
-    SKILL_MUTATION_SKILL_IDS.forEach((skillId) => {
+    targetSkillIds.forEach((skillId) => {
       const definition = SKILL_DEFINITIONS[skillId];
       if (!definition?.stages?.length) {
         return;
@@ -31959,7 +32827,8 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   createTriadMatrixSnapshot() {
-    const selections = SKILL_MUTATION_SKILL_IDS.reduce((accumulator, skillId) => {
+    const targetSkillIds = this.getSkillMutationTargetSkillIds();
+    const selections = targetSkillIds.reduce((accumulator, skillId) => {
       accumulator[skillId] = {
         core: this.getSkillMutationCore(skillId),
         final: this.getSkillMutationFinal(skillId)
@@ -31975,6 +32844,7 @@ class SurvivalScene extends Phaser.Scene {
     const hudParts = [coreAxis.shortLabel, finalAxis.shortLabel].filter(Boolean);
     return {
       selections,
+      targetSkillIds,
       core: coreAxis,
       final: finalAxis,
       completeBuild,
@@ -32115,7 +32985,9 @@ class SurvivalScene extends Phaser.Scene {
       this.mutationAtlasState = this.loadMutationAtlasState();
     }
     this.mutationAtlasState = this.normalizeMutationAtlasState(this.mutationAtlasState);
-    const entry = this.mutationAtlasState.entries[buildId] || this.createDefaultMutationAtlasEntry();
+    const mechId = this.getMutationAtlasRunMechId();
+    const scope = this.getMutationAtlasScope(this.mutationAtlasState, mechId);
+    const entry = scope.entries[buildId] || this.createDefaultMutationAtlasEntry();
     const legacyAbsoluteDepth = this.normalizeDepthValue(
       Math.max(
         Number(this.runAnjuMemoryState?.maxDepthReached) || 1,
@@ -32141,11 +33013,13 @@ class SurvivalScene extends Phaser.Scene {
     if (!changed) {
       return null;
     }
-    this.mutationAtlasState.entries[buildId] = this.normalizeMutationAtlasEntry(entry);
+    scope.entries[buildId] = this.normalizeMutationAtlasEntry(entry);
+    this.mutationAtlasState.mechBuilds[mechId] = scope;
     this.saveMutationAtlasState();
     const meta = this.getMutationAtlasBuildMeta(buildId);
     const status = {
       buildId,
+      mechId,
       displayName: meta?.displayName || buildId,
       discovered: !wasDiscovered,
       bestDepthUpdated: absoluteMaxDepthReached > previousBestDepth,
@@ -32202,7 +33076,9 @@ class SurvivalScene extends Phaser.Scene {
       };
     }
     this.mutationAtlasState = this.normalizeMutationAtlasState(this.mutationAtlasState || this.loadMutationAtlasState());
-    const entry = this.mutationAtlasState.entries[buildId] || this.createDefaultMutationAtlasEntry();
+    const mechId = this.getMutationAtlasRunMechId();
+    const scope = this.getMutationAtlasScope(this.mutationAtlasState, mechId);
+    const entry = scope.entries[buildId] || this.createDefaultMutationAtlasEntry();
     const legacyAbsoluteDepth = this.normalizeDepthValue(
       options.absoluteMaxDepthReached ?? options.maxDepthReached ?? this.getRunMaxDepthReachedForResult(this.runRankingStats),
       1
@@ -32238,9 +33114,11 @@ class SurvivalScene extends Phaser.Scene {
 
     let researchCompleted = false;
     let researchRerollTicket = 0;
+    const runTargetMechId = this.getValidMutationAtlasMechId(this.triadMatrixState?.runResearchTargetMechId);
     const runTargetId = this.getValidMutationAtlasBuildId(this.triadMatrixState?.runResearchTargetId);
     if (
       mode === "normal" &&
+      runTargetMechId === mechId &&
       runTargetId === buildId &&
       rewardDepthReached >= 8 &&
       !entry.researchCompleted
@@ -32251,16 +33129,19 @@ class SurvivalScene extends Phaser.Scene {
         researchRerollTicket = this.addOpeningBoostRerollTicket(1, "mutationAtlasResearch");
         entry.researchRewardClaimed = true;
       }
-      if (this.mutationAtlasState.selectedTargetId === buildId) {
-        this.mutationAtlasState.selectedTargetId = null;
+      if (scope.selectedTargetId === buildId) {
+        scope.selectedTargetId = null;
       }
     }
 
-    this.mutationAtlasState.entries[buildId] = this.normalizeMutationAtlasEntry(entry);
+    scope.entries[buildId] = this.normalizeMutationAtlasEntry(entry);
+    this.mutationAtlasState.mechBuilds[mechId] = scope;
     this.saveMutationAtlasState();
     const meta = this.getMutationAtlasBuildMeta(buildId);
     const result = {
       build: meta,
+      mechId,
+      mechLabel: this.getMutationAtlasMechLabel(mechId),
       atlasStatus,
       bestDepth: entry.bestDepth,
       atlasBonusAnju,
@@ -32281,6 +33162,7 @@ class SurvivalScene extends Phaser.Scene {
     }
     const lines = [
       `TRIAD BUILD ${result.build.displayName}`,
+      result.mechLabel ? `ATLAS FRAME: ${result.mechLabel}` : "",
       result.atlasStatus ? `ATLAS: ${result.atlasStatus}` : "",
       Number.isFinite(Number(result.bestDepth)) ? `BEST DEPTH D${Math.max(0, Math.floor(Number(result.bestDepth) || 0))}` : "",
       result.atlasBonusAnju > 0 ? `ATLAS PRESERVE BONUS +${result.atlasBonusAnju} AM` : "",
@@ -37352,19 +38234,38 @@ class SurvivalScene extends Phaser.Scene {
     this.showLevelUpChoices();
   }
 
-  buildInitialSkillStates() {
+  buildInitialSkillStates(options = {}) {
     const skills = {};
+    const mechId = this.getSkillSelectionPlayerMechId(options);
+    const starterDefinition = this.getResolvedPlayerMechStartingSkillDefinition(mechId);
+    const starterSkillId = starterDefinition?.id || DEFAULT_SKILL_ID;
 
     Object.values(SKILL_DEFINITIONS).forEach((definition) => {
-      if (!definition.startsUnlocked || !definition.stages.length) {
+      if (!definition?.id || !definition.stages?.length) {
+        return;
+      }
+      if (!this.isSkillAvailableForPlayerMech(definition.id, mechId) && definition.id !== starterSkillId) {
+        return;
+      }
+
+      const isStarter = definition.id === starterSkillId;
+      if (!isStarter && !definition.startsUnlocked) {
         return;
       }
 
       skills[definition.id] = this.createSkillState(definition);
     });
 
-    if (!skills[DEFAULT_SKILL_ID]) {
-      throw new Error(`Missing starter skill definition: ${DEFAULT_SKILL_ID}`);
+    if (!skills[starterSkillId] && starterDefinition?.stages?.length) {
+      skills[starterSkillId] = this.createSkillState(starterDefinition);
+    }
+
+    if (!Object.keys(skills).length && SKILL_DEFINITIONS[DEFAULT_SKILL_ID]?.stages?.length) {
+      skills[DEFAULT_SKILL_ID] = this.createSkillState(SKILL_DEFINITIONS[DEFAULT_SKILL_ID]);
+    }
+
+    if (!Object.keys(skills).length) {
+      throw new Error(`Missing starter skill definition: ${starterSkillId}`);
     }
 
     return skills;
@@ -37379,6 +38280,7 @@ class SurvivalScene extends Phaser.Scene {
       orbitAngle: 0,
       pulseTimer: 0,
       dashCycleTimer: 0,
+      regaliaCannonCooldownMs: 0,
       orbitals: []
     };
   }
@@ -38764,6 +39666,7 @@ class SurvivalScene extends Phaser.Scene {
 
   createPlayer() {
     this.cleanupAcMovementVisuals("createPlayer");
+    this.cleanupRegaliaBastionLandingFxObjects();
     const playBounds = this.getStagePlayBounds(this.currentStage);
     const worldBounds = this.getStageWorldBounds(this.currentStage);
     const debugStart = this.getStageDebugStartOverride(worldBounds);
@@ -38824,20 +39727,83 @@ class SurvivalScene extends Phaser.Scene {
     this.setWorldCameraZoom(WORLD_CAMERA_ZOOM);
   }
 
-  getPlayerRobotTextureKey(directionKey = "down", moving = false) {
-    const asset = PLAYER_ROBOT_DIRECTION_ASSETS[directionKey] || PLAYER_ROBOT_DIRECTION_ASSETS.down;
-    const preferredKey = moving ? asset.boostKey : asset.idleKey;
-    const fallbackKey = moving ? asset.idleKey : asset.boostKey;
-    if (preferredKey && this.textures.exists(preferredKey)) {
-      return preferredKey;
+  getPlayerMechDirectionAssets(mechId) {
+    return PLAYER_MECH_DIRECTION_ASSET_DEFINITIONS[mechId] || PLAYER_ROBOT_DIRECTION_ASSETS;
+  }
+
+  getSelectedPlayerMechDirectionAssets() {
+    return this.getPlayerMechDirectionAssets(this.getActivePlayerMechIdForRuntime());
+  }
+
+  getPlayerRobotDirectionAsset(directionKey, mechId = null) {
+    const directionAssets = mechId
+      ? this.getPlayerMechDirectionAssets(mechId)
+      : this.getSelectedPlayerMechDirectionAssets();
+    const fallbackAssets = PLAYER_ROBOT_DIRECTION_ASSETS;
+    return directionAssets?.[directionKey]
+      || directionAssets?.down
+      || fallbackAssets[directionKey]
+      || fallbackAssets.down;
+  }
+
+  isPlayerRobotMechTextureKey(textureKey) {
+    return typeof textureKey === "string"
+      && (textureKey.startsWith("player-robot-") || textureKey.startsWith("player-mech-"));
+  }
+
+  getPlayerRobotTextureOwnerMechId(textureKey) {
+    if (!textureKey) {
+      return null;
     }
-    if (fallbackKey && this.textures.exists(fallbackKey)) {
-      return fallbackKey;
+    return PLAYER_MECH_TEXTURE_OWNER_IDS[textureKey] || null;
+  }
+
+  getPlayerRobotTextureVisualScaleMultiplier(textureKey) {
+    const ownerMechId = this.getPlayerRobotTextureOwnerMechId(textureKey);
+    return ownerMechId ? this.getPlayerMechVisualScaleMultiplier(ownerMechId) : 1;
+  }
+
+  getPlayerRobotTextureCandidateKeys(asset, spriteMode = "idle") {
+    const normalizedMode = spriteMode === true || spriteMode === "boost" || spriteMode === "moving"
+      ? "boost"
+      : (spriteMode === "move" ? "move" : "idle");
+    const keysByMode = {
+      idle: [asset?.idleKey, asset?.moveKey, asset?.boostKey],
+      move: [asset?.moveKey, asset?.idleKey, asset?.boostKey],
+      boost: [asset?.boostKey, asset?.idleKey, asset?.moveKey]
+    };
+    return (keysByMode[normalizedMode] || keysByMode.idle).filter(Boolean);
+  }
+
+  getPlayerRobotTextureKeyForDirection(directionKey = "down", spriteMode = "idle", mechId = null) {
+    const resolvedMechId = mechId || this.getActivePlayerMechIdForRuntime();
+    const asset = this.getPlayerRobotDirectionAsset(directionKey, resolvedMechId);
+    const defaultAsset = this.getPlayerRobotDirectionAsset(directionKey, DEFAULT_PLAYER_MECH_ID);
+
+    const candidateKeys = this.getPlayerRobotTextureCandidateKeys(asset, spriteMode);
+    const preferredKey = candidateKeys[0];
+    const localKey = candidateKeys.find((key) => this.textures.exists(key));
+    if (localKey) {
+      return localKey;
     }
-    if (moving && this.textures.exists("player-walk-a")) {
+
+    if (resolvedMechId !== DEFAULT_PLAYER_MECH_ID) {
+      const defaultKey = this
+        .getPlayerRobotTextureCandidateKeys(defaultAsset, spriteMode)
+        .find((key) => this.textures.exists(key));
+      if (defaultKey) {
+        return defaultKey;
+      }
+    }
+
+    if ((spriteMode === true || spriteMode === "boost" || spriteMode === "moving") && this.textures.exists("player-walk-a")) {
       return "player-walk-a";
     }
     return this.textures.exists("player-idle") ? "player-idle" : preferredKey;
+  }
+
+  getPlayerRobotTextureKey(directionKey = "down", moving = false) {
+    return this.getPlayerRobotTextureKeyForDirection(directionKey, moving ? "boost" : "idle");
   }
 
   isDepth10HumanPlayerVisualActive() {
@@ -38861,10 +39827,11 @@ class SurvivalScene extends Phaser.Scene {
     return this.textures.exists("player-walk-a") ? "player-walk-a" : this.getPlayerRobotTextureKey("down", false);
   }
 
-  getPlayerVisualTextureKey(directionKey = "down", moving = false) {
+  getPlayerVisualTextureKey(directionKey = "down", spriteMode = false) {
+    const humanMoving = spriteMode === true || spriteMode === "move" || spriteMode === "boost" || spriteMode === "moving";
     return this.isDepth10HumanPlayerVisualActive()
-      ? this.getPlayerHumanTextureKey(moving)
-      : this.getPlayerRobotTextureKey(directionKey, moving);
+      ? this.getPlayerHumanTextureKey(humanMoving)
+      : this.getPlayerRobotTextureKeyForDirection(directionKey, spriteMode);
   }
 
   getPlayerRobotDirectionKeyForAngle(angle) {
@@ -38890,8 +39857,8 @@ class SurvivalScene extends Phaser.Scene {
 
     const textureKey = this.playerSprite.texture?.key || "";
     const frameHeight = Math.max(this.playerSprite.frame?.height || 1, 1);
-    const targetHeight = textureKey.startsWith("player-robot-")
-      ? PLAYER_ROBOT_DISPLAY_HEIGHT
+    const targetHeight = this.isPlayerRobotMechTextureKey(textureKey)
+      ? PLAYER_ROBOT_DISPLAY_HEIGHT * this.getPlayerRobotTextureVisualScaleMultiplier(textureKey)
       : PLAYER_FALLBACK_DISPLAY_HEIGHT;
     const finalRaidScale = this.isFinalBossRaidActive?.()
       ? this.getFinalRaidVisualNumber("playerVisualScale", 1, 0.25, 3)
@@ -38906,7 +39873,7 @@ class SurvivalScene extends Phaser.Scene {
 
     const frameHeight = Math.max(icon.frame?.height || 1, 1);
     const textureKey = icon.texture?.key || "";
-    const targetHeight = textureKey.startsWith("player-robot-")
+    const targetHeight = this.isPlayerRobotMechTextureKey(textureKey)
       ? PLAYER_ROBOT_HUD_DISPLAY_HEIGHT
       : PLAYER_HUMAN_HUD_DISPLAY_HEIGHT;
     icon.setScale(targetHeight / frameHeight);
@@ -38934,13 +39901,511 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
+  isRegaliaBastionLandingFxAllowed() {
+    return Boolean(
+      this.getActivePlayerMechIdForRuntime?.() === REGALIA_BASTION_MECH_ID &&
+      !this.isDepth10HumanPlayerVisualActive?.() &&
+      !this.isFinalBossRaidActive?.()
+    );
+  }
+
+  createRegaliaBastionSeState() {
+    return {
+      machinegunSound: null,
+      machinegunActive: false,
+      moveStartSound: null,
+      moveStartActive: false,
+      oneShotLastPlayedAt: {},
+      lastReason: "NONE"
+    };
+  }
+
+  getRegaliaBastionSeState() {
+    if (!this.regaliaBastionSeState || typeof this.regaliaBastionSeState !== "object") {
+      this.regaliaBastionSeState = this.createRegaliaBastionSeState();
+    }
+    if (!this.regaliaBastionSeState.oneShotLastPlayedAt || typeof this.regaliaBastionSeState.oneShotLastPlayedAt !== "object") {
+      this.regaliaBastionSeState.oneShotLastPlayedAt = {};
+    }
+    this.regaliaBastionSeState.moveStartSound = this.regaliaBastionSeState.moveStartSound || null;
+    this.regaliaBastionSeState.moveStartActive = Boolean(this.regaliaBastionSeState.moveStartActive);
+    return this.regaliaBastionSeState;
+  }
+
+  getRegaliaBastionSeConfig(seId) {
+    return REGALIA_BASTION_SE_CONFIG[seId] || null;
+  }
+
+  isRegaliaBastionSeAllowed() {
+    return Boolean(
+      this.isRegaliaBastionLandingFxAllowed?.() &&
+      !this.gameOver &&
+      !this.shopActive &&
+      !this.levelUpActive &&
+      !this.gateChoiceActive &&
+      !this.extractionComplete
+    );
+  }
+
+  isRegaliaBastionSeLoaded(seId) {
+    const config = this.getRegaliaBastionSeConfig(seId);
+    return Boolean(config?.key && this.cache?.audio?.exists?.(config.key));
+  }
+
+  playRegaliaBastionOneShotSe(seId) {
+    const config = this.getRegaliaBastionSeConfig(seId);
+    const state = this.getRegaliaBastionSeState();
+    if (!config || !this.isRegaliaBastionSeAllowed() || !this.isRegaliaBastionSeLoaded(seId) || !this.canPlaySfx()) {
+      state.lastReason = config ? "SKIPPED" : "UNKNOWN_SE";
+      return false;
+    }
+
+    const now = Math.max(0, Number(this.time?.now) || 0);
+    const cooldownMs = Math.max(0, Number(config.cooldownMs) || 0);
+    if (cooldownMs > 0 && now - (Number(state.oneShotLastPlayedAt[seId]) || 0) < cooldownMs) {
+      state.lastReason = "COOLDOWN";
+      return false;
+    }
+
+    const sound = this.playManagedSfx(config.key, {
+      loop: false,
+      volume: Phaser.Math.Clamp(Number(config.volume) || 0.5, 0, 1)
+    });
+    if (!sound) {
+      state.lastReason = "PLAY_FAILED";
+      return false;
+    }
+
+    state.oneShotLastPlayedAt[seId] = now;
+    state.lastReason = `PLAY:${seId}`;
+    return true;
+  }
+
+  startRegaliaBastionMoveStartSe() {
+    const config = this.getRegaliaBastionSeConfig("moveStart");
+    const state = this.getRegaliaBastionSeState();
+    if (!config || !this.isRegaliaBastionSeAllowed() || !this.isRegaliaBastionSeLoaded("moveStart") || !this.canPlaySfx()) {
+      this.stopRegaliaBastionMoveStartSe("suppressed");
+      state.lastReason = config ? "MOVE_START_SKIPPED" : "UNKNOWN_SE";
+      return false;
+    }
+
+    const existingSound = state.moveStartSound;
+    if (existingSound && existingSound.isDestroyed !== true && existingSound.isPlaying) {
+      state.moveStartActive = true;
+      state.lastReason = "MOVE_START_PLAYING";
+      return true;
+    }
+    if (existingSound) {
+      this.stopRegaliaBastionMoveStartSe("replace");
+    }
+
+    const now = Math.max(0, Number(this.time?.now) || 0);
+    const cooldownMs = Math.max(0, Number(config.cooldownMs) || 0);
+    if (cooldownMs > 0 && now - (Number(state.oneShotLastPlayedAt.moveStart) || 0) < cooldownMs) {
+      state.lastReason = "MOVE_START_COOLDOWN";
+      return false;
+    }
+
+    const volume = Phaser.Math.Clamp(Number(config.volume) || 0.42, 0, 1);
+    const sound = this.addManagedSfx(config.key, { loop: false, volume });
+    if (!sound) {
+      state.lastReason = "MOVE_START_CREATE_FAILED";
+      return false;
+    }
+
+    let cleaned = false;
+    const cleanup = (destroy = true) => {
+      if (cleaned) {
+        return;
+      }
+      cleaned = true;
+      if (state.moveStartSound === sound) {
+        state.moveStartSound = null;
+        state.moveStartActive = false;
+      }
+      this.untrackManagedSfx(sound);
+      if (destroy && sound && typeof sound.destroy === "function") {
+        sound.destroy();
+      }
+    };
+    sound.once?.("complete", () => cleanup(true));
+    sound.once?.("stop", () => cleanup(false));
+
+    try {
+      sound.play({ loop: false, volume });
+      state.moveStartSound = sound;
+      state.moveStartActive = true;
+      state.oneShotLastPlayedAt.moveStart = now;
+      state.lastReason = "MOVE_START_PLAY";
+      return true;
+    } catch (error) {
+      cleanup(true);
+      state.lastReason = "MOVE_START_PLAY_FAILED";
+      return false;
+    }
+  }
+
+  stopRegaliaBastionMoveStartSe(reason = "stop") {
+    const state = this.getRegaliaBastionSeState();
+    const sound = state.moveStartSound;
+    state.moveStartSound = null;
+    state.moveStartActive = false;
+    state.lastReason = `MOVE_START_STOP:${reason}`;
+    if (!sound) {
+      return;
+    }
+
+    try {
+      sound.stop?.();
+    } catch (error) {
+      // Optional one-shot cleanup should never affect gameplay.
+    }
+    this.untrackManagedSfx(sound);
+    try {
+      sound.destroy?.();
+    } catch (error) {
+      // Optional one-shot cleanup should never affect gameplay.
+    }
+  }
+
+  startRegaliaBastionMachinegunSe() {
+    const config = this.getRegaliaBastionSeConfig("machinegun");
+    const state = this.getRegaliaBastionSeState();
+    if (!config || !this.isRegaliaBastionSeAllowed() || !this.isRegaliaBastionSeLoaded("machinegun") || !this.canPlaySfx()) {
+      this.stopRegaliaBastionMachinegunSe("suppressed");
+      state.lastReason = config ? "MACHINEGUN_SKIPPED" : "UNKNOWN_SE";
+      return false;
+    }
+
+    const existingSound = state.machinegunSound;
+    if (existingSound && existingSound.isDestroyed !== true) {
+      if (!existingSound.isPlaying) {
+        try {
+          existingSound.play({
+            loop: true,
+            volume: Phaser.Math.Clamp(Number(config.volume) || 0.22, 0, 1)
+          });
+        } catch (error) {
+          this.stopRegaliaBastionMachinegunSe("restartFailed");
+          return false;
+        }
+      }
+      state.machinegunActive = true;
+      state.lastReason = "MACHINEGUN_PLAYING";
+      return true;
+    }
+
+    const sound = this.addManagedSfx(config.key, {
+      loop: true,
+      volume: Phaser.Math.Clamp(Number(config.volume) || 0.22, 0, 1)
+    });
+    if (!sound) {
+      state.lastReason = "MACHINEGUN_CREATE_FAILED";
+      return false;
+    }
+
+    try {
+      sound.play({
+        loop: true,
+        volume: Phaser.Math.Clamp(Number(config.volume) || 0.22, 0, 1)
+      });
+      state.machinegunSound = sound;
+      state.machinegunActive = true;
+      state.lastReason = "MACHINEGUN_PLAY";
+      return true;
+    } catch (error) {
+      this.untrackManagedSfx(sound);
+      sound.destroy?.();
+      state.machinegunSound = null;
+      state.machinegunActive = false;
+      state.lastReason = "MACHINEGUN_PLAY_FAILED";
+      return false;
+    }
+  }
+
+  stopRegaliaBastionMachinegunSe(reason = "stop") {
+    const state = this.getRegaliaBastionSeState();
+    const sound = state.machinegunSound;
+    state.machinegunSound = null;
+    state.machinegunActive = false;
+    state.lastReason = `MACHINEGUN_STOP:${reason}`;
+    if (!sound) {
+      return;
+    }
+
+    try {
+      sound.stop?.();
+    } catch (error) {
+      // Optional loop cleanup should never affect gameplay.
+    }
+    this.untrackManagedSfx(sound);
+    try {
+      sound.destroy?.();
+    } catch (error) {
+      // Optional loop cleanup should never affect gameplay.
+    }
+  }
+
+  syncRegaliaBastionMachinegunSe(isFiring, reason = "targetFire") {
+    if (isFiring) {
+      return this.startRegaliaBastionMachinegunSe();
+    }
+    this.stopRegaliaBastionMachinegunSe(reason);
+    return false;
+  }
+
+  cleanupRegaliaBastionAudio(reason = "cleanup") {
+    this.stopRegaliaBastionMoveStartSe(reason);
+    this.stopRegaliaBastionMachinegunSe(reason);
+    if (this.playerRobotMotion) {
+      this.playerRobotMotion.regaliaSeWasKinetic = false;
+      this.playerRobotMotion.regaliaSeWasNormalMoving = false;
+    }
+  }
+
+  updateRegaliaBastionMovementSe(motion, isMoving, isDashing, boostPoseActive) {
+    if (!motion) {
+      return;
+    }
+
+    const allowed = this.isRegaliaBastionSeAllowed();
+    const kinetic = Boolean(isMoving || isDashing || boostPoseActive);
+    if (!allowed) {
+      this.stopRegaliaBastionMoveStartSe("suppressed");
+      motion.regaliaSeWasKinetic = false;
+      motion.regaliaSeWasNormalMoving = false;
+      return;
+    }
+
+    const acMovementActive = Boolean(this.shouldUseAcMovement?.());
+    const acMode = this.acMovementState?.mode || "";
+    const normalMoving = Boolean(
+      isMoving &&
+      !isDashing &&
+      (
+        acMovementActive
+          ? (!boostPoseActive && acMode === AC_MOVEMENT_CONFIG.glideMode)
+          : true
+      )
+    );
+    if (normalMoving && !motion.regaliaSeWasNormalMoving) {
+      this.startRegaliaBastionMoveStartSe();
+    } else if (!normalMoving && motion.regaliaSeWasNormalMoving) {
+      const reason = (isDashing || boostPoseActive) ? "boost" : (!kinetic ? "stop" : "normalMoveEnd");
+      this.stopRegaliaBastionMoveStartSe(reason);
+    }
+
+    if (!kinetic && motion.regaliaSeWasKinetic) {
+      this.playRegaliaBastionOneShotSe("stop");
+    }
+
+    motion.regaliaSeWasKinetic = kinetic;
+    motion.regaliaSeWasNormalMoving = normalMoving;
+  }
+
+  getRegaliaBastionLandingImpactVisualState(motion = this.playerRobotMotion || {}) {
+    const startedAt = Math.max(0, Number(motion.regaliaLandingImpactStartedAt) || 0);
+    const now = Math.max(0, Number(this.time?.now) || 0);
+    const duration = Math.max(1, Number(REGALIA_BASTION_LANDING_FX_CONFIG.impactDurationMs) || 1);
+    const elapsed = now - startedAt;
+    if (!startedAt || elapsed < 0 || elapsed > duration) {
+      return {
+        offsetY: 0,
+        shadowScaleX: 1,
+        shadowScaleY: 1,
+        shadowAlphaAdd: 0
+      };
+    }
+
+    const impact = Phaser.Math.Clamp(Number(motion.regaliaLandingImpactLevel) || 1, 0.45, 1.45);
+    const progress = Phaser.Math.Clamp(elapsed / duration, 0, 1);
+    const settle = Math.pow(1 - progress, 2.2);
+    return {
+      offsetY: REGALIA_BASTION_LANDING_FX_CONFIG.sinkPx * impact * settle,
+      shadowScaleX: 1 + REGALIA_BASTION_LANDING_FX_CONFIG.shadowScaleXAdd * impact * settle,
+      shadowScaleY: Math.max(0.35, 1 - REGALIA_BASTION_LANDING_FX_CONFIG.shadowScaleYSub * impact * settle),
+      shadowAlphaAdd: REGALIA_BASTION_LANDING_FX_CONFIG.shadowAlphaAdd * impact * settle
+    };
+  }
+
+  destroyRegaliaBastionLandingFxObject(object) {
+    if (!object) {
+      return;
+    }
+    this.regaliaBastionLandingFxObjects?.delete?.(object);
+    object.destroy?.();
+  }
+
+  cleanupRegaliaBastionLandingFxObjects() {
+    if (!this.regaliaBastionLandingFxObjects) {
+      return;
+    }
+    Array.from(this.regaliaBastionLandingFxObjects).forEach((object) => {
+      object?.destroy?.();
+    });
+    this.regaliaBastionLandingFxObjects.clear();
+  }
+
+  trackRegaliaBastionLandingFxObject(object) {
+    if (!object) {
+      return object;
+    }
+    if (!this.regaliaBastionLandingFxObjects) {
+      this.regaliaBastionLandingFxObjects = new Set();
+    }
+    this.regaliaBastionLandingFxObjects.add(object);
+    object.once?.("destroy", () => {
+      this.regaliaBastionLandingFxObjects?.delete?.(object);
+    });
+    return object;
+  }
+
+  spawnRegaliaBastionLandingDustRing(x, y, index, impactLevel) {
+    if (!this.add || !this.tweens) {
+      return;
+    }
+
+    const config = REGALIA_BASTION_LANDING_FX_CONFIG;
+    const ring = this.trackRegaliaBastionLandingFxObject(
+      this.add.graphics()
+        .setPosition(x, y)
+        .setDepth(config.dustDepth + index * 0.02)
+        .setAlpha(0.44)
+    );
+    const width = (72 + index * 26) * impactLevel;
+    const height = (18 + index * 7) * impactLevel;
+    const color = index === 0 ? 0xd2c0a0 : 0x9aa6a8;
+    ring.lineStyle(Math.max(1, 3 - index * 0.6), color, 0.42 - index * 0.08);
+    ring.strokeEllipse(0, 0, width, height);
+
+    const duration = config.ringDurationMs + index * 70;
+    this.tweens.add({
+      targets: ring,
+      scaleX: 1.7 + index * 0.28,
+      scaleY: 1.45 + index * 0.18,
+      alpha: 0,
+      duration,
+      ease: "Cubic.easeOut",
+      onComplete: () => this.destroyRegaliaBastionLandingFxObject(ring)
+    });
+  }
+
+  spawnRegaliaBastionLandingDustParticles(x, y, impactLevel) {
+    if (!this.add || !this.tweens) {
+      return;
+    }
+
+    const config = REGALIA_BASTION_LANDING_FX_CONFIG;
+    const count = Math.max(1, Math.round(config.dustCount * impactLevel));
+    const facingAngle = Number.isFinite(this.playerRobotMotion?.angle)
+      ? this.playerRobotMotion.angle
+      : Math.PI * 0.5;
+    for (let index = 0; index < count; index += 1) {
+      const angle = facingAngle + Math.PI + Phaser.Math.FloatBetween(-1.9, 1.9);
+      const startRadius = Phaser.Math.FloatBetween(12, 34) * impactLevel;
+      const endRadius = Phaser.Math.FloatBetween(48, 106) * impactLevel;
+      const particle = this.trackRegaliaBastionLandingFxObject(
+        this.add.graphics()
+          .setPosition(
+            x + Math.cos(angle) * startRadius,
+            y + Math.sin(angle) * startRadius * 0.34
+          )
+          .setDepth(config.dustDepth + 0.08 + index * 0.001)
+          .setAlpha(Phaser.Math.FloatBetween(0.26, 0.46))
+      );
+      const radius = Phaser.Math.FloatBetween(3.2, 7.5) * impactLevel;
+      const color = Phaser.Utils.Array.GetRandom([0xb5aa96, 0x8f9898, 0xd0c0a5]);
+      particle.fillStyle(color, 0.42);
+      particle.fillEllipse(0, 0, radius * 2.2, radius);
+
+      this.tweens.add({
+        targets: particle,
+        x: x + Math.cos(angle) * endRadius,
+        y: y + Math.sin(angle) * endRadius * 0.28 + Phaser.Math.FloatBetween(-8, 10),
+        scaleX: Phaser.Math.FloatBetween(1.35, 2.15),
+        scaleY: Phaser.Math.FloatBetween(1.1, 1.7),
+        alpha: 0,
+        duration: config.particleDurationMs + Phaser.Math.Between(-80, 130),
+        ease: "Cubic.easeOut",
+        onComplete: () => this.destroyRegaliaBastionLandingFxObject(particle)
+      });
+    }
+  }
+
+  triggerRegaliaBastionLandingFx(impactLevel = 1) {
+    if (!this.playerHitbox || !this.isRegaliaBastionLandingFxAllowed()) {
+      return;
+    }
+
+    const config = REGALIA_BASTION_LANDING_FX_CONFIG;
+    const now = Math.max(0, Number(this.time?.now) || 0);
+    const motion = this.playerRobotMotion || {};
+    const clampedImpact = Phaser.Math.Clamp(Number(impactLevel) || 1, 0.55, 1.35);
+    motion.regaliaLandingImpactStartedAt = now;
+    motion.regaliaLandingImpactLevel = clampedImpact;
+    motion.regaliaLandingNextAllowedAt = now + config.cooldownMs;
+    this.playerRobotMotion = motion;
+
+    const groundX = this.playerHitbox.x;
+    const groundY = this.playerHitbox.y + config.groundOffsetY;
+    for (let index = 0; index < config.ringCount; index += 1) {
+      this.spawnRegaliaBastionLandingDustRing(groundX, groundY, index, clampedImpact);
+    }
+    this.spawnRegaliaBastionLandingDustParticles(groundX, groundY, clampedImpact);
+  }
+
+  updateRegaliaBastionLandingFxTrigger(motion, isMoving, isDashing, boostPoseActive, direction) {
+    if (!motion) {
+      return;
+    }
+
+    const now = Math.max(0, Number(this.time?.now) || 0);
+    const kinetic = Boolean(isMoving || isDashing || boostPoseActive);
+    const acState = this.acMovementState;
+    const velocitySpeed = this.shouldUseAcMovement?.() && acState?.velocity
+      ? Math.hypot(Number(acState.velocity.x) || 0, Number(acState.velocity.y) || 0)
+      : Math.hypot(Number(direction?.x) || 0, Number(direction?.y) || 0);
+    if (kinetic) {
+      if (!motion.regaliaLandingKineticStartedAt) {
+        motion.regaliaLandingKineticStartedAt = now;
+      }
+      motion.regaliaLandingHadBoost = Boolean(motion.regaliaLandingHadBoost || isDashing || boostPoseActive);
+      motion.regaliaLandingPeakSpeed = Math.max(Number(motion.regaliaLandingPeakSpeed) || 0, velocitySpeed);
+    }
+
+    const wasKinetic = Boolean(motion.regaliaLandingWasKinetic);
+    const kineticDuration = now - (Number(motion.regaliaLandingKineticStartedAt) || now);
+    const nextAllowedAt = Number(motion.regaliaLandingNextAllowedAt) || 0;
+    if (
+      !kinetic &&
+      wasKinetic &&
+      now >= nextAllowedAt &&
+      kineticDuration >= REGALIA_BASTION_LANDING_FX_CONFIG.minKineticMs &&
+      this.isRegaliaBastionLandingFxAllowed()
+    ) {
+      const baseSpeed = Math.max(1, Number(this.stats?.moveSpeed) || 220);
+      const speedRatio = Phaser.Math.Clamp((Number(motion.regaliaLandingPeakSpeed) || 0) / (baseSpeed * 2.8), 0, 1);
+      const boostBonus = motion.regaliaLandingHadBoost ? 0.36 : 0;
+      this.triggerRegaliaBastionLandingFx(0.72 + speedRatio * 0.32 + boostBonus);
+    }
+
+    if (!kinetic) {
+      motion.regaliaLandingKineticStartedAt = 0;
+      motion.regaliaLandingHadBoost = false;
+      motion.regaliaLandingPeakSpeed = 0;
+    }
+    motion.regaliaLandingWasKinetic = kinetic;
+  }
+
   setPlayerRobotPose(directionKey, moving, boostPoseActive = moving) {
     if (!this.playerSprite) {
       return;
     }
 
     const useHumanVisual = this.isDepth10HumanPlayerVisualActive();
-    const textureKey = this.getPlayerVisualTextureKey(directionKey, useHumanVisual ? moving : boostPoseActive);
+    const robotSpriteMode = boostPoseActive ? "boost" : (moving ? "move" : "idle");
+    const textureKey = this.getPlayerVisualTextureKey(directionKey, useHumanVisual ? moving : robotSpriteMode);
     if (this.playerSprite.texture?.key !== textureKey) {
       this.playerSprite.setTexture(textureKey);
       this.scalePlayerRobotSprite();
@@ -38997,6 +40462,8 @@ class SurvivalScene extends Phaser.Scene {
     motion.tiltAngle = Phaser.Math.Linear(motion.tiltAngle || 0, targetTilt, 0.22);
     motion.lift = Phaser.Math.Linear(motion.lift || 0, targetLift, 0.18);
     motion.shadowScale = Phaser.Math.Linear(motion.shadowScale || 1, targetShadowScale, 0.16);
+    this.updateRegaliaBastionLandingFxTrigger(motion, isMoving, isDashing, boostPoseActive, direction);
+    this.updateRegaliaBastionMovementSe(motion, isMoving, isDashing, boostPoseActive);
 
     this.setPlayerRobotPose(motion.directionKey, isMoving, boostPoseActive);
   }
@@ -39875,12 +41342,55 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
+  destroyPlayerSkillObjects() {
+    Object.values(this.playerSkills || {}).forEach((skillState) => {
+      (skillState.orbitals || []).forEach((orbital) => this.destroySkillOrbital(orbital));
+      skillState.orbitals = [];
+    });
+  }
+
+  rebuildPlayerSkillsForRun(reason = "runStart") {
+    this.destroyPlayerSkillObjects();
+    const mechId = this.getRunPlayerMechId();
+    this.playerSkills = this.buildInitialSkillStates({ reason, mechId });
+    this.initializeSkillMutationState({ mechId });
+    this.logRegaliaBastionCannonDebug("skills-rebuilt", {
+      reason,
+      mechId,
+      skills: Object.keys(this.playerSkills || {})
+    });
+    if (this.playerHitbox && this.skillEffectsLayer) {
+      this.createPlayerSkills();
+    }
+    this.updateHud?.();
+  }
+
+  isSkillRuntimeBehaviorImplemented(definition) {
+    return ["orbit", "screenHoming", "directionalDash", "regaliaBastionCannon"].includes(definition?.behavior || "orbit");
+  }
+
   applySkillStage(skillState, resetMotion = false) {
     if (!skillState?.definition?.stages?.length) {
       return;
     }
     const stageData = skillState.definition.stages[skillState.stageIndex];
     if (!stageData) {
+      return;
+    }
+    if (!this.isSkillRuntimeBehaviorImplemented(skillState.definition)) {
+      skillState.currentStage = stageData;
+      skillState.orbitals.forEach((orbital) => this.destroySkillOrbital(orbital));
+      skillState.orbitals = [];
+      return;
+    }
+    if (skillState.definition.behavior === "regaliaBastionCannon") {
+      skillState.currentStage = stageData;
+      skillState.regaliaCannonCooldownMs = Math.min(
+        Math.max(0, skillState.regaliaCannonCooldownMs || 0),
+        Math.max(0, stageData.cooldownMs || 0)
+      );
+      skillState.orbitals.forEach((orbital) => this.destroySkillOrbital(orbital));
+      skillState.orbitals = [];
       return;
     }
     const instanceCount = this.getSkillInstanceCount(skillState.definition, stageData);
@@ -41639,6 +43149,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   cleanupAcTargetFireFx(reason = "cleanup") {
+    this.stopRegaliaBastionMachinegunSe?.(reason);
     const targetFire = this.acMovementState?.targetFire;
     if (!targetFire) {
       return;
@@ -41810,6 +43321,7 @@ class SurvivalScene extends Phaser.Scene {
   cleanupAcMovementVisuals(reason = "cleanup") {
     const visuals = this.acMovementState?.visuals;
     this.cleanupAcQuickBoostSeSounds(reason);
+    this.cleanupRegaliaBastionAudio?.(reason);
     this.resetAcRobotLeanVisual();
     this.resetAcAirBrakeState(reason);
     this.resetAcEvadeWindowState(reason);
@@ -41913,7 +43425,10 @@ class SurvivalScene extends Phaser.Scene {
   getAcMovementSpeedRatio(state = this.ensureAcMovementState()) {
     const tuning = this.getActiveAcMovementTuning();
     const speed = Math.hypot(Number(state?.velocity?.x) || 0, Number(state?.velocity?.y) || 0);
-    const maxSpeed = Math.max(1, this.getAcMovementBaseSpeed() * tuning.quickBoostMaxSpeedMultiplier);
+    const maxSpeed = Math.max(
+      1,
+      this.getAcMovementBaseSpeed() * tuning.quickBoostMaxSpeedMultiplier * this.getPlayerMechQuickBoostMaxSpeedMultiplier()
+    );
     return Phaser.Math.Clamp(speed / maxSpeed, 0, 1);
   }
 
@@ -43045,14 +44560,18 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getAcEvadeWindowDurationBreakdown(level = this.getEvasiveFirmwareLevel(), tuning = this.getActiveAcMovementTuning(), options = {}) {
-    const baseMs = this.getAcEvadeWindowBaseDurationMs(tuning);
-    const maxMs = this.getAcEvadeWindowMaxDurationMs(tuning);
+    const baseMs = this.getPlayerMechAdjustedEvadeWindowDurationMs(this.getAcEvadeWindowBaseDurationMs(tuning));
+    const maxMs = this.getPlayerMechAdjustedEvadeWindowDurationMs(this.getAcEvadeWindowMaxDurationMs(tuning));
     const maxLevel = this.getEvasiveFirmwareMaxLevel(tuning);
     const safeLevel = Phaser.Math.Clamp(Math.floor(Number(level) || 0), 0, maxLevel);
-    const durationMs = this.getAcEvasiveFirmwareDurationMsForLevel(safeLevel, tuning, options);
+    const durationMs = this.getPlayerMechAdjustedEvadeWindowDurationMs(
+      this.getAcEvasiveFirmwareDurationMsForLevel(safeLevel, tuning, options)
+    );
     const bonusMs = Math.max(0, durationMs - baseMs);
     const nextLevel = Math.min(maxLevel, safeLevel + 1);
-    const nextDurationMs = this.getAcEvasiveFirmwareDurationMsForLevel(nextLevel, tuning, { ...options, preview: true });
+    const nextDurationMs = this.getPlayerMechAdjustedEvadeWindowDurationMs(
+      this.getAcEvasiveFirmwareDurationMsForLevel(nextLevel, tuning, { ...options, preview: true })
+    );
     return {
       baseMs,
       bonusMs,
@@ -43067,7 +44586,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getAcEvadeWindowDurationMs(tuning = this.getActiveAcMovementTuning()) {
-    return this.getAcEvasiveFirmwareCurrentDurationMs(tuning);
+    return this.getPlayerMechAdjustedEvadeWindowDurationMs(this.getAcEvasiveFirmwareCurrentDurationMs(tuning));
   }
 
   getAcEvadeWindowRemainingMs(time = this.time?.now || 0, state = this.ensureAcMovementState()) {
@@ -44152,7 +45671,12 @@ class SurvivalScene extends Phaser.Scene {
     const baseScaleX = Math.max(0.1, Number(tuning.weightShadowBaseScaleX) || 1);
     const baseScaleY = Math.max(0.1, Number(tuning.weightShadowBaseScaleY) || 1);
     const speed = Math.max(0, Number(components.speed) || 0);
-    const speedCap = Math.max(1, this.getAcMovementBaseSpeed() * Math.max(1, Number(tuning.quickBoostMaxSpeedMultiplier) || 2.7));
+    const speedCap = Math.max(
+      1,
+      this.getAcMovementBaseSpeed()
+        * Math.max(1, Number(tuning.quickBoostMaxSpeedMultiplier) || 2.7)
+        * this.getPlayerMechQuickBoostMaxSpeedMultiplier()
+    );
     const speedRatio = Phaser.Math.Clamp(speed / speedCap, 0, 1);
     const visualMode = state?.visualMode || AC_LOCOMOTION_VISUAL_MODE.WALK_IDLE;
     let modeMultiplier = 0.32;
@@ -44182,10 +45706,14 @@ class SurvivalScene extends Phaser.Scene {
     visuals.weightShadowRotation = currentRotation + Phaser.Math.Angle.Wrap(targetRotation - currentRotation) * frameBlend * 0.2;
     visuals.weightShadowIntensity = intensity;
     visuals.weightShadowActive = intensity > 0.02;
+    const landingImpact = this.getRegaliaBastionLandingImpactVisualState(this.playerRobotMotion || {});
 
     this.playerShadow
-      .setScale?.(visuals.weightShadowScaleX, visuals.weightShadowScaleY)
-      .setAlpha?.(targetAlpha)
+      .setScale?.(
+        visuals.weightShadowScaleX * landingImpact.shadowScaleX,
+        visuals.weightShadowScaleY * landingImpact.shadowScaleY
+      )
+      .setAlpha?.(Phaser.Math.Clamp(targetAlpha + landingImpact.shadowAlphaAdd, 0, 0.52))
       .setRotation?.(visuals.weightShadowRotation)
       .setDepth?.(Number(tuning.weightShadowDepth) || 15);
   }
@@ -44466,21 +45994,24 @@ class SurvivalScene extends Phaser.Scene {
     const tuning = this.getActiveAcMovementTuning();
     const direction = this.getAcTargetFireFacingDirection(target);
     const perpendicular = this.getAcPerpendicularVector(direction);
-    const forwardOffset = Math.max(0, Number(tuning.targetFireMuzzleForwardOffset) || 18);
+    const forwardOffset = Math.max(0, Number(tuning.targetFireMuzzleForwardOffset) || 18)
+      + this.getPlayerMechTargetFireMuzzleForwardOffsetAdd();
     const sideOffset = Math.max(0, Number(tuning.targetFireMuzzleSideOffset) || 10);
     const sideKick = Math.max(0, Number(tuning.targetFireMuzzleSideKickPx) || 0);
-    const visualSideOffset = sideOffset + sideKick;
+    const sideOffsetMultiplier = this.getPlayerMechTargetFireMuzzleSideOffsetMultiplier();
+    const visualSideOffset = (sideOffset + sideKick) * sideOffsetMultiplier;
     const boostBackOffset = state?.continuousBoost?.active
       ? Math.max(0, Number(tuning.targetFireBoostBackOffset) || 4)
       : 0;
+    const sideFactor = Number.isFinite(Number(side)) ? Number(side) : 1;
     const baseX = Number(this.playerHitbox?.x ?? this.playerSprite?.x) || 0;
     const baseY = Number(this.playerHitbox?.y ?? this.playerSprite?.y) || 0;
     return {
-      x: baseX + direction.x * (forwardOffset - boostBackOffset) + perpendicular.x * visualSideOffset * side,
-      y: baseY + direction.y * (forwardOffset - boostBackOffset) + perpendicular.y * visualSideOffset * side,
+      x: baseX + direction.x * (forwardOffset - boostBackOffset) + perpendicular.x * visualSideOffset * sideFactor,
+      y: baseY + direction.y * (forwardOffset - boostBackOffset) + perpendicular.y * visualSideOffset * sideFactor,
       direction,
       perpendicular,
-      sideOffset: visualSideOffset
+      sideOffset: Math.abs(visualSideOffset * sideFactor)
     };
   }
 
@@ -44746,6 +46277,22 @@ class SurvivalScene extends Phaser.Scene {
         impactOuter: 0xff2d1b
       };
     }
+    if (palette === AC_TARGET_FIRE_PALETTE.BLUE) {
+      return {
+        palette: AC_TARGET_FIRE_PALETTE.BLUE,
+        core: 0xeafcff,
+        mid: 0x8fe8ff,
+        glow: 0x2ebcff,
+        outerGlow: 0x1764ff,
+        head: 0xffffff,
+        muzzleCore: 0xf4fdff,
+        muzzleGlow: 0x4ccfff,
+        muzzleOuter: 0x1b62ff,
+        impactCore: 0xd5faff,
+        impactGlow: 0x4ccfff,
+        impactOuter: 0x1a55c8
+      };
+    }
     return {
       palette: AC_TARGET_FIRE_PALETTE.AMBER,
       core: 0xffffcc,
@@ -45006,16 +46553,27 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     const tuning = this.getActiveAcMovementTuning();
-    const muzzleSide = targetFire.lastMuzzleSide >= 0 ? -1 : 1;
-    targetFire.lastMuzzleSide = muzzleSide;
     const mode = this.getAcTargetFireMode(state, targetFire.suppressedReason);
-    const snapshot = this.getAcTargetFireShotSnapshot(liveTarget, muzzleSide, state, mode);
-    const intensity = mode === AC_TARGET_FIRE_MODE.BOOST ? 0.92 : (mode === AC_TARGET_FIRE_MODE.POST_GLIDE ? 0.78 : 0.6);
+    const baseIntensity = mode === AC_TARGET_FIRE_MODE.BOOST ? 0.92 : (mode === AC_TARGET_FIRE_MODE.POST_GLIDE ? 0.78 : 0.6);
+    const intensity = Phaser.Math.Clamp(
+      baseIntensity * this.getPlayerMechTargetFireTracerIntensityMultiplier(),
+      0.2,
+      1.25
+    );
     const tracerStyle = this.getAcTargetFireTracerStyle(intensity);
     const shotIntervalMs = Math.max(24, Number(tuning.targetFireShotIntervalMs) || 46);
+    const mechMuzzleSideFactors = this.getPlayerMechTargetFireMuzzleSideFactors();
+    const muzzleSideFactors = mechMuzzleSideFactors || [targetFire.lastMuzzleSide >= 0 ? -1 : 1];
+    let snapshot = null;
 
-    this.createAcTargetMuzzleFlash(snapshot.origin, snapshot.direction, intensity, muzzleSide, tracerStyle.palette);
-    this.createAcTargetTracerSegmentShot(snapshot, intensity, tracerStyle);
+    muzzleSideFactors.forEach((muzzleSide) => {
+      const shotSnapshot = this.getAcTargetFireShotSnapshot(liveTarget, muzzleSide, state, mode);
+      snapshot = shotSnapshot;
+      this.createAcTargetMuzzleFlash(shotSnapshot.origin, shotSnapshot.direction, intensity, muzzleSide, tracerStyle.palette);
+      this.createAcTargetTracerSegmentShot(shotSnapshot, intensity, tracerStyle);
+    });
+    const lastMuzzleSide = muzzleSideFactors[muzzleSideFactors.length - 1] || 1;
+    targetFire.lastMuzzleSide = lastMuzzleSide < 0 ? -1 : 1;
     targetFire.burstShotIndex += 1;
     targetFire.nextShotAt = Math.max(0, Number(time) || 0) + shotIntervalMs;
     targetFire.suppressedReason = AC_TARGET_FIRE_SUPPRESSION_REASON.BURST;
@@ -45056,6 +46614,7 @@ class SurvivalScene extends Phaser.Scene {
         targetFire.target = null;
         targetFire.targetId = "";
       }
+      this.syncRegaliaBastionMachinegunSe(false, availability.reason);
       return;
     }
 
@@ -45063,14 +46622,20 @@ class SurvivalScene extends Phaser.Scene {
     if (!targetFire.active) {
       this.tryStartAcTargetFireBurst(now, target, state);
     }
+    this.syncRegaliaBastionMachinegunSe(targetFire.active, "targetFireBurst");
     if (targetFire.active && now >= (Number(targetFire.nextShotAt) || 0)) {
-      this.fireAcTargetTracerShot(now, target, state);
+      const shotFired = this.fireAcTargetTracerShot(now, target, state);
+      if (!shotFired) {
+        this.syncRegaliaBastionMachinegunSe(false, "targetFireShotFailed");
+        return;
+      }
       if (targetFire.burstShotIndex >= Math.max(1, Number(targetFire.burstCount) || 1)) {
         const cooldown = Math.max(80, Number(this.getActiveAcMovementTuning().targetFireBurstCooldownMs) || 440);
         targetFire.active = false;
         targetFire.lastBurstAt = now;
         targetFire.nextShotAt = now + cooldown;
         targetFire.suppressedReason = AC_TARGET_FIRE_SUPPRESSION_REASON.COOLDOWN;
+        this.syncRegaliaBastionMachinegunSe(false, AC_TARGET_FIRE_SUPPRESSION_REASON.COOLDOWN);
       }
     }
   }
@@ -46526,16 +48091,23 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getDetailBuildDiagnosticsLines() {
+    const skillIds = this.getPlayerSkillSlotIds();
+    const skillLabels = {
+      [DEFAULT_SKILL_ID]: "ORB",
+      [REGALIA_BASTION_CANNON_SKILL_ID]: "REG",
+      tornadoSkill: "TND",
+      rabbitThunderSkill: "RBT"
+    };
+    const skillLines = skillIds.map((skillId) => (
+      this.getDetailSkillDiagnosticLine(skillId, skillLabels[skillId] || this.getRunArchiveSkillShortLabel(skillId).slice(0, 3))
+    ));
     return [
+      skillLines.slice(0, 2).join("   "),
       [
-        this.getDetailSkillDiagnosticLine("basicSkill", "ORB"),
-        this.getDetailSkillDiagnosticLine("tornadoSkill", "TND")
-      ].join("   "),
-      [
-        this.getDetailSkillDiagnosticLine("rabbitThunderSkill", "RBT"),
+        skillLines[2] || "",
         this.getDetailLostArmDiagnosticLine("abyssRail"),
         this.getDetailLostArmDiagnosticLine("gravitySeed")
-      ].join("   ")
+      ].filter(Boolean).join("   ")
     ];
   }
 
@@ -46716,16 +48288,18 @@ class SurvivalScene extends Phaser.Scene {
 
   getCompactHudSkillChipModels() {
     const skillLabels = {
-      basicSkill: "ORB",
+      [DEFAULT_SKILL_ID]: "ORB",
+      [REGALIA_BASTION_CANNON_SKILL_ID]: "REG",
       tornadoSkill: "TND",
       rabbitThunderSkill: "RBT"
     };
-    const skillModels = Object.keys(skillLabels).map((skillId) => {
+    const skillModels = this.getPlayerSkillSlotIds().map((skillId) => {
       const state = this.playerSkills?.[skillId];
       const stage = Math.max(0, Math.floor(Number(state?.currentStage?.stage) || 0));
       const mutationLine = state ? this.getSkillMutationHudLine(skillId) : "";
+      const label = skillLabels[skillId] || this.getRunArchiveSkillShortLabel(skillId).slice(0, 3);
       return {
-        text: state ? `${skillLabels[skillId]} S${stage}${mutationLine ? "*" : ""}` : `${skillLabels[skillId]} --`,
+        text: state ? `${label} S${stage}${mutationLine ? "*" : ""}` : `${label} --`,
         color: state ? (mutationLine ? "#ffd98e" : "#9ffcff") : "#6f8b96",
         stroke: state ? 0x65e6ff : 0x42606a,
         alpha: state ? 0.78 : 0.42
@@ -47782,7 +49356,7 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    const skillIds = Object.keys(SKILL_DEFINITIONS).slice(0, 3);
+    const skillIds = this.getPlayerSkillSlotIds();
     this.hudSkillSlots.forEach((slot, index) => {
       if (index >= skillIds.length) {
         this.updateHudLostArmSlot(slot, LOST_ARMS_IDS[index - skillIds.length]);
@@ -49241,18 +50815,23 @@ class SurvivalScene extends Phaser.Scene {
       this.renderEquipmentAnalysisContent();
       return;
     }
+    if (this.geekShopSubView === GEEK_SHOP_SUB_VIEW_HANGER) {
+      this.renderPlayerMechHangarContent();
+      return;
+    }
     this.renderBaseCalibrationContent();
   }
 
   renderGeekShopSubViewTabs() {
     const tabY = -208;
     const tabHeight = 28;
-    const tabGap = 10;
+    const tabGap = 8;
     const tabWidths = {
-      [GEEK_SHOP_SUB_VIEW_BASE_CALIBRATION]: 202,
-      [GEEK_SHOP_SUB_VIEW_EQUIPMENT_ANALYSIS]: 226
+      [GEEK_SHOP_SUB_VIEW_BASE_CALIBRATION]: 180,
+      [GEEK_SHOP_SUB_VIEW_HANGER]: 112,
+      [GEEK_SHOP_SUB_VIEW_EQUIPMENT_ANALYSIS]: 218
     };
-    let x = 76;
+    let x = 28;
     GEEK_SHOP_SUB_VIEWS.forEach((view) => {
       const width = tabWidths[view.id] || 196;
       const selected = this.geekShopSubView === view.id;
@@ -50236,6 +51815,360 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
+  getPlayerMechRoleLabel(role) {
+    if (role === "heavyAssault") {
+      return "HEAVY ASSAULT";
+    }
+    if (role === "average") {
+      return "AVERAGE";
+    }
+    return String(role || "FRAME").replace(/([a-z])([A-Z])/g, "$1 $2").toUpperCase();
+  }
+
+  getPlayerMechShopDescription(definition) {
+    if (definition?.shopDescription) {
+      return definition.shopDescription;
+    }
+    if (definition?.id === DEFAULT_PLAYER_MECH_ID) {
+      return "平均型 / 補正なし";
+    }
+    return definition?.description || "PLAYER FRAME";
+  }
+
+  getPlayerMechHangarActionPresentation(mechId) {
+    const definition = this.getPlayerMechDefinition(mechId);
+    if (!definition) {
+      return {
+        state: "missing",
+        status: "OFFLINE",
+        actionLabel: "NO SIGNAL",
+        actionColor: "#738597",
+        interactive: false
+      };
+    }
+
+    const owned = this.isPlayerMechOwned(definition.id);
+    const selected = this.getSelectedPlayerMechId() === definition.id;
+    if (owned) {
+      return {
+        state: selected ? "selected" : "owned",
+        status: "OWNED",
+        actionLabel: selected ? "SELECTED" : "SELECT",
+        actionColor: selected ? "#77f0b4" : "#9ffcff",
+        interactive: !selected
+      };
+    }
+
+    if (!this.isPlayerMechUnlockRequirementMet(definition.id)) {
+      return {
+        state: "locked",
+        status: "LOCKED",
+        actionLabel: "REQUIREMENT: DEPTH10 FINAL RAID CLEAR",
+        actionColor: "#ffb0a8",
+        interactive: false
+      };
+    }
+
+    const cost = this.getPlayerMechPurchaseCost(definition.id);
+    const affordable = this.normalizeCoinAmount(this.coins) >= cost;
+    return {
+      state: affordable ? "available" : "insufficient",
+      status: affordable ? `${cost.toLocaleString()} GEEK` : "INSUFFICIENT GEEK",
+      actionLabel: affordable ? `TRANSFER ${cost.toLocaleString()} GEEK` : "INSUFFICIENT GEEK",
+      actionColor: affordable ? "#ffe39a" : "#ff8a8a",
+      interactive: affordable
+    };
+  }
+
+  handlePlayerMechHangarAction(mechId) {
+    const definition = this.getPlayerMechDefinition(mechId);
+    if (!definition) {
+      this.showPreGameShop("PLAYER FRAME SIGNAL LOST");
+      return false;
+    }
+
+    if (this.isPlayerMechOwned(definition.id)) {
+      const selected = this.selectPlayerMech(definition.id);
+      this.showPreGameShop(selected ? "PLAYER FRAME SELECTED" : "PLAYER FRAME SELECT FAILED");
+      return selected;
+    }
+
+    if (!this.isPlayerMechUnlockRequirementMet(definition.id)) {
+      this.showPreGameShop("CLEAR DEPTH10 FINAL RAID");
+      return false;
+    }
+
+    const cost = this.getPlayerMechPurchaseCost(definition.id);
+    if (this.normalizeCoinAmount(this.coins) < cost) {
+      this.showPreGameShop("INSUFFICIENT GEEK");
+      return false;
+    }
+
+    const purchased = this.purchasePlayerMech(definition.id);
+    this.showPreGameShop(purchased
+      ? (definition.id === REGALIA_BASTION_MECH_ID ? "REGALIA BASTION TRANSFER COMPLETE" : "PLAYER FRAME TRANSFER COMPLETE")
+      : "INSUFFICIENT GEEK");
+    return purchased;
+  }
+
+  renderPlayerMechHangarContent() {
+    this.createOverlayText(-530, -210, "HANGER / PLAYER FRAME", {
+      fontSize: "15px",
+      color: "#9ffcff",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(-530, -188, "選択中のプレイヤー機体を切り替えます。新規機体はこのHANGERに追加されます。", {
+      fontSize: "12px",
+      color: "#9ab7cc",
+      wordWrap: { width: 760 }
+    });
+
+    this.renderPlayerMechHangarPanel(-530, -164, 1070, 410, { dedicated: true });
+  }
+
+  getPlayerMechHangarCardLayout(mechId, index, total, panel) {
+    const layout = PLAYER_MECH_HANGAR_CARD_LAYOUTS[mechId];
+    if (layout) {
+      return {
+        x: panel.x + panel.width * layout.x,
+        y: panel.y + panel.height * layout.y,
+        width: panel.width * layout.width,
+        height: panel.height * layout.height
+      };
+    }
+
+    const columns = Math.max(1, Math.min(3, Math.ceil(Math.sqrt(Math.max(1, total)))));
+    const fallbackWidth = Math.min(230, (panel.width - 42 - (columns - 1) * 14) / columns);
+    const fallbackHeight = 128;
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    return {
+      x: panel.x + 22 + column * (fallbackWidth + 14),
+      y: panel.y + panel.height - 22 - fallbackHeight - row * (fallbackHeight + 12),
+      width: fallbackWidth,
+      height: fallbackHeight
+    };
+  }
+
+  renderPlayerMechHangarPanel(x, y, width, height, options = {}) {
+    const dedicated = options.dedicated === true || width >= 700;
+    this.shopState = this.normalizeShopState(this.shopState || DEFAULT_SHOP_STATE);
+    const selectedDefinition = this.getSelectedPlayerMechDefinition();
+    const graphics = this.addOverlayChild(this.add.graphics());
+    graphics.fillStyle(0x050c15, 0.9);
+    graphics.fillRoundedRect(x, y, width, height, 6);
+    graphics.lineStyle(1, 0x6fcfff, 0.46);
+    graphics.strokeRoundedRect(x + 0.5, y + 0.5, width - 1, height - 1, 6);
+    graphics.lineStyle(1, 0xecf7ff, 0.12);
+    graphics.lineBetween(x + 12, y + 7, x + width - 12, y + 7);
+
+    if (this.textures.exists(PLAYER_MECH_HANGAR_BACKGROUND_TEXTURE_KEY)) {
+      this.addOverlayChild(
+        this.add
+          .image(x + width / 2, y + height / 2, PLAYER_MECH_HANGAR_BACKGROUND_TEXTURE_KEY)
+          .setDisplaySize(width, height)
+          .setAlpha(dedicated ? 0.82 : 0.16)
+      );
+      this.addOverlayChild(
+        this.add
+          .rectangle(x + width / 2, y + height / 2, width, height, 0x020913, dedicated ? 0.34 : 0.42)
+      );
+    } else if (dedicated) {
+      this.renderPlayerMechHangarBayFallback(x, y, width, height);
+    }
+
+    this.createOverlayText(x + 14, y + 12, "HANGER / PLAYER FRAME", {
+      fontSize: dedicated ? "15px" : "11px",
+      color: "#ecf7ff",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(x + width - 12, y + 12, `${this.normalizeCoinAmount(this.coins).toLocaleString()} GEEK`, {
+      fontSize: dedicated ? "13px" : "10px",
+      color: "#f0c463",
+      fontStyle: "bold",
+      align: "right",
+      origin: { x: 1, y: 0 }
+    });
+    const selectedText = this.createOverlayText(x + 14, y + 29, `CURRENT: ${selectedDefinition?.shortName || selectedDefinition?.displayName || "DEFAULT FRAME"}`, {
+      fontSize: dedicated ? "11px" : "9px",
+      color: "#9ffcff",
+      fontStyle: "bold"
+    });
+    this.fitOverlayTextToWidth(selectedText, width - 28, 7);
+
+    const mechIds = Object.keys(this.getPlayerMechDefinitions());
+    mechIds.forEach((mechId, index) => {
+      const layout = dedicated
+        ? this.getPlayerMechHangarCardLayout(mechId, index, mechIds.length, { x, y, width, height })
+        : null;
+      if (layout) {
+        this.renderPlayerMechHangarCard(mechId, layout.x, layout.y, layout.width, layout.height, { dedicated: true });
+        return;
+      }
+
+      const gap = 10;
+      const cardY = y + 46;
+      const cardHeight = height - 54;
+      const cardWidth = Math.floor((width - 28 - gap) / 2);
+      this.renderPlayerMechHangarCard(mechId, x + 14 + index * (cardWidth + gap), cardY, cardWidth, cardHeight);
+    });
+  }
+
+  renderPlayerMechHangarBayFallback(x, y, width, height) {
+    const graphics = this.addOverlayChild(this.add.graphics());
+    graphics.fillStyle(0x081421, 0.92);
+    graphics.fillRoundedRect(x, y, width, height, 6);
+    graphics.lineStyle(1, 0x244f68, 0.48);
+    for (let index = 0; index < 5; index += 1) {
+      const bayX = x + width * (0.08 + index * 0.18);
+      graphics.strokeRoundedRect(bayX, y + 34, width * 0.14, height * 0.62, 4);
+      graphics.lineStyle(1, 0x6fcfff, 0.18);
+      graphics.lineBetween(bayX + 8, y + 48, bayX + width * 0.14 - 8, y + 48);
+      graphics.lineStyle(1, 0x244f68, 0.48);
+    }
+  }
+
+  renderPlayerMechHangarCard(mechId, x, y, width, height, options = {}) {
+    const dedicated = options.dedicated === true || width >= 210;
+    const definition = this.getPlayerMechDefinition(mechId);
+    const presentation = this.getPlayerMechHangarActionPresentation(mechId);
+    const selected = presentation.state === "selected";
+    const regalia = mechId === REGALIA_BASTION_MECH_ID;
+    const accent = regalia ? 0xf0c463 : 0x6fcfff;
+    const graphics = this.addOverlayChild(this.add.graphics());
+    graphics.fillStyle(selected ? 0x102332 : 0x081420, selected ? 0.9 : 0.84);
+    graphics.fillRoundedRect(x, y, width, height, 5);
+    graphics.lineStyle(selected ? 2 : 1, selected ? 0x77f0b4 : accent, selected ? 0.72 : 0.46);
+    graphics.strokeRoundedRect(x + 0.5, y + 0.5, width - 1, height - 1, 5);
+    if (regalia) {
+      graphics.fillStyle(0xf0c463, 0.18);
+      graphics.fillRect(x + 2, y + 2, width - 4, 2);
+    }
+
+    this.renderPlayerMechHangarArtwork(mechId, x + 3, y + 3, width - 6, height - 6, selected);
+    this.addOverlayChild(
+      this.add
+        .rectangle(x + width / 2, y + height / 2, width - 6, height - 6, 0x020913, regalia ? 0.44 : 0.5)
+    );
+
+    const titleText = this.createOverlayText(x + 8, y + 7, definition?.displayName || mechId, {
+      fontSize: dedicated ? (regalia ? "11px" : "12px") : (regalia ? "8px" : "9px"),
+      color: regalia ? "#ffe39a" : "#ecf7ff",
+      fontStyle: "bold"
+    });
+    this.fitOverlayTextToWidth(titleText, width - 16, 7);
+    this.createOverlayText(x + 8, y + 21, this.getPlayerMechRoleLabel(definition?.role), {
+      fontSize: dedicated ? "10px" : "8px",
+      color: "#9ffcff",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(x + width - 8, y + 21, presentation.status, {
+      fontSize: dedicated ? (presentation.status.length > 18 ? "8px" : "10px") : (presentation.status.length > 12 ? "7px" : "8px"),
+      color: presentation.actionColor,
+      fontStyle: "bold",
+      align: "right",
+      origin: { x: 1, y: 0 }
+    });
+
+    const description = this.createOverlayText(x + 8, y + 34, this.getPlayerMechShopDescription(definition), {
+      fontSize: dedicated ? (regalia ? "9px" : "10px") : (regalia ? "7px" : "8px"),
+      color: "#b8d4e8",
+      wordWrap: { width: width - 16 },
+      lineSpacing: dedicated ? 1 : -1
+    });
+    description.setAlpha(0.92);
+
+    this.createPlayerMechHangarButton(
+      x + width / 2,
+      y + height - (dedicated ? 16 : 12),
+      width - 18,
+      dedicated ? 22 : 17,
+      presentation.actionLabel,
+      presentation.interactive,
+      () => this.handlePlayerMechHangarAction(mechId),
+      accent,
+      presentation.actionColor
+    );
+  }
+
+  renderPlayerMechHangarArtwork(mechId, x, y, width, height, selected = false) {
+    if (this.textures.exists(PLAYER_MECH_HANGAR_BACKGROUND_TEXTURE_KEY)) {
+      const texture = this.textures.get(PLAYER_MECH_HANGAR_BACKGROUND_TEXTURE_KEY);
+      const source = texture?.getSourceImage?.();
+      const sourceWidth = Math.max(1, Number(source?.width) || 1);
+      const sourceHeight = Math.max(1, Number(source?.height) || 1);
+      const region = PLAYER_MECH_HANGAR_ARTWORK_REGIONS[mechId] || { x: 0, y: 0, width: 1, height: 1 };
+      const image = this.addOverlayChild(
+        this.add
+          .image(x + width / 2, y + height / 2, PLAYER_MECH_HANGAR_BACKGROUND_TEXTURE_KEY)
+          .setAlpha(selected ? 0.72 : 0.58)
+      );
+      image.setCrop(
+        Math.floor(sourceWidth * region.x),
+        Math.floor(sourceHeight * region.y),
+        Math.floor(sourceWidth * region.width),
+        Math.floor(sourceHeight * region.height)
+      );
+      image.setDisplaySize(width, height);
+      return image;
+    }
+
+    return this.renderPlayerMechHangarPlaceholder(mechId, x, y, width, height, selected);
+  }
+
+  renderPlayerMechHangarPlaceholder(mechId, x, y, width, height, selected = false) {
+    const regalia = mechId === REGALIA_BASTION_MECH_ID;
+    const graphics = this.addOverlayChild(this.add.graphics());
+    const accent = regalia ? 0xf0c463 : 0x9ffcff;
+    const centerX = x + width / 2;
+    const baseY = y + height * 0.56;
+    graphics.fillStyle(regalia ? 0x1b2432 : 0x202436, selected ? 0.84 : 0.68);
+    graphics.fillRoundedRect(x, y, width, height, 5);
+    graphics.lineStyle(1, accent, 0.38);
+    graphics.lineBetween(x + 8, y + height - 10, x + width - 8, y + 8);
+    graphics.fillStyle(regalia ? 0xf0c463 : 0x9ffcff, regalia ? 0.42 : 0.34);
+    graphics.fillRoundedRect(centerX - width * 0.2, baseY - height * 0.24, width * 0.4, height * 0.36, 6);
+    graphics.fillStyle(0x050913, 0.9);
+    graphics.fillRoundedRect(centerX - width * 0.12, baseY - height * 0.38, width * 0.24, height * 0.16, 4);
+    graphics.lineStyle(2, accent, 0.76);
+    graphics.lineBetween(centerX - width * 0.33, baseY - height * 0.18, centerX - width * 0.14, baseY - height * 0.08);
+    graphics.lineBetween(centerX + width * 0.33, baseY - height * 0.18, centerX + width * 0.14, baseY - height * 0.08);
+    graphics.lineBetween(centerX - width * 0.18, baseY + height * 0.14, centerX - width * 0.08, baseY + height * 0.32);
+    graphics.lineBetween(centerX + width * 0.18, baseY + height * 0.14, centerX + width * 0.08, baseY + height * 0.32);
+    if (!regalia) {
+      graphics.fillStyle(0xff8fc4, 0.72);
+      graphics.fillCircle(centerX - width * 0.08, baseY - height * 0.31, 2.5);
+      graphics.fillCircle(centerX + width * 0.08, baseY - height * 0.31, 2.5);
+    }
+    return graphics;
+  }
+
+  createPlayerMechHangarButton(centerX, centerY, width, height, label, interactive, onSelect, accent = 0x6fcfff, color = "#9ffcff") {
+    const fill = interactive ? 0x11324a : 0x07131f;
+    const panel = this.addOverlayChild(
+      this.add
+        .rectangle(centerX, centerY, width, height, fill, interactive ? 0.94 : 0.78)
+        .setStrokeStyle(1, accent, interactive ? 0.58 : 0.28)
+    );
+    if (interactive) {
+      panel.setInteractive({ useHandCursor: true });
+      panel.on("pointerover", () => panel.setFillStyle(0x1d4f70, 0.98));
+      panel.on("pointerout", () => panel.setFillStyle(fill, 0.94));
+      this.addOverlayAction(panel, onSelect, true, 8);
+    }
+
+    const large = height >= 22 || width >= 200;
+    const text = this.createOverlayText(centerX, centerY - (large ? 7 : 5), label, {
+      fontSize: large ? (label.length > 24 ? "9px" : "11px") : (label.length > 16 ? "7px" : "9px"),
+      color,
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+    this.fitOverlayTextToWidth(text, width - 8, large ? 8 : 6);
+    return panel;
+  }
+
   renderRobotCustomShopContent() {
     this.createOverlayText(-530, -210, "ROBOT CUSTOM", {
       fontSize: "15px",
@@ -50718,22 +52651,43 @@ class SurvivalScene extends Phaser.Scene {
     return this.formatEquipmentOverlimitHudLabel(level);
   }
 
+  getRunArchiveSkillSlotIds(entry = null) {
+    const skills = entry?.skills || {};
+    const mutations = entry?.skillMutations || {};
+    if ((skills[REGALIA_BASTION_CANNON_SKILL_ID] || 0) > 0 || mutations[REGALIA_BASTION_CANNON_SKILL_ID]?.core) {
+      return PLAYER_MECH_SKILL_MUTATION_SKILL_IDS[REGALIA_BASTION_MECH_ID];
+    }
+    return PLAYER_MECH_SKILL_MUTATION_SKILL_IDS[DEFAULT_PLAYER_MECH_ID];
+  }
+
+  getRunArchiveSkillShortLabel(skillId) {
+    if (skillId === REGALIA_BASTION_CANNON_SKILL_ID) {
+      return "REGALIA";
+    }
+    if (skillId === DEFAULT_SKILL_ID) {
+      return "BASIC";
+    }
+    if (skillId === "tornadoSkill") {
+      return "TORNADO";
+    }
+    if (skillId === "rabbitThunderSkill") {
+      return "RABBIT";
+    }
+    return this.getSkillMutationHudSkillLabel(skillId);
+  }
+
   getRunArchiveSkillSummary(entry) {
     const skills = entry?.skills || {};
-    const formatSkill = (label, skillId, level) => {
+    const formatSkill = (skillId) => {
       const overlimitLabel = this.getRunArchiveSkillOverlimitLabel(entry, skillId);
-      return `${label} ${level || 0}${overlimitLabel ? ` ${overlimitLabel}` : ""}`;
+      return `${this.getRunArchiveSkillShortLabel(skillId)} ${skills[skillId] || 0}${overlimitLabel ? ` ${overlimitLabel}` : ""}`;
     };
-    return [
-      formatSkill("BASIC", "basicSkill", skills.basicSkill),
-      formatSkill("TORNADO", "tornadoSkill", skills.tornadoSkill),
-      formatSkill("RABBIT", "rabbitThunderSkill", skills.rabbitThunderSkill)
-    ].join(" / ");
+    return this.getRunArchiveSkillSlotIds(entry).map((skillId) => formatSkill(skillId)).join(" / ");
   }
 
   getRunArchiveSkillMutationSummary(entry) {
     const mutations = entry?.skillMutations || {};
-    const lines = SKILL_MUTATION_SKILL_IDS.map((skillId) => {
+    const lines = this.getRunArchiveSkillSlotIds(entry).map((skillId) => {
       const mutation = mutations[skillId] || {};
       if (!mutation.core && !mutation.finalFormId) {
         return "";
@@ -50947,18 +52901,23 @@ class SurvivalScene extends Phaser.Scene {
       "reactor_loop__singularity_domain",
       "trinity_core__adaptive_form"
     ];
-    sampleIds.forEach((buildId, index) => {
-      state.entries[buildId] = {
-        ...state.entries[buildId],
-        discovered: true,
-        preserved: index >= 1,
-        preserveRewardClaimed: index >= 1,
-        researchCompleted: index >= 2,
-        researchRewardClaimed: index >= 2,
-        bestDepth: 6 + index * 2
-      };
+    MUTATION_ATLAS_PLAYER_MECH_IDS.forEach((mechId, mechIndex) => {
+      const scope = state.mechBuilds[mechId] || this.createDefaultMutationAtlasScope();
+      sampleIds.forEach((buildId, index) => {
+        scope.entries[buildId] = {
+          ...scope.entries[buildId],
+          discovered: true,
+          preserved: index + mechIndex >= 1,
+          preserveRewardClaimed: index + mechIndex >= 1,
+          researchCompleted: index + mechIndex >= 2,
+          researchRewardClaimed: index + mechIndex >= 2,
+          bestDepth: 6 + index * 2 + mechIndex
+        };
+      });
+      scope.selectedTargetId = mechIndex === 0 ? "assault_array__prism_cascade" : "reactor_loop__execution_protocol";
+      state.mechBuilds[mechId] = scope;
     });
-    state.selectedTargetId = "assault_array__prism_cascade";
+    state.selectedMechId = this.getValidMutationAtlasMechId(this.mutationAtlasSelectedMechId);
     return state;
   }
 
@@ -50970,26 +52929,83 @@ class SurvivalScene extends Phaser.Scene {
     return this.mutationAtlasState;
   }
 
-  setMutationAtlasResearchTarget(buildId) {
+  setMutationAtlasSelectedMech(mechId) {
+    const validMechId = this.getValidMutationAtlasMechId(mechId);
+    this.mutationAtlasSelectedMechId = validMechId;
+    if (!this.isMutationAtlasDebugEnabled()) {
+      this.mutationAtlasState = this.normalizeMutationAtlasState(this.mutationAtlasState || this.loadMutationAtlasState());
+      this.mutationAtlasState.selectedMechId = validMechId;
+      this.saveMutationAtlasState();
+    }
+    const scope = this.getMutationAtlasScope(this.getMutationAtlasDisplayState(), validMechId);
+    this.mutationAtlasSelectedBuildId = this.getValidMutationAtlasBuildId(scope.selectedTargetId)
+      || this.getValidMutationAtlasBuildId(this.mutationAtlasSelectedBuildId)
+      || MUTATION_ATLAS_BUILD_IDS[0];
+    return validMechId;
+  }
+
+  setMutationAtlasResearchTarget(buildId, mechId = this.mutationAtlasSelectedMechId) {
     const validBuildId = this.getValidMutationAtlasBuildId(buildId);
     if (!validBuildId || this.isMutationAtlasDebugEnabled()) {
       return false;
     }
+    const validMechId = this.getValidMutationAtlasMechId(mechId);
     this.mutationAtlasState = this.normalizeMutationAtlasState(this.mutationAtlasState || this.loadMutationAtlasState());
-    const entry = this.mutationAtlasState.entries[validBuildId] || this.createDefaultMutationAtlasEntry();
+    const scope = this.getMutationAtlasScope(this.mutationAtlasState, validMechId);
+    const entry = scope.entries[validBuildId] || this.createDefaultMutationAtlasEntry();
     if (entry.researchCompleted) {
       return false;
     }
-    this.mutationAtlasState.selectedTargetId = this.mutationAtlasState.selectedTargetId === validBuildId ? null : validBuildId;
+    scope.selectedTargetId = scope.selectedTargetId === validBuildId ? null : validBuildId;
+    this.mutationAtlasState.selectedMechId = validMechId;
+    this.mutationAtlasState.mechBuilds[validMechId] = scope;
     this.saveMutationAtlasState();
     return true;
   }
 
-  createMutationAtlasCell(buildId, x, y, width, height, state) {
-    const entry = state.entries[buildId] || this.createDefaultMutationAtlasEntry();
+  createMutationAtlasMechTab(centerX, centerY, width, mechId) {
+    const validMechId = this.getValidMutationAtlasMechId(mechId);
+    const active = this.getValidMutationAtlasMechId(this.mutationAtlasSelectedMechId) === validMechId;
+    const label = this.getMutationAtlasMechLabel(validMechId);
+    const goldAccent = validMechId === REGALIA_BASTION_MECH_ID;
+    const panel = this.addOverlayChild(
+      this.add
+        .rectangle(centerX, centerY, width, 30, active ? 0x17314a : 0x081522, active ? 0.96 : 0.86)
+        .setStrokeStyle(1, active ? (goldAccent ? 0xf0c463 : 0x77f0ff) : 0x4f86a8, active ? 0.7 : 0.3)
+        .setInteractive({ useHandCursor: true })
+    );
+    panel.on("pointerover", () => panel.setFillStyle(active ? 0x204564 : 0x10243a, 0.98));
+    panel.on("pointerout", () => panel.setFillStyle(active ? 0x17314a : 0x081522, active ? 0.96 : 0.86));
+    this.addOverlayAction(panel, () => {
+      this.setMutationAtlasSelectedMech(validMechId);
+      this.showPreGameShop(this.shopStatusMessage);
+    }, true, 5);
+    this.createOverlayText(centerX, centerY - 8, label, {
+      fontSize: label.length > 18 ? "10px" : "11px",
+      color: active ? "#ecfaff" : "#9ab7cc",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+    if (active) {
+      this.addOverlayChild(
+        this.add
+          .rectangle(centerX, centerY + 14, width - 20, 2, goldAccent ? 0xf0c463 : 0x77f0ff, 0.82)
+      );
+    }
+  }
+
+  renderMutationAtlasMechTabs() {
+    this.createMutationAtlasMechTab(162, -162, 178, DEFAULT_PLAYER_MECH_ID);
+    this.createMutationAtlasMechTab(366, -162, 218, REGALIA_BASTION_MECH_ID);
+  }
+
+  createMutationAtlasCell(buildId, x, y, width, height, scope, mechId) {
+    const validMechId = this.getValidMutationAtlasMechId(mechId);
+    const entry = scope.entries[buildId] || this.createDefaultMutationAtlasEntry();
     const meta = this.getMutationAtlasBuildMeta(buildId);
     const selected = this.mutationAtlasSelectedBuildId === buildId;
-    const targeted = state.selectedTargetId === buildId;
+    const targeted = scope.selectedTargetId === buildId;
     const researched = entry.researchCompleted;
     const preserved = entry.preserved;
     const discovered = entry.discovered;
@@ -51006,8 +53022,9 @@ class SurvivalScene extends Phaser.Scene {
     panel.on("pointerout", () => panel.setFillStyle(fill, discovered ? 0.96 : 0.78));
     this.addOverlayAction(panel, () => {
       if (!this.isMutationAtlasDebugEnabled() && targeted && this.mutationAtlasSelectedBuildId === buildId && !researched) {
-        this.setMutationAtlasResearchTarget(buildId);
+        this.setMutationAtlasResearchTarget(buildId, validMechId);
       }
+      this.mutationAtlasSelectedMechId = validMechId;
       this.mutationAtlasSelectedBuildId = buildId;
       this.showPreGameShop(this.shopStatusMessage);
     }, true, 5);
@@ -51054,10 +53071,11 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
-  renderMutationAtlasDetailPanel(buildId, x, y, width, height, state) {
+  renderMutationAtlasDetailPanel(buildId, x, y, width, height, scope, mechId) {
+    const validMechId = this.getValidMutationAtlasMechId(mechId);
     const meta = this.getMutationAtlasBuildMeta(buildId) || this.getMutationAtlasBuildMeta(MUTATION_ATLAS_BUILD_IDS[0]);
-    const entry = state.entries[meta.buildId] || this.createDefaultMutationAtlasEntry();
-    const targeted = state.selectedTargetId === meta.buildId;
+    const entry = scope.entries[meta.buildId] || this.createDefaultMutationAtlasEntry();
+    const targeted = scope.selectedTargetId === meta.buildId;
     const canSetTarget = !entry.researchCompleted && !this.isMutationAtlasDebugEnabled();
     this.addOverlayChild(
       this.add
@@ -51073,6 +53091,7 @@ class SurvivalScene extends Phaser.Scene {
       entry.researchCompleted && entry.researchRewardClaimed ? "Research reward claimed" : "Research reward: Opening Boost Reroll +1"
     ];
     const lines = [
+      `FRAME: ${this.getMutationAtlasMechLabel(validMechId)}`,
       `CORE: ${meta.coreName}`,
       `FINAL: ${meta.finalName}`,
       `STATE: ${status}${targeted ? " / TARGET" : ""}`,
@@ -51103,7 +53122,8 @@ class SurvivalScene extends Phaser.Scene {
       ? "DEBUG SAMPLE"
       : (entry.researchCompleted ? "RESEARCH COMPLETE" : (targeted ? "CLEAR TARGET" : "SET RESEARCH TARGET"));
     this.createRunArchiveSmallButton(x + width / 2, y + height - 36, Math.min(260, width - 44), label, canSetTarget || targeted, () => {
-      this.setMutationAtlasResearchTarget(meta.buildId);
+      this.setMutationAtlasResearchTarget(meta.buildId, validMechId);
+      this.mutationAtlasSelectedMechId = validMechId;
       this.mutationAtlasSelectedBuildId = meta.buildId;
       this.showPreGameShop(this.shopStatusMessage);
     });
@@ -51111,8 +53131,11 @@ class SurvivalScene extends Phaser.Scene {
 
   renderMutationAtlasShopContent() {
     const state = this.getMutationAtlasDisplayState();
+    const selectedMechId = this.getValidMutationAtlasMechId(this.mutationAtlasSelectedMechId || state.selectedMechId);
+    this.mutationAtlasSelectedMechId = selectedMechId;
+    const scope = this.getMutationAtlasScope(state, selectedMechId);
     const selectedBuildId = this.getValidMutationAtlasBuildId(this.mutationAtlasSelectedBuildId)
-      || this.getValidMutationAtlasBuildId(state.selectedTargetId)
+      || this.getValidMutationAtlasBuildId(scope.selectedTargetId)
       || MUTATION_ATLAS_BUILD_IDS[0];
     this.mutationAtlasSelectedBuildId = selectedBuildId;
     this.createOverlayText(-530, -210, "MUTATION ATLAS", {
@@ -51120,11 +53143,12 @@ class SurvivalScene extends Phaser.Scene {
       color: "#9ffcff",
       fontStyle: "bold"
     });
-    this.createOverlayText(-530, -188, "TRIAD MATRIX完成ビルド16種類の発見、保存、研究目標をローカル保存します。ランキングとFirebase送信値は変更しません。", {
+    this.createOverlayText(-530, -188, "TRIAD MATRIX完成ビルド16種類の発見、保存、研究目標を機体別にローカル保存します。ランキングとFirebase送信値は変更しません。", {
       fontSize: "12px",
       color: "#9ab7cc",
       wordWrap: { width: 760 }
     });
+    this.renderMutationAtlasMechTabs();
     if (this.isMutationAtlasDebugEnabled()) {
       this.createOverlayText(420, -188, "DEBUG SAMPLE / not saved", {
         fontSize: "11px",
@@ -51165,10 +53189,10 @@ class SurvivalScene extends Phaser.Scene {
       });
       MUTATION_ATLAS_FINAL_COLUMNS.forEach((column, columnIndex) => {
         const x = gridX + labelWidth + columnIndex * (cellWidth + gap);
-        this.createMutationAtlasCell(`${row.id}__${column.id}`, x, y, cellWidth, cellHeight, state);
+        this.createMutationAtlasCell(`${row.id}__${column.id}`, x, y, cellWidth, cellHeight, scope, selectedMechId);
       });
     });
-    this.renderMutationAtlasDetailPanel(selectedBuildId, 76, -144, 454, 402, state);
+    this.renderMutationAtlasDetailPanel(selectedBuildId, 76, -144, 454, 402, scope, selectedMechId);
   }
 
   renderRunArchiveShopContent() {
@@ -53149,8 +55173,10 @@ class SurvivalScene extends Phaser.Scene {
     this.resetRunEquipmentCombatLinkState("gameStart");
     this.captureRunEquipmentBonuses("gameStart");
     this.captureRunEquipmentCombatLinkSnapshot(this.runEquipmentLoadoutSnapshot, "gameStart");
+    this.captureRunPlayerMechSnapshot("gameStart");
+    this.rebuildPlayerSkillsForRun("gameStart");
     this.acMovementDebugStartStaminaApplied = false;
-    this.rebuildStartingStats();
+    this.rebuildStartingStats({ applyPlayerMech: true });
     this.resetAcMovementState("gameStart");
     this.applyAcMovementDebugStartStamina("gameStart");
     const pendingShopEpilogue = this.peekPendingShopEpilogueComms?.() || "";
@@ -56676,10 +58702,10 @@ class SurvivalScene extends Phaser.Scene {
   getAcMovementModeSpeedLimit(mode, baseMoveSpeed, tuning = this.getActiveAcMovementTuning()) {
     const safeBaseSpeed = Math.max(0, Number(baseMoveSpeed) || 0);
     if (mode === AC_MOVEMENT_CONFIG.quickBoostMode) {
-      return safeBaseSpeed * tuning.quickBoostMaxSpeedMultiplier;
+      return safeBaseSpeed * tuning.quickBoostMaxSpeedMultiplier * this.getPlayerMechQuickBoostMaxSpeedMultiplier();
     }
     if (mode === AC_MOVEMENT_CONFIG.postBoostGlideMode) {
-      return safeBaseSpeed * tuning.quickBoostExitSpeedMultiplier;
+      return safeBaseSpeed * tuning.quickBoostExitSpeedMultiplier * this.getPlayerMechQuickBoostExitSpeedMultiplier();
     }
     return safeBaseSpeed * tuning.maxCruiseSpeedMultiplier;
   }
@@ -56770,7 +58796,8 @@ class SurvivalScene extends Phaser.Scene {
 
   getAcDashDrainMultiplier() {
     const rawDrainMultiplier = Number(this.getTriadDashStaminaDrainMultiplier?.());
-    return Number.isFinite(rawDrainMultiplier) ? Math.max(0, rawDrainMultiplier) : 1;
+    const triadMultiplier = Number.isFinite(rawDrainMultiplier) ? Math.max(0, rawDrainMultiplier) : 1;
+    return triadMultiplier * this.getPlayerMechBoostDrainMultiplier();
   }
 
   getAcContinuousBoostStartCost(tuning = this.getActiveAcMovementTuning()) {
@@ -56804,7 +58831,9 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getAcContinuousBoostTerminalSpeed(baseMoveSpeed, tuning = this.getActiveAcMovementTuning()) {
-    return Math.max(0, Number(baseMoveSpeed) || 0) * Math.max(0.1, Number(tuning.boostTerminalSpeedMultiplier) || tuning.quickBoostMaxSpeedMultiplier || 1);
+    return Math.max(0, Number(baseMoveSpeed) || 0)
+      * Math.max(0.1, Number(tuning.boostTerminalSpeedMultiplier) || tuning.quickBoostMaxSpeedMultiplier || 1)
+      * this.getPlayerMechBoostTerminalSpeedMultiplier();
   }
 
   getAcBoostLockoutRemainingMs(state = this.ensureAcMovementState(), now = this.time?.now || 0) {
@@ -56959,14 +58988,15 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getAcVariablePostBoostGlideDuration(holdRatio, tuning = this.getActiveAcMovementTuning()) {
+    const mechDurationMultiplier = this.getPlayerMechPostBoostGlideDurationMultiplier();
     if (!tuning.postBoostGlideDurationByHoldRatio) {
-      return Math.max(0, Number(tuning.postBoostGlideDurationMs) || 0);
+      return Math.max(0, Number(tuning.postBoostGlideDurationMs) || 0) * mechDurationMultiplier;
     }
 
     const ratio = Phaser.Math.Clamp(Number(holdRatio) || 0, 0, 1);
     const minDuration = Math.max(0, Number(tuning.postBoostGlideMinDurationMs) || Number(tuning.postBoostGlideDurationMs) || 0);
     const maxDuration = Math.max(minDuration, Number(tuning.postBoostGlideMaxDurationMs) || Number(tuning.postBoostGlideDurationMs) || minDuration);
-    return Phaser.Math.Linear(minDuration, maxDuration, ratio);
+    return Phaser.Math.Linear(minDuration, maxDuration, ratio) * mechDurationMultiplier;
   }
 
   consumeAcVariableQuickBoostCostDelta(state, targetCost, now = this.time?.now || 0) {
@@ -57256,8 +59286,14 @@ class SurvivalScene extends Phaser.Scene {
     const safeBaseSpeed = Math.max(0, Number(baseSpeed) || 0);
     const safePowerRatio = Phaser.Math.Clamp(Number(powerRatio) || 0, 0, 1);
     const safeSpeedRatio = Phaser.Math.Clamp(Number(speedRatio) || safePowerRatio, 0, 1);
-    const impulseSpeed = safeBaseSpeed * tuning.quickBoostImpulseMultiplier * safePowerRatio;
-    const maxBoostSpeed = safeBaseSpeed * tuning.quickBoostMaxSpeedMultiplier * safeSpeedRatio;
+    const impulseSpeed = safeBaseSpeed
+      * tuning.quickBoostImpulseMultiplier
+      * safePowerRatio
+      * this.getPlayerMechQuickBoostImpulseMultiplier();
+    const maxBoostSpeed = safeBaseSpeed
+      * tuning.quickBoostMaxSpeedMultiplier
+      * safeSpeedRatio
+      * this.getPlayerMechQuickBoostMaxSpeedMultiplier();
     const directionLength = Math.hypot(direction.x, direction.y) || 1;
     const dirX = direction.x / directionLength;
     const dirY = direction.y / directionLength;
@@ -57570,7 +59606,8 @@ class SurvivalScene extends Phaser.Scene {
     state.lastMoveDirection.y = dirY;
 
     const terminalSpeed = continuousBoost.terminalSpeed * speedRatio;
-    const sustainAcceleration = Math.max(0, Number(tuning.boostSustainAccelerationPerSecond) || 0);
+    const sustainAcceleration = Math.max(0, Number(tuning.boostSustainAccelerationPerSecond) || 0)
+      * this.getPlayerMechQuickBoostSustainAccelerationMultiplier();
     if (terminalSpeed > 0 && sustainAcceleration > 0) {
       const sustainRatio = this.getAcVariableQuickBoostSustainRatio(powerRatio, tuning);
       this.moveAcVelocityTowards(
@@ -57823,8 +59860,12 @@ class SurvivalScene extends Phaser.Scene {
     const dirX = variableQuickBoost.direction.x / directionLength;
     const dirY = variableQuickBoost.direction.y / directionLength;
     const dt = this.clampAcMovementDelta(delta);
-    const maxSpeed = Math.max(0, Number(baseMoveSpeed) || 0) * tuning.quickBoostMaxSpeedMultiplier * speedRatio;
-    const sustainAcceleration = Math.max(0, Number(tuning.quickBoostSustainAccelerationPerSecond) || 0);
+    const maxSpeed = Math.max(0, Number(baseMoveSpeed) || 0)
+      * tuning.quickBoostMaxSpeedMultiplier
+      * speedRatio
+      * this.getPlayerMechQuickBoostMaxSpeedMultiplier();
+    const sustainAcceleration = Math.max(0, Number(tuning.quickBoostSustainAccelerationPerSecond) || 0)
+      * this.getPlayerMechQuickBoostSustainAccelerationMultiplier();
     if (maxSpeed > 0 && sustainAcceleration > 0) {
       const sustainRatio = this.getAcVariableQuickBoostSustainRatio(powerRatio, tuning);
       this.moveAcVelocityTowards(
@@ -58021,7 +60062,10 @@ class SurvivalScene extends Phaser.Scene {
     state.lastQuickBoostSuccessAt = now;
     state.lastQuickBoostEndAt = state.quickBoostUntil;
     state.lastQuickBoostSpeed = Math.hypot(state.velocity.x, state.velocity.y);
-    state.postBoostGlideUntil = state.quickBoostUntil + Math.max(0, Number(tuning.postBoostGlideDurationMs) || 0);
+    state.postBoostGlideUntil = state.quickBoostUntil + Math.max(
+      0,
+      (Number(tuning.postBoostGlideDurationMs) || 0) * this.getPlayerMechPostBoostGlideDurationMultiplier()
+    );
     state.boostRegenBlockedUntil = now + tuning.quickBoostRegenDelayMs;
     state.quickBoostHardLockUntil = now + Math.max(0, Number(tuning.quickBoostHardLockMs) || 0);
     state.quickBoostDirection.x = normalizedDirection.x;
@@ -58441,7 +60485,7 @@ class SurvivalScene extends Phaser.Scene {
               : "NONE";
     const currentPostBoostGlideDurationMs = Number(variableQuickBoost.postBoostGlideDurationMs) > 0
       ? Number(variableQuickBoost.postBoostGlideDurationMs)
-      : Math.max(0, Number(tuning.postBoostGlideDurationMs) || 0);
+      : Math.max(0, (Number(tuning.postBoostGlideDurationMs) || 0) * this.getPlayerMechPostBoostGlideDurationMultiplier());
     const evadeWindow = state.evadeWindow || this.createAcEvadeWindowState();
     const evadeWindowVisualCount = this.getAcEvadeWindowVisualCount(evadeWindow);
     const evadeWindowActive = this.isAcEvadeWindowActive(now, state);
@@ -58965,6 +61009,7 @@ class SurvivalScene extends Phaser.Scene {
       && quickBoostHardLockRemainingMs <= 0
       && hasInput
       && !airBrakeActive;
+    const postBoostInputSpeedMultiplier = this.getPlayerMechPostBoostInputSpeedMultiplier();
     if (airBrakeActive) {
       this.setAcSteeringDiagnostics(state, {
         enabled: acV3SteeringEnabled,
@@ -58998,8 +61043,8 @@ class SurvivalScene extends Phaser.Scene {
           enabled: true,
           inputMultiplier: Number(tuning.quickBoostLateInputSteerMultiplier) || 0,
           turnRateDegPerSecond: Number(tuning.quickBoostLateTurnRateDegPerSecond) || 0,
-          speedRetention: Number(tuning.postBoostInputSpeedRetention) || 1,
-          minSpeedRatio: Number(tuning.postBoostInputMinSpeedRatio) || 0,
+          speedRetention: (Number(tuning.postBoostInputSpeedRetention) || 1) * postBoostInputSpeedMultiplier,
+          minSpeedRatio: (Number(tuning.postBoostInputMinSpeedRatio) || 0) * postBoostInputSpeedMultiplier,
           steerAcceleration: Number(tuning.postBoostInputSteerAcceleration) || 0,
           quickBoostHardLockRemainingMs: 0
         }
@@ -59017,8 +61062,8 @@ class SurvivalScene extends Phaser.Scene {
           enabled: true,
           inputMultiplier: Number(tuning.postBoostInputSteerMultiplier) || 0,
           turnRateDegPerSecond: Number(tuning.postBoostInputTurnRateDegPerSecond) || 0,
-          speedRetention: Number(tuning.postBoostInputSpeedRetention) || 1,
-          minSpeedRatio: Number(tuning.postBoostInputMinSpeedRatio) || 0,
+          speedRetention: (Number(tuning.postBoostInputSpeedRetention) || 1) * postBoostInputSpeedMultiplier,
+          minSpeedRatio: (Number(tuning.postBoostInputMinSpeedRatio) || 0) * postBoostInputSpeedMultiplier,
           steerAcceleration: Number(tuning.postBoostInputSteerAcceleration) || 0,
           quickBoostHardLockRemainingMs: 0
         }
@@ -59046,7 +61091,7 @@ class SurvivalScene extends Phaser.Scene {
       const deceleration = Math.max(
         tuning.decelerationPerSecond,
         tuning.noInputFrictionPerSecond
-      ) * (postBoostGlideActive ? tuning.postBoostFrictionMultiplier : 1);
+      ) * (postBoostGlideActive ? tuning.postBoostFrictionMultiplier * this.getPlayerMechPostBoostFrictionMultiplier() : 1);
       this.moveAcVelocityTowards(state.velocity, 0, 0, deceleration * dt);
       this.setAcSteeringDiagnostics(state, {
         enabled: acV3SteeringEnabled,
@@ -59199,16 +61244,17 @@ class SurvivalScene extends Phaser.Scene {
     const acVisualLeanAngle = Number(motion.acVisualLeanAngle) || 0;
     const acLeanOffsetX = Number(motion.acLeanOffsetX) || 0;
     const acLeanOffsetY = Number(motion.acLeanOffsetY) || 0;
+    const landingImpact = this.getRegaliaBastionLandingImpactVisualState(motion);
     this.playerSprite
       .setPosition(
         this.playerHitbox.x + acLeanOffsetX,
-        this.playerHitbox.y + PLAYER_SPRITE_OFFSET_Y + hover + (motion.lift || 0) + acLeanOffsetY
+        this.playerHitbox.y + PLAYER_SPRITE_OFFSET_Y + hover + (motion.lift || 0) + acLeanOffsetY + landingImpact.offsetY
       )
       .setAngle((motion.tiltAngle || 0) + acVisualLeanAngle);
     this.playerShadow
       ?.setPosition(this.playerHitbox.x, this.playerHitbox.y + PLAYER_SHADOW_OFFSET_Y)
-      .setScale(motion.shadowScale || 1, 1)
-      .setAlpha(moving ? 0.22 : 0.28);
+      .setScale((motion.shadowScale || 1) * landingImpact.shadowScaleX, landingImpact.shadowScaleY)
+      .setAlpha(Phaser.Math.Clamp((moving ? 0.22 : 0.28) + landingImpact.shadowAlphaAdd, 0, 0.48));
   }
 
   updateRobotCompanion(delta) {
@@ -59572,6 +61618,15 @@ class SurvivalScene extends Phaser.Scene {
   updateSkills(delta) {
     Object.values(this.playerSkills).forEach((skillState) => {
       const stageData = skillState.currentStage;
+      if (!stageData || !this.isSkillRuntimeBehaviorImplemented(skillState.definition)) {
+        return;
+      }
+
+      if (skillState.definition.behavior === "regaliaBastionCannon") {
+        this.updateRegaliaBastionCannonSkill(skillState, stageData, delta);
+        return;
+      }
+
       skillState.orbitAngle = Phaser.Math.Angle.Wrap(
         skillState.orbitAngle + (stageData.rotationSpeed || Math.max(0.8, stageData.spinSpeed * 0.32)) * (delta / 1000)
       );
@@ -59585,6 +61640,387 @@ class SurvivalScene extends Phaser.Scene {
         this.updateOrbitSkill(skillState, stageData, delta);
       }
     });
+  }
+
+  updateRegaliaBastionCannonSkill(skillState, stageData, delta) {
+    if (
+      delta <= 0 ||
+      this.gameOver ||
+      this.shopActive ||
+      this.levelUpActive ||
+      this.gateChoiceActive ||
+      this.extractionComplete ||
+      this.isFinalBossRaidActive?.()
+    ) {
+      return;
+    }
+    if (!this.playerHitbox?.active || !this.enemies?.children) {
+      return;
+    }
+
+    skillState.regaliaCannonCooldownMs = Math.max(0, (skillState.regaliaCannonCooldownMs || 0) - delta);
+    if (skillState.regaliaCannonCooldownMs > 0) {
+      return;
+    }
+
+    const cooldownMs = Math.max(
+      250,
+      Math.round(
+        (stageData.cooldownMs || 1800) *
+        this.getSkillMutationCooldownMultiplier(skillState.id, { source: "skillCooldown" }) *
+        this.getRunEquipmentAttackIntervalMultiplier(skillState.id)
+      )
+    );
+    const fired = this.fireRegaliaBastionCannon(skillState, stageData);
+    skillState.regaliaCannonCooldownMs = fired ? cooldownMs : Math.min(220, cooldownMs);
+  }
+
+  fireRegaliaBastionCannon(skillState, stageData) {
+    const targets = this.findRegaliaBastionCannonTargets(stageData);
+    if (!targets.length) {
+      this.logRegaliaBastionCannonDebug("skip:no-target", {
+        stage: stageData.stage,
+        targetCount: stageData.targetCount || 1
+      });
+      return false;
+    }
+
+    const castHitCounts = new Map();
+    this.logRegaliaBastionCannonDebug("fire", {
+      stage: stageData.stage,
+      targetCount: targets.length,
+      impactRadius: stageData.impactRadius || 0
+    });
+    this.playRegaliaBastionOneShotSe("cannon");
+
+    targets.forEach((target, index) => {
+      if (!target?.active || target.isDying) {
+        return;
+      }
+      const impactX = target.x;
+      const impactY = target.y;
+      const muzzle = this.getRegaliaBastionCannonMuzzlePoint(impactX, impactY, index, targets.length);
+      const delayMs = this.getRegaliaBastionCannonImpactDelayMs(muzzle.x, muzzle.y, impactX, impactY);
+
+      this.spawnRegaliaBastionCannonBeam(muzzle.x, muzzle.y, impactX, impactY, index);
+      this.time.delayedCall(delayMs, () => {
+        if (this.gameOver || this.extractionComplete || this.isFinalBossRaidActive?.()) {
+          return;
+        }
+        this.detonateRegaliaBastionCannonImpact(impactX, impactY, stageData, castHitCounts, skillState);
+      });
+    });
+
+    return true;
+  }
+
+  findRegaliaBastionCannonTargets(stageData) {
+    if (!this.playerHitbox?.active || !this.enemies?.children || this.isFinalBossRaidActive?.()) {
+      return [];
+    }
+
+    const maxCount = Math.max(1, Math.floor(Number(stageData.targetCount) || 1));
+    const originX = this.playerHitbox.x;
+    const originY = this.playerHitbox.y;
+    const maxRange = Math.max(240, Number(stageData.maxTargetRange) || REGALIA_BASTION_CANNON_CONFIG.maxTargetRange);
+    const maxRangeSq = maxRange * maxRange;
+    const entries = [];
+
+    this.enemies.children.each((enemy) => {
+      if (!this.isFinalBossRaidEnemyTargetable(enemy)) {
+        return;
+      }
+      if (enemy.isFinalBossRaidBoss || enemy.isFinalBossRaidMinion || enemy.isFinalBossRaidGiantWeapon) {
+        return;
+      }
+
+      const distanceSq = Phaser.Math.Distance.Squared(enemy.x, enemy.y, originX, originY);
+      const cameraVisible = this.isRegaliaBastionCannonTargetInCameraView(enemy, REGALIA_BASTION_CANNON_CONFIG.cameraPadding);
+      if (!cameraVisible && distanceSq > maxRangeSq) {
+        return;
+      }
+
+      entries.push({
+        enemy,
+        distanceSq,
+        priorityScore: this.getRegaliaBastionCannonTargetScore(enemy, distanceSq, cameraVisible)
+      });
+    });
+
+    entries.sort((left, right) => {
+      if (left.priorityScore !== right.priorityScore) {
+        return left.priorityScore - right.priorityScore;
+      }
+      return left.distanceSq - right.distanceSq;
+    });
+    return entries.slice(0, maxCount).map((entry) => entry.enemy);
+  }
+
+  isRegaliaBastionCannonTargetInCameraView(enemy, padding = 0) {
+    const view = (this.worldCamera || this.cameras?.main)?.worldView;
+    if (!view) {
+      return true;
+    }
+
+    const left = Number.isFinite(view.left) ? view.left : (Number(view.x) || 0);
+    const top = Number.isFinite(view.top) ? view.top : (Number(view.y) || 0);
+    const right = Number.isFinite(view.right) ? view.right : left + (Number(view.width) || GAME_WIDTH);
+    const bottom = Number.isFinite(view.bottom) ? view.bottom : top + (Number(view.height) || GAME_HEIGHT);
+    return (
+      enemy.x >= left - padding &&
+      enemy.x <= right + padding &&
+      enemy.y >= top - padding &&
+      enemy.y <= bottom + padding
+    );
+  }
+
+  getRegaliaBastionCannonTargetScore(enemy, distanceSq, cameraVisible) {
+    let score = distanceSq;
+    if (cameraVisible) {
+      score -= 90000;
+    }
+    if (enemy.isBoss || enemy.isWaveBoss || enemy.isRobotBoss) {
+      score -= 900000;
+    }
+    if (this.isNemesisBoss?.(enemy)) {
+      score -= 1100000;
+    }
+    if (enemy.isElite) {
+      score -= 350000;
+    }
+    return score;
+  }
+
+  getRegaliaBastionCannonMuzzlePoint(targetX, targetY, index = 0, total = 1) {
+    const originX = this.playerHitbox?.x || targetX;
+    const originY = (this.playerHitbox?.y || targetY) - 34;
+    const angle = Phaser.Math.Angle.Between(originX, originY, targetX, targetY);
+    const sideOffset = (index - (Math.max(1, total) - 1) * 0.5) * 16;
+    return {
+      x: originX - Math.sin(angle) * sideOffset,
+      y: originY + Math.cos(angle) * sideOffset
+    };
+  }
+
+  getRegaliaBastionCannonImpactDelayMs(fromX, fromY, toX, toY) {
+    const distance = Phaser.Math.Distance.Between(fromX, fromY, toX, toY);
+    return Math.round(Phaser.Math.Clamp(
+      distance / REGALIA_BASTION_CANNON_CONFIG.impactDelayDistanceDivisor,
+      REGALIA_BASTION_CANNON_CONFIG.minImpactDelayMs,
+      REGALIA_BASTION_CANNON_CONFIG.maxImpactDelayMs
+    ));
+  }
+
+  spawnRegaliaBastionCannonBeam(fromX, fromY, toX, toY, index = 0) {
+    if (!this.add || !this.skillEffectsLayer) {
+      return;
+    }
+
+    const beam = this.add.graphics()
+      .setDepth(23)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const jitter = index % 2 === 0 ? 1 : -1;
+    const midX = (fromX + toX) * 0.5 + Phaser.Math.Between(4, 12) * jitter;
+    const midY = (fromY + toY) * 0.5 + Phaser.Math.Between(-8, 8);
+    beam.lineStyle(7, 0xdfffff, 0.28);
+    beam.beginPath();
+    beam.moveTo(fromX, fromY);
+    beam.lineTo(midX, midY);
+    beam.lineTo(toX, toY);
+    beam.strokePath();
+    beam.lineStyle(3, 0x8ff4ff, 0.9);
+    beam.beginPath();
+    beam.moveTo(fromX, fromY);
+    beam.lineTo(midX, midY);
+    beam.lineTo(toX, toY);
+    beam.strokePath();
+    beam.lineStyle(1, 0xffd76b, 0.84);
+    beam.lineBetween(fromX, fromY, toX, toY);
+    beam.fillStyle(0xffffff, 0.92);
+    beam.fillCircle(fromX, fromY, 4);
+    beam.fillStyle(0xffd76b, 0.68);
+    beam.fillCircle(toX, toY, 5);
+
+    this.skillEffectsLayer.add(beam);
+    this.tweens.add({
+      targets: beam,
+      alpha: 0,
+      duration: REGALIA_BASTION_CANNON_CONFIG.beamDurationMs,
+      ease: "Quad.Out",
+      onComplete: () => beam.destroy()
+    });
+  }
+
+  detonateRegaliaBastionCannonImpact(x, y, stageData, castHitCounts, skillState) {
+    const radius = Math.max(1, Number(stageData.impactRadius) || 130);
+    this.spawnRegaliaBastionCannonImpactVisual(x, y, stageData, radius);
+    const hitCount = this.applyRegaliaBastionCannonExplosionDamage(x, y, stageData, castHitCounts, skillState);
+    if (hitCount > 0) {
+      this.cameras?.main?.shake(90, 0.0012);
+    }
+    this.logRegaliaBastionCannonDebug("impact", {
+      stage: stageData.stage,
+      x: Math.round(x),
+      y: Math.round(y),
+      radius,
+      hitCount
+    });
+  }
+
+  spawnRegaliaBastionCannonImpactVisual(x, y, stageData, radius) {
+    if (!this.add || !this.skillEffectsLayer) {
+      return;
+    }
+
+    const frameKeys = (stageData.animationFrames || [])
+      .map((frame) => frame?.textureKey)
+      .filter((textureKey) => textureKey && this.textures.exists(textureKey));
+    if (frameKeys.length > 0) {
+      const scale = Phaser.Math.Clamp(radius / 170, 0.48, 2.1);
+      const impact = this.add
+        .image(x, y, frameKeys[0])
+        .setDepth(22)
+        .setScale(scale)
+        .setAlpha(0.96)
+        .setTint(0xf2ffff)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      this.skillEffectsLayer.add(impact);
+
+      let frameIndex = 0;
+      this.time.addEvent({
+        delay: Math.max(36, stageData.frameDurationMs || 72),
+        repeat: frameKeys.length - 1,
+        callback: () => {
+          frameIndex += 1;
+          if (!impact.active) {
+            return;
+          }
+          if (frameIndex < frameKeys.length) {
+            impact.setTexture(frameKeys[frameIndex]);
+          } else {
+            impact.destroy();
+          }
+        }
+      });
+      this.tweens.add({
+        targets: impact,
+        scaleX: scale * 1.12,
+        scaleY: scale * 1.12,
+        alpha: 0.86,
+        duration: Math.max(120, (stageData.frameDurationMs || 72) * Math.max(2, frameKeys.length - 1)),
+        ease: "Sine.Out"
+      });
+      return;
+    }
+
+    this.spawnRegaliaBastionCannonFallbackImpact(x, y, stageData, radius);
+  }
+
+  spawnRegaliaBastionCannonFallbackImpact(x, y, stageData, radius) {
+    const effectTint = stageData.effectTint || 0x8ff4ff;
+    const accentTint = stageData.auraTint || 0xffd76b;
+    const pulse = this.add.graphics()
+      .setDepth(22)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    pulse.fillStyle(0xffffff, 0.16);
+    pulse.fillCircle(0, 0, radius * 0.38);
+    pulse.lineStyle(5, effectTint, 0.74);
+    pulse.strokeCircle(0, 0, radius * 0.42);
+    pulse.lineStyle(2, accentTint, 0.66);
+    pulse.strokeCircle(0, 0, radius * 0.22);
+    pulse.setPosition(x, y);
+    this.skillEffectsLayer.add(pulse);
+
+    const ringObjects = [pulse];
+    if (this.textures.exists("skill-hit-ring")) {
+      const ring = this.add
+        .image(x, y, "skill-hit-ring")
+        .setDepth(23)
+        .setScale(Math.max(0.75, radius / 58))
+        .setTint(effectTint)
+        .setAlpha(0.72)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      this.skillEffectsLayer.add(ring);
+      ringObjects.push(ring);
+    }
+
+    this.tweens.add({
+      targets: ringObjects,
+      scaleX: "*=1.45",
+      scaleY: "*=1.45",
+      alpha: 0,
+      duration: 260,
+      ease: "Cubic.Out",
+      onComplete: () => {
+        ringObjects.forEach((object) => object.destroy());
+      }
+    });
+  }
+
+  applyRegaliaBastionCannonExplosionDamage(x, y, stageData, castHitCounts, skillState) {
+    if (!this.enemies?.children || this.isFinalBossRaidActive?.()) {
+      return 0;
+    }
+
+    const skillId = skillState?.id || REGALIA_BASTION_CANNON_SKILL_ID;
+    const radius = Math.max(1, Number(stageData.impactRadius) || 130);
+    const baseDamage = Math.max(1, Number(stageData.damage) || 1);
+    let hitCount = 0;
+
+    this.enemies.children.each((enemy) => {
+      if (!this.isFinalBossRaidEnemyTargetable(enemy)) {
+        return;
+      }
+      if (enemy.isFinalBossRaidBoss || enemy.isFinalBossRaidMinion || enemy.isFinalBossRaidGiantWeapon) {
+        return;
+      }
+
+      const distance = Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y);
+      if (distance > radius) {
+        return;
+      }
+
+      const previousHits = castHitCounts.get(enemy) || 0;
+      const falloffMultiplier = REGALIA_BASTION_CANNON_CONFIG.damageFalloffMultipliers[Math.min(previousHits, 2)] || 0.15;
+      castHitCounts.set(enemy, previousHits + 1);
+      const mutatedDamage = this.getMutatedSkillDamage(skillId, baseDamage, {
+        source: "regaliaCannonExplosion",
+        enemy
+      });
+      const boostedDamage = this.applyRunEquipmentPlayerSkillDamageBonus(skillId, mutatedDamage);
+      const damage = Math.max(1, Math.round(boostedDamage * falloffMultiplier));
+      const forceRatio = Phaser.Math.Clamp(1 - distance / radius, 0, 1);
+      this.applyDamageToEnemy(enemy, damage, stageData.damageTint || 0xdff7ff, {
+        sourceX: x,
+        sourceY: y,
+        force: Math.round(130 + forceRatio * 130),
+        recoverMs: 110
+      });
+      hitCount += 1;
+    });
+
+    if (hitCount > 0) {
+      this.logRegaliaBastionCannonDebug("explosion-hits", {
+        hitCount,
+        trackedEnemies: castHitCounts.size
+      });
+    }
+    return hitCount;
+  }
+
+  isRegaliaBastionCannonDebugEnabled() {
+    return this.isQueryFlagValueEnabled(this.getUrlStageParam(REGALIA_BASTION_CANNON_DEBUG_QUERY_PARAM));
+  }
+
+  logRegaliaBastionCannonDebug(message, payload = null) {
+    if (!this.isRegaliaBastionCannonDebugEnabled()) {
+      return;
+    }
+    if (payload) {
+      console.log(`[REGALIA CANNON] ${message}`, payload);
+    } else {
+      console.log(`[REGALIA CANNON] ${message}`);
+    }
   }
 
   updateOrbitSkill(skillState, stageData, delta) {
@@ -61150,7 +63586,7 @@ class SurvivalScene extends Phaser.Scene {
   applySkillEnemyForces() {
     Object.values(this.playerSkills).forEach((skillState) => {
       const stageData = skillState.currentStage;
-      if (skillState.definition.behavior !== "screenHoming") {
+      if (!stageData || skillState.definition.behavior !== "screenHoming") {
         return;
       }
       const coreId = this.getSkillMutationCore(skillState.id);
@@ -63275,6 +65711,10 @@ class SurvivalScene extends Phaser.Scene {
     return enemy;
   }
   fireAtClosestEnemy(time) {
+    if (!this.playerSkills?.[DEFAULT_SKILL_ID]) {
+      return;
+    }
+
     const shotCount = this.getBasicAttackShotCount();
     const targets = this.findClosestEnemiesFrom(this.playerHitbox.x, this.playerHitbox.y, shotCount);
 
@@ -63377,7 +65817,7 @@ class SurvivalScene extends Phaser.Scene {
 
   getBasicAttackShotCount() {
     const primarySkill = this.getPrimarySkillState();
-    return primarySkill?.currentStage?.autoAttackShots || 1;
+    return primarySkill?.currentStage?.autoAttackShots || 0;
   }
 
   getRobotMissileFrameKey(frameIndex = 0) {
@@ -71414,7 +73854,10 @@ class SurvivalScene extends Phaser.Scene {
       openingBoost: isStartingDraft,
       allowEquipmentOverlimit: !isStartingDraft
     });
-    let passiveChoices = Phaser.Utils.Array.Shuffle(this.getPassiveUpgradeChoices());
+    let passiveChoices = this.weightedShuffleUpgradeChoices(
+      this.getPassiveUpgradeChoices(),
+      this.getSelectedPlayerMechPassiveWeights()
+    );
     passiveChoices = this.prioritizeEvasiveFirmwareChoice(passiveChoices);
     const skillChoiceLimit = Math.min(passiveChoices.length > 0 ? Math.min(2, choiceLimit - 1) : choiceLimit, skillChoices.length);
     const upgrades = [...skillChoices.slice(0, skillChoiceLimit), ...passiveChoices].slice(0, choiceLimit);
@@ -71557,6 +74000,32 @@ class SurvivalScene extends Phaser.Scene {
     return [evasiveFirmwareChoice, ...choices];
   }
 
+  weightedShuffleUpgradeChoices(choices, weights = {}) {
+    const remaining = Array.isArray(choices) ? choices.filter(Boolean) : [];
+    const shuffled = [];
+    const getWeight = (choice) => {
+      const value = Number(weights?.[choice?.id]);
+      return Math.max(0.05, Number.isFinite(value) ? value : 1);
+    };
+
+    while (remaining.length > 0) {
+      const totalWeight = remaining.reduce((sum, choice) => sum + getWeight(choice), 0);
+      let roll = Math.random() * Math.max(0.05, totalWeight);
+      let selectedIndex = remaining.length - 1;
+      for (let index = 0; index < remaining.length; index += 1) {
+        roll -= getWeight(remaining[index]);
+        if (roll <= 0) {
+          selectedIndex = index;
+          break;
+        }
+      }
+      const [choice] = remaining.splice(selectedIndex, 1);
+      shuffled.push(choice);
+    }
+
+    return shuffled;
+  }
+
   getAvailableSkillChoices(options = {}) {
     const upgradeChoices = [];
     const unlockChoices = [];
@@ -71579,6 +74048,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   buildSkillChoice(skillId, options = {}) {
+    if (!this.isSkillAvailableForPlayerMech(skillId, this.getSkillSelectionPlayerMechId(options))) {
+      return null;
+    }
+
     if (this.playerSkills[skillId]) {
       return this.buildSkillUpgradeChoice(skillId) || this.buildEquipmentOverlimitChoice(skillId, options);
     }
@@ -71643,6 +74116,9 @@ class SurvivalScene extends Phaser.Scene {
     if (definition.behavior === "directionalDash") {
       return `雷兎突進を解放 / DMG ${stageData.damage} / HIT ${stageData.contactTickMs}ms / DST ${stageData.dashDistance || 0}`;
     }
+    if (definition.behavior === "regaliaBastionCannon") {
+      return `王装閃砲を解放 / DMG ${stageData.damage} / CD ${stageData.cooldownMs}ms / TARGET ${stageData.targetCount || 1}`;
+    }
 
     return `周回球を強化 / ${this.buildSkillStatsSummary(stageData, definition)}`;
   }
@@ -71657,7 +74133,17 @@ class SurvivalScene extends Phaser.Scene {
       changes.push(`HIT ${currentStage.contactTickMs}->${nextStage.contactTickMs}ms`);
     }
 
-    if (definition.behavior === "screenHoming" || definition.behavior === "directionalDash") {
+    if (definition.behavior === "regaliaBastionCannon") {
+      if ((currentStage.targetCount || 1) !== (nextStage.targetCount || 1)) {
+        changes.push(`TARGET ${currentStage.targetCount || 1}->${nextStage.targetCount || 1}`);
+      }
+      if ((currentStage.cooldownMs || 0) !== (nextStage.cooldownMs || 0)) {
+        changes.push(`CD ${currentStage.cooldownMs || 0}->${nextStage.cooldownMs || 0}ms`);
+      }
+      if ((currentStage.impactRadius || 0) !== (nextStage.impactRadius || 0)) {
+        changes.push(`IMPACT ${currentStage.impactRadius || 0}->${nextStage.impactRadius || 0}`);
+      }
+    } else if (definition.behavior === "screenHoming" || definition.behavior === "directionalDash") {
       if ((currentStage.unitCount || 1) !== (nextStage.unitCount || 1)) {
         changes.push(`${definition.behavior === "screenHoming" ? "TOR" : "RAB"} ${currentStage.unitCount || 1}->${nextStage.unitCount || 1}`);
       }
@@ -72171,16 +74657,17 @@ class SurvivalScene extends Phaser.Scene {
     const specs = [
       { key: "damage", label: "DMG", priority: 120, unlock: true },
       { key: "contactTickMs", label: "HIT", priority: 115, unlock: true, ms: true },
+      { key: "targetCount", label: "TARGET", priority: 109, unlock: skillId === REGALIA_BASTION_CANNON_SKILL_ID },
       { key: "autoAttackShots", label: "雷撃本数", priority: 108 },
       { key: "orbitCount", label: "球数", priority: 106 },
       { key: "moveSpeed", label: "SPD", priority: 104, unlock: skillId === "tornadoSkill" },
       { key: "dashDistance", label: "距離", priority: 104, unlock: skillId === "rabbitThunderSkill" },
-      { key: "cooldownMs", label: "再発動", priority: 102, ms: true },
+      { key: "cooldownMs", label: "再発動", priority: 102, unlock: skillId === REGALIA_BASTION_CANNON_SKILL_ID, ms: true },
       { key: "hitRadius", label: "範囲", priority: 100, unlock: true },
       { key: "orbitRadius", label: "半径", priority: 98 },
       { key: "displayScale", label: "SIZE", priority: 94, decimal: true },
       { key: "dashDurationMs", label: "突進時間", priority: 92, ms: true },
-      { key: "impactRadius", label: "衝撃範囲", priority: 88 },
+      { key: "impactRadius", label: "衝撃範囲", priority: 88, unlock: skillId === REGALIA_BASTION_CANNON_SKILL_ID },
       { key: "suctionRadius", label: "吸引範囲", priority: 86 },
       { key: "suctionForce", label: "吸引力", priority: 84 }
     ];
@@ -72255,7 +74742,7 @@ class SurvivalScene extends Phaser.Scene {
 
   unlockSkill(skillId) {
     const definition = SKILL_DEFINITIONS[skillId];
-    if (!definition?.stages?.length || this.playerSkills[skillId]) {
+    if (!definition?.stages?.length || this.playerSkills[skillId] || !this.isSkillAvailableForPlayerMech(skillId)) {
       return;
     }
 
@@ -72268,7 +74755,7 @@ class SurvivalScene extends Phaser.Scene {
 
   upgradeSkill(skillId) {
     const skillState = this.playerSkills[skillId];
-    if (!skillState || skillState.stageIndex >= skillState.definition.stages.length - 1) {
+    if (!skillState || !this.isSkillAvailableForPlayerMech(skillId) || skillState.stageIndex >= skillState.definition.stages.length - 1) {
       return;
     }
 
@@ -73675,12 +76162,18 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getOrderedSkillStates() {
+    const slotOrder = this.getPlayerSkillSlotIds();
     return Object.values(this.playerSkills).sort((left, right) => {
-      if (left.id === DEFAULT_SKILL_ID) {
-        return -1;
-      }
-      if (right.id === DEFAULT_SKILL_ID) {
-        return 1;
+      const leftIndex = slotOrder.indexOf(left.id);
+      const rightIndex = slotOrder.indexOf(right.id);
+      if (leftIndex !== -1 || rightIndex !== -1) {
+        if (leftIndex === -1) {
+          return 1;
+        }
+        if (rightIndex === -1) {
+          return -1;
+        }
+        return leftIndex - rightIndex;
       }
       return left.definition.name.localeCompare(right.definition.name);
     });
@@ -73708,6 +76201,9 @@ class SurvivalScene extends Phaser.Scene {
     }
     if (definition?.behavior === "directionalDash") {
       return `DMG ${stageData.damage} / HIT ${stageData.contactTickMs}ms / DST ${stageData.dashDistance || 0}${effectsLabel}`;
+    }
+    if (definition?.behavior === "regaliaBastionCannon") {
+      return `DMG ${stageData.damage} / CD ${stageData.cooldownMs}ms / TARGET ${stageData.targetCount || 1} / IMPACT ${stageData.impactRadius || 0}${effectsLabel}`;
     }
 
     return `DMG ${stageData.damage} / HIT ${stageData.contactTickMs}ms / ORB ${stageData.orbitCount} / BOLT ${stageData.autoAttackShots || 1}${effectsLabel}`;
@@ -74477,6 +76973,8 @@ function removeOpeningShopReturnDebugParams(url) {
     DEBUG_RELAY_LAUNCH_DEPTH_QUERY_PARAM,
     DEBUG_MAX_BUILD_QUERY_PARAM,
     DEBUG_MAX_BUILD_ALIAS_QUERY_PARAM,
+    DEBUG_PLAYER_MECH_QUERY_PARAM,
+    DEBUG_PLAYER_MECH_UNLOCK_QUERY_PARAM,
     DEBUG_SKIP_OPENING_BOOST_QUERY_PARAM,
     DEBUG_SKIP_OPENING_BOOST_ALIAS_QUERY_PARAM,
     FINAL_BOSS_DEBUG_QUERY_PARAM,

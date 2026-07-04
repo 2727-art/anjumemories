@@ -36,7 +36,7 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 
 通常 Depth の移動は `acV3 AC Movement` が標準です。入力方向へ即座に張り付く歩行ではなく、加速、慣性、減速を持つブースター滑走として動きます。DASH は `AC Quick Boost` / 継続ブーストとして機能し、押している間は BOOST EN を消費します。BOOST EN が 0 になると `FULL_OVERHEAT` になり、BOOST EN が全回復するまでブーストできません。高速滑走中に進行方向と逆向きへ入力すると Air Brake が発動します。
 
-操作キャラは通常 Depth では 8 方向のクマ型ロボット画像へ向きを切り替え、通常移動と POST_BOOST_GLIDE では歩行/滑走フレーム、Quick Boost / 継続ブースト中だけ強いブースター画像と青白い推進FXを使います。Quick Boost / 継続ブーストの開始成功時は、プレイヤーの画面内X位置に応じて左 / 中央 / 右の3種類のステレオSEを鳴らします。target-facing により敵方向を向きながら移動でき、Target Fire は現在ターゲットを示す visual-only の連射FXとして表示されます。Target Fire は敵HP、ダメージ、projectile、collider、overlap には影響しません。通常 Depth10 と Depth10 Relay もロボット表示で、Depth10 Final Raid 中だけ専用のプレイヤー表示と専用移動へ切り替わります。当たり判定は従来のプレイヤー hitbox のままです。
+操作キャラは通常 Depth では 8 方向のクマ型ロボット画像へ向きを切り替え、通常移動と POST_BOOST_GLIDE では歩行/滑走フレーム、Quick Boost / 継続ブースト中だけ強いブースター画像と青白い推進FXを使います。REGALIA BASTION は停止時に機体が軽く沈み込み、足元の粉塵リングと影の押し広げで重量級の着地感を疑似的に演出し、通常移動開始 / 停止 / Target Fire 連射 / REGALIA Cannon に専用SEを使います。通常移動開始SEは停止またはブースト状態へ切り替わった時点で停止します。Quick Boost / 継続ブーストの開始成功時は、プレイヤーの画面内X位置に応じて左 / 中央 / 右の3種類のステレオSEを鳴らします。target-facing により敵方向を向きながら移動でき、Target Fire は現在ターゲットを示す visual-only の連射FXとして表示されます。Target Fire は敵HP、ダメージ、projectile、collider、overlap には影響しません。通常 Depth10 と Depth10 Relay もロボット表示で、Depth10 Final Raid 中だけ専用のプレイヤー表示と専用移動へ切り替わります。当たり判定は従来のプレイヤー hitbox のままです。
 
 ## スマートフォン対応
 
@@ -55,6 +55,8 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 - `?debugStartDepth=10`: デバッグ用。`SORTIE PREP` 後のランを Depth10 から開始します。`11` 以上を指定すると通常深層として開始し、Final Raid には入りません。
 - `?debugRelayStartDepth=10`: デバッグ用。保存済みの Depth10 DEPTH RELAY 解放がある場合だけ、`SORTIE PREP` 後のランを Final Raid ではなく通常 Depth10 として開始します。`20` / `30` を指定すると、必要な Anchor が連鎖解放済みの場合だけ通常 Depth20 / Depth30 Relay として開始します。解放状態は変更せず、`debugStartDepth` が同時指定された場合は `debugStartDepth` を優先します。
 - `?debugRelayLaunchDepth=10`: デバッグ用。通常の OPERATIONS HUB を表示したあと、`SORTIE PREP` 押下時に保存済みの Depth10 DEPTH RELAY 解放がある場合だけ、プレイヤー向け DEPTH RELAY 選択 UI を経由せず Scene restart 経由の新規ラン初期化で通常 Depth10 へ進みます。`20` / `30` を指定すると、必要な Anchor が連鎖解放済みの場合だけ HUB 経由の Depth20 / Depth30 Relay ランチ経路を確認できます。解放状態は変更しません。
+- `?debugPlayerMech=regaliaBastion`: デバッグ用。保存済みの所持・選択状態を書き換えず、`SORTIE PREP` 後のラン開始スナップショットだけを指定機体にします。値は `defaultBear` / `regaliaBastion` です。
+- `?debugPlayerMechUnlock=1`: デバッグ用。Final Raid clear state を変更せず、OPERATIONS HUB の HANGER / PLAYER FRAME で REGALIA BASTION の購入導線だけを解放済みとして確認できます。
 - `?debugSkipOpeningBoost=1`: デバッグ用。`SORTIE PREP` 後の Opening Boost 選択をスキップします。
 - `?legacyMovement=1`: デバッグ用。通常 Depth の `acV3 AC Movement` を無効化し、旧移動へ戻します。
 - `?acMovementRc=1`: 旧RC互換。現在は通常URLと同じ `acV3 AC Movement` として扱います。
@@ -242,7 +244,7 @@ XP を獲得してレベルアップすると、3 択カード UI が表示さ�
 
 ### SKILL MUTATION / スキル変異
 
-`basicSkill`、`tornadoSkill`、`rabbitThunderSkill` はラン内限定の `SKILL MUTATION` を持ちます。対象スキルが Stage4 に到達すると `MUTATION CORE SELECT` が開き、次の 3 種から方向性を選びます。
+`SKILL MUTATION` はラン内限定の分岐強化です。defaultBear では `basicSkill`、`tornadoSkill`、`rabbitThunderSkill`、REGALIA BASTION では `regaliaBastionCannon`、`tornadoSkill`、`rabbitThunderSkill` が対象になります。対象スキルが Stage4 に到達すると `MUTATION CORE SELECT` が開き、次の 3 種から方向性を選びます。
 
 - `ASSAULT CORE`: 火力、撃破速度、Boss / Elite 処理寄り。
 - `CONTROL CORE`: 鈍足、吸引、押し戻し、生存寄り。
@@ -262,7 +264,7 @@ mutation は抽出、緊急抽出、ゲームオーバー、Gate 崩壊、ショ
 
 ### TRIAD MATRIX / MUTATION ATLAS
 
-`basicSkill`、`tornadoSkill`、`rabbitThunderSkill` の選択済み Mutation を横断し、ラン内の `TRIAD MATRIX` 状態を算出します。Core 軸は `assault` / `control` / `reactor`、Final 軸は `execution` / `prism` / `singularity` を使い、既存 mutation 値はリネームしません。
+選択中機体の3つの Mutation 対象スキルを横断し、ラン内の `TRIAD MATRIX` 状態を算出します。defaultBear では `basicSkill`、`tornadoSkill`、`rabbitThunderSkill`、REGALIA BASTION では `regaliaBastionCannon`、`tornadoSkill`、`rabbitThunderSkill` を使います。Core 軸は `assault` / `control` / `reactor`、Final 軸は `execution` / `prism` / `singularity` を使い、既存 mutation 値はリネームしません。
 
 Core / Final とも、同じカテゴリが 2 個揃うと `LINK I` になります。3 スキルすべて同じカテゴリなら `MATRIX II`、3 種が 1 個ずつなら混成 `MATRIX II` です。3 個選択済みでも 2:1 構成は `LINK I` のままで、Atlas対象の完成ビルドにはなりません。
 
@@ -282,7 +284,7 @@ Final完成分類:
 
 Core と Final の両方が `MATRIX II` になった場合だけ、`assault_array__execution_protocol` のような安定 buildId を持つ完成ビルドになります。組み合わせは 4 x 4 の合計 16 種類です。HUD には `TRIAD: ASLT-I / PRSM-II`、`TRIAD: TRIN-II / ADPT-II` のような短縮表示が出ます。状態変化時だけ `TRIAD LINK ESTABLISHED` や `TRIAD MATRIX ONLINE` の短い通知が表示されます。
 
-TRIAD MATRIX の戦闘効果は、3 攻撃スキルと既存 SKILL MUTATION 効果だけへ適用されます。Support、Robot 本体/ミサイル/回復フィールド、LOST ARMS、NEMESIS固有報酬、GEEK報酬、ANJU MEMORY報酬、環境ダメージには適用しません。
+TRIAD MATRIX の戦闘効果は、選択中機体の3つの Mutation 対象攻撃スキルと既存 SKILL MUTATION 効果だけへ適用されます。REGALIA CANNON はこの段階では汎用のダメージ/クールダウン補正とTRIAD集計に対応し、専用の追加爆風や残留フィールドは未実装です。Support、Robot 本体/ミサイル/回復フィールド、LOST ARMS、NEMESIS固有報酬、GEEK報酬、ANJU MEMORY報酬、環境ダメージには適用しません。
 
 - `ASSAULT LINK I` / `ASSAULT ARRAY`: 3 攻撃スキルの実ダメージ x1.04 / x1.08。
 - `CONTROL LINK I` / `CONTROL GRID`: 既存 Mutation 由来の鈍足、持続、押し戻し、制圧フィールド系の制御性能 x1.06 / x1.12。
@@ -293,7 +295,7 @@ TRIAD MATRIX の戦闘効果は、3 攻撃スキルと既存 SKILL MUTATION 効�
 - `SINGULARITY LINK I` / `SINGULARITY DOMAIN`: 既存SINGULARITY Mutationのフィールド半径、持続、吸引/制圧系の値 x1.06 / x1.12。
 - `ADAPTIVE FORM`: Execution対象ダメージ x1.05、PRISM副次攻撃ダメージ x1.06、SINGULARITY系の値 x1.06。
 
-`MUTATION ATLAS` は OPERATIONS HUB の `ARCHIVE` タブ内サブビューから確認できます。`RUN ARCHIVE` / `MUTATION ATLAS` を切り替え、4 行 x 4 列のセルで 16 種類の完成ビルドを表示します。Atlas状態は `lastmemoVansabaMutationAtlasState` に保存され、GEEK、ANJU MEMORY本体計算、RUN ARCHIVE、ランキング、Firebaseには混ざりません。破損JSONや古い保存データでも 16 セルを初期化して起動します。
+`MUTATION ATLAS` は OPERATIONS HUB の `ARCHIVE` タブ内サブビューから確認できます。`RUN ARCHIVE` / `MUTATION ATLAS` を切り替え、さらに `DEFAULT FRAME` / `REGALIA BASTION` の機体タブごとに 4 行 x 4 列のセルで 16 種類の完成ビルドを表示します。Atlas状態は `lastmemoVansabaMutationAtlasState` に保存され、GEEK、ANJU MEMORY本体計算、RUN ARCHIVE、ランキング、Firebaseには混ざりません。破損JSONや古い保存データでも defaultBear 側へ移行し、各機体の 16 セルを初期化して起動します。
 
 Atlas進捗:
 
@@ -302,13 +304,13 @@ Atlas進捗:
 - `PRESERVED`: 完成ビルド成立、最大到達 Depth 6 以上、通常 `EXTRACT` 成功時だけ記録します。`EMERGENCY EXTRACT`、ゲームオーバー、Gate Collapse、初回Depth10 Final Raid帰還では記録しません。
 - 初回 `PRESERVED` 報酬として、既存ANJU MEMORYへ別枠の `ATLAS PRESERVE BONUS +1 AM` を 1 回だけ付与します。既存のANJU MEMORY三角数計算、マイルストーン、不安定度補正、ランキング/Firebase送信値には含めません。
 
-`MUTATION ATLAS` では 16 セルから `RESEARCH TARGET` を 1 つ選べます。未発見セルも対象にできます。選択中セルをもう一度押すか詳細パネルの `CLEAR TARGET` で解除できます。出撃開始時の `selectedTargetId` をラン内に snapshot するため、出撃中にショップ保存値が変わってもそのランの目標は変わりません。研究達成条件は、出撃開始時の targetId と完成ビルドIDが一致し、最大到達 Depth 8 以上で通常 `EXTRACT` 成功することです。達成時は `researchCompleted` を保存し、既存の Opening Boost Reroll Ticket を 1 枚だけ付与します。
+`MUTATION ATLAS` では機体タブごとに 16 セルから `RESEARCH TARGET` を 1 つ選べます。未発見セルも対象にできます。選択中セルをもう一度押すか詳細パネルの `CLEAR TARGET` で解除できます。出撃開始時の機体IDと targetId をラン内に snapshot するため、出撃中にショップ保存値が変わってもそのランの目標は変わりません。研究達成条件は、出撃開始時の機体IDと targetId が抽出時の機体IDと完成ビルドIDに一致し、最大到達 Depth 8 以上で通常 `EXTRACT` 成功することです。達成時は該当機体側の `researchCompleted` を保存し、既存の Opening Boost Reroll Ticket を 1 枚だけ付与します。
 
 Depth 6 以上の `DEEP EXTRACTION RESULT` では、完成ビルドがある場合に `TRIAD BUILD`、`ATLAS: DISCOVERED / PRESERVED`、`BEST DEPTH`、`ATLAS PRESERVE BONUS +1 AM`、`RESEARCH TARGET COMPLETE`、`OPENING BOOST REROLL +1` を別行で表示します。通常の抽出GEEK、緊急抽出保護率、既存ANJU MEMORY計算、ランキング登録、Firebase送信値は変更しません。RUN ARCHIVE 詳細にも `BUILD: CONTROL GRID / PRISM CASCADE` のように完成ビルドを保存・表示します。
 
 Depth10初回 Final Raid 中は TRIAD HUD、TRIAD戦闘効果、Atlas記録、PRESERVED、Research Target、Atlas報酬をすべて無効化します。Final Raid のボス、Add、巨大兵器、救援、タイマー、報酬、帰還ゲートには影響しません。Final Raid討伐後に後続ランで通常Depth10へ到達した場合は通常ランとしてTRIAD MATRIX / MUTATION ATLASの対象になります。
 
-検証用に `?debugTriadMatrix=1` を付けるとTRIAD再計算、状態遷移、完成 buildId を console に出します。`?debugTriadCore=assault|control|reactor|trinity` と `?debugTriadFinal=execution|prism|singularity|adaptive` は3スキルへラン内Mutationを注入します。この注入ランではAtlas保存、ANJU MEMORY報酬、Reroll Ticket報酬、Research完了、実RUN ARCHIVEへのTRIADビルド保存を行いません。`?debugMutationAtlas=1` はOPERATIONS HUB起動時に保存を書き換えないサンプルAtlasを表示します。
+検証用に `?debugTriadMatrix=1` を付けるとTRIAD再計算、状態遷移、完成 buildId を console に出します。`?debugTriadCore=assault|control|reactor|trinity` と `?debugTriadFinal=execution|prism|singularity|adaptive` は選択中機体の3つの Mutation 対象スキルへラン内Mutationを注入します。REGALIA側を確認する場合は `?debugPlayerMech=regaliaBastion` と併用します。この注入ランではAtlas保存、ANJU MEMORY報酬、Reroll Ticket報酬、Research完了、実RUN ARCHIVEへのTRIADビルド保存を行いません。`?debugMutationAtlas=1` はOPERATIONS HUB起動時に保存を書き換えないサンプルAtlasを表示します。
 
 通常のレベルアップ強化は Lv.25 までを基準にし、Depth 6 以降で Lv.25 に到達している場合は `DEEP LEVEL` 成長に切り替わります。`DEEP LEVEL` は Lv.99 まで上昇し、カード選択を出さずに 1 レベルごとに Lv.25 時点の最大AP基準で約 1% の最大APと同量の現在APを加算します。Depth 6 未満では `DEEP LEVEL` は解禁されません。
 
@@ -506,7 +508,7 @@ ANJU MEMORY ショップ報酬:
 
 BOOST EN は Quick Boost / 継続ブーストで消費し、EN 0 の `FULL_OVERHEAT` では全回復までブーストできません。Reactor Cooling や装備 BOOSTER の回復補正は通常回復量へ乗算され、FULL_OVERHEAT 中はその回復量に overheat 回復倍率がかかります。Air Brake 中と Air Brake 後の短い停止時間は既存どおり回復を抑制します。
 
-Quick Boost SE は Quick Boost / 継続ブーストの開始成功時だけ鳴ります。画面左側では `boostse_L.wav`、中央付近では `boostse_M.wav`、右側では `boostse_R.wav` を使い、runtime pan は通常OFFです。EN不足、不発、`FULL_OVERHEAT` / RECOVERING、NEED_RELEASE、Air Brake、POST_BOOST_GLIDE移行、Final Raidでは鳴りません。連続ブースト時のSEは cooldown 80ms / 最大3音までに制限します。
+Quick Boost SE は Quick Boost / 継続ブーストの開始成功時だけ鳴ります。画面左側では `boostse_L_v2.mp3`、中央付近では `boostse_M_v2.mp3`、右側では `boostse_R_v2.mp3` を使い、runtime pan は通常OFFです。EN不足、不発、`FULL_OVERHEAT` / RECOVERING、NEED_RELEASE、Air Brake、POST_BOOST_GLIDE移行、Final Raidでは鳴りません。連続ブースト時のSEは cooldown 80ms / 最大3音までに制限します。
 
 敵タイプ:
 
@@ -720,7 +722,7 @@ CD:
 
 CDSHOP では通常 CD を 3 列 x 2 段、`ドールを解放せし者` を大型ジャケットカードとして表示します。右側の HUD には購入・解放済み CD の合計ステータスボーナス、ACTIVE CDS、OPERATIONS HUB 全体の強化を表示専用に評価した TOTAL BONUS SCORE を表示します。
 
-OPTION では `BGM OUTPUT`、`SFX / VOICE OUTPUT`、`CONTROLLER INPUT` を ON / OFF できます。`BGM OUTPUT: OFF` は BGM の再生だけを止め、CD の選択、購入状態、永続ボーナス、CDボーナス集計には影響しません。Final Raid 専用BGM、ENDLESS VOID BGM、元素騎士BGM、サポート攻撃専用BGM、いしでん countdownBGM も BGM カテゴリとして停止します。`SFX / VOICE OUTPUT: OFF` は Quick Boost SE、Support SE、カットイン/通信ボイス、Final Raid support voice、Scrambled comms voice、元素騎士系 SE など BGM 以外の音を停止します。`CONTROLLER INPUT: OFF` の間は Gamepad API / Phaser Gamepad からの入力を無視します。
+OPTION では `BGM OUTPUT`、`SFX / VOICE OUTPUT`、`CONTROLLER INPUT` を ON / OFF できます。`BGM OUTPUT: OFF` は BGM の再生だけを止め、CD の選択、購入状態、永続ボーナス、CDボーナス集計には影響しません。Final Raid 専用BGM、ENDLESS VOID BGM、元素騎士BGM、サポート攻撃専用BGM、いしでん countdownBGM も BGM カテゴリとして停止します。`SFX / VOICE OUTPUT: OFF` は Quick Boost SE、REGALIA BASTION 専用SE、Support SE、カットイン/通信ボイス、Final Raid support voice、Scrambled comms voice、元素騎士系 SE など BGM 以外の音を停止します。`CONTROLLER INPUT: OFF` の間は Gamepad API / Phaser Gamepad からの入力を無視します。
 
 永続強化の価格は基礎 1,000 GEEK からレベルに応じて増加し、100 GEEK 単位に丸められます。ショップ表示前、帰還後、ゲーム再生成時には `shop-loading-screen` が表示されます。
 
@@ -803,10 +805,10 @@ localStorage キー:
 - `lastmemoVansabaCoins`: 確定 GEEK
 - `lastmemoVansabaOptionsState`: OPTION の BGM OUTPUT、SFX / VOICE OUTPUT、CONTROLLER INPUT の ON / OFF 状態
 - `lastmemoVansabaSupportLinkState`: SUPPORT LINK SYSTEM のインストール状態、LINK Lv、累計正常発動回数
-- `lastmemoVansabaShopState`: CD 所持、選択 BGM、永続強化状態、回収ロボ `cleaningRobotLevel`、`robotCustom`。`cleaningRobotLevel` は古い保存データに無い場合 Lv0 へ補完します。`robotCustom` は `missileCapTier`、`recoveryCapTier`、`napalmUnlocked`、`barrierUnlocked` を持ち、古い保存データに無い場合は初期値へ補完します。
+- `lastmemoVansabaShopState`: CD 所持、選択 BGM、永続強化状態、回収ロボ `cleaningRobotLevel`、`robotCustom`、プレイヤー機体 `playerMechs`。`cleaningRobotLevel` は古い保存データに無い場合 Lv0 へ補完します。`robotCustom` は `missileCapTier`、`recoveryCapTier`、`napalmUnlocked`、`barrierUnlocked` を持ち、`playerMechs` は所持機体 `ownedIds` と選択機体 `selectedId` を持ちます。古い保存データに無い場合は初期値へ補完します。
 - `lastmemoVansabaLostArmsState`: LOST ARMS 永続 Lv と pity
 - `lastmemoVansabaAnjuMemoryState`: ANJU MEMORY 残高、購入済み報酬、選択中スキン/称号/バッジ、チケット、到達済みマイルストーン
-- `lastmemoVansabaMutationAtlasState`: MUTATION ATLAS の 16 ビルド発見/保存/研究状態、Best Depth、選択中 Research Target
+- `lastmemoVansabaMutationAtlasState`: MUTATION ATLAS の機体別 16 ビルド発見/保存/研究状態、Best Depth、選択中機体タブ、選択中 Research Target
 - `lastmemoVansabaRunArchive`: 直近 20 件の RUN ARCHIVE / 戦闘ログ。ローカル閲覧専用でランキングや Firebase には送信しません。
 - `lastmemoVansabaFinalBossState`: Depth10 Final Raid 討伐済み、ラスボスCD、ラスボスサポート解禁状態、VOID HUNTER 討伐済み、VOID HUNTER サポート解禁状態
 - `lastmemoVansabaDepthRelayState`: DEPTH RELAY の解放済み転送 Depth を保存します。`version` と `unlockedDepths` を持ち、Final Raid 討伐済み旧セーブでは Depth10 が補完されます。Depth20 / Depth30 Anchor 解放後はプレイヤー向け選択 UI にそれぞれ Depth20 / Depth30 も表示されます。
@@ -872,6 +874,9 @@ http://127.0.0.1:4173/?debugGeekMilestone=1
 http://127.0.0.1:4173/?debugRankingDepth=1
 http://127.0.0.1:4173/?debugRunArchive=1
 http://127.0.0.1:4173/?debugRobotSync=1
+http://127.0.0.1:4173/?mobileGate=0&mobileControls=0&debugPlayerMech=regaliaBastion&debugSkipOpeningBoost=1
+http://127.0.0.1:4173/?mobileGate=0&mobileControls=0&debugPlayerMech=regaliaBastion&debugSkipOpeningBoost=1&debugAcMovementHud=1
+http://127.0.0.1:4173/?mobileGate=0&mobileControls=0&debugPlayerMechUnlock=1
 http://127.0.0.1:4173/?debugRobotMissileLevel=10&debugSkipOpeningBoost=1
 http://127.0.0.1:4173/?debugStartDepth=11&debugSkipOpeningBoost=1&debugEndlessVoidBgm=1&debugScrambledComms=1&debugScrambledCommsInterval=5
 http://127.0.0.1:4173/?debugRecoveryFieldScale=1

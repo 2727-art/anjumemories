@@ -38,6 +38,31 @@
     });
   };
 
+  const buildRegaliaBastionCannonFrames = () => {
+    return Array.from({ length: 8 }, (_, index) => {
+      const frameLabel = String(index + 1).padStart(2, "0");
+      return {
+        textureKey: `regalia-bastion-cannon-impact-${frameLabel}`,
+        imagePath: `./画像/skills/regalia_bastion_cannon/impact_${frameLabel}.png`
+      };
+    });
+  };
+
+  const buildRegaliaBastionCannonStage = (stage, options) => {
+    const animationFrames = buildRegaliaBastionCannonFrames();
+    return {
+      stage,
+      textureKey: animationFrames[0].textureKey,
+      imagePath: animationFrames[0].imagePath,
+      animationFrames,
+      frameDurationMs: 72,
+      damageTint: 0xdff7ff,
+      effectTint: 0x8ff4ff,
+      auraTint: 0xffd76b,
+      ...options
+    };
+  };
+
   window.skillDefinitions = {
     basicSkill: {
       id: "basicSkill",
@@ -514,6 +539,69 @@
           damageTint: 0xffffff
         })
       ]
+    },
+    regaliaBastionCannon: {
+      id: "regaliaBastionCannon",
+      name: "Regalia Bastion Cannon",
+      displayName: "Regalia Bastion Cannon",
+      jpName: "王装閃砲",
+      hudLabel: "Regalia",
+      iconTextureKey: "hud-icon-basic-skill",
+      hudIconTextureKey: "hud-icon-basic-skill",
+      behavior: "regaliaBastionCannon",
+      startsUnlocked: false,
+      exclusiveToMechId: "regaliaBastion",
+      description: "キャノン砲から閃光を放ち、着弾地点に大規模爆発を発生させる",
+      stages: [
+        buildRegaliaBastionCannonStage(1, {
+          damage: 14,
+          cooldownMs: 1900,
+          targetCount: 1,
+          impactRadius: 39
+        }),
+        buildRegaliaBastionCannonStage(2, {
+          damage: 18,
+          cooldownMs: 1900,
+          targetCount: 1,
+          impactRadius: 44
+        }),
+        buildRegaliaBastionCannonStage(3, {
+          damage: 20,
+          cooldownMs: 1900,
+          targetCount: 2,
+          impactRadius: 45
+        }),
+        buildRegaliaBastionCannonStage(4, {
+          damage: 26,
+          cooldownMs: 1900,
+          targetCount: 2,
+          impactRadius: 50
+        }),
+        buildRegaliaBastionCannonStage(5, {
+          damage: 30,
+          cooldownMs: 1900,
+          targetCount: 3,
+          impactRadius: 53
+        }),
+        buildRegaliaBastionCannonStage(6, {
+          damage: 38,
+          cooldownMs: 1900,
+          targetCount: 3,
+          impactRadius: 57
+        }),
+        buildRegaliaBastionCannonStage(7, {
+          damage: 46,
+          cooldownMs: 1900,
+          targetCount: 4,
+          impactRadius: 62
+        }),
+        buildRegaliaBastionCannonStage(8, {
+          damage: 58,
+          cooldownMs: 1900,
+          targetCount: 5,
+          impactRadius: 66
+        })
+      ]
     }
   };
 
@@ -638,6 +726,26 @@
           reactor_execution: "BOOST SPEAR",
           reactor_prism: "CAPACITOR HARE",
           reactor_singularity: "RABBIT GENERATOR"
+        }
+      },
+      regaliaBastionCannon: {
+        stage4Title: "REGALIA CANNON MUTATION CORE",
+        stage8Title: "REGALIA CANNON FINAL MUTATION",
+        coreLabels: {
+          assault: "ROYAL BATTERY CORE",
+          control: "ANCHOR BOMBARD CORE",
+          reactor: "SIEGE REACTOR CORE"
+        },
+        finalForms: {
+          assault_execution: "CROWN BREAKER",
+          assault_prism: "PRISM SALVO",
+          assault_singularity: "THRONE IMPACT",
+          control_execution: "LOCKDOWN CANNON",
+          control_prism: "TETHER BARRAGE",
+          control_singularity: "BASTION GRAVITY",
+          reactor_execution: "OVERDRIVE LANCE",
+          reactor_prism: "SYNC BATTERY",
+          reactor_singularity: "ROYAL FORTRESS"
         }
       }
     }
