@@ -24,6 +24,8 @@ LAN 上のスマートフォンで確認する場合は、PC とスマートフ�
 
 Cloudflare 配信では `_headers` で HTML を `max-age=0, must-revalidate`、JS / CSS / vendor / `画像/` / `音声/` を `max-age=31536000, immutable` にしています。`game.js`、`style.css`、`skillDefinitions.js`、`stageDefinitions.js`、`equipmentDefinitions.js` を更新した場合は、`index.html` 側の `?v=` を更新して長期キャッシュを更新してください。
 
+さらに `sw.js`(Service Worker)が画像・音声・JS・CSS を Cache API に cache-first で永続保存するため、一度ダウンロードしたアセットは 2 回目以降ローカルから配信されます(ブラウザの HTTP キャッシュ追い出しの影響を受けません)。既存アセットファイルを同じパスのまま差し替えた場合は、`sw.js` 内の `CACHE_NAME` のバージョンを上げて古いキャッシュを破棄してください。`?v=` を更新した JS / CSS は URL が変わるため自動的に新しいキャッシュエントリになります。`sw.js` 自体は `_headers` で `max-age=0` にしてあり、常に最新版が適用されます。
+
 ## 操作方法
 
 - 移動: `WASD` / 矢印キー / 左仮想スティック

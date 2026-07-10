@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-title" content="ラスメモヴァンサバ">
   <title>MIRAGE LABYRINTH</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="./style.css?v=asset-lazy-cache-v1">
+  <link rel="stylesheet" href="./style.css?v=sw-cache-v1">
 </head>
 <body>
   <div id="mobile-start-gate" class="mobile-start-gate" role="dialog" aria-modal="true" aria-labelledby="mobile-start-title" hidden>
@@ -99,10 +99,21 @@
     </section>
   </main>
 
+  <script>
+    // Persistent asset cache: after the first download, images/audio/scripts are
+    // served from the local Cache API instead of the network (see sw.js).
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js").catch(() => {});
+        // Ask the browser not to evict the cached ~180MB under storage pressure.
+        navigator.storage?.persist?.().catch?.(() => {});
+      });
+    }
+  </script>
   <script src="./vendor/phaser.min.js"></script>
-  <script src="./skillDefinitions.js?v=asset-lazy-cache-v1"></script>
-  <script src="./stageDefinitions.js?v=asset-lazy-cache-v1"></script>
-  <script src="./equipmentDefinitions.js?v=asset-lazy-cache-v1"></script>
-  <script src="./game.js?v=asset-lazy-cache-v1"></script>
+  <script src="./skillDefinitions.js?v=sw-cache-v1"></script>
+  <script src="./stageDefinitions.js?v=sw-cache-v1"></script>
+  <script src="./equipmentDefinitions.js?v=sw-cache-v1"></script>
+  <script src="./game.js?v=sw-cache-v1"></script>
 </body>
 </html>

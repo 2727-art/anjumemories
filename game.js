@@ -8354,6 +8354,7 @@ class SurvivalScene extends Phaser.Scene {
       : GEEK_SHOP_SUB_VIEW_BASE_CALIBRATION;
     this.equipmentAnalysisBusy = false;
     this.equipmentAnalysisResultOpen = false;
+    this.equipmentAnalysisResultBlocker = null;
     this.initializeFinalRaidLegendRewardState("createState");
     if (!this.shouldSkipFinalRaidLegendRetroactiveReward("createState")) {
       this.ensureRetroactiveFinalRaidLegendReward("createState");
@@ -16656,7 +16657,17 @@ class SurvivalScene extends Phaser.Scene {
     return this.normalizeEquipmentState(state).securedBoxes.find((box) => box.rarity === rarity) || null;
   }
 
+  syncEquipmentAnalysisResultOpenState() {
+    // Self-heal: if the result panel objects were destroyed by any overlay
+    // teardown path, the open flag must not keep the ANALYZE button BUSY.
+    if (this.equipmentAnalysisResultOpen && !this.equipmentAnalysisResultBlocker?.active) {
+      this.equipmentAnalysisResultOpen = false;
+      this.equipmentAnalysisResultBlocker = null;
+    }
+  }
+
   getEquipmentAnalysisButtonState(state, rarity, count) {
+    this.syncEquipmentAnalysisResultOpenState();
     if (this.normalizeCoinAmount(count) <= 0) {
       return {
         enabled: false,
@@ -16775,6 +16786,7 @@ class SurvivalScene extends Phaser.Scene {
     if (!this.shopActive || this.shopViewMode !== "geek" || this.geekShopSubView !== GEEK_SHOP_SUB_VIEW_EQUIPMENT_ANALYSIS) {
       return;
     }
+    this.syncEquipmentAnalysisResultOpenState();
     if (this.equipmentAnalysisBusy || this.equipmentAnalysisResultOpen) {
       return;
     }
@@ -16803,33 +16815,38 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     this.equipmentAnalysisBusy = true;
-    const netCost = this.normalizeCoinAmount(resolved.netCost);
-    if (netCost > 0 && !this.spendCoins(netCost)) {
-      this.equipmentAnalysisBusy = false;
-      this.showPreGameShop(`EQUIPMENT ANALYSIS: NEED ${this.formatEquipmentAnalysisCost(quote.actualCost)}`);
-      return;
-    }
+    try {
+      const netCost = this.normalizeCoinAmount(resolved.netCost);
+      if (netCost > 0 && !this.spendCoins(netCost)) {
+        this.equipmentAnalysisBusy = false;
+        this.showPreGameShop(`EQUIPMENT ANALYSIS: NEED ${this.formatEquipmentAnalysisCost(quote.actualCost)}`);
+        return;
+      }
 
-    this.equipmentState = this.normalizeEquipmentState(resolved.state);
-    const saveSucceeded = this.saveEquipmentState();
-    if (!saveSucceeded) {
-      const rollbackEquipmentSaved = this.restoreEquipmentAnalysisRollback(previousState, previousCoins);
-      this.equipmentAnalysisBusy = false;
-      this.logEquipmentAnalysisDebug(resolved, {
-        saveSucceeded: false,
-        rollback: true,
-        rollbackEquipmentSaved
-      });
-      this.showPreGameShop("ANALYSIS ABORTED / SAVE ERROR");
-      return;
-    }
+      this.equipmentState = this.normalizeEquipmentState(resolved.state);
+      const saveSucceeded = this.saveEquipmentState();
+      if (!saveSucceeded) {
+        const rollbackEquipmentSaved = this.restoreEquipmentAnalysisRollback(previousState, previousCoins);
+        this.equipmentAnalysisBusy = false;
+        this.logEquipmentAnalysisDebug(resolved, {
+          saveSucceeded: false,
+          rollback: true,
+          rollbackEquipmentSaved
+        });
+        this.showPreGameShop("ANALYSIS ABORTED / SAVE ERROR");
+        return;
+      }
 
-    this.shopStatusMessage = resolved.upgraded
-      ? "EQUIPMENT ANALYSIS: LOADOUT UPDATED"
-      : "EQUIPMENT ANALYSIS: DUPLICATE DATA REFUNDED";
-    this.equipmentAnalysisBusy = false;
-    this.logEquipmentAnalysisDebug(resolved, { saveSucceeded: true, rollback: false });
-    this.showEquipmentAnalysisResultPanel(resolved);
+      this.shopStatusMessage = resolved.upgraded
+        ? "EQUIPMENT ANALYSIS: LOADOUT UPDATED"
+        : "EQUIPMENT ANALYSIS: DUPLICATE DATA REFUNDED";
+      this.equipmentAnalysisBusy = false;
+      this.logEquipmentAnalysisDebug(resolved, { saveSucceeded: true, rollback: false });
+      this.showEquipmentAnalysisResultPanel(resolved);
+    } finally {
+      // A thrown save/render error must not leave the button stuck on BUSY.
+      this.equipmentAnalysisBusy = false;
+    }
   }
 
   isDuplicateLegendAnalysisResult(result) {
@@ -16859,6 +16876,7 @@ class SurvivalScene extends Phaser.Scene {
         .rectangle(0, 0, 1160, 674, 0x01060c, 0.66)
         .setInteractive()
     );
+    this.equipmentAnalysisResultBlocker = blocker;
     blocker.on("pointerup", (pointer, localX, localY, event) => {
       event?.stopPropagation?.();
     });
@@ -16970,6 +16988,7 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
     this.equipmentAnalysisResultOpen = false;
+    this.equipmentAnalysisResultBlocker = null;
     this.shopViewMode = "geek";
     this.geekShopSubView = GEEK_SHOP_SUB_VIEW_EQUIPMENT_ANALYSIS;
     this.showPreGameShop(this.shopStatusMessage);
@@ -28853,48 +28872,69 @@ class SurvivalScene extends Phaser.Scene {
     return true;
   }
 
-  loadAudioAssetOnDemand(audioKey, audioPath, onComplete = null) {
-    if (!audioKey || !audioPath || this.cache.audio.exists(audioKey)) {
-      return false;
-    }
-    if (this.load?.isLoading?.()) {
-      return false;
+  loadAssetOnDemand(type, key, queueFile, onComplete = null, onError = null) {
+    if (!this.onDemandAssetPendingKeys) {
+      this.onDemandAssetPendingKeys = new Set();
     }
 
-    this.assetLoadQueueKeys = new Set();
-    this.assetLoadQueuedCount = 0;
-    this.loadAudioIfNeeded(audioKey, audioPath);
-    this.assetLoadQueueKeys = null;
-    this.assetLoadQueuedCount = 0;
-    this.load.once("complete", () => {
-      if (typeof onComplete === "function") {
-        onComplete();
+    // Per-key "filecomplete" events keep callbacks correct even when several
+    // systems share the loader, and files may be appended to an active run.
+    const pendingKey = `${type}:${key}`;
+    const completeEvent = `filecomplete-${type}-${key}`;
+    if (typeof onComplete === "function") {
+      this.load.once(completeEvent, () => onComplete());
+    }
+    if (this.onDemandAssetPendingKeys.has(pendingKey)) {
+      return true;
+    }
+
+    this.onDemandAssetPendingKeys.add(pendingKey);
+    const handleLoadError = (file) => {
+      if (file?.key !== key || (file?.type && file.type !== type)) {
+        return;
       }
+      this.load.off("loaderror", handleLoadError);
+      this.onDemandAssetPendingKeys.delete(pendingKey);
+      if (typeof onError === "function") {
+        onError(file);
+      }
+    };
+    this.load.on("loaderror", handleLoadError);
+    this.load.once(completeEvent, () => {
+      this.load.off("loaderror", handleLoadError);
+      this.onDemandAssetPendingKeys.delete(pendingKey);
     });
-    this.load.start();
+    queueFile();
+    if (!this.load.isLoading()) {
+      this.load.start();
+    }
     return true;
   }
 
-  loadImageAssetOnDemand(textureKey, imagePath, onComplete = null) {
+  loadAudioAssetOnDemand(audioKey, audioPath, onComplete = null, onError = null) {
+    if (!audioKey || !audioPath || this.cache.audio.exists(audioKey)) {
+      return false;
+    }
+    return this.loadAssetOnDemand(
+      "audio",
+      audioKey,
+      () => this.load.audio(audioKey, [audioPath]),
+      onComplete,
+      onError
+    );
+  }
+
+  loadImageAssetOnDemand(textureKey, imagePath, onComplete = null, onError = null) {
     if (!textureKey || !imagePath || this.textures.exists(textureKey)) {
       return false;
     }
-    if (this.load?.isLoading?.()) {
-      return false;
-    }
-
-    this.assetLoadQueueKeys = new Set();
-    this.assetLoadQueuedCount = 0;
-    this.loadImageIfNeeded(textureKey, imagePath);
-    this.assetLoadQueueKeys = null;
-    this.assetLoadQueuedCount = 0;
-    this.load.once("complete", () => {
-      if (typeof onComplete === "function") {
-        onComplete();
-      }
-    });
-    this.load.start();
-    return true;
+    return this.loadAssetOnDemand(
+      "image",
+      textureKey,
+      () => this.load.image(textureKey, imagePath),
+      onComplete,
+      onError
+    );
   }
 
   playSelectedBgm(options = {}) {
@@ -28925,9 +28965,31 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     if (desiredMode === RUN_BGM_MODES.endlessVoid) {
-      if (this.endlessVoidBgmUnavailable || !this.cache.audio.exists(ENDLESS_VOID_BGM_CONFIG.audioKey)) {
-        this.endlessVoidBgmUnavailable = true;
+      if (this.endlessVoidBgmUnavailable) {
         this.warnEndlessVoidBgmMissing(reason);
+        if (!this.activeBgm) {
+          return this.playSelectedBgm({ fadeMs: 0 });
+        }
+        return false;
+      }
+      if (!this.cache.audio.exists(ENDLESS_VOID_BGM_CONFIG.audioKey)) {
+        // Runs starting at shallow depths never preloaded this track. Load it
+        // now and re-sync once ready; only a real load error disables it.
+        this.loadAudioAssetOnDemand(
+          ENDLESS_VOID_BGM_CONFIG.audioKey,
+          ENDLESS_VOID_BGM_CONFIG.audioPath,
+          () => {
+            if (this.shopActive || this.gameOver || this.extractionComplete) {
+              return;
+            }
+            this.syncDepthBgmForCurrentDepth("endlessVoidBgmLoaded", options);
+          },
+          () => {
+            this.endlessVoidBgmUnavailable = true;
+            this.warnEndlessVoidBgmMissing("loaderror");
+          }
+        );
+        this.debugLogEndlessVoidBgm("loading bgm on demand", { reason, depth: this.stageDepth });
         if (!this.activeBgm) {
           return this.playSelectedBgm({ fadeMs: 0 });
         }
@@ -52116,6 +52178,9 @@ class SurvivalScene extends Phaser.Scene {
         ) {
           this.showPreGameShop(this.shopStatusMessage || "");
         }
+      },
+      () => {
+        this.playerMechHangarBackgroundLoading = false;
       }
     );
     return this.playerMechHangarBackgroundLoading;
@@ -76422,6 +76487,8 @@ class SurvivalScene extends Phaser.Scene {
 
   clearOverlayButtons() {
     this.equipmentAnalysisResultOpen = false;
+    this.equipmentAnalysisResultBlocker = null;
+    this.equipmentAnalysisBusy = false;
     this.teardownLevelUpOverlay();
     this.teardownGateChoiceOverlay();
     this.teardownAnomalyContractOverlay();
