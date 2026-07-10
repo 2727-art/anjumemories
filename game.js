@@ -1932,6 +1932,8 @@ const DEPTH_RELAY_SUPPORTED_DEPTHS = Object.freeze([10, 20, 30]);
 const DEPTH_RELAY_UNLOCKABLE_DEPTHS = Object.freeze([10, 20, 30]);
 const DEPTH_RELAY_PLAYER_SELECTABLE_DEPTHS = Object.freeze([10, 20, 30]);
 const EQUIPMENT_STORAGE_KEY = "lastmemoVansabaEquipmentState";
+const EQUIPMENT_ANALYSIS_TRANSACTION_STORAGE_KEY = "lastmemoVansabaEquipmentAnalysisTransaction";
+const EQUIPMENT_ANALYSIS_TRANSACTION_VERSION = 1;
 const EQUIPMENT_DEBUG_QUERY_PARAM = "debugEquipmentState";
 const EQUIPMENT_HUB_DEBUG_QUERY_PARAM = "debugEquipmentHub";
 const EQUIPMENT_HUB_LEGEND_DEBUG_QUERY_PARAM = "debugEquipmentHubLegend";
@@ -3051,6 +3053,7 @@ const CD_PURCHASE_PRICE = 100000;
 const FINAL_BOSS_CD_ID = "finalBossLiberator";
 const FINAL_BOSS_SUPPORT_ID = "finalBossLiberatorSupport";
 const VOID_HUNTER_SUPPORT_ID = "voidHunterSupport";
+const STATIC_ASSET_VERSION = "asset-lazy-cache-v2";
 const OPENING_SHOP_BACKGROUND_TEXTURE_KEY = "opening-shop-bg";
 const OPENING_SHOP_BACKGROUND_PATH = "./画像/ui/opening_shop_bg.jpg";
 const PLAYER_MECH_HANGAR_BACKGROUND_TEXTURE_KEY = "player-mech-hangar-bg";
@@ -6460,18 +6463,19 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   preload() {
+    this.preloadInitialShopAssets();
+  }
+
+  preloadGameplayAssets() {
     this.preloadPlayerAssets();
     this.preloadHudAssets();
     this.preloadItemAssets();
     this.preloadRobotAssets();
-    this.preloadShopAssets();
+    this.preloadDeferredShopAssets();
     this.preloadStageAssets();
     this.preloadEnemyAssets();
     this.preloadBossAttackEffectAssets();
     this.preloadVoidHunterAssets();
-    this.preloadFinalBossRaidAssets();
-    this.preloadSupportAttackAssets();
-    this.preloadGensoKnightsSupportAssets();
     this.preloadAcMovementAudioAssets();
     this.preloadRegaliaBastionAudioAssets();
     this.preloadSkillAssets();
@@ -6492,20 +6496,54 @@ class SurvivalScene extends Phaser.Scene {
 
   loadImageIfNeeded(key, path) {
     if (!key || !path) {
-      return;
+      return false;
     }
 
-    if (!this.textures.exists(key)) {
-      this.load.image(key, path);
+    if (this.textures.exists(key) || this.isAssetLoadQueued("image", key) || this.isAssetLoadPending("image", key)) {
+      return false;
     }
+    this.markAssetLoadQueued("image", key);
+    this.load.image(key, this.getVersionedAssetPath(path));
+    return true;
   }
 
   loadAudioIfNeeded(key, path) {
-    if (!key || !path || this.cache.audio.exists(key)) {
-      return;
+    if (!key || !path || this.cache.audio.exists(key) || this.isAssetLoadQueued("audio", key) || this.isAssetLoadPending("audio", key)) {
+      return false;
     }
 
-    this.load.audio(key, [path]);
+    this.markAssetLoadQueued("audio", key);
+    this.load.audio(key, [this.getVersionedAssetPath(path)]);
+    return true;
+  }
+
+  getVersionedAssetPath(path) {
+    const source = String(path || "");
+    if (!source || source.startsWith("data:") || source.startsWith("blob:")) {
+      return source;
+    }
+    const separator = source.includes("?") ? "&" : "?";
+    return `${source}${separator}v=${STATIC_ASSET_VERSION}`;
+  }
+
+  isAssetLoadQueued(type, key) {
+    return Boolean(this.assetLoadQueueKeys?.has(`${type}:${key}`));
+  }
+
+  isAssetLoadPending(type, key) {
+    return Boolean(this.onDemandAssetLoads?.has(`${type}:${key}`));
+  }
+
+  markAssetLoadQueued(type, key) {
+    if (!this.assetLoadQueueKeys) {
+      return;
+    }
+    const scopedKey = `${type}:${key}`;
+    if (this.assetLoadQueueKeys.has(scopedKey)) {
+      return;
+    }
+    this.assetLoadQueueKeys.add(scopedKey);
+    this.assetLoadQueuedCount = (this.assetLoadQueuedCount || 0) + 1;
   }
 
   preloadAcMovementAudioAssets() {
@@ -6589,22 +6627,85 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
-  preloadShopAssets() {
+  preloadInitialShopAssets() {
     this.loadImageIfNeeded(OPENING_SHOP_BACKGROUND_TEXTURE_KEY, OPENING_SHOP_BACKGROUND_PATH);
-    this.loadImageIfNeeded(PLAYER_MECH_HANGAR_BACKGROUND_TEXTURE_KEY, PLAYER_MECH_HANGAR_BACKGROUND_PATH);
-    this.loadAudioIfNeeded(ENDLESS_VOID_BGM_CONFIG.audioKey, ENDLESS_VOID_BGM_CONFIG.audioPath);
+    this.loadImageIfNeeded(ITEM_IMAGE_ASSETS.coin.textureKey, ITEM_IMAGE_ASSETS.coin.imagePath);
+    ROBOT_IMAGE_ASSETS.cleaningRobotLevels.forEach((asset) => {
+      this.loadImageIfNeeded(asset.textureKey, asset.imagePath);
+    });
     CD_CATALOG.forEach((cd) => {
       this.loadImageIfNeeded(cd.jacketTextureKey, cd.jacketPath);
       if (cd.lockedJacketTextureKey && cd.lockedJacketPath) {
         this.loadImageIfNeeded(cd.lockedJacketTextureKey, cd.lockedJacketPath);
       }
-      this.loadAudioIfNeeded(cd.audioKey, cd.audioPath);
     });
+  }
+
+  preloadDeferredShopAssets() {
+    this.preloadSelectedCdAudioAsset();
+    if (this.shouldPreloadEndlessVoidBgmForRun()) {
+      this.loadAudioIfNeeded(ENDLESS_VOID_BGM_CONFIG.audioKey, ENDLESS_VOID_BGM_CONFIG.audioPath);
+    }
     [...SCRAMBLED_COMMS_CONFIG.intro, ...SCRAMBLED_COMMS_CONFIG.lines].forEach((entry) => {
       if (entry.voiceKey && entry.voicePath) {
         this.loadAudioIfNeeded(entry.voiceKey, entry.voicePath);
       }
     });
+  }
+
+  preloadSelectedCdAudioAsset() {
+    const selectedCd = this.getSelectedCdDefinition?.();
+    if (!selectedCd?.audioKey || !selectedCd.audioPath) {
+      return false;
+    }
+    return this.loadAudioIfNeeded(selectedCd.audioKey, selectedCd.audioPath);
+  }
+
+  shouldPreloadEndlessVoidBgmForRun() {
+    const startDepth = Math.max(1, Math.floor(Number(this.runStartContext?.runStartDepth || this.stageDepth) || 1));
+    return this.shouldUseEndlessVoidAtmosphereForDepth?.(startDepth, this.depthRelayState) === true;
+  }
+
+  areFinalBossRaidAssetsLoaded() {
+    const fieldReady = !FINAL_BOSS_RAID_CONFIG.field?.textureKey
+      || this.textures.exists(FINAL_BOSS_RAID_CONFIG.field.textureKey)
+      || this.textures.exists(FINAL_BOSS_RAID_CONFIG.field.fallbackTextureKey);
+    const backgroundReady = !FINAL_BOSS_RAID_CONFIG.background?.textureKey
+      || this.textures.exists(FINAL_BOSS_RAID_CONFIG.background.textureKey);
+    const phasesReady = FINAL_BOSS_RAID_CONFIG.phases.every((phase) => (
+      !phase.textureKey || this.textures.exists(phase.textureKey)
+    ));
+    return Boolean(fieldReady && backgroundReady && phasesReady);
+  }
+
+  loadFinalBossRaidAssetsThenBegin(transition = {}, options = {}) {
+    if (this.finalBossRaidAssetsLoading) {
+      return true;
+    }
+
+    this.finalBossRaidAssetsLoading = true;
+    showShopLoadingScreen({ mode: "shop", title: "Final Raid 準備中" });
+    this.assetLoadQueueKeys = new Set();
+    this.assetLoadQueuedCount = 0;
+    this.preloadFinalBossRaidAssets();
+    const queuedCount = this.assetLoadQueuedCount || 0;
+
+    const complete = () => {
+      this.finalBossRaidAssetsLoading = false;
+      this.assetLoadQueueKeys = null;
+      this.assetLoadQueuedCount = 0;
+      hideShopLoadingScreen({ immediate: true });
+      this.beginFinalBossRaid(transition, options);
+    };
+
+    if (queuedCount <= 0) {
+      complete();
+      return true;
+    }
+
+    this.load.once("complete", complete);
+    this.load.start();
+    return true;
   }
 
   preloadStageAssets() {
@@ -6679,34 +6780,48 @@ class SurvivalScene extends Phaser.Scene {
 
   preloadSupportAttackAssets() {
     SUPPORT_ATTACK_DEFINITIONS.forEach((definition) => {
-      this.loadImageIfNeeded(definition.cutinTextureKey, definition.cutinPath);
-      this.loadAudioIfNeeded(definition.supportBgmKey, definition.supportBgmPath);
-      this.loadAudioIfNeeded(definition.cutinVoiceKey, definition.cutinVoicePath);
-      this.loadAudioIfNeeded(definition.arrivalSeKey, definition.arrivalSePath);
-      this.loadAudioIfNeeded(definition.fieldStartSeKey, definition.fieldStartSePath);
-      this.loadAudioIfNeeded(definition.statusApplySeKey, definition.statusApplySePath);
-      this.loadAudioIfNeeded(definition.healTickSeKey, definition.healTickSePath);
-      this.loadAudioIfNeeded(definition.dashMoveSeKey, definition.dashMoveSePath);
-      this.loadAudioIfNeeded(definition.dashHitSeKey, definition.dashHitSePath);
-      this.loadAudioIfNeeded(definition.thunderSeKey, definition.thunderSePath);
-      this.loadAudioIfNeeded(definition.countdownBgmKey, definition.countdownBgmPath);
-      this.loadAudioIfNeeded(definition.titleLetterSeKey, definition.titleLetterSePath);
-      this.loadAudioIfNeeded(definition.titleFinalSeKey, definition.titleFinalSePath);
-      this.loadImageIfNeeded(definition.pushTextureKey, definition.pushPath);
-      definition.titleLetterFrames?.forEach((frame) => {
-        this.loadImageIfNeeded(frame.textureKey, frame.imagePath);
-      });
-      definition.animationFrames.forEach((frame) => {
-        this.loadImageIfNeeded(frame.textureKey, frame.imagePath);
-      });
-      definition.fieldEffectFrames?.forEach((frame) => {
-        this.loadImageIfNeeded(frame.textureKey, frame.imagePath);
-      });
+      this.preloadSupportAttackDefinitionAssets(definition);
     });
   }
 
   preloadGensoKnightsSupportAssets() {
     const definition = GENSO_KNIGHTS_SUPPORT_DEFINITION;
+    this.preloadGensoKnightsSupportDefinitionAssets(definition);
+  }
+
+  preloadSupportAttackDefinitionAssets(definition) {
+    if (!definition) {
+      return;
+    }
+    this.loadImageIfNeeded(definition.cutinTextureKey, definition.cutinPath);
+    this.loadAudioIfNeeded(definition.supportBgmKey, definition.supportBgmPath);
+    this.loadAudioIfNeeded(definition.cutinVoiceKey, definition.cutinVoicePath);
+    this.loadAudioIfNeeded(definition.arrivalSeKey, definition.arrivalSePath);
+    this.loadAudioIfNeeded(definition.fieldStartSeKey, definition.fieldStartSePath);
+    this.loadAudioIfNeeded(definition.statusApplySeKey, definition.statusApplySePath);
+    this.loadAudioIfNeeded(definition.healTickSeKey, definition.healTickSePath);
+    this.loadAudioIfNeeded(definition.dashMoveSeKey, definition.dashMoveSePath);
+    this.loadAudioIfNeeded(definition.dashHitSeKey, definition.dashHitSePath);
+    this.loadAudioIfNeeded(definition.thunderSeKey, definition.thunderSePath);
+    this.loadAudioIfNeeded(definition.countdownBgmKey, definition.countdownBgmPath);
+    this.loadAudioIfNeeded(definition.titleLetterSeKey, definition.titleLetterSePath);
+    this.loadAudioIfNeeded(definition.titleFinalSeKey, definition.titleFinalSePath);
+    this.loadImageIfNeeded(definition.pushTextureKey, definition.pushPath);
+    definition.titleLetterFrames?.forEach((frame) => {
+      this.loadImageIfNeeded(frame.textureKey, frame.imagePath);
+    });
+    definition.animationFrames?.forEach((frame) => {
+      this.loadImageIfNeeded(frame.textureKey, frame.imagePath);
+    });
+    definition.fieldEffectFrames?.forEach((frame) => {
+      this.loadImageIfNeeded(frame.textureKey, frame.imagePath);
+    });
+  }
+
+  preloadGensoKnightsSupportDefinitionAssets(definition) {
+    if (!definition) {
+      return;
+    }
     this.loadImageIfNeeded(definition.cutinTextureKey, definition.cutinPath);
     this.loadAudioIfNeeded(definition.bgmKey, definition.bgmPath);
     definition.bossAssets.forEach((asset) => {
@@ -7707,18 +7822,8 @@ class SurvivalScene extends Phaser.Scene {
   create() {
     this.sound.stopAll();
     this.createGeneratedTextures();
-    this.createEnemyAnimations();
-    this.createRareItemPillarAnimations();
     this.createState();
-    this.createWorld();
-    this.createGroups();
-    this.createPlayer();
-    this.createRobotCompanion();
-    this.createCleaningRobotCompanion();
-    this.createPlayerSkills();
     this.createInput();
-    this.createHud();
-    this.createCommsUi();
     this.createOverlay();
     const runShutdownCleanup = (cleanup) => {
       if (!this.skipShopReturnSceneShutdownCleanup) {
@@ -7765,14 +7870,11 @@ class SurvivalScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.discardRunEquipmentBoxes("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetRunEquipmentCombatLinkState("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetRunEquipmentCombatLinkState("sceneDestroy"));
-    this.setupMobileControls();
-    this.configureCameras();
-    this.createColliders();
-    this.spawnEnemyWave();
-    this.shootTimer = this.stats.fireInterval * 0.6;
-    this.syncPlayerVisuals();
-    this.updateSkills(0);
-    this.updateHud();
+    this.gameplayRuntimeCreated = false;
+    this.gameplayAssetsLoading = false;
+    this.pendingSortieAfterGameplayAssets = false;
+    this.pendingGameplayAssetsLoadErrors = [];
+    this.physics?.world?.pause();
     this.showPreGameShop(this.consumePendingExtractionShopMessage());
     this.continuePendingRunLaunchRequestFromHub("create");
     if (this.isDeepExtractionResultDebugEnabled() && !this.isRankingDebugEnabled()) {
@@ -7781,6 +7883,33 @@ class SurvivalScene extends Phaser.Scene {
     if (this.isRankingDebugEnabled()) {
       this.time.delayedCall(120, () => this.showDebugRankingOverlay());
     }
+  }
+
+  createGameplayRuntime() {
+    if (this.gameplayRuntimeCreated) {
+      return true;
+    }
+
+    this.createEnemyAnimations();
+    this.createRareItemPillarAnimations();
+    this.createWorld();
+    this.createGroups();
+    this.createPlayer();
+    this.createRobotCompanion();
+    this.createCleaningRobotCompanion();
+    this.createPlayerSkills();
+    this.createHud();
+    this.createCommsUi();
+    this.setupMobileControls();
+    this.configureCameras();
+    this.createColliders();
+    this.spawnEnemyWave();
+    this.shootTimer = this.stats.fireInterval * 0.6;
+    this.syncPlayerVisuals();
+    this.updateSkills(0);
+    this.updateHud();
+    this.gameplayRuntimeCreated = true;
+    return true;
   }
 
   createEnemyAnimations() {
@@ -7920,6 +8049,19 @@ class SurvivalScene extends Phaser.Scene {
     graphics.fillStyle(0xffffff, 0.42);
     graphics.fillRoundedRect(7, 7, 18, 10, 4);
     graphics.generateTexture("rare-token", 32, 32);
+    graphics.clear();
+
+    graphics.fillStyle(0x4a3208, 1);
+    graphics.fillCircle(16, 16, 14);
+    graphics.lineStyle(3, 0xf0c463, 1);
+    graphics.strokeCircle(16, 16, 12);
+    graphics.lineStyle(1, 0xfff1b0, 0.92);
+    graphics.strokeCircle(16, 16, 8);
+    graphics.fillStyle(0xf8dc7a, 1);
+    graphics.fillRoundedRect(13, 8, 6, 16, 2);
+    graphics.fillStyle(0xfff7cf, 0.72);
+    graphics.fillRect(14, 9, 2, 12);
+    graphics.generateTexture("shop-geek-token", 32, 32);
     graphics.clear();
 
     graphics.fillStyle(0x062434, 0.98);
@@ -8228,6 +8370,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   createState() {
+    this.recoverEquipmentAnalysisTransaction();
     this.shopState = this.loadShopState();
     this.optionsState = this.loadOptionsState();
     this.anjuMemoryState = this.loadAnjuMemoryState();
@@ -8245,6 +8388,7 @@ class SurvivalScene extends Phaser.Scene {
       : GEEK_SHOP_SUB_VIEW_BASE_CALIBRATION;
     this.equipmentAnalysisBusy = false;
     this.equipmentAnalysisResultOpen = false;
+    this.equipmentAnalysisResultBlocker = null;
     this.initializeFinalRaidLegendRewardState("createState");
     if (!this.shouldSkipFinalRaidLegendRetroactiveReward("createState")) {
       this.ensureRetroactiveFinalRaidLegendReward("createState");
@@ -13403,12 +13547,163 @@ class SurvivalScene extends Phaser.Scene {
 
   persistEquipmentState(state) {
     try {
-      window.localStorage?.setItem(EQUIPMENT_STORAGE_KEY, JSON.stringify(state));
-      return true;
+      const serialized = JSON.stringify(state);
+      window.localStorage?.setItem(EQUIPMENT_STORAGE_KEY, serialized);
+      return window.localStorage?.getItem(EQUIPMENT_STORAGE_KEY) === serialized;
     } catch (error) {
       console.warn("[EQUIPMENT] failed to save equipment state", error);
       return false;
     }
+  }
+
+  readEquipmentAnalysisTransaction() {
+    try {
+      const raw = window.localStorage?.getItem(EQUIPMENT_ANALYSIS_TRANSACTION_STORAGE_KEY) || "";
+      if (!raw) {
+        return null;
+      }
+      const parsed = JSON.parse(raw);
+      if (
+        parsed?.version !== EQUIPMENT_ANALYSIS_TRANSACTION_VERSION ||
+        !parsed.previousEquipmentState ||
+        !parsed.nextEquipmentState
+      ) {
+        throw new Error("invalid equipment analysis transaction");
+      }
+      return {
+        version: EQUIPMENT_ANALYSIS_TRANSACTION_VERSION,
+        createdAt: Math.max(0, Math.floor(Number(parsed.createdAt) || 0)),
+        previousCoins: this.normalizeCoinAmount(parsed.previousCoins),
+        nextCoins: this.normalizeCoinAmount(parsed.nextCoins),
+        previousEquipmentState: this.normalizeEquipmentState(parsed.previousEquipmentState),
+        nextEquipmentState: this.normalizeEquipmentState(parsed.nextEquipmentState)
+      };
+    } catch (error) {
+      console.warn("[EQUIPMENT ANALYSIS] invalid transaction journal", error);
+      try {
+        window.localStorage?.removeItem(EQUIPMENT_ANALYSIS_TRANSACTION_STORAGE_KEY);
+      } catch (removeError) {
+        console.warn("[EQUIPMENT ANALYSIS] failed to remove invalid transaction journal", removeError);
+      }
+      return null;
+    }
+  }
+
+  persistEquipmentAnalysisTransaction(transaction) {
+    try {
+      const serialized = JSON.stringify(transaction);
+      window.localStorage?.setItem(EQUIPMENT_ANALYSIS_TRANSACTION_STORAGE_KEY, serialized);
+      return window.localStorage?.getItem(EQUIPMENT_ANALYSIS_TRANSACTION_STORAGE_KEY) === serialized;
+    } catch (error) {
+      console.warn("[EQUIPMENT ANALYSIS] failed to save transaction journal", error);
+      return false;
+    }
+  }
+
+  clearEquipmentAnalysisTransaction() {
+    try {
+      window.localStorage?.removeItem(EQUIPMENT_ANALYSIS_TRANSACTION_STORAGE_KEY);
+      return !window.localStorage?.getItem(EQUIPMENT_ANALYSIS_TRANSACTION_STORAGE_KEY);
+    } catch (error) {
+      console.warn("[EQUIPMENT ANALYSIS] failed to clear transaction journal", error);
+      return false;
+    }
+  }
+
+  readPersistedEquipmentStateForVerification() {
+    try {
+      const raw = window.localStorage?.getItem(EQUIPMENT_STORAGE_KEY) || "";
+      return raw ? this.normalizeEquipmentState(JSON.parse(raw)) : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  recoverEquipmentAnalysisTransaction() {
+    const transaction = this.readEquipmentAnalysisTransaction();
+    if (!transaction) {
+      return false;
+    }
+
+    const persistedEquipment = this.readPersistedEquipmentStateForVerification();
+    const persistedCoins = this.loadCoinWallet();
+    const alreadyCommitted = (
+      persistedEquipment &&
+      this.isEquipmentStateEquivalent(persistedEquipment, transaction.nextEquipmentState) &&
+      persistedCoins === transaction.nextCoins
+    );
+    if (alreadyCommitted) {
+      this.clearEquipmentAnalysisTransaction();
+      return true;
+    }
+
+    const equipmentRestored = this.persistEquipmentState(transaction.previousEquipmentState);
+    const coinsRestored = this.persistCoinWalletAmount(transaction.previousCoins);
+    if (equipmentRestored && coinsRestored) {
+      this.clearEquipmentAnalysisTransaction();
+      console.warn("[EQUIPMENT ANALYSIS] recovered an interrupted transaction");
+      return true;
+    }
+
+    console.warn("[EQUIPMENT ANALYSIS] transaction recovery remains pending", {
+      equipmentRestored,
+      coinsRestored
+    });
+    return false;
+  }
+
+  commitEquipmentAnalysisTransaction(previousState, previousCoins, nextState, nextCoins) {
+    const normalizedPreviousState = this.normalizeEquipmentState(previousState);
+    const normalizedNextState = this.normalizeEquipmentState(nextState);
+    const normalizedPreviousCoins = this.normalizeCoinAmount(previousCoins);
+    const normalizedNextCoins = this.normalizeCoinAmount(nextCoins);
+    const transaction = {
+      version: EQUIPMENT_ANALYSIS_TRANSACTION_VERSION,
+      createdAt: Date.now(),
+      previousCoins: normalizedPreviousCoins,
+      nextCoins: normalizedNextCoins,
+      previousEquipmentState: normalizedPreviousState,
+      nextEquipmentState: normalizedNextState
+    };
+
+    if (!this.persistEquipmentAnalysisTransaction(transaction)) {
+      return { ok: false, journalSaved: false, equipmentRestored: true, coinsRestored: true };
+    }
+
+    const equipmentSaved = this.persistEquipmentState(normalizedNextState);
+    const coinsSaved = equipmentSaved && this.persistCoinWalletAmount(normalizedNextCoins);
+    const persistedEquipment = equipmentSaved ? this.readPersistedEquipmentStateForVerification() : null;
+    const committed = Boolean(
+      equipmentSaved &&
+      coinsSaved &&
+      persistedEquipment &&
+      this.isEquipmentStateEquivalent(persistedEquipment, normalizedNextState) &&
+      this.loadCoinWallet() === normalizedNextCoins
+    );
+    if (committed) {
+      this.equipmentState = normalizedNextState;
+      this.coins = normalizedNextCoins;
+      this.clearEquipmentAnalysisTransaction();
+      this.refreshPersistentWalletHud();
+      return { ok: true, journalSaved: true, equipmentSaved: true, coinsSaved: true };
+    }
+
+    const equipmentRestored = this.persistEquipmentState(normalizedPreviousState);
+    const coinsRestored = this.persistCoinWalletAmount(normalizedPreviousCoins);
+    this.equipmentState = normalizedPreviousState;
+    this.coins = normalizedPreviousCoins;
+    if (equipmentRestored && coinsRestored) {
+      this.clearEquipmentAnalysisTransaction();
+    }
+    this.refreshPersistentWalletHud();
+    return {
+      ok: false,
+      journalSaved: true,
+      equipmentSaved,
+      coinsSaved,
+      equipmentRestored,
+      coinsRestored
+    };
   }
 
   loadEquipmentState() {
@@ -16547,7 +16842,16 @@ class SurvivalScene extends Phaser.Scene {
     return this.normalizeEquipmentState(state).securedBoxes.find((box) => box.rarity === rarity) || null;
   }
 
+  syncEquipmentAnalysisResultOpenState() {
+    if (this.equipmentAnalysisResultOpen && !this.equipmentAnalysisResultBlocker?.active) {
+      this.equipmentAnalysisResultOpen = false;
+      this.equipmentAnalysisResultBlocker = null;
+    }
+    return this.equipmentAnalysisResultOpen;
+  }
+
   getEquipmentAnalysisButtonState(state, rarity, count) {
+    this.syncEquipmentAnalysisResultOpenState();
     if (this.normalizeCoinAmount(count) <= 0) {
       return {
         enabled: false,
@@ -16641,8 +16945,8 @@ class SurvivalScene extends Phaser.Scene {
     this.equipmentState = this.normalizeEquipmentState(previousState);
     this.coins = this.normalizeCoinAmount(previousCoins);
     const equipmentRestored = this.saveEquipmentState();
-    this.saveCoinWallet();
-    this.updateHud();
+    const coinsRestored = this.saveCoinWallet();
+    this.refreshPersistentWalletHud();
 
     try {
       const savedCoins = this.normalizeCoinAmount(window.localStorage?.getItem(COIN_WALLET_STORAGE_KEY));
@@ -16659,13 +16963,14 @@ class SurvivalScene extends Phaser.Scene {
     if (!equipmentRestored) {
       console.warn("[EQUIPMENT ANALYSIS] rollback equipment save failed");
     }
-    return equipmentRestored;
+    return equipmentRestored && coinsRestored;
   }
 
   analyzeSecuredEquipmentBox(boxId) {
     if (!this.shopActive || this.shopViewMode !== "geek" || this.geekShopSubView !== GEEK_SHOP_SUB_VIEW_EQUIPMENT_ANALYSIS) {
       return;
     }
+    this.syncEquipmentAnalysisResultOpenState();
     if (this.equipmentAnalysisBusy || this.equipmentAnalysisResultOpen) {
       return;
     }
@@ -16694,33 +16999,46 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     this.equipmentAnalysisBusy = true;
-    const netCost = this.normalizeCoinAmount(resolved.netCost);
-    if (netCost > 0 && !this.spendCoins(netCost)) {
-      this.equipmentAnalysisBusy = false;
-      this.showPreGameShop(`EQUIPMENT ANALYSIS: NEED ${this.formatEquipmentAnalysisCost(quote.actualCost)}`);
-      return;
-    }
+    let committed = false;
+    try {
+      const netCost = this.normalizeCoinAmount(resolved.netCost);
+      const nextCoins = this.normalizeCoinAmount(previousCoins - netCost);
+      const transactionResult = this.commitEquipmentAnalysisTransaction(
+        previousState,
+        previousCoins,
+        resolved.state,
+        nextCoins
+      );
+      if (!transactionResult.ok) {
+        this.logEquipmentAnalysisDebug(resolved, {
+          saveSucceeded: false,
+          rollback: true,
+          rollbackEquipmentSaved: transactionResult.equipmentRestored === true
+        });
+        this.showPreGameShop("ANALYSIS ABORTED / SAVE ERROR");
+        return;
+      }
 
-    this.equipmentState = this.normalizeEquipmentState(resolved.state);
-    const saveSucceeded = this.saveEquipmentState();
-    if (!saveSucceeded) {
-      const rollbackEquipmentSaved = this.restoreEquipmentAnalysisRollback(previousState, previousCoins);
+      committed = true;
+      this.shopStatusMessage = resolved.upgraded
+        ? "EQUIPMENT ANALYSIS: LOADOUT UPDATED"
+        : "EQUIPMENT ANALYSIS: DUPLICATE DATA REFUNDED";
       this.equipmentAnalysisBusy = false;
-      this.logEquipmentAnalysisDebug(resolved, {
-        saveSucceeded: false,
-        rollback: true,
-        rollbackEquipmentSaved
-      });
-      this.showPreGameShop("ANALYSIS ABORTED / SAVE ERROR");
-      return;
+      this.logEquipmentAnalysisDebug(resolved, { saveSucceeded: true, rollback: false });
+      this.showPreGameShop(this.shopStatusMessage);
+      if (!this.showEquipmentAnalysisResultPanel(resolved)) {
+        this.showPreGameShop("EQUIPMENT ANALYSIS SAVED / DISPLAY ERROR");
+      }
+    } catch (error) {
+      console.warn("[EQUIPMENT ANALYSIS] analysis flow failed", error);
+      this.equipmentAnalysisResultOpen = false;
+      this.equipmentAnalysisResultBlocker = null;
+      this.showPreGameShop(committed
+        ? "EQUIPMENT ANALYSIS SAVED / DISPLAY ERROR"
+        : "ANALYSIS ABORTED / SAVE ERROR");
+    } finally {
+      this.equipmentAnalysisBusy = false;
     }
-
-    this.shopStatusMessage = resolved.upgraded
-      ? "EQUIPMENT ANALYSIS: LOADOUT UPDATED"
-      : "EQUIPMENT ANALYSIS: DUPLICATE DATA REFUNDED";
-    this.equipmentAnalysisBusy = false;
-    this.logEquipmentAnalysisDebug(resolved, { saveSucceeded: true, rollback: false });
-    this.showEquipmentAnalysisResultPanel(resolved);
   }
 
   isDuplicateLegendAnalysisResult(result) {
@@ -16738,10 +17056,11 @@ class SurvivalScene extends Phaser.Scene {
 
   showEquipmentAnalysisResultPanel(result) {
     if (!result?.ok) {
-      return;
+      return false;
     }
 
-    this.equipmentAnalysisResultOpen = true;
+    this.equipmentAnalysisResultOpen = false;
+    this.equipmentAnalysisResultBlocker = null;
     this.overlayActions = [];
     const duplicateLegend = this.isDuplicateLegendAnalysisResult(result);
 
@@ -16854,13 +17173,17 @@ class SurvivalScene extends Phaser.Scene {
       align: "center",
       origin: { x: 0.5, y: 0 }
     });
+    this.equipmentAnalysisResultBlocker = blocker;
+    this.equipmentAnalysisResultOpen = true;
+    return true;
   }
 
   closeEquipmentAnalysisResultPanel() {
-    if (!this.equipmentAnalysisResultOpen) {
+    if (!this.syncEquipmentAnalysisResultOpenState()) {
       return;
     }
     this.equipmentAnalysisResultOpen = false;
+    this.equipmentAnalysisResultBlocker = null;
     this.shopViewMode = "geek";
     this.geekShopSubView = GEEK_SHOP_SUB_VIEW_EQUIPMENT_ANALYSIS;
     this.showPreGameShop(this.shopStatusMessage);
@@ -17754,6 +18077,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   beginFinalBossRaid(transition = {}, options = {}) {
+    if (!this.areFinalBossRaidAssetsLoaded()) {
+      return this.loadFinalBossRaidAssetsThenBegin(transition, options);
+    }
+
     const targetDepth = Math.max(1, Math.floor(Number(transition?.targetDepth) || this.stageDepth || 1));
     const mode = transition?.mode === "force" ? "force" : "next";
     const dataCacheCount = Math.max(0, Math.floor(Number(options.dataCacheCount) || 0));
@@ -28177,9 +28504,13 @@ class SurvivalScene extends Phaser.Scene {
       return false;
     }
 
-    this.coins = this.normalizeCoinAmount(this.coins - value);
-    this.saveCoinWallet();
-    this.updateHud();
+    const previousCoins = this.normalizeCoinAmount(this.coins);
+    this.coins = this.normalizeCoinAmount(previousCoins - value);
+    if (!this.saveCoinWallet()) {
+      this.coins = previousCoins;
+      return false;
+    }
+    this.refreshPersistentWalletHud();
     return true;
   }
 
@@ -28740,7 +29071,115 @@ class SurvivalScene extends Phaser.Scene {
     return true;
   }
 
+  loadAssetOnDemand(type, key, queueFile, onComplete = null, onError = null) {
+    if (!type || !key || typeof queueFile !== "function") {
+      return false;
+    }
+    if (!this.onDemandAssetLoads) {
+      this.onDemandAssetLoads = new Map();
+    }
+
+    const pendingKey = `${type}:${key}`;
+    const existing = this.onDemandAssetLoads.get(pendingKey);
+    if (existing) {
+      if (typeof onComplete === "function") {
+        existing.completeCallbacks.push(onComplete);
+      }
+      if (typeof onError === "function") {
+        existing.errorCallbacks.push(onError);
+      }
+      return true;
+    }
+
+    const record = {
+      completeCallbacks: typeof onComplete === "function" ? [onComplete] : [],
+      errorCallbacks: typeof onError === "function" ? [onError] : []
+    };
+    this.onDemandAssetLoads.set(pendingKey, record);
+    const completeEvent = `filecomplete-${type}-${key}`;
+
+    const cleanup = () => {
+      this.load.off("loaderror", handleLoadError);
+      this.load.off(completeEvent, handleComplete);
+      this.onDemandAssetLoads.delete(pendingKey);
+    };
+    const runCallbacks = (callbacks, value) => {
+      callbacks.forEach((callback) => {
+        try {
+          callback(value);
+        } catch (error) {
+          console.warn("[ASSET LOAD] callback failed", { type, key, error });
+        }
+      });
+    };
+    const handleComplete = () => {
+      cleanup();
+      runCallbacks(record.completeCallbacks);
+    };
+    const handleLoadError = (file) => {
+      if (file?.key !== key || (file?.type && file.type !== type)) {
+        return;
+      }
+      cleanup();
+      runCallbacks(record.errorCallbacks, file);
+    };
+
+    this.load.once(completeEvent, handleComplete);
+    this.load.on("loaderror", handleLoadError);
+    try {
+      if (!this.isAssetLoadQueued(type, key)) {
+        queueFile();
+      }
+      if (!this.load.isLoading()) {
+        this.load.start();
+      }
+    } catch (error) {
+      cleanup();
+      runCallbacks(record.errorCallbacks, { type, key, error });
+      return false;
+    }
+    return true;
+  }
+
+  loadAudioAssetOnDemand(audioKey, audioPath, onComplete = null, onError = null) {
+    if (!audioKey || !audioPath || this.cache.audio.exists(audioKey)) {
+      return false;
+    }
+    return this.loadAssetOnDemand(
+      "audio",
+      audioKey,
+      () => this.load.audio(audioKey, [this.getVersionedAssetPath(audioPath)]),
+      onComplete,
+      onError
+    );
+  }
+
+  loadImageAssetOnDemand(textureKey, imagePath, onComplete = null, onError = null) {
+    if (!textureKey || !imagePath || this.textures.exists(textureKey)) {
+      return false;
+    }
+    return this.loadAssetOnDemand(
+      "image",
+      textureKey,
+      () => this.load.image(textureKey, this.getVersionedAssetPath(imagePath)),
+      onComplete,
+      onError
+    );
+  }
+
   playSelectedBgm(options = {}) {
+    const selectedCd = this.getSelectedCdDefinition();
+    if (
+      selectedCd?.audioKey &&
+      selectedCd.audioPath &&
+      !this.cache.audio.exists(selectedCd.audioKey) &&
+      options.deferLoad !== true
+    ) {
+      return this.loadAudioAssetOnDemand(selectedCd.audioKey, selectedCd.audioPath, () => {
+        this.playSelectedBgm({ ...options, deferLoad: true });
+      });
+    }
+
     const descriptor = this.getSelectedCdBgmDescriptor();
     if (!descriptor) {
       return false;
@@ -28756,9 +29195,29 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     if (desiredMode === RUN_BGM_MODES.endlessVoid) {
-      if (this.endlessVoidBgmUnavailable || !this.cache.audio.exists(ENDLESS_VOID_BGM_CONFIG.audioKey)) {
-        this.endlessVoidBgmUnavailable = true;
+      if (this.endlessVoidBgmUnavailable) {
         this.warnEndlessVoidBgmMissing(reason);
+        if (!this.activeBgm) {
+          return this.playSelectedBgm({ fadeMs: 0 });
+        }
+        return false;
+      }
+      if (!this.cache.audio.exists(ENDLESS_VOID_BGM_CONFIG.audioKey)) {
+        this.loadAudioAssetOnDemand(
+          ENDLESS_VOID_BGM_CONFIG.audioKey,
+          ENDLESS_VOID_BGM_CONFIG.audioPath,
+          () => {
+            if (this.shopActive || this.gameOver || this.extractionComplete) {
+              return;
+            }
+            this.syncDepthBgmForCurrentDepth("endlessVoidBgmLoaded", options);
+          },
+          () => {
+            this.endlessVoidBgmUnavailable = true;
+            this.warnEndlessVoidBgmMissing("loaderror");
+          }
+        );
+        this.debugLogEndlessVoidBgm("loading bgm on demand", { reason, depth: this.stageDepth });
         if (!this.activeBgm) {
           return this.playSelectedBgm({ fadeMs: 0 });
         }
@@ -31991,11 +32450,32 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
-  saveCoinWallet() {
+  persistCoinWalletAmount(amount) {
     try {
-      window.localStorage?.setItem(COIN_WALLET_STORAGE_KEY, String(this.coins));
+      const normalizedAmount = this.normalizeCoinAmount(amount);
+      const serialized = String(normalizedAmount);
+      window.localStorage?.setItem(COIN_WALLET_STORAGE_KEY, serialized);
+      return window.localStorage?.getItem(COIN_WALLET_STORAGE_KEY) === serialized;
     } catch (error) {
-      // Ignore storage failures so pickups still work during the run.
+      console.warn("[GEEK WALLET] failed to save confirmed GEEK", error);
+      return false;
+    }
+  }
+
+  saveCoinWallet() {
+    return this.persistCoinWalletAmount(this.coins);
+  }
+
+  refreshPersistentWalletHud() {
+    if (!this.gameplayRuntimeCreated || !this.hudLevelText?.active) {
+      return false;
+    }
+    try {
+      this.updateHud();
+      return true;
+    } catch (error) {
+      console.warn("[GEEK WALLET] HUD refresh failed", error);
+      return false;
     }
   }
 
@@ -47633,9 +48113,7 @@ class SurvivalScene extends Phaser.Scene {
       alpha: this.hudUsesFrameAsset ? 0.58 : 0.72,
       strokeAlpha: 0.42
     });
-    const coinIconKey = this.textures.exists(ITEM_IMAGE_ASSETS.coin.textureKey)
-      ? ITEM_IMAGE_ASSETS.coin.textureKey
-      : "rare-token";
+    const coinIconKey = this.getGeekIconTextureKey();
     this.hudCoinIcon = this.registerUiObject(
       this.add
         .image(coinPanelX + 30, coinPanelY + 19, coinIconKey)
@@ -50497,10 +50975,15 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
+  getGeekIconTextureKey() {
+    if (this.textures.exists(ITEM_IMAGE_ASSETS.coin.textureKey)) {
+      return ITEM_IMAGE_ASSETS.coin.textureKey;
+    }
+    return this.textures.exists("shop-geek-token") ? "shop-geek-token" : "rare-token";
+  }
+
   renderShopHeaderBalances() {
-    const coinIconKey = this.textures.exists(ITEM_IMAGE_ASSETS.coin.textureKey)
-      ? ITEM_IMAGE_ASSETS.coin.textureKey
-      : "rare-token";
+    const coinIconKey = this.getGeekIconTextureKey();
     this.addOverlayChild(
       this.add
         .rectangle(430, -292, 250, 36, 0x0c1724, 0.92)
@@ -51912,6 +52395,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   renderPlayerMechHangarContent() {
+    this.ensurePlayerMechHangarBackgroundLoading();
     this.createOverlayText(-530, -210, "HANGER / PLAYER FRAME", {
       fontSize: "15px",
       color: "#9ffcff",
@@ -51924,6 +52408,34 @@ class SurvivalScene extends Phaser.Scene {
     });
 
     this.renderPlayerMechHangarPanel(-530, -164, 1070, 410, { dedicated: true });
+  }
+
+  ensurePlayerMechHangarBackgroundLoading() {
+    if (
+      this.textures.exists(PLAYER_MECH_HANGAR_BACKGROUND_TEXTURE_KEY) ||
+      this.playerMechHangarBackgroundLoading
+    ) {
+      return false;
+    }
+
+    this.playerMechHangarBackgroundLoading = this.loadImageAssetOnDemand(
+      PLAYER_MECH_HANGAR_BACKGROUND_TEXTURE_KEY,
+      PLAYER_MECH_HANGAR_BACKGROUND_PATH,
+      () => {
+        this.playerMechHangarBackgroundLoading = false;
+        if (
+          this.shopActive &&
+          this.shopViewMode === "geek" &&
+          this.geekShopSubView === GEEK_SHOP_SUB_VIEW_HANGER
+        ) {
+          this.showPreGameShop(this.shopStatusMessage || "");
+        }
+      },
+      () => {
+        this.playerMechHangarBackgroundLoading = false;
+      }
+    );
+    return this.playerMechHangarBackgroundLoading;
   }
 
   getPlayerMechHangarCardLayout(mechId, index, total, panel) {
@@ -55169,6 +55681,10 @@ class SurvivalScene extends Phaser.Scene {
       return false;
     }
 
+    if (!this.gameplayRuntimeCreated) {
+      return this.loadGameplayAssetsThenContinueSortie();
+    }
+
     this.clearDepthRelayStartSelectionOverlay("continueSortie");
     this.resetRunEquipmentCombatLinkState("gameStart");
     this.captureRunEquipmentBonuses("gameStart");
@@ -55248,6 +55764,49 @@ class SurvivalScene extends Phaser.Scene {
       }
       this.physics.world.resume();
     }
+    return true;
+  }
+
+  loadGameplayAssetsThenContinueSortie() {
+    if (this.gameplayAssetsLoading) {
+      this.pendingSortieAfterGameplayAssets = true;
+      return true;
+    }
+
+    this.gameplayAssetsLoading = true;
+    this.pendingSortieAfterGameplayAssets = true;
+    this.pendingGameplayAssetsLoadErrors = [];
+    showShopLoadingScreen({ mode: "shop", title: "出撃準備中" });
+
+    const complete = () => {
+      this.gameplayAssetsLoading = false;
+      this.assetLoadQueueKeys = null;
+      this.assetLoadQueuedCount = 0;
+      this.createGameplayRuntime();
+      if (!this.pendingSortieAfterGameplayAssets || !this.shopActive) {
+        return;
+      }
+      this.pendingSortieAfterGameplayAssets = false;
+      if (this.pendingGameplayAssetsLoadErrors.length > 0) {
+        console.warn("[ASSET LOAD] Some gameplay assets failed to load; fallback visuals will be used.", this.pendingGameplayAssetsLoadErrors.slice(0, 24));
+      }
+      this.continueSortieFromHub();
+    };
+
+    this.assetLoadQueueKeys = new Set();
+    this.assetLoadQueuedCount = 0;
+    this.preloadGameplayAssets();
+
+    if ((this.assetLoadQueuedCount || 0) <= 0) {
+      complete();
+      return true;
+    }
+
+    this.load.once("loaderror", (file) => {
+      this.pendingGameplayAssetsLoadErrors.push(file?.src || file?.url || file?.key || "unknown");
+    });
+    this.load.once("complete", complete);
+    this.load.start();
     return true;
   }
 
@@ -58265,6 +58824,12 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   update(time, delta) {
+    if (!this.gameplayRuntimeCreated) {
+      this.updateGamepadState(time, delta);
+      this.updateGamepadOverlayNavigation();
+      return;
+    }
+
     this.syncPlayerVisuals();
     this.updateSkills(delta);
     this.updateRobotCompanion(delta);
@@ -69730,9 +70295,7 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
     const selectedSupport = this.pickSupportAttackDefinition();
-    if (this.triggerSupportAttack(selectedSupport)) {
-      this.recordSupportLinkActivation(selectedSupport);
-    }
+    this.triggerSupportAttack(selectedSupport, { recordActivation: true });
   }
 
   getAvailableSupportAttackDefinitions() {
@@ -69787,7 +70350,87 @@ class SurvivalScene extends Phaser.Scene {
     return weightedPool[weightedPool.length - 1]?.definition || null;
   }
 
-  triggerSupportAttack(definition) {
+  areSupportAttackAssetsLoaded(definition) {
+    if (!definition) {
+      return false;
+    }
+    if (definition.type === "gensoKnights") {
+      return this.areGensoKnightsSupportAssetsLoaded(definition);
+    }
+
+    const imageReady = (asset) => !asset?.textureKey || this.textures.exists(asset.textureKey);
+    const audioReady = (key) => !key || this.cache.audio.exists(key);
+    return Boolean(
+      imageReady({ textureKey: definition.cutinTextureKey }) &&
+      imageReady({ textureKey: definition.pushTextureKey }) &&
+      (definition.animationFrames || []).every(imageReady) &&
+      (definition.fieldEffectFrames || []).every(imageReady) &&
+      (definition.titleLetterFrames || []).every(imageReady) &&
+      audioReady(definition.supportBgmKey) &&
+      audioReady(definition.cutinVoiceKey) &&
+      audioReady(definition.arrivalSeKey) &&
+      audioReady(definition.fieldStartSeKey) &&
+      audioReady(definition.statusApplySeKey) &&
+      audioReady(definition.healTickSeKey) &&
+      audioReady(definition.dashMoveSeKey) &&
+      audioReady(definition.dashHitSeKey) &&
+      audioReady(definition.thunderSeKey) &&
+      audioReady(definition.countdownBgmKey) &&
+      audioReady(definition.titleLetterSeKey) &&
+      audioReady(definition.titleFinalSeKey)
+    );
+  }
+
+  areGensoKnightsSupportAssetsLoaded(definition = GENSO_KNIGHTS_SUPPORT_DEFINITION) {
+    const imageReady = (asset) => !asset?.textureKey || this.textures.exists(asset.textureKey);
+    const audioReady = (key) => !key || this.cache.audio.exists(key);
+    return Boolean(
+      imageReady({ textureKey: definition.cutinTextureKey }) &&
+      audioReady(definition.bgmKey) &&
+      (definition.bossAssets || []).every(imageReady) &&
+      (definition.arrowFrames || []).every(imageReady) &&
+      (definition.characters || []).every((character) => (
+        audioReady(character.guardSeKey) &&
+        (character.animationFrames || []).every(imageReady) &&
+        (character.guardEffectFrames || []).every(imageReady)
+      ))
+    );
+  }
+
+  loadSupportAttackAssetsThenTrigger(definition, options = {}) {
+    if (!definition || this.supportAttackAssetsLoading) {
+      return false;
+    }
+
+    this.supportAttackAssetsLoading = true;
+    this.setLastPickupNotice(`SUPPORT ${definition.label || definition.id} LINKING`);
+    this.assetLoadQueueKeys = new Set();
+    this.assetLoadQueuedCount = 0;
+    if (definition.type === "gensoKnights") {
+      this.preloadGensoKnightsSupportDefinitionAssets(definition);
+    } else {
+      this.preloadSupportAttackDefinitionAssets(definition);
+    }
+    const queuedCount = this.assetLoadQueuedCount || 0;
+
+    const complete = () => {
+      this.supportAttackAssetsLoading = false;
+      this.assetLoadQueueKeys = null;
+      this.assetLoadQueuedCount = 0;
+      this.triggerSupportAttack(definition, { ...options, skipAssetLoad: true });
+    };
+
+    if (queuedCount <= 0) {
+      complete();
+      return true;
+    }
+
+    this.load.once("complete", complete);
+    this.load.start();
+    return true;
+  }
+
+  triggerSupportAttack(definition, options = {}) {
     if (!definition) {
       return false;
     }
@@ -69796,12 +70439,24 @@ class SurvivalScene extends Phaser.Scene {
       return false;
     }
 
+    if (options.skipAssetLoad !== true && !this.areSupportAttackAssetsLoaded(definition)) {
+      return this.loadSupportAttackAssetsThenTrigger(definition, options);
+    }
+
     if (definition.type === "gensoKnights") {
-      return this.triggerGensoKnightsSupportAttack(definition);
+      const triggered = this.triggerGensoKnightsSupportAttack(definition);
+      if (triggered && options.recordActivation) {
+        this.recordSupportLinkActivation(definition);
+      }
+      return triggered;
     }
 
     if (definition.type === "timingCoin") {
-      return this.triggerTimingCoinSupportAttack(definition);
+      const triggered = this.triggerTimingCoinSupportAttack(definition);
+      if (triggered && options.recordActivation) {
+        this.recordSupportLinkActivation(definition);
+      }
+      return triggered;
     }
 
     if (this.isGensoKnightsEventActive()) {
@@ -69819,6 +70474,9 @@ class SurvivalScene extends Phaser.Scene {
       depth: this.stageDepth,
       supportType: definition.id
     });
+    if (options.recordActivation) {
+      this.recordSupportLinkActivation(definition);
+    }
     return true;
   }
 
@@ -76081,6 +76739,8 @@ class SurvivalScene extends Phaser.Scene {
 
   clearOverlayButtons() {
     this.equipmentAnalysisResultOpen = false;
+    this.equipmentAnalysisResultBlocker = null;
+    this.equipmentAnalysisBusy = false;
     this.teardownLevelUpOverlay();
     this.teardownGateChoiceOverlay();
     this.teardownAnomalyContractOverlay();

@@ -20,6 +20,10 @@ http://127.0.0.1:4173/
 
 LAN 上のスマートフォンで確認する場合は、PC とスマートフォンを同じネットワークに接続し、PC の LAN IP に対して HTTP サーバーへアクセスします。
 
+公開環境では初回の OPERATIONS HUB 表示を軽くするため、起動時 preload は Shop 表示に必要な背景、CDジャケット、GEEKアイコン、回収ロボ画像などに絞っています。戦闘用のプレイヤー、敵、ステージ、アイテム、選択中CD音源などは `SORTIE PREP` 押下後にロードされます。HANGER 背景、Support 演出、Final Raid 専用素材は通常起動・通常出撃時には読み込まず、必要な表示やイベントの直前に遅延ロードします。遅延ロードはアセットキー単位で完了・失敗を管理し、別アセットのロード中でも要求を破棄しません。
+
+Cloudflare 配信では `_headers` で HTML を `max-age=0, must-revalidate`、JS / CSS / vendor / `画像/` / `音声/` を `max-age=31536000, immutable` にしています。JS / CSS / vendor は `index.html` の `?v=`、Phaser が読む画像・音声は `game.js` の `STATIC_ASSET_VERSION` をURLへ付与します。コード更新時は `index.html` の版番号、既存パスの画像・音声を差し替えた場合は `STATIC_ASSET_VERSION` も更新してください。Service Worker は使用せず、HTML更新とURL版管理で新旧アセットの混在を防ぎます。
+
 ## 操作方法
 
 - 移動: `WASD` / 矢印キー / 左仮想スティック
@@ -678,7 +682,7 @@ GEEKSHOP / EQUIPMENT ANALYSIS:
 - 解析時は開始前に `actualCost` 全額を所持している必要があります。既存bestより高品質なら `bestBySlot` を更新し、同品質以下の重複なら `Math.floor(actualCost * 0.5)` を返金扱いにして、実際の支払いは差額だけになります。無料解析の重複返金は0です。
 - 同じslotに既存LEGEND bestがあり、より低いまたは同品質のLEGENDを解析した場合は `DUPLICATE LEGEND SIGNAL` として表示し、slot別の `LEGEND RESONANCE` として記録します。RESONANCEは現段階では表示専用で、Rank、戦闘効果、ドロップ率、交換、pity、未所持slot補完、ランキング / Firebase には影響しません。
 - Deep Extractionで得た Equipment Cache も `EQUIPMENT ANALYSIS` で解析し、保存済みCacheの `slot` / `rarity` / `rank` を再抽選せず装備として確定します。解析済み装備は `bestBySlot` へ反映され、LEGENDは解析成功時に初めて発見扱いになります。SSR+ / LEGEND の5部位成立は `SET RESONANCE` と次ランの Combat Link 条件になります。
-- 保存成功後だけ解析結果パネルを表示します。保存に失敗した場合は GEEK と Equipment 状態をロールバックし、結果パネルは出さず `ANALYSIS ABORTED / SAVE ERROR` を表示します。
+- 解析前後の GEEK と Equipment 状態は保存ジャーナルを使って一組として確定します。保存成功後だけ解析結果パネルを表示し、保存失敗時は両方をロールバックして `ANALYSIS ABORTED / SAVE ERROR` を表示します。保存途中でページが閉じられた場合も、次回起動時に完了済みかを検証し、未完了なら解析前へ復旧します。
 - CURRENT LOADOUT には各部位の効果を表示します。SENSOR は攻撃間隔短縮、FRAME は最大AP、BOOSTER はブーストEN回復、ARMAMENT は3攻撃スキルの実ダメージ、CORE は最大ブーストENです。解析結果パネルは更新時に効果差分、重複時に `UNCHANGED` を表示します。
 - 出撃開始時に保存済み `bestBySlot` だけから `runEquipmentLoadoutSnapshot` と `runEquipmentBonuses` を作成します。このスナップショットはラン中固定で、NEXT STAGE、FORCE BREAKTHROUGH、Depth遷移、レベルアップ、Gate、overlay、pause、ショップ保存値変更では再取得しません。次の出撃から最新の保存装備が反映されます。
 - 装備ボーナスは品質スコア `rarityIndex * 5 + rank` を使います。SENSOR は攻撃間隔 -0.25% x score、FRAME は最大AP +3 x score、BOOSTER はブーストEN回復 +0.8% x score、ARMAMENT は `basicSkill` / `tornadoSkill` / `rabbitThunderSkill` とそれらのMutation派生ダメージ +1.2% x score、CORE は最大ブーストEN +1 x score です。LEGEND Rank5 では SENSOR x0.9375、FRAME +75、BOOSTER x1.20、ARMAMENT x1.30、CORE +25 になります。
@@ -814,6 +818,7 @@ localStorage キー:
 - `lastmemoVansabaDepthRelayState`: DEPTH RELAY の解放済み転送 Depth を保存します。`version` と `unlockedDepths` を持ち、Final Raid 討伐済み旧セーブでは Depth10 が補完されます。Depth20 / Depth30 Anchor 解放後はプレイヤー向け選択 UI にそれぞれ Depth20 / Depth30 も表示されます。
 - `lastmemoVansabaCommsStoryState`: Depth 初回通信の再生済みフラグ
 - `lastmemoVansabaEquipmentState`: Equipment 保存状態。version、LEGEND 発見フラグ、Final Raid LEGEND 初回報酬フラグ、無料解析クレジット、部位別best装備、未解析箱、slot別LEGEND RESONANCE、opened/upgrades/duplicates統計を保存します。破損JSONや古い形式は起動時に正規化されます。
+- `lastmemoVansabaEquipmentAnalysisTransaction`: EQUIPMENT ANALYSIS の保存途中だけ使う復旧ジャーナル。GEEKとEquipmentの両方が確定した後に削除され、残っている場合は次回起動時に完了確認または解析前状態への復旧を行います。
 - `collisionEditor:<stageId>`: 衝突判定編集モードの一時保存データ
 
 sessionStorage キー:
