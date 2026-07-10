@@ -20,10 +20,6 @@ http://127.0.0.1:4173/
 
 LAN 上のスマートフォンで確認する場合は、PC とスマートフォンを同じネットワークに接続し、PC の LAN IP に対して HTTP サーバーへアクセスします。
 
-公開環境では初回の OPERATIONS HUB 表示を軽くするため、起動時 preload は Shop 表示に必要な背景・CDジャケットなどの最小限に絞っています。戦闘用のプレイヤー、敵、ステージ、アイテム、選択中CD音源などは `SORTIE PREP` 押下後にロードされます。HANGER 背景、Support 演出、Final Raid 専用素材は通常起動・通常出撃時には読み込まず、必要な表示やイベントの直前に遅延ロードします。
-
-Cloudflare 配信では `_headers` で HTML を `max-age=0, must-revalidate`、JS / CSS / vendor / `画像/` / `音声/` を `max-age=31536000, immutable` にしています。`game.js`、`style.css`、`skillDefinitions.js`、`stageDefinitions.js`、`equipmentDefinitions.js` を更新した場合は、`index.html` 側の `?v=` を更新して長期キャッシュを更新してください。
-
 ## 操作方法
 
 - 移動: `WASD` / 矢印キー / 左仮想スティック
