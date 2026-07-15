@@ -54505,43 +54505,138 @@ class SurvivalScene extends Phaser.Scene {
     return summary;
   }
 
+  getOpeningShopAggregateBonusSummary() {
+    const baseStats = this.createBasePlayerStats();
+    const cd = this.getCdBonusSummary();
+    const baseCalibration = {
+      attackPercent: this.getPermanentUpgradeLevel("weapon") * 6,
+      hpAdd: this.getPermanentUpgradeLevel("armor") * 10,
+      speedAdd: this.getPermanentUpgradeLevel("shoes") * 8,
+      boostRegenMultiplier: this.getReactorCoolingRegenMultiplier({
+        preview: true
+      })
+    };
+    const equipmentSystem = this.getEquipmentSystem();
+    const equipmentPresetName = this.getEquipmentBonusPresetName();
+    const equipmentState = equipmentPresetName
+      ? this.createEquipmentBonusPresetState(equipmentPresetName)
+      : this.normalizeEquipmentState(this.equipmentState);
+    const equipment = this.cloneEquipmentBonuses(
+      equipmentSystem?.getEquipmentBonusesFromState
+        ? equipmentSystem.getEquipmentBonusesFromState(equipmentState)
+        : this.createEmptyEquipmentBonuses()
+    );
+    const debugPlayerMechId = this.getDebugPlayerMechIdOverride();
+    const playerMechDefinition = (debugPlayerMechId ? this.getPlayerMechDefinition(debugPlayerMechId) : null)
+      || this.getSelectedPlayerMechDefinition();
+    const playerMechProfile = this.normalizePlayerMechStatProfile(playerMechDefinition?.statProfile);
+
+    const permanentDamageMultiplier = Math.max(
+      0,
+      1 + (baseCalibration.attackPercent + cd.attackPercent) / 100
+    );
+    const equipmentSkillDamageMultiplier = Math.max(0.01, Number(equipment.playerSkillDamageMultiplier) || 1);
+    const mechDamageMultiplier = Math.max(0.01, Number(playerMechProfile.bulletDamageMultiplier) || 1);
+    const skillOutputMultiplier = permanentDamageMultiplier * equipmentSkillDamageMultiplier * mechDamageMultiplier;
+
+    const maxHpBeforeMech = Math.round(
+      baseStats.maxHp + baseCalibration.hpAdd + cd.hpAdd + Math.max(0, Math.floor(Number(equipment.maxHpFlat) || 0))
+    );
+    const maxHp = Math.max(1, Math.round(maxHpBeforeMech + (Number(playerMechProfile.maxHpAdd) || 0)));
+
+    const moveSpeedBeforeMech = Math.round(baseStats.moveSpeed + baseCalibration.speedAdd + cd.speedAdd);
+    const moveSpeed = Math.max(
+      PLAYER_MECH_MIN_MOVE_SPEED,
+      Math.round(moveSpeedBeforeMech * Math.max(0.01, Number(playerMechProfile.moveSpeedMultiplier) || 1))
+    );
+
+    const maxStaminaBeforeMech = Math.round(
+      baseStats.maxStamina + cd.staminaAdd + Math.max(0, Math.floor(Number(equipment.maxStaminaFlat) || 0))
+    );
+    const maxStamina = Math.max(
+      PLAYER_MECH_MIN_MAX_STAMINA,
+      Math.round(maxStaminaBeforeMech + (Number(playerMechProfile.maxStaminaAdd) || 0))
+    );
+
+    const equipmentAttackIntervalMultiplier = Math.max(0.01, Number(equipment.attackIntervalMultiplier) || 1);
+    const attackIntervalMultiplier = cd.fireRateMultiplier * equipmentAttackIntervalMultiplier;
+    const equipmentBoostRegenMultiplier = Math.max(0.01, Number(equipment.staminaRegenMultiplier) || 1);
+    const mechBoostRegenMultiplier = Math.max(0.01, Number(playerMechProfile.boostRegenMultiplier) || 1);
+    const boostRegenMultiplier = equipmentBoostRegenMultiplier
+      * baseCalibration.boostRegenMultiplier
+      * mechBoostRegenMultiplier;
+    const robotCustom = this.getRobotCustomState();
+    const ownedDeepCdCount = ANJU_MEMORY_REWARD_CATALOG.filter((reward) => (
+      reward.category === "deepCd" && this.anjuMemoryState?.ownedRewardIds?.includes(reward.id)
+    )).length;
+
+    return {
+      cd,
+      baseCalibration,
+      equipment,
+      playerMech: {
+        id: playerMechDefinition?.id || DEFAULT_PLAYER_MECH_ID,
+        profile: playerMechProfile
+      },
+      effective: {
+        skillOutputPercent: (skillOutputMultiplier - 1) * 100,
+        hpAdd: maxHp - baseStats.maxHp,
+        speedAdd: moveSpeed - baseStats.moveSpeed,
+        staminaAdd: maxStamina - baseStats.maxStamina,
+        attackRatePercent: (1 - attackIntervalMultiplier) * 100,
+        bulletSpeedPercent: (cd.bulletSpeedMultiplier - 1) * 100,
+        boostRegenPercent: (boostRegenMultiplier - 1) * 100,
+        damageReductionPercent: Math.max(0, Number(equipment.damageTakenReductionRate) || 0) * 100
+      },
+      utility: {
+        cleaningRobotLevel: this.getCleaningRobotLevel(),
+        robotCustom: { ...robotCustom },
+        supportLinkCombatPercent: this.getSupportLinkCombatBonus() * 100,
+        ownedDeepCdCount
+      }
+    };
+  }
+
   formatShopBonusPercent(value) {
-    const normalized = Math.max(0, Number(value) || 0);
-    return `+ ${normalized.toFixed(1)}%`;
+    const normalized = Number(value) || 0;
+    const rounded = Math.abs(normalized) < 0.05 ? 0 : normalized;
+    return `${rounded < 0 ? "-" : "+"} ${Math.abs(rounded).toFixed(1)}%`;
   }
 
   formatShopBonusNumber(value) {
-    return `+ ${Math.round(Math.max(0, Number(value) || 0)).toLocaleString()}`;
+    const rounded = Math.round(Number(value) || 0);
+    return `${rounded < 0 ? "-" : "+"} ${Math.abs(rounded).toLocaleString()}`;
   }
 
-  calculateOpeningShopBonusScore(summary = this.getCdBonusSummary()) {
-    const weaponLevel = this.getPermanentUpgradeLevel("weapon");
-    const armorLevel = this.getPermanentUpgradeLevel("armor");
-    const shoesLevel = this.getPermanentUpgradeLevel("shoes");
-    const robotCustom = this.getRobotCustomState();
-    const permanentAttackPercent = weaponLevel * 6;
-    const permanentHpAdd = armorLevel * 10;
-    const permanentSpeedAdd = shoesLevel * 8;
+  calculateOpeningShopBonusScore(summary = this.getOpeningShopAggregateBonusSummary()) {
+    const effective = summary?.effective || {};
+    const utility = summary?.utility || {};
+    const robotCustom = utility.robotCustom || {};
 
     let score = 0;
-    score += (permanentAttackPercent + summary.attackPercent) * 1000;
-    score += (permanentHpAdd + summary.hpAdd) * 55;
-    score += (permanentSpeedAdd + summary.speedAdd) * 150;
-    score += summary.staminaAdd * 55;
-    score += summary.fireRatePercent * 1200;
-    score += summary.bulletSpeedPercent * 800;
-    score += this.getCleaningRobotLevel() * 2500;
+    score += (Number(effective.skillOutputPercent) || 0) * 1000;
+    score += (Number(effective.hpAdd) || 0) * 55;
+    score += (Number(effective.speedAdd) || 0) * 150;
+    score += (Number(effective.staminaAdd) || 0) * 55;
+    score += (Number(effective.attackRatePercent) || 0) * 1200;
+    score += (Number(effective.bulletSpeedPercent) || 0) * 800;
+    score += (Number(effective.boostRegenPercent) || 0) * 600;
+    score += (Number(effective.damageReductionPercent) || 0) * 1000;
+    score += (Number(utility.cleaningRobotLevel) || 0) * 2500;
     score += (Number(robotCustom.missileCapTier) || 0) * 5000;
     score += (Number(robotCustom.recoveryCapTier) || 0) * 5000;
     score += robotCustom.napalmUnlocked ? 15000 : 0;
     score += (Number(robotCustom.napalmCapTier) || 0) * 3500;
     score += robotCustom.barrierUnlocked ? 15000 : 0;
     score += (Number(robotCustom.barrierCapTier) || 0) * 3500;
+    score += (Number(utility.supportLinkCombatPercent) || 0) * 600;
+    score += (Number(utility.ownedDeepCdCount) || 0) * 5000;
     return Math.max(0, Math.round(score));
   }
 
   renderCdBonusSummaryHud(x, y, width, height) {
-    const summary = this.getCdBonusSummary();
+    const summary = this.getOpeningShopAggregateBonusSummary();
+    const effective = summary.effective;
     const score = this.calculateOpeningShopBonusScore(summary);
     const graphics = this.addOverlayChild(this.add.graphics());
 
@@ -54553,33 +54648,36 @@ class SurvivalScene extends Phaser.Scene {
     graphics.strokeRoundedRect(x + 10, y + 10, width - 20, height - 20, 4);
 
     const rows = [
-      { type: "attack", label: "ARMAMENT OUTPUT", jp: "兵装出力", value: this.formatShopBonusPercent(summary.attackPercent), color: 0xffd866 },
-      { type: "hp", label: "AP BONUS", jp: "APボーナス", value: this.formatShopBonusNumber(summary.hpAdd), color: 0xf2f7ff },
-      { type: "speed", label: "BOOSTER OUTPUT", jp: "推進出力", value: this.formatShopBonusNumber(summary.speedAdd), color: 0x77f0b4 },
-      { type: "stamina", label: "BOOST EN BONUS", jp: "ブーストEN", value: this.formatShopBonusNumber(summary.staminaAdd), color: 0xf0c463 },
-      { type: "fireRate", label: "FIRE RATE", jp: "連射ボーナス", value: this.formatShopBonusPercent(summary.fireRatePercent), color: 0x9ffcff },
-      { type: "bullet", label: "BULLET SPEED", jp: "弾速ボーナス", value: this.formatShopBonusPercent(summary.bulletSpeedPercent), color: 0xc596ff }
+      { type: "attack", label: "PLAYER SKILL OUTPUT", jp: "プレイヤースキル出力", rawValue: effective.skillOutputPercent, value: this.formatShopBonusPercent(effective.skillOutputPercent), color: 0xffd866 },
+      { type: "hp", label: "MAX AP", jp: "最大AP", rawValue: effective.hpAdd, value: this.formatShopBonusNumber(effective.hpAdd), color: 0xf2f7ff },
+      { type: "speed", label: "BOOSTER OUTPUT", jp: "推進出力", rawValue: effective.speedAdd, value: this.formatShopBonusNumber(effective.speedAdd), color: 0x77f0b4 },
+      { type: "stamina", label: "MAX BOOST EN", jp: "最大ブーストEN", rawValue: effective.staminaAdd, value: this.formatShopBonusNumber(effective.staminaAdd), color: 0xf0c463 },
+      { type: "fireRate", label: "ATTACK RATE", jp: "攻撃間隔短縮", rawValue: effective.attackRatePercent, value: this.formatShopBonusPercent(effective.attackRatePercent), color: 0x9ffcff },
+      { type: "bullet", label: "BULLET SPEED", jp: "弾速", rawValue: effective.bulletSpeedPercent, value: this.formatShopBonusPercent(effective.bulletSpeedPercent), color: 0xc596ff },
+      { type: "regen", label: "BOOST EN REGEN", jp: "ブーストEN回復", rawValue: effective.boostRegenPercent, value: this.formatShopBonusPercent(effective.boostRegenPercent), color: 0x62e8d2 },
+      { type: "guard", label: "DAMAGE GUARD", jp: "被ダメージ軽減", rawValue: effective.damageReductionPercent, value: this.formatShopBonusPercent(effective.damageReductionPercent), color: 0x7ab6ff }
     ];
 
     rows.forEach((row, index) => {
-      const rowY = y + 62 + index * 39;
+      const rowY = y + 60 + index * 28;
+      const valueColor = row.rawValue < -0.05 ? 0xff9f8f : row.color;
       graphics.fillStyle(index % 2 === 0 ? 0x0a1c2b : 0x071520, 0.78);
-      graphics.fillRoundedRect(x + 14, rowY - 16, width - 28, 33, 4);
+      graphics.fillRoundedRect(x + 14, rowY - 12, width - 28, 24, 4);
       graphics.lineStyle(1, 0x6fcfff, 0.1);
-      graphics.strokeRoundedRect(x + 14, rowY - 16, width - 28, 33, 4);
-      this.createCdBonusIcon(x + 34, rowY, row.type, row.color);
-      this.createOverlayText(x + 58, rowY - 14, row.label, {
-        fontSize: "11px",
+      graphics.strokeRoundedRect(x + 14, rowY - 12, width - 28, 24, 4);
+      this.createCdBonusIcon(x + 30, rowY, row.type, valueColor, 22);
+      this.createOverlayText(x + 47, rowY - 10, row.label, {
+        fontSize: "9px",
         color: "#cfe7f7",
         fontStyle: "bold"
       });
-      this.createOverlayText(x + 58, rowY, row.jp, {
-        fontSize: "9px",
+      this.createOverlayText(x + 47, rowY + 1, row.jp, {
+        fontSize: "7px",
         color: "#8eaec2"
       });
-      this.createOverlayText(x + width - 18, rowY - 12, row.value, {
-        fontSize: "21px",
-        color: `#${row.color.toString(16).padStart(6, "0")}`,
+      this.createOverlayText(x + width - 18, rowY - 9, row.value, {
+        fontSize: "17px",
+        color: `#${valueColor.toString(16).padStart(6, "0")}`,
         fontStyle: "bold",
         align: "right",
         origin: { x: 1, y: 0 }
@@ -54597,7 +54695,7 @@ class SurvivalScene extends Phaser.Scene {
       color: "#77f0b4",
       fontStyle: "bold"
     });
-    this.createOverlayText(x + 25, y + height - 31, `${summary.activeCount}/${summary.totalCount}`, {
+    this.createOverlayText(x + 25, y + height - 31, `${summary.cd.activeCount}/${summary.cd.totalCount}`, {
       fontSize: "22px",
       color: "#66d25f",
       fontStyle: "bold"
@@ -54613,19 +54711,22 @@ class SurvivalScene extends Phaser.Scene {
       fontStyle: "bold"
     });
 
-    this.createOverlayText(x + 22, y + 16, "TOTAL CD BONUS SUMMARY", {
-      fontSize: "14px",
+    this.createOverlayText(x + 22, y + 16, "TOTAL HUB BONUS SUMMARY", {
+      fontSize: "13px",
       color: "#ecf7ff",
       fontStyle: "bold"
     });
-    this.createOverlayText(x + 22, y + 36, "総合CDボーナス", {
-      fontSize: "10px",
+    this.createOverlayText(x + 22, y + 35, "次回出撃時の総合永続ボーナス", {
+      fontSize: "9px",
       color: "#8fb5ca"
     });
   }
 
-  createCdBonusIcon(x, y, type, color) {
+  createCdBonusIcon(x, y, type, color, size = 32) {
     const graphics = this.addOverlayChild(this.add.graphics());
+    const scale = Phaser.Math.Clamp(Number(size) || 32, 16, 40) / 32;
+    graphics.setScale(scale);
+    graphics.setPosition(x * (1 - scale), y * (1 - scale));
     graphics.fillStyle(0x07111e, 0.92);
     graphics.fillRoundedRect(x - 16, y - 16, 32, 32, 5);
     graphics.lineStyle(1, color, 0.58);
@@ -54676,6 +54777,30 @@ class SurvivalScene extends Phaser.Scene {
       graphics.lineBetween(x + 12, y, x + 6, y);
       graphics.lineStyle(2, color, 0.92);
       graphics.lineBetween(x - 2, y + 2, x + 7, y - 7);
+      return graphics;
+    }
+
+    if (type === "regen") {
+      graphics.strokeCircle(x, y, 10);
+      graphics.fillStyle(color, 0.94);
+      graphics.fillTriangle(x + 6, y - 11, x + 13, y - 9, x + 9, y - 3);
+      graphics.lineStyle(2, 0xecf7ff, 0.82);
+      graphics.lineBetween(x - 4, y, x + 4, y);
+      graphics.lineBetween(x, y - 4, x, y + 4);
+      return graphics;
+    }
+
+    if (type === "guard") {
+      graphics.fillStyle(color, 0.18);
+      graphics.fillTriangle(x, y - 12, x - 10, y - 7, x, y + 13);
+      graphics.fillTriangle(x, y - 12, x + 10, y - 7, x, y + 13);
+      graphics.lineStyle(2, color, 0.94);
+      graphics.lineBetween(x, y - 12, x - 10, y - 7);
+      graphics.lineBetween(x - 10, y - 7, x - 7, y + 5);
+      graphics.lineBetween(x - 7, y + 5, x, y + 13);
+      graphics.lineBetween(x, y + 13, x + 7, y + 5);
+      graphics.lineBetween(x + 7, y + 5, x + 10, y - 7);
+      graphics.lineBetween(x + 10, y - 7, x, y - 12);
       return graphics;
     }
 

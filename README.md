@@ -729,7 +729,7 @@ CD:
 - いっちゃいな: 100,000 GEEK / 弾速 +8%、推進出力 +12
 - ドールを解放せし者: Depth10 Final Raid 討伐報酬 / 最大AP +100、最大ブーストEN +50。討伐前は CDSHOP でロック表示、討伐後は BGM として選択できます。
 
-CDSHOP では通常 CD を 3 列 x 2 段、`ドールを解放せし者` を大型ジャケットカードとして表示します。右側の HUD には購入・解放済み CD の合計ステータスボーナス、ACTIVE CDS、OPERATIONS HUB 全体の強化を表示専用に評価した TOTAL BONUS SCORE を表示します。
+CDSHOP では通常 CD を 3 列 x 2 段、`ドールを解放せし者` を大型ジャケットカードとして表示します。右側の `TOTAL HUB BONUS SUMMARY` には、次回出撃時に適用される BASE CALIBRATION、購入・解放済み CD、装備・精錬、選択中 PLAYER FRAME の実効永続ボーナスを表示します。表示項目は PLAYER SKILL OUTPUT、最大 AP、推進出力、最大 BOOST EN、攻撃間隔短縮、弾速、BOOST EN 回復、被ダメージ軽減です。PLAYER FRAME の低下補正を含む項目はマイナス表示されます。ACTIVE CDS は従来どおり CD の所持数を表示します。TOTAL BONUS SCORE はこれらの実効値を一度だけ評価し、回収ロボ、ROBOT CUSTOM、SUPPORT LINK、所有 DEEP CD の永続進行も加えた表示専用スコアです。Opening Boost、ラン中レベルアップ、OVERDRIVE、ANOMALY CONTRACT などのラン内一時効果は含みません。
 
 OPTION では `BGM OUTPUT`、`SFX / VOICE OUTPUT`、`CONTROLLER INPUT` を ON / OFF できます。`BGM OUTPUT: OFF` は BGM の再生だけを止め、CD の選択、購入状態、永続ボーナス、CDボーナス集計には影響しません。Final Raid 専用BGM、ENDLESS VOID BGM、元素騎士BGM、サポート攻撃専用BGM、いしでん countdownBGM も BGM カテゴリとして停止します。`SFX / VOICE OUTPUT: OFF` は Quick Boost SE、REGALIA BASTION 専用SE、Support SE、カットイン/通信ボイス、Final Raid support voice、Scrambled comms voice、元素騎士系 SE など BGM 以外の音を停止します。`CONTROLLER INPUT: OFF` の間は Gamepad API / Phaser Gamepad からの入力を無視します。
 
