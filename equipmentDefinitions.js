@@ -47,6 +47,42 @@
     weapon: Object.freeze({ playerSkillDamageIncreaseRatePerScore: 0.012 }),
     accessory: Object.freeze({ maxStaminaFlatPerScore: 1 })
   });
+  const EQUIPMENT_REFINEMENT_MAX_LEVEL = 20;
+  const EQUIPMENT_REFINEMENT_DEEP_START_LEVEL = 16;
+  const EQUIPMENT_REFINEMENT_CONFIG = Object.freeze({
+    head: Object.freeze({ attackIntervalReductionRatePerLevel: 0.0015 }),
+    clothes: Object.freeze({ maxHpFlatPerLevel: 8 }),
+    shoes: Object.freeze({ staminaRegenIncreaseRatePerLevel: 0.005 }),
+    weapon: Object.freeze({ playerSkillDamageIncreaseRatePerLevel: 0.006 }),
+    accessory: Object.freeze({ maxStaminaFlatPerLevel: 2 })
+  });
+  const EQUIPMENT_FRAME_REFINEMENT_DAMAGE_REDUCTION_TIERS = Object.freeze([
+    Object.freeze({ minLevel: 20, reductionRate: 0.10 }),
+    Object.freeze({ minLevel: 15, reductionRate: 0.07 }),
+    Object.freeze({ minLevel: 10, reductionRate: 0.04 }),
+    Object.freeze({ minLevel: 5, reductionRate: 0.02 })
+  ]);
+  const EQUIPMENT_REFINEMENT_COST_TIERS = Object.freeze([
+    Object.freeze({ minLevel: 16, maxLevel: 20, cost: 200 }),
+    Object.freeze({ minLevel: 11, maxLevel: 15, cost: 100 }),
+    Object.freeze({ minLevel: 6, maxLevel: 10, cost: 50 }),
+    Object.freeze({ minLevel: 1, maxLevel: 5, cost: 20 })
+  ]);
+  const EQUIPMENT_SALVAGE_BASE_VALUES = Object.freeze({
+    N: 2,
+    R: 5,
+    SR: 15,
+    SSR: 50,
+    LEGEND: 200
+  });
+  const EQUIPMENT_SALVAGE_SEALED_RATE = 0.5;
+  const EQUIPMENT_SALVAGE_RANK_MULTIPLIERS = Object.freeze({
+    1: 1,
+    2: 1.25,
+    3: 1.5,
+    4: 1.75,
+    5: 2
+  });
   const EQUIPMENT_SET_DEFINITIONS = Object.freeze([
     Object.freeze({
       id: "ssrPlusFive",
@@ -168,8 +204,44 @@
     return {
       opened: 0,
       upgrades: 0,
-      duplicates: 0
+      duplicates: 0,
+      salvagedBoxes: 0,
+      salvagePointsEarned: 0,
+      refinements: 0
     };
+  }
+
+  function createDefaultRefinementBySlot() {
+    return SLOTS.reduce((levels, slot) => {
+      levels[slot] = 0;
+      return levels;
+    }, {});
+  }
+
+  function createDefaultRefinementLimitUnlockedBySlot() {
+    return SLOTS.reduce((unlocks, slot) => {
+      unlocks[slot] = false;
+      return unlocks;
+    }, {});
+  }
+
+  function normalizeRefinementBySlot(record) {
+    const source = isObject(record) ? record : {};
+    return SLOTS.reduce((levels, slot) => {
+      levels[slot] = Math.min(
+        EQUIPMENT_REFINEMENT_MAX_LEVEL,
+        normalizeNonNegativeInteger(source[slot], 0)
+      );
+      return levels;
+    }, {});
+  }
+
+  function normalizeRefinementLimitUnlockedBySlot(record) {
+    const source = isObject(record) ? record : {};
+    return SLOTS.reduce((unlocks, slot) => {
+      unlocks[slot] = source[slot] === true;
+      return unlocks;
+    }, {});
   }
 
   function createDefaultEquipmentState() {
@@ -178,9 +250,12 @@
       legendDiscovered: false,
       finalRaidLegendRewardClaimed: false,
       freeAnalysisCredits: 1,
+      salvagePoints: 0,
       bestBySlot: createDefaultBestBySlot(),
       securedBoxes: [],
       legendResonanceBySlot: createDefaultLegendResonanceBySlot(),
+      refinementBySlot: createDefaultRefinementBySlot(),
+      refinementLimitUnlockedBySlot: createDefaultRefinementLimitUnlockedBySlot(),
       stats: createDefaultStats()
     };
   }
@@ -291,13 +366,19 @@
         hasOwn(source, "freeAnalysisCredits") ? source.freeAnalysisCredits : defaults.freeAnalysisCredits,
         defaults.freeAnalysisCredits
       ),
+      salvagePoints: normalizeNonNegativeInteger(source.salvagePoints, defaults.salvagePoints),
       bestBySlot,
       securedBoxes,
       legendResonanceBySlot: normalizeLegendResonanceBySlot(source.legendResonanceBySlot),
+      refinementBySlot: normalizeRefinementBySlot(source.refinementBySlot),
+      refinementLimitUnlockedBySlot: normalizeRefinementLimitUnlockedBySlot(source.refinementLimitUnlockedBySlot),
       stats: {
         opened: normalizeNonNegativeInteger(source.stats?.opened, defaults.stats.opened),
         upgrades: normalizeNonNegativeInteger(source.stats?.upgrades, defaults.stats.upgrades),
-        duplicates: normalizeNonNegativeInteger(source.stats?.duplicates, defaults.stats.duplicates)
+        duplicates: normalizeNonNegativeInteger(source.stats?.duplicates, defaults.stats.duplicates),
+        salvagedBoxes: normalizeNonNegativeInteger(source.stats?.salvagedBoxes, defaults.stats.salvagedBoxes),
+        salvagePointsEarned: normalizeNonNegativeInteger(source.stats?.salvagePointsEarned, defaults.stats.salvagePointsEarned),
+        refinements: normalizeNonNegativeInteger(source.stats?.refinements, defaults.stats.refinements)
       }
     };
   }
@@ -717,6 +798,41 @@
     return RARITY_INDEX[normalizedItem.rarity] * RANK_MAX + normalizedItem.rank;
   }
 
+  function getEquipmentRefinementLevel(state, slot) {
+    const normalizedSlot = normalizeSlot(slot);
+    if (!normalizedSlot) {
+      return 0;
+    }
+    return normalizeEquipmentState(state).refinementBySlot[normalizedSlot] || 0;
+  }
+
+  function getEquipmentTotalRefinementLevel(state) {
+    const levels = normalizeEquipmentState(state).refinementBySlot;
+    return SLOTS.reduce((total, slot) => total + (levels[slot] || 0), 0);
+  }
+
+  function getEquipmentRefinementCostForLevel(level) {
+    const normalizedLevel = normalizeInteger(level, 0);
+    const tier = EQUIPMENT_REFINEMENT_COST_TIERS.find((entry) => (
+      normalizedLevel >= entry.minLevel && normalizedLevel <= entry.maxLevel
+    ));
+    return tier ? tier.cost : null;
+  }
+
+  function getEquipmentRefinementCostForNextLevel(state, slot) {
+    const currentLevel = getEquipmentRefinementLevel(state, slot);
+    if (currentLevel >= EQUIPMENT_REFINEMENT_MAX_LEVEL) {
+      return null;
+    }
+    return getEquipmentRefinementCostForLevel(currentLevel + 1);
+  }
+
+  function getEquipmentFrameRefinementDamageReductionRate(level) {
+    const normalizedLevel = Math.max(0, normalizeInteger(level, 0));
+    const tier = EQUIPMENT_FRAME_REFINEMENT_DAMAGE_REDUCTION_TIERS.find((entry) => normalizedLevel >= entry.minLevel);
+    return tier ? tier.reductionRate : 0;
+  }
+
   function roundBonusRate(value) {
     const number = Number(value);
     if (!Number.isFinite(number)) {
@@ -739,7 +855,11 @@
       staminaRegenMultiplier: 1,
       playerSkillDamageIncreaseRate: 0,
       playerSkillDamageMultiplier: 1,
-      maxStaminaFlat: 0
+      maxStaminaFlat: 0,
+      slotRefinementLevels: createDefaultRefinementBySlot(),
+      totalRefinementLevel: 0,
+      damageTakenReductionRate: 0,
+      damageTakenMultiplier: 1
     };
   }
 
@@ -760,6 +880,10 @@
     cloned.playerSkillDamageIncreaseRate = roundBonusRate(source.playerSkillDamageIncreaseRate ?? cloned.playerSkillDamageIncreaseRate);
     cloned.playerSkillDamageMultiplier = roundBonusRate(source.playerSkillDamageMultiplier ?? cloned.playerSkillDamageMultiplier);
     cloned.maxStaminaFlat = Math.max(0, normalizeInteger(source.maxStaminaFlat, cloned.maxStaminaFlat));
+    cloned.slotRefinementLevels = normalizeRefinementBySlot(source.slotRefinementLevels);
+    cloned.totalRefinementLevel = Math.max(0, normalizeInteger(source.totalRefinementLevel, cloned.totalRefinementLevel));
+    cloned.damageTakenReductionRate = roundBonusRate(source.damageTakenReductionRate ?? cloned.damageTakenReductionRate);
+    cloned.damageTakenMultiplier = roundBonusRate(source.damageTakenMultiplier ?? cloned.damageTakenMultiplier);
     return cloned;
   }
 
@@ -804,6 +928,42 @@
     return cloneEquipmentBonuses(applyEquipmentBonusItemToTotals(createEmptyEquipmentBonuses(), item));
   }
 
+  function applyEquipmentRefinementToTotals(totals, state) {
+    const normalizedState = normalizeEquipmentState(state);
+    SLOTS.forEach((slot) => {
+      const item = normalizedState.bestBySlot?.[slot] || null;
+      const level = item?.slot === slot ? normalizedState.refinementBySlot[slot] || 0 : 0;
+      totals.slotRefinementLevels[slot] = level;
+      totals.totalRefinementLevel += level;
+      if (level <= 0) {
+        return;
+      }
+      if (slot === "head") {
+        totals.attackIntervalReductionRate = roundBonusRate(
+          totals.attackIntervalReductionRate + level * EQUIPMENT_REFINEMENT_CONFIG.head.attackIntervalReductionRatePerLevel
+        );
+        totals.attackIntervalMultiplier = roundBonusRate(Math.max(0.1, 1 - totals.attackIntervalReductionRate));
+      } else if (slot === "clothes") {
+        totals.maxHpFlat += level * EQUIPMENT_REFINEMENT_CONFIG.clothes.maxHpFlatPerLevel;
+        totals.damageTakenReductionRate = getEquipmentFrameRefinementDamageReductionRate(level);
+        totals.damageTakenMultiplier = roundBonusRate(1 - totals.damageTakenReductionRate);
+      } else if (slot === "shoes") {
+        totals.staminaRegenIncreaseRate = roundBonusRate(
+          totals.staminaRegenIncreaseRate + level * EQUIPMENT_REFINEMENT_CONFIG.shoes.staminaRegenIncreaseRatePerLevel
+        );
+        totals.staminaRegenMultiplier = roundBonusRate(1 + totals.staminaRegenIncreaseRate);
+      } else if (slot === "weapon") {
+        totals.playerSkillDamageIncreaseRate = roundBonusRate(
+          totals.playerSkillDamageIncreaseRate + level * EQUIPMENT_REFINEMENT_CONFIG.weapon.playerSkillDamageIncreaseRatePerLevel
+        );
+        totals.playerSkillDamageMultiplier = roundBonusRate(1 + totals.playerSkillDamageIncreaseRate);
+      } else if (slot === "accessory") {
+        totals.maxStaminaFlat += level * EQUIPMENT_REFINEMENT_CONFIG.accessory.maxStaminaFlatPerLevel;
+      }
+    });
+    return totals;
+  }
+
   function getEquipmentBonusesFromState(state) {
     const normalizedState = normalizeEquipmentState(state);
     const totals = createEmptyEquipmentBonuses();
@@ -813,6 +973,7 @@
         applyEquipmentBonusItemToTotals(totals, item);
       }
     });
+    applyEquipmentRefinementToTotals(totals, normalizedState);
     return cloneEquipmentBonuses(totals);
   }
 
@@ -1079,6 +1240,170 @@
     };
   }
 
+  function getEquipmentSealedSalvageValue(itemOrRarity) {
+    const rarity = typeof itemOrRarity === "string"
+      ? normalizeRarity(itemOrRarity)
+      : normalizeRarity(itemOrRarity?.rarity);
+    if (!rarity) {
+      return 0;
+    }
+    return Math.max(1, Math.ceil(EQUIPMENT_SALVAGE_BASE_VALUES[rarity] * EQUIPMENT_SALVAGE_SEALED_RATE));
+  }
+
+  function getEquipmentDuplicateSalvageValue(item) {
+    const normalizedItem = normalizeEquipmentItem(item);
+    if (!normalizedItem) {
+      return 0;
+    }
+    const baseValue = EQUIPMENT_SALVAGE_BASE_VALUES[normalizedItem.rarity] || 0;
+    const rankMultiplier = EQUIPMENT_SALVAGE_RANK_MULTIPLIERS[normalizedItem.rank] || 1;
+    return Math.max(1, Math.round(baseValue * rankMultiplier));
+  }
+
+  function addEquipmentSalvagePoints(current, amount) {
+    const normalizedCurrent = normalizeNonNegativeInteger(current, 0);
+    const normalizedAmount = normalizeNonNegativeInteger(amount, 0);
+    return Math.min(Number.MAX_SAFE_INTEGER, normalizedCurrent + normalizedAmount);
+  }
+
+  function resolveEquipmentSalvage(state, boxIds) {
+    const normalizedState = normalizeEquipmentState(state);
+    const requestedIds = Array.isArray(boxIds) ? boxIds : [boxIds];
+    const idSet = new Set(requestedIds.map((id) => toNonEmptyString(id)).filter(Boolean));
+    if (idSet.size <= 0) {
+      return { ok: false, reason: "invalid_box_ids" };
+    }
+    const salvagedBoxes = normalizedState.securedBoxes.filter((box) => idSet.has(box.id));
+    if (salvagedBoxes.length <= 0) {
+      return { ok: false, reason: "box_not_found" };
+    }
+    const pointsEarned = salvagedBoxes.reduce((total, box) => total + getEquipmentSealedSalvageValue(box), 0);
+    const nextState = normalizeEquipmentState({
+      ...normalizedState,
+      securedBoxes: normalizedState.securedBoxes.filter((box) => !idSet.has(box.id)),
+      salvagePoints: addEquipmentSalvagePoints(normalizedState.salvagePoints, pointsEarned),
+      stats: {
+        ...normalizedState.stats,
+        salvagedBoxes: addEquipmentSalvagePoints(normalizedState.stats.salvagedBoxes, salvagedBoxes.length),
+        salvagePointsEarned: addEquipmentSalvagePoints(normalizedState.stats.salvagePointsEarned, pointsEarned)
+      }
+    });
+    return {
+      ok: true,
+      state: nextState,
+      boxes: salvagedBoxes.map(cloneItem),
+      count: salvagedBoxes.length,
+      pointsEarned
+    };
+  }
+
+  function resolveEquipmentSalvageByRarity(state, rarity, mode = "one") {
+    const normalizedState = normalizeEquipmentState(state);
+    const normalizedRarity = normalizeRarity(rarity);
+    if (!normalizedRarity) {
+      return { ok: false, reason: "invalid_rarity" };
+    }
+    const matches = normalizedState.securedBoxes.filter((box) => box.rarity === normalizedRarity);
+    if (matches.length <= 0) {
+      return { ok: false, reason: "box_not_found" };
+    }
+    const selected = mode === "all" ? matches : matches.slice(0, 1);
+    return resolveEquipmentSalvage(normalizedState, selected.map((box) => box.id));
+  }
+
+  function getEquipmentRefinementQuote(state, slot) {
+    const normalizedState = normalizeEquipmentState(state);
+    const normalizedSlot = normalizeSlot(slot);
+    if (!normalizedSlot) {
+      return { ok: false, reason: "invalid_slot" };
+    }
+    const item = cloneItem(normalizedState.bestBySlot[normalizedSlot]);
+    if (!item) {
+      return { ok: false, reason: "no_equipment", slot: normalizedSlot };
+    }
+    const currentLevel = normalizedState.refinementBySlot[normalizedSlot] || 0;
+    if (currentLevel >= EQUIPMENT_REFINEMENT_MAX_LEVEL) {
+      return { ok: false, reason: "max_level", slot: normalizedSlot, item, currentLevel };
+    }
+    const nextLevel = currentLevel + 1;
+    const cost = getEquipmentRefinementCostForLevel(nextLevel);
+    const resonance = getLegendResonanceForSlot(normalizedState.legendResonanceBySlot, normalizedSlot);
+    const deepUnlocked = normalizedState.refinementLimitUnlockedBySlot[normalizedSlot] === true;
+    const canUnlockDeep = item.rarity === "LEGEND" && resonance > 0;
+    if (nextLevel >= EQUIPMENT_REFINEMENT_DEEP_START_LEVEL && !deepUnlocked && !canUnlockDeep) {
+      return {
+        ok: false,
+        reason: item.rarity === "LEGEND" ? "legend_resonance_required" : "legend_equipment_required",
+        slot: normalizedSlot,
+        item,
+        currentLevel,
+        nextLevel,
+        cost,
+        resonance,
+        deepUnlocked
+      };
+    }
+    if (normalizedState.salvagePoints < cost) {
+      return {
+        ok: false,
+        reason: "insufficient_salvage_points",
+        slot: normalizedSlot,
+        item,
+        currentLevel,
+        nextLevel,
+        cost,
+        resonance,
+        deepUnlocked,
+        shortage: cost - normalizedState.salvagePoints
+      };
+    }
+    return {
+      ok: true,
+      slot: normalizedSlot,
+      item,
+      currentLevel,
+      nextLevel,
+      cost,
+      resonance,
+      deepUnlocked,
+      unlocksDeepRefinement: nextLevel >= EQUIPMENT_REFINEMENT_DEEP_START_LEVEL && !deepUnlocked && canUnlockDeep
+    };
+  }
+
+  function resolveEquipmentRefinement(state, slot) {
+    const normalizedState = normalizeEquipmentState(state);
+    const quote = getEquipmentRefinementQuote(normalizedState, slot);
+    if (!quote.ok) {
+      return quote;
+    }
+    const refinementBySlot = normalizeRefinementBySlot(normalizedState.refinementBySlot);
+    refinementBySlot[quote.slot] = quote.nextLevel;
+    const refinementLimitUnlockedBySlot = normalizeRefinementLimitUnlockedBySlot(normalizedState.refinementLimitUnlockedBySlot);
+    if (quote.unlocksDeepRefinement) {
+      refinementLimitUnlockedBySlot[quote.slot] = true;
+    }
+    const nextState = normalizeEquipmentState({
+      ...normalizedState,
+      salvagePoints: normalizedState.salvagePoints - quote.cost,
+      refinementBySlot,
+      refinementLimitUnlockedBySlot,
+      stats: {
+        ...normalizedState.stats,
+        refinements: addEquipmentSalvagePoints(normalizedState.stats.refinements, 1)
+      }
+    });
+    return {
+      ok: true,
+      state: nextState,
+      slot: quote.slot,
+      item: quote.item,
+      previousLevel: quote.currentLevel,
+      currentLevel: quote.nextLevel,
+      cost: quote.cost,
+      deepRefinementUnlockedNow: quote.unlocksDeepRefinement === true
+    };
+  }
+
   function resolveEquipmentAnalysis(state, boxId) {
     const normalizedState = normalizeEquipmentState(state);
     const quote = getEquipmentAnalysisQuote(normalizedState, boxId);
@@ -1108,6 +1433,7 @@
     const legendResonanceBySlot = duplicateLegend
       ? incrementLegendResonanceForSlot(normalizedState.legendResonanceBySlot, box.slot)
       : normalizeLegendResonanceBySlot(normalizedState.legendResonanceBySlot);
+    const salvagePointsEarned = duplicate ? getEquipmentDuplicateSalvageValue(box) : 0;
     const nextState = normalizeEquipmentState({
       ...bestUpdate.state,
       legendDiscovered: normalizedState.legendDiscovered === true || box.rarity === "LEGEND",
@@ -1116,10 +1442,14 @@
       freeAnalysisCredits: quote.usesFreeCredit
         ? Math.max(0, normalizedState.freeAnalysisCredits - 1)
         : normalizedState.freeAnalysisCredits,
+      salvagePoints: addEquipmentSalvagePoints(normalizedState.salvagePoints, salvagePointsEarned),
       stats: {
         opened: normalizedState.stats.opened + 1,
         upgrades: normalizedState.stats.upgrades + (upgraded ? 1 : 0),
-        duplicates: normalizedState.stats.duplicates + (duplicate ? 1 : 0)
+        duplicates: normalizedState.stats.duplicates + (duplicate ? 1 : 0),
+        salvagedBoxes: normalizedState.stats.salvagedBoxes,
+        salvagePointsEarned: addEquipmentSalvagePoints(normalizedState.stats.salvagePointsEarned, salvagePointsEarned),
+        refinements: normalizedState.stats.refinements
       }
     });
 
@@ -1137,6 +1467,7 @@
       current: upgraded ? cloneItem(box) : previous,
       refund,
       netCost: Math.max(0, quote.actualCost - refund),
+      salvagePointsEarned,
       legendDiscoveredNow,
       duplicateLegend
     };
@@ -1149,6 +1480,14 @@
     RARITY_INDEX: Object.freeze({ ...RARITY_INDEX }),
     ANALYSIS_COSTS: Object.freeze({ ...ANALYSIS_COSTS }),
     EQUIPMENT_BONUS_CONFIG,
+    EQUIPMENT_REFINEMENT_CONFIG,
+    EQUIPMENT_REFINEMENT_MAX_LEVEL,
+    EQUIPMENT_REFINEMENT_DEEP_START_LEVEL,
+    EQUIPMENT_REFINEMENT_COST_TIERS,
+    EQUIPMENT_FRAME_REFINEMENT_DAMAGE_REDUCTION_TIERS,
+    EQUIPMENT_SALVAGE_BASE_VALUES,
+    EQUIPMENT_SALVAGE_SEALED_RATE,
+    EQUIPMENT_SALVAGE_RANK_MULTIPLIERS,
     EQUIPMENT_SET_DEFINITIONS,
     LEGEND_LABELS_VISIBLE_FROM_START,
     setDefinitions: EQUIPMENT_SET_DEFINITIONS,
@@ -1165,6 +1504,10 @@
     EQUIPMENT_DEEP_CACHE_RARITY_TABLES,
     EQUIPMENT_DEEP_CACHE_RANK_TABLES,
     createDefaultLegendResonanceBySlot,
+    createDefaultRefinementBySlot,
+    createDefaultRefinementLimitUnlockedBySlot,
+    normalizeRefinementBySlot,
+    normalizeRefinementLimitUnlockedBySlot,
     normalizeLegendResonanceBySlot,
     incrementLegendResonanceForSlot,
     getLegendResonanceTotal,
@@ -1202,6 +1545,11 @@
     createEquipmentDeepCacheBox,
     createFinalRaidLegendRewardRecord,
     getEquipmentQualityScore,
+    getEquipmentRefinementLevel,
+    getEquipmentTotalRefinementLevel,
+    getEquipmentRefinementCostForLevel,
+    getEquipmentRefinementCostForNextLevel,
+    getEquipmentFrameRefinementDamageReductionRate,
     createEmptyEquipmentBonuses,
     getEquipmentBonusForItem,
     getEquipmentBonusesFromState,
@@ -1219,6 +1567,12 @@
     findFirstSecuredEquipmentBoxByRarity,
     getEquipmentAnalysisBaseCost,
     getEquipmentAnalysisQuote,
+    getEquipmentSealedSalvageValue,
+    getEquipmentDuplicateSalvageValue,
+    resolveEquipmentSalvage,
+    resolveEquipmentSalvageByRarity,
+    getEquipmentRefinementQuote,
+    resolveEquipmentRefinement,
     resolveEquipmentAnalysis
   });
 }());

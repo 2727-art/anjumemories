@@ -657,7 +657,7 @@ OPERATIONS HUB では `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY`、`
 
 ラン中 BGM は Beacon coverage 内では CDSHOP の選択 CD を再生します。Depth1〜10は常にcoverage内で、D20 Anchorが連鎖解放済みならDepth20まで、D30 Anchorが連鎖解放済みならDepth30まで選択CD BGMと通常通信を維持します。初回未討伐の Depth10 Final Raid だけ Final Raid 専用 BGM に切り替わります。Beacon coverage外では `./音声/bgm/ENDLESSVOIDAMBIENCE.mp3` をラン中だけ一時上書きし、外部通信は `SCRAMBLED SIGNAL` になります。この専用 BGM は CD として購入・選択・保存されず、`lastmemoVansabaShopState` の CD 選択値も変更しません。
 
-GEEKSHOP は `BASE CALIBRATION` と `EQUIPMENT ANALYSIS` の2つのサブビューを持ちます。`BASE CALIBRATION` は従来の確定 GEEK 永続強化画面です。`EQUIPMENT ANALYSIS` では、保存済みの未解析箱を確定 GEEK または無料解析クレジットで解析し、5部位それぞれの最高品質装備を更新できます。装備箱 GameObject、ラン内一時保持、HUD、通常 / 緊急 / Final Raid 帰還時の抽出保存、通常戦闘の本番ドロップ、Depth10 Final Raid 初回LEGEND確定箱、5部位のラン内ステータス補正まで実装済みです。
+GEEKSHOP は `BASE CALIBRATION` と `EQUIPMENT ANALYSIS` の2つのサブビューを持ちます。`BASE CALIBRATION` は従来の確定 GEEK 永続強化画面です。`EQUIPMENT ANALYSIS` では、保存済みの未解析箱を確定 GEEKまたは無料解析クレジットで解析して5部位それぞれの最高品質装備を更新できるほか、不要な箱を `SALVAGE POINT` に分解し、部位別の装備精錬を `+20` まで進められます。装備箱 GameObject、ラン内一時保持、HUD、通常 / 緊急 / Final Raid 帰還時の抽出保存、通常戦闘の本番ドロップ、Depth10 Final Raid 初回LEGEND確定箱、5部位のラン内ステータス補正まで実装済みです。
 
 GEEKSHOP / BASE CALIBRATION:
 
@@ -679,18 +679,23 @@ GEEKSHOP / EQUIPMENT ANALYSIS:
 - セット進捗は `EQUIPPED SLOTS`、`SSR+ ARRAY`、`LEGEND ARRAY` を `STANDBY` / `QUALIFIED` として示します。SSR+ 5部位では `COMBAT LINK I: READY` / `OVERLIMIT CAP: I`、LEGEND 5部位では `COMBAT LINK II: READY` / `OVERLIMIT CAP: II` を表示します。
 - `COLLECTION STATUS` では `bestBySlot` から導出した `SSR+ COLLECTION` と `LEGEND COLLECTION` 進捗を確認できます。未解析箱は進捗に含めません。LEGEND 5部位コンプは長期目標で、進捗や完成状態はランキング / Firebase / Deep Result へ送信しません。
 - 解析費用は `N 500`、`R 2,000`、`SR 8,000`、`SSR 30,000`、`LEGEND 100,000` GEEKです。箱に `analysisCostOverride` がある場合はそれを最優先し、override が無い場合だけ `freeAnalysisCredits` を先に消費します。override 0 は無料ですが無料解析クレジットを消費しません。
-- 解析時は開始前に `actualCost` 全額を所持している必要があります。既存bestより高品質なら `bestBySlot` を更新し、同品質以下の重複なら `Math.floor(actualCost * 0.5)` を返金扱いにして、実際の支払いは差額だけになります。無料解析の重複返金は0です。
-- 同じslotに既存LEGEND bestがあり、より低いまたは同品質のLEGENDを解析した場合は `DUPLICATE LEGEND SIGNAL` として表示し、slot別の `LEGEND RESONANCE` として記録します。RESONANCEは現段階では表示専用で、Rank、戦闘効果、ドロップ率、交換、pity、未所持slot補完、ランキング / Firebase には影響しません。
+- 解析時は開始前に `actualCost` 全額を所持している必要があります。既存bestより高品質なら `bestBySlot` を更新し、同品質以下の重複なら `Math.floor(actualCost * 0.5)` をGEEK返金扱いにします。さらに重複装備はレアリティとRankに応じた `SALVAGE POINT` へ自動変換されます。無料解析のGEEK返金は0ですが、重複時のSALVAGE POINTは付与されます。
+- 未解析箱はレアリティ行ごとに1個または同レアリティ全箱を直接分解できます。未解析分解はRankを公開せず、解析済み重複の50%相当を切り上げた `N 1`、`R 3`、`SR 8`、`SSR 25`、`LEGEND 100` SALVAGE POINTです。LEGEND分解は同じ操作を5秒以内にもう一度行った場合だけ確定します。
+- 解析済み重複の基礎SALVAGE POINTは `N 2`、`R 5`、`SR 15`、`SSR 50`、`LEGEND 200` で、Rank I〜Vに `x1.00 / x1.25 / x1.50 / x1.75 / x2.00` を掛けて丸めます。
+- 同じslotに既存LEGEND bestがあり、より低いまたは同品質のLEGENDを解析した場合は `DUPLICATE LEGEND SIGNAL` として表示し、slot別の `LEGEND RESONANCE` として記録します。RESONANCEはその部位の精錬 `+16`〜`+20` 解放条件に使い、消費せず記録を維持します。Rank、ドロップ率、交換、pity、未所持slot補完、ランキング / Firebase には影響しません。
+- 精錬値は装備itemではなく `SENSOR` / `FRAME` / `BOOSTER` / `ARMAMENT` / `CORE` の部位ごとに保存します。同部位のbest装備が更新されても精錬値を継承し、装備が空なら保存値は残りますがラン中効果は出ません。`+1`〜`+5` は1回20 SP、`+6`〜`+10` は50 SP、`+11`〜`+15` は100 SP、`+16`〜`+20` は200 SPです。精錬成功率は100%で、失敗、破壊、レベルダウンはありません。
+- `+16`へ進むには、その部位のbestがLEGENDで、同部位の `LEGEND RESONANCE` が1以上必要です。一度解放すれば、その後にbest装備が更新されても `+20` 上限を維持します。
 - Deep Extractionで得た Equipment Cache も `EQUIPMENT ANALYSIS` で解析し、保存済みCacheの `slot` / `rarity` / `rank` を再抽選せず装備として確定します。解析済み装備は `bestBySlot` へ反映され、LEGENDは解析成功時に初めて発見扱いになります。SSR+ / LEGEND の5部位成立は `SET RESONANCE` と次ランの Combat Link 条件になります。
 - 解析前後の GEEK と Equipment 状態は保存ジャーナルを使って一組として確定します。保存成功後だけ解析結果パネルを表示し、保存失敗時は両方をロールバックして `ANALYSIS ABORTED / SAVE ERROR` を表示します。保存途中でページが閉じられた場合も、次回起動時に完了済みかを検証し、未完了なら解析前へ復旧します。
-- CURRENT LOADOUT には各部位の効果を表示します。SENSOR は攻撃間隔短縮、FRAME は最大AP、BOOSTER はブーストEN回復、ARMAMENT は3攻撃スキルの実ダメージ、CORE は最大ブーストENです。解析結果パネルは更新時に効果差分、重複時に `UNCHANGED` を表示します。
-- 出撃開始時に保存済み `bestBySlot` だけから `runEquipmentLoadoutSnapshot` と `runEquipmentBonuses` を作成します。このスナップショットはラン中固定で、NEXT STAGE、FORCE BREAKTHROUGH、Depth遷移、レベルアップ、Gate、overlay、pause、ショップ保存値変更では再取得しません。次の出撃から最新の保存装備が反映されます。
-- 装備ボーナスは品質スコア `rarityIndex * 5 + rank` を使います。SENSOR は攻撃間隔 -0.25% x score、FRAME は最大AP +3 x score、BOOSTER はブーストEN回復 +0.8% x score、ARMAMENT は `basicSkill` / `tornadoSkill` / `rabbitThunderSkill` とそれらのMutation派生ダメージ +1.2% x score、CORE は最大ブーストEN +1 x score です。LEGEND Rank5 では SENSOR x0.9375、FRAME +75、BOOSTER x1.20、ARMAMENT x1.30、CORE +25 になります。
+- CURRENT LOADOUT には各部位のbest装備、精錬値、精錬後の合計効果を表示します。SENSOR は攻撃間隔短縮、FRAME は最大APと被ダメージ軽減、BOOSTER はブーストEN回復、ARMAMENT は3攻撃スキルの実ダメージ、CORE は最大ブーストENです。解析結果パネルは更新時に基礎装備の効果差分、重複時に `UNCHANGED` と返還GEEK / SALVAGE POINTを表示します。
+- 出撃開始時に保存済み `bestBySlot` と部位別精錬値から `runEquipmentLoadoutSnapshot` と `runEquipmentBonuses` を作成します。このスナップショットはラン中固定で、NEXT STAGE、FORCE BREAKTHROUGH、Depth遷移、レベルアップ、Gate、overlay、pause、ショップ保存値変更では再取得しません。次の出撃から最新の保存装備と精錬値が反映されます。
+- 基礎装備ボーナスは品質スコア `rarityIndex * 5 + rank` を使います。SENSOR は攻撃間隔 -0.25% x score、FRAME は最大AP +3 x score、BOOSTER はブーストEN回復 +0.8% x score、ARMAMENT は `basicSkill` / `tornadoSkill` / `rabbitThunderSkill` とそれらのMutation派生ダメージ +1.2% x score、CORE は最大ブーストEN +1 x score です。LEGEND Rank5 では SENSOR x0.9375、FRAME +75、BOOSTER x1.20、ARMAMENT x1.30、CORE +25 になります。
+- 精錬は基礎装備ボーナスへ加算され、1Lvごとに SENSOR 攻撃間隔 -0.15%、FRAME 最大AP +8、BOOSTER ブーストEN回復 +0.5%、ARMAMENT対象スキルダメージ +0.6%、CORE最大ブーストEN +2です。FRAMEは精錬 `+5 / +10 / +15 / +20` でプレイヤーの通常被ダメージを `2% / 4% / 7% / 10%` 軽減します。軽減は `applyDamageToPlayer()` の受け付け時に適用し、Robot Barrierより前の被ダメージ量を減らします。
 - COMBAT LINK は出撃開始時の装備snapshotだけを参照するラン内効果です。対象3スキルが Stage8 に到達し、Final Mutation を選択済みの場合、通常 Level Up 候補として `EQUIPMENT OVERLIMIT` が出現します。Stage8 Final Mutation を正式に選択した直後にも、Combat Link 条件を満たす場合はそのスキル専用の `FINAL COMBAT LINK` OVERLIMIT bonus が出ることがあります。Depth6以降で Deep Level が実際に上がったときも、同じ条件を満たす未取得 OVERLIMIT があれば追加の `DEEP COMBAT LINK` 選択機会が出ます。OVERLIMIT I は対象スキルの実ダメージ x1.10、OVERLIMIT II は x1.20 で、Stage9 / Stage10 ではなく Stage8 のまま、Stage表記や保存schemaは増やさず、そのラン中だけ有効です。Opening Boost、Final Raid、Support、Robot、LOST ARMS、環境ダメージ、Final Raid疑似ダメージ、XP、GEEK、ANJU、Equipment報酬には影響しません。
 - OVERLIMIT 取得済みの対象スキルは戦闘HUDのスキル枠に `OVL-I` / `OVL-II` を表示します。Final Raid 中は COMBAT LINK の攻撃効果を抑制するため、このHUD表示も出ません。RUN ARCHIVE にはローカル閲覧用として Combat Link 段階と各対象スキルの OVERLIMIT 段階を記録しますが、ランキング、Firebase、Deep Result へは送信しません。OVERLIMIT はラン内効果で、次のランへ持ち越しません。
 - FRAME と CORE は開始ステータス再構築時に一度だけ加算します。BOOSTER はダッシュ回復遅延や消費量を変えず、ブーストEN回復量の最終倍率だけを変えます。SENSOR は3攻撃スキルの通常攻撃間隔 / 再発動間隔だけへ掛かり、演出ディレイ、持続時間、内部Mutationクールダウン、Support、Robot、LOST ARMS、CHAIN、敵行動には掛かりません。ARMAMENT は3攻撃スキル由来の実ダメージだけへ掛かり、Support、Robot、Recovery、LOST ARMS、CHAIN、環境ダメージ、敵攻撃、Final Raidの疑似ダメージ、支援ランキング、ボスHPタイムラインには掛かりません。
 - Depth10 初回 Final Raid 中はボスフィールドの時刻演出とランキングを守るため、SENSOR と ARMAMENT の有効倍率だけを 1 に抑制します。FRAME、BOOSTER、CORE は Final Raid 中も有効です。Final Raid 討伐後の通常 Depth10 ではこの抑制は発生しません。
-- `?debugEquipmentHub=1` と `?debugEquipmentHub=1&debugEquipmentHubLegend=1` は表示専用です。解析ボタンは `PREVIEW ONLY` になり、GEEK消費、無料クレジット消費、統計更新、保存は行いません。
+- `?debugEquipmentHub=1` と `?debugEquipmentHub=1&debugEquipmentHubLegend=1` は表示専用です。解析、分解、精錬は `PREVIEW ONLY` になり、GEEK / SALVAGE POINT消費、無料クレジット消費、統計更新、保存は行いません。
 - 本番装備箱は通常 Wave Boss 45%、通常 Elite 15%、NEMESIS 100%、Gold Slime 35%、Silver Slime 25% で抽選します。通常敵、Final Raid ボス/Add/巨大兵器、元素騎士イベント対象、Directive Slime、VOID HUNTER、報酬抑制対象からは落ちません。
 - 本番装備箱は1 Depth につき最大1個だけ出現します。`?debugEquipmentDrop=...` の直接出現箱や Final Raid 初回確定報酬はこの上限に含めません。
 - Depth1 で Equipment 進行が完全に空の場合、最初の通常 Wave Boss だけ本番ドロップ抽選を100%にします。中身のレアリティ、Rank、部位はDepth1用テーブルで通常どおり決まります。
@@ -817,7 +822,7 @@ localStorage キー:
 - `lastmemoVansabaFinalBossState`: Depth10 Final Raid 討伐済み、ラスボスCD、ラスボスサポート解禁状態、VOID HUNTER 討伐済み、VOID HUNTER サポート解禁状態
 - `lastmemoVansabaDepthRelayState`: DEPTH RELAY の解放済み転送 Depth を保存します。`version` と `unlockedDepths` を持ち、Final Raid 討伐済み旧セーブでは Depth10 が補完されます。Depth20 / Depth30 Anchor 解放後はプレイヤー向け選択 UI にそれぞれ Depth20 / Depth30 も表示されます。
 - `lastmemoVansabaCommsStoryState`: Depth 初回通信の再生済みフラグ
-- `lastmemoVansabaEquipmentState`: Equipment 保存状態。version、LEGEND 発見フラグ、Final Raid LEGEND 初回報酬フラグ、無料解析クレジット、部位別best装備、未解析箱、slot別LEGEND RESONANCE、opened/upgrades/duplicates統計を保存します。破損JSONや古い形式は起動時に正規化されます。
+- `lastmemoVansabaEquipmentState`: Equipment 保存状態。version、LEGEND 発見フラグ、Final Raid LEGEND 初回報酬フラグ、無料解析クレジット、SALVAGE POINT、部位別best装備、未解析箱、slot別LEGEND RESONANCE、部位別精錬値、+16解放状態、解析 / 分解 / 精錬統計を保存します。破損JSONや古い形式は起動時に正規化されます。
 - `lastmemoVansabaEquipmentAnalysisTransaction`: EQUIPMENT ANALYSIS の保存途中だけ使う復旧ジャーナル。GEEKとEquipmentの両方が確定した後に削除され、残っている場合は次回起動時に完了確認または解析前状態への復旧を行います。
 - `collisionEditor:<stageId>`: 衝突判定編集モードの一時保存データ
 
@@ -829,13 +834,13 @@ sessionStorage キー:
 
 ### Equipment 保存データ
 
-`equipmentDefinitions.js` は装備システムの定義と純粋関数を `window.EquipmentSystem` として公開します。装備部位は `head`、`clothes`、`shoes`、`weapon`、`accessory` の5種です。レアリティは `N`、`R`、`SR`、`SSR`、`LEGEND` の5種で、各レアリティは Rank1〜5 を持ちます。品質スコアは `rarityIndex * 5 + rank` で、`N Rank5 < R Rank1 < ... < LEGEND Rank5` になるよう比較します。`createEmptyEquipmentBonuses()`、`getEquipmentBonusForItem()`、`getEquipmentBonusesFromState()`、`cloneEquipmentBonuses()` は状態を変更しない純粋関数で、補正計算では `bestBySlot` だけを参照します。
+`equipmentDefinitions.js` は装備システムの定義と純粋関数を `window.EquipmentSystem` として公開します。装備部位は `head`、`clothes`、`shoes`、`weapon`、`accessory` の5種です。レアリティは `N`、`R`、`SR`、`SSR`、`LEGEND` の5種で、各レアリティは Rank1〜5 を持ちます。品質スコアは `rarityIndex * 5 + rank` で、`N Rank5 < R Rank1 < ... < LEGEND Rank5` になるよう比較します。`createEmptyEquipmentBonuses()`、`getEquipmentBonusForItem()`、`getEquipmentBonusesFromState()`、`cloneEquipmentBonuses()`、分解 / 精錬のquote・resolve helperは状態を直接変更しない純粋関数です。ラン用補正計算では `bestBySlot` と `refinementBySlot` を参照します。
 
 `evaluateEquipmentSetStatus()` は保存済み `bestBySlot` から5部位セット進捗を毎回導出する純粋関数です。Rank、`securedBoxes`、`stats` はセット判定に使わず、セット状態用の保存フィールドや保存versionは追加しません。
 
-保存キーは `lastmemoVansabaEquipmentState` です。初期状態は `version: 1`、`legendDiscovered: false`、`finalRaidLegendRewardClaimed: false`、`freeAnalysisCredits: 1`、5部位すべて `null` の `bestBySlot`、空の `securedBoxes`、全slot 0の `legendResonanceBySlot`、`opened/upgrades/duplicates` が0の `stats` です。Phase 7 でも保存キーと `version` は増やしません。ラン中に拾った未抽出箱は `runUnsecuredEquipmentBoxes` の一時状態だけで持ち、通常 / 緊急 / Final Raid 解放帰還の抽出成功時にだけ `securedBoxes` へ追記して `lastmemoVansabaEquipmentState` を保存します。Depth10 以上の通常EXTRACTで得る深層 Equipment Cache は中身を Deep Result や RUN ARCHIVE / ranking / Firebase へ公開せず、EQUIPMENT ANALYSIS で解析するまで未解析箱として扱います。EQUIPMENT ANALYSIS 上の LEGEND 表記と進捗は初期状態から表示しますが、`legendDiscovered` は解析成功履歴として false から始まります。Emergency Extract、ゲームオーバー、Final Raid専用帰還、debugプレビューでは深層 Equipment Cache は付与されません。深層 Equipment Cacheの中身やsourceDepthはランキング / Firebaseへ送信しません。Depth10 Final Raid 初回確定箱はラン中箱とは別系統の自動報酬で、専用帰還成功時に固定IDで `securedBoxes` 先頭へ保存します。
+保存キーは `lastmemoVansabaEquipmentState` です。初期状態は `version: 1`、`legendDiscovered: false`、`finalRaidLegendRewardClaimed: false`、`freeAnalysisCredits: 1`、`salvagePoints: 0`、5部位すべて `null` の `bestBySlot`、空の `securedBoxes`、全slot 0の `legendResonanceBySlot` / `refinementBySlot`、全slot falseの `refinementLimitUnlockedBySlot`、解析 / 分解 / 精錬統計が0の `stats` です。保存キーと `version` は増やさず、古い保存には新フィールドを補完します。ラン中に拾った未抽出箱は `runUnsecuredEquipmentBoxes` の一時状態だけで持ち、通常 / 緊急 / Final Raid 解放帰還の抽出成功時にだけ `securedBoxes` へ追記して `lastmemoVansabaEquipmentState` を保存します。Depth10 以上の通常EXTRACTで得る深層 Equipment Cache は中身を Deep Result や RUN ARCHIVE / ranking / Firebase へ公開せず、EQUIPMENT ANALYSIS で解析するまで未解析箱として扱います。EQUIPMENT ANALYSIS 上の LEGEND 表記と進捗は初期状態から表示しますが、`legendDiscovered` は解析成功履歴として false から始まります。Emergency Extract、ゲームオーバー、Final Raid専用帰還、debugプレビューでは深層 Equipment Cache は付与されません。深層 Equipment Cacheの中身やsourceDepthはランキング / Firebaseへ送信しません。Depth10 Final Raid 初回確定箱はラン中箱とは別系統の自動報酬で、専用帰還成功時に固定IDで `securedBoxes` 先頭へ保存します。
 
-OPERATIONS HUB の GEEKSHOP / EQUIPMENT ANALYSIS から保存済み `securedBoxes` を解析すると、`legendDiscovered`、`freeAnalysisCredits`、`bestBySlot`、`securedBoxes`、`legendResonanceBySlot`、`stats.opened/upgrades/duplicates` を更新します。`legendResonanceBySlot` は真の重複LEGENDだけでslot別に増える表示専用記録で、LEGENDコンプの長期目標を短縮しません。`finalRaidLegendRewardClaimed` は Final Raid 初回LEGEND確定箱の保存成功、または同じ固定ID箱が既に存在する状態の修復保存成功でだけ true になります。解析、通常戦闘ドロップ、抽出保存では変更しません。ラン中のステータス補正は出撃開始時に `bestBySlot` から作る `runEquipmentLoadoutSnapshot` と `runEquipmentBonuses` だけを参照し、`lastmemoVansabaEquipmentState` 自体には保存しません。
+OPERATIONS HUB の GEEKSHOP / EQUIPMENT ANALYSIS から保存済み `securedBoxes` を解析または分解すると、`legendDiscovered`、`freeAnalysisCredits`、`salvagePoints`、`bestBySlot`、`securedBoxes`、`legendResonanceBySlot`、解析 / 分解統計を更新します。精錬では `salvagePoints`、`refinementBySlot`、`refinementLimitUnlockedBySlot`、精錬統計を更新します。`legendResonanceBySlot` は真の重複LEGENDだけでslot別に増え、精錬+16上限の解放条件として参照しますが消費しません。`finalRaidLegendRewardClaimed` は Final Raid 初回LEGEND確定箱の保存成功、または同じ固定ID箱が既に存在する状態の修復保存成功でだけ true になります。解析、通常戦闘ドロップ、抽出保存では変更しません。ラン中のステータス補正は出撃開始時に `bestBySlot` と `refinementBySlot` から作る `runEquipmentLoadoutSnapshot` と `runEquipmentBonuses` だけを参照し、精錬前後で進行中ランのsnapshotを再取得しません。
 
 ## 主なファイル
 

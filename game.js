@@ -6784,6 +6784,29 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
+  getSupportAttackSharedImageAssets(definition) {
+    if (definition?.type !== "finalBossSupport") {
+      return [];
+    }
+
+    const attackAssets = FINAL_BOSS_RAID_CONFIG.attackAssets || {};
+    const fireFrames = attackAssets.fireFrames || [];
+    const iceFrames = attackAssets.iceFrames || [];
+    const seenTextureKeys = new Set();
+    return [
+      attackAssets.fireEffect,
+      attackAssets.iceEffect,
+      fireFrames[4] || fireFrames[0],
+      iceFrames[4] || iceFrames[0]
+    ].filter((asset) => {
+      if (!asset?.textureKey || !asset.imagePath || seenTextureKeys.has(asset.textureKey)) {
+        return false;
+      }
+      seenTextureKeys.add(asset.textureKey);
+      return true;
+    });
+  }
+
   preloadGensoKnightsSupportAssets() {
     const definition = GENSO_KNIGHTS_SUPPORT_DEFINITION;
     this.preloadGensoKnightsSupportDefinitionAssets(definition);
@@ -6815,6 +6838,9 @@ class SurvivalScene extends Phaser.Scene {
     });
     definition.fieldEffectFrames?.forEach((frame) => {
       this.loadImageIfNeeded(frame.textureKey, frame.imagePath);
+    });
+    this.getSupportAttackSharedImageAssets(definition).forEach((asset) => {
+      this.loadImageIfNeeded(asset.textureKey, asset.imagePath);
     });
   }
 
@@ -13506,6 +13532,7 @@ class SurvivalScene extends Phaser.Scene {
       legendDiscovered: false,
       finalRaidLegendRewardClaimed: false,
       freeAnalysisCredits: 1,
+      salvagePoints: 0,
       bestBySlot: {
         head: null,
         clothes: null,
@@ -13521,10 +13548,27 @@ class SurvivalScene extends Phaser.Scene {
         weapon: 0,
         accessory: 0
       },
+      refinementBySlot: {
+        head: 0,
+        clothes: 0,
+        shoes: 0,
+        weapon: 0,
+        accessory: 0
+      },
+      refinementLimitUnlockedBySlot: {
+        head: false,
+        clothes: false,
+        shoes: false,
+        weapon: false,
+        accessory: false
+      },
       stats: {
         opened: 0,
         upgrades: 0,
-        duplicates: 0
+        duplicates: 0,
+        salvagedBoxes: 0,
+        salvagePointsEarned: 0,
+        refinements: 0
       }
     };
   }
@@ -14190,7 +14234,17 @@ class SurvivalScene extends Phaser.Scene {
       staminaRegenMultiplier: 1,
       playerSkillDamageIncreaseRate: 0,
       playerSkillDamageMultiplier: 1,
-      maxStaminaFlat: 0
+      maxStaminaFlat: 0,
+      slotRefinementLevels: {
+        head: 0,
+        clothes: 0,
+        shoes: 0,
+        weapon: 0,
+        accessory: 0
+      },
+      totalRefinementLevel: 0,
+      damageTakenReductionRate: 0,
+      damageTakenMultiplier: 1
     };
   }
 
@@ -14206,6 +14260,10 @@ class SurvivalScene extends Phaser.Scene {
       slotScores: {
         ...empty.slotScores,
         ...(bonuses?.slotScores || {})
+      },
+      slotRefinementLevels: {
+        ...empty.slotRefinementLevels,
+        ...(bonuses?.slotRefinementLevels || {})
       }
     };
   }
@@ -14864,6 +14922,8 @@ class SurvivalScene extends Phaser.Scene {
     const snapshot = this.normalizeEquipmentState({
       ...this.createDefaultEquipmentState(),
       legendDiscovered: sourceState.legendDiscovered === true,
+      refinementBySlot: sourceState.refinementBySlot,
+      refinementLimitUnlockedBySlot: sourceState.refinementLimitUnlockedBySlot,
       bestBySlot
     });
     this.logEquipmentBonusDebug("snapshot created", {
@@ -14892,6 +14952,9 @@ class SurvivalScene extends Phaser.Scene {
       playerSkillDamageMultiplier: this.runEquipmentBonuses.playerSkillDamageMultiplier,
       maxHpFlat: this.runEquipmentBonuses.maxHpFlat,
       maxStaminaFlat: this.runEquipmentBonuses.maxStaminaFlat,
+      slotRefinementLevels: { ...this.runEquipmentBonuses.slotRefinementLevels },
+      totalRefinementLevel: this.runEquipmentBonuses.totalRefinementLevel,
+      damageTakenMultiplier: this.runEquipmentBonuses.damageTakenMultiplier,
       finalRaidOffenseSuppressed: this.shouldSuppressRunEquipmentOffenseBonuses()
     });
     return this.runEquipmentBonuses;
@@ -14999,6 +15062,13 @@ class SurvivalScene extends Phaser.Scene {
   getRunEquipmentStaminaRegenMultiplier() {
     const multiplier = Number(this.getActiveRunEquipmentBonuses().staminaRegenMultiplier);
     return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+  }
+
+  getRunEquipmentDamageTakenMultiplier() {
+    const multiplier = Number(this.getActiveRunEquipmentBonuses().damageTakenMultiplier);
+    return Number.isFinite(multiplier) && multiplier > 0
+      ? Phaser.Math.Clamp(multiplier, 0.1, 1)
+      : 1;
   }
 
   applyRunEquipmentPlayerSkillDamageBonus(skillId, damage) {
@@ -16384,6 +16454,7 @@ class SurvivalScene extends Phaser.Scene {
       legendDiscovered: legendDebug,
       finalRaidLegendRewardClaimed: false,
       freeAnalysisCredits: 1,
+      salvagePoints: legendDebug ? 1200 : 240,
       bestBySlot: {
         head: legendDebug
           ? this.createEquipmentHubDebugItem("debug-head-legend-5", "LEGEND", 5, "head")
@@ -16408,6 +16479,20 @@ class SurvivalScene extends Phaser.Scene {
         weapon: legendDebug ? 2 : 0,
         accessory: 0
       },
+      refinementBySlot: {
+        head: legendDebug ? 20 : 5,
+        clothes: legendDebug ? 20 : 8,
+        shoes: legendDebug ? 15 : 3,
+        weapon: legendDebug ? 18 : 6,
+        accessory: legendDebug ? 12 : 0
+      },
+      refinementLimitUnlockedBySlot: {
+        head: legendDebug,
+        clothes: legendDebug,
+        shoes: legendDebug,
+        weapon: legendDebug,
+        accessory: false
+      },
       securedBoxes: [
         this.createEquipmentHubDebugItem("debug-box-n-1", "N", 1, "head"),
         this.createEquipmentHubDebugItem("debug-box-n-2", "N", 4, "weapon"),
@@ -16419,7 +16504,10 @@ class SurvivalScene extends Phaser.Scene {
       stats: {
         opened: 0,
         upgrades: 0,
-        duplicates: 0
+        duplicates: 0,
+        salvagedBoxes: 0,
+        salvagePointsEarned: 0,
+        refinements: 0
       }
     });
   }
@@ -16624,7 +16712,9 @@ class SurvivalScene extends Phaser.Scene {
           status: "empty",
           displayRarity: null,
           rankLabel: null,
-          effectLabel: ""
+          effectLabel: "",
+          refinementLevel: state.refinementBySlot?.[entry.slot] || 0,
+          refinementButtonState: this.getEquipmentRefinementButtonState(state, entry.slot)
         };
       }
       if (hiddenLegend && item.rarity === "LEGEND") {
@@ -16634,7 +16724,9 @@ class SurvivalScene extends Phaser.Scene {
           status: "unregistered",
           displayRarity: null,
           rankLabel: null,
-          effectLabel: ""
+          effectLabel: "",
+          refinementLevel: state.refinementBySlot?.[entry.slot] || 0,
+          refinementButtonState: this.getEquipmentRefinementButtonState(state, entry.slot)
         };
       }
       return {
@@ -16643,7 +16735,9 @@ class SurvivalScene extends Phaser.Scene {
         status: "equipment",
         displayRarity: item.rarity,
         rankLabel: this.getEquipmentRankLabel(item.rank),
-        effectLabel: this.getEquipmentBonusEffectLabel(item)
+        effectLabel: this.getEquipmentBonusEffectLabel(item, state),
+        refinementLevel: state.refinementBySlot?.[entry.slot] || 0,
+        refinementButtonState: this.getEquipmentRefinementButtonState(state, entry.slot)
       };
     });
   }
@@ -16723,7 +16817,7 @@ class SurvivalScene extends Phaser.Scene {
     return `${item.rarity} RANK ${this.getEquipmentRankLabel(item.rank)}`;
   }
 
-  getEquipmentBonusEffectInfo(item) {
+  getEquipmentBonusEffectInfo(item, equipmentState = null) {
     const normalizedItem = this.normalizeEquipmentItem(item);
     if (!normalizedItem) {
       return {
@@ -16733,7 +16827,10 @@ class SurvivalScene extends Phaser.Scene {
         valueType: "none"
       };
     }
-    const bonuses = this.getEquipmentSystem()?.getEquipmentBonusForItem?.(normalizedItem) || this.createEmptyEquipmentBonuses();
+    const equipmentSystem = this.getEquipmentSystem();
+    const bonuses = equipmentState && equipmentSystem?.getEquipmentBonusesFromState
+      ? equipmentSystem.getEquipmentBonusesFromState(equipmentState)
+      : (equipmentSystem?.getEquipmentBonusForItem?.(normalizedItem) || this.createEmptyEquipmentBonuses());
     if (normalizedItem.slot === "head") {
       return {
         slot: normalizedItem.slot,
@@ -16800,13 +16897,21 @@ class SurvivalScene extends Phaser.Scene {
     return "-";
   }
 
-  getEquipmentBonusEffectLabel(item) {
-    const info = this.getEquipmentBonusEffectInfo(item);
+  getEquipmentBonusEffectLabel(item, equipmentState = null) {
+    const info = this.getEquipmentBonusEffectInfo(item, equipmentState);
     if (info.valueType === "none") {
       return "NO EFFECT";
     }
     const value = this.formatEquipmentBonusEffectValue(info);
-    return `${info.title} ${info.valueType === "negativePercent" ? "-" : ""}${value.replace(/^\+/, "")}`;
+    const baseLabel = `${info.title} ${info.valueType === "negativePercent" ? "-" : ""}${value.replace(/^\+/, "")}`;
+    if (equipmentState && info.slot === "clothes") {
+      const bonuses = this.getEquipmentSystem()?.getEquipmentBonusesFromState?.(equipmentState);
+      const reductionRate = Math.max(0, Number(bonuses?.damageTakenReductionRate) || 0);
+      if (reductionRate > 0) {
+        return `${baseLabel} / DMG -${(reductionRate * 100).toFixed(0)}%`;
+      }
+    }
+    return baseLabel;
   }
 
   getEquipmentAnalysisEffectDeltaLine(result) {
@@ -16840,6 +16945,134 @@ class SurvivalScene extends Phaser.Scene {
       return equipmentSystem.findFirstSecuredEquipmentBoxByRarity(state, rarity);
     }
     return this.normalizeEquipmentState(state).securedBoxes.find((box) => box.rarity === rarity) || null;
+  }
+
+  formatEquipmentSalvagePoints(amount) {
+    return `${this.normalizeCoinAmount(amount).toLocaleString()} SP`;
+  }
+
+  getEquipmentRefinementButtonState(state, slot) {
+    const normalizedState = this.normalizeEquipmentState(state);
+    const item = normalizedState.bestBySlot?.[slot] || null;
+    if (!item) {
+      return { enabled: false, label: "", subLabel: "" };
+    }
+    const equipmentSystem = this.getEquipmentSystem();
+    const currentLevel = equipmentSystem?.getEquipmentRefinementLevel?.(normalizedState, slot)
+      ?? Math.max(0, Math.floor(Number(normalizedState.refinementBySlot?.[slot]) || 0));
+    const maxLevel = Math.max(1, Math.floor(Number(equipmentSystem?.EQUIPMENT_REFINEMENT_MAX_LEVEL) || 20));
+    if (currentLevel >= maxLevel) {
+      return { enabled: false, label: `MAX +${maxLevel}`, subLabel: "", currentLevel };
+    }
+    if (this.isEquipmentHubDebugEnabled()) {
+      return { enabled: false, label: `PREVIEW +${currentLevel}`, subLabel: "", currentLevel };
+    }
+    if (this.equipmentAnalysisBusy || this.equipmentAnalysisResultOpen) {
+      return { enabled: false, label: "BUSY", subLabel: "", currentLevel };
+    }
+    const quote = equipmentSystem?.getEquipmentRefinementQuote?.(normalizedState, slot);
+    if (quote?.ok) {
+      return {
+        enabled: true,
+        label: `REFINE +${quote.nextLevel}`,
+        subLabel: this.formatEquipmentSalvagePoints(quote.cost),
+        currentLevel,
+        nextLevel: quote.nextLevel,
+        cost: quote.cost
+      };
+    }
+    const reasonLabels = {
+      insufficient_salvage_points: "NEED SP",
+      legend_resonance_required: "NEED LGD RES",
+      legend_equipment_required: "NEED LEGEND",
+      max_level: `MAX +${maxLevel}`
+    };
+    return {
+      enabled: false,
+      label: reasonLabels[quote?.reason] || "LOCKED",
+      subLabel: quote?.cost ? this.formatEquipmentSalvagePoints(quote.cost) : "",
+      currentLevel,
+      reason: quote?.reason || "unavailable"
+    };
+  }
+
+  refineEquipmentSlot(slot) {
+    if (!this.shopActive || this.shopViewMode !== "geek" || this.geekShopSubView !== GEEK_SHOP_SUB_VIEW_EQUIPMENT_ANALYSIS) {
+      return;
+    }
+    if (this.isEquipmentHubDebugEnabled() || this.equipmentAnalysisBusy || this.equipmentAnalysisResultOpen) {
+      return;
+    }
+    const equipmentSystem = this.getEquipmentSystem();
+    const previousState = this.normalizeEquipmentState(this.equipmentState);
+    const resolved = equipmentSystem?.resolveEquipmentRefinement?.(previousState, slot);
+    if (!resolved?.ok) {
+      const reasonMessage = {
+        insufficient_salvage_points: "REFINERY: INSUFFICIENT SALVAGE POINT",
+        legend_resonance_required: "REFINERY: SAME-SLOT LEGEND RESONANCE REQUIRED",
+        legend_equipment_required: "REFINERY: LEGEND EQUIPMENT REQUIRED FOR +16",
+        max_level: "REFINERY: MAX +20"
+      }[resolved?.reason] || "REFINERY: LOCKED";
+      this.showPreGameShop(reasonMessage);
+      return;
+    }
+    this.equipmentAnalysisBusy = true;
+    this.equipmentState = this.normalizeEquipmentState(resolved.state);
+    const saved = this.saveEquipmentState();
+    this.equipmentAnalysisBusy = false;
+    if (!saved) {
+      this.equipmentState = previousState;
+      this.showPreGameShop("REFINERY ABORTED / SAVE ERROR");
+      return;
+    }
+    const slotLabel = this.getEquipmentSlotLabel(resolved.slot);
+    const unlockLabel = resolved.deepRefinementUnlockedNow ? " / OVERREFINE UNLOCKED" : "";
+    this.showPreGameShop(`${slotLabel} REFINED +${resolved.currentLevel}${unlockLabel}`);
+  }
+
+  getEquipmentSalvageConfirmationKey(rarity, mode) {
+    return `${String(rarity || "").toUpperCase()}:${mode === "all" ? "all" : "one"}`;
+  }
+
+  isEquipmentSalvageConfirmationArmed(rarity, mode) {
+    return this.equipmentSalvageConfirmKey === this.getEquipmentSalvageConfirmationKey(rarity, mode) &&
+      Date.now() <= (Number(this.equipmentSalvageConfirmUntil) || 0);
+  }
+
+  salvageSecuredEquipmentBoxes(rarity, mode = "one") {
+    if (!this.shopActive || this.shopViewMode !== "geek" || this.geekShopSubView !== GEEK_SHOP_SUB_VIEW_EQUIPMENT_ANALYSIS) {
+      return;
+    }
+    if (this.isEquipmentHubDebugEnabled() || this.equipmentAnalysisBusy || this.equipmentAnalysisResultOpen) {
+      return;
+    }
+    const normalizedRarity = String(rarity || "").toUpperCase();
+    const normalizedMode = mode === "all" ? "all" : "one";
+    if (normalizedRarity === "LEGEND" && !this.isEquipmentSalvageConfirmationArmed(normalizedRarity, normalizedMode)) {
+      this.equipmentSalvageConfirmKey = this.getEquipmentSalvageConfirmationKey(normalizedRarity, normalizedMode);
+      this.equipmentSalvageConfirmUntil = Date.now() + 5000;
+      this.showPreGameShop("LEGEND RECYCLE: PRESS THE SAME BUTTON AGAIN");
+      return;
+    }
+    this.equipmentSalvageConfirmKey = "";
+    this.equipmentSalvageConfirmUntil = 0;
+    const equipmentSystem = this.getEquipmentSystem();
+    const previousState = this.normalizeEquipmentState(this.equipmentState);
+    const resolved = equipmentSystem?.resolveEquipmentSalvageByRarity?.(previousState, normalizedRarity, normalizedMode);
+    if (!resolved?.ok) {
+      this.showPreGameShop("SALVAGE: SIGNAL LOST");
+      return;
+    }
+    this.equipmentAnalysisBusy = true;
+    this.equipmentState = this.normalizeEquipmentState(resolved.state);
+    const saved = this.saveEquipmentState();
+    this.equipmentAnalysisBusy = false;
+    if (!saved) {
+      this.equipmentState = previousState;
+      this.showPreGameShop("SALVAGE ABORTED / SAVE ERROR");
+      return;
+    }
+    this.showPreGameShop(`RECYCLED ${resolved.count} ${normalizedRarity} / +${this.formatEquipmentSalvagePoints(resolved.pointsEarned)}`);
   }
 
   syncEquipmentAnalysisResultOpenState() {
@@ -16922,6 +17155,7 @@ class SurvivalScene extends Phaser.Scene {
       duplicate: result.duplicate === true,
       refund: this.normalizeCoinAmount(result.refund),
       netCost: this.normalizeCoinAmount(result.netCost),
+      salvagePointsEarned: this.normalizeCoinAmount(result.salvagePointsEarned),
       legendDiscoveredNow: result.legendDiscoveredNow === true,
       saveSucceeded: details.saveSucceeded === true,
       rollback: details.rollback === true,
@@ -17022,7 +17256,7 @@ class SurvivalScene extends Phaser.Scene {
       committed = true;
       this.shopStatusMessage = resolved.upgraded
         ? "EQUIPMENT ANALYSIS: LOADOUT UPDATED"
-        : "EQUIPMENT ANALYSIS: DUPLICATE DATA REFUNDED";
+        : "EQUIPMENT ANALYSIS: DUPLICATE RECYCLED";
       this.equipmentAnalysisBusy = false;
       this.logEquipmentAnalysisDebug(resolved, { saveSucceeded: true, rollback: false });
       this.showPreGameShop(this.shopStatusMessage);
@@ -17127,9 +17361,14 @@ class SurvivalScene extends Phaser.Scene {
     const currentLine = `CURRENT   ${this.getEquipmentItemSummary(result.current)}`;
     const effectLine = this.getEquipmentAnalysisEffectDeltaLine(result);
     const costLine = `COST      ${this.formatEquipmentAnalysisCost(result.quote?.actualCost)}`;
-    const refundLine = result.refund > 0
-      ? `REFUND    +${this.normalizeCoinAmount(result.refund).toLocaleString()} GEEK`
-      : "REFUND    -";
+    const refundParts = [];
+    if (result.refund > 0) {
+      refundParts.push(`+${this.normalizeCoinAmount(result.refund).toLocaleString()} GEEK`);
+    }
+    if (result.salvagePointsEarned > 0) {
+      refundParts.push(`+${this.formatEquipmentSalvagePoints(result.salvagePointsEarned)}`);
+    }
+    const refundLine = refundParts.length > 0 ? `RETURN    ${refundParts.join(" / ")}` : "RETURN    -";
     this.createOverlayText(left + 34, top + 190, `${previousLine}\n${currentLine}\n${effectLine}\n${costLine}\n${refundLine}`, {
       fontSize: "14px",
       color: "#b8d8ec",
@@ -51381,7 +51620,7 @@ class SurvivalScene extends Phaser.Scene {
     });
     const description = this.isEquipmentHubDebugEnabled()
       ? "表示専用プレビュー。解析、GEEK消費、保存更新は行いません。"
-      : "確保済みの未解析箱を解析し、部位ごとの最高品質装備を次回出撃時の固定ボーナスとして使用します。";
+      : "未解析箱を解析または分解し、SALVAGE POINTで部位ごとの装備を+20まで精錬します。";
     this.createOverlayText(-530, -188, description, {
       fontSize: "12px",
       color: "#9ab7cc",
@@ -51419,7 +51658,7 @@ class SurvivalScene extends Phaser.Scene {
     this.renderEquipmentCollectionProgressPanel(188, 146, 352, 94, state, collectionProgress);
     const creditText = this.isEquipmentHubDebugEnabled()
       ? "PREVIEW ONLY"
-      : `FREE ANALYSIS CREDIT x${this.normalizeCoinAmount(state.freeAnalysisCredits)}`;
+      : `SALVAGE POINT ${this.normalizeCoinAmount(state.salvagePoints).toLocaleString()} SP`;
     this.createOverlayText(188, 100, creditText, {
       fontSize: "12px",
       color: this.isEquipmentHubDebugEnabled() ? "#f0c463" : "#77f0b4",
@@ -51427,8 +51666,11 @@ class SurvivalScene extends Phaser.Scene {
       align: "center",
       origin: { x: 0.5, y: 0 }
     });
-    this.createOverlayText(188, 122, "ANALYSIS MODULE: READY", {
-      fontSize: "13px",
+    const moduleText = this.isEquipmentHubDebugEnabled()
+      ? "REFINERY PREVIEW"
+      : `FREE ANALYSIS x${this.normalizeCoinAmount(state.freeAnalysisCredits)} / REFINERY READY`;
+    this.createOverlayText(188, 122, moduleText, {
+      fontSize: "12px",
       color: "#9ffcff",
       fontStyle: "bold",
       align: "center",
@@ -51817,6 +52059,14 @@ class SurvivalScene extends Phaser.Scene {
       color: "#9ab7cc",
       fontStyle: "bold"
     });
+    const refinementLevel = Math.max(0, Math.floor(Number(row.refinementLevel) || 0));
+    this.createOverlayText(x + width - 12, y + 9, `+${refinementLevel}`, {
+      fontSize: "14px",
+      color: refinementLevel > 0 ? "#77f0b4" : "#738597",
+      fontStyle: "bold",
+      align: "right",
+      origin: { x: 1, y: 0 }
+    });
 
     if (row.status === "empty") {
       this.createOverlayText(x + 14, y + 42, "NO DATA", {
@@ -51852,14 +52102,54 @@ class SurvivalScene extends Phaser.Scene {
       color: style.dim,
       fontStyle: "bold"
     });
-    const effectText = this.createOverlayText(x + width - 14, y + 60, row.effectLabel || "NO EFFECT", {
-      fontSize: "10px",
+    const effectText = this.createOverlayText(x + width - 14, y + 35, row.effectLabel || "NO EFFECT", {
+      fontSize: "9px",
       color: "#ecf7ff",
       fontStyle: "bold",
       align: "right",
       origin: { x: 1, y: 0 }
     });
-    this.fitOverlayTextToWidth(effectText, width - 92, 8);
+    this.fitOverlayTextToWidth(effectText, width - 104, 7);
+
+    const buttonState = row.refinementButtonState || { enabled: false, label: "", subLabel: "" };
+    if (!buttonState.label) {
+      return;
+    }
+    const buttonWidth = 104;
+    const buttonHeight = 23;
+    const buttonX = x + width - buttonWidth / 2 - 8;
+    const buttonY = y + height - buttonHeight / 2 - 7;
+    const enabled = buttonState.enabled === true;
+    const button = this.addOverlayChild(
+      this.add
+        .rectangle(buttonX, buttonY, buttonWidth, buttonHeight, enabled ? 0x183f38 : 0x101925, enabled ? 1 : 0.82)
+        .setStrokeStyle(1, enabled ? 0x77f0b4 : 0x466578, enabled ? 0.78 : 0.34)
+    );
+    if (enabled) {
+      button.setInteractive({ useHandCursor: true });
+      button.on("pointerover", () => button.setFillStyle(0x20584d, 1));
+      button.on("pointerout", () => button.setFillStyle(0x183f38, 1));
+      this.addOverlayAction(button, () => this.refineEquipmentSlot(row.slot), true, 6);
+    }
+    const labelY = buttonY - (buttonState.subLabel ? 9 : 6);
+    const refineLabel = this.createOverlayText(buttonX, labelY, buttonState.label, {
+      fontSize: buttonState.subLabel ? "9px" : "10px",
+      color: enabled ? "#ecfff7" : "#9ab7cc",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+    this.fitOverlayTextToWidth(refineLabel, buttonWidth - 8, 7);
+    if (buttonState.subLabel) {
+      const refineCost = this.createOverlayText(buttonX, buttonY + 1, buttonState.subLabel, {
+        fontSize: "8px",
+        color: enabled ? "#77f0b4" : "#f0c463",
+        fontStyle: "bold",
+        align: "center",
+        origin: { x: 0.5, y: 0 }
+      });
+      this.fitOverlayTextToWidth(refineCost, buttonWidth - 8, 7);
+    }
   }
 
   interpolateEquipmentLegendColor(leftColor, rightColor, amount = 0) {
@@ -52029,50 +52319,91 @@ class SurvivalScene extends Phaser.Scene {
     if (rarityKey === "LEGEND") {
       rarityText.setShadow(0, 0, "#b184ff", 6, true, true);
     }
-    this.fitOverlayTextToWidth(rarityText, width - 190, 10);
+    this.fitOverlayTextToWidth(rarityText, width - 236, 9);
 
     const buttonState = this.getEquipmentAnalysisButtonState(state, analysisRarity, count);
-    if (!buttonState.label) {
-      return;
-    }
-
-    const buttonWidth = 126;
-    const buttonHeight = 24;
-    const buttonX = x + width - buttonWidth / 2 - 8;
-    const buttonY = y + 16;
-    const enabled = buttonState.enabled === true;
-    const button = this.addOverlayChild(
-      this.add
-        .rectangle(buttonX, buttonY, buttonWidth, buttonHeight, enabled ? 0x18334a : 0x101925, enabled ? 1 : 0.82)
-        .setStrokeStyle(1, enabled ? 0x6fcfff : 0x466578, enabled ? 0.7 : 0.34)
-    );
-    if (enabled) {
-      button.setInteractive({ useHandCursor: true });
-      button.on("pointerover", () => button.setFillStyle(0x224b6c, 1));
-      button.on("pointerout", () => button.setFillStyle(0x18334a, 1));
-      this.addOverlayAction(button, () => {
-        this.analyzeSecuredEquipmentBox(buttonState.boxId);
-      }, true, 6);
-    }
-
-    const mainLabel = this.createOverlayText(buttonX, buttonY - (buttonState.subLabel ? 10 : 7), buttonState.label, {
-      fontSize: buttonState.subLabel ? "10px" : "11px",
-      color: enabled ? "#ecf7ff" : "#9ab7cc",
-      fontStyle: "bold",
-      align: "center",
-      origin: { x: 0.5, y: 0 }
-    });
-    this.fitOverlayTextToWidth(mainLabel, buttonWidth - 12, 8);
-    if (buttonState.subLabel) {
-      const subLabel = this.createOverlayText(buttonX, buttonY + 1, buttonState.subLabel, {
-        fontSize: "9px",
-        color: enabled ? "#9ffcff" : "#f0c463",
+    const equipmentSystem = this.getEquipmentSystem();
+    const salvageValue = equipmentSystem?.getEquipmentSealedSalvageValue?.(analysisRarity) || 0;
+    const salvageEnabled = !this.isEquipmentHubDebugEnabled() &&
+      !this.equipmentAnalysisBusy &&
+      !this.equipmentAnalysisResultOpen &&
+      count > 0;
+    const oneArmed = analysisRarity === "LEGEND" && this.isEquipmentSalvageConfirmationArmed(analysisRarity, "one");
+    const allArmed = analysisRarity === "LEGEND" && this.isEquipmentSalvageConfirmationArmed(analysisRarity, "all");
+    const actions = [
+      {
+        width: 72,
+        label: buttonState.label === "ANALYZE" ? "OPEN" : buttonState.label,
+        subLabel: buttonState.subLabel,
+        enabled: buttonState.enabled === true,
+        color: 0x18334a,
+        stroke: 0x6fcfff,
+        hover: 0x224b6c,
+        action: () => this.analyzeSecuredEquipmentBox(buttonState.boxId)
+      },
+      {
+        width: 54,
+        label: oneArmed ? "CONFIRM" : "RECYCLE",
+        subLabel: salvageValue > 0 ? `+${salvageValue} SP` : "",
+        enabled: salvageEnabled,
+        color: 0x31351b,
+        stroke: 0xd6d76f,
+        hover: 0x4a5022,
+        action: () => this.salvageSecuredEquipmentBoxes(analysisRarity, "one")
+      },
+      {
+        width: 38,
+        label: allArmed ? "OK" : "ALL",
+        subLabel: salvageValue > 0 ? `+${salvageValue * count}` : "",
+        enabled: salvageEnabled,
+        color: 0x3a2420,
+        stroke: 0xf0a06c,
+        hover: 0x56332b,
+        action: () => this.salvageSecuredEquipmentBoxes(analysisRarity, "all")
+      }
+    ];
+    const gap = 4;
+    const totalWidth = actions.reduce((total, action) => total + action.width, 0) + gap * (actions.length - 1);
+    let actionX = x + width - 8 - totalWidth;
+    actions.forEach((action) => {
+      if (!action.label) {
+        actionX += action.width + gap;
+        return;
+      }
+      const enabled = action.enabled === true;
+      const buttonX = actionX + action.width / 2;
+      const buttonY = y + 16;
+      const button = this.addOverlayChild(
+        this.add
+          .rectangle(buttonX, buttonY, action.width, 24, enabled ? action.color : 0x101925, enabled ? 1 : 0.82)
+          .setStrokeStyle(1, enabled ? action.stroke : 0x466578, enabled ? 0.72 : 0.34)
+      );
+      if (enabled) {
+        button.setInteractive({ useHandCursor: true });
+        button.on("pointerover", () => button.setFillStyle(action.hover, 1));
+        button.on("pointerout", () => button.setFillStyle(action.color, 1));
+        this.addOverlayAction(button, action.action, true, 6);
+      }
+      const mainLabel = this.createOverlayText(buttonX, buttonY - (action.subLabel ? 10 : 7), action.label, {
+        fontSize: action.subLabel ? "8px" : "9px",
+        color: enabled ? "#ecf7ff" : "#9ab7cc",
         fontStyle: "bold",
         align: "center",
         origin: { x: 0.5, y: 0 }
       });
-      this.fitOverlayTextToWidth(subLabel, buttonWidth - 10, 7);
-    }
+      this.fitOverlayTextToWidth(mainLabel, action.width - 6, 6);
+      if (action.subLabel) {
+        const subLabel = this.createOverlayText(buttonX, buttonY + 1, action.subLabel, {
+          fontSize: "7px",
+          color: enabled ? "#c8ffff" : "#f0c463",
+          fontStyle: "bold",
+          align: "center",
+          origin: { x: 0.5, y: 0 }
+        });
+        this.fitOverlayTextToWidth(subLabel, action.width - 5, 6);
+      }
+      actionX += action.width + gap;
+    });
   }
 
   renderCdShopContent() {
@@ -68601,7 +68932,11 @@ class SurvivalScene extends Phaser.Scene {
       return false;
     }
 
-    const finalAmount = Math.max(0, Math.round((Number(amount) || 0) * this.getOverdriveModDamageTakenMultiplier()));
+    const finalAmount = Math.max(0, Math.round(
+      (Number(amount) || 0) *
+      this.getOverdriveModDamageTakenMultiplier() *
+      this.getRunEquipmentDamageTakenMultiplier()
+    ));
     const damageSource = String(meta?.source || "playerDamage");
     if (this.shouldNegatePlayerDamageByAcEvade(damageSource, finalAmount, meta)) {
       return false;
@@ -70366,6 +70701,7 @@ class SurvivalScene extends Phaser.Scene {
       (definition.animationFrames || []).every(imageReady) &&
       (definition.fieldEffectFrames || []).every(imageReady) &&
       (definition.titleLetterFrames || []).every(imageReady) &&
+      this.getSupportAttackSharedImageAssets(definition).every(imageReady) &&
       audioReady(definition.supportBgmKey) &&
       audioReady(definition.cutinVoiceKey) &&
       audioReady(definition.arrivalSeKey) &&
