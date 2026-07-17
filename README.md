@@ -56,73 +56,6 @@ Cloudflare 配信では `_headers` で HTML を `max-age=0, must-revalidate`、J
 - `?mobileGate=0`: スマートフォン開始ゲートを無効化します。
 - `?mobileControls=1`: PC ブラウザでもモバイル操作 UI を表示します。
 - `?mobileControls=0`: モバイル操作 UI を無効化します。
-- `?debugStartDepth=10`: デバッグ用。`SORTIE PREP` 後のランを Depth10 から開始します。`11` 以上を指定すると通常深層として開始し、Final Raid には入りません。
-- `?debugRelayStartDepth=10`: デバッグ用。保存済みの Depth10 DEPTH RELAY 解放がある場合だけ、`SORTIE PREP` 後のランを Final Raid ではなく通常 Depth10 として開始します。`20` / `30` を指定すると、必要な Anchor が連鎖解放済みの場合だけ通常 Depth20 / Depth30 Relay として開始します。解放状態は変更せず、`debugStartDepth` が同時指定された場合は `debugStartDepth` を優先します。
-- `?debugRelayLaunchDepth=10`: デバッグ用。通常の OPERATIONS HUB を表示したあと、`SORTIE PREP` 押下時に保存済みの Depth10 DEPTH RELAY 解放がある場合だけ、プレイヤー向け DEPTH RELAY 選択 UI を経由せず Scene restart 経由の新規ラン初期化で通常 Depth10 へ進みます。`20` / `30` を指定すると、必要な Anchor が連鎖解放済みの場合だけ HUB 経由の Depth20 / Depth30 Relay ランチ経路を確認できます。解放状態は変更しません。
-- `?debugPlayerMech=regaliaBastion`: デバッグ用。保存済みの所持・選択状態を書き換えず、`SORTIE PREP` 後のラン開始スナップショットだけを指定機体にします。値は `defaultBear` / `regaliaBastion` です。
-- `?debugPlayerMechUnlock=1`: デバッグ用。Final Raid clear state を変更せず、OPERATIONS HUB の HANGER / PLAYER FRAME で REGALIA BASTION の購入導線だけを解放済みとして確認できます。
-- `?debugSkipOpeningBoost=1`: デバッグ用。`SORTIE PREP` 後の Opening Boost 選択をスキップします。
-- `?legacyMovement=1`: デバッグ用。通常 Depth の `acV3 AC Movement` を無効化し、旧移動へ戻します。
-- `?acMovementRc=1`: 旧RC互換。現在は通常URLと同じ `acV3 AC Movement` として扱います。
-- `?acMovementRc=0`: デバッグ用。`legacyMovement=1` と同じく旧移動へ戻します。
-- `?debugAcMovement=1&debugAcMovementPreset=acV2`: デバッグ用。旧 acV2 比較プリセットを使います。preset未指定時は v1 比較を維持します。
-- `?debugAcMovementHud=1`: デバッグ用。AC移動、BOOST EN、FULL_OVERHEAT、Air Brake、Target Fire、Evasive Firmware、Reactor Cooling、各FXの診断HUDを表示します。
-- `?debugAcBoostSe=0`: デバッグ用。通常 Depth の Quick Boost SE を明示的にOFFにします。
-- `?debugAcBoostSe=1`: 後方互換の明示ONです。Quick Boost SE は通常 Depth では標準ONのため、通常は指定不要です。
-- `?debugAcTargetFire=0` / `?debugAcAirBrake=0` / `?debugAcReactorCoolingShop=0` / `?debugAcEvadeWindow=0` / `?debugAcEvasionPassive=0`: デバッグ用。acV3正式機能を個別に無効化します。
-- `?debugAcEnergyWarning=0` / `?debugAcLockonRing=0` / `?debugAcBoostVector=0` / `?debugAcQuickTurnFx=0` / `?debugAcGroundSkid=0` / `?debugAcAttitudeJets=0` / `?debugAcWeightShadow=0`: デバッグ用。AC tactical FX を個別に無効化します。
-- `?debugComms=1`: デバッグ用。戦闘中の通信UIテスト文を表示します。
-- `?debugCommsStory=1`: デバッグ用。通信ストーリーの保存済みフラグを無視し、このランでは再生済み保存を行いません。
-- `?debugCommsStoryReset=1`: デバッグ用。起動時に通信ストーリーの再生済み保存を削除します。
-- `?debugCommsStoryDepth=1`: デバッグ用。`1` / `3` / `6` / `8` / `9` / `10` の指定Depth通信を `SORTIE PREP` 後にテスト再生します。
-- `?debugEndlessVoidBgm=1`: デバッグ用。Depth11 以降の専用 BGM 切替ログを console に出します。
-- `?debugScrambledComms=1`: デバッグ用。Depth11 以降のスクランブル通信ログを console に出します。この指定だけでは発生間隔は短縮しません。
-- `?debugScrambledCommsInterval=5`: デバッグ用。スクランブル通信の再試行 / ランダム発生間隔を秒数で固定します。最低 5 秒です。
-- `?debugScrambledCommsIntro=1`: デバッグ用。Depth11 以降の導入スクランブル通信を確認しやすくします。
-- `?debugVoidHunter=1`: デバッグ用。Depth10 Final Raid 討伐済み判定と Depth11 条件を緩和し、約4秒の静止で低HPの `VOID HUNTER` を確認できます。
-- `?debugVoidHunterTrace=1`: デバッグ用。`VOID HUNTER` の通常出現条件は緩和せず、静止カウントのブロック理由、警告到達、スポーン直前キャンセル、出現/討伐を console に出します。
-- `?debugStartDepth=10&debugFinalRaid=1&debugFinalRaidScale=0.1&debugFinalRaidPhase=third&debugSkipOpeningBoost=1`: デバッグ用。Depth10 Final Raid を短縮タイマーの第三形態付近から確認します。
-- `?debugRaidRescueLink=1`: デバッグ用。Depth10 Final Raid の RESCUE LINK 初期化、ギルド到着、HUD更新、cleanup を console に出します。
-- `?debugRaidRescueGuild=10`: デバッグ用。指定ギルド番号 / `guild-010` / `all` の RESCUE LINK 到着通信とHUD登録だけをプレビューします。
-- `?debugRaidRescueHud=1`: デバッグ用。RESCUE LINK HUD を Final Raid 外でもプレビュー表示できます。
-- `?debugRaidRescueCompact=1`: デバッグ用。PCでもモバイル相当のコンパクト RESCUE LINK HUD を確認します。
-- `?debugRaidRescueEffects=1`: デバッグ用。Depth10 Final Raid の救援効果ログを console に出し、debugプレビュー時だけ効果適用を許可します。
-- `?debugRaidRescueEffect=heal|shield|beacon|all`: デバッグ用。Final Raid開始後にRELIEF PACKET / RESCUE BEACONを単体プレビューします。`debugRaidRescueEffects=1` と併用します。
-- `?debugRaidRescueEffectScale=0.25`: デバッグ用。`debugRaidRescueEffects=1` 時だけ、救援シールド時間、BEACON持続、パルス間隔、toast表示時間を短縮・延長します。回復量やシールド量は変わりません。
-- `?debugRaidRescueNoEffects=1`: デバッグ用。ギルド到着通信とRESCUE LINK HUDだけを確認し、RELIEF PACKET / RESCUE BEACONを無効化します。
-- `?debugRaidGuildEffects=1`: デバッグ用。Depth10 Final Raid のギルド固有支援効果ログを console に出し、debugプレビュー時だけ効果適用を許可します。
-- `?debugRaidGuildEffect=vanguard|ward|bulwark|regen|wind|legend|safehouse|shelter|sanctuary|frontline|excalion|all`: デバッグ用。Final Raid開始後にギルド固有支援効果を単体または一括でプレビューします。`debugRaidGuildEffects=1` と併用します。
-- `?debugRaidGuildEffectScale=0.25`: デバッグ用。`debugRaidGuildEffects=1` 時だけ、ギルド固有支援の持続時間やパルス間隔を短縮・延長します。回復量、軽減率、シールド量は変わりません。
-- `?debugRaidGuildEffectHit=1`: デバッグ用。ギルド固有支援プレビュー後に小ダメージを1回入れ、Robot Barrier / ギルド軽減 / RELIEF SHIELD / LEGEND GUARD の順序を確認します。
-- `?debugRaidBattlefieldControlHud=left|right|both|reset`: デバッグ用。BATTLEFIELD CONTROL HUD の左右兵器状態だけをプレビューします。実際の巨大兵器拘束処理は発動しません。
-- `?debugRaidAlliedMesh=1`: デバッグ用。ALLIED MESH 最終救援演出の schedule / skip / phase を console に出し、RESCUE LINK HUD をプレビューできます。
-- `?debugRaidAlliedMeshPhase=arrival|maximum|recovery|restored|all`: デバッグ用。エクスカリオン到着、全ノードMAXIMUM、通信復旧中継、外部回線復旧の各表示を単体または連続で確認します。ランキング、支援効果、報酬は変更しません。
-- `?debugRaidAlliedMeshScale=0.25`: デバッグ用。`debugRaidAlliedMesh=1` 時だけ、ALLIED MESH 表示演出の時間を短縮・延長します。戦闘効果やタイムラインは変わりません。
-- `?debugRaidAlliedMeshIncomplete=1`: デバッグ用。`debugRaidAlliedMeshPhase=maximum` と併用すると12/13ノード不足状態を作り、MAXIMUMが発動しないことを確認できます。
-- `?debugMaxBuild=1`: デバッグ用。攻撃スキル全種を最終Stage、ROBOTをLv.20/Tune Lv.20、APを300、推進出力を+100にします。
-- `?debugRobotMissileLevel=10`: デバッグ用。ラン開始時のROBOT Missile Lvだけを指定値にします。値は1〜20で、Lv10の通常ミサイル確認には `debugSkipOpeningBoost=1` と併用できます。
-- `?debugTriadMatrix=1`: デバッグ用。TRIAD MATRIX の再計算、状態遷移、完成 buildId を console に出します。
-- `?debugTriadCore=assault|control|reactor|trinity`: デバッグ用。3攻撃スキルのStage4 Coreをラン内注入します。`trinity` は3種1個ずつになります。
-- `?debugTriadFinal=execution|prism|singularity|adaptive`: デバッグ用。3攻撃スキルのStage8 Finalをラン内注入します。`adaptive` は3種1個ずつになります。
-- `?debugMutationAtlas=1`: デバッグ用。OPERATIONS HUB の `ARCHIVE` 内 `MUTATION ATLAS` をサンプル状態で開き、保存データは変更しません。
-- `?debugStartDepth=10&debugFinalRaid=1&debugFinalRaidScale=0.05&debugFinalRaidPhase=third&debugMaxBuild=1&debugSkipOpeningBoost=1`: デバッグ用。強化済み状態でDepth10 Final Raidを確認します。
-- `?debugRecoveryFieldScale=1`: デバッグ用。Recovery Field の HUD アイコン選択画像、表示サイズ、HUD種別を console に出します。
-- `?debugShopLoading=geek|shop|sequence`: デバッグ用。保存データを書き換えず、ショップローディングの GEEK 確定、ショップ起動、連続遷移を表示確認します。`debugShopLoadingAmount=12340` で表示額だけ指定できます。
-- `?debugEquipmentState=1`: デバッグ用。装備保存状態、品質スコア境界、レアリティ別の未解析箱数を `[EQUIPMENT]` prefix で console に出します。サンプル装備や箱は追加しません。
-- `?debugEquipmentHub=1`: デバッグ用。OPERATIONS HUB の GEEKSHOP / EQUIPMENT ANALYSIS を初期表示サンプルで開きます。保存データは変更しません。
-- `?debugEquipmentHub=1&debugEquipmentHubLegend=1`: デバッグ用。EQUIPMENT ANALYSIS のLEGEND装備入り表示を確認します。LEGEND装備とLEGEND箱の表示サンプルを使いますが、保存データは変更しません。
-- `?debugEquipmentAnalysis=1`: デバッグ用。実際に保存済み未解析箱を解析した時だけ、費用、無料クレジット、重複返金、保存成否、残箱数、統計を `[EQUIPMENT ANALYSIS]` prefix で console に出します。
-- `?debugEquipmentBonuses=1`: デバッグ用。出撃開始時の装備スナップショット、部位別スコア、合計品質スコア、各倍率、開始ステータスの適用前後、Final Raid攻撃系抑制を `[EQUIPMENT BONUSES]` prefix で console に出します。
-- `?debugEquipmentBonusPreset=empty|n1|ssr5|legend5|mixed`: デバッグ用。出撃開始時の `runEquipmentLoadoutSnapshot` だけを指定プリセットに差し替えます。`lastmemoVansabaEquipmentState`、未解析箱、GEEK、統計、`bestBySlot` 保存値は変更しません。通常は `debugEquipmentBonuses=1` と併用します。
-- `?debugEquipmentDrop=N|R|SR|SSR|LEGEND`: デバッグ用。`SORTIE PREP` と Opening Boost 完了後、操作可能になってから指定レアリティの装備箱を戦闘フィールドへ直接出します。これは本番ドロップの Depth 内1箱上限を消費しません。
-- `?debugEquipmentDropRank=3&debugEquipmentDropSlot=weapon&debugEquipmentDropCount=1&debugEquipmentDropDistance=180`: デバッグ用。装備箱の Rank、部位、出現数、プレイヤーからの距離を調整します。Rank は1〜5、部位は `head` / `clothes` / `shoes` / `weapon` / `accessory`、出現数は1〜10です。
-- `?debugEquipmentRun=1`: デバッグ用。装備箱のラン内初期化、スポーン、取得、マグネット吸引、Depth 遷移破棄、抽出保存、保存失敗、二重転送スキップを `[EQUIPMENT RUN]` prefix で console に出します。この指定だけでは箱は出現しません。
-- `?debugEquipmentProduction=1`: デバッグ用。本番装備箱ドロップ判定を `[EQUIPMENT DROP]` prefix で console に出します。この指定だけでは抽選率は変わりません。
-- `?debugEquipmentProductionForceDrop=1`: デバッグ用。対象敵の本番ドロップ抽選だけ成功扱いにします。対象外敵、Final Raid、Depth 内1箱上限は迂回しません。
-- `?debugEquipmentProductionForceMiss=1`: デバッグ用。対象敵の本番ドロップ抽選だけ失敗扱いにします。ただし Depth1 初回 Wave Boss 保証が優先されます。ForceDrop と併用した場合は警告を出し、通常抽選に戻します。
-- `?debugEquipmentProductionRarity=SSR&debugEquipmentProductionRank=5&debugEquipmentProductionSlot=weapon`: デバッグ用。本番ドロップで生成される箱のレアリティ、Rank、部位をラン内だけ上書きします。LEGEND は Depth11 以降かつ Final Raid LEGEND報酬獲得済み、または `debugEquipmentProduction=1&debugEquipmentProductionLegendUnlocked=1` の時だけ許可されます。
-- `?debugFinalRaidLegendReward=1`: デバッグ用。Depth10 Final Raid の初回Equipment報酬準備・保存ログを console に出します。報酬内容を通常UIへ先行公開しません。
-- `?debugFinalRaidLegendPresentation=1` / `?debugFinalRaidLegendRewardPreview=1`: デバッグ用。Final Raid の未登録Equipment信号演出だけをプレビューします。pending報酬、securedBoxes、localStorage、`finalRaidLegendRewardClaimed` は変更しません。
 
 ## ゲーム進行
 
@@ -131,7 +64,7 @@ Cloudflare 配信では `_headers` で HTML を `max-age=0, must-revalidate`、J
 3. DEPTH RELAY で Depth10 を選んだ場合も Final Raid ではなく通常 Depth10 の新しいランとして始まり、Depth1〜9の XP、GEEK、ANJU MEMORY などのスキップ報酬は付与されません。Opening Boost 回数は通常仕様のままです。
 4. Depth10 Relay は高難度の開始方法で、永続強化済みの構成を推奨します。Depth10 カードには `HIGH RISK` 警告、強化済み構成推奨、新規ラン開始、スキップ報酬なしの注意が表示されます。
 5. Depth20 Relay は `EXTREME RISK` の高難度チャレンジです。Depth10 / Depth20 Anchor が解放済みなら回収ロボ Lv に関係なく選択でき、Legend 装備探索や深層チャレンジ向けの新しいランとして Depth20 から開始します。Depth1〜19の XP、GEEK、ANJU MEMORY などのスキップ報酬は付与されず、Opening Boost は通常どおり 3 回、敵難度補正も緩和しません。深層ではアイテム回収が難しくなるため回収ロボ強化は有効ですが、D20選択の必須条件ではありません。
-6. Depth30 Relay は Beacon Network の最終 Anchor で、カードには `BEACON LIMIT` と Depth31 以降がビーコン圏外である警告を表示します。Depth10 / Depth20 / Depth30 Anchor が連鎖解放済みなら Depth30 から新しいランとして開始でき、Depth1〜29の XP、GEEK、ANJU MEMORY などのスキップ報酬は付与されません。D30解放後はD10がプレイヤー向け最新候補から上書きされますが、内部runtime、debug起動、旧記録表示、ランキング互換ではD10 Relayを維持します。Opening Boost は通常どおり 3 回で、Depth30 は LEGEND 掘りの高難度帯です。通常 `EXTRACT` では到達した絶対Depthを `sourceDepth` とする D30帯 Equipment Cache を保存します。Depth30 Anchor により GEEKSHOP / BASE CALIBRATION の Armament / AP Frame / Booster 上限は Lv.25 まで拡張されますが、Depth31 以降への直接 Relay は未実装です。
+6. Depth30 Relay は Beacon Network の最終 Anchor で、カードには `BEACON LIMIT` と Depth31 以降がビーコン圏外である警告を表示します。Depth10 / Depth20 / Depth30 Anchor が連鎖解放済みなら Depth30 から新しいランとして開始でき、Depth1〜29の XP、GEEK、ANJU MEMORY などのスキップ報酬は付与されません。D30解放後はD10がプレイヤー向け最新候補から上書きされますが、内部runtime、旧記録表示、ランキング互換ではD10 Relayを維持します。Opening Boost は通常どおり 3 回で、Depth30 は LEGEND 掘りの高難度帯です。通常 `EXTRACT` では到達した絶対Depthを `sourceDepth` とする D30帯 Equipment Cache を保存します。Depth30 Anchor により GEEKSHOP / BASE CALIBRATION の Armament / AP Frame / Booster 上限は Lv.25 まで拡張されますが、Depth31 以降への直接 Relay は未実装です。
 7. ANJU MEMORY の +1 チケットを持っている場合、最初の Opening Boost だけ 4 択になります。
 8. Opening Boost 完了後に戦闘へ出撃し、敵を倒して XP、未確定 GEEK、Support、Robot、LOST ARMS アイテムを集めます。
 9. レベルアップ時はスキル解放、スキル強化、パッシブ強化から 3 択で 1 つ選びます。
@@ -264,8 +197,6 @@ Stage4 Core 3 種と Stage8 Final 3 種の組み合わせで、各スキルは `
 
 mutation は抽出、緊急抽出、ゲームオーバー、Gate 崩壊、ショップ復帰、リスタートでリセットされ、localStorage / sessionStorage には保存されません。GEEK、ANJU MEMORY、確定 GEEK、未確定 GEEK 倍率、ランキング値、Firebase 送信値も直接変更しません。見た目は既存スプライトの tint / scale / alpha / 残像と Phaser Graphics のライン・リング・パルスを組み合わせるため、新規画像が無い場合でも Graphics 等の既存フォールバックで動作します。
 
-検証用に `?debugSkillMutation=1` を付けると選択ログが console に出ます。`?debugSkillMutationSkill=basicSkill` のように対象スキルを指定すると Stage4 選択を早期確認できます。`?debugSkillMutationCore=assault&debugSkillMutationFinal=prism` を併用すると指定 finalForm をラン内だけでプレビューできます。
-
 ### TRIAD MATRIX / MUTATION ATLAS
 
 選択中機体の3つの Mutation 対象スキルを横断し、ラン内の `TRIAD MATRIX` 状態を算出します。defaultBear では `basicSkill`、`tornadoSkill`、`rabbitThunderSkill`、REGALIA BASTION では `regaliaBastionCannon`、`tornadoSkill`、`rabbitThunderSkill` を使います。Core 軸は `assault` / `control` / `reactor`、Final 軸は `execution` / `prism` / `singularity` を使い、既存 mutation 値はリネームしません。
@@ -314,8 +245,6 @@ Depth 6 以上の `DEEP EXTRACTION RESULT` では、完成ビルドがある場�
 
 Depth10初回 Final Raid 中は TRIAD HUD、TRIAD戦闘効果、Atlas記録、PRESERVED、Research Target、Atlas報酬をすべて無効化します。Final Raid のボス、Add、巨大兵器、救援、タイマー、報酬、帰還ゲートには影響しません。Final Raid討伐後に後続ランで通常Depth10へ到達した場合は通常ランとしてTRIAD MATRIX / MUTATION ATLASの対象になります。
 
-検証用に `?debugTriadMatrix=1` を付けるとTRIAD再計算、状態遷移、完成 buildId を console に出します。`?debugTriadCore=assault|control|reactor|trinity` と `?debugTriadFinal=execution|prism|singularity|adaptive` は選択中機体の3つの Mutation 対象スキルへラン内Mutationを注入します。REGALIA側を確認する場合は `?debugPlayerMech=regaliaBastion` と併用します。この注入ランではAtlas保存、ANJU MEMORY報酬、Reroll Ticket報酬、Research完了、実RUN ARCHIVEへのTRIADビルド保存を行いません。`?debugMutationAtlas=1` はOPERATIONS HUB起動時に保存を書き換えないサンプルAtlasを表示します。
-
 通常のレベルアップ強化は Lv.25 までを基準にし、Depth 6 以降で Lv.25 に到達している場合は `DEEP LEVEL` 成長に切り替わります。`DEEP LEVEL` は Lv.99 まで上昇し、カード選択を出さずに 1 レベルごとに Lv.25 時点の最大AP基準で約 1% の最大APと同量の現在APを加算します。Depth 6 未満では `DEEP LEVEL` は解禁されません。
 
 すべてのスキル候補とパッシブ候補が上限に達した後の XP は `OVERDRIVE` に変換されます。
@@ -341,8 +270,6 @@ OVERDRIVE MOD:
 - `GOLD FEVER`: Bronze / Silver / Gold の未確定 GEEK x1.20、DATA CACHE の未確定 GEEK x1.15。確定 GEEK と保存済み通貨には影響しません。
 - `GUARD PULSE`: 発動直後 2.5 秒だけ被ダメージ x0.78、半径 220 の敵を押し戻します。
 - `COOLDOWN REACTOR`: OVERDRIVE 中の攻撃間隔をさらに x0.88、推進出力を x0.96 にします。
-
-検証用に `?debugOverdriveMod=1` を付けると、Depth 1 から MOD 選択条件を確認でき、console に選択ログが出ます。
 
 ## STABILIZE
 
@@ -400,8 +327,6 @@ Depth 6 以降に通常 `EXTRACT` または `EMERGENCY EXTRACT` が成功する�
 
 この画面は演出と集計表示だけです。`secureRunCoins()` の確定額、緊急脱出の保護率、`lastmemoVansabaCoins`、`lastmemoVansabaExtractionMessage`、ランキング、Firebase 送信値は変更しません。Continue、Enter、Space、タップで既存のランキング入力または OPERATIONS HUB 復帰へ進みます。
 
-検証用に `?debugDeepResult=1` を付けると、OPERATIONS HUB 起動直後に保存なしのプレビュー結果画面を表示し、Depth 6 未満の抽出でも結果画面の発生条件を確認できます。デバッグ指定は表示条件だけを緩和し、GEEK / ANJU MEMORY / ランキング保存値は増やしません。
-
 ## ANOMALY CONTRACT
 
 Depth 6 以降へ `NEXT STAGE` または `FORCE BREAKTHROUGH` で進むと、次 Depth だけ有効な `ANOMALY CONTRACT` を 3 択から選びます。契約には `DANGER` と `REWARD` があり、契約状態はラン内だけの一時状態です。ショップ永続強化、確定 GEEK、localStorage には保存されません。
@@ -431,7 +356,7 @@ DIRECTIVE 一覧:
 - `GATE ANCHOR`: Elite 1 体撃破、かつ Bronze / Silver / Gold を 8 個回収。報酬は次に開く Gate の安定時間 +8 秒と未確定 GEEK。
 - `RESONANCE HUNT`: LOST ARMS Core / RESONANCE ECHO を 1 個回収。報酬は対象 LOST ARMS の RESONANCE +1。候補がない場合は未確定 GEEK へ変換します。
 
-HUD 中央には active DIRECTIVE の名称、進捗、報酬が小さく表示されます。`?debugDepthDirective=1` を付けると Depth 1 から選択条件を確認でき、console に選択・完了・失敗ログが出ます。
+HUD 中央には active DIRECTIVE の名称、進捗、報酬が小さく表示されます。
 
 ## NEMESIS BOSS
 
@@ -447,8 +372,6 @@ NEMESIS は Gate が近すぎる場合、Gate が開いている場合、Gate �
 
 撃破報酬は未確定 GEEK、Gold / Silver、STABILIZE +50%、Robot 追加抽選、LOST ARMS 追加抽選です。通常 boss と同じ `isBoss` 扱いで LOST ARMS / Robot の既存抽選にも乗りますが、wave boss 進行は進めません。DEPTH DIRECTIVE では `BOSS HUNTER` にカウントし、`CLEAN SWEEP` の通常敵撃破数には入りません。NEMESIS 状態はラン内一時状態で、localStorage / sessionStorage / Firebase には保存されません。
 
-検証用に `?debugNemesis=1` を付けると Depth 1 から出現抽選を通し、約 10 秒後に低 HP の NEMESIS を出現させ、console に schedule / spawn / defeat ログを出します。
-
 ## VOID HUNTER
 
 `VOID HUNTER` は Depth10 Final Raid 討伐後、Depth11 以降の Endless Void でだけ出会える裏ボスです。通常プレイ中の経過時間では出現せず、プレイヤーが操作可能な状態でほぼ静止し続けた時間だけを計測します。移動、DASH、Gate 選択、レベルアップ UI、各種 overlay、ショップ、Final Raid 中は計測しません。通常 Wave Boss の出現中も静止カウントと出現判定は継続しますが、NEMESIS、元素騎士イベント、敵版 `VOID HUNTER`、`虚無を狩る者` サポート中は競合回避のため停止します。
@@ -461,8 +384,6 @@ Depth11 以降で 40 秒ほぼ静止すると、25 秒付近で微弱な警告�
 
 通常条件でも `voidHunterDefeated` 保存後に再出現します。ただし同一 Depth 内では、出現済みまたは討伐済みの場合は再出現しません。2回目以降の討伐は追加報酬なしで、初回討伐フラグとサポート解禁状態だけを維持します。
 
-検証用に `?debugVoidHunter=1` を付けると Depth 1 から条件確認でき、静止時間は約 4 秒、HP は低倍率になります。`?debugStartDepth=11&debugSkipOpeningBoost=1&debugVoidHunter=1` と併用すると Endless Void 側の確認に使えます。
-
 ## ANJU MEMORY
 
 `ANJU MEMORY` は Depth 6 以降の生還でだけ獲得できるメタ報酬通貨です。確定 GEEK、未確定 GEEK、CD/永続強化のショップ状態とは別に保存され、`lastmemoVansabaCoins` や `lastmemoVansabaShopState` には混ざりません。
@@ -471,7 +392,7 @@ Depth11 以降で 40 秒ほぼ静止すると、25 秒付近で微弱な警告�
 
 - ラン中に到達した最大 Depth が 6 以上のときだけ候補になります。
 - 通常 `EXTRACT` または `EMERGENCY EXTRACT` が成功した瞬間に保存されます。
-- ゲームオーバー、Depth 5 までの Gate 崩壊、リスタート、ショップ復帰、デバッグ終了では保存されません。
+- ゲームオーバー、Depth 5 までの Gate 崩壊、リスタート、ショップ復帰では保存されません。
 - Depth 6 に初到達したランでは `ANJU MEMORY UNLOCKED` が表示されますが、抽出するまで保存されません。
 
 報酬計算:
@@ -584,8 +505,6 @@ GRAVITY SEED 進化:
 
 RESONANCE がすでに進化済み、または進化候補がない状態でさらに RESONANCE 相当の報酬を得た場合は、RESONANCE overflow として未確定 GEEK、OVERDRIVE +20%、STABILIZE +15% に変換されます。
 
-検証用に `?debugLostArms=1` を付けると、対象敵の LOST ARMS 抽選が成功扱いになり、console に抽選ログが出ます。`?debugLostArmsResonance=1` を併用すると、Depth 1 から RESONANCE 条件を確認できます。
-
 ## サポート
 
 Support アイテムを拾うとサポート攻撃が発動します。Support アイテム自体は通常戦闘の撃破ペースでおおむね 60〜75 秒に 1 個を目安に調整されています。直前と同じ通常サポートは避けて抽選され、通常サポートはノーマル、いしでんはレア、元素騎士は超レアの重みで発動します。Depth9 では Doll Field Jamming により Support のドロップと発動が停止し、SUP HUD は `JAMMED` 表示になります。残っている Support アイテムを拾った場合も、通常発動せず STABILIZE と未確定 GEEK に変換されます。
@@ -649,7 +568,6 @@ ROBOT SYNC DRIVE:
 - 発動中は通常ミサイルの発射後クールダウン x0.86、ミサイル威力 x1.16、回復フィールド範囲 x1.12、回復量 x1.18 になります。
 - 発動中の回復パルスは `SYNC PULSE` になり、周囲の敵へ小ダメージと押し戻しを与えます。
 - `SYNC` はラン内一時状態です。ショップ復帰、抽出、ゲームオーバー、リスタートでリセットされ、localStorage / sessionStorage には保存されません。
-- 検証用に `?debugRobotSync=1` を付けると、初期 `SYNC` ゲージが高い状態になり、ゲージ獲得量が増えて発動確認しやすくなります。
 
 ## OPERATIONS HUB / 拠点
 
@@ -699,14 +617,13 @@ GEEKSHOP / EQUIPMENT ANALYSIS:
 - OVERLIMIT 取得済みの対象スキルは戦闘HUDのスキル枠に `OVL-I` / `OVL-II` を表示します。Final Raid 中は COMBAT LINK の攻撃効果を抑制するため、このHUD表示も出ません。RUN ARCHIVE にはローカル閲覧用として Combat Link 段階と各対象スキルの OVERLIMIT 段階を記録しますが、ランキング、Firebase、Deep Result へは送信しません。OVERLIMIT はラン内効果で、次のランへ持ち越しません。
 - FRAME と CORE は開始ステータス再構築時に一度だけ加算します。BOOSTER はダッシュ回復遅延や消費量を変えず、ブーストEN回復量の最終倍率だけを変えます。SENSOR は3攻撃スキルの通常攻撃間隔 / 再発動間隔だけへ掛かり、演出ディレイ、持続時間、内部Mutationクールダウン、Support、Robot、LOST ARMS、CHAIN、敵行動には掛かりません。ARMAMENT は3攻撃スキル由来の実ダメージだけへ掛かり、Support、Robot、Recovery、LOST ARMS、CHAIN、環境ダメージ、敵攻撃、Final Raidの疑似ダメージ、支援ランキング、ボスHPタイムラインには掛かりません。
 - Depth10 初回 Final Raid 中はボスフィールドの時刻演出とランキングを守るため、SENSOR と ARMAMENT の有効倍率だけを 1 に抑制します。FRAME、BOOSTER、CORE は Final Raid 中も有効です。Final Raid 討伐後の通常 Depth10 ではこの抑制は発生しません。
-- `?debugEquipmentHub=1` と `?debugEquipmentHub=1&debugEquipmentHubLegend=1` は表示専用です。解析、分解、精錬は `PREVIEW ONLY` になり、GEEK / SALVAGE POINT消費、無料クレジット消費、統計更新、保存は行いません。
 - 本番装備箱は通常 Wave Boss 45%、通常 Elite 15%、NEMESIS 100%、Gold Slime 35%、Silver Slime 25% で抽選します。通常敵、Final Raid ボス/Add/巨大兵器、元素騎士イベント対象、Directive Slime、VOID HUNTER、報酬抑制対象からは落ちません。
-- 本番装備箱は1 Depth につき最大1個だけ出現します。`?debugEquipmentDrop=...` の直接出現箱や Final Raid 初回確定報酬はこの上限に含めません。
+- 本番装備箱は1 Depth につき最大1個だけ出現します。Final Raid 初回確定報酬はこの上限に含めません。
 - Depth1 で Equipment 進行が完全に空の場合、最初の通常 Wave Boss だけ本番ドロップ抽選を100%にします。中身のレアリティ、Rank、部位はDepth1用テーブルで通常どおり決まります。
 - LEGEND の本番ドロップは Depth11 以降かつ `finalRaidLegendRewardClaimed=true` の時だけ解禁されます。Depth11 以降の本番レアリティ抽選では、SSR を旧LEGEND相当の確率に下げ、LEGEND は旧LEGENDの半分の確率に調整しています。未解禁時の LEGEND 重みは SSR に再配分され、`legendDiscovered` では解禁されません。
 - 戦闘フィールド上の装備箱は `画像/items/equipment_boxes/equipbox_n.png` / `equipbox_r.png` / `equipbox_sr.png` / `equipbox_ssr.png` / `equipbox_legend.png` をレアリティ別に使い、従来の2倍サイズ相当で表示します。SSR は `画像/effects/equipment_pillars/gold_0.png`〜`gold_7.png`、LEGEND は `rainbow_0.png`〜`rainbow_7.png` の8フレーム光柱を表示し、N / R / SR には光柱を出しません。
 - 装備箱を拾うとラン内の `runUnsecuredEquipmentBoxes` にだけ入り、拾った瞬間には `lastmemoVansabaEquipmentState`、`securedBoxes`、`legendDiscovered`、`stats`、確定 GEEK、未確定 GEEK を変更しません。
-- Depth10 以上で通常 `EXTRACT` に成功した場合は、拾得箱とは別に深層抽出の未解析 Equipment Cache を1個だけ `securedBoxes` へ保存します。`sourceDepth` はそのランの最大到達絶対Depthで、DEPTH RELAY の `rewardDepthReached` は使いません。Depth10 / Depth20 / Depth30 Relay でも通常抽出なら対象ですが、EMERGENCY EXTRACT、ゲームオーバー、Final Raid専用帰還、進行注入系debugラン、プレビューでは付与しません。
+- Depth10 以上で通常 `EXTRACT` に成功した場合は、拾得箱とは別に深層抽出の未解析 Equipment Cache を1個だけ `securedBoxes` へ保存します。`sourceDepth` はそのランの最大到達絶対Depthで、DEPTH RELAY の `rewardDepthReached` は使いません。Depth10 / Depth20 / Depth30 Relay でも通常抽出なら対象ですが、EMERGENCY EXTRACT、ゲームオーバー、Final Raid専用帰還では付与しません。
 - 通常 `EXTRACT` と Final Raid の解放帰還では、拾得済み装備箱をすべて `securedBoxes` に保存します。`EMERGENCY EXTRACT` では `rarityIndex * 5 + rank` の品質スコアが最も高い1箱だけ保存し、同点の場合は先に拾った箱を保存します。
 - Depth10 初回 Final Raid では、ボス撃破時に未登録Equipment信号を一度だけ表示し、専用の `ドールを解放する` 帰還が成功した時だけ固定ID `final-raid-equipment-reward-v1` のLEGEND未解析箱を `securedBoxes` の先頭へ保存します。Rank は Rank2 75% / Rank3 25%、slot は5部位均等、`sourceDepth=10`、`sourceType=finalRaid`、`analysisCostOverride=0` です。
 - Final Raid 確定箱は `EQUIPMENT ANALYSIS` の未解析一覧では `LEGEND` 箱として個数だけ表示され、Rank、slot は解析成功時の `LEGEND CLASS CONFIRMED` で初めて公開されます。override 0 のため解析費用は無料で、初回無料解析クレジットは消費しません。
@@ -756,30 +673,6 @@ OPTION では `BGM OUTPUT`、`SFX / VOICE OUTPUT`、`CONTROLLER INPUT` を ON / 
 - Tokyo 09: Civic Plaza
 - Tokyo 10: Urban Shrine Approach
 
-ステージ関連のクエリパラメータ:
-
-- `?stage=<stageId>`: 指定ステージを開始します。
-- `?debugStage=<stageId>`: デバッグ用途で指定ステージを開始します。
-- `?stageDebug=1`: ステージデバッグ表示を有効化します。
-- `?debugStageOverlay=1`: ステージデバッグ表示を有効化します。
-- `?debug=stage`: ステージデバッグ表示と衝突判定編集モードを有効化します。
-- `?debug=stage&start=x,y`: 開始位置を指定します。
-- `?debug=stage&startX=x&startY=y`: 開始位置を指定します。
-
-衝突判定編集モード:
-
-- クリック: Collision Zone を選択します。
-- 矢印キー: 選択中 Zone を移動します。
-- `Shift` + 矢印キー: 1 px 単位で移動します。
-- `Ctrl` / `Alt` / `Meta` + 矢印キー: 選択中 Zone のサイズを変更します。
-- `N`: マウス位置に一時 Zone を追加します。
-- `Delete` / `Backspace`: 選択中 Zone を削除します。
-- `C`: `stageDefinitions.js` 用の `collisionZones` をクリップボードと console に出力します。
-- `S`: 編集中 Zone を localStorage に保存します。
-- `L`: localStorage から編集中 Zone を読み込みます。
-- `R`: 定義値に戻します。
-- `Escape`: 選択を解除します。
-
 ## ランキング
 
 ゲームオーバーまたは抽出完了時に名前を入力すると、ラン記録をランキングへ登録します。ローカルランキングは localStorage に保存され、Firebase 接続に成功した場合はオンラインランキング `leaderboardKills` も読み書きします。
@@ -796,7 +689,7 @@ Best Depth はそのランで実際に到達した最大 Depth です。Extracte
 
 OPERATIONS HUB の `ARCHIVE` タブから、`RUN ARCHIVE` と `MUTATION ATLAS` を切り替えられます。`RUN ARCHIVE` では直近 20 件のラン結果を新しい順に閲覧できます。各ログはローカル保存専用で、GEEK 残高、ANJU MEMORY 残高、ランキング、Firebase 送信値、ゲームバランスには影響しません。
 
-保存対象は通常 `EXTRACT`、`EMERGENCY EXTRACT`、通常ゲームオーバー、Depth 5 までの Gate Collapse です。Depth10 Final Raid の `ドールを解放する` 帰還は通常抽出相当として保存されます。`?debugDeepResult=1` のプレビュー、ゲーム開始前、手動でページを閉じただけの中断は保存されません。1 ランにつき保存は 1 件だけで、21 件目以降は古いログから削除されます。
+保存対象は通常 `EXTRACT`、`EMERGENCY EXTRACT`、通常ゲームオーバー、Depth 5 までの Gate Collapse です。Depth10 Final Raid の `ドールを解放する` 帰還は通常抽出相当として保存されます。ゲーム開始前、手動でページを閉じただけの中断は保存されません。1 ランにつき保存は 1 件だけで、21 件目以降は古いログから削除されます。
 
 主な保存項目:
 
@@ -806,8 +699,6 @@ OPERATIONS HUB の `ARCHIVE` タブから、`RUN ARCHIVE` と `MUTATION ATLAS` �
 - COMBAT LINK と対象スキルの OVERLIMIT 段階。古いログや未取得ランは従来どおり非表示です。
 - スキル、パッシブ、LOST ARMS、RESONANCE / Evolution、Robot Lv / SYNC
 - ANOMALY CONTRACT、DEPTH DIRECTIVE、OVERDRIVE MOD、STABILIZE PROTOCOL、NEMESIS
-
-保存済みログがない場合は `NO RUN ARCHIVE` を表示します。`?debugRunArchive=1` を付けると、保存は行わず OPERATIONS HUB 上でサンプルログを表示でき、実保存時には console に `[RUN ARCHIVE] saved` を出します。
 
 ## 保存データ
 
@@ -830,8 +721,6 @@ localStorage キー:
 - `lastmemoVansabaCommsStoryState`: Depth 初回通信の再生済みフラグ
 - `lastmemoVansabaEquipmentState`: Equipment 保存状態。version、LEGEND 発見フラグ、Final Raid LEGEND 初回報酬フラグ、無料解析クレジット、SALVAGE POINT、部位別best装備、未解析箱、slot別LEGEND RESONANCE、部位別精錬値、+16解放状態、解析 / 分解 / 精錬統計を保存します。破損JSONや古い形式は起動時に正規化されます。
 - `lastmemoVansabaEquipmentAnalysisTransaction`: EQUIPMENT ANALYSIS の保存途中だけ使う復旧ジャーナル。GEEKとEquipmentの両方が確定した後に削除され、残っている場合は次回起動時に完了確認または解析前状態への復旧を行います。
-- `collisionEditor:<stageId>`: 衝突判定編集モードの一時保存データ
-
 sessionStorage キー:
 
 - `lastmemoVansabaExtractionMessage`: 帰還後に OPERATIONS HUB へ表示する一時メッセージ
@@ -844,7 +733,7 @@ sessionStorage キー:
 
 `evaluateEquipmentSetStatus()` は保存済み `bestBySlot` から5部位セット進捗を毎回導出する純粋関数です。Rank、`securedBoxes`、`stats` はセット判定に使わず、セット状態用の保存フィールドや保存versionは追加しません。
 
-保存キーは `lastmemoVansabaEquipmentState` です。初期状態は `version: 1`、`legendDiscovered: false`、`finalRaidLegendRewardClaimed: false`、`freeAnalysisCredits: 1`、`salvagePoints: 0`、5部位すべて `null` の `bestBySlot`、空の `securedBoxes`、全slot 0の `legendResonanceBySlot` / `refinementBySlot`、全slot falseの `refinementLimitUnlockedBySlot`、解析 / 分解 / 精錬統計が0の `stats` です。保存キーと `version` は増やさず、古い保存には新フィールドを補完します。ラン中に拾った未抽出箱は `runUnsecuredEquipmentBoxes` の一時状態だけで持ち、通常 / 緊急 / Final Raid 解放帰還の抽出成功時にだけ `securedBoxes` へ追記して `lastmemoVansabaEquipmentState` を保存します。Depth10 以上の通常EXTRACTで得る深層 Equipment Cache は中身を Deep Result や RUN ARCHIVE / ranking / Firebase へ公開せず、EQUIPMENT ANALYSIS で解析するまで未解析箱として扱います。EQUIPMENT ANALYSIS 上の LEGEND 表記と進捗は初期状態から表示しますが、`legendDiscovered` は解析成功履歴として false から始まります。Emergency Extract、ゲームオーバー、Final Raid専用帰還、debugプレビューでは深層 Equipment Cache は付与されません。深層 Equipment Cacheの中身やsourceDepthはランキング / Firebaseへ送信しません。Depth10 Final Raid 初回確定箱はラン中箱とは別系統の自動報酬で、専用帰還成功時に固定IDで `securedBoxes` 先頭へ保存します。
+保存キーは `lastmemoVansabaEquipmentState` です。初期状態は `version: 1`、`legendDiscovered: false`、`finalRaidLegendRewardClaimed: false`、`freeAnalysisCredits: 1`、`salvagePoints: 0`、5部位すべて `null` の `bestBySlot`、空の `securedBoxes`、全slot 0の `legendResonanceBySlot` / `refinementBySlot`、全slot falseの `refinementLimitUnlockedBySlot`、解析 / 分解 / 精錬統計が0の `stats` です。保存キーと `version` は増やさず、古い保存には新フィールドを補完します。ラン中に拾った未抽出箱は `runUnsecuredEquipmentBoxes` の一時状態だけで持ち、通常 / 緊急 / Final Raid 解放帰還の抽出成功時にだけ `securedBoxes` へ追記して `lastmemoVansabaEquipmentState` を保存します。Depth10 以上の通常EXTRACTで得る深層 Equipment Cache は中身を Deep Result や RUN ARCHIVE / ranking / Firebase へ公開せず、EQUIPMENT ANALYSIS で解析するまで未解析箱として扱います。EQUIPMENT ANALYSIS 上の LEGEND 表記と進捗は初期状態から表示しますが、`legendDiscovered` は解析成功履歴として false から始まります。Emergency Extract、ゲームオーバー、Final Raid専用帰還では深層 Equipment Cache は付与されません。深層 Equipment Cacheの中身やsourceDepthはランキング / Firebaseへ送信しません。Depth10 Final Raid 初回確定箱はラン中箱とは別系統の自動報酬で、専用帰還成功時に固定IDで `securedBoxes` 先頭へ保存します。
 
 OPERATIONS HUB の GEEKSHOP / EQUIPMENT ANALYSIS から保存済み `securedBoxes` を解析または分解すると、`legendDiscovered`、`freeAnalysisCredits`、`salvagePoints`、`bestBySlot`、`securedBoxes`、`legendResonanceBySlot`、解析 / 分解統計を更新します。精錬では `salvagePoints`、`refinementBySlot`、`refinementLimitUnlockedBySlot`、精錬統計を更新します。`legendResonanceBySlot` は真の重複LEGENDだけでslot別に増え、精錬+16上限の解放条件として参照しますが消費しません。`finalRaidLegendRewardClaimed` は Final Raid 初回LEGEND確定箱の保存成功、または同じ固定ID箱が既に存在する状態の修復保存成功でだけ true になります。解析、通常戦闘ドロップ、抽出保存では変更しません。ラン中のステータス補正は出撃開始時に `bestBySlot` と `refinementBySlot` から作る `runEquipmentLoadoutSnapshot` と `runEquipmentBonuses` だけを参照し、精錬前後で進行中ランのsnapshotを再取得しません。
 
@@ -878,41 +767,10 @@ node --check stageDefinitions.js
 python -m http.server 4173 --bind 127.0.0.1
 ```
 
-代表的な確認 URL:
+ローカル確認 URL:
 
 ```text
-http://127.0.0.1:4173/?mobileGate=0&mobileControls=0
-http://127.0.0.1:4173/?debugLostArms=1
-http://127.0.0.1:4173/?debugAnjuMemory=1
-http://127.0.0.1:4173/?debugDepthDirective=1
-http://127.0.0.1:4173/?debugDeepResult=1
-http://127.0.0.1:4173/?debugGeekMilestone=1
-http://127.0.0.1:4173/?debugRankingDepth=1
-http://127.0.0.1:4173/?debugRunArchive=1
-http://127.0.0.1:4173/?debugRobotSync=1
-http://127.0.0.1:4173/?mobileGate=0&mobileControls=0&debugPlayerMech=regaliaBastion&debugSkipOpeningBoost=1
-http://127.0.0.1:4173/?mobileGate=0&mobileControls=0&debugPlayerMech=regaliaBastion&debugSkipOpeningBoost=1&debugAcMovementHud=1
-http://127.0.0.1:4173/?mobileGate=0&mobileControls=0&debugPlayerMechUnlock=1
-http://127.0.0.1:4173/?debugRobotMissileLevel=10&debugSkipOpeningBoost=1
-http://127.0.0.1:4173/?debugStartDepth=11&debugSkipOpeningBoost=1&debugEndlessVoidBgm=1&debugScrambledComms=1&debugScrambledCommsInterval=5
-http://127.0.0.1:4173/?debugRecoveryFieldScale=1
-http://127.0.0.1:4173/?mobileGate=0&mobileControls=0&debugEquipmentState=1
-http://127.0.0.1:4173/?mobileGate=0&mobileControls=0&debugEquipmentHub=1
-http://127.0.0.1:4173/?mobileGate=0&mobileControls=0&debugEquipmentHub=1&debugEquipmentHubLegend=1
-http://127.0.0.1:4173/?mobileGate=0&mobileControls=0&debugEquipmentAnalysis=1
-http://127.0.0.1:4173/?mobileGate=0&mobileControls=0&debugSkipOpeningBoost=1&debugEquipmentBonuses=1&debugEquipmentBonusPreset=legend5
-http://127.0.0.1:4173/?mobileGate=0&mobileControls=0&debugSkipOpeningBoost=1&debugEquipmentDrop=SR&debugEquipmentDropCount=3&debugEquipmentRun=1
-http://127.0.0.1:4173/?mobileGate=0&mobileControls=0&debugSkipOpeningBoost=1&debugEquipmentProduction=1&debugEquipmentProductionForceDrop=1
-http://127.0.0.1:4173/?mobileGate=0&mobileControls=0&debugStartDepth=11&debugSkipOpeningBoost=1&debugEquipmentProduction=1&debugEquipmentProductionForceDrop=1&debugEquipmentProductionLegendUnlocked=1&debugEquipmentProductionRarity=LEGEND
-http://127.0.0.1:4173/?mobileGate=0&mobileControls=1&debugEquipmentHub=1
-http://127.0.0.1:4173/?debugSkillMutation=1
-http://127.0.0.1:4173/?debugSkillMutation=1&debugSkillMutationSkill=basicSkill
-http://127.0.0.1:4173/?debugSkillMutation=1&debugSkillMutationSkill=tornadoSkill
-http://127.0.0.1:4173/?debugSkillMutation=1&debugSkillMutationSkill=rabbitThunderSkill
-http://127.0.0.1:4173/?debugMaxBuild=1&debugTriadMatrix=1&debugTriadCore=assault&debugTriadFinal=prism
-http://127.0.0.1:4173/?debugMaxBuild=1&debugTriadMatrix=1&debugTriadCore=trinity&debugTriadFinal=adaptive
-http://127.0.0.1:4173/?debugMutationAtlas=1
-http://127.0.0.1:4173/?debug=stage
+http://127.0.0.1:4173/
 ```
 
 このプロジェクトには npm、bundler、TypeScript はありません。新規アセットを必須にする変更は避け、画像がない場合でも Phaser Graphics などでフォールバックできる実装を優先します。
