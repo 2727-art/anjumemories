@@ -573,6 +573,8 @@ ROBOT SYNC DRIVE:
 
 OPERATIONS HUB では `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY`、`ARCHIVE`、`SUPPLY`、`OPTION` をタブで切り替えます。CDSHOP は CD 購入と BGM 選択専用です。GEEKSHOP と ROBOT CUSTOM では確定 GEEK を使用します。GEEKSHOP は Armament / AP Frame / Booster / Reactor Cooling と回収ロボの永続強化、ROBOT CUSTOM はラン中Lvを直接購入する画面ではなく、Missile / Recovery のLv上限と EX 機能を解放する画面です。ANJU MEMORY では深層メタ報酬の購入・選択、ARCHIVE では RUN ARCHIVE と MUTATION ATLAS を確認し、SUPPLY ではアクセスコードによる支給物資を受け取ります。CD は BGM 選択と永続ボーナスを兼ねており、購入済み CD の永続効果は選択中 BGM に関係なく常時発動します。
 
+HUB ヘッダーの所有 GEEK 左隣には、初回起動時に端末内で生成した `ML-XXXX-XXXX` 形式の `OPERATOR ID` を表示します。ID は Firebase へ送信せず、ブラウザープロファイルと公開元ドメインごとの localStorage にだけ保存します。保存データ削除、別ブラウザー、シークレットモード、別ドメインでは新しい ID になります。
+
 `SUPPLY TERMINAL` は入力されたアクセスコードを正規化し、ブラウザーの Web Crypto API で SHA-256 に変換して、コード本体を保持しないハッシュ定義と照合します。現在の支給物資は確定 GEEK 1,000,000 で、ラン中の未確定 GEEK、ANJU MEMORY、LOST ARMS、Equipment、ランキング、RUN ARCHIVE、Firebase送信値には加算しません。受取履歴はブラウザープロファイルと公開元ドメインごとに1回です。保存データ削除、別ブラウザー、シークレットモード、別ドメインでは別の保存領域になるため、Firebaseを使わない構成では物理端末単位の厳密な重複防止は行いません。
 
 コード照合を5回連続で失敗すると60秒間ロックします。GEEKウォレットと受取履歴の保存途中でページが閉じても二重付与や報酬欠落を起こしにくいよう、支給開始前に復旧ジャーナルを保存し、次回起動時に未完了取引を再確認します。アクセスコードの入力値そのものは localStorage、ランキング、Firebaseへ保存・送信しません。
@@ -707,6 +709,7 @@ localStorage キー:
 - `lastmemoVansabaBestRecord`: ベスト記録。`bestDepth` と `bestExtractedGeek` も保存します。
 - `lastmemoVansabaKillRanking`: ローカルランキング。各 entry は `bestDepth`、`startDepth`、`usedDepthRelay`、`extractedGeek`、`extractMode`、`extractionSucceeded`、`submittedAt`、`version` を持ち、古い entry にフィールドがない場合は `bestDepth = 1`、`startDepth = 1`、`usedDepthRelay = false`、`extractedGeek = 0`、`extractMode = none` に補完します。
 - `lastmemoVansabaCoins`: 確定 GEEK
+- `lastmemoVansabaOperatorId`: 端末内生成した OPERATOR ID の version と ID。Firebase、ランキング、RUN ARCHIVE には送信しません。
 - `lastmemoVansabaSupplyCodeState`: SUPPLY TERMINAL の version、受取済み支給ID、連続失敗回数、ロック期限。アクセスコード本体や入力値は保存しません。
 - `lastmemoVansabaSupplyCodeTransaction`: 支給GEEKと受取履歴の保存途中だけ使う復旧ジャーナル。両方の保存完了後に削除し、残っている場合は次回起動時に未完了取引を再確認します。
 - `lastmemoVansabaOptionsState`: OPTION の BGM OUTPUT、SFX / VOICE OUTPUT、CONTROLLER INPUT の ON / OFF 状態

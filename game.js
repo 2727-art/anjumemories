@@ -1922,6 +1922,11 @@ const BEST_RECORD_STORAGE_KEY = "lastmemoVansabaBestRecord";
 const KILL_RANKING_STORAGE_KEY = "lastmemoVansabaKillRanking";
 const COIN_WALLET_STORAGE_KEY = "lastmemoVansabaCoins";
 const SHOP_STATE_STORAGE_KEY = "lastmemoVansabaShopState";
+const OPERATOR_ID_STORAGE_KEY = "lastmemoVansabaOperatorId";
+const OPERATOR_ID_STATE_VERSION = 1;
+const OPERATOR_ID_PREFIX = "ML";
+const OPERATOR_ID_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const OPERATOR_ID_RANDOM_LENGTH = 8;
 const SUPPLY_CODE_STORAGE_KEY = "lastmemoVansabaSupplyCodeState";
 const SUPPLY_CODE_TRANSACTION_STORAGE_KEY = "lastmemoVansabaSupplyCodeTransaction";
 const SUPPLY_CODE_STATE_VERSION = 1;
@@ -8414,6 +8419,7 @@ class SurvivalScene extends Phaser.Scene {
   createState() {
     this.recoverEquipmentAnalysisTransaction();
     this.shopState = this.loadShopState();
+    this.operatorId = this.loadOrCreateOperatorId();
     this.optionsState = this.loadOptionsState();
     this.anjuMemoryState = this.loadAnjuMemoryState();
     this.mutationAtlasState = this.loadMutationAtlasState();
@@ -32704,6 +32710,69 @@ class SurvivalScene extends Phaser.Scene {
     return Math.max(0, Math.floor(Number(value) || 0));
   }
 
+  normalizeOperatorId(value) {
+    const normalized = typeof value === "string" ? value.trim().toUpperCase() : "";
+    const alphabetPattern = `[${OPERATOR_ID_ALPHABET}]`;
+    const pattern = new RegExp(`^${OPERATOR_ID_PREFIX}-${alphabetPattern}{4}-${alphabetPattern}{4}$`);
+    return pattern.test(normalized) ? normalized : "";
+  }
+
+  createOperatorId() {
+    const randomBytes = new Uint8Array(OPERATOR_ID_RANDOM_LENGTH);
+    let hasSecureRandom = false;
+    try {
+      if (window.crypto?.getRandomValues) {
+        window.crypto.getRandomValues(randomBytes);
+        hasSecureRandom = true;
+      }
+    } catch (error) {
+      hasSecureRandom = false;
+    }
+
+    const characters = Array.from(randomBytes, (value) => {
+      const index = hasSecureRandom
+        ? value % OPERATOR_ID_ALPHABET.length
+        : Math.floor(Math.random() * OPERATOR_ID_ALPHABET.length);
+      return OPERATOR_ID_ALPHABET[index];
+    }).join("");
+    return `${OPERATOR_ID_PREFIX}-${characters.slice(0, 4)}-${characters.slice(4, 8)}`;
+  }
+
+  loadOrCreateOperatorId() {
+    let rawState = "";
+    try {
+      rawState = window.localStorage?.getItem(OPERATOR_ID_STORAGE_KEY) || "";
+    } catch (error) {
+      rawState = "";
+    }
+
+    if (rawState) {
+      try {
+        const parsed = JSON.parse(rawState);
+        const storedId = this.normalizeOperatorId(typeof parsed === "string" ? parsed : parsed?.id);
+        if (storedId) {
+          return storedId;
+        }
+      } catch (error) {
+        const legacyId = this.normalizeOperatorId(rawState);
+        if (legacyId) {
+          return legacyId;
+        }
+      }
+    }
+
+    const operatorId = this.createOperatorId();
+    try {
+      window.localStorage?.setItem(OPERATOR_ID_STORAGE_KEY, JSON.stringify({
+        version: OPERATOR_ID_STATE_VERSION,
+        id: operatorId
+      }));
+    } catch (error) {
+      // Keep the generated ID for this session when localStorage is unavailable.
+    }
+    return operatorId;
+  }
+
   loadCoinWallet() {
     try {
       return this.normalizeCoinAmount(window.localStorage?.getItem(COIN_WALLET_STORAGE_KEY));
@@ -51527,6 +51596,21 @@ class SurvivalScene extends Phaser.Scene {
 
   renderShopHeaderBalances() {
     const coinIconKey = this.getGeekIconTextureKey();
+    this.addOverlayChild(
+      this.add
+        .rectangle(198, -292, 196, 36, 0x081a28, 0.92)
+        .setStrokeStyle(1, 0x6fcfff, 0.45)
+    );
+    this.createOverlayText(112, -305, "OPERATOR ID", {
+      fontSize: "9px",
+      color: "#7899ae",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(112, -293, this.operatorId, {
+      fontSize: "14px",
+      color: "#c9f6ff",
+      fontStyle: "bold"
+    });
     this.addOverlayChild(
       this.add
         .rectangle(430, -292, 250, 36, 0x0c1724, 0.92)
