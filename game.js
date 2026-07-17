@@ -51598,50 +51598,52 @@ class SurvivalScene extends Phaser.Scene {
     const coinIconKey = this.getGeekIconTextureKey();
     this.addOverlayChild(
       this.add
-        .rectangle(198, -292, 196, 36, 0x081a28, 0.92)
+        .rectangle(160, -292, 180, 36, 0x081a28, 0.92)
         .setStrokeStyle(1, 0x6fcfff, 0.45)
     );
-    this.createOverlayText(112, -305, "OPERATOR ID", {
+    this.createOverlayText(80, -305, "OPERATOR ID", {
       fontSize: "9px",
       color: "#7899ae",
       fontStyle: "bold"
     });
-    this.createOverlayText(112, -293, this.operatorId, {
-      fontSize: "14px",
+    this.createOverlayText(80, -293, this.operatorId, {
+      fontSize: "13px",
       color: "#c9f6ff",
       fontStyle: "bold"
     });
     this.addOverlayChild(
       this.add
-        .rectangle(430, -292, 250, 36, 0x0c1724, 0.92)
+        .rectangle(343, -292, 170, 36, 0x0c1724, 0.92)
         .setStrokeStyle(1, 0xf0c463, 0.45)
     );
     this.addOverlayChild(
       this.add
-        .image(328, -292, coinIconKey)
+        .image(280, -292, coinIconKey)
         .setDisplaySize(24, 24)
     );
-    this.createOverlayText(350, -306, this.normalizeCoinAmount(this.coins).toLocaleString(), {
+    const geekBalanceText = this.createOverlayText(300, -306, this.normalizeCoinAmount(this.coins).toLocaleString(), {
       fontSize: "22px",
       color: "#ecf7ff",
       fontStyle: "bold"
     });
+    this.fitOverlayTextToWidth(geekBalanceText, 118, 13);
 
     this.addOverlayChild(
       this.add
-        .rectangle(430, -248, 250, 36, 0x120f24, 0.92)
+        .rectangle(496, -292, 120, 36, 0x120f24, 0.92)
         .setStrokeStyle(1, 0xc596ff, 0.45)
     );
-    this.createOverlayText(318, -260, "AM", {
-      fontSize: "15px",
+    this.createOverlayText(448, -300, "AM", {
+      fontSize: "13px",
       color: "#f0e6ff",
       fontStyle: "bold"
     });
-    this.createOverlayText(350, -262, this.normalizeAnjuMemoryAmount(this.anjuMemoryState?.amount).toLocaleString(), {
-      fontSize: "22px",
+    const anjuMemoryBalanceText = this.createOverlayText(478, -306, this.normalizeAnjuMemoryAmount(this.anjuMemoryState?.amount).toLocaleString(), {
+      fontSize: "20px",
       color: "#f7f1ff",
       fontStyle: "bold"
     });
+    this.fitOverlayTextToWidth(anjuMemoryBalanceText, 66, 12);
   }
 
   renderShopModeTabs() {
