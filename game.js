@@ -1922,6 +1922,20 @@ const BEST_RECORD_STORAGE_KEY = "lastmemoVansabaBestRecord";
 const KILL_RANKING_STORAGE_KEY = "lastmemoVansabaKillRanking";
 const COIN_WALLET_STORAGE_KEY = "lastmemoVansabaCoins";
 const SHOP_STATE_STORAGE_KEY = "lastmemoVansabaShopState";
+const SUPPLY_CODE_STORAGE_KEY = "lastmemoVansabaSupplyCodeState";
+const SUPPLY_CODE_TRANSACTION_STORAGE_KEY = "lastmemoVansabaSupplyCodeTransaction";
+const SUPPLY_CODE_STATE_VERSION = 1;
+const SUPPLY_CODE_TRANSACTION_VERSION = 1;
+const SUPPLY_CODE_MAX_FAILED_ATTEMPTS = 5;
+const SUPPLY_CODE_LOCK_DURATION_MS = 60000;
+const SUPPLY_CODE_INPUT_LAYOUT = Object.freeze({ x: -500, y: -64, width: 620, height: 58 });
+const SUPPLY_CODE_CATALOG = Object.freeze([
+  Object.freeze({
+    id: "operations_supply_001",
+    codeHash: "a01db4f5ff9248ea81c86b06de797179e6a48fe5b4955962c8d71fff4b3c245b",
+    confirmedGeek: 1000000
+  })
+]);
 const OPTIONS_STATE_STORAGE_KEY = "lastmemoVansabaOptionsState";
 const OPTIONS_STATE_VERSION = 1;
 const LOST_ARMS_STORAGE_KEY = "lastmemoVansabaLostArmsState";
@@ -7896,6 +7910,8 @@ class SurvivalScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.discardRunEquipmentBoxes("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetRunEquipmentCombatLinkState("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetRunEquipmentCombatLinkState("sceneDestroy"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.destroySupplyCodeInputElement());
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.destroySupplyCodeInputElement());
     this.gameplayRuntimeCreated = false;
     this.gameplayAssetsLoading = false;
     this.pendingSortieAfterGameplayAssets = false;
@@ -8584,6 +8600,13 @@ class SurvivalScene extends Phaser.Scene {
     this.pendingDeepExtractionResultPayload = null;
     this.deepExtractionResultDebugShown = false;
     this.deepExtractionResultState = this.createDeepExtractionResultState();
+    this.coins = this.loadCoinWallet();
+    this.supplyCodeState = this.loadSupplyCodeState();
+    this.supplyCodeSubmitting = false;
+    this.supplyCodeInputValue = "";
+    this.supplyCodeInputElement = null;
+    this.supplyCodeInputLayoutHandler = null;
+    this.recoverSupplyCodeTransaction();
     this.coins = this.loadCoinWallet();
     this.uiObjects = [];
     this.worldCamera = this.cameras.main;
@@ -32701,6 +32724,287 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
+  createDefaultSupplyCodeState() {
+    return {
+      version: SUPPLY_CODE_STATE_VERSION,
+      redeemedIds: [],
+      failedAttempts: 0,
+      lockedUntil: 0
+    };
+  }
+
+  normalizeSupplyCodeState(record) {
+    const validRewardIds = new Set(SUPPLY_CODE_CATALOG.map((entry) => entry.id));
+    const redeemedIds = Array.isArray(record?.redeemedIds)
+      ? [...new Set(record.redeemedIds.filter((id) => typeof id === "string" && validRewardIds.has(id)))]
+      : [];
+    return {
+      version: SUPPLY_CODE_STATE_VERSION,
+      redeemedIds,
+      failedAttempts: Phaser.Math.Clamp(
+        Math.floor(Number(record?.failedAttempts) || 0),
+        0,
+        SUPPLY_CODE_MAX_FAILED_ATTEMPTS
+      ),
+      lockedUntil: Math.max(0, Math.floor(Number(record?.lockedUntil) || 0))
+    };
+  }
+
+  loadSupplyCodeState() {
+    try {
+      const rawState = window.localStorage?.getItem(SUPPLY_CODE_STORAGE_KEY) || "";
+      return rawState
+        ? this.normalizeSupplyCodeState(JSON.parse(rawState))
+        : this.createDefaultSupplyCodeState();
+    } catch (error) {
+      return this.createDefaultSupplyCodeState();
+    }
+  }
+
+  saveSupplyCodeState() {
+    this.supplyCodeState = this.normalizeSupplyCodeState(this.supplyCodeState);
+    try {
+      const serialized = JSON.stringify(this.supplyCodeState);
+      window.localStorage?.setItem(SUPPLY_CODE_STORAGE_KEY, serialized);
+      return window.localStorage?.getItem(SUPPLY_CODE_STORAGE_KEY) === serialized;
+    } catch (error) {
+      console.warn("[SUPPLY TERMINAL] failed to save redemption state", error);
+      return false;
+    }
+  }
+
+  normalizeSupplyCodeTransaction(record) {
+    const rewardId = typeof record?.rewardId === "string" ? record.rewardId : "";
+    const reward = SUPPLY_CODE_CATALOG.find((entry) => entry.id === rewardId);
+    if (!reward) {
+      return null;
+    }
+    const previousCoins = this.normalizeCoinAmount(record?.previousCoins);
+    const nextCoins = this.normalizeCoinAmount(record?.nextCoins);
+    if (nextCoins !== previousCoins + this.normalizeCoinAmount(reward.confirmedGeek)) {
+      return null;
+    }
+    return {
+      version: SUPPLY_CODE_TRANSACTION_VERSION,
+      rewardId,
+      previousCoins,
+      nextCoins
+    };
+  }
+
+  loadSupplyCodeTransaction() {
+    try {
+      const rawTransaction = window.localStorage?.getItem(SUPPLY_CODE_TRANSACTION_STORAGE_KEY) || "";
+      return rawTransaction ? this.normalizeSupplyCodeTransaction(JSON.parse(rawTransaction)) : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  saveSupplyCodeTransaction(transaction) {
+    const normalized = this.normalizeSupplyCodeTransaction(transaction);
+    if (!normalized) {
+      return false;
+    }
+    try {
+      const serialized = JSON.stringify(normalized);
+      window.localStorage?.setItem(SUPPLY_CODE_TRANSACTION_STORAGE_KEY, serialized);
+      return window.localStorage?.getItem(SUPPLY_CODE_TRANSACTION_STORAGE_KEY) === serialized;
+    } catch (error) {
+      console.warn("[SUPPLY TERMINAL] failed to save transaction", error);
+      return false;
+    }
+  }
+
+  clearSupplyCodeTransaction() {
+    try {
+      window.localStorage?.removeItem(SUPPLY_CODE_TRANSACTION_STORAGE_KEY);
+      return !window.localStorage?.getItem(SUPPLY_CODE_TRANSACTION_STORAGE_KEY);
+    } catch (error) {
+      console.warn("[SUPPLY TERMINAL] failed to clear transaction", error);
+      return false;
+    }
+  }
+
+  recoverSupplyCodeTransaction() {
+    const transaction = this.loadSupplyCodeTransaction();
+    if (!transaction) {
+      return false;
+    }
+
+    this.supplyCodeState = this.normalizeSupplyCodeState(this.supplyCodeState || this.loadSupplyCodeState());
+    if (this.supplyCodeState.redeemedIds.includes(transaction.rewardId)) {
+      this.clearSupplyCodeTransaction();
+      return true;
+    }
+
+    const persistedCoins = this.loadCoinWallet();
+    if (persistedCoins === transaction.previousCoins) {
+      if (!this.persistCoinWalletAmount(transaction.nextCoins)) {
+        return false;
+      }
+    } else if (persistedCoins !== transaction.nextCoins) {
+      console.warn("[SUPPLY TERMINAL] transaction recovery blocked by unexpected wallet value", {
+        rewardId: transaction.rewardId,
+        persistedCoins
+      });
+      return false;
+    }
+
+    this.supplyCodeState.redeemedIds = [...new Set([
+      ...this.supplyCodeState.redeemedIds,
+      transaction.rewardId
+    ])];
+    this.supplyCodeState.failedAttempts = 0;
+    this.supplyCodeState.lockedUntil = 0;
+    if (!this.saveSupplyCodeState()) {
+      return false;
+    }
+    this.clearSupplyCodeTransaction();
+    return true;
+  }
+
+  normalizeSupplyCodeInput(value) {
+    return String(value || "")
+      .normalize("NFKC")
+      .trim()
+      .toUpperCase()
+      .replace(/[\s-]+/g, "");
+  }
+
+  async hashSupplyCodeInput(value) {
+    const normalized = this.normalizeSupplyCodeInput(value);
+    if (!normalized || !globalThis.crypto?.subtle || typeof TextEncoder === "undefined") {
+      return "";
+    }
+    const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalized));
+    return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  }
+
+  isSupplyCodeRewardRedeemed(rewardId) {
+    return Boolean(rewardId && this.supplyCodeState?.redeemedIds?.includes(rewardId));
+  }
+
+  getSupplyCodeLockRemainingMs() {
+    return Math.max(0, Math.floor(Number(this.supplyCodeState?.lockedUntil) || 0) - Date.now());
+  }
+
+  recordSupplyCodeFailure() {
+    this.supplyCodeState = this.normalizeSupplyCodeState(this.supplyCodeState || this.loadSupplyCodeState());
+    if (this.getSupplyCodeLockRemainingMs() <= 0 && this.supplyCodeState.lockedUntil > 0) {
+      this.supplyCodeState.failedAttempts = 0;
+      this.supplyCodeState.lockedUntil = 0;
+    }
+    this.supplyCodeState.failedAttempts = Math.min(
+      SUPPLY_CODE_MAX_FAILED_ATTEMPTS,
+      this.supplyCodeState.failedAttempts + 1
+    );
+    if (this.supplyCodeState.failedAttempts >= SUPPLY_CODE_MAX_FAILED_ATTEMPTS) {
+      this.supplyCodeState.lockedUntil = Date.now() + SUPPLY_CODE_LOCK_DURATION_MS;
+    }
+    this.saveSupplyCodeState();
+    return this.getSupplyCodeLockRemainingMs();
+  }
+
+  grantSupplyCodeReward(reward) {
+    if (!reward || this.isSupplyCodeRewardRedeemed(reward.id)) {
+      return { ok: false, reason: "already_redeemed" };
+    }
+    if (this.loadSupplyCodeTransaction()) {
+      this.recoverSupplyCodeTransaction();
+      return this.isSupplyCodeRewardRedeemed(reward.id)
+        ? { ok: false, reason: "already_redeemed" }
+        : { ok: false, reason: "recovery_pending" };
+    }
+
+    const previousCoins = this.normalizeCoinAmount(this.coins);
+    const nextCoins = this.normalizeCoinAmount(previousCoins + reward.confirmedGeek);
+    const transaction = {
+      version: SUPPLY_CODE_TRANSACTION_VERSION,
+      rewardId: reward.id,
+      previousCoins,
+      nextCoins
+    };
+    if (!this.saveSupplyCodeTransaction(transaction)) {
+      return { ok: false, reason: "transaction_save_failed" };
+    }
+    if (!this.persistCoinWalletAmount(nextCoins)) {
+      this.clearSupplyCodeTransaction();
+      return { ok: false, reason: "wallet_save_failed" };
+    }
+
+    this.coins = nextCoins;
+    this.supplyCodeState.redeemedIds = [...new Set([
+      ...(this.supplyCodeState.redeemedIds || []),
+      reward.id
+    ])];
+    this.supplyCodeState.failedAttempts = 0;
+    this.supplyCodeState.lockedUntil = 0;
+    if (!this.saveSupplyCodeState()) {
+      return { ok: false, reason: "redemption_save_pending" };
+    }
+    this.clearSupplyCodeTransaction();
+    return { ok: true, amount: this.normalizeCoinAmount(reward.confirmedGeek), total: nextCoins };
+  }
+
+  async submitSupplyCode() {
+    if (this.supplyCodeSubmitting || !this.shopActive || this.shopViewMode !== "supply") {
+      return;
+    }
+    const lockRemainingMs = this.getSupplyCodeLockRemainingMs();
+    if (lockRemainingMs > 0) {
+      this.showPreGameShop(`SUPPLY TERMINAL LOCKED / RETRY ${Math.ceil(lockRemainingMs / 1000)}s`);
+      return;
+    }
+
+    const inputValue = this.supplyCodeInputElement?.value || this.supplyCodeInputValue || "";
+    if (!this.normalizeSupplyCodeInput(inputValue)) {
+      this.showPreGameShop("ACCESS CODE REQUIRED");
+      return;
+    }
+
+    this.supplyCodeSubmitting = true;
+    if (this.supplyCodeInputElement) {
+      this.supplyCodeInputElement.disabled = true;
+    }
+    try {
+      const codeHash = await this.hashSupplyCodeInput(inputValue);
+      if (!codeHash) {
+        this.showPreGameShop("SUPPLY TERMINAL UNAVAILABLE / SECURE HASH ERROR");
+        return;
+      }
+      const reward = SUPPLY_CODE_CATALOG.find((entry) => entry.codeHash === codeHash);
+      if (!reward) {
+        const nextLockMs = this.recordSupplyCodeFailure();
+        const message = nextLockMs > 0
+          ? `INVALID ACCESS CODE / TERMINAL LOCKED ${Math.ceil(nextLockMs / 1000)}s`
+          : `INVALID ACCESS CODE / ${this.supplyCodeState.failedAttempts}/${SUPPLY_CODE_MAX_FAILED_ATTEMPTS}`;
+        this.showPreGameShop(message);
+        return;
+      }
+      if (this.isSupplyCodeRewardRedeemed(reward.id)) {
+        this.showPreGameShop("ALREADY CLAIMED / SUPPLY PACKAGE WAS PREVIOUSLY RECEIVED");
+        return;
+      }
+
+      const result = this.grantSupplyCodeReward(reward);
+      if (result.ok) {
+        this.showPreGameShop(`SUPPLY RECEIVED / +${result.amount.toLocaleString()} GEEK SECURED`);
+        return;
+      }
+      if (result.reason === "already_redeemed") {
+        this.showPreGameShop("ALREADY CLAIMED / SUPPLY PACKAGE WAS PREVIOUSLY RECEIVED");
+        return;
+      }
+      this.showPreGameShop("SUPPLY TRANSFER PENDING / RELOAD HUB TO RECOVER");
+    } catch (error) {
+      console.warn("[SUPPLY TERMINAL] authorization failed", error);
+      this.showPreGameShop("SUPPLY TERMINAL ERROR / RETRY");
+    } finally {
+      this.supplyCodeSubmitting = false;
+    }
+  }
+
   saveCoinWallet() {
     return this.persistCoinWalletAmount(this.coins);
   }
@@ -51264,7 +51568,8 @@ class SurvivalScene extends Phaser.Scene {
     this.renderShopTabGroupDivider(-26, tabY, 27);
     this.createShopModeTab(42, tabY, 106, "ANJU MEMORY", "anjuMemory");
     this.createShopModeTab(143, tabY, 84, "ARCHIVE", "runArchive");
-    this.createShopModeTab(232, tabY, 82, "OPTION", "options");
+    this.createShopModeTab(232, tabY, 82, "SUPPLY", "supply");
+    this.createShopModeTab(321, tabY, 82, "OPTION", "options");
   }
 
   createShopModeTab(centerX, centerY, width, label, mode) {
@@ -52150,6 +52455,218 @@ class SurvivalScene extends Phaser.Scene {
       });
       this.fitOverlayTextToWidth(refineCost, buttonWidth - 8, 7);
     }
+  }
+
+  updateSupplyCodeInputElementLayout() {
+    const input = this.supplyCodeInputElement;
+    const canvas = this.game?.canvas;
+    if (!input || !canvas?.getBoundingClientRect) {
+      return;
+    }
+    const bounds = canvas.getBoundingClientRect();
+    if (bounds.width <= 0 || bounds.height <= 0) {
+      return;
+    }
+    const scaleX = bounds.width / GAME_WIDTH;
+    const scaleY = bounds.height / GAME_HEIGHT;
+    const layout = SUPPLY_CODE_INPUT_LAYOUT;
+    input.style.left = `${bounds.left + (GAME_WIDTH / 2 + layout.x) * scaleX}px`;
+    input.style.top = `${bounds.top + (GAME_HEIGHT / 2 + layout.y) * scaleY}px`;
+    input.style.width = `${layout.width * scaleX}px`;
+    input.style.height = `${layout.height * scaleY}px`;
+    input.style.fontSize = `${Math.max(15, 25 * Math.min(scaleX, scaleY))}px`;
+    input.style.padding = `0 ${Math.max(12, 18 * scaleX)}px`;
+  }
+
+  destroySupplyCodeInputElement() {
+    if (this.supplyCodeInputLayoutHandler) {
+      window.removeEventListener?.("resize", this.supplyCodeInputLayoutHandler);
+      window.removeEventListener?.("orientationchange", this.supplyCodeInputLayoutHandler);
+      window.removeEventListener?.("scroll", this.supplyCodeInputLayoutHandler, true);
+    }
+    this.supplyCodeInputLayoutHandler = null;
+    if (this.supplyCodeInputElement) {
+      this.supplyCodeInputElement.remove?.();
+    }
+    this.supplyCodeInputElement = null;
+  }
+
+  createSupplyCodeInputElement() {
+    this.destroySupplyCodeInputElement();
+    if (typeof document === "undefined" || !document.body) {
+      return null;
+    }
+    const input = document.createElement("input");
+    input.type = "password";
+    input.maxLength = 64;
+    input.placeholder = "ENTER ACCESS CODE";
+    input.autocomplete = "off";
+    input.autocapitalize = "characters";
+    input.spellcheck = false;
+    input.setAttribute("aria-label", "Supply access code");
+    Object.assign(input.style, {
+      position: "fixed",
+      boxSizing: "border-box",
+      zIndex: "9000",
+      margin: "0",
+      border: "2px solid rgba(111, 207, 255, 0.82)",
+      borderRadius: "6px",
+      outline: "none",
+      background: "rgba(3, 14, 25, 0.98)",
+      color: "#ecf7ff",
+      fontFamily: "Consolas, 'Yu Gothic UI', monospace",
+      fontWeight: "700",
+      letterSpacing: "0.16em",
+      caretColor: "#f0c463",
+      boxShadow: "0 0 18px rgba(54, 215, 255, 0.22)"
+    });
+    input.addEventListener("input", () => {
+      this.supplyCodeInputValue = input.value;
+    });
+    input.addEventListener("keydown", (event) => {
+      event.stopPropagation();
+      if (event.key === "Enter") {
+        event.preventDefault();
+        this.submitSupplyCode();
+      } else if (event.key === "Escape") {
+        input.blur();
+      }
+    });
+    document.body.appendChild(input);
+    this.supplyCodeInputElement = input;
+    this.supplyCodeInputLayoutHandler = () => this.updateSupplyCodeInputElementLayout();
+    window.addEventListener?.("resize", this.supplyCodeInputLayoutHandler);
+    window.addEventListener?.("orientationchange", this.supplyCodeInputLayoutHandler);
+    window.addEventListener?.("scroll", this.supplyCodeInputLayoutHandler, true);
+    this.updateSupplyCodeInputElementLayout();
+    window.requestAnimationFrame?.(() => this.updateSupplyCodeInputElementLayout());
+    return input;
+  }
+
+  renderSupplyShopContent() {
+    const reward = SUPPLY_CODE_CATALOG[0];
+    const redeemed = this.isSupplyCodeRewardRedeemed(reward.id);
+    const lockRemainingMs = this.getSupplyCodeLockRemainingMs();
+
+    this.createOverlayText(-530, -210, "SUPPLY TERMINAL", {
+      fontSize: "20px",
+      color: "#9ffcff",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(-530, -180, "認証済みアクセスコードを照合し、支給物資を確定GEEKウォレットへ転送します。", {
+      fontSize: "13px",
+      color: "#9ab7cc",
+      wordWrap: { width: 760 }
+    });
+
+    const terminal = this.addOverlayChild(this.add.graphics());
+    terminal.fillStyle(0x06131f, 0.94);
+    terminal.fillRoundedRect(-530, -142, 680, 336, 10);
+    terminal.lineStyle(2, redeemed ? 0x55d68b : 0x36d7ff, 0.62);
+    terminal.strokeRoundedRect(-529, -141, 678, 334, 10);
+    terminal.lineStyle(1, 0x7df3ff, 0.16);
+    terminal.strokeRoundedRect(-516, -128, 652, 306, 6);
+
+    this.createOverlayText(-500, -112, redeemed ? "AUTHORIZATION COMPLETE" : "ACCESS CODE AUTHORIZATION", {
+      fontSize: "17px",
+      color: redeemed ? "#77f0b4" : "#ecf7ff",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(-500, -86, redeemed
+      ? "このブラウザープロファイルでは支給物資を受取済みです。"
+      : "コードは端末内でSHA-256照合され、入力値そのものは保存されません。", {
+      fontSize: "12px",
+      color: "#9ab7cc"
+    });
+
+    if (!redeemed) {
+      this.addOverlayChild(
+        this.add
+          .rectangle(-190, -35, 640, 68, 0x020914, 0.96)
+          .setStrokeStyle(1, lockRemainingMs > 0 ? 0xff7b6e : 0x6fcfff, 0.42)
+      );
+      const buttonDisabled = lockRemainingMs > 0;
+      const authorizeButton = this.addOverlayChild(
+        this.add
+          .rectangle(-190, 75, 300, 60, buttonDisabled ? 0x17202a : 0x12364a, 0.98)
+          .setStrokeStyle(2, buttonDisabled ? 0x52626e : 0xf0c463, buttonDisabled ? 0.35 : 0.78)
+      );
+      if (!buttonDisabled) {
+        authorizeButton.setInteractive({ useHandCursor: true });
+        authorizeButton.on("pointerover", () => authorizeButton.setFillStyle(0x194a62, 1));
+        authorizeButton.on("pointerout", () => authorizeButton.setFillStyle(0x12364a, 0.98));
+        this.addOverlayAction(authorizeButton, () => this.submitSupplyCode(), true, 8);
+      }
+      this.createOverlayText(-190, 58, buttonDisabled ? "TERMINAL LOCKED" : "AUTHORIZE", {
+        fontSize: "21px",
+        color: buttonDisabled ? "#70818a" : "#f7d98a",
+        fontStyle: "bold",
+        align: "center",
+        origin: { x: 0.5, y: 0 }
+      });
+      const attempts = this.supplyCodeState?.failedAttempts || 0;
+      const statusText = lockRemainingMs > 0
+        ? `SECURITY LOCK / RETRY IN ${Math.ceil(lockRemainingMs / 1000)}s`
+        : `FAILED ATTEMPTS ${attempts}/${SUPPLY_CODE_MAX_FAILED_ATTEMPTS}`;
+      this.createOverlayText(-500, 126, statusText, {
+        fontSize: "12px",
+        color: lockRemainingMs > 0 ? "#ff9f91" : "#7899ae"
+      });
+      if (lockRemainingMs <= 0) {
+        this.createSupplyCodeInputElement();
+      }
+    } else {
+      this.createOverlayText(-190, -12, "RECEIVED", {
+        fontSize: "38px",
+        color: "#77f0b4",
+        fontStyle: "bold",
+        align: "center",
+        origin: { x: 0.5, y: 0 }
+      });
+      this.createOverlayText(-190, 42, "再受取はできません", {
+        fontSize: "15px",
+        color: "#9ab7cc",
+        align: "center",
+        origin: { x: 0.5, y: 0 }
+      });
+    }
+
+    const rewardPanel = this.addOverlayChild(this.add.graphics());
+    rewardPanel.fillStyle(0x151107, 0.95);
+    rewardPanel.fillRoundedRect(180, -142, 350, 336, 10);
+    rewardPanel.lineStyle(2, 0xf0c463, 0.68);
+    rewardPanel.strokeRoundedRect(181, -141, 348, 334, 10);
+    rewardPanel.lineStyle(1, 0xffe7a6, 0.2);
+    rewardPanel.strokeRoundedRect(194, -128, 322, 306, 6);
+    this.createOverlayText(355, -106, "SUPPLY PACKAGE", {
+      fontSize: "18px",
+      color: "#f7d98a",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+    const coinIconKey = this.getGeekIconTextureKey();
+    this.addOverlayChild(this.add.image(355, -30, coinIconKey).setDisplaySize(72, 72));
+    this.createOverlayText(355, 24, "+1,000,000", {
+      fontSize: "34px",
+      color: "#fff0b8",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+    this.createOverlayText(355, 68, "CONFIRMED GEEK", {
+      fontSize: "16px",
+      color: "#f0c463",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+    this.createOverlayText(355, 118, redeemed ? "TRANSFER COMPLETE" : "AWAITING AUTHORIZATION", {
+      fontSize: "12px",
+      color: redeemed ? "#77f0b4" : "#9ab7cc",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
   }
 
   interpolateEquipmentLegendColor(leftColor, rightColor, amount = 0) {
@@ -54162,6 +54679,18 @@ class SurvivalScene extends Phaser.Scene {
     this.renderShopHeaderBalances();
     this.renderHubNotice();
     this.renderShopModeTabs();
+
+    if (this.shopViewMode === "supply") {
+      this.renderSupplyShopContent();
+      this.renderShopStartCta();
+
+      this.overlayBackdrop.setAlpha(1).setVisible(true);
+      this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
+      window.requestAnimationFrame?.(() => hideShopLoadingScreen());
+      scheduleMobileFullscreenResumeGate();
+      this.scheduleShopEpilogueFlush("showPreGameShop");
+      return;
+    }
 
     if (this.shopViewMode === "options") {
       this.renderOptionsShopContent();
@@ -77199,6 +77728,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   clearOverlayButtons() {
+    this.destroySupplyCodeInputElement();
     this.equipmentAnalysisResultOpen = false;
     this.equipmentAnalysisResultBlocker = null;
     this.equipmentAnalysisBusy = false;

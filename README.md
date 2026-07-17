@@ -126,7 +126,7 @@ Cloudflare 配信では `_headers` で HTML を `max-age=0, must-revalidate`、J
 
 ## ゲーム進行
 
-1. OPERATIONS HUB の `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY`、`ARCHIVE`、`OPTION` で CD、BGM、永続強化、ロボット系解放、戦闘ログ、MUTATION ATLAS 閲覧、音声/入力設定を行います。
+1. OPERATIONS HUB の `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY`、`ARCHIVE`、`SUPPLY`、`OPTION` で CD、BGM、永続強化、ロボット系解放、戦闘ログ、MUTATION ATLAS 閲覧、支給物資の受取、音声/入力設定を行います。
 2. `SORTIE PREP` から Opening Boost 選択へ進み、開始前に 3 回ぶんの強化を選択します。Depth10 Final Raid 討伐後は、その前に DEPTH RELAY で Depth1 通常開始または解放済み転送先を選べます。選択UIは最大3択で、Depth1は常時表示、Relay候補は解放済みAnchorの最新2件だけを表示します。Depth20 Anchor 解放後は Depth1 / Depth10 / Depth20、Depth30 Anchor 解放後は Depth1 / Depth20 / Depth30 の選択になります。
 3. DEPTH RELAY で Depth10 を選んだ場合も Final Raid ではなく通常 Depth10 の新しいランとして始まり、Depth1〜9の XP、GEEK、ANJU MEMORY などのスキップ報酬は付与されません。Opening Boost 回数は通常仕様のままです。
 4. Depth10 Relay は高難度の開始方法で、永続強化済みの構成を推奨します。Depth10 カードには `HIGH RISK` 警告、強化済み構成推奨、新規ラン開始、スキップ報酬なしの注意が表示されます。
@@ -653,11 +653,15 @@ ROBOT SYNC DRIVE:
 
 ## OPERATIONS HUB / 拠点
 
-OPERATIONS HUB では `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY`、`ARCHIVE` をタブで切り替えます。CDSHOP は CD 購入と BGM 選択専用です。GEEKSHOP と ROBOT CUSTOM では確定 GEEK を使用します。GEEKSHOP は Armament / AP Frame / Booster / Reactor Cooling と回収ロボの永続強化、ROBOT CUSTOM はラン中Lvを直接購入する画面ではなく、Missile / Recovery のLv上限と EX 機能を解放する画面です。ANJU MEMORY では深層メタ報酬の購入・選択、ARCHIVE では RUN ARCHIVE と MUTATION ATLAS を確認します。CD は BGM 選択と永続ボーナスを兼ねており、購入済み CD の永続効果は選択中 BGM に関係なく常時発動します。
+OPERATIONS HUB では `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY`、`ARCHIVE`、`SUPPLY`、`OPTION` をタブで切り替えます。CDSHOP は CD 購入と BGM 選択専用です。GEEKSHOP と ROBOT CUSTOM では確定 GEEK を使用します。GEEKSHOP は Armament / AP Frame / Booster / Reactor Cooling と回収ロボの永続強化、ROBOT CUSTOM はラン中Lvを直接購入する画面ではなく、Missile / Recovery のLv上限と EX 機能を解放する画面です。ANJU MEMORY では深層メタ報酬の購入・選択、ARCHIVE では RUN ARCHIVE と MUTATION ATLAS を確認し、SUPPLY ではアクセスコードによる支給物資を受け取ります。CD は BGM 選択と永続ボーナスを兼ねており、購入済み CD の永続効果は選択中 BGM に関係なく常時発動します。
+
+`SUPPLY TERMINAL` は入力されたアクセスコードを正規化し、ブラウザーの Web Crypto API で SHA-256 に変換して、コード本体を保持しないハッシュ定義と照合します。現在の支給物資は確定 GEEK 1,000,000 で、ラン中の未確定 GEEK、ANJU MEMORY、LOST ARMS、Equipment、ランキング、RUN ARCHIVE、Firebase送信値には加算しません。受取履歴はブラウザープロファイルと公開元ドメインごとに1回です。保存データ削除、別ブラウザー、シークレットモード、別ドメインでは別の保存領域になるため、Firebaseを使わない構成では物理端末単位の厳密な重複防止は行いません。
+
+コード照合を5回連続で失敗すると60秒間ロックします。GEEKウォレットと受取履歴の保存途中でページが閉じても二重付与や報酬欠落を起こしにくいよう、支給開始前に復旧ジャーナルを保存し、次回起動時に未完了取引を再確認します。アクセスコードの入力値そのものは localStorage、ランキング、Firebaseへ保存・送信しません。
 
 ラン中 BGM は Beacon coverage 内では CDSHOP の選択 CD を再生します。Depth1〜10は常にcoverage内で、D20 Anchorが連鎖解放済みならDepth20まで、D30 Anchorが連鎖解放済みならDepth30まで選択CD BGMと通常通信を維持します。初回未討伐の Depth10 Final Raid だけ Final Raid 専用 BGM に切り替わります。Beacon coverage外では `./音声/bgm/ENDLESSVOIDAMBIENCE.mp3` をラン中だけ一時上書きし、外部通信は `SCRAMBLED SIGNAL` になります。この専用 BGM は CD として購入・選択・保存されず、`lastmemoVansabaShopState` の CD 選択値も変更しません。
 
-GEEKSHOP は `BASE CALIBRATION` と `EQUIPMENT ANALYSIS` の2つのサブビューを持ちます。`BASE CALIBRATION` は従来の確定 GEEK 永続強化画面です。`EQUIPMENT ANALYSIS` では、保存済みの未解析箱を確定 GEEKまたは無料解析クレジットで解析して5部位それぞれの最高品質装備を更新できるほか、不要な箱を `SALVAGE POINT` に分解し、部位別の装備精錬を `+20` まで進められます。装備箱 GameObject、ラン内一時保持、HUD、通常 / 緊急 / Final Raid 帰還時の抽出保存、通常戦闘の本番ドロップ、Depth10 Final Raid 初回LEGEND確定箱、5部位のラン内ステータス補正まで実装済みです。
+GEEKSHOP は `BASE CALIBRATION`、`HANGER`、`EQUIPMENT ANALYSIS` の3つのサブビューを持ちます。`BASE CALIBRATION` は従来の確定 GEEK 永続強化画面です。`HANGER` はプレイヤー機体の購入・選択、`EQUIPMENT ANALYSIS` は保存済みの未解析箱を確定 GEEKまたは無料解析クレジットで解析して5部位それぞれの最高品質装備を更新できるほか、不要な箱を `SALVAGE POINT` に分解し、部位別の装備精錬を `+20` まで進められます。装備箱 GameObject、ラン内一時保持、HUD、通常 / 緊急 / Final Raid 帰還時の抽出保存、通常戦闘の本番ドロップ、Depth10 Final Raid 初回LEGEND確定箱、5部位のラン内ステータス補正まで実装済みです。
 
 GEEKSHOP / BASE CALIBRATION:
 
@@ -812,6 +816,8 @@ localStorage キー:
 - `lastmemoVansabaBestRecord`: ベスト記録。`bestDepth` と `bestExtractedGeek` も保存します。
 - `lastmemoVansabaKillRanking`: ローカルランキング。各 entry は `bestDepth`、`startDepth`、`usedDepthRelay`、`extractedGeek`、`extractMode`、`extractionSucceeded`、`submittedAt`、`version` を持ち、古い entry にフィールドがない場合は `bestDepth = 1`、`startDepth = 1`、`usedDepthRelay = false`、`extractedGeek = 0`、`extractMode = none` に補完します。
 - `lastmemoVansabaCoins`: 確定 GEEK
+- `lastmemoVansabaSupplyCodeState`: SUPPLY TERMINAL の version、受取済み支給ID、連続失敗回数、ロック期限。アクセスコード本体や入力値は保存しません。
+- `lastmemoVansabaSupplyCodeTransaction`: 支給GEEKと受取履歴の保存途中だけ使う復旧ジャーナル。両方の保存完了後に削除し、残っている場合は次回起動時に未完了取引を再確認します。
 - `lastmemoVansabaOptionsState`: OPTION の BGM OUTPUT、SFX / VOICE OUTPUT、CONTROLLER INPUT の ON / OFF 状態
 - `lastmemoVansabaSupportLinkState`: SUPPORT LINK SYSTEM のインストール状態、LINK Lv、累計正常発動回数
 - `lastmemoVansabaShopState`: CD 所持、選択 BGM、永続強化状態、回収ロボ `cleaningRobotLevel`、`robotCustom`、プレイヤー機体 `playerMechs`。`cleaningRobotLevel` は古い保存データに無い場合 Lv0 へ補完します。`robotCustom` は `missileCapTier`、`recoveryCapTier`、`napalmUnlocked`、`barrierUnlocked` を持ち、`playerMechs` は所持機体 `ownedIds` と選択機体 `selectedId` を持ちます。古い保存データに無い場合は初期値へ補完します。
