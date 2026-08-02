@@ -1950,6 +1950,10 @@ const DEPTH_RELAY_STATE_VERSION = 1;
 const DEPTH_RELAY_SUPPORTED_DEPTHS = Object.freeze([10, 20, 30]);
 const DEPTH_RELAY_UNLOCKABLE_DEPTHS = Object.freeze([10, 20, 30]);
 const DEPTH_RELAY_PLAYER_SELECTABLE_DEPTHS = Object.freeze([10, 20, 30]);
+const DEPTH20_CLEAR_CODE_STORAGE_KEY = "lastmemoVansabaDepth20ClearCodeState";
+const DEPTH20_CLEAR_CODE_STATE_VERSION = 1;
+const DEPTH20_CLEAR_CODE_TARGET_DEPTH = 20;
+const DEPTH20_CLEAR_CODE = "A7K2";
 const EQUIPMENT_STORAGE_KEY = "lastmemoVansabaEquipmentState";
 const EQUIPMENT_ANALYSIS_TRANSACTION_STORAGE_KEY = "lastmemoVansabaEquipmentAnalysisTransaction";
 const EQUIPMENT_ANALYSIS_TRANSACTION_VERSION = 1;
@@ -7917,6 +7921,8 @@ class SurvivalScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetRunEquipmentCombatLinkState("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.destroySupplyCodeInputElement());
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.destroySupplyCodeInputElement());
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardownDepth20ClearCodeOverlay("sceneShutdown"));
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.teardownDepth20ClearCodeOverlay("sceneDestroy"));
     this.gameplayRuntimeCreated = false;
     this.gameplayAssetsLoading = false;
     this.pendingSortieAfterGameplayAssets = false;
@@ -8589,6 +8595,10 @@ class SurvivalScene extends Phaser.Scene {
     this.rankingDisplayMode = DEFAULT_RANKING_MODE;
     this.remoteRankingMode = DEFAULT_RANKING_MODE;
     this.bestRecord = this.loadBestRecord();
+    this.depth20ClearCodeState = this.loadDepth20ClearCodeState();
+    this.reconcileDepth20ClearCodeWithHistory();
+    this.depth20ClearCodeOverlayActive = false;
+    this.depth20ClearCodeKeyHandler = null;
     this.killRanking = this.loadKillRanking();
     this.pendingRankingRecord = null;
     this.pendingRankingSaved = false;
@@ -17861,6 +17871,120 @@ class SurvivalScene extends Phaser.Scene {
       // Ignore storage failures so Depth Relay unlock data never blocks boot or raid completion.
     }
     return this.depthRelayState;
+  }
+
+  createDefaultDepth20ClearCodeState() {
+    return {
+      version: DEPTH20_CLEAR_CODE_STATE_VERSION,
+      unlocked: false,
+      unlockedAt: 0,
+      source: "",
+      legacyChecked: false
+    };
+  }
+
+  normalizeDepth20ClearCodeState(record) {
+    if (!record || typeof record !== "object" || Array.isArray(record)) {
+      return this.createDefaultDepth20ClearCodeState();
+    }
+    const unlocked = record.unlocked === true;
+    const validSources = new Set(["depth20_clear", "legacy_best_depth"]);
+    const source = unlocked && validSources.has(record.source) ? record.source : "";
+    return {
+      version: DEPTH20_CLEAR_CODE_STATE_VERSION,
+      unlocked,
+      unlockedAt: unlocked ? Math.max(0, Math.floor(Number(record.unlockedAt) || 0)) : 0,
+      source,
+      legacyChecked: unlocked || record.legacyChecked === true
+    };
+  }
+
+  loadDepth20ClearCodeState() {
+    try {
+      const rawState = window.localStorage?.getItem(DEPTH20_CLEAR_CODE_STORAGE_KEY) || "";
+      return rawState
+        ? this.normalizeDepth20ClearCodeState(JSON.parse(rawState))
+        : this.createDefaultDepth20ClearCodeState();
+    } catch (error) {
+      return this.createDefaultDepth20ClearCodeState();
+    }
+  }
+
+  saveDepth20ClearCodeState(state = this.depth20ClearCodeState) {
+    this.depth20ClearCodeState = this.normalizeDepth20ClearCodeState(state);
+    try {
+      const serialized = JSON.stringify(this.depth20ClearCodeState);
+      window.localStorage?.setItem(DEPTH20_CLEAR_CODE_STORAGE_KEY, serialized);
+      return window.localStorage?.getItem(DEPTH20_CLEAR_CODE_STORAGE_KEY) === serialized;
+    } catch (error) {
+      console.warn("[D20 CLEAR CODE] failed to save unlock state", error);
+      return false;
+    }
+  }
+
+  isDepth20ClearCodeUnlocked() {
+    return this.depth20ClearCodeState?.unlocked === true;
+  }
+
+  unlockDepth20ClearCode(source = "depth20_clear") {
+    this.depth20ClearCodeState = this.normalizeDepth20ClearCodeState(
+      this.depth20ClearCodeState || this.loadDepth20ClearCodeState()
+    );
+    if (this.depth20ClearCodeState.unlocked) {
+      return { unlockedNow: false, saved: true, state: this.depth20ClearCodeState };
+    }
+    const normalizedSource = source === "legacy_best_depth" ? source : "depth20_clear";
+    this.depth20ClearCodeState = this.normalizeDepth20ClearCodeState({
+      version: DEPTH20_CLEAR_CODE_STATE_VERSION,
+      unlocked: true,
+      unlockedAt: Date.now(),
+      source: normalizedSource,
+      legacyChecked: true
+    });
+    const saved = this.saveDepth20ClearCodeState();
+    return { unlockedNow: true, saved, state: this.depth20ClearCodeState };
+  }
+
+  isDepth20ClearCodeAdvanceEvent(options = {}) {
+    const completedDepth = Number.isInteger(options?.completedDepth) && Number.isSafeInteger(options.completedDepth)
+      ? options.completedDepth
+      : 0;
+    const targetDepth = Number.isInteger(options?.targetDepth) && Number.isSafeInteger(options.targetDepth)
+      ? options.targetDepth
+      : 0;
+    return options?.anchorUnlockEligible === true
+      && completedDepth === DEPTH20_CLEAR_CODE_TARGET_DEPTH
+      && targetDepth === DEPTH20_CLEAR_CODE_TARGET_DEPTH + 1;
+  }
+
+  unlockDepth20ClearCodeFromAdvance(options = {}) {
+    if (!this.isDepth20ClearCodeAdvanceEvent(options)) {
+      return { unlockedNow: false, saved: false, state: this.depth20ClearCodeState };
+    }
+    return this.unlockDepth20ClearCode("depth20_clear");
+  }
+
+  reconcileDepth20ClearCodeWithHistory() {
+    this.depth20ClearCodeState = this.normalizeDepth20ClearCodeState(
+      this.depth20ClearCodeState || this.loadDepth20ClearCodeState()
+    );
+    if (this.depth20ClearCodeState.unlocked || this.depth20ClearCodeState.legacyChecked) {
+      return { unlockedNow: false, state: this.depth20ClearCodeState };
+    }
+    const bestDepth = this.getRecordBestDepth(this.bestRecord);
+    if (bestDepth < DEPTH20_CLEAR_CODE_TARGET_DEPTH + 1) {
+      const saved = this.saveDepth20ClearCodeState({
+        ...this.depth20ClearCodeState,
+        legacyChecked: true
+      });
+      return {
+        unlockedNow: false,
+        legacyCheckedNow: true,
+        saved,
+        state: this.depth20ClearCodeState
+      };
+    }
+    return this.unlockDepth20ClearCode("legacy_best_depth");
   }
 
   unlockDepthRelayDepth(state, depth) {
@@ -54335,8 +54459,60 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   renderArchiveSubViewTabs() {
-    this.createArchiveSubViewTab(266, -210, 136, "RUN ARCHIVE", "runArchive");
-    this.createArchiveSubViewTab(416, -210, 158, "MUTATION ATLAS", "mutationAtlas");
+    this.createArchiveSubViewTab(220, -210, 132, "RUN ARCHIVE", "runArchive");
+    this.createArchiveSubViewTab(365, -210, 146, "MUTATION ATLAS", "mutationAtlas");
+    this.createArchiveSubViewTab(510, -210, 120, "CLEARANCE", "clearance");
+  }
+
+  renderDepth20ClearanceShopContent() {
+    const unlocked = this.isDepth20ClearCodeUnlocked();
+    const accent = unlocked ? 0xf0c463 : 0x466578;
+    this.createOverlayText(-530, -210, "DEPTH 20 CLEARANCE", {
+      fontSize: "15px",
+      color: unlocked ? "#fff2ad" : "#9ffcff",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(-530, -188, "Depth20を突破したオペレーター向けの別ゲーム用クリアコード。SUPPLY TERMINALとは別の閲覧専用記録です。", {
+      fontSize: "12px",
+      color: "#9ab7cc",
+      wordWrap: { width: 900 }
+    });
+
+    this.addOverlayChild(
+      this.add
+        .rectangle(0, 38, 850, 368, unlocked ? 0x091925 : 0x08131f, 0.95)
+        .setStrokeStyle(unlocked ? 3 : 2, accent, unlocked ? 0.64 : 0.3)
+    );
+    this.createOverlayText(0, -116, unlocked ? "CROSS-OPERATION KEY" : "CLEARANCE LOCKED", {
+      fontSize: "18px",
+      color: unlocked ? "#bcecff" : "#7899ae",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+    this.createOverlayText(0, unlocked ? -58 : -40, unlocked ? DEPTH20_CLEAR_CODE : "----", {
+      fontSize: "72px",
+      color: unlocked ? "#fff2ad" : "#506474",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+    this.createOverlayText(0, 66, unlocked
+      ? "この固定コードを別ゲームで入力してください"
+      : "DEPTH 20をクリアし、DEPTH 21へ進むと解除されます", {
+      fontSize: "17px",
+      color: unlocked ? "#ecfaff" : "#9ab7cc",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+    this.createOverlayText(0, 112, unlocked
+      ? "解除状態はこのブラウザーのlocalStorageに保存されています"
+      : "通常EXTRACT / EMERGENCY EXTRACT / debug進行では解除されません", {
+      fontSize: "13px",
+      color: "#7899ae",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
   }
 
   createDebugMutationAtlasState() {
@@ -54645,6 +54821,10 @@ class SurvivalScene extends Phaser.Scene {
     this.renderArchiveSubViewTabs();
     if (this.runArchiveSubView === "mutationAtlas") {
       this.renderMutationAtlasShopContent();
+      return;
+    }
+    if (this.runArchiveSubView === "clearance") {
+      this.renderDepth20ClearanceShopContent();
       return;
     }
     this.createOverlayText(-530, -210, "RUN ARCHIVE", {
@@ -58650,6 +58830,118 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
+  showDepth20ClearCodeUnlockOverlay() {
+    if (!this.isDepth20ClearCodeUnlocked()) {
+      return false;
+    }
+    this.clearOverlayButtons();
+    this.depth20ClearCodeOverlayActive = true;
+    this.physics?.world?.pause?.();
+    this.configureOverlayPanel(760, 480);
+    this.overlayPanel
+      .setFillStyle(0x050b12, 0.97)
+      .setStrokeStyle(3, 0xf0c463, 0.68);
+    this.overlayTitle
+      .setStyle({
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "38px",
+        color: "#f7fbff",
+        fontStyle: "bold",
+        align: "center"
+      })
+      .setOrigin(0.5)
+      .setPosition(0, -190)
+      .setText("DEPTH 20 CLEARED");
+    this.overlayBody
+      .setStyle({
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "17px",
+        color: "#9fc9df",
+        align: "center"
+      })
+      .setOrigin(0.5)
+      .setPosition(0, -142)
+      .setText("別ゲーム用の固定クリアコードがアンロックされました");
+
+    this.addOverlayChild(
+      this.add
+        .rectangle(0, -34, 470, 128, 0x0b1c29, 0.98)
+        .setStrokeStyle(2, 0x6fcfff, 0.58)
+    );
+    this.createOverlayText(0, -85, DEPTH20_CLEAR_CODE, {
+      fontFamily: "Consolas, monospace",
+      fontSize: "64px",
+      color: "#fff2ad",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+    this.createOverlayText(0, 48, "OPERATIONS HUB > ARCHIVE > CLEARANCE から再確認できます", {
+      fontSize: "14px",
+      color: "#bcecff",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+
+    const continueButton = this.addOverlayChild(
+      this.add
+        .rectangle(0, 142, 300, 62, 0x17314a, 0.98)
+        .setStrokeStyle(2, 0xf0c463, 0.68)
+        .setInteractive({ useHandCursor: true })
+    );
+    continueButton.on("pointerover", () => continueButton.setFillStyle(0x214863, 1));
+    continueButton.on("pointerout", () => continueButton.setFillStyle(0x17314a, 0.98));
+    this.addOverlayAction(continueButton, () => this.closeDepth20ClearCodeUnlockOverlay("continue"), true, 8);
+    this.createOverlayText(0, 126, "CONTINUE", {
+      fontSize: "24px",
+      color: "#fff7d2",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+    this.createOverlayText(0, 196, "クリック / タップ / Enter・Space・Esc", {
+      fontSize: "13px",
+      color: "#7899ae",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+
+    this.depth20ClearCodeKeyHandler = (event) => {
+      if (!this.depth20ClearCodeOverlayActive || !["Enter", " ", "Escape"].includes(event.key)) {
+        return;
+      }
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      this.closeDepth20ClearCodeUnlockOverlay("keyboard");
+    };
+    this.input?.keyboard?.on("keydown", this.depth20ClearCodeKeyHandler);
+    this.overlayBackdrop.setFillStyle(0x01040a, 0.88).setAlpha(1).setVisible(true);
+    this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
+    this.setOverlayFocusedAction(this.overlayActions[0]);
+    return true;
+  }
+
+  teardownDepth20ClearCodeOverlay(reason = "teardown") {
+    if (this.depth20ClearCodeKeyHandler) {
+      this.input?.keyboard?.off("keydown", this.depth20ClearCodeKeyHandler);
+      this.depth20ClearCodeKeyHandler = null;
+    }
+    this.depth20ClearCodeOverlayActive = false;
+  }
+
+  closeDepth20ClearCodeUnlockOverlay(reason = "continue") {
+    if (!this.depth20ClearCodeOverlayActive) {
+      return false;
+    }
+    this.depth20ClearCodeOverlayActive = false;
+    this.hideOverlay();
+    if (!this.shopActive && !this.gameOver && !this.extractionComplete) {
+      this.resumeGameplayAfterBlockingOverlay("depth20ClearCode");
+      this.tryOpenPendingPostOverlaySelections?.();
+    }
+    return true;
+  }
+
   chooseNextStage() {
     if (this.gateChoiceLocked) {
       return;
@@ -58724,6 +59016,11 @@ class SurvivalScene extends Phaser.Scene {
       targetDepth,
       maxAbsoluteDepthReached: this.getRunMaxAbsoluteDepthReached(this.runDepthProgressState)
     });
+    const depth20ClearCodeResult = this.unlockDepth20ClearCodeFromAdvance({
+      completedDepth,
+      targetDepth,
+      anchorUnlockEligible: this.depthRelayAnchorProgressState?.anchorUnlockEligible === true
+    });
     this.resetAcMovementState("depthTransition");
     this.initializeEquipmentProductionDropState(this.stageDepth, "depthTransition");
     this.updateRunRankingDepthProgress(this.stageDepth);
@@ -58747,7 +59044,7 @@ class SurvivalScene extends Phaser.Scene {
       this.refreshTriadMatrixSnapshot("depthTransition", { notify: false });
     }
     this.hideOverlay();
-    if (!enterFinalBossRaid) {
+    if (!enterFinalBossRaid && !depth20ClearCodeResult.unlockedNow) {
       this.resumeGameplayAfterBlockingOverlay("depthTransition");
     }
     this.clearGateStabilizeProtocolState("depthTransition", { preserveAnchor: true });
@@ -58767,6 +59064,9 @@ class SurvivalScene extends Phaser.Scene {
     this.syncDepthBgmForCurrentDepth("depthTransition", {
       fadeMs: enteredEndlessVoid ? ENDLESS_VOID_BGM_CONFIG.fadeMs : 0
     });
+    if (depth20ClearCodeResult.unlockedNow) {
+      this.showDepth20ClearCodeUnlockOverlay();
+    }
     this.queueDepthDirectiveSelection(targetDepth, "depthTransition");
     this.onDepthStartedForNemesis(targetDepth, "depthTransition");
     this.onDepthStartedForVoidHunter(targetDepth, "depthTransition");
@@ -59960,6 +60260,13 @@ class SurvivalScene extends Phaser.Scene {
     if (this.levelUpActive) {
       if (this.hasAcMovementVisuals()) {
         this.cleanupAcMovementVisuals("levelUpActive");
+      }
+      return;
+    }
+
+    if (this.depth20ClearCodeOverlayActive) {
+      if (this.hasAcMovementVisuals()) {
+        this.cleanupAcMovementVisuals("depth20ClearCodeOverlay");
       }
       return;
     }
@@ -77822,6 +78129,7 @@ class SurvivalScene extends Phaser.Scene {
     this.teardownGateChoiceOverlay();
     this.teardownAnomalyContractOverlay();
     this.teardownStabilizeProtocolOverlay();
+    this.teardownDepth20ClearCodeOverlay("clearOverlay");
     this.teardownFinalBossRaidPlaceholder?.("clearOverlay");
     this.teardownFinalBossLiberationGate?.("clearOverlay");
     this.cleanupDeepExtractionResultOverlay("clearOverlay");

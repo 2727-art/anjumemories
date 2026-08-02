@@ -64,18 +64,19 @@ Cloudflare 配信では `_headers` で HTML を `max-age=0, must-revalidate`、J
 3. DEPTH RELAY で Depth10 を選んだ場合も Final Raid ではなく通常 Depth10 の新しいランとして始まり、Depth1〜9の XP、GEEK、ANJU MEMORY などのスキップ報酬は付与されません。Opening Boost 回数は通常仕様のままです。
 4. Depth10 Relay は高難度の開始方法で、永続強化済みの構成を推奨します。Depth10 カードには `HIGH RISK` 警告、強化済み構成推奨、新規ラン開始、スキップ報酬なしの注意が表示されます。
 5. Depth20 Relay は `EXTREME RISK` の高難度チャレンジです。Depth10 / Depth20 Anchor が解放済みなら回収ロボ Lv に関係なく選択でき、Legend 装備探索や深層チャレンジ向けの新しいランとして Depth20 から開始します。Depth1〜19の XP、GEEK、ANJU MEMORY などのスキップ報酬は付与されず、Opening Boost は通常どおり 3 回、敵難度補正も緩和しません。深層ではアイテム回収が難しくなるため回収ロボ強化は有効ですが、D20選択の必須条件ではありません。
-6. Depth30 Relay は Beacon Network の最終 Anchor で、カードには `BEACON LIMIT` と Depth31 以降がビーコン圏外である警告を表示します。Depth10 / Depth20 / Depth30 Anchor が連鎖解放済みなら Depth30 から新しいランとして開始でき、Depth1〜29の XP、GEEK、ANJU MEMORY などのスキップ報酬は付与されません。D30解放後はD10がプレイヤー向け最新候補から上書きされますが、内部runtime、旧記録表示、ランキング互換ではD10 Relayを維持します。Opening Boost は通常どおり 3 回で、Depth30 は LEGEND 掘りの高難度帯です。通常 `EXTRACT` では到達した絶対Depthを `sourceDepth` とする D30帯 Equipment Cache を保存します。Depth30 Anchor により GEEKSHOP / BASE CALIBRATION の Armament / AP Frame / Booster 上限は Lv.25 まで拡張されますが、Depth31 以降への直接 Relay は未実装です。
-7. ANJU MEMORY の +1 チケットを持っている場合、最初の Opening Boost だけ 4 択になります。
-8. Opening Boost 完了後に戦闘へ出撃し、敵を倒して XP、未確定 GEEK、Support、Robot、LOST ARMS アイテムを集めます。
-9. レベルアップ時はスキル解放、スキル強化、パッシブ強化から 3 択で 1 つ選びます。
-10. 各 Depth の開始から 120 秒で Stage Gate が開きます。
-11. Stage Gate では次の Depth へ進むか、未確定 GEEK を確定してショップへ帰還します。
-12. `NEXT STAGE` / `FORCE BREAKTHROUGH` で次 Depth へ進むと、地面に残った一部報酬が DATA CACHE に圧縮されます。
-13. Depth10 初回未討伐時は通常フィールドではなく Depth10 Final Raid に入り、残り 40 秒でボス HP が 0 になった後、600 秒到達時に専用の `ドールを解放する` ゲートだけが出現します。このゲートは Depth11 へ進まず、討伐報酬を保存して OPERATIONS HUB へ帰還します。
-14. Depth10 Final Raid 討伐後に通常プレイで Depth10 へ到達した場合は通常 Depth として進行し、CDSHOP で選択中の BGM を維持します。
-15. Beacon coverage 内のDepthでは選択中CDの通常BGMと通常通信を維持します。Depth10までは常にcoverage内で、Depth10 / Depth20 / Depth30 Anchor が連鎖解放済みの場合は coverage がそれぞれ Depth10 / Depth20 / Depth30 まで広がります。coverage外では選択 CD を保存変更せずラン中だけ `音声/bgm/ENDLESSVOIDAMBIENCE.mp3` へ上書きし、Depth ごとに先頭から再生し直しません。
-16. Beacon coverage 外では外部通信、味方通信、通常 Depth 通信、Final Raid 後日談通信を遮断し、既存通信 UI の `SCRAMBLED SIGNAL` 表示で短いスクランブル受信だけが低頻度で発生します。D30 Anchor後もDepth31以降はビーコン圏外です。スクランブル通信はラン内一時状態で、`lastmemoVansabaCommsStoryState` には保存しません。
-17. 帰還、ゲームオーバー、Gate 崩壊後はローディング表示を挟んで OPERATIONS HUB に戻ります。
+6. Depth20 から Depth21 へ進んでクリアすると、別ゲーム用の固定 `D20 CLEAR CODE` がアンロックされます。コードはクリア演出に表示され、以後は OPERATIONS HUB の `ARCHIVE > CLEARANCE` から再確認できます。Depth20での通常 `EXTRACT`、`EMERGENCY EXTRACT`、ゲームオーバー、Gate崩壊、新規のdebug進行では解除されません。旧保存データは初回移行時に限り、Best Depth 21以上の場合だけ解除済みに推定補完します。これによりDepth20 Anchor保存機能の導入前に突破したプレイヤーも対象になります。一度移行確認した後のdebug記録は補完対象になりません。旧記録には進行元がないため、移行前のdebugでBest Depthを更新した端末だけは判別できません。
+7. Depth30 Relay は Beacon Network の最終 Anchor で、カードには `BEACON LIMIT` と Depth31 以降がビーコン圏外である警告を表示します。Depth10 / Depth20 / Depth30 Anchor が連鎖解放済みなら Depth30 から新しいランとして開始でき、Depth1〜29の XP、GEEK、ANJU MEMORY などのスキップ報酬は付与されません。D30解放後はD10がプレイヤー向け最新候補から上書きされますが、内部runtime、旧記録表示、ランキング互換ではD10 Relayを維持します。Opening Boost は通常どおり 3 回で、Depth30 は LEGEND 掘りの高難度帯です。通常 `EXTRACT` では到達した絶対Depthを `sourceDepth` とする D30帯 Equipment Cache を保存します。Depth30 Anchor により GEEKSHOP / BASE CALIBRATION の Armament / AP Frame / Booster 上限は Lv.25 まで拡張されますが、Depth31 以降への直接 Relay は未実装です。
+8. ANJU MEMORY の +1 チケットを持っている場合、最初の Opening Boost だけ 4 択になります。
+9. Opening Boost 完了後に戦闘へ出撃し、敵を倒して XP、未確定 GEEK、Support、Robot、LOST ARMS アイテムを集めます。
+10. レベルアップ時はスキル解放、スキル強化、パッシブ強化から 3 択で 1 つ選びます。
+11. 各 Depth の開始から 120 秒で Stage Gate が開きます。
+12. Stage Gate では次の Depth へ進むか、未確定 GEEK を確定してショップへ帰還します。
+13. `NEXT STAGE` / `FORCE BREAKTHROUGH` で次 Depth へ進むと、地面に残った一部報酬が DATA CACHE に圧縮されます。
+14. Depth10 初回未討伐時は通常フィールドではなく Depth10 Final Raid に入り、残り 40 秒でボス HP が 0 になった後、600 秒到達時に専用の `ドールを解放する` ゲートだけが出現します。このゲートは Depth11 へ進まず、討伐報酬を保存して OPERATIONS HUB へ帰還します。
+15. Depth10 Final Raid 討伐後に通常プレイで Depth10 へ到達した場合は通常 Depth として進行し、CDSHOP で選択中の BGM を維持します。
+16. Beacon coverage 内のDepthでは選択中CDの通常BGMと通常通信を維持します。Depth10までは常にcoverage内で、Depth10 / Depth20 / Depth30 Anchor が連鎖解放済みの場合は coverage がそれぞれ Depth10 / Depth20 / Depth30 まで広がります。coverage外では選択 CD を保存変更せずラン中だけ `音声/bgm/ENDLESSVOIDAMBIENCE.mp3` へ上書きし、Depth ごとに先頭から再生し直しません。
+17. Beacon coverage 外では外部通信、味方通信、通常 Depth 通信、Final Raid 後日談通信を遮断し、既存通信 UI の `SCRAMBLED SIGNAL` 表示で短いスクランブル受信だけが低頻度で発生します。D30 Anchor後もDepth31以降はビーコン圏外です。スクランブル通信はラン内一時状態で、`lastmemoVansabaCommsStoryState` には保存しません。
+18. 帰還、ゲームオーバー、Gate 崩壊後はローディング表示を挟んで OPERATIONS HUB に戻ります。
 
 ## Depth10 Final Raid
 
@@ -571,7 +572,7 @@ ROBOT SYNC DRIVE:
 
 ## OPERATIONS HUB / 拠点
 
-OPERATIONS HUB では `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY`、`ARCHIVE`、`SUPPLY`、`OPTION` をタブで切り替えます。CDSHOP は CD 購入と BGM 選択専用です。GEEKSHOP と ROBOT CUSTOM では確定 GEEK を使用します。GEEKSHOP は Armament / AP Frame / Booster / Reactor Cooling と回収ロボの永続強化、ROBOT CUSTOM はラン中Lvを直接購入する画面ではなく、Missile / Recovery のLv上限と EX 機能を解放する画面です。ANJU MEMORY では深層メタ報酬の購入・選択、ARCHIVE では RUN ARCHIVE と MUTATION ATLAS を確認し、SUPPLY ではアクセスコードによる支給物資を受け取ります。CD は BGM 選択と永続ボーナスを兼ねており、購入済み CD の永続効果は選択中 BGM に関係なく常時発動します。
+OPERATIONS HUB では `CDSHOP`、`GEEKSHOP`、`ROBOT CUSTOM`、`ANJU MEMORY`、`ARCHIVE`、`SUPPLY`、`OPTION` をタブで切り替えます。CDSHOP は CD 購入と BGM 選択専用です。GEEKSHOP と ROBOT CUSTOM では確定 GEEK を使用します。GEEKSHOP は Armament / AP Frame / Booster / Reactor Cooling と回収ロボの永続強化、ROBOT CUSTOM はラン中Lvを直接購入する画面ではなく、Missile / Recovery のLv上限と EX 機能を解放する画面です。ANJU MEMORY では深層メタ報酬の購入・選択、ARCHIVE では RUN ARCHIVE、MUTATION ATLAS、Depth20 CLEARANCE を確認し、SUPPLY ではアクセスコードによる支給物資を受け取ります。CD は BGM 選択と永続ボーナスを兼ねており、購入済み CD の永続効果は選択中 BGM に関係なく常時発動します。
 
 HUB ヘッダーの所有 GEEK 左隣には、初回起動時に端末内で生成した `ML-XXXX-XXXX` 形式の `OPERATOR ID` を表示します。ID は Firebase へ送信せず、ブラウザープロファイルと公開元ドメインごとの localStorage にだけ保存します。保存データ削除、別ブラウザー、シークレットモード、別ドメインでは新しい ID になります。
 
@@ -689,7 +690,7 @@ Best Depth はそのランで実際に到達した最大 Depth です。Extracte
 
 ## RUN ARCHIVE / 戦闘ログ
 
-OPERATIONS HUB の `ARCHIVE` タブから、`RUN ARCHIVE` と `MUTATION ATLAS` を切り替えられます。`RUN ARCHIVE` では直近 20 件のラン結果を新しい順に閲覧できます。各ログはローカル保存専用で、GEEK 残高、ANJU MEMORY 残高、ランキング、Firebase 送信値、ゲームバランスには影響しません。
+OPERATIONS HUB の `ARCHIVE` タブから、`RUN ARCHIVE`、`MUTATION ATLAS`、`CLEARANCE` を切り替えられます。`RUN ARCHIVE` では直近 20 件のラン結果を新しい順に閲覧でき、`CLEARANCE` では解除済みの別ゲーム用D20クリアコードを再確認できます。各記録はローカル保存専用で、GEEK 残高、ANJU MEMORY 残高、ランキング、Firebase 送信値、ゲームバランスには影響しません。
 
 保存対象は通常 `EXTRACT`、`EMERGENCY EXTRACT`、通常ゲームオーバー、Depth 5 までの Gate Collapse です。Depth10 Final Raid の `ドールを解放する` 帰還は通常抽出相当として保存されます。ゲーム開始前、手動でページを閉じただけの中断は保存されません。1 ランにつき保存は 1 件だけで、21 件目以降は古いログから削除されます。
 
@@ -721,6 +722,7 @@ localStorage キー:
 - `lastmemoVansabaRunArchive`: 直近 20 件の RUN ARCHIVE / 戦闘ログ。ローカル閲覧専用でランキングや Firebase には送信しません。
 - `lastmemoVansabaFinalBossState`: Depth10 Final Raid 討伐済み、ラスボスCD、ラスボスサポート解禁状態、VOID HUNTER 討伐済み、VOID HUNTER サポート解禁状態
 - `lastmemoVansabaDepthRelayState`: DEPTH RELAY の解放済み転送 Depth を保存します。`version` と `unlockedDepths` を持ち、Final Raid 討伐済み旧セーブでは Depth10 が補完されます。Depth20 / Depth30 Anchor 解放後はプレイヤー向け選択 UI にそれぞれ Depth20 / Depth30 も表示されます。
+- `lastmemoVansabaDepth20ClearCodeState`: Depth20→21クリアで解除される別ゲーム用固定コードの version、解除済み状態、解除時刻、解除元、旧記録の初回照合済み状態を保存します。コード本体は固定定義で、ランキングやFirebaseには送信しません。旧保存データは初回移行時に Best Depth 21以上の場合だけ解除済みに補完します。
 - `lastmemoVansabaCommsStoryState`: Depth 初回通信の再生済みフラグ
 - `lastmemoVansabaEquipmentState`: Equipment 保存状態。version、LEGEND 発見フラグ、Final Raid LEGEND 初回報酬フラグ、無料解析クレジット、SALVAGE POINT、部位別best装備、未解析箱、slot別LEGEND RESONANCE、部位別精錬値、+16解放状態、解析 / 分解 / 精錬統計を保存します。破損JSONや古い形式は起動時に正規化されます。
 - `lastmemoVansabaEquipmentAnalysisTransaction`: EQUIPMENT ANALYSIS の保存途中だけ使う復旧ジャーナル。GEEKとEquipmentの両方が確定した後に削除され、残っている場合は次回起動時に完了確認または解析前状態への復旧を行います。
