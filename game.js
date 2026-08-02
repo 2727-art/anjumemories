@@ -1953,7 +1953,19 @@ const DEPTH_RELAY_PLAYER_SELECTABLE_DEPTHS = Object.freeze([10, 20, 30]);
 const DEPTH20_CLEAR_CODE_STORAGE_KEY = "lastmemoVansabaDepth20ClearCodeState";
 const DEPTH20_CLEAR_CODE_STATE_VERSION = 1;
 const DEPTH20_CLEAR_CODE_TARGET_DEPTH = 20;
-const DEPTH20_CLEAR_CODE = "A7K2";
+const DEPTH20_CLEAR_CODE_SEALED_BYTES = Object.freeze([0x96, 0xc0, 0x7c, 0xd2]);
+const DEPTH20_CLEAR_CODE_SEAL_BYTES = Object.freeze([0x93, 0x2f, 0xc4, 0x68]);
+
+function getDepth20ClearCodeDisplayValue() {
+  const value = DEPTH20_CLEAR_CODE_SEALED_BYTES
+    .map((sealedByte, index) => {
+      const unrotatedByte = ((sealedByte >>> 3) | (sealedByte << 5)) & 0xff;
+      return String.fromCharCode(unrotatedByte ^ DEPTH20_CLEAR_CODE_SEAL_BYTES[index]);
+    })
+    .join("");
+  return /^[A-Z0-9]{4}$/.test(value) ? value : "----";
+}
+
 const EQUIPMENT_STORAGE_KEY = "lastmemoVansabaEquipmentState";
 const EQUIPMENT_ANALYSIS_TRANSACTION_STORAGE_KEY = "lastmemoVansabaEquipmentAnalysisTransaction";
 const EQUIPMENT_ANALYSIS_TRANSACTION_VERSION = 1;
@@ -54490,7 +54502,7 @@ class SurvivalScene extends Phaser.Scene {
       align: "center",
       origin: { x: 0.5, y: 0 }
     });
-    this.createOverlayText(0, unlocked ? -58 : -40, unlocked ? DEPTH20_CLEAR_CODE : "----", {
+    this.createOverlayText(0, unlocked ? -58 : -40, unlocked ? getDepth20ClearCodeDisplayValue() : "----", {
       fontSize: "72px",
       color: unlocked ? "#fff2ad" : "#506474",
       fontStyle: "bold",
@@ -54505,14 +54517,14 @@ class SurvivalScene extends Phaser.Scene {
       align: "center",
       origin: { x: 0.5, y: 0 }
     });
-    this.createOverlayText(0, 112, unlocked
-      ? "解除状態はこのブラウザーのlocalStorageに保存されています"
-      : "通常EXTRACT / EMERGENCY EXTRACT / debug進行では解除されません", {
-      fontSize: "13px",
-      color: "#7899ae",
-      align: "center",
-      origin: { x: 0.5, y: 0 }
-    });
+    if (unlocked) {
+      this.createOverlayText(0, 112, "解除状態はこのブラウザーのlocalStorageに保存されています", {
+        fontSize: "13px",
+        color: "#7899ae",
+        align: "center",
+        origin: { x: 0.5, y: 0 }
+      });
+    }
   }
 
   createDebugMutationAtlasState() {
@@ -58868,7 +58880,7 @@ class SurvivalScene extends Phaser.Scene {
         .rectangle(0, -34, 470, 128, 0x0b1c29, 0.98)
         .setStrokeStyle(2, 0x6fcfff, 0.58)
     );
-    this.createOverlayText(0, -85, DEPTH20_CLEAR_CODE, {
+    this.createOverlayText(0, -85, getDepth20ClearCodeDisplayValue(), {
       fontFamily: "Consolas, monospace",
       fontSize: "64px",
       color: "#fff2ad",

@@ -64,7 +64,7 @@ Cloudflare 配信では `_headers` で HTML を `max-age=0, must-revalidate`、J
 3. DEPTH RELAY で Depth10 を選んだ場合も Final Raid ではなく通常 Depth10 の新しいランとして始まり、Depth1〜9の XP、GEEK、ANJU MEMORY などのスキップ報酬は付与されません。Opening Boost 回数は通常仕様のままです。
 4. Depth10 Relay は高難度の開始方法で、永続強化済みの構成を推奨します。Depth10 カードには `HIGH RISK` 警告、強化済み構成推奨、新規ラン開始、スキップ報酬なしの注意が表示されます。
 5. Depth20 Relay は `EXTREME RISK` の高難度チャレンジです。Depth10 / Depth20 Anchor が解放済みなら回収ロボ Lv に関係なく選択でき、Legend 装備探索や深層チャレンジ向けの新しいランとして Depth20 から開始します。Depth1〜19の XP、GEEK、ANJU MEMORY などのスキップ報酬は付与されず、Opening Boost は通常どおり 3 回、敵難度補正も緩和しません。深層ではアイテム回収が難しくなるため回収ロボ強化は有効ですが、D20選択の必須条件ではありません。
-6. Depth20 から Depth21 へ進んでクリアすると、別ゲーム用の固定 `D20 CLEAR CODE` がアンロックされます。コードはクリア演出に表示され、以後は OPERATIONS HUB の `ARCHIVE > CLEARANCE` から再確認できます。Depth20での通常 `EXTRACT`、`EMERGENCY EXTRACT`、ゲームオーバー、Gate崩壊、新規のdebug進行では解除されません。旧保存データは初回移行時に限り、Best Depth 21以上の場合だけ解除済みに推定補完します。これによりDepth20 Anchor保存機能の導入前に突破したプレイヤーも対象になります。一度移行確認した後のdebug記録は補完対象になりません。旧記録には進行元がないため、移行前のdebugでBest Depthを更新した端末だけは判別できません。
+6. Depth20 から Depth21 へ進んでクリアすると、別ゲーム用の固定 `D20 CLEAR CODE` がアンロックされます。コードはクリア演出に表示され、以後は OPERATIONS HUB の `ARCHIVE > CLEARANCE` から再確認できます。コード値は `game.js` に平文で保持せず、難読化したバイト列から表示時に復元します。静的クライアントだけで完全な秘匿はできませんが、単純なソース検索ではコード値が見つからない構成です。Depth20での通常 `EXTRACT`、`EMERGENCY EXTRACT`、ゲームオーバー、Gate崩壊、新規のdebug進行では解除されません。旧保存データは初回移行時に限り、Best Depth 21以上の場合だけ解除済みに推定補完します。これによりDepth20 Anchor保存機能の導入前に突破したプレイヤーも対象になります。一度移行確認した後のdebug記録は補完対象になりません。旧記録には進行元がないため、移行前のdebugでBest Depthを更新した端末だけは判別できません。
 7. Depth30 Relay は Beacon Network の最終 Anchor で、カードには `BEACON LIMIT` と Depth31 以降がビーコン圏外である警告を表示します。Depth10 / Depth20 / Depth30 Anchor が連鎖解放済みなら Depth30 から新しいランとして開始でき、Depth1〜29の XP、GEEK、ANJU MEMORY などのスキップ報酬は付与されません。D30解放後はD10がプレイヤー向け最新候補から上書きされますが、内部runtime、旧記録表示、ランキング互換ではD10 Relayを維持します。Opening Boost は通常どおり 3 回で、Depth30 は LEGEND 掘りの高難度帯です。通常 `EXTRACT` では到達した絶対Depthを `sourceDepth` とする D30帯 Equipment Cache を保存します。Depth30 Anchor により GEEKSHOP / BASE CALIBRATION の Armament / AP Frame / Booster 上限は Lv.25 まで拡張されますが、Depth31 以降への直接 Relay は未実装です。
 8. ANJU MEMORY の +1 チケットを持っている場合、最初の Opening Boost だけ 4 択になります。
 9. Opening Boost 完了後に戦闘へ出撃し、敵を倒して XP、未確定 GEEK、Support、Robot、LOST ARMS アイテムを集めます。
@@ -722,7 +722,7 @@ localStorage キー:
 - `lastmemoVansabaRunArchive`: 直近 20 件の RUN ARCHIVE / 戦闘ログ。ローカル閲覧専用でランキングや Firebase には送信しません。
 - `lastmemoVansabaFinalBossState`: Depth10 Final Raid 討伐済み、ラスボスCD、ラスボスサポート解禁状態、VOID HUNTER 討伐済み、VOID HUNTER サポート解禁状態
 - `lastmemoVansabaDepthRelayState`: DEPTH RELAY の解放済み転送 Depth を保存します。`version` と `unlockedDepths` を持ち、Final Raid 討伐済み旧セーブでは Depth10 が補完されます。Depth20 / Depth30 Anchor 解放後はプレイヤー向け選択 UI にそれぞれ Depth20 / Depth30 も表示されます。
-- `lastmemoVansabaDepth20ClearCodeState`: Depth20→21クリアで解除される別ゲーム用固定コードの version、解除済み状態、解除時刻、解除元、旧記録の初回照合済み状態を保存します。コード本体は固定定義で、ランキングやFirebaseには送信しません。旧保存データは初回移行時に Best Depth 21以上の場合だけ解除済みに補完します。
+- `lastmemoVansabaDepth20ClearCodeState`: Depth20→21クリアで解除される別ゲーム用固定コードの version、解除済み状態、解除時刻、解除元、旧記録の初回照合済み状態を保存します。コード本体はlocalStorageへ保存せず、難読化した固定バイト列から表示時にだけ復元し、ランキングやFirebaseには送信しません。旧保存データは初回移行時に Best Depth 21以上の場合だけ解除済みに補完します。
 - `lastmemoVansabaCommsStoryState`: Depth 初回通信の再生済みフラグ
 - `lastmemoVansabaEquipmentState`: Equipment 保存状態。version、LEGEND 発見フラグ、Final Raid LEGEND 初回報酬フラグ、無料解析クレジット、SALVAGE POINT、部位別best装備、未解析箱、slot別LEGEND RESONANCE、部位別精錬値、+16解放状態、解析 / 分解 / 精錬統計を保存します。破損JSONや古い形式は起動時に正規化されます。
 - `lastmemoVansabaEquipmentAnalysisTransaction`: EQUIPMENT ANALYSIS の保存途中だけ使う復旧ジャーナル。GEEKとEquipmentの両方が確定した後に削除され、残っている場合は次回起動時に完了確認または解析前状態への復旧を行います。
