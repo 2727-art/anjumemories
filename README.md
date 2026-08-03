@@ -231,7 +231,7 @@ TRIAD MATRIX の戦闘効果は、選択中機体の3つの Mutation 対象攻�
 - `SINGULARITY LINK I` / `SINGULARITY DOMAIN`: 既存SINGULARITY Mutationのフィールド半径、持続、吸引/制圧系の値 x1.06 / x1.12。
 - `ADAPTIVE FORM`: Execution対象ダメージ x1.05、PRISM副次攻撃ダメージ x1.06、SINGULARITY系の値 x1.06。
 
-`MUTATION ATLAS` は OPERATIONS HUB の `ARCHIVE` タブ内サブビューから確認できます。`RUN ARCHIVE` / `MUTATION ATLAS` を切り替え、さらに `DEFAULT FRAME` / `REGALIA BASTION` の機体タブごとに 4 行 x 4 列のセルで 16 種類の完成ビルドを表示します。Atlas状態は `lastmemoVansabaMutationAtlasState` に保存され、GEEK、ANJU MEMORY本体計算、RUN ARCHIVE、ランキング、Firebaseには混ざりません。破損JSONや古い保存データでも defaultBear 側へ移行し、各機体の 16 セルを初期化して起動します。
+`MUTATION ATLAS` は OPERATIONS HUB の `ARCHIVE` タブ内サブビューから確認できます。`RUN ARCHIVE` / `MUTATION ATLAS` を切り替え、さらに `DEFAULT FRAME` / `REGALIA BASTION` の機体タブごとに 4 行 x 4 列のセルで 16 種類の完成ビルドを表示します。Atlas状態は `lastmemoVansabaMutationAtlasState` に保存され、GEEK、ANJU MEMORY本体計算、RUN ARCHIVE、オンラインランキング値には混ざりません。Googleデータ連携中は他の永続進行と同様にアカウント保存へ含めます。破損JSONや古い保存データでも defaultBear 側へ移行し、各機体の 16 セルを初期化して起動します。
 
 Atlas進捗:
 
@@ -676,11 +676,32 @@ OPTION では `BGM OUTPUT`、`SFX / VOICE OUTPUT`、`CONTROLLER INPUT` を ON / 
 - Tokyo 09: Civic Plaza
 - Tokyo 10: Urban Shrine Approach
 
+## Googleアカウント データ連携
+
+OPERATIONS HUB の `DATA LINK` タブから、任意でGoogleアカウントを連携できます。連携後は同じGoogleアカウントで開いたスマートフォンとPCブラウザーの間で、確定済みの進行データを自動同期します。未連携または通信失敗時も従来どおりlocalStorageで遊べます。
+
+初回連携では、クラウドが空なら現在の端末データを保存し、端末が初期状態なら既存クラウドデータを自動復元します。端末とクラウドの両方に異なる進行がある場合は自動上書きせず、GEEK、ANJU MEMORY、Best Depth、Equipment概要を比較して `クラウドを使用` / `この端末を保存` を選びます。選択が終わるまでは出撃を止め、ショップの購入や端末データ自体は失いません。使用済みSUPPLY IDはどちらを選んでも和集合で維持します。
+
+クラウド保存は `playerCloudSaves/{uid}` のrevisionと、`segments/core`、`segments/equipment`、`segments/archive` の3区分を1トランザクションで更新します。別端末が先に更新していた場合はrevision競合として選択画面へ戻します。localStorageはオフライン復旧用ミラーとして維持し、同期メタデータだけを `lastmemoVansabaCloudSaveMeta` に保存します。
+
+同期対象:
+
+- 確定GEEK、CD/永続強化/機体/Robot Custom、ANJU MEMORY、LOST ARMS永続Lvとpity
+- Support Link、Final Boss/VOID HUNTER、Depth Relay、D20解除状態、MUTATION ATLAS
+- Equipment、Best Record、ローカルランキング、RUN ARCHIVE、通信再生済み状態、SUPPLY受取済みID
+
+端末専用:
+
+- OPTION、OPERATOR ID、SUPPLY失敗回数/ロック期限、Equipment/SUPPLY取引ジャーナル
+- ラン中の未確定GEEK、未抽出Equipment、pending LOST ARMS、契約などの一時状態、sessionStorage、debug状態
+
+Googleの表示名とメールアドレスはゲーム保存へ書き込まず、Firebase AuthenticationのUIDだけを所有者確認に使います。`debug...`、`startDepth`、`skipOpeningBoost`、stage指定などのデバッグ用query parameter付きURLではクラウドの読込・書込を停止し、デバッグ進行を通常セーブへ自動送信しません。デバッグURLを使った端末は、通常URLへ戻した次回連携時に端末とクラウドの明示選択を一度求めます。連携解除後も端末データとクラウドデータは削除しません。
+
 ## ランキング
 
 ゲームオーバーまたは抽出完了時に名前を入力すると、ラン記録をランキングへ登録します。ローカルランキングは localStorage に保存され、Firebase 接続に成功した場合はオンラインランキング `leaderboardKills` も読み書きします。
 
-Firebase SDK は `12.13.0` を dynamic import し、匿名認証で Firestore を使用します。Firebase 設定は `game.js` 内の `FIREBASE_CONFIG` にあります。Firestore ルールは `firestore.rules` を参照してください。
+Firebase SDK は `12.13.0` を dynamic import します。オンラインランキングは従来の匿名認証、任意のデータ連携はGoogle認証でFirestoreを使用します。Firebase 設定は `game.js` 内の `FIREBASE_CONFIG`、デプロイ設定は `firebase.json`、所有者制約は `firestore.rules` を参照してください。
 
 ランキング画面では `KILLS`、`DEPTH`、`GEEK` の 3 モードを切り替えられ、最大 10 件を表示します。`KILLS` はキル数、生存時間、レベル、エリート撃破数、Best Depth、Extracted GEEK の順で並びます。`DEPTH` は Best Depth、Extracted GEEK、キル数、生存時間、レベルの順、`GEEK` は Extracted GEEK、Best Depth、キル数、生存時間、レベルの順で並びます。表示上は選択中バッジと抽出で得た ANJU MEMORY も併記します。オンライン取得に失敗した場合はローカルランキング表示に戻ります。
 
@@ -690,7 +711,7 @@ Best Depth はそのランで実際に到達した最大 Depth です。Extracte
 
 ## RUN ARCHIVE / 戦闘ログ
 
-OPERATIONS HUB の `ARCHIVE` タブから、`RUN ARCHIVE`、`MUTATION ATLAS`、`CLEARANCE` を切り替えられます。`RUN ARCHIVE` では直近 20 件のラン結果を新しい順に閲覧でき、`CLEARANCE` では解除済みの別ゲーム用D20クリアコードを再確認できます。各記録はローカル保存専用で、GEEK 残高、ANJU MEMORY 残高、ランキング、Firebase 送信値、ゲームバランスには影響しません。
+OPERATIONS HUB の `ARCHIVE` タブから、`RUN ARCHIVE`、`MUTATION ATLAS`、`CLEARANCE` を切り替えられます。`RUN ARCHIVE` では直近 20 件のラン結果を新しい順に閲覧でき、`CLEARANCE` では解除済みの別ゲーム用D20クリアコードを再確認できます。各記録はローカル閲覧用で、GEEK 残高、ANJU MEMORY 残高、オンラインランキング、ゲームバランスには影響しません。Googleデータ連携中は端末間の閲覧継続用としてarchive区分へ保存します。
 
 保存対象は通常 `EXTRACT`、`EMERGENCY EXTRACT`、通常ゲームオーバー、Depth 5 までの Gate Collapse です。Depth10 Final Raid の `ドールを解放する` 帰還は通常抽出相当として保存されます。ゲーム開始前、手動でページを閉じただけの中断は保存されません。1 ランにつき保存は 1 件だけで、21 件目以降は古いログから削除されます。
 
@@ -710,20 +731,22 @@ localStorage キー:
 - `lastmemoVansabaBestRecord`: ベスト記録。`bestDepth` と `bestExtractedGeek` も保存します。
 - `lastmemoVansabaKillRanking`: ローカルランキング。各 entry は `bestDepth`、`startDepth`、`usedDepthRelay`、`extractedGeek`、`extractMode`、`extractionSucceeded`、`submittedAt`、`version` を持ち、古い entry にフィールドがない場合は `bestDepth = 1`、`startDepth = 1`、`usedDepthRelay = false`、`extractedGeek = 0`、`extractMode = none` に補完します。
 - `lastmemoVansabaCoins`: 確定 GEEK
+- `lastmemoVansabaCloudSaveMeta`: Googleデータ連携中のUID、同期済みrevision、端末ミラーのfingerprint、同期時刻。ゲーム進行本体は既存キーのまま維持します。
+- `lastmemoVansabaCloudSaveDebugQuarantine`: デバッグ用URLを開いた端末で通常セーブへの自動送信を止め、通常URLへ戻した後の明示選択が終わるまで保持する安全マーカー。進行データ本体は含みません。
 - `lastmemoVansabaOperatorId`: 端末内生成した OPERATOR ID の version と ID。Firebase、ランキング、RUN ARCHIVE には送信しません。
-- `lastmemoVansabaSupplyCodeState`: SUPPLY TERMINAL の version、受取済み支給ID、連続失敗回数、ロック期限。アクセスコード本体や入力値は保存しません。
+- `lastmemoVansabaSupplyCodeState`: SUPPLY TERMINAL の version、受取済み支給ID、連続失敗回数、ロック期限。アクセスコード本体や入力値は保存しません。Google連携では受取済みIDだけを同期し、失敗回数とロック期限は端末内に残します。
 - `lastmemoVansabaSupplyCodeTransaction`: 支給GEEKと受取履歴の保存途中だけ使う復旧ジャーナル。両方の保存完了後に削除し、残っている場合は次回起動時に未完了取引を再確認します。
-- `lastmemoVansabaOptionsState`: OPTION の BGM OUTPUT、SFX / VOICE OUTPUT、CONTROLLER INPUT の ON / OFF 状態
+- `lastmemoVansabaOptionsState`: OPTION の BGM OUTPUT、SFX / VOICE OUTPUT、CONTROLLER INPUT の ON / OFF 状態。端末ごとの設定としてクラウド同期しません。
 - `lastmemoVansabaSupportLinkState`: SUPPORT LINK SYSTEM のインストール状態、LINK Lv、累計正常発動回数
 - `lastmemoVansabaShopState`: CD 所持、選択 BGM、永続強化状態、回収ロボ `cleaningRobotLevel`、`robotCustom`、プレイヤー機体 `playerMechs`。`cleaningRobotLevel` は古い保存データに無い場合 Lv0 へ補完します。`robotCustom` は `missileCapTier`、`recoveryCapTier`、`napalmUnlocked`、`barrierUnlocked` を持ち、`playerMechs` は所持機体 `ownedIds` と選択機体 `selectedId` を持ちます。古い保存データに無い場合は初期値へ補完します。
 - `lastmemoVansabaLostArmsState`: LOST ARMS 永続 Lv と pity
 - `lastmemoVansabaAnjuMemoryState`: ANJU MEMORY 残高、購入済み報酬、選択中スキン/称号/バッジ、チケット、到達済みマイルストーン
 - `lastmemoVansabaMutationAtlasState`: MUTATION ATLAS の機体別 16 ビルド発見/保存/研究状態、Best Depth、選択中機体タブ、選択中 Research Target
-- `lastmemoVansabaRunArchive`: 直近 20 件の RUN ARCHIVE / 戦闘ログ。ローカル閲覧専用でランキングや Firebase には送信しません。
+- `lastmemoVansabaRunArchive`: 直近 20 件の RUN ARCHIVE / 戦闘ログ。オンラインランキングには送信せず、Google連携時だけarchive区分へ保存します。
 - `lastmemoVansabaFinalBossState`: Depth10 Final Raid 討伐済み、ラスボスCD、ラスボスサポート解禁状態、VOID HUNTER 討伐済み、VOID HUNTER サポート解禁状態
 - `lastmemoVansabaDepthRelayState`: DEPTH RELAY の解放済み転送 Depth を保存します。`version` と `unlockedDepths` を持ち、Final Raid 討伐済み旧セーブでは Depth10 が補完されます。Depth20 / Depth30 Anchor 解放後はプレイヤー向け選択 UI にそれぞれ Depth20 / Depth30 も表示されます。
-- `lastmemoVansabaDepth20ClearCodeState`: Depth20→21クリアで解除される別ゲーム用固定コードの version、解除済み状態、解除時刻、解除元、旧記録の初回照合済み状態を保存します。コード本体はlocalStorageへ保存せず、難読化した固定バイト列から表示時にだけ復元し、ランキングやFirebaseには送信しません。旧保存データは初回移行時に Best Depth 21以上の場合だけ解除済みに補完します。
-- `lastmemoVansabaCommsStoryState`: Depth 初回通信の再生済みフラグ
+- `lastmemoVansabaDepth20ClearCodeState`: Depth20→21クリアで解除される別ゲーム用固定コードの version、解除済み状態、解除時刻、解除元、旧記録の初回照合済み状態を保存します。Google連携では解除状態だけを同期します。コード本体はlocalStorageやFirestoreへ保存せず、難読化した固定バイト列から表示時にだけ復元します。旧保存データは初回移行時に Best Depth 21以上の場合だけ解除済みに補完します。
+- `lastmemoVansabaCommsStoryState`: Depth 初回通信の再生済みフラグ。Google連携時はarchive区分へ保存します。
 - `lastmemoVansabaEquipmentState`: Equipment 保存状態。version、LEGEND 発見フラグ、Final Raid LEGEND 初回報酬フラグ、無料解析クレジット、SALVAGE POINT、部位別best装備、未解析箱、slot別LEGEND RESONANCE、部位別精錬値、+16解放状態、解析 / 分解 / 精錬統計を保存します。破損JSONや古い形式は起動時に正規化されます。
 - `lastmemoVansabaEquipmentAnalysisTransaction`: EQUIPMENT ANALYSIS の保存途中だけ使う復旧ジャーナル。GEEKとEquipmentの両方が確定した後に削除され、残っている場合は次回起動時に完了確認または解析前状態への復旧を行います。
 sessionStorage キー:

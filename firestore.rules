@@ -2,6 +2,125 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isGoogleSaveOwner(userId) {
+      return request.auth != null
+        && request.auth.uid == userId
+        && request.auth.token.firebase.sign_in_provider == "google.com";
+    }
+
+    function cloudSaveSegmentsMatchAfter(userId, revision) {
+      let core = getAfter(
+        /databases/$(database)/documents/playerCloudSaves/$(userId)/segments/core
+      ).data;
+      let equipment = getAfter(
+        /databases/$(database)/documents/playerCloudSaves/$(userId)/segments/equipment
+      ).data;
+      let archive = getAfter(
+        /databases/$(database)/documents/playerCloudSaves/$(userId)/segments/archive
+      ).data;
+      return core.schemaVersion == 1
+        && core.revision == revision
+        && core.updatedAt == request.time
+        && equipment.schemaVersion == 1
+        && equipment.revision == revision
+        && equipment.updatedAt == request.time
+        && archive.schemaVersion == 1
+        && archive.revision == revision
+        && archive.updatedAt == request.time;
+    }
+
+    function isValidCloudSaveRootCreate(userId) {
+      return request.resource.data.keys().hasOnly([
+          "schemaVersion",
+          "revision",
+          "clientUpdatedAt",
+          "updatedAt"
+        ])
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.revision == 1
+        && request.resource.data.clientUpdatedAt is int
+        && request.resource.data.clientUpdatedAt >= 0
+        && request.resource.data.updatedAt == request.time
+        && cloudSaveSegmentsMatchAfter(userId, 1);
+    }
+
+    function isValidCloudSaveRootUpdate(userId) {
+      return request.resource.data.keys().hasOnly([
+          "schemaVersion",
+          "revision",
+          "clientUpdatedAt",
+          "updatedAt"
+        ])
+        && request.resource.data.schemaVersion == 1
+        && resource.data.schemaVersion == 1
+        && request.resource.data.revision == resource.data.revision + 1
+        && request.resource.data.clientUpdatedAt is int
+        && request.resource.data.clientUpdatedAt >= 0
+        && request.resource.data.updatedAt == request.time
+        && cloudSaveSegmentsMatchAfter(userId, request.resource.data.revision);
+    }
+
+    function isValidCloudSaveSegmentData(segmentId) {
+      return segmentId in ["core", "equipment", "archive"]
+        && request.resource.data.keys().hasOnly([
+          "schemaVersion",
+          "revision",
+          "data",
+          "updatedAt"
+        ])
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.revision is int
+        && request.resource.data.revision >= 1
+        && request.resource.data.data is map
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function isValidCloudSaveSegmentCreate(userId, segmentId) {
+      let rootAfter = getAfter(
+        /databases/$(database)/documents/playerCloudSaves/$(userId)
+      ).data;
+      return isValidCloudSaveSegmentData(segmentId)
+        && request.resource.data.revision == 1
+        && !exists(/databases/$(database)/documents/playerCloudSaves/$(userId))
+        && rootAfter.schemaVersion == 1
+        && rootAfter.revision == 1
+        && rootAfter.updatedAt == request.time;
+    }
+
+    function isValidCloudSaveSegmentUpdate(userId, segmentId) {
+      let rootBefore = get(
+        /databases/$(database)/documents/playerCloudSaves/$(userId)
+      ).data;
+      let rootAfter = getAfter(
+        /databases/$(database)/documents/playerCloudSaves/$(userId)
+      ).data;
+      return isValidCloudSaveSegmentData(segmentId)
+        && resource.data.schemaVersion == 1
+        && request.resource.data.revision == resource.data.revision + 1
+        && rootBefore.schemaVersion == 1
+        && rootAfter.schemaVersion == 1
+        && rootAfter.revision == rootBefore.revision + 1
+        && request.resource.data.revision == rootAfter.revision
+        && rootAfter.updatedAt == request.time;
+    }
+
+    match /playerCloudSaves/{userId} {
+      allow read: if isGoogleSaveOwner(userId);
+      allow create: if isGoogleSaveOwner(userId) && isValidCloudSaveRootCreate(userId);
+      allow update: if isGoogleSaveOwner(userId) && isValidCloudSaveRootUpdate(userId);
+      allow delete: if false;
+
+      match /segments/{segmentId} {
+        allow read: if isGoogleSaveOwner(userId)
+          && segmentId in ["core", "equipment", "archive"];
+        allow create: if isGoogleSaveOwner(userId)
+          && isValidCloudSaveSegmentCreate(userId, segmentId);
+        allow update: if isGoogleSaveOwner(userId)
+          && isValidCloudSaveSegmentUpdate(userId, segmentId);
+        allow delete: if false;
+      }
+    }
+
     match /leaderboardKills/{entryId} {
       allow read: if true;
 

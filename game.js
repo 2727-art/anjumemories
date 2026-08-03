@@ -2848,6 +2848,14 @@ const FIREBASE_SDK_VERSION = "12.13.0";
 const FIREBASE_APP_NAME = "lastmemoVansabaLeaderboard";
 const FIREBASE_LEADERBOARD_COLLECTION = "leaderboardKills";
 const FIREBASE_REMOTE_RANKING_LIMIT = 10;
+const FIREBASE_CLOUD_SAVE_COLLECTION = "playerCloudSaves";
+const CLOUD_SAVE_SCHEMA_VERSION = 1;
+const CLOUD_SAVE_META_STORAGE_KEY = "lastmemoVansabaCloudSaveMeta";
+const CLOUD_SAVE_DEBUG_QUARANTINE_STORAGE_KEY = "lastmemoVansabaCloudSaveDebugQuarantine";
+const CLOUD_SAVE_META_VERSION = 1;
+const CLOUD_SAVE_WRITE_DEBOUNCE_MS = 1800;
+const CLOUD_SAVE_BOOT_TIMEOUT_MS = 8000;
+const CLOUD_SAVE_MAX_SERIALIZED_BYTES = 850000;
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyDgtQSaiTrWUfrP0p4spYm5N3rTi8DWjBk",
   authDomain: "anju-3f26d.firebaseapp.com",
@@ -4291,10 +4299,23 @@ function logCommsBanterListForDebugOnBoot() {
   return true;
 }
 
+function markCloudSaveDebugQuarantineForBootMutation() {
+  try {
+    window.localStorage?.setItem(CLOUD_SAVE_DEBUG_QUARANTINE_STORAGE_KEY, JSON.stringify({
+      version: 1,
+      markedAt: Date.now()
+    }));
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
 function resetCommsStoryStorageForDebugOnBoot() {
   if (!isCommsStoryDebugResetRequested()) {
     return false;
   }
+  markCloudSaveDebugQuarantineForBootMutation();
 
   let hadState = false;
   try {
@@ -4314,6 +4335,7 @@ function resetCommsEpilogueStorageForDebugOnBoot() {
   if (!isCommsEpilogueDebugResetRequested()) {
     return false;
   }
+  markCloudSaveDebugQuarantineForBootMutation();
 
   let removedIds = [];
   try {
@@ -7935,13 +7957,24 @@ class SurvivalScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.destroySupplyCodeInputElement());
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardownDepth20ClearCodeOverlay("sceneShutdown"));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.teardownDepth20ClearCodeOverlay("sceneDestroy"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardownCloudSaveRuntime("sceneShutdown"));
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.teardownCloudSaveRuntime("sceneDestroy"));
     this.gameplayRuntimeCreated = false;
     this.gameplayAssetsLoading = false;
     this.pendingSortieAfterGameplayAssets = false;
     this.pendingGameplayAssetsLoadErrors = [];
     this.physics?.world?.pause();
     this.showPreGameShop(this.consumePendingExtractionShopMessage());
-    this.continuePendingRunLaunchRequestFromHub("create");
+    const cloudBootstrapState = this.cloudSaveState;
+    this.beginCloudSaveBootstrap()
+      .catch((error) => {
+        console.warn("[DATA LINK] bootstrap failed", error);
+      })
+      .finally(() => {
+        if (this.cloudSaveState === cloudBootstrapState && !this.isCloudSaveSortieBlocked()) {
+          this.continuePendingRunLaunchRequestFromHub("create");
+        }
+      });
     if (this.isDeepExtractionResultDebugEnabled() && !this.isRankingDebugEnabled()) {
       this.time.delayedCall(180, () => this.showDebugDeepExtractionResultOverlay());
     }
@@ -8435,6 +8468,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   createState() {
+    this.initializeCloudSaveRuntime();
     this.recoverEquipmentAnalysisTransaction();
     this.shopState = this.loadShopState();
     this.operatorId = this.loadOrCreateOperatorId();
@@ -13039,6 +13073,7 @@ class SurvivalScene extends Phaser.Scene {
     } catch (error) {
       // Ignore storage failures so the shop can still be used during this session.
     }
+    this.scheduleCloudSave("shopState");
   }
 
   getPlayerMechDefinitions() {
@@ -13644,7 +13679,11 @@ class SurvivalScene extends Phaser.Scene {
     try {
       const serialized = JSON.stringify(state);
       window.localStorage?.setItem(EQUIPMENT_STORAGE_KEY, serialized);
-      return window.localStorage?.getItem(EQUIPMENT_STORAGE_KEY) === serialized;
+      const saved = window.localStorage?.getItem(EQUIPMENT_STORAGE_KEY) === serialized;
+      if (saved) {
+        this.scheduleCloudSave("equipmentState");
+      }
+      return saved;
     } catch (error) {
       console.warn("[EQUIPMENT] failed to save equipment state", error);
       return false;
@@ -17546,6 +17585,7 @@ class SurvivalScene extends Phaser.Scene {
     } catch (error) {
       // Support Link progress is permanent, but storage failures should not stop the current run.
     }
+    this.scheduleCloudSave("supportLinkState");
   }
 
   isSupportLinkInstalled() {
@@ -17792,6 +17832,7 @@ class SurvivalScene extends Phaser.Scene {
     } catch (error) {
       // Ignore storage failures so the run can continue even if this unlock state cannot be persisted.
     }
+    this.scheduleCloudSave("finalBossState");
   }
 
   createDefaultDepthRelayState() {
@@ -17882,6 +17923,7 @@ class SurvivalScene extends Phaser.Scene {
     } catch (error) {
       // Ignore storage failures so Depth Relay unlock data never blocks boot or raid completion.
     }
+    this.scheduleCloudSave("depthRelayState");
     return this.depthRelayState;
   }
 
@@ -17927,7 +17969,11 @@ class SurvivalScene extends Phaser.Scene {
     try {
       const serialized = JSON.stringify(this.depth20ClearCodeState);
       window.localStorage?.setItem(DEPTH20_CLEAR_CODE_STORAGE_KEY, serialized);
-      return window.localStorage?.getItem(DEPTH20_CLEAR_CODE_STORAGE_KEY) === serialized;
+      const saved = window.localStorage?.getItem(DEPTH20_CLEAR_CODE_STORAGE_KEY) === serialized;
+      if (saved) {
+        this.scheduleCloudSave("depth20ClearCodeState");
+      }
+      return saved;
     } catch (error) {
       console.warn("[D20 CLEAR CODE] failed to save unlock state", error);
       return false;
@@ -28057,6 +28103,7 @@ class SurvivalScene extends Phaser.Scene {
     } catch (error) {
       // Ignore storage failures so ANJU MEMORY never blocks a run or shop flow.
     }
+    this.scheduleCloudSave("anjuMemoryState");
   }
 
   isAnjuMemoryRewardOwned(rewardId) {
@@ -29957,6 +30004,7 @@ class SurvivalScene extends Phaser.Scene {
     } catch (error) {
       // Ignore storage failures so the current run can continue.
     }
+    this.scheduleCloudSave("lostArmsState");
   }
 
   createLostArmsRunState() {
@@ -31879,6 +31927,7 @@ class SurvivalScene extends Phaser.Scene {
     } catch (error) {
       // Ignore storage failures so the run can still end cleanly.
     }
+    this.scheduleCloudSave("bestRecord");
 
     return {
       currentRecord,
@@ -32021,6 +32070,7 @@ class SurvivalScene extends Phaser.Scene {
     } catch (error) {
       // Ignore storage failures so the game over flow can still continue.
     }
+    this.scheduleCloudSave("killRanking");
   }
 
   createRunArchiveRunStats() {
@@ -32322,6 +32372,7 @@ class SurvivalScene extends Phaser.Scene {
     } catch (error) {
       // RUN ARCHIVE is a local convenience log; storage failure must not block the run flow.
     }
+    this.scheduleCloudSave("runArchive");
     return normalized;
   }
 
@@ -32645,6 +32696,9 @@ class SurvivalScene extends Phaser.Scene {
         const app = existingApp || appModule.initializeApp(FIREBASE_CONFIG, FIREBASE_APP_NAME);
         const auth = authModule.getAuth(app);
 
+        if (typeof auth.authStateReady === "function") {
+          await auth.authStateReady();
+        }
         if (!auth.currentUser) {
           await authModule.signInAnonymously(auth);
         }
@@ -32653,6 +32707,7 @@ class SurvivalScene extends Phaser.Scene {
         cache.client = {
           app,
           auth,
+          authModule,
           db,
           firestore: firestoreModule
         };
@@ -32664,6 +32719,1288 @@ class SurvivalScene extends Phaser.Scene {
       });
 
     return cache.ready;
+  }
+
+  initializeCloudSaveRuntime() {
+    this.cloudSaveState = {
+      status: "checking",
+      client: null,
+      uid: "",
+      revision: 0,
+      updatedAt: 0,
+      errorMessage: "",
+      conflict: null,
+      busy: false,
+      applyingRemote: false,
+      blocking: true,
+      requestId: 0,
+      saveTimer: null,
+      writePromise: null,
+      pendingWrite: false,
+      lastReason: ""
+    };
+    if (this.isCloudSaveDebugSession()) {
+      this.markCloudSaveDebugQuarantine();
+    }
+  }
+
+  teardownCloudSaveRuntime(reason = "teardown") {
+    const state = this.cloudSaveState;
+    if (!state) {
+      return reason;
+    }
+    state.requestId += 1;
+    if (state.saveTimer !== null) {
+      window.clearTimeout?.(state.saveTimer);
+      state.saveTimer = null;
+    }
+    state.pendingWrite = false;
+    return reason;
+  }
+
+  isCloudSaveDebugSession() {
+    try {
+      const params = new URLSearchParams(window.location?.search || "");
+      const debugAliases = new Set([
+        "startdepth",
+        "skipopeningboost",
+        "stage",
+        "stagedebug",
+        "start"
+      ]);
+      return Array.from(params.keys()).some((key) => {
+        const normalizedKey = String(key || "").toLowerCase();
+        return normalizedKey.startsWith("debug") || debugAliases.has(normalizedKey);
+      });
+    } catch (error) {
+      return false;
+    }
+  }
+
+  markCloudSaveDebugQuarantine() {
+    try {
+      window.localStorage?.setItem(CLOUD_SAVE_DEBUG_QUARANTINE_STORAGE_KEY, JSON.stringify({
+        version: 1,
+        markedAt: Date.now()
+      }));
+    } catch (error) {
+      // Debug sessions remain cloud-disabled even when the marker cannot be persisted.
+    }
+  }
+
+  hasCloudSaveDebugQuarantine() {
+    try {
+      const raw = window.localStorage?.getItem(CLOUD_SAVE_DEBUG_QUARANTINE_STORAGE_KEY) || "";
+      return Boolean(raw && JSON.parse(raw)?.version === 1);
+    } catch (error) {
+      return false;
+    }
+  }
+
+  clearCloudSaveDebugQuarantine() {
+    try {
+      window.localStorage?.removeItem(CLOUD_SAVE_DEBUG_QUARANTINE_STORAGE_KEY);
+    } catch (error) {
+      // A stale marker only causes another explicit save choice; it never uploads silently.
+    }
+  }
+
+  isCloudSaveRequestCurrent(requestId, expectedState = this.cloudSaveState) {
+    return Boolean(
+      expectedState &&
+      this.cloudSaveState === expectedState &&
+      (!Number.isInteger(requestId) || expectedState.requestId === requestId)
+    );
+  }
+
+  loadCloudSaveMeta() {
+    try {
+      const raw = window.localStorage?.getItem(CLOUD_SAVE_META_STORAGE_KEY) || "";
+      if (!raw) {
+        return null;
+      }
+      const parsed = JSON.parse(raw);
+      const uid = typeof parsed?.uid === "string" ? parsed.uid : "";
+      const fingerprint = typeof parsed?.fingerprint === "string" ? parsed.fingerprint : "";
+      if (parsed?.version !== CLOUD_SAVE_META_VERSION || !uid || !fingerprint) {
+        return null;
+      }
+      return {
+        version: CLOUD_SAVE_META_VERSION,
+        uid,
+        revision: Math.max(0, Math.floor(Number(parsed.revision) || 0)),
+        fingerprint,
+        syncedAt: Math.max(0, Math.floor(Number(parsed.syncedAt) || 0)),
+        dirtyAt: Math.max(0, Math.floor(Number(parsed.dirtyAt) || 0))
+      };
+    } catch (error) {
+      return null;
+    }
+  }
+
+  saveCloudSaveMeta(meta) {
+    const normalized = {
+      version: CLOUD_SAVE_META_VERSION,
+      uid: String(meta?.uid || ""),
+      revision: Math.max(0, Math.floor(Number(meta?.revision) || 0)),
+      fingerprint: String(meta?.fingerprint || ""),
+      syncedAt: Math.max(0, Math.floor(Number(meta?.syncedAt) || Date.now())),
+      dirtyAt: Math.max(0, Math.floor(Number(meta?.dirtyAt) || 0))
+    };
+    if (!normalized.uid || !normalized.fingerprint) {
+      return false;
+    }
+    try {
+      window.localStorage?.setItem(CLOUD_SAVE_META_STORAGE_KEY, JSON.stringify(normalized));
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  clearCloudSaveMeta() {
+    try {
+      window.localStorage?.removeItem(CLOUD_SAVE_META_STORAGE_KEY);
+    } catch (error) {
+      // Auth logout must still complete when localStorage is unavailable.
+    }
+  }
+
+  markCloudSaveMetaDirty() {
+    const state = this.cloudSaveState;
+    const meta = this.loadCloudSaveMeta();
+    if (!state?.uid || !meta || meta.uid !== state.uid) {
+      return;
+    }
+    this.saveCloudSaveMeta({ ...meta, dirtyAt: Date.now() });
+  }
+
+  isGoogleCloudSaveUser(user) {
+    return Boolean(
+      user &&
+      user.isAnonymous !== true &&
+      Array.isArray(user.providerData) &&
+      user.providerData.some((provider) => provider?.providerId === "google.com")
+    );
+  }
+
+  isCloudSaveSortieBlocked() {
+    const state = this.cloudSaveState;
+    if (!state || this.isCloudSaveDebugSession()) {
+      return false;
+    }
+    return state.blocking === true || ["checking", "loading", "authenticating", "conflict", "applying"].includes(state.status);
+  }
+
+  waitForCloudSavePromise(promise, timeoutMs = CLOUD_SAVE_BOOT_TIMEOUT_MS) {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const timer = window.setTimeout?.(() => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        const error = new Error("Cloud connection timed out.");
+        error.code = "cloud-save/timeout";
+        reject(error);
+      }, Math.max(1000, Math.floor(Number(timeoutMs) || CLOUD_SAVE_BOOT_TIMEOUT_MS)));
+      Promise.resolve(promise).then((value) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        if (timer !== undefined) {
+          window.clearTimeout?.(timer);
+        }
+        resolve(value);
+      }, (error) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        if (timer !== undefined) {
+          window.clearTimeout?.(timer);
+        }
+        reject(error);
+      });
+    });
+  }
+
+  normalizeCloudSavePayload(record = {}) {
+    const source = record && typeof record === "object" && !Array.isArray(record) ? record : {};
+    const rankingEntries = Array.isArray(source.killRanking) ? source.killRanking : [];
+    const supplyRedeemedIds = Array.isArray(source.supplyRedeemedIds) ? source.supplyRedeemedIds : [];
+    return {
+      coins: this.normalizeCoinAmount(source.coins),
+      shopState: this.normalizeShopState(source.shopState || DEFAULT_SHOP_STATE),
+      anjuMemoryState: this.normalizeAnjuMemoryState(source.anjuMemoryState || this.createDefaultAnjuMemoryState()),
+      lostArmsState: this.normalizeLostArmsStoredState(source.lostArmsState || {}),
+      supportLinkState: this.normalizeSupportLinkState(source.supportLinkState || DEFAULT_SUPPORT_LINK_STATE),
+      finalBossState: this.normalizeFinalBossState(source.finalBossState || this.createDefaultFinalBossState()),
+      depthRelayState: this.normalizeDepthRelayState(source.depthRelayState || this.createDefaultDepthRelayState()),
+      depth20ClearCodeState: this.normalizeDepth20ClearCodeState(
+        source.depth20ClearCodeState || this.createDefaultDepth20ClearCodeState()
+      ),
+      mutationAtlasState: this.normalizeMutationAtlasState(
+        source.mutationAtlasState || this.createDefaultMutationAtlasState()
+      ),
+      bestRecord: this.normalizeBestRecord(source.bestRecord || DEFAULT_BEST_RECORD),
+      supplyRedeemedIds: this.normalizeSupplyCodeState({ redeemedIds: supplyRedeemedIds }).redeemedIds,
+      equipmentState: this.normalizeEquipmentState(source.equipmentState || this.createDefaultEquipmentState()),
+      killRanking: this.sortKillRanking(rankingEntries, DEFAULT_RANKING_MODE, MAX_KILL_RANKING_ENTRIES),
+      runArchive: this.normalizeRunArchive(source.runArchive || null),
+      commsStoryState: this.normalizeCommsStoryState(source.commsStoryState || this.createDefaultCommsStoryState())
+    };
+  }
+
+  captureCloudSavePayload() {
+    return this.normalizeCloudSavePayload({
+      coins: this.coins,
+      shopState: this.shopState,
+      anjuMemoryState: this.anjuMemoryState,
+      lostArmsState: this.loadLostArmsStoredState(),
+      supportLinkState: this.supportLinkState,
+      finalBossState: this.finalBossState,
+      depthRelayState: this.depthRelayState,
+      depth20ClearCodeState: this.depth20ClearCodeState,
+      mutationAtlasState: this.mutationAtlasState,
+      bestRecord: this.bestRecord,
+      supplyRedeemedIds: this.supplyCodeState?.redeemedIds || [],
+      equipmentState: this.equipmentState,
+      killRanking: this.killRanking,
+      runArchive: this.loadRunArchive(),
+      commsStoryState: this.commsStoryState
+    });
+  }
+
+  stableSerializeCloudValue(value) {
+    if (value === null || typeof value === "string" || typeof value === "boolean") {
+      return JSON.stringify(value);
+    }
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? JSON.stringify(value) : "null";
+    }
+    if (Array.isArray(value)) {
+      return `[${value.map((entry) => this.stableSerializeCloudValue(entry)).join(",")}]`;
+    }
+    if (value && typeof value === "object") {
+      return `{${Object.keys(value)
+        .filter((key) => value[key] !== undefined)
+        .sort()
+        .map((key) => `${JSON.stringify(key)}:${this.stableSerializeCloudValue(value[key])}`)
+        .join(",")}}`;
+    }
+    return "null";
+  }
+
+  getCloudSavePayloadFingerprint(payload) {
+    const serialized = this.stableSerializeCloudValue(this.normalizeCloudSavePayload(payload));
+    let hash = 0x811c9dc5;
+    for (let index = 0; index < serialized.length; index += 1) {
+      hash ^= serialized.charCodeAt(index);
+      hash = Math.imul(hash, 0x01000193);
+    }
+    return `${serialized.length.toString(36)}-${(hash >>> 0).toString(16).padStart(8, "0")}`;
+  }
+
+  areCloudSaveValuesEquivalent(left, right) {
+    return this.stableSerializeCloudValue(left) === this.stableSerializeCloudValue(right);
+  }
+
+  buildCloudSaveSummary(payload) {
+    const normalized = this.normalizeCloudSavePayload(payload);
+    const defaultShop = this.normalizeShopState(DEFAULT_SHOP_STATE);
+    const defaultAnju = this.normalizeAnjuMemoryState(this.createDefaultAnjuMemoryState());
+    const defaultEquipment = this.normalizeEquipmentState(this.createDefaultEquipmentState());
+    const defaultMutationAtlas = this.normalizeMutationAtlasState(this.createDefaultMutationAtlasState());
+    const bestDepth = this.getRecordBestDepth(normalized.bestRecord);
+    const equipmentSlots = Object.values(normalized.equipmentState?.bestBySlot || {}).filter(Boolean).length;
+    const equipmentBoxes = Array.isArray(normalized.equipmentState?.securedBoxes)
+      ? normalized.equipmentState.securedBoxes.length
+      : 0;
+    const lostArmsLevels = Object.values(normalized.lostArmsState?.levels || {})
+      .reduce((total, level) => total + this.clampLostArmsLevel(level), 0);
+    const progressChecks = [
+      normalized.coins > 0,
+      !this.areCloudSaveValuesEquivalent(normalized.shopState, defaultShop),
+      !this.areCloudSaveValuesEquivalent(normalized.anjuMemoryState, defaultAnju),
+      lostArmsLevels > 0 || Number(normalized.lostArmsState?.pity) > 0,
+      normalized.supportLinkState?.installed === true,
+      normalized.finalBossState?.cleared === true || normalized.finalBossState?.voidHunterDefeated === true,
+      (normalized.depthRelayState?.unlockedDepths || []).length > 0,
+      normalized.depth20ClearCodeState?.unlocked === true,
+      !this.areCloudSaveValuesEquivalent(normalized.mutationAtlasState, defaultMutationAtlas),
+      bestDepth > 1 || Number(normalized.bestRecord?.kills) > 0,
+      (normalized.supplyRedeemedIds || []).length > 0,
+      !this.areCloudSaveValuesEquivalent(normalized.equipmentState, defaultEquipment),
+      normalized.killRanking.length > 0,
+      (normalized.runArchive?.entries || []).length > 0
+    ];
+    return {
+      coins: normalized.coins,
+      anjuMemory: this.normalizeAnjuMemoryAmount(normalized.anjuMemoryState?.amount),
+      bestDepth,
+      equipmentSlots,
+      equipmentBoxes,
+      archiveEntries: (normalized.runArchive?.entries || []).length,
+      progressItems: progressChecks.filter(Boolean).length
+    };
+  }
+
+  isMeaningfulCloudSavePayload(payload) {
+    return this.buildCloudSaveSummary(payload).progressItems > 0;
+  }
+
+  splitCloudSavePayload(payload) {
+    const normalized = this.normalizeCloudSavePayload(payload);
+    return {
+      core: {
+        coins: normalized.coins,
+        shopState: normalized.shopState,
+        anjuMemoryState: normalized.anjuMemoryState,
+        lostArmsState: normalized.lostArmsState,
+        supportLinkState: normalized.supportLinkState,
+        finalBossState: normalized.finalBossState,
+        depthRelayState: normalized.depthRelayState,
+        depth20ClearCodeState: normalized.depth20ClearCodeState,
+        mutationAtlasState: normalized.mutationAtlasState,
+        bestRecord: normalized.bestRecord,
+        supplyRedeemedIds: normalized.supplyRedeemedIds
+      },
+      equipment: {
+        equipmentState: normalized.equipmentState
+      },
+      archive: {
+        killRanking: normalized.killRanking,
+        runArchive: normalized.runArchive,
+        commsStoryState: normalized.commsStoryState
+      }
+    };
+  }
+
+  joinCloudSaveSegments(segments = {}) {
+    return this.normalizeCloudSavePayload({
+      ...(segments.core || {}),
+      ...(segments.equipment || {}),
+      ...(segments.archive || {})
+    });
+  }
+
+  getCloudSaveDocumentRefs(client, uid) {
+    const root = client.firestore.doc(client.db, FIREBASE_CLOUD_SAVE_COLLECTION, uid);
+    const segment = (segmentId) => client.firestore.doc(
+      client.db,
+      FIREBASE_CLOUD_SAVE_COLLECTION,
+      uid,
+      "segments",
+      segmentId
+    );
+    return {
+      root,
+      core: segment("core"),
+      equipment: segment("equipment"),
+      archive: segment("archive")
+    };
+  }
+
+  async loadCloudSaveRecord(client, uid, retryCount = 0) {
+    const refs = this.getCloudSaveDocumentRefs(client, uid);
+    const rootSnapshot = await client.firestore.getDoc(refs.root);
+    if (!rootSnapshot.exists()) {
+      return null;
+    }
+    const rootData = rootSnapshot.data() || {};
+    const revision = Math.max(0, Math.floor(Number(rootData.revision) || 0));
+    if (rootData.schemaVersion !== CLOUD_SAVE_SCHEMA_VERSION || revision < 1) {
+      const error = new Error("Unsupported cloud save metadata.");
+      error.code = "cloud-save/invalid-record";
+      throw error;
+    }
+    const [coreSnapshot, equipmentSnapshot, archiveSnapshot] = await Promise.all([
+      client.firestore.getDoc(refs.core),
+      client.firestore.getDoc(refs.equipment),
+      client.firestore.getDoc(refs.archive)
+    ]);
+    const snapshots = { core: coreSnapshot, equipment: equipmentSnapshot, archive: archiveSnapshot };
+    const valid = Object.values(snapshots).every((snapshot) => (
+      snapshot.exists() &&
+      snapshot.data()?.schemaVersion === CLOUD_SAVE_SCHEMA_VERSION &&
+      Math.floor(Number(snapshot.data()?.revision) || 0) === revision &&
+      snapshot.data()?.data &&
+      typeof snapshot.data().data === "object"
+    ));
+    if (!valid && retryCount < 1) {
+      return this.loadCloudSaveRecord(client, uid, retryCount + 1);
+    }
+    if (!valid) {
+      const error = new Error("Cloud save segments are incomplete.");
+      error.code = "cloud-save/incomplete-record";
+      throw error;
+    }
+    const updatedAt = typeof rootData.updatedAt?.toMillis === "function"
+      ? rootData.updatedAt.toMillis()
+      : Math.max(0, Math.floor(Number(rootData.clientUpdatedAt) || 0));
+    return {
+      revision,
+      updatedAt,
+      payload: this.joinCloudSaveSegments({
+        core: coreSnapshot.data().data,
+        equipment: equipmentSnapshot.data().data,
+        archive: archiveSnapshot.data().data
+      })
+    };
+  }
+
+  createCloudSaveConflictError(expectedRevision, actualRevision) {
+    const error = new Error(`Cloud revision conflict: expected ${expectedRevision}, actual ${actualRevision}.`);
+    error.code = "cloud-save/conflict";
+    error.expectedRevision = expectedRevision;
+    error.actualRevision = actualRevision;
+    return error;
+  }
+
+  async writeCloudSaveRecord(client, uid, payload, expectedRevision) {
+    const refs = this.getCloudSaveDocumentRefs(client, uid);
+    const segments = this.splitCloudSavePayload(payload);
+    Object.entries(segments).forEach(([segmentId, data]) => {
+      const serializedLength = new TextEncoder().encode(JSON.stringify(data)).length;
+      if (serializedLength > CLOUD_SAVE_MAX_SERIALIZED_BYTES) {
+        const error = new Error(`${segmentId} cloud data is too large.`);
+        error.code = "cloud-save/data-too-large";
+        throw error;
+      }
+    });
+    const safeExpectedRevision = Math.max(0, Math.floor(Number(expectedRevision) || 0));
+    const clientUpdatedAt = Date.now();
+    const nextRevision = await client.firestore.runTransaction(client.db, async (transaction) => {
+      const currentSnapshot = await transaction.get(refs.root);
+      const currentRevision = currentSnapshot.exists()
+        ? Math.max(0, Math.floor(Number(currentSnapshot.data()?.revision) || 0))
+        : 0;
+      if (currentRevision !== safeExpectedRevision) {
+        throw this.createCloudSaveConflictError(safeExpectedRevision, currentRevision);
+      }
+      const revision = currentRevision + 1;
+      const updatedAt = client.firestore.serverTimestamp();
+      transaction.set(refs.root, {
+        schemaVersion: CLOUD_SAVE_SCHEMA_VERSION,
+        revision,
+        clientUpdatedAt,
+        updatedAt
+      });
+      Object.entries(segments).forEach(([segmentId, data]) => {
+        transaction.set(refs[segmentId], {
+          schemaVersion: CLOUD_SAVE_SCHEMA_VERSION,
+          revision,
+          data: JSON.parse(JSON.stringify(data)),
+          updatedAt
+        });
+      });
+      return revision;
+    });
+    return { revision: nextRevision, updatedAt: clientUpdatedAt, payload: this.joinCloudSaveSegments(segments) };
+  }
+
+  setCloudSaveReady(payload, revision, updatedAt = Date.now(), options = {}) {
+    const state = options.state || this.cloudSaveState;
+    if (!state?.uid || !this.isCloudSaveRequestCurrent(options.requestId, state)) {
+      return false;
+    }
+    const normalized = this.normalizeCloudSavePayload(payload);
+    const fingerprint = this.getCloudSavePayloadFingerprint(normalized);
+    state.status = "ready";
+    state.revision = Math.max(0, Math.floor(Number(revision) || 0));
+    state.updatedAt = Math.max(0, Math.floor(Number(updatedAt) || Date.now()));
+    state.errorMessage = "";
+    state.conflict = null;
+    state.blocking = false;
+    this.saveCloudSaveMeta({
+      uid: state.uid,
+      revision: state.revision,
+      fingerprint,
+      syncedAt: state.updatedAt,
+      dirtyAt: 0
+    });
+    return true;
+  }
+
+  mergeCloudSaveSupplyRedemptions(primaryPayload, secondaryPayload) {
+    const primary = this.normalizeCloudSavePayload(primaryPayload);
+    const secondary = this.normalizeCloudSavePayload(secondaryPayload);
+    return this.normalizeCloudSavePayload({
+      ...primary,
+      supplyRedeemedIds: [...new Set([
+        ...(primary.supplyRedeemedIds || []),
+        ...(secondary.supplyRedeemedIds || [])
+      ])]
+    });
+  }
+
+  async applyCloudSavePayload(payload, options = {}) {
+    const state = options.state || this.cloudSaveState;
+    if (!state || !this.isCloudSaveRequestCurrent(options.requestId, state)) {
+      return false;
+    }
+    const normalized = this.normalizeCloudSavePayload(payload);
+    const currentSupply = this.normalizeSupplyCodeState(this.supplyCodeState || this.createDefaultSupplyCodeState());
+    const supplyState = this.normalizeSupplyCodeState({
+      redeemedIds: normalized.supplyRedeemedIds,
+      failedAttempts: currentSupply.failedAttempts,
+      lockedUntil: currentSupply.lockedUntil
+    });
+    const storageWrites = [
+      [COIN_WALLET_STORAGE_KEY, String(normalized.coins)],
+      [SHOP_STATE_STORAGE_KEY, JSON.stringify(normalized.shopState)],
+      [ANJU_MEMORY_STORAGE_KEY, JSON.stringify(normalized.anjuMemoryState)],
+      [LOST_ARMS_STORAGE_KEY, JSON.stringify(normalized.lostArmsState)],
+      [SUPPORT_LINK_STORAGE_KEY, JSON.stringify(normalized.supportLinkState)],
+      [FINAL_BOSS_STATE_STORAGE_KEY, JSON.stringify(normalized.finalBossState)],
+      [DEPTH_RELAY_STATE_STORAGE_KEY, JSON.stringify(normalized.depthRelayState)],
+      [DEPTH20_CLEAR_CODE_STORAGE_KEY, JSON.stringify(normalized.depth20ClearCodeState)],
+      [MUTATION_ATLAS_STORAGE_KEY, JSON.stringify(normalized.mutationAtlasState)],
+      [BEST_RECORD_STORAGE_KEY, JSON.stringify(normalized.bestRecord)],
+      [SUPPLY_CODE_STORAGE_KEY, JSON.stringify(supplyState)],
+      [EQUIPMENT_STORAGE_KEY, JSON.stringify(normalized.equipmentState)],
+      [KILL_RANKING_STORAGE_KEY, JSON.stringify(normalized.killRanking)],
+      [RUN_ARCHIVE_STORAGE_KEY, JSON.stringify(normalized.runArchive)],
+      [COMMS_STORY_STORAGE_KEY, JSON.stringify(normalized.commsStoryState)]
+    ];
+    const previousValues = [];
+    state.status = "applying";
+    state.applyingRemote = true;
+    state.blocking = true;
+    try {
+      [
+        ...storageWrites.map(([key]) => key),
+        CLOUD_SAVE_META_STORAGE_KEY,
+        CLOUD_SAVE_DEBUG_QUARANTINE_STORAGE_KEY
+      ].forEach((key) => {
+        previousValues.push([key, window.localStorage?.getItem(key) ?? null]);
+      });
+      storageWrites.forEach(([key, value]) => {
+        window.localStorage?.setItem(key, value);
+      });
+      if (!this.setCloudSaveReady(
+        normalized,
+        Math.max(0, Math.floor(Number(options.revision) || state.revision)),
+        Math.max(0, Math.floor(Number(options.updatedAt) || Date.now())),
+        { state, requestId: options.requestId }
+      )) {
+        return false;
+      }
+      if (options.clearDebugQuarantine === true) {
+        this.clearCloudSaveDebugQuarantine();
+      }
+      state.applyingRemote = false;
+      if (options.restart !== false) {
+        const pendingRequest = this.normalizeRunLaunchRequest(this.pendingRunLaunchRequest);
+        const restartData = this.isValidRunLaunchRequest(pendingRequest)
+          ? { runLaunchRequest: pendingRequest }
+          : undefined;
+        this.scene?.restart?.(restartData);
+      }
+      return true;
+    } catch (error) {
+      previousValues.forEach(([key]) => {
+        try {
+          window.localStorage?.removeItem(key);
+        } catch (rollbackError) {
+          console.warn("[DATA LINK] local rollback cleanup failed", key, rollbackError);
+        }
+      });
+      previousValues.forEach(([key, previousValue]) => {
+        if (previousValue !== null) {
+          try {
+            window.localStorage?.setItem(key, previousValue);
+          } catch (rollbackError) {
+            console.warn("[DATA LINK] local rollback restore failed", key, rollbackError);
+          }
+        }
+      });
+      state.applyingRemote = false;
+      state.status = "error";
+      state.errorMessage = this.formatCloudSaveError(error);
+      state.blocking = false;
+      throw error;
+    }
+  }
+
+  setCloudSaveConflict(localPayload, remoteRecord, options = {}) {
+    const state = options.state || this.cloudSaveState;
+    if (!state || !this.isCloudSaveRequestCurrent(options.requestId, state)) {
+      return false;
+    }
+    state.status = "conflict";
+    state.conflict = {
+      localPayload: this.normalizeCloudSavePayload(localPayload),
+      remotePayload: this.normalizeCloudSavePayload(remoteRecord.payload),
+      remoteRevision: remoteRecord.revision,
+      remoteUpdatedAt: remoteRecord.updatedAt
+    };
+    state.errorMessage = "端末とクラウドの両方に未同期の進行があります";
+    state.blocking = true;
+    return true;
+  }
+
+  async acceptRemoteCloudSave(client, localPayload, remoteRecord, options = {}) {
+    const state = options.state || this.cloudSaveState;
+    if (!state?.uid || !this.isCloudSaveRequestCurrent(options.requestId, state)) {
+      return false;
+    }
+    let payload = this.mergeCloudSaveSupplyRedemptions(remoteRecord.payload, localPayload);
+    let revision = remoteRecord.revision;
+    let updatedAt = remoteRecord.updatedAt;
+    if (this.getCloudSavePayloadFingerprint(payload) !== this.getCloudSavePayloadFingerprint(remoteRecord.payload)) {
+      const saved = await this.waitForCloudSavePromise(
+        this.writeCloudSaveRecord(client, state.uid, payload, remoteRecord.revision)
+      );
+      payload = saved.payload;
+      revision = saved.revision;
+      updatedAt = saved.updatedAt;
+    }
+    if (!this.isCloudSaveRequestCurrent(options.requestId, state)) {
+      return false;
+    }
+    const latestLocalPayload = this.captureCloudSavePayload();
+    if (
+      this.getCloudSavePayloadFingerprint(latestLocalPayload)
+      !== this.getCloudSavePayloadFingerprint(localPayload)
+    ) {
+      this.setCloudSaveConflict(
+        latestLocalPayload,
+        { payload, revision, updatedAt },
+        { state, requestId: options.requestId }
+      );
+      return false;
+    }
+    await this.applyCloudSavePayload(payload, {
+      revision,
+      updatedAt,
+      restart: true,
+      clearDebugQuarantine: true,
+      state,
+      requestId: options.requestId
+    });
+    return true;
+  }
+
+  async reconcileCloudSave(client, user, localPayload = this.captureCloudSavePayload(), options = {}) {
+    const state = options.state || this.cloudSaveState;
+    if (
+      !state ||
+      !this.isCloudSaveRequestCurrent(options.requestId, state) ||
+      !this.isGoogleCloudSaveUser(user)
+    ) {
+      return false;
+    }
+    state.client = client;
+    state.uid = user.uid;
+    state.status = "loading";
+    state.blocking = true;
+    const remoteRecord = await this.loadCloudSaveRecord(client, user.uid);
+    if (!this.isCloudSaveRequestCurrent(options.requestId, state)) {
+      return false;
+    }
+    const requestedLocal = this.normalizeCloudSavePayload(localPayload);
+    const latestLocal = this.captureCloudSavePayload();
+    const normalizedLocal = this.getCloudSavePayloadFingerprint(latestLocal)
+      === this.getCloudSavePayloadFingerprint(requestedLocal)
+      ? requestedLocal
+      : latestLocal;
+    if (!remoteRecord) {
+      if (this.hasCloudSaveDebugQuarantine() && this.isMeaningfulCloudSavePayload(normalizedLocal)) {
+        this.setCloudSaveConflict(normalizedLocal, {
+          payload: this.normalizeCloudSavePayload({}),
+          revision: 0,
+          updatedAt: 0
+        }, { state, requestId: options.requestId });
+        return false;
+      }
+      const saved = await this.waitForCloudSavePromise(
+        this.writeCloudSaveRecord(client, user.uid, normalizedLocal, 0)
+      );
+      if (!this.isCloudSaveRequestCurrent(options.requestId, state)) {
+        return false;
+      }
+      this.clearCloudSaveDebugQuarantine();
+      this.setCloudSaveReady(saved.payload, saved.revision, saved.updatedAt, {
+        state,
+        requestId: options.requestId
+      });
+      if (
+        this.getCloudSavePayloadFingerprint(this.captureCloudSavePayload())
+        !== this.getCloudSavePayloadFingerprint(saved.payload)
+      ) {
+        this.scheduleCloudSave("bootstrapCatchup");
+      }
+      return true;
+    }
+    const localFingerprint = this.getCloudSavePayloadFingerprint(normalizedLocal);
+    const remoteFingerprint = this.getCloudSavePayloadFingerprint(remoteRecord.payload);
+    const meta = this.loadCloudSaveMeta();
+    if (localFingerprint === remoteFingerprint) {
+      this.clearCloudSaveDebugQuarantine();
+      this.setCloudSaveReady(remoteRecord.payload, remoteRecord.revision, remoteRecord.updatedAt, {
+        state,
+        requestId: options.requestId
+      });
+      return true;
+    }
+
+    if (this.hasCloudSaveDebugQuarantine()) {
+      this.setCloudSaveConflict(normalizedLocal, remoteRecord, { state, requestId: options.requestId });
+      return false;
+    }
+
+    const localMeaningful = this.isMeaningfulCloudSavePayload(normalizedLocal);
+    const remoteMeaningful = this.isMeaningfulCloudSavePayload(remoteRecord.payload);
+    if (!localMeaningful && remoteMeaningful) {
+      return this.acceptRemoteCloudSave(client, normalizedLocal, remoteRecord, options);
+    }
+    if (localMeaningful && !remoteMeaningful) {
+      const merged = this.mergeCloudSaveSupplyRedemptions(normalizedLocal, remoteRecord.payload);
+      const saved = await this.waitForCloudSavePromise(
+        this.writeCloudSaveRecord(client, user.uid, merged, remoteRecord.revision)
+      );
+      if (!this.isCloudSaveRequestCurrent(options.requestId, state)) {
+        return false;
+      }
+      this.setCloudSaveReady(saved.payload, saved.revision, saved.updatedAt, {
+        state,
+        requestId: options.requestId
+      });
+      if (
+        this.getCloudSavePayloadFingerprint(this.captureCloudSavePayload())
+        !== this.getCloudSavePayloadFingerprint(saved.payload)
+      ) {
+        this.scheduleCloudSave("bootstrapCatchup");
+      }
+      return true;
+    }
+
+    if (meta?.uid === user.uid) {
+      const localUnchanged = localFingerprint === meta.fingerprint;
+      const remoteMatchesMeta = remoteFingerprint === meta.fingerprint;
+      const hasKnownLocalChange = meta.dirtyAt > 0;
+      if (remoteRecord.revision === meta.revision && remoteMatchesMeta && !localUnchanged && hasKnownLocalChange) {
+        const merged = this.mergeCloudSaveSupplyRedemptions(normalizedLocal, remoteRecord.payload);
+        const saved = await this.waitForCloudSavePromise(
+          this.writeCloudSaveRecord(client, user.uid, merged, remoteRecord.revision)
+        );
+        if (!this.isCloudSaveRequestCurrent(options.requestId, state)) {
+          return false;
+        }
+        this.setCloudSaveReady(saved.payload, saved.revision, saved.updatedAt, {
+          state,
+          requestId: options.requestId
+        });
+        if (
+          this.getCloudSavePayloadFingerprint(this.captureCloudSavePayload())
+          !== this.getCloudSavePayloadFingerprint(saved.payload)
+        ) {
+          this.scheduleCloudSave("bootstrapCatchup");
+        }
+        return true;
+      }
+      if (remoteRecord.revision > meta.revision && localUnchanged) {
+        return this.acceptRemoteCloudSave(client, normalizedLocal, remoteRecord, options);
+      }
+    }
+
+    this.setCloudSaveConflict(normalizedLocal, remoteRecord, { state, requestId: options.requestId });
+    return false;
+  }
+
+  formatCloudSaveError(error) {
+    const code = String(error?.code || "");
+    if (["auth/popup-closed-by-user", "auth/cancelled-popup-request"].includes(code)) {
+      return "Googleログインはキャンセルされました";
+    }
+    if (code === "auth/popup-blocked") {
+      return "ポップアップがブロックされました。ブラウザ設定を確認してください";
+    }
+    if (code === "auth/unauthorized-domain") {
+      return "この公開URLはGoogleログイン許可ドメインに未登録です";
+    }
+    if (code === "auth/operation-not-allowed") {
+      return "GoogleログインがFirebaseで有効化されていません";
+    }
+    if (code === "auth/account-exists-with-different-credential") {
+      return "このメールは別のログイン方式で登録済みです。先にその方式でログインしてください";
+    }
+    if (code === "permission-denied" || code === "firestore/permission-denied") {
+      return "クラウド保存の権限を確認できませんでした";
+    }
+    if (code === "cloud-save/timeout") {
+      return "クラウド接続がタイムアウトしました。ローカルでは遊べます";
+    }
+    if (code === "cloud-save/data-too-large") {
+      return "保存データが大きいため同期できません。装備箱を整理してください";
+    }
+    if (code === "cloud-save/incomplete-record" || code === "cloud-save/invalid-record") {
+      return "クラウド保存の形式を確認できませんでした";
+    }
+    return "クラウドに接続できませんでした。ローカルでは遊べます";
+  }
+
+  refreshCloudSaveHubUi(force = false) {
+    if (!this.shopActive || !this.overlayContainer) {
+      return;
+    }
+    if (force || this.shopViewMode === "dataLink") {
+      this.showPreGameShop(this.shopStatusMessage);
+    }
+  }
+
+  async beginCloudSaveBootstrap() {
+    const state = this.cloudSaveState;
+    if (!state || state.busy || state.writePromise) {
+      return false;
+    }
+    if (this.isCloudSaveDebugSession()) {
+      state.status = "disabled";
+      state.errorMessage = "DEBUG URLではクラウド同期を停止しています";
+      state.blocking = false;
+      this.refreshCloudSaveHubUi(true);
+      return false;
+    }
+    const requestId = state.requestId + 1;
+    state.requestId = requestId;
+    state.status = "checking";
+    state.errorMessage = "";
+    state.blocking = true;
+    this.refreshCloudSaveHubUi(true);
+    try {
+      const client = await this.waitForCloudSavePromise(this.getFirebaseLeaderboardClient());
+      if (!this.isCloudSaveRequestCurrent(requestId, state)) {
+        return false;
+      }
+      state.client = client;
+      const user = client.auth.currentUser;
+      if (!this.isGoogleCloudSaveUser(user)) {
+        state.status = "guest";
+        state.uid = "";
+        state.revision = 0;
+        state.updatedAt = 0;
+        state.conflict = null;
+        state.blocking = false;
+        this.refreshCloudSaveHubUi(true);
+        return false;
+      }
+      state.uid = user.uid;
+      state.status = "loading";
+      this.refreshCloudSaveHubUi(true);
+      await this.waitForCloudSavePromise(
+        this.reconcileCloudSave(client, user, this.captureCloudSavePayload(), { state, requestId })
+      );
+      if (this.isCloudSaveRequestCurrent(requestId, state) && state.status !== "applying") {
+        this.refreshCloudSaveHubUi(true);
+      }
+      return state.status === "ready";
+    } catch (error) {
+      if (!this.isCloudSaveRequestCurrent(requestId, state)) {
+        return false;
+      }
+      state.requestId += 1;
+      console.warn("[DATA LINK] bootstrap error", error);
+      state.status = "error";
+      state.errorMessage = this.formatCloudSaveError(error);
+      state.blocking = false;
+      this.refreshCloudSaveHubUi(true);
+      return false;
+    }
+  }
+
+  scheduleCloudSave(reason = "localChange") {
+    const state = this.cloudSaveState;
+    if (
+      !state ||
+      state.applyingRemote ||
+      this.isCloudSaveDebugSession()
+    ) {
+      return false;
+    }
+    state.lastReason = String(reason || "localChange");
+    state.pendingWrite = true;
+    if (state.uid) {
+      this.markCloudSaveMetaDirty();
+    }
+    if (!state.uid || !state.client || !["ready", "syncing"].includes(state.status)) {
+      return false;
+    }
+    if (state.saveTimer !== null) {
+      window.clearTimeout?.(state.saveTimer);
+    }
+    state.saveTimer = window.setTimeout?.(() => {
+      state.saveTimer = null;
+      this.flushCloudSave(state.lastReason).catch((error) => {
+        console.warn("[DATA LINK] deferred sync failed", error);
+      });
+    }, CLOUD_SAVE_WRITE_DEBOUNCE_MS);
+    return true;
+  }
+
+  async flushCloudSave(reason = "manual", options = {}) {
+    const state = this.cloudSaveState;
+    if (
+      !state ||
+      state.applyingRemote ||
+      this.isCloudSaveDebugSession() ||
+      !state.uid ||
+      !state.client ||
+      !["ready", "syncing"].includes(state.status)
+    ) {
+      return false;
+    }
+    if (state.saveTimer !== null) {
+      window.clearTimeout?.(state.saveTimer);
+      state.saveTimer = null;
+    }
+    if (state.writePromise) {
+      const waitRequestId = state.requestId;
+      state.pendingWrite = true;
+      await state.writePromise;
+      if (!this.isCloudSaveRequestCurrent(waitRequestId, state)) {
+        return false;
+      }
+      return this.flushCloudSave(reason, options);
+    }
+    state.pendingWrite = false;
+    const requestId = state.requestId;
+    const payload = this.captureCloudSavePayload();
+    const fingerprint = this.getCloudSavePayloadFingerprint(payload);
+    const meta = this.loadCloudSaveMeta();
+    if (
+      options.force !== true &&
+      meta?.uid === state.uid &&
+      meta.revision === state.revision &&
+      meta.fingerprint === fingerprint
+    ) {
+      this.setCloudSaveReady(payload, state.revision, state.updatedAt, { state, requestId });
+      if (options.refreshUi === true) {
+        this.refreshCloudSaveHubUi(true);
+      }
+      return true;
+    }
+
+    state.status = "syncing";
+    state.blocking = options.blocking === true;
+    if (options.refreshUi === true) {
+      this.refreshCloudSaveHubUi(true);
+    }
+    const writePromise = (async () => {
+      try {
+        const saved = await this.waitForCloudSavePromise(
+          this.writeCloudSaveRecord(state.client, state.uid, payload, state.revision)
+        );
+        if (!this.isCloudSaveRequestCurrent(requestId, state)) {
+          return false;
+        }
+        this.setCloudSaveReady(saved.payload, saved.revision, saved.updatedAt, { state, requestId });
+        const latestPayload = this.captureCloudSavePayload();
+        if (this.getCloudSavePayloadFingerprint(latestPayload) !== this.getCloudSavePayloadFingerprint(saved.payload)) {
+          state.pendingWrite = true;
+        }
+        return true;
+      } catch (error) {
+        if (!this.isCloudSaveRequestCurrent(requestId, state)) {
+          return false;
+        }
+        if (error?.code === "cloud-save/conflict") {
+          try {
+            const remoteRecord = await this.waitForCloudSavePromise(
+              this.loadCloudSaveRecord(state.client, state.uid)
+            );
+            if (!this.isCloudSaveRequestCurrent(requestId, state)) {
+              return false;
+            }
+            if (remoteRecord) {
+              this.setCloudSaveConflict(this.captureCloudSavePayload(), remoteRecord, { state, requestId });
+            } else {
+              state.status = "error";
+              state.errorMessage = "クラウド保存を再確認できませんでした";
+              state.blocking = false;
+            }
+          } catch (reloadError) {
+            state.status = "error";
+            state.errorMessage = this.formatCloudSaveError(reloadError);
+            state.blocking = false;
+            throw reloadError;
+          }
+        } else {
+          state.status = "error";
+          state.errorMessage = this.formatCloudSaveError(error);
+          state.blocking = false;
+        }
+        throw error;
+      }
+    })();
+    state.writePromise = writePromise;
+    let result = false;
+    let failure = null;
+    try {
+      result = await writePromise;
+    } catch (error) {
+      failure = error;
+    } finally {
+      if (state.writePromise === writePromise) {
+        state.writePromise = null;
+      }
+    }
+    if (!this.isCloudSaveRequestCurrent(requestId, state)) {
+      return false;
+    }
+    const shouldWriteAgain = state.pendingWrite && state.status === "ready";
+    state.pendingWrite = false;
+    if (shouldWriteAgain) {
+      if (options.drainLatest === true) {
+        this.markCloudSaveMetaDirty();
+        return this.flushCloudSave(reason, { ...options, force: false });
+      }
+      this.scheduleCloudSave("queuedChange");
+    }
+    if (options.refreshUi === true || state.status === "conflict") {
+      this.refreshCloudSaveHubUi(true);
+    } else {
+      this.refreshCloudSaveHubUi(false);
+    }
+    if (failure) {
+      throw failure;
+    }
+    return result;
+  }
+
+  async startGoogleCloudLink() {
+    const state = this.cloudSaveState;
+    if (
+      !state ||
+      state.busy ||
+      state.writePromise ||
+      state.status === "syncing" ||
+      this.isCloudSaveDebugSession()
+    ) {
+      return false;
+    }
+    const requestId = state.requestId + 1;
+    state.requestId = requestId;
+    state.busy = true;
+    state.status = "authenticating";
+    state.blocking = true;
+    state.errorMessage = "";
+    this.refreshCloudSaveHubUi(true);
+    const localPayload = this.captureCloudSavePayload();
+    try {
+      const client = state.client || await this.waitForCloudSavePromise(this.getFirebaseLeaderboardClient());
+      state.client = client;
+      const provider = new client.authModule.GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: "select_account" });
+      let result;
+      try {
+        if (client.auth.currentUser?.isAnonymous) {
+          result = await client.authModule.linkWithPopup(client.auth.currentUser, provider);
+        } else {
+          result = await client.authModule.signInWithPopup(client.auth, provider);
+        }
+      } catch (error) {
+        if (error?.code === "auth/credential-already-in-use") {
+          const credential = client.authModule.GoogleAuthProvider.credentialFromError(error);
+          if (!credential) {
+            throw error;
+          }
+          result = await client.authModule.signInWithCredential(client.auth, credential);
+        } else {
+          throw error;
+        }
+      }
+      const user = result?.user || client.auth.currentUser;
+      if (!this.isGoogleCloudSaveUser(user)) {
+        const error = new Error("Google credential was not attached.");
+        error.code = "cloud-save/google-provider-missing";
+        throw error;
+      }
+      await user.getIdToken?.(true);
+      state.uid = user.uid;
+      state.status = "loading";
+      await this.waitForCloudSavePromise(
+        this.reconcileCloudSave(client, user, localPayload, { state, requestId })
+      );
+      if (!this.isCloudSaveRequestCurrent(requestId, state)) {
+        return false;
+      }
+      return state.status === "ready";
+    } catch (error) {
+      if (!this.isCloudSaveRequestCurrent(requestId, state)) {
+        return false;
+      }
+      state.requestId += 1;
+      console.warn("[DATA LINK] Google link failed", error);
+      state.status = "error";
+      state.errorMessage = this.formatCloudSaveError(error);
+      state.blocking = false;
+      return false;
+    } finally {
+      state.busy = false;
+      if (this.cloudSaveState === state) {
+        this.refreshCloudSaveHubUi(true);
+      }
+    }
+  }
+
+  async signOutCloudSaveAccount() {
+    const state = this.cloudSaveState;
+    if (!state?.client || state.busy || state.writePromise || state.status === "syncing") {
+      return false;
+    }
+    const requestId = state.requestId + 1;
+    state.requestId = requestId;
+    state.busy = true;
+    state.blocking = true;
+    state.status = "authenticating";
+    this.refreshCloudSaveHubUi(true);
+    try {
+      await this.waitForCloudSavePromise((async () => {
+        await state.client.authModule.signOut(state.client.auth);
+        await state.client.authModule.signInAnonymously(state.client.auth);
+      })());
+      if (!this.isCloudSaveRequestCurrent(requestId, state)) {
+        return false;
+      }
+      this.clearCloudSaveMeta();
+      state.uid = "";
+      state.revision = 0;
+      state.updatedAt = 0;
+      state.status = "guest";
+      state.errorMessage = "Google連携を解除しました。端末データは残っています";
+      state.conflict = null;
+      state.blocking = false;
+      return true;
+    } catch (error) {
+      if (!this.isCloudSaveRequestCurrent(requestId, state)) {
+        return false;
+      }
+      state.requestId += 1;
+      state.status = "error";
+      state.errorMessage = this.formatCloudSaveError(error);
+      state.blocking = false;
+      return false;
+    } finally {
+      state.busy = false;
+      if (this.cloudSaveState === state) {
+        this.refreshCloudSaveHubUi(true);
+      }
+    }
+  }
+
+  async resolveCloudSaveConflict(choice) {
+    const state = this.cloudSaveState;
+    if (
+      !state?.conflict ||
+      !state.client ||
+      !state.uid ||
+      state.busy ||
+      state.writePromise
+    ) {
+      return false;
+    }
+    const requestId = state.requestId + 1;
+    state.requestId = requestId;
+    state.busy = true;
+    state.status = "syncing";
+    state.blocking = true;
+    this.refreshCloudSaveHubUi(true);
+    try {
+      const conflict = state.conflict;
+      if (choice === "remote") {
+        return await this.acceptRemoteCloudSave(state.client, this.captureCloudSavePayload(), {
+          payload: conflict.remotePayload,
+          revision: conflict.remoteRevision,
+          updatedAt: conflict.remoteUpdatedAt
+        }, { state, requestId });
+      }
+      if (choice === "local") {
+        const localPayload = this.mergeCloudSaveSupplyRedemptions(
+          this.captureCloudSavePayload(),
+          conflict.remotePayload
+        );
+        const saved = await this.waitForCloudSavePromise(
+          this.writeCloudSaveRecord(
+            state.client,
+            state.uid,
+            localPayload,
+            conflict.remoteRevision
+          )
+        );
+        if (!this.isCloudSaveRequestCurrent(requestId, state)) {
+          return false;
+        }
+        return await this.applyCloudSavePayload(saved.payload, {
+          revision: saved.revision,
+          updatedAt: saved.updatedAt,
+          restart: true,
+          clearDebugQuarantine: true,
+          state,
+          requestId
+        });
+      }
+      return false;
+    } catch (error) {
+      if (!this.isCloudSaveRequestCurrent(requestId, state)) {
+        return false;
+      }
+      console.warn("[DATA LINK] conflict resolution failed", error);
+      if (error?.code === "cloud-save/conflict") {
+        try {
+          const remoteRecord = await this.waitForCloudSavePromise(
+            this.loadCloudSaveRecord(state.client, state.uid)
+          );
+          if (!this.isCloudSaveRequestCurrent(requestId, state)) {
+            return false;
+          }
+          if (remoteRecord) {
+            this.setCloudSaveConflict(this.captureCloudSavePayload(), remoteRecord, { state, requestId });
+          } else {
+            state.requestId += 1;
+            state.status = "error";
+            state.errorMessage = "クラウド保存を再確認できませんでした";
+            state.blocking = false;
+          }
+        } catch (reloadError) {
+          if (!this.isCloudSaveRequestCurrent(requestId, state)) {
+            return false;
+          }
+          state.requestId += 1;
+          state.status = "error";
+          state.errorMessage = this.formatCloudSaveError(reloadError);
+          state.blocking = false;
+        }
+      } else {
+        state.requestId += 1;
+        state.status = "error";
+        state.errorMessage = this.formatCloudSaveError(error);
+        state.blocking = false;
+      }
+      return false;
+    } finally {
+      state.busy = false;
+      if (this.cloudSaveState === state) {
+        this.refreshCloudSaveHubUi(true);
+      }
+    }
+  }
+
+  async retryCloudSaveConnection() {
+    return this.beginCloudSaveBootstrap();
+  }
+
+  async syncCloudSaveNow() {
+    const state = this.cloudSaveState;
+    if (!state || state.busy || state.writePromise || state.status === "syncing") {
+      return false;
+    }
+    if (state.status === "error") {
+      return this.beginCloudSaveBootstrap();
+    }
+    return this.flushCloudSave("manualSync", { force: true, blocking: true, refreshUi: true });
   }
 
   getDisplayedKillRankingEntries() {
@@ -32922,7 +34259,11 @@ class SurvivalScene extends Phaser.Scene {
       const normalizedAmount = this.normalizeCoinAmount(amount);
       const serialized = String(normalizedAmount);
       window.localStorage?.setItem(COIN_WALLET_STORAGE_KEY, serialized);
-      return window.localStorage?.getItem(COIN_WALLET_STORAGE_KEY) === serialized;
+      const saved = window.localStorage?.getItem(COIN_WALLET_STORAGE_KEY) === serialized;
+      if (saved) {
+        this.scheduleCloudSave("coinWallet");
+      }
+      return saved;
     } catch (error) {
       console.warn("[GEEK WALLET] failed to save confirmed GEEK", error);
       return false;
@@ -32971,7 +34312,11 @@ class SurvivalScene extends Phaser.Scene {
     try {
       const serialized = JSON.stringify(this.supplyCodeState);
       window.localStorage?.setItem(SUPPLY_CODE_STORAGE_KEY, serialized);
-      return window.localStorage?.getItem(SUPPLY_CODE_STORAGE_KEY) === serialized;
+      const saved = window.localStorage?.getItem(SUPPLY_CODE_STORAGE_KEY) === serialized;
+      if (saved) {
+        this.scheduleCloudSave("supplyRedemption");
+      }
+      return saved;
     } catch (error) {
       console.warn("[SUPPLY TERMINAL] failed to save redemption state", error);
       return false;
@@ -33744,6 +35089,7 @@ class SurvivalScene extends Phaser.Scene {
     } catch (error) {
       // MUTATION ATLAS is a local meta log. Storage failure must not break a run.
     }
+    this.scheduleCloudSave("mutationAtlasState");
     return this.mutationAtlasState;
   }
 
@@ -37793,6 +39139,7 @@ class SurvivalScene extends Phaser.Scene {
 
     try {
       window.localStorage?.setItem(COMMS_STORY_STORAGE_KEY, JSON.stringify(this.commsStoryState));
+      this.scheduleCloudSave("commsStoryState");
       return true;
     } catch (error) {
       return false;
@@ -51791,7 +53138,8 @@ class SurvivalScene extends Phaser.Scene {
     this.createShopModeTab(42, tabY, 106, "ANJU MEMORY", "anjuMemory");
     this.createShopModeTab(143, tabY, 84, "ARCHIVE", "runArchive");
     this.createShopModeTab(232, tabY, 82, "SUPPLY", "supply");
-    this.createShopModeTab(321, tabY, 82, "OPTION", "options");
+    this.createShopModeTab(325, tabY, 96, "DATA LINK", "dataLink");
+    this.createShopModeTab(421, tabY, 82, "OPTION", "options");
   }
 
   createShopModeTab(centerX, centerY, width, label, mode) {
@@ -51805,6 +53153,9 @@ class SurvivalScene extends Phaser.Scene {
     panel.on("pointerover", () => panel.setFillStyle(selected ? 0x1f405d : 0x13243a, 0.98));
     panel.on("pointerout", () => panel.setFillStyle(selected ? 0x18334a : 0x0b1623, selected ? 0.98 : 0.88));
     this.addOverlayAction(panel, () => {
+      if (this.cloudSaveState?.busy && ["authenticating", "syncing", "applying"].includes(this.cloudSaveState.status)) {
+        return;
+      }
       this.shopViewMode = mode;
       this.showPreGameShop(this.shopStatusMessage);
     }, true, 6);
@@ -51922,6 +53273,235 @@ class SurvivalScene extends Phaser.Scene {
       this.updateOptionsState(DEFAULT_OPTIONS_STATE, "optionReset");
       this.showPreGameShop("OPTIONS RESET");
     }, 0x2a1f2f, 0x3a2a44, { kicker: "SYSTEM" });
+  }
+
+  getCloudSaveStatusPresentation() {
+    const state = this.cloudSaveState || {};
+    const presentations = {
+      checking: { title: "CHECKING ACCOUNT", detail: "保存済みのGoogle連携を確認しています", color: "#9ffcff", accent: 0x6fcfff },
+      guest: { title: "LOCAL PLAY", detail: "未連携 / この端末だけに保存中", color: "#f7d98a", accent: 0xf0c463 },
+      authenticating: { title: "GOOGLE SIGN-IN", detail: "Googleアカウントを確認しています", color: "#9ffcff", accent: 0x6fcfff },
+      loading: { title: "DOWNLOADING SAVE", detail: "クラウドのrevisionを確認しています", color: "#9ffcff", accent: 0x6fcfff },
+      syncing: { title: "SYNCING", detail: "進行データを安全に保存しています", color: "#9ffcff", accent: 0x6fcfff },
+      ready: { title: "GOOGLE LINK ONLINE", detail: "自動同期が有効です", color: "#b8ffd0", accent: 0x66d25f },
+      conflict: { title: "SAVE CHOICE REQUIRED", detail: "遊ぶ前に使用するデータを選んでください", color: "#ffd18a", accent: 0xf0c463 },
+      error: { title: "OFFLINE / LOCAL SAFE", detail: "クラウド未接続でもローカルでは遊べます", color: "#ffcf91", accent: 0xff8c63 },
+      applying: { title: "APPLYING SAVE", detail: "保存データを反映しています", color: "#9ffcff", accent: 0x6fcfff },
+      disabled: { title: "SYNC PAUSED", detail: "DEBUG URLではクラウド同期しません", color: "#aab7c2", accent: 0x70818a }
+    };
+    return presentations[state.status] || presentations.error;
+  }
+
+  formatCloudSaveUpdatedAt(value) {
+    const timestamp = Math.max(0, Math.floor(Number(value) || 0));
+    if (!timestamp) {
+      return "未同期";
+    }
+    try {
+      return new Intl.DateTimeFormat("ja-JP", {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      }).format(new Date(timestamp));
+    } catch (error) {
+      return new Date(timestamp).toLocaleString();
+    }
+  }
+
+  renderCloudSaveSummaryCard(x, y, width, height, title, summary, options = {}) {
+    const accent = options.accent || 0x6fcfff;
+    const graphics = this.addOverlayChild(this.add.graphics());
+    graphics.fillStyle(0x081724, 0.94);
+    graphics.fillRoundedRect(x, y, width, height, 7);
+    graphics.lineStyle(2, accent, 0.5);
+    graphics.strokeRoundedRect(x + 1, y + 1, width - 2, height - 2, 7);
+    this.createOverlayText(x + 18, y + 14, title, {
+      fontSize: "17px",
+      color: options.titleColor || "#ecf7ff",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(x + width - 18, y + 16, options.timeLabel || "", {
+      fontSize: "10px",
+      color: "#8fb5ca",
+      align: "right",
+      origin: { x: 1, y: 0 }
+    });
+    const rows = [
+      ["GEEK", this.normalizeCoinAmount(summary?.coins).toLocaleString()],
+      ["ANJU MEMORY", this.normalizeAnjuMemoryAmount(summary?.anjuMemory).toLocaleString()],
+      ["BEST DEPTH", `D${Math.max(1, Math.floor(Number(summary?.bestDepth) || 1))}`],
+      ["EQUIPMENT", `${Math.max(0, Number(summary?.equipmentSlots) || 0)}/5 SLOT / BOX ${Math.max(0, Number(summary?.equipmentBoxes) || 0)}`]
+    ];
+    rows.forEach(([label, value], index) => {
+      const rowY = y + 48 + index * 29;
+      if (index % 2 === 0) {
+        graphics.fillStyle(0x0b2030, 0.62);
+        graphics.fillRoundedRect(x + 12, rowY - 5, width - 24, 24, 3);
+      }
+      this.createOverlayText(x + 20, rowY, label, {
+        fontSize: "11px",
+        color: "#8fb5ca",
+        fontStyle: "bold"
+      });
+      this.createOverlayText(x + width - 20, rowY - 2, String(value), {
+        fontSize: String(value).length > 18 ? "11px" : "13px",
+        color: "#ecf7ff",
+        fontStyle: "bold",
+        align: "right",
+        origin: { x: 1, y: 0 }
+      });
+    });
+  }
+
+  renderDataLinkPolicyPanel(x, y, width, height) {
+    const graphics = this.addOverlayChild(this.add.graphics());
+    graphics.fillStyle(0x07111e, 0.92);
+    graphics.fillRoundedRect(x, y, width, height, 8);
+    graphics.lineStyle(2, 0x6fcfff, 0.32);
+    graphics.strokeRoundedRect(x + 1, y + 1, width - 2, height - 2, 8);
+    this.createOverlayText(x + 20, y + 18, "SYNC POLICY", {
+      fontSize: "17px",
+      color: "#ecf7ff",
+      fontStyle: "bold"
+    });
+    const lines = [
+      "同期: GEEK / AM / SHOP / 解放状況",
+      "　　 LOST ARMS / Equipment / 記録",
+      "端末のみ: OPTION / OPERATOR ID",
+      "　　　　 取引途中 / ラン中の一時状態",
+      "",
+      "Googleの名前・メールは保存せず、",
+      "アカウント識別子だけを使用します。",
+      "同期失敗時も端末データで遊べます。"
+    ];
+    this.createOverlayText(x + 20, y + 52, lines.join("\n"), {
+      fontSize: "12px",
+      color: "#b8d4e8",
+      lineSpacing: 8,
+      wordWrap: { width: width - 40 }
+    });
+    this.createOverlayText(x + 20, y + height - 48, "OPERATOR IDは端末識別用です", {
+      fontSize: "11px",
+      color: "#f7d98a",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(x + 20, y + height - 29, "Googleアカウントとは別に維持されます", {
+      fontSize: "10px",
+      color: "#8fb5ca"
+    });
+  }
+
+  renderDataLinkShopContent() {
+    const state = this.cloudSaveState || { status: "error" };
+    const presentation = this.getCloudSaveStatusPresentation();
+    const left = -530;
+    const top = -208;
+    const contentWidth = 720;
+    const contentHeight = 414;
+    const graphics = this.addOverlayChild(this.add.graphics());
+    graphics.fillStyle(0x06131f, 0.92);
+    graphics.fillRoundedRect(left, top, contentWidth, contentHeight, 8);
+    graphics.lineStyle(2, presentation.accent, 0.58);
+    graphics.strokeRoundedRect(left + 1, top + 1, contentWidth - 2, contentHeight - 2, 8);
+    graphics.lineStyle(1, 0x7df3ff, 0.16);
+    graphics.strokeRoundedRect(left + 12, top + 12, contentWidth - 24, contentHeight - 24, 5);
+
+    this.createOverlayText(left + 24, top + 20, "DATA LINK / GOOGLE CLOUD SAVE", {
+      fontSize: "24px",
+      color: "#ecf7ff",
+      fontStyle: "bold"
+    });
+    this.createOverlayText(left + 24, top + 51, "スマホとブラウザで同じ進行データを使用", {
+      fontSize: "13px",
+      color: "#9ab7cc"
+    });
+    graphics.fillStyle(0x081a28, 0.9);
+    graphics.fillRoundedRect(left + 24, top + 78, contentWidth - 48, 66, 6);
+    graphics.lineStyle(2, presentation.accent, 0.48);
+    graphics.strokeRoundedRect(left + 25, top + 79, contentWidth - 50, 64, 6);
+    graphics.fillStyle(presentation.accent, 0.9);
+    graphics.fillCircle(left + 48, top + 111, 6);
+    this.createOverlayText(left + 66, top + 91, presentation.title, {
+      fontSize: "18px",
+      color: presentation.color,
+      fontStyle: "bold"
+    });
+    this.createOverlayText(left + 66, top + 117, state.errorMessage || presentation.detail, {
+      fontSize: "11px",
+      color: state.errorMessage ? "#ffcf91" : "#9ab7cc",
+      wordWrap: { width: contentWidth - 118 }
+    });
+
+    if (state.status === "conflict" && state.conflict) {
+      const localSummary = this.buildCloudSaveSummary(this.captureCloudSavePayload());
+      const remoteSummary = this.buildCloudSaveSummary(state.conflict.remotePayload);
+      this.renderCloudSaveSummaryCard(left + 24, top + 158, 318, 184, "この端末", localSummary, {
+        accent: 0x6fcfff,
+        timeLabel: "現在のデータ"
+      });
+      this.renderCloudSaveSummaryCard(left + 366, top + 158, 318, 184, "クラウド", remoteSummary, {
+        accent: 0xc596ff,
+        timeLabel: this.formatCloudSaveUpdatedAt(state.conflict.remoteUpdatedAt)
+      });
+      this.createShopButton(-347, 168, 304, 54, "クラウドを使用", "この端末へ読み込む", () => {
+        this.resolveCloudSaveConflict("remote");
+      }, 0x17374a, 0x24536d, { kicker: "DOWNLOAD" });
+      this.createShopButton(-5, 168, 304, 54, "この端末を保存", "クラウドを上書き", () => {
+        this.resolveCloudSaveConflict("local");
+      }, 0x4a2f17, 0x674422, { kicker: "UPLOAD" });
+    } else if (state.status === "ready" || state.status === "syncing") {
+      const summary = this.buildCloudSaveSummary(this.captureCloudSavePayload());
+      this.renderCloudSaveSummaryCard(left + 24, top + 158, contentWidth - 48, 184, "SYNCED PROGRESS", summary, {
+        accent: 0x66d25f,
+        timeLabel: `REV ${Math.max(0, state.revision)} / ${this.formatCloudSaveUpdatedAt(state.updatedAt)}`
+      });
+      if (state.status === "ready" && !state.busy && !state.writePromise) {
+        this.createShopButton(-347, 168, 304, 54, "今すぐ同期", "端末の最新データを保存", () => {
+          this.syncCloudSaveNow();
+        }, 0x174766, 0x236b92, { kicker: "MANUAL SYNC" });
+        this.createShopButton(-5, 168, 304, 54, "連携を解除", "端末データは残します", () => {
+          this.signOutCloudSaveAccount();
+        }, 0x2a1f2f, 0x3a2a44, { kicker: "LOCAL PLAY" });
+      }
+    } else {
+      this.createOverlayText(left + 40, top + 174, "Googleアカウントを任意で連携すると、確定済みの進行を別端末へ復元できます。", {
+        fontSize: "15px",
+        color: "#d8edf9",
+        wordWrap: { width: contentWidth - 80 }
+      });
+      this.createOverlayText(left + 40, top + 226, "初回だけ端末とクラウドを比較し、両方に進行がある場合は自動上書きせず選択画面を表示します。", {
+        fontSize: "12px",
+        color: "#9ab7cc",
+        lineSpacing: 5,
+        wordWrap: { width: contentWidth - 80 }
+      });
+      if (
+        !["checking", "authenticating", "loading", "applying", "disabled", "syncing"].includes(state.status) &&
+        !state.busy &&
+        !state.writePromise
+      ) {
+        if (state.uid) {
+          this.createShopButton(-347, 150, 304, 58, "再接続", "クラウド状態を確認", () => {
+            this.retryCloudSaveConnection();
+          }, 0x174766, 0x236b92, { kicker: "RETRY" });
+          this.createShopButton(-5, 150, 304, 58, "連携を解除", "ローカルプレイへ戻る", () => {
+            this.signOutCloudSaveAccount();
+          }, 0x2a1f2f, 0x3a2a44, { kicker: "LOCAL PLAY" });
+        } else {
+          this.createShopButton(-170, 150, 360, 62, "GOOGLEでデータ連携", "任意 / あとから解除できます", () => {
+            this.startGoogleCloudLink();
+          }, 0x174766, 0x236b92, { kicker: "CLOUD SAVE" });
+        }
+      }
+    }
+
+    this.renderDataLinkPolicyPanel(220, top, 330, contentHeight);
+    if (state.status === "conflict" && !state.busy && !state.writePromise) {
+      this.createShopButton(385, 105, 260, 50, "ローカルで続ける", "Google連携を解除", () => {
+        this.signOutCloudSaveAccount();
+      }, 0x2a1f2f, 0x3a2a44, { kicker: "DECIDE LATER" });
+    }
   }
 
   createOptionToggleCard({ x, y, width, height, title, description, enabled, accent, status, onToggle }) {
@@ -54958,6 +56538,18 @@ class SurvivalScene extends Phaser.Scene {
     this.renderHubNotice();
     this.renderShopModeTabs();
 
+    if (this.shopViewMode === "dataLink") {
+      this.renderDataLinkShopContent();
+      this.renderShopStartCta();
+
+      this.overlayBackdrop.setAlpha(1).setVisible(true);
+      this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
+      window.requestAnimationFrame?.(() => hideShopLoadingScreen());
+      scheduleMobileFullscreenResumeGate();
+      this.scheduleShopEpilogueFlush("showPreGameShop");
+      return;
+    }
+
     if (this.shopViewMode === "supply") {
       this.renderSupplyShopContent();
       this.renderShopStartCta();
@@ -55699,6 +57291,13 @@ class SurvivalScene extends Phaser.Scene {
 
   renderShopStartCta() {
     this.renderShopPhaseProgress(392, 256, 318);
+    if (this.isCloudSaveSortieBlocked()) {
+      this.createShopButton(392, 298, 318, 64, "DATA LINKを確認", "同期データの確認後に出撃できます", () => {
+        this.shopViewMode = "dataLink";
+        this.showPreGameShop(this.cloudSaveState?.errorMessage || "DATA LINKの確認が必要です");
+      }, 0x4a2f17, 0x674422, { kicker: "SYNC REQUIRED" });
+      return;
+    }
     this.createShopButton(392, 298, 318, 64, "SORTIE PREP", "開始前強化を選択", () => {
       this.startGameFromShop();
     }, 0x174766, 0x236b92, { kicker: "NEXT PHASE" });
@@ -56812,6 +58411,11 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   handleSortiePrepRequested() {
+    if (this.isCloudSaveSortieBlocked()) {
+      this.shopViewMode = "dataLink";
+      this.showPreGameShop(this.cloudSaveState?.errorMessage || "DATA LINKの確認が必要です");
+      return true;
+    }
     if (this.depthRelayStartOverlayActive) {
       return true;
     }
@@ -56902,6 +58506,9 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   continuePendingRunLaunchRequestFromHub(reason = "runLaunchRequest") {
+    if (this.isCloudSaveSortieBlocked()) {
+      return false;
+    }
     if (this.runLaunchRequestAutoContinueConsumed) {
       return false;
     }
@@ -56941,6 +58548,11 @@ class SurvivalScene extends Phaser.Scene {
 
   continueSortieFromHub() {
     if (!this.shopActive) {
+      return false;
+    }
+    if (this.isCloudSaveSortieBlocked()) {
+      this.shopViewMode = "dataLink";
+      this.showPreGameShop(this.cloudSaveState?.errorMessage || "DATA LINKの確認が必要です");
       return false;
     }
 
@@ -77071,12 +78683,24 @@ class SurvivalScene extends Phaser.Scene {
     this.physics?.world?.pause();
     this.sound?.stopAll();
 
-    window.setTimeout(() => {
+    const finishShopReturn = () => {
       if (useInPageReset && restartSurvivalSceneToShop(this, message, shopReturnOptions)) {
         return;
       }
       resetSurvivalGameToShop(message, shopReturnOptions);
-    }, 0);
+    };
+    const flushPromise = this.flushCloudSave("returnToOpeningShop", {
+      force: false,
+      blocking: false,
+      drainLatest: true
+    });
+    if (flushPromise && typeof flushPromise.then === "function") {
+      const timeoutPromise = new Promise((resolve) => window.setTimeout(resolve, 1600));
+      Promise.race([Promise.resolve(flushPromise).catch(() => false), timeoutPromise])
+        .finally(() => window.setTimeout(finishShopReturn, 0));
+    } else {
+      window.setTimeout(finishShopReturn, 0);
+    }
   }
 
   createGameOverRankingButton(centerX, centerY, width, height, title, description, onSelect) {
