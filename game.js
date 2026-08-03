@@ -3244,6 +3244,8 @@ const CD_CATALOG = [
 const BASE_CALIBRATION_UPGRADE_IDS = Object.freeze(["weapon", "armor", "shoes", REACTOR_COOLING_UPGRADE_ID]);
 const BASE_CALIBRATION_DEFAULT_CAP = 10;
 const BASE_CALIBRATION_ABSOLUTE_MAX_LEVEL = 25;
+const BASE_CALIBRATION_CAP_UNLOCK_DEBUG_QUERY_PARAM = "debugBaseCalibrationCapUnlock";
+const BASE_CALIBRATION_CAP_UNLOCK_NOTICE_DEPTHS = Object.freeze([20, 30]);
 const BASE_CALIBRATION_RELAY_CAP_TIERS = Object.freeze([
   Object.freeze({
     requiredRelayDepth: 10,
@@ -7957,6 +7959,8 @@ class SurvivalScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.destroySupplyCodeInputElement());
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardownDepth20ClearCodeOverlay("sceneShutdown"));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.teardownDepth20ClearCodeOverlay("sceneDestroy"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardownBaseCalibrationCapUnlockOverlay("sceneShutdown"));
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.teardownBaseCalibrationCapUnlockOverlay("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardownCloudSaveRuntime("sceneShutdown"));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.teardownCloudSaveRuntime("sceneDestroy"));
     this.gameplayRuntimeCreated = false;
@@ -7980,6 +7984,13 @@ class SurvivalScene extends Phaser.Scene {
     }
     if (this.isRankingDebugEnabled()) {
       this.time.delayedCall(120, () => this.showDebugRankingOverlay());
+    }
+    if (
+      this.getBaseCalibrationCapUnlockDebugDepth() &&
+      !this.isDeepExtractionResultDebugEnabled() &&
+      !this.isRankingDebugEnabled()
+    ) {
+      this.time.delayedCall(180, () => this.showDebugBaseCalibrationCapUnlockOverlay());
     }
   }
 
@@ -8645,6 +8656,11 @@ class SurvivalScene extends Phaser.Scene {
     this.reconcileDepth20ClearCodeWithHistory();
     this.depth20ClearCodeOverlayActive = false;
     this.depth20ClearCodeKeyHandler = null;
+    this.baseCalibrationCapUnlockOverlayActive = false;
+    this.baseCalibrationCapUnlockKeyHandler = null;
+    this.baseCalibrationCapUnlockContinueCallback = null;
+    this.pendingBaseCalibrationCapUnlockNotices = [];
+    this.baseCalibrationCapUnlockDebugShown = false;
     this.killRanking = this.loadKillRanking();
     this.pendingRankingRecord = null;
     this.pendingRankingSaved = false;
@@ -28790,6 +28806,67 @@ class SurvivalScene extends Phaser.Scene {
     return Number.isInteger(requiredDepth)
       ? `D${requiredDepth} BEACON REQUIRED`
       : "";
+  }
+
+  buildBaseCalibrationCapUnlockNotice(anchorDepth) {
+    const normalizedDepth = Math.floor(Number(anchorDepth) || 0);
+    if (!BASE_CALIBRATION_CAP_UNLOCK_NOTICE_DEPTHS.includes(normalizedDepth)) {
+      return null;
+    }
+    const tierIndex = BASE_CALIBRATION_RELAY_CAP_TIERS.findIndex((tier) => (
+      tier.requiredRelayDepth === normalizedDepth
+    ));
+    if (tierIndex < 0) {
+      return null;
+    }
+
+    const tier = BASE_CALIBRATION_RELAY_CAP_TIERS[tierIndex];
+    const previousTier = BASE_CALIBRATION_RELAY_CAP_TIERS[tierIndex - 1] || null;
+    const nextTier = BASE_CALIBRATION_RELAY_CAP_TIERS[tierIndex + 1] || null;
+    return {
+      anchorDepth: normalizedDepth,
+      previousCap: previousTier?.cap || BASE_CALIBRATION_DEFAULT_CAP,
+      cap: tier.cap,
+      nextAnchorDepth: nextTier?.requiredRelayDepth || null,
+      nextCap: nextTier?.cap || null
+    };
+  }
+
+  queueBaseCalibrationCapUnlockNotices(anchorDepths = []) {
+    if (!Array.isArray(this.pendingBaseCalibrationCapUnlockNotices)) {
+      this.pendingBaseCalibrationCapUnlockNotices = [];
+    }
+    const queuedDepths = new Set(
+      this.pendingBaseCalibrationCapUnlockNotices.map((notice) => notice?.anchorDepth)
+    );
+    anchorDepths.forEach((depth) => {
+      const notice = this.buildBaseCalibrationCapUnlockNotice(depth);
+      if (!notice || queuedDepths.has(notice.anchorDepth)) {
+        return;
+      }
+      queuedDepths.add(notice.anchorDepth);
+      this.pendingBaseCalibrationCapUnlockNotices.push(notice);
+    });
+    this.pendingBaseCalibrationCapUnlockNotices.sort((left, right) => left.anchorDepth - right.anchorDepth);
+    return this.pendingBaseCalibrationCapUnlockNotices.length;
+  }
+
+  hasPendingBaseCalibrationCapUnlockNotice() {
+    return (this.pendingBaseCalibrationCapUnlockNotices?.length || 0) > 0;
+  }
+
+  getBaseCalibrationCapUnlockDebugDepth() {
+    const value = this.getUrlStageParam(BASE_CALIBRATION_CAP_UNLOCK_DEBUG_QUERY_PARAM);
+    if (value === null) {
+      return null;
+    }
+    const normalizedValue = String(value || "").trim().toLowerCase();
+    const requestedDepth = ["1", "true", "yes", "on"].includes(normalizedValue)
+      ? 20
+      : Math.floor(Number(value) || 0);
+    return BASE_CALIBRATION_CAP_UNLOCK_NOTICE_DEPTHS.includes(requestedDepth)
+      ? requestedDepth
+      : null;
   }
 
   getPermanentUpgradeCardPresentation(options = {}) {
@@ -60454,6 +60531,194 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
+  tryOpenPendingBaseCalibrationCapUnlockOverlay(options = {}) {
+    if (this.baseCalibrationCapUnlockOverlayActive || !this.hasPendingBaseCalibrationCapUnlockNotice()) {
+      return false;
+    }
+    const notice = this.pendingBaseCalibrationCapUnlockNotices.shift();
+    return this.showBaseCalibrationCapUnlockOverlay(notice, options);
+  }
+
+  showBaseCalibrationCapUnlockOverlay(notice, options = {}) {
+    if (!notice || !Number.isInteger(notice.anchorDepth) || !Number.isInteger(notice.cap)) {
+      return false;
+    }
+
+    this.clearOverlayButtons();
+    this.baseCalibrationCapUnlockOverlayActive = true;
+    this.baseCalibrationCapUnlockContinueCallback = typeof options.onContinue === "function"
+      ? options.onContinue
+      : null;
+    this.physics?.world?.pause?.();
+    this.configureOverlayPanel(760, 500);
+    this.overlayPanel
+      .setFillStyle(0x040b13, 0.98)
+      .setStrokeStyle(3, 0x6ff7ff, 0.72);
+    this.overlayTitle
+      .setStyle({
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "34px",
+        color: "#f4fdff",
+        fontStyle: "bold",
+        align: "center"
+      })
+      .setOrigin(0.5)
+      .setPosition(0, -202)
+      .setText(`D${notice.anchorDepth} BEACON ANCHOR SECURED`);
+    this.overlayBody
+      .setStyle({
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "16px",
+        color: "#8edff0",
+        fontStyle: "bold",
+        align: "center"
+      })
+      .setOrigin(0.5)
+      .setPosition(0, -158)
+      .setText(options.debugPreview ? "DEBUG PREVIEW / SAVE UNCHANGED" : "BEACON NETWORK EXPANDED");
+
+    this.addOverlayChild(
+      this.add
+        .rectangle(0, -52, 530, 142, 0x091b29, 0.98)
+        .setStrokeStyle(2, 0xf0c463, 0.62)
+    );
+    this.createOverlayText(0, -112, "BASE CALIBRATION CAP", {
+      fontSize: "15px",
+      color: "#9fc9df",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+    this.createOverlayText(0, -86, `${notice.previousCap} → ${notice.cap}`, {
+      fontFamily: "Consolas, monospace",
+      fontSize: "58px",
+      color: "#fff2ad",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+    this.createOverlayText(0, 1, "ARMAMENT / AP FRAME / BOOSTER / COOLING", {
+      fontSize: "14px",
+      color: "#bcecff",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+    this.createOverlayText(0, 38, "追加レベルは GEEKSHOP で購入できます", {
+      fontSize: "16px",
+      color: "#d7e9f3",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+
+    const nextTargetLabel = notice.nextAnchorDepth
+      ? `NEXT TARGET: DEPTH ${notice.nextAnchorDepth}`
+      : "BEACON NETWORK LIMIT";
+    const nextTargetHint = notice.nextAnchorDepth
+      ? `D${notice.nextAnchorDepth} ANCHOR で CAP ${notice.nextCap} 解放`
+      : `CAP ${notice.cap} / DEPTH ${notice.anchorDepth + 1}+ はビーコン圏外`;
+    this.createOverlayText(0, 72, nextTargetLabel, {
+      fontSize: "22px",
+      color: notice.nextAnchorDepth ? "#73f7ff" : "#ffcf91",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+    this.createOverlayText(0, 103, nextTargetHint, {
+      fontSize: "13px",
+      color: "#87a9bd",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+
+    const continueButton = this.addOverlayChild(
+      this.add
+        .rectangle(0, 166, 310, 62, 0x17314a, 0.98)
+        .setStrokeStyle(2, 0x6ff7ff, 0.7)
+        .setInteractive({ useHandCursor: true })
+    );
+    continueButton.on("pointerover", () => continueButton.setFillStyle(0x214863, 1));
+    continueButton.on("pointerout", () => continueButton.setFillStyle(0x17314a, 0.98));
+    this.addOverlayAction(continueButton, () => this.closeBaseCalibrationCapUnlockOverlay("continue"), true, 8);
+    this.createOverlayText(0, 150, "CONTINUE", {
+      fontSize: "24px",
+      color: "#f4fdff",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+    this.createOverlayText(0, 211, "クリック / タップ / Enter・Space・Esc", {
+      fontSize: "13px",
+      color: "#7899ae",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+
+    this.baseCalibrationCapUnlockKeyHandler = (event) => {
+      if (!this.baseCalibrationCapUnlockOverlayActive || !["Enter", " ", "Escape"].includes(event.key)) {
+        return;
+      }
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      this.closeBaseCalibrationCapUnlockOverlay("keyboard");
+    };
+    this.input?.keyboard?.on("keydown", this.baseCalibrationCapUnlockKeyHandler);
+    this.overlayBackdrop.setFillStyle(0x01040a, 0.9).setAlpha(1).setVisible(true);
+    this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
+    this.setOverlayFocusedAction(this.overlayActions[0]);
+    return true;
+  }
+
+  teardownBaseCalibrationCapUnlockOverlay(reason = "teardown") {
+    if (this.baseCalibrationCapUnlockKeyHandler) {
+      this.input?.keyboard?.off("keydown", this.baseCalibrationCapUnlockKeyHandler);
+      this.baseCalibrationCapUnlockKeyHandler = null;
+    }
+    this.baseCalibrationCapUnlockOverlayActive = false;
+    this.baseCalibrationCapUnlockContinueCallback = null;
+    if (["sceneShutdown", "sceneDestroy"].includes(reason)) {
+      this.pendingBaseCalibrationCapUnlockNotices = [];
+    }
+  }
+
+  closeBaseCalibrationCapUnlockOverlay(reason = "continue") {
+    if (!this.baseCalibrationCapUnlockOverlayActive) {
+      return false;
+    }
+    const onContinue = this.baseCalibrationCapUnlockContinueCallback;
+    this.baseCalibrationCapUnlockOverlayActive = false;
+    this.baseCalibrationCapUnlockContinueCallback = null;
+    this.hideOverlay();
+    if (this.tryOpenPendingBaseCalibrationCapUnlockOverlay({ onContinue })) {
+      return true;
+    }
+    if (onContinue) {
+      onContinue(reason);
+      return true;
+    }
+    if (!this.shopActive && !this.gameOver && !this.extractionComplete) {
+      this.resumeGameplayAfterBlockingOverlay("baseCalibrationCapUnlock");
+      this.tryOpenPendingPostOverlaySelections?.();
+    }
+    return true;
+  }
+
+  showDebugBaseCalibrationCapUnlockOverlay() {
+    const anchorDepth = this.getBaseCalibrationCapUnlockDebugDepth();
+    if (!anchorDepth || this.baseCalibrationCapUnlockDebugShown || this.gameOver || this.extractionComplete) {
+      return false;
+    }
+    const notice = this.buildBaseCalibrationCapUnlockNotice(anchorDepth);
+    if (!notice) {
+      return false;
+    }
+    this.baseCalibrationCapUnlockDebugShown = true;
+    return this.showBaseCalibrationCapUnlockOverlay(notice, {
+      debugPreview: true,
+      onContinue: () => this.showPreGameShop(this.shopStatusMessage || "")
+    });
+  }
+
   showDepth20ClearCodeUnlockOverlay() {
     if (!this.isDepth20ClearCodeUnlocked()) {
       return false;
@@ -60559,6 +60824,9 @@ class SurvivalScene extends Phaser.Scene {
     }
     this.depth20ClearCodeOverlayActive = false;
     this.hideOverlay();
+    if (this.tryOpenPendingBaseCalibrationCapUnlockOverlay()) {
+      return true;
+    }
     if (!this.shopActive && !this.gameOver && !this.extractionComplete) {
       this.resumeGameplayAfterBlockingOverlay("depth20ClearCode");
       this.tryOpenPendingPostOverlaySelections?.();
@@ -60634,12 +60902,13 @@ class SurvivalScene extends Phaser.Scene {
       this.stageDepth,
       this.runStartContext
     );
-    this.unlockCompletedDepthRelayAnchors({
+    const depthRelayAnchorUnlockResult = this.unlockCompletedDepthRelayAnchors({
       eventType: "advance",
       completedDepth,
       targetDepth,
       maxAbsoluteDepthReached: this.getRunMaxAbsoluteDepthReached(this.runDepthProgressState)
     });
+    this.queueBaseCalibrationCapUnlockNotices(depthRelayAnchorUnlockResult.newlyUnlockedDepths);
     const depth20ClearCodeResult = this.unlockDepth20ClearCodeFromAdvance({
       completedDepth,
       targetDepth,
@@ -60668,7 +60937,11 @@ class SurvivalScene extends Phaser.Scene {
       this.refreshTriadMatrixSnapshot("depthTransition", { notify: false });
     }
     this.hideOverlay();
-    if (!enterFinalBossRaid && !depth20ClearCodeResult.unlockedNow) {
+    if (
+      !enterFinalBossRaid &&
+      !depth20ClearCodeResult.unlockedNow &&
+      !this.hasPendingBaseCalibrationCapUnlockNotice()
+    ) {
       this.resumeGameplayAfterBlockingOverlay("depthTransition");
     }
     this.clearGateStabilizeProtocolState("depthTransition", { preserveAnchor: true });
@@ -60690,6 +60963,8 @@ class SurvivalScene extends Phaser.Scene {
     });
     if (depth20ClearCodeResult.unlockedNow) {
       this.showDepth20ClearCodeUnlockOverlay();
+    } else {
+      this.tryOpenPendingBaseCalibrationCapUnlockOverlay();
     }
     this.queueDepthDirectiveSelection(targetDepth, "depthTransition");
     this.onDepthStartedForNemesis(targetDepth, "depthTransition");
@@ -60749,12 +61024,16 @@ class SurvivalScene extends Phaser.Scene {
           isFinalRaid: this.isFinalBossRaidActive?.() === true
         })
       : this.createEmptyEquipmentDeepCacheRewardResult("emergency");
+    let baseCalibrationCapUnlockNotice = null;
     if (!emergency) {
-      this.unlockCompletedDepthRelayAnchors({
+      const depthRelayAnchorUnlockResult = this.unlockCompletedDepthRelayAnchors({
         eventType: "normalExtract",
         maxAbsoluteDepthReached: maxAbsoluteDepthReachedForEquipmentCache,
         extractionMode: "normal"
       });
+      const newlyUnlockedAnchorDepth = depthRelayAnchorUnlockResult.newlyUnlockedDepths?.[0];
+      baseCalibrationCapUnlockNotice = this.buildBaseCalibrationCapUnlockNotice(newlyUnlockedAnchorDepth);
+      this.queueBaseCalibrationCapUnlockNotices(depthRelayAnchorUnlockResult.newlyUnlockedDepths);
     }
     this.setRunRankingExtractionStats(emergency ? "emergency" : "normal", result?.secured, true);
     const recordState = this.saveBestRecordIfNeeded();
@@ -60800,8 +61079,18 @@ class SurvivalScene extends Phaser.Scene {
     const lostText = result.lost > 0 ? ` / LOST ${result.lost.toLocaleString()}` : "";
     const anjuMemoryText = this.formatAnjuMemoryAwardLine(anjuMemoryAward);
     const mutationAtlasText = this.formatMutationAtlasExtractionLines(mutationAtlasResult).join("\n");
+    const baseCalibrationCapUnlockText = baseCalibrationCapUnlockNotice
+      ? `D${baseCalibrationCapUnlockNotice.anchorDepth} BEACON SECURED / BASE CALIBRATION CAP ${baseCalibrationCapUnlockNotice.previousCap} → ${baseCalibrationCapUnlockNotice.cap}`
+      : "";
     const displayExtractionMessage = [lostArmsMessage, equipmentTransferMessage].filter(Boolean).join("\n");
-    const returnMessage = [`作戦成功 ${securedText}${lostText}`, lostArmsMessage, equipmentTransferMessage, anjuMemoryText, mutationAtlasText].filter(Boolean).join("\n");
+    const returnMessage = [
+      `作戦成功 ${securedText}${lostText}`,
+      baseCalibrationCapUnlockText,
+      lostArmsMessage,
+      equipmentTransferMessage,
+      anjuMemoryText,
+      mutationAtlasText
+    ].filter(Boolean).join("\n");
     this.prepareExtractionRankingEntry(recordState, {
       reason: emergency ? "emergencyExtract" : "extract",
       securedCoins: result.secured,
@@ -60889,6 +61178,14 @@ class SurvivalScene extends Phaser.Scene {
 
   showExtractionRankingOverlayOrReturn() {
     if (!this.extractionComplete) {
+      return;
+    }
+    if (this.baseCalibrationCapUnlockOverlayActive) {
+      return;
+    }
+    if (this.tryOpenPendingBaseCalibrationCapUnlockOverlay({
+      onContinue: () => this.showExtractionRankingOverlayOrReturn()
+    })) {
       return;
     }
 
@@ -61891,6 +62188,13 @@ class SurvivalScene extends Phaser.Scene {
     if (this.depth20ClearCodeOverlayActive) {
       if (this.hasAcMovementVisuals()) {
         this.cleanupAcMovementVisuals("depth20ClearCodeOverlay");
+      }
+      return;
+    }
+
+    if (this.baseCalibrationCapUnlockOverlayActive) {
+      if (this.hasAcMovementVisuals()) {
+        this.cleanupAcMovementVisuals("baseCalibrationCapUnlockOverlay");
       }
       return;
     }
@@ -79766,6 +80070,7 @@ class SurvivalScene extends Phaser.Scene {
     this.teardownAnomalyContractOverlay();
     this.teardownStabilizeProtocolOverlay();
     this.teardownDepth20ClearCodeOverlay("clearOverlay");
+    this.teardownBaseCalibrationCapUnlockOverlay("clearOverlay");
     this.teardownFinalBossRaidPlaceholder?.("clearOverlay");
     this.teardownFinalBossLiberationGate?.("clearOverlay");
     this.cleanupDeepExtractionResultOverlay("clearOverlay");

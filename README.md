@@ -591,6 +591,10 @@ GEEKSHOP / BASE CALIBRATION:
 - Booster: 基本上限 Lv.10、Depth10 Anchor 解放で Lv.15、Depth20 Anchor 解放で Lv.20、Depth30 Anchor 解放で Lv.25。推進出力 +8 / Lv
 - Reactor Cooling: 基本上限 Lv.10、Depth10 Anchor 解放で Lv.15、Depth20 Anchor 解放で Lv.20、Depth30 Anchor 解放で Lv.25。BOOST EN回復倍率 +2% / Lv。Lv10で x1.20、Lv25で x1.50 になり、基礎回復量 24 / 秒は変更しません。
 - 上限解放は購入可能Lvを広げるだけで、無料Lvは付与されません。Lv21〜25も従来と同じ効果式と確定 GEEK の価格式を継続します。Depth31 以降はビーコン圏外のため、現時点で Lv26 以上はありません。Depth30 Anchor による上限解放は、D30転送カードの表示条件と同じく Anchor 解放状態だけを参照し、購入済みLvや装備状態はD30選択条件にしません。
+
+Depth20 / Depth30 Anchor を初めて解放したときは、`BASE CALIBRATION CAP 15 → 20` / `20 → 25` を専用画面で通知します。Depth20 では `NEXT TARGET: DEPTH 30`、Depth30 では `BEACON NETWORK LIMIT` を表示し、追加Lvは無料付与ではなく従来どおり確定GEEKで購入します。D20→21で固定クリアコードも同時に初回解放された場合は、既存のクリアコード画面を確認したあとに上限解放画面を表示します。D20 / D30 以上で通常 `EXTRACT` してAnchorを解放した場合は、`DEEP EXTRACTION RESULT` のあと、ランキング入力またはOPERATIONS HUB復帰の前に表示します。`EMERGENCY EXTRACT`、ゲームオーバー、Gate崩壊、debug進行、解放済みAnchorへの再到達では表示しません。
+
+表示だけを確認するdebug URLは `?mobileGate=0&mobileControls=0&debugBaseCalibrationCapUnlock=20` または `=30` です。保存済みAnchor、ショップLv、確定GEEKを変更せず、画面内にも `DEBUG PREVIEW / SAVE UNCHANGED` を表示します。debug URLでは既存方針どおりクラウド同期を停止します。
 - SUPPORT LINK SYSTEM: 60,000 GEEK でインストール。インストール後は Support の正常発動累計で `LINK Lv.1-6` まで自動成長し、Support combat effect が +5% から最大 +25% になります。
 - 回収ロボ: 最大 Lv.10。必要 GEEK は 100,000 / 150,000 / 230,000 / 350,000 / 520,000 / 780,000 / 1,150,000 / 1,700,000 / 2,500,000 / 3,600,000。
 
