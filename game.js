@@ -53444,12 +53444,12 @@ class SurvivalScene extends Phaser.Scene {
         accent: 0xc596ff,
         timeLabel: this.formatCloudSaveUpdatedAt(state.conflict.remoteUpdatedAt)
       });
-      this.createShopButton(-347, 168, 304, 54, "クラウドを使用", "この端末へ読み込む", () => {
-        this.resolveCloudSaveConflict("remote");
-      }, 0x17374a, 0x24536d, { kicker: "DOWNLOAD" });
-      this.createShopButton(-5, 168, 304, 54, "この端末を保存", "クラウドを上書き", () => {
+      this.createShopButton(-347, 168, 304, 54, "この端末のデータを使う", "クラウドをこの内容で上書き", () => {
         this.resolveCloudSaveConflict("local");
       }, 0x4a2f17, 0x674422, { kicker: "UPLOAD" });
+      this.createShopButton(-5, 168, 304, 54, "クラウドのデータを使う", "この端末へ読み込む", () => {
+        this.resolveCloudSaveConflict("remote");
+      }, 0x17374a, 0x24536d, { kicker: "DOWNLOAD" });
     } else if (state.status === "ready" || state.status === "syncing") {
       const summary = this.buildCloudSaveSummary(this.captureCloudSavePayload());
       this.renderCloudSaveSummaryCard(left + 24, top + 158, contentWidth - 48, 184, "SYNCED PROGRESS", summary, {
