@@ -682,11 +682,11 @@ OPTION では `BGM OUTPUT`、`SFX / VOICE OUTPUT`、`CONTROLLER INPUT` を ON / 
 
 ## Googleアカウント データ連携
 
-OPERATIONS HUB の `DATA LINK` タブから、任意でGoogleアカウントを連携できます。連携後は同じGoogleアカウントで開いたスマートフォンとPCブラウザーの間で、確定済みの進行データを自動同期します。未連携または通信失敗時も従来どおりlocalStorageで遊べます。
+OPERATIONS HUB の `DATA LINK` タブから、任意でGoogleアカウントを連携できます。連携後は同じGoogleアカウントで開いたスマートフォンとPCブラウザーの間で、確定済みの進行データを共有できます。クラウドへの自動保存は、作戦終了後にOPERATIONS HUBへ帰還するときの変更分1回だけです。`今すぐ同期` から手動でも保存でき、ラン中やHUB内の個別操作ではlocalStorageだけを更新してFirestoreへ逐次書き込みません。未連携または通信失敗時も従来どおりlocalStorageで遊べます。
 
 初回連携では、クラウドが空なら現在の端末データを保存し、端末が初期状態なら既存クラウドデータを自動復元します。端末とクラウドの両方に異なる進行がある場合は自動上書きせず、GEEK、ANJU MEMORY、Best Depth、Equipment概要を比較して、各データカード直下の `この端末のデータを使う` / `クラウドのデータを使う` から採用する進行を選びます。端末データを使う場合はクラウドをその内容で上書きし、クラウドデータを使う場合はこの端末へ読み込みます。選択が終わるまでは出撃を止め、ショップの購入や端末データ自体は失いません。使用済みSUPPLY IDはどちらを選んでも和集合で維持します。
 
-クラウド保存は `playerCloudSaves/{uid}` のrevisionと、`segments/core`、`segments/equipment`、`segments/archive` の3区分を1トランザクションで更新します。別端末が先に更新していた場合はrevision競合として選択画面へ戻します。localStorageはオフライン復旧用ミラーとして維持し、同期メタデータだけを `lastmemoVansabaCloudSaveMeta` に保存します。
+クラウド保存は `playerCloudSaves/{uid}` のrevisionと、`segments/core`、`segments/equipment`、`segments/archive` の3区分を1トランザクションで更新します。通常の進行変更は端末側で未同期としてまとめ、次のHUB帰還または `今すぐ同期` で保存します。ページを再読み込みしても既知の未同期データを勝手にアップロードせず、クラウド側のrevisionが変わっていれば競合選択を表示します。初回Google連携と競合画面で `この端末のデータを使う` を明示選択した場合は、その操作に伴って保存します。別端末が先に更新していた場合はrevision競合として選択画面へ戻します。localStorageはオフライン復旧用ミラーとして維持し、同期メタデータだけを `lastmemoVansabaCloudSaveMeta` に保存します。
 
 同期対象:
 
@@ -735,7 +735,7 @@ localStorage キー:
 - `lastmemoVansabaBestRecord`: ベスト記録。`bestDepth` と `bestExtractedGeek` も保存します。
 - `lastmemoVansabaKillRanking`: ローカルランキング。各 entry は `bestDepth`、`startDepth`、`usedDepthRelay`、`extractedGeek`、`extractMode`、`extractionSucceeded`、`submittedAt`、`version` を持ち、古い entry にフィールドがない場合は `bestDepth = 1`、`startDepth = 1`、`usedDepthRelay = false`、`extractedGeek = 0`、`extractMode = none` に補完します。
 - `lastmemoVansabaCoins`: 確定 GEEK
-- `lastmemoVansabaCloudSaveMeta`: Googleデータ連携中のUID、同期済みrevision、端末ミラーのfingerprint、同期時刻。ゲーム進行本体は既存キーのまま維持します。
+- `lastmemoVansabaCloudSaveMeta`: Googleデータ連携中のUID、同期済みrevision、端末ミラーのfingerprint、同期時刻、未同期変更時刻。ゲーム進行本体は既存キーのまま維持します。
 - `lastmemoVansabaCloudSaveDebugQuarantine`: デバッグ用URLを開いた端末で通常セーブへの自動送信を止め、通常URLへ戻した後の明示選択が終わるまで保持する安全マーカー。進行データ本体は含みません。
 - `lastmemoVansabaOperatorId`: 端末内生成した OPERATOR ID の version と ID。Firebase、ランキング、RUN ARCHIVE には送信しません。
 - `lastmemoVansabaSupplyCodeState`: SUPPLY TERMINAL の version、受取済み支給ID、連続失敗回数、ロック期限。アクセスコード本体や入力値は保存しません。Google連携では受取済みIDだけを同期し、失敗回数とロック期限は端末内に残します。
