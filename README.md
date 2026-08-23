@@ -2,7 +2,7 @@
 
 Phaser 3 製のブラウザ向け 2D サバイバルゲームです。ビルド工程はなく、`index.html`、`vendor/phaser.min.js`、`skillDefinitions.js`、`stageDefinitions.js`、`game.js` をローカル HTTP サーバーで配信して動かします。
 
-操作キャラは通常 Depth ではクマ型超巨大ロボットに搭乗し、背部ブースターで浮遊しながら高速移動します。Final Raid では専用戦闘表示に切り替わりますが、Final Raid ではない通常 Depth10 や Depth10 Relay ではロボット表示のまま進行します。スキル、パッシブ、サポート攻撃、随伴ロボット、LOST ARMS を強化しながら敵を倒し、XP と未確定 GEEK を集めます。2 分ごとに出現する Stage Gate では、Depth を上げて続行するか、未確定 GEEK を確定して帰還するかを選びます。
+操作キャラは通常 Depth ではクマ型超巨大ロボットに搭乗し、背部ブースターで浮遊しながら高速移動します。Final Raid では専用戦闘表示に切り替わりますが、Final Raid ではない通常 Depth10 や Depth10 Relay ではロボット表示のまま進行します。スキル、パッシブ、サポート攻撃、随伴ロボット、LOST ARMS を強化しながら敵を倒し、XP と未確定 GEEK を集めます。各 Depth の開始から 2 分で Stage Gate が開き、基本 30 秒以内に中央へ進入すると、Depth を上げて続行するか、未確定 GEEK を確定して帰還するかを選べます。
 
 ## 起動方法
 
@@ -69,8 +69,8 @@ Cloudflare 配信では `_headers` で HTML を `max-age=0, must-revalidate`、J
 8. ANJU MEMORY の +1 チケットを持っている場合、最初の Opening Boost だけ 4 択になります。
 9. Opening Boost 完了後に戦闘へ出撃し、敵を倒して XP、未確定 GEEK、Support、Robot、LOST ARMS アイテムを集めます。
 10. レベルアップ時はスキル解放、スキル強化、パッシブ強化から 3 択で 1 つ選びます。
-11. 各 Depth の開始から 120 秒で Stage Gate が開きます。
-12. Stage Gate では次の Depth へ進むか、未確定 GEEK を確定してショップへ帰還します。
+11. 各 Depth の開始から 120 秒で Stage Gate が開きます。開放 30 秒前から中央に信号と縦型ポータルの予告が出ます。
+12. Gate 開放後は基本 30 秒以内に中央へ進入し、次の Depth へ進むか、未確定 GEEK を確定してショップへ帰還します。Depth 1〜5 で未進入のまま崩壊すると作戦失敗です。
 13. `NEXT STAGE` / `FORCE BREAKTHROUGH` で次 Depth へ進むと、地面に残った一部報酬が DATA CACHE に圧縮されます。
 14. Depth10 初回未討伐時は通常フィールドではなく Depth10 Final Raid に入り、残り 40 秒でボス HP が 0 になった後、600 秒到達時に専用の `ドールを解放する` ゲートだけが出現します。このゲートは Depth11 へ進まず、討伐報酬を保存して OPERATIONS HUB へ帰還します。
 15. Depth10 Final Raid 討伐後に通常プレイで Depth10 へ到達した場合は通常 Depth として進行し、CDSHOP で選択中の BGM を維持します。
@@ -110,6 +110,7 @@ Final Raid 中は `DOLL FIELD JAMMING` により福音領域外から内部へ�
 - 通常 `EXTRACT` では未確定 GEEK の 100% が確定 GEEK になります。
 - 通常ゲームオーバー、Depth 5 までの Gate 崩壊では未確定 GEEK を失います。
 - Depth 6 以降の不安定 Gate では、緊急脱出時に未確定 GEEK の一部だけを確定できます。
+- Depth 1〜5 の Gate 崩壊結果と OPERATIONS HUB 帰還通知には、失った未確定 GEEK と、確定 GEEK が維持されたことを分けて表示します。
 
 Depth 6 以降では `GEEK MILESTONE BONUS` が解禁され、Depth / 不安定度 / ANOMALY CONTRACT の既存 GEEK 係数に加算されます。これはラン中に獲得する未確定 GEEK の補正であり、確定 GEEK、ショップ通貨、`lastmemoVansabaCoins` を直接増やすものではありません。
 
@@ -299,14 +300,16 @@ HUD 中央に `ST` ゲージとチャージ数が表示されます。抽出、�
 
 ## Depth と Stage Gate
 
-Depth は 1 から開始します。各 Depth の開始から 120 秒で Stage Gate が開き、出現 30 秒前から警告が始まります。Gate は通常 30 秒間安定し、STABILIZE チャージを持っている場合は出現時に安定時間が延長されます。
+Depth は 1 から開始します。各 Depth の開始から 120 秒で Stage Gate が開き、出現 30 秒前から警告が始まります。Gate は通常 30 秒間安定し、STABILIZE チャージを持っている場合は出現時に安定時間が延長されます。つまり「2 分以内に入る」のではなく、2 分の戦闘後に開く Gate へ、その開放時間内に入る流れです。
 
 Gate 接近演出:
 
-- 30 秒前からワールド中央に `GATE SIGNAL` とカウントダウンリングが表示されます。
-- 残り 10 秒から `GATE IMMINENT` になり、HUD のエッジ警告とテンションバーが強まります。
-- Gate 出現中は `GATE ONLINE` / `GATE COLLAPSING` / `UNSTABLE GATE` の表示、円形タイマー、粒子、パルスで残り時間と危険度を示します。
-- 不安定化時は画面フラッシュ、ピンク系の Gate 色、`INSTABILITY STACK` 表示で状態変化を示します。
+- 30 秒前からワールド中央に、光柱、縦型ポータル予告、床面リング、`GATE SIGNAL`、カウントダウンを表示します。画面外では方向マーカーが `GATE出現地点` を示します。
+- Gate 開放中は大きな縦型ポータル、光柱、床面リング、進入方向のシェブロン、粒子、円形残り時間リングを表示し、中央に入る対象であることを明確にします。
+- HUD は Gate 接近中・開放中に `未進入で作戦失敗` と現在の `未確定GEEK` 消失額を固定表示し、オペレーターは接近時、開放時、残り 10 秒で必ず警告します。
+- Depth 1〜5 で初めて Gate が開いたときは、`2:00 戦闘 → GATE開放 → 中央へ進入` を説明する一度きりの案内画面を表示します。案内中は戦闘と Gate カウントを停止します。
+- Depth 1〜5 で初めて崩壊時間を迎えた場合だけ、一度きりの救済として Gate を 15 秒延長し、専用警告を表示します。救済後も未進入なら通常どおり作戦失敗です。
+- Depth 6 以降で不安定化した場合は、画面フラッシュ、ピンク系の Gate 色、`不安定度` 表示で状態変化を示します。初回救済は適用しません。
 
 通常 Gate 選択:
 
@@ -741,6 +744,7 @@ localStorage キー:
 - `lastmemoVansabaSupplyCodeState`: SUPPLY TERMINAL の version、受取済み支給ID、連続失敗回数、ロック期限。アクセスコード本体や入力値は保存しません。Google連携では受取済みIDだけを同期し、失敗回数とロック期限は端末内に残します。
 - `lastmemoVansabaSupplyCodeTransaction`: 支給GEEKと受取履歴の保存途中だけ使う復旧ジャーナル。両方の保存完了後に削除し、残っている場合は次回起動時に未完了取引を再確認します。
 - `lastmemoVansabaOptionsState`: OPTION の BGM OUTPUT、SFX / VOICE OUTPUT、CONTROLLER INPUT の ON / OFF 状態。端末ごとの設定としてクラウド同期しません。
+- `lastmemoVansabaGateGuidanceState`: Gate 初回案内の確認済み状態と、一度きりの 15 秒救済の使用済み状態。端末内だけに保存し、Googleデータ連携、Firebase、ランキングには送信しません。
 - `lastmemoVansabaSupportLinkState`: SUPPORT LINK SYSTEM のインストール状態、LINK Lv、累計正常発動回数
 - `lastmemoVansabaShopState`: CD 所持、選択 BGM、永続強化状態、回収ロボ `cleaningRobotLevel`、`robotCustom`、プレイヤー機体 `playerMechs`。`cleaningRobotLevel` は古い保存データに無い場合 Lv0 へ補完します。`robotCustom` は `missileCapTier`、`recoveryCapTier`、`napalmUnlocked`、`barrierUnlocked` を持ち、`playerMechs` は所持機体 `ownedIds` と選択機体 `selectedId` を持ちます。古い保存データに無い場合は初期値へ補完します。
 - `lastmemoVansabaLostArmsState`: LOST ARMS 永続 Lv と pity

@@ -471,7 +471,7 @@ const COMPACT_HUD_LAYOUT = Object.freeze({
   gate: { x: GAME_WIDTH / 2, y: 58 },
   right: { x: GAME_WIDTH - 28, y: 18, width: 248 },
   boost: { labelOffsetY: -26, valueOffsetY: 394 },
-  objective: { x: GAME_WIDTH / 2, y: 96, width: 520 },
+  objective: { x: GAME_WIDTH / 2, y: 96, width: 760 },
   chips: { x: 324, y: GAME_HEIGHT - 42, width: 112, height: 22, gap: 8 },
   toggle: { x: GAME_WIDTH - 128, y: GAME_HEIGHT - 44, width: 112, height: 30 }
 });
@@ -1343,6 +1343,7 @@ const GATE_STABLE_MS = 30000;
 const GATE_INSTABILITY_DEPTH = 6;
 const GATE_ENTER_RADIUS = 112;
 const GATE_URGENT_LEAD_MS = 10000;
+const GATE_GUIDANCE_RESCUE_MS = 15000;
 const DROP_CLEANUP_CONFIG = {
   xpReturnRate: 0.25,
   coinReturnRate: 0.25,
@@ -1924,6 +1925,8 @@ const KILL_RANKING_STORAGE_KEY = "lastmemoVansabaKillRanking";
 const COIN_WALLET_STORAGE_KEY = "lastmemoVansabaCoins";
 const SHOP_STATE_STORAGE_KEY = "lastmemoVansabaShopState";
 const OPERATOR_ID_STORAGE_KEY = "lastmemoVansabaOperatorId";
+const GATE_GUIDANCE_STORAGE_KEY = "lastmemoVansabaGateGuidanceState";
+const GATE_GUIDANCE_STATE_VERSION = 1;
 const OPERATOR_ID_STATE_VERSION = 1;
 const OPERATOR_ID_PREFIX = "ML";
 const OPERATOR_ID_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -7961,6 +7964,8 @@ class SurvivalScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.teardownDepth20ClearCodeOverlay("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardownBaseCalibrationCapUnlockOverlay("sceneShutdown"));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.teardownBaseCalibrationCapUnlockOverlay("sceneDestroy"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardownGateGuidanceOverlay("sceneShutdown"));
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.teardownGateGuidanceOverlay("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardownCloudSaveRuntime("sceneShutdown"));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.teardownCloudSaveRuntime("sceneDestroy"));
     this.gameplayRuntimeCreated = false;
@@ -8484,6 +8489,7 @@ class SurvivalScene extends Phaser.Scene {
     this.shopState = this.loadShopState();
     this.operatorId = this.loadOrCreateOperatorId();
     this.optionsState = this.loadOptionsState();
+    this.gateGuidanceState = this.loadGateGuidanceState();
     this.anjuMemoryState = this.loadAnjuMemoryState();
     this.mutationAtlasState = this.loadMutationAtlasState();
     this.supportLinkState = this.loadSupportLinkState();
@@ -8661,6 +8667,9 @@ class SurvivalScene extends Phaser.Scene {
     this.baseCalibrationCapUnlockContinueCallback = null;
     this.pendingBaseCalibrationCapUnlockNotices = [];
     this.baseCalibrationCapUnlockDebugShown = false;
+    this.gateGuidanceOverlayActive = false;
+    this.gateGuidanceOverlayMode = "";
+    this.gateGuidanceKeyHandler = null;
     this.killRanking = this.loadKillRanking();
     this.pendingRankingRecord = null;
     this.pendingRankingSaved = false;
@@ -9085,6 +9094,7 @@ class SurvivalScene extends Phaser.Scene {
     this.gateState = {
       status: "closed",
       warningShown: false,
+      finalWarningShown: false,
       activeElapsedMs: 0,
       stableDurationMs: GATE_STABLE_MS,
       stabilizeBonusMs: 0
@@ -13597,6 +13607,74 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     return this.optionsState;
+  }
+
+  normalizeGateGuidanceState(record = {}) {
+    const rescueUsed = record?.rescueUsed === true;
+    const rescuedAt = typeof record?.rescuedAt === "string" && record.rescuedAt.trim()
+      ? record.rescuedAt.trim()
+      : null;
+    return {
+      version: GATE_GUIDANCE_STATE_VERSION,
+      tutorialSeen: rescueUsed || record?.tutorialSeen === true,
+      rescueUsed,
+      rescuedAt
+    };
+  }
+
+  loadGateGuidanceState() {
+    let rawState = null;
+    try {
+      rawState = window.localStorage?.getItem(GATE_GUIDANCE_STORAGE_KEY) || null;
+    } catch (error) {
+      rawState = null;
+    }
+
+    if (!rawState) {
+      return this.normalizeGateGuidanceState();
+    }
+
+    try {
+      return this.normalizeGateGuidanceState(JSON.parse(rawState));
+    } catch (error) {
+      return this.normalizeGateGuidanceState();
+    }
+  }
+
+  saveGateGuidanceState() {
+    this.gateGuidanceState = this.normalizeGateGuidanceState(this.gateGuidanceState);
+    try {
+      window.localStorage?.setItem(GATE_GUIDANCE_STORAGE_KEY, JSON.stringify(this.gateGuidanceState));
+    } catch (error) {
+      // Guidance recovery is a local-only courtesy. Storage failure must not block the run.
+    }
+    return this.gateGuidanceState;
+  }
+
+  canUseGateGuidanceRescue() {
+    return (
+      (this.stageDepth || 1) < GATE_INSTABILITY_DEPTH &&
+      this.normalizeGateGuidanceState(this.gateGuidanceState).rescueUsed !== true
+    );
+  }
+
+  markGateGuidanceTutorialSeen() {
+    this.gateGuidanceState = this.normalizeGateGuidanceState({
+      ...this.gateGuidanceState,
+      tutorialSeen: true
+    });
+    this.saveGateGuidanceState();
+    return this.gateGuidanceState;
+  }
+
+  markGateGuidanceRescueUsed() {
+    this.gateGuidanceState = this.normalizeGateGuidanceState({
+      ...this.gateGuidanceState,
+      rescueUsed: true,
+      rescuedAt: new Date().toISOString()
+    });
+    this.saveGateGuidanceState();
+    return this.gateGuidanceState;
   }
 
   updateOptionsState(patch = {}, reason = "options") {
@@ -50139,7 +50217,7 @@ class SurvivalScene extends Phaser.Scene {
       fontStyle: "bold",
       depth: 204
     });
-    this.hudUnsecuredCoinText = this.createHudText(GAME_WIDTH / 2 - 194, 116, "UNSECURED GEEK 0", {
+    this.hudUnsecuredCoinText = this.createHudText(GAME_WIDTH / 2 - 194, 116, "未確定GEEK 0", {
       fontSize: "15px",
       color: "#f0c463",
       fontStyle: "bold",
@@ -50558,9 +50636,9 @@ class SurvivalScene extends Phaser.Scene {
       align: "left",
       depth: layout.textDepth
     });
-    const geekText = this.createHudText(layout.right.x, layout.right.y, "GEEK 0", {
+    const geekText = this.createHudText(layout.right.x, layout.right.y, "未確定GEEK 0", {
       fontFamily,
-      fontSize: "18px",
+      fontSize: "17px",
       color: "#f0c463",
       fontStyle: "bold",
       align: "right",
@@ -51096,10 +51174,19 @@ class SurvivalScene extends Phaser.Scene {
     graphics.strokePath();
 
     if (context.objectiveVisible) {
-      graphics.fillStyle(0x02070a, 0.56);
-      graphics.fillRect(layout.objective.x - layout.objective.width / 2, layout.objective.y - 8, layout.objective.width, 36);
-      graphics.lineStyle(1, 0x64ff92, 0.42);
-      graphics.strokeRect(layout.objective.x - layout.objective.width / 2, layout.objective.y - 8, layout.objective.width, 36);
+      const critical = context.objectiveCritical;
+      const panelHeight = critical ? 72 : 36;
+      const panelY = layout.objective.y - 8;
+      const accent = critical?.accent || 0x64ff92;
+      graphics.fillStyle(critical?.urgent ? 0x251017 : 0x02070a, critical ? 0.82 : 0.56);
+      graphics.fillRect(layout.objective.x - layout.objective.width / 2, panelY, layout.objective.width, panelHeight);
+      graphics.lineStyle(critical ? 2 : 1, accent, critical ? 0.72 : 0.42);
+      graphics.strokeRect(layout.objective.x - layout.objective.width / 2, panelY, layout.objective.width, panelHeight);
+      if (critical) {
+        graphics.fillStyle(accent, critical.urgent ? 0.92 : 0.7);
+        graphics.fillRect(layout.objective.x - layout.objective.width / 2, panelY, 6, panelHeight);
+        graphics.fillRect(layout.objective.x + layout.objective.width / 2 - 6, panelY, 6, panelHeight);
+      }
     }
 
     const chipModels = context.chipModels || [];
@@ -51135,7 +51222,8 @@ class SurvivalScene extends Phaser.Scene {
     const xpRatio = levelCapped ? 1 : Phaser.Math.Clamp((Number(stats.xp) || 0) / nextLevelXp, 0, 1);
     const xpLabel = levelCapped ? "MAX / OD" : `XP ${Math.floor(xpRatio * 100)}%`;
     const chipModels = this.getCompactHudSkillChipModels();
-    const objectiveText = this.getCompactHudObjectiveText(context);
+    const gateCritical = this.getGateCriticalHudModel();
+    const objectiveText = gateCritical?.text || this.getCompactHudObjectiveText(context);
     const gateColor = this.hudGateText?.style?.color || "#9ab7cc";
 
     hud.apText
@@ -51148,11 +51236,14 @@ class SurvivalScene extends Phaser.Scene {
     hud.gateText
       .setText(this.hudGateText?.text || "GATE --:--")
       .setColor(gateColor);
-    hud.geekText.setText(`GEEK ${this.normalizeCoinAmount(this.runUnsecuredCoins).toLocaleString()}`);
+    hud.geekText.setText(`未確定GEEK ${this.normalizeCoinAmount(this.runUnsecuredCoins).toLocaleString()}`);
     hud.killsText.setText(`KILLS ${Math.max(0, Math.floor(Number(this.runStats?.kills) || 0)).toLocaleString()}`);
     hud.objectiveText
       .setVisible(Boolean(objectiveText))
-      .setText(objectiveText);
+      .setText(objectiveText)
+      .setFontSize(gateCritical ? "22px" : "13px")
+      .setColor(gateCritical?.color || "#b8ffd2")
+      .setLineSpacing(gateCritical ? 4 : 0);
     hud.radarLabelText?.setVisible(!this.isCompactRadarSuppressed?.());
     chipModels.forEach((model, index) => {
       const chip = hud.skillChips[index];
@@ -51164,7 +51255,8 @@ class SurvivalScene extends Phaser.Scene {
       hpRatio,
       xpRatio,
       chipModels,
-      objectiveVisible: Boolean(objectiveText)
+      objectiveVisible: Boolean(objectiveText),
+      objectiveCritical: gateCritical
     });
   }
 
@@ -51332,7 +51424,7 @@ class SurvivalScene extends Phaser.Scene {
       return {
         key: `gate:${this.gateState?.protocolGateId || this.stageDepth || 1}`,
         kind: "gate",
-        label: unstable ? "UNSTABLE GATE" : (urgent ? "GATE COLLAPSE" : "GATE ONLINE"),
+        label: unstable ? "不安定GATE" : (urgent ? "GATEへ急げ" : "GATEへ進入"),
         shortLabel: "GATE",
         priority: 1,
         world: { x: this.stageGate.container.x, y: this.stageGate.container.y },
@@ -51350,7 +51442,7 @@ class SurvivalScene extends Phaser.Scene {
       return {
         key: `gateSignal:${this.stageDepth || 1}`,
         kind: "gate",
-        label: "GATE SIGNAL",
+        label: "GATE出現地点",
         shortLabel: "GATE",
         priority: 5,
         world: { x: center.x, y: center.y },
@@ -51531,7 +51623,15 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
     const safe = this.getObjectiveMarkerSafeArea();
-    const textY = model.edge && model.y > GAME_HEIGHT - 160 ? model.y - 26 : model.y + 26;
+    let textY = model.edge && model.y > GAME_HEIGHT - 160 ? model.y - 26 : model.y + 26;
+    if (
+      model.target?.kind === "gate" &&
+      model.edge &&
+      model.side === "top" &&
+      this.getGateCriticalHudModel()
+    ) {
+      textY = Math.max(textY, 176);
+    }
     text
       .setText(model.label)
       .setColor(model.palette.text)
@@ -58890,6 +58990,80 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
+  isGateCollapseFailureDepth(depth = this.stageDepth) {
+    return Math.max(1, Math.floor(Number(depth) || 1)) < GATE_INSTABILITY_DEPTH;
+  }
+
+  getGateGuidanceLossText() {
+    const unsecuredGeek = this.normalizeCoinAmount(this.runUnsecuredCoins);
+    return unsecuredGeek > 0
+      ? `未確定GEEK ${unsecuredGeek.toLocaleString()}を全て失います`
+      : "未確定のラン内報酬を失います";
+  }
+
+  queueGateGuidanceComms(phase = "approach") {
+    const failureDepth = this.isGateCollapseFailureDepth();
+    const unsecuredGeek = this.normalizeCoinAmount(this.runUnsecuredCoins);
+    const stableSeconds = Math.max(1, Math.ceil(this.getCurrentGateStableDurationMs() / 1000));
+    const messages = {
+      approach: failureDepth
+        ? "Gate反応を捕捉。30秒後に中央で開放します。開放後は制限時間内に必ず進入してください。"
+        : "Gate反応を捕捉。30秒後に中央で開放します。放置すると不安定度が上昇します。",
+      open: failureDepth
+        ? `Gate開放。${stableSeconds}秒以内に中央へ進入してください。間に合わない場合は作戦失敗となり、未確定GEEKを失います。`
+        : `Gate開放。${stableSeconds}秒以内に中央へ進入してください。放置すると不安定度が上昇します。`,
+      final: failureDepth
+        ? `最終警告。残り10秒。Gateへ急いでください。未進入の場合、未確定GEEK ${unsecuredGeek.toLocaleString()}を失います。`
+        : "最終警告。残り10秒。Gateへ急いでください。未進入の場合、不安定度が上昇します。"
+    };
+    const text = messages[phase];
+    if (!text) {
+      return false;
+    }
+    return this.queueCommsMessage({
+      speaker: "OPERATOR",
+      text,
+      variant: phase === "approach" ? "system" : "warning",
+      duration: phase === "final" ? 5600 : 6200,
+      priority: 12,
+      source: "system",
+      category: "gate_guidance"
+    });
+  }
+
+  getGateCriticalHudModel() {
+    if (this.isFinalBossRaidActive?.() || !this.isGateCollapseFailureDepth()) {
+      return null;
+    }
+
+    const status = this.gateState?.status || "closed";
+    const unsecuredGeek = this.normalizeCoinAmount(this.runUnsecuredCoins);
+    const lossLine = unsecuredGeek > 0
+      ? `未進入で作戦失敗 / 未確定GEEK ${unsecuredGeek.toLocaleString()}消失`
+      : "未進入で作戦失敗 / ラン内報酬消失";
+    if (status === "closed") {
+      const remainingMs = Math.max(0, GATE_INTERVAL_MS - (this.stageDepthElapsedMs || 0));
+      if (remainingMs > GATE_WARNING_LEAD_MS && !this.gateState?.warningShown) {
+        return null;
+      }
+      return {
+        text: `GATE出現まで ${this.formatTimeMs(remainingMs)}　中央へ移動\n${lossLine}`,
+        color: "#fff0b0",
+        accent: 0xf0c463,
+        urgent: remainingMs <= GATE_URGENT_LEAD_MS
+      };
+    }
+
+    const remainingMs = Math.max(0, this.getCurrentGateStableDurationMs() - (this.gateState?.activeElapsedMs || 0));
+    const urgent = remainingMs <= GATE_URGENT_LEAD_MS;
+    return {
+      text: `GATEへ進入　崩壊まで ${this.formatTimeMs(remainingMs)}\n${lossLine}`,
+      color: urgent ? "#fff0c2" : "#d8fbff",
+      accent: urgent ? 0xff6f5e : 0x65e6ff,
+      urgent
+    };
+  }
+
   getGateTensionState() {
     const status = this.gateState?.status || "closed";
     if (status === "closed") {
@@ -59061,46 +59235,64 @@ class SurvivalScene extends Phaser.Scene {
     const center = this.getStageGateCenter();
     const container = this.add.container(center.x, center.y).setDepth(18.8);
     const graphics = this.add.graphics().setBlendMode(Phaser.BlendModes.ADD);
+    const beam = this.add
+      .rectangle(0, -150, 30, 340, 0xf0c463, 0.12)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const previewSurface = this.add
+      .ellipse(0, -20, 118, 204, 0xf0c463, 0.08)
+      .setBlendMode(Phaser.BlendModes.ADD);
     const anchor = this.add
-      .circle(0, 0, 10, 0xf0c463, 0.5)
+      .circle(0, 80, 10, 0xf0c463, 0.5)
       .setBlendMode(Phaser.BlendModes.ADD);
     const label = this.add
-      .text(0, 86, "GATE SIGNAL", {
+      .text(0, 126, "GATE SIGNAL", {
         fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
-        fontSize: "17px",
+        fontSize: "20px",
         color: "#f3d58f",
         fontStyle: "bold",
         align: "center"
       })
       .setOrigin(0.5);
     const countdownText = this.add
-      .text(0, 110, "00:30", {
+      .text(0, 154, "GATE出現まで 00:30", {
         fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
-        fontSize: "22px",
+        fontSize: "19px",
         color: "#ecfaff",
         fontStyle: "bold",
         align: "center"
       })
       .setOrigin(0.5);
-    const particles = Array.from({ length: 18 }, (_, index) => {
+    const instructionText = this.add
+      .text(0, 182, "中央へ移動", {
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "16px",
+        color: "#fff0b0",
+        fontStyle: "bold",
+        align: "center"
+      })
+      .setOrigin(0.5);
+    const particles = Array.from({ length: 24 }, (_, index) => {
       const particle = this.add
         .circle(0, 0, index % 3 === 0 ? 3 : 2, 0xf0c463, 0.58)
         .setBlendMode(Phaser.BlendModes.ADD);
-      particle.baseAngle = (Math.PI * 2 * index) / 18;
+      particle.baseAngle = (Math.PI * 2 * index) / 24;
       particle.orbitOffset = index * 0.37;
       return particle;
     });
 
-    container.add([graphics, anchor, label, countdownText, ...particles]);
+    container.add([beam, previewSurface, graphics, anchor, label, countdownText, instructionText, ...particles]);
     this.gateSignalVisual = {
       container,
       graphics,
+      beam,
+      previewSurface,
       anchor,
       label,
       countdownText,
+      instructionText,
       particles
     };
-    this.spawnGateWorldPulse(center.x, center.y, 0xf0c463, { startScale: 0.65, endScale: 2.1, duration: 720, depth: 18.7 });
+    this.spawnGateWorldPulse(center.x, center.y, 0xf0c463, { startScale: 0.8, endScale: 3.0, duration: 820, depth: 18.7 });
   }
 
   destroyGateSignalVisual() {
@@ -59109,7 +59301,7 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
-    this.tweens.killTweensOf([visual.container, visual.anchor, ...(visual.particles || [])]);
+    this.tweens.killTweensOf([visual.container, visual.beam, visual.previewSurface, visual.anchor, ...(visual.particles || [])]);
     visual.container?.destroy();
     this.gateSignalVisual = null;
   }
@@ -59132,12 +59324,20 @@ class SurvivalScene extends Phaser.Scene {
     const palette = this.getGateTensionPalette(state);
     const pulse = (Math.sin(this.time.now / (state.urgent ? 95 : 170)) + 1) * 0.5;
     const sweep = (this.time.now / (state.urgent ? 460 : 720)) % (Math.PI * 2);
-    const baseRadius = 72 + state.ratio * 52;
+    const baseRadius = 88 + state.ratio * 48;
     const outerRadius = baseRadius + pulse * (state.urgent ? 20 : 10);
-    const innerRadius = Math.max(28, 58 - state.ratio * 18 + pulse * 4);
+    const innerRadius = Math.max(34, 64 - state.ratio * 18 + pulse * 4);
     const graphics = visual.graphics;
 
     graphics.clear();
+    graphics.fillStyle(palette.primary, 0.035 + pulse * 0.045);
+    graphics.fillRoundedRect(-72, -126, 144, 214, 68);
+    graphics.lineStyle(state.urgent ? 6 : 4, palette.primary, 0.38 + pulse * 0.34);
+    graphics.strokeRoundedRect(-76, -132, 152, 224, 72);
+    graphics.lineStyle(2, 0xecfaff, 0.22 + state.ratio * 0.26);
+    graphics.strokeRoundedRect(-58, -112, 116, 188, 54);
+    graphics.lineStyle(3, palette.secondary, 0.28 + pulse * 0.24);
+    graphics.strokeEllipse(0, 82, 206 + state.ratio * 24, 54 + pulse * 8);
     graphics.lineStyle(2, palette.secondary, 0.24 + pulse * 0.18);
     graphics.strokeCircle(0, 0, outerRadius + 28);
     graphics.lineStyle(state.urgent ? 5 : 3, palette.primary, 0.46 + pulse * 0.34);
@@ -59155,24 +59355,41 @@ class SurvivalScene extends Phaser.Scene {
     graphics.lineBetween(0, innerRadius, 0, outerRadius + 16);
     graphics.fillStyle(palette.primary, 0.08 + pulse * 0.08);
     graphics.fillCircle(0, 0, outerRadius * 0.58);
+    const chevronOffset = (this.time.now / (state.urgent ? 90 : 150)) % 34;
+    for (let index = 0; index < 3; index += 1) {
+      const y = 62 - ((index * 34 + chevronOffset) % 102);
+      const alpha = 0.24 + (1 - Math.abs(y) / 110) * 0.34;
+      graphics.fillStyle(palette.primary, alpha);
+      graphics.fillTriangle(-24, y + 13, 0, y, 24, y + 13);
+    }
 
     visual.anchor
       ?.setFillStyle(palette.primary, 0.42 + pulse * 0.28)
       .setScale(1 + state.ratio * 1.2 + pulse * 0.35);
+    visual.beam
+      ?.setFillStyle(palette.primary, 0.08 + pulse * (state.urgent ? 0.14 : 0.08))
+      .setScale(1 + pulse * 0.22, 1 + state.ratio * 0.12);
+    visual.previewSurface
+      ?.setFillStyle(palette.primary, 0.06 + state.ratio * 0.08 + pulse * 0.05)
+      .setScale(1 + state.ratio * 0.16, 1 + pulse * 0.05);
     visual.label
       ?.setText(state.urgent ? "GATE IMMINENT" : "GATE SIGNAL")
       .setColor(state.urgent ? palette.dangerText : palette.text);
     visual.countdownText
-      ?.setText(this.formatTimeMs(state.remainingMs))
+      ?.setText(`GATE出現まで ${this.formatTimeMs(state.remainingMs)}`)
       .setColor(state.urgent ? "#fff1a8" : "#ecfaff");
+    visual.instructionText
+      ?.setText(state.urgent ? "中央へ急行" : "中央へ移動")
+      .setColor(state.urgent ? "#fff1a8" : "#fff0b0");
 
     visual.particles?.forEach((particle, index) => {
       if (!particle.active) {
         return;
       }
       const angle = particle.baseAngle + this.time.now * (state.urgent ? 0.0042 : 0.0024);
-      const radius = outerRadius + 18 + Math.sin(this.time.now / 150 + particle.orbitOffset) * (state.urgent ? 14 : 8);
-      particle.setPosition(Math.cos(angle) * radius, Math.sin(angle) * radius);
+      const radiusX = outerRadius + 18 + Math.sin(this.time.now / 150 + particle.orbitOffset) * (state.urgent ? 14 : 8);
+      const radiusY = 112 + state.ratio * 28 + Math.cos(this.time.now / 170 + particle.orbitOffset) * (state.urgent ? 16 : 9);
+      particle.setPosition(Math.cos(angle) * radiusX, -20 + Math.sin(angle) * radiusY);
       particle.setFillStyle(index % 2 === 0 ? palette.primary : palette.secondary, 0.38 + pulse * 0.34);
       particle.setScale(1 + state.ratio * 0.5 + Math.sin(this.time.now / 90 + index) * 0.24);
     });
@@ -59181,7 +59398,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   updateGateTimer(delta) {
-    if (this.gameOver || this.shopActive || this.levelUpActive || this.gateChoiceActive || this.extractionComplete || this.isFinalBossRaidActive()) {
+    if (this.gameOver || this.shopActive || this.levelUpActive || this.gateChoiceActive || this.gateGuidanceOverlayActive || this.extractionComplete || this.isFinalBossRaidActive()) {
       return;
     }
 
@@ -59202,6 +59419,13 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
+    const remainingMs = Math.max(0, this.getCurrentGateStableDurationMs() - this.gateState.activeElapsedMs);
+    if (!this.gateState.finalWarningShown && remainingMs > 0 && remainingMs <= GATE_URGENT_LEAD_MS) {
+      this.gateState.finalWarningShown = true;
+      this.gateWarningFlashUntil = this.time.now + 1100;
+      this.queueGateGuidanceComms("final");
+    }
+
     if (this.gateState.activeElapsedMs >= this.getCurrentGateStableDurationMs()) {
       this.collapseGate();
     }
@@ -59212,6 +59436,7 @@ class SurvivalScene extends Phaser.Scene {
       this.gateState = {
         status: "closed",
         warningShown: true,
+        finalWarningShown: false,
         activeElapsedMs: 0,
         stableDurationMs: GATE_STABLE_MS,
         stabilizeBonusMs: 0
@@ -59225,6 +59450,7 @@ class SurvivalScene extends Phaser.Scene {
     this.tryQueueGenericComms("gate_approach", {
       depth: this.stageDepth
     });
+    this.queueGateGuidanceComms("approach");
   }
 
   getStageGateCenter() {
@@ -59254,51 +59480,72 @@ class SurvivalScene extends Phaser.Scene {
     const stableParticle = gatePalette.secondary || 0xbdf8ff;
     const container = this.add.container(center.x, center.y).setDepth(19);
     const graphics = this.add.graphics();
+    const beam = this.add
+      .rectangle(0, -150, 46, 410, stablePrimary, 0.11)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const floorGlow = this.add
+      .ellipse(0, 92, 218, 58, stablePrimary, 0.1)
+      .setBlendMode(Phaser.BlendModes.ADD);
     const core = this.add
-      .circle(0, 0, 42, stablePrimary, 0.18)
+      .ellipse(0, -20, 132, 218, stablePrimary, 0.16)
       .setBlendMode(Phaser.BlendModes.ADD);
     const warningText = this.add
-      .text(0, 82, "GATE ONLINE", {
+      .text(0, -190, "STAGE GATE", {
         fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
-        fontSize: "18px",
+        fontSize: "23px",
         color: gatePalette.text || "#aef7ff",
         fontStyle: "bold",
         align: "center"
       })
       .setOrigin(0.5);
     const stackText = this.add
-      .text(0, 108, "", {
+      .text(0, -158, "", {
         fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
-        fontSize: "14px",
-        color: "#ff9de1",
+        fontSize: "17px",
+        color: "#9fe7ff",
         fontStyle: "bold",
         align: "center"
       })
       .setOrigin(0.5);
-    const particles = Array.from({ length: 14 }, (_, index) => {
-      const angle = (Math.PI * 2 * index) / 14;
+    const enterText = this.add
+      .text(0, 142, "▼ 中央へ進入 ▼", {
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "19px",
+        color: "#ecfaff",
+        fontStyle: "bold",
+        align: "center"
+      })
+      .setOrigin(0.5);
+    const particles = Array.from({ length: 24 }, (_, index) => {
+      const angle = (Math.PI * 2 * index) / 24;
       const particle = this.add
-        .circle(Math.cos(angle) * 72, Math.sin(angle) * 72, index % 3 === 0 ? 3 : 2, stableParticle, 0.58)
+        .circle(Math.cos(angle) * 92, -20 + Math.sin(angle) * 122, index % 4 === 0 ? 3 : 2, stableParticle, 0.58)
         .setBlendMode(Phaser.BlendModes.ADD);
       particle.baseAngle = angle;
-      particle.orbitRadius = 60 + (index % 4) * 10;
-      particle.orbitSpeed = 0.0007 + index * 0.00006;
+      particle.orbitRadiusX = 86 + (index % 4) * 8;
+      particle.orbitRadiusY = 112 + (index % 5) * 6;
+      particle.orbitSpeed = 0.00054 + index * 0.000035;
       return particle;
     });
 
-    container.add([core, graphics, warningText, stackText, ...particles]);
+    container.add([beam, floorGlow, core, graphics, warningText, stackText, enterText, ...particles]);
+    container.setAlpha(0.06);
     this.stageGate = {
       container,
       graphics,
+      beam,
+      floorGlow,
       core,
       warningText,
       stackText,
+      enterText,
       particles,
       spawnedAt: this.time.now
     };
     this.gateState = {
       status: "stable",
       warningShown: true,
+      finalWarningShown: false,
       activeElapsedMs: 0,
       stableDurationMs,
       stabilizeBonusMs,
@@ -59311,17 +59558,26 @@ class SurvivalScene extends Phaser.Scene {
     this.evaluateDepthDirectiveOnGateOpen();
     this.tweens.add({
       targets: container,
-      angle: 360,
-      duration: 9000,
-      repeat: -1,
-      ease: "Linear"
+      alpha: 1,
+      duration: 440,
+      ease: "Back.easeOut"
     });
     this.tweens.add({
       targets: core,
-      alpha: { from: 0.16, to: 0.34 },
-      scaleX: { from: 1, to: 1.2 },
-      scaleY: { from: 1, to: 1.2 },
+      alpha: { from: 0.14, to: 0.3 },
+      scaleX: { from: 0.96, to: 1.08 },
+      scaleY: { from: 0.98, to: 1.04 },
       duration: 900,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut"
+    });
+    this.tweens.add({
+      targets: floorGlow,
+      alpha: { from: 0.08, to: 0.24 },
+      scaleX: { from: 0.9, to: 1.08 },
+      scaleY: { from: 0.9, to: 1.12 },
+      duration: 760,
       yoyo: true,
       repeat: -1,
       ease: "Sine.easeInOut"
@@ -59341,6 +59597,8 @@ class SurvivalScene extends Phaser.Scene {
       depth: this.stageDepth,
       isUnstableGate: false
     });
+    this.queueGateGuidanceComms("open");
+    this.tryShowGateGuidanceTutorial();
   }
 
   drawStageGateGraphics() {
@@ -59366,44 +59624,68 @@ class SurvivalScene extends Phaser.Scene {
     const ringTint = unstable ? 0xff4fb8 : (danger ? 0xff6f5e : stableRingTint);
     const coreTint = unstable ? 0xff5b73 : (danger ? 0xffc857 : stableCoreTint);
     const outerRadius = unstable
-      ? 76 + pulse * (8 + Math.min(12, stack * 2.2))
-      : 76 + pulse * (3 + activeRatio * 8);
-    const innerRadius = unstable ? 48 + Math.sin(this.time.now / 130) * 5 : 48 + pulse * (danger ? 3 : 1);
+      ? 116 + pulse * (8 + Math.min(12, stack * 2.2))
+      : 116 + pulse * (3 + activeRatio * 8);
+    const innerWidth = unstable ? 122 + Math.sin(this.time.now / 130) * 10 : 122 + pulse * (danger ? 8 : 3);
+    const innerHeight = unstable ? 210 + Math.cos(this.time.now / 140) * 10 : 210 + pulse * (danger ? 7 : 3);
 
     graphics.clear();
-    graphics.lineStyle(7, ringTint, unstable ? 0.58 + pulse * 0.3 : 0.72);
-    graphics.strokeCircle(0, 0, outerRadius);
-    graphics.lineStyle(2, coreTint, unstable ? 0.58 : 0.5);
-    graphics.strokeCircle(0, 0, innerRadius);
-    graphics.lineStyle(4, unstable ? 0x8f54ff : stableAccentTint, unstable ? 0.46 : 0.6);
+    graphics.fillStyle(ringTint, unstable ? 0.07 + pulse * 0.06 : 0.055 + pulse * 0.035);
+    graphics.fillRoundedRect(-70, -132, 140, 224, 66);
+    graphics.lineStyle(9, 0x02070a, 0.72);
+    graphics.strokeRoundedRect(-84, -146, 168, 252, 78);
+    graphics.lineStyle(danger ? 8 : 6, ringTint, unstable ? 0.62 + pulse * 0.28 : 0.68 + pulse * 0.16);
+    graphics.strokeRoundedRect(-80, -142, 160, 244, 74);
+    graphics.lineStyle(2, coreTint, unstable ? 0.62 : 0.52);
+    graphics.strokeRoundedRect(-innerWidth / 2, -126, innerWidth, innerHeight, Math.max(52, innerWidth / 2));
+    graphics.lineStyle(4, unstable ? 0x8f54ff : stableAccentTint, unstable ? 0.5 : 0.62);
     graphics.beginPath();
-    graphics.arc(0, 0, 62 + pulse * 4, -0.3, Math.PI * 0.88, false);
+    graphics.arc(0, -18, 72 + pulse * 4, -0.22, Math.PI * 0.84, false);
     graphics.strokePath();
     graphics.beginPath();
-    graphics.arc(0, 0, 62 - pulse * 3, Math.PI * 1.08, Math.PI * 1.82, false);
+    graphics.arc(0, -18, 72 - pulse * 3, Math.PI * 1.08, Math.PI * 1.84, false);
     graphics.strokePath();
-    graphics.fillStyle(coreTint, unstable ? 0.08 + pulse * 0.1 : 0.1);
-    graphics.fillCircle(0, 0, 58);
+    graphics.fillStyle(coreTint, unstable ? 0.08 + pulse * 0.1 : 0.08);
+    graphics.fillRoundedRect(-58, -120, 116, 200, 56);
+    graphics.lineStyle(4, ringTint, 0.36 + pulse * 0.25);
+    graphics.strokeEllipse(0, 94, 230 + pulse * 16, 62 + pulse * 8);
+    graphics.lineStyle(2, stableAccentTint, 0.25 + pulse * 0.18);
+    graphics.strokeEllipse(0, 94, 174 + pulse * 10, 40 + pulse * 6);
 
     graphics.lineStyle(9, 0x02070a, 0.62);
-    graphics.strokeCircle(0, 0, 104);
+    graphics.strokeCircle(0, -18, outerRadius);
     graphics.lineStyle(danger ? 8 : 6, ringTint, danger ? 0.74 + pulse * 0.18 : 0.56);
     graphics.beginPath();
-    graphics.arc(0, 0, 104, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * remainingRatio, false);
+    graphics.arc(0, -18, outerRadius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * remainingRatio, false);
     graphics.strokePath();
+    const chevronOffset = (this.time.now / (danger ? 90 : 155)) % 38;
+    for (let index = 0; index < 4; index += 1) {
+      const y = 66 - ((index * 38 + chevronOffset) % 152);
+      const alpha = 0.18 + (1 - Math.min(1, Math.abs(y + 18) / 116)) * 0.38;
+      graphics.fillStyle(coreTint, alpha);
+      graphics.fillTriangle(-28, y + 14, 0, y, 28, y + 14);
+    }
+    graphics.lineStyle(3, ringTint, 0.4 + pulse * 0.24);
+    graphics.lineBetween(-98, -96, -98, 76);
+    graphics.lineBetween(98, -96, 98, 76);
+    [-72, -20, 32].forEach((y, index) => {
+      const notch = 12 + index * 3;
+      graphics.lineBetween(-98, y, -98 - notch, y + 12);
+      graphics.lineBetween(98, y, 98 + notch, y + 12);
+    });
 
     if (danger) {
       const fractureCount = unstable ? 12 : 7;
       graphics.lineStyle(2, unstable ? 0xff9de1 : 0xfff0a6, unstable ? 0.34 + pulse * 0.26 : 0.26 + pulse * 0.2);
       for (let index = 0; index < fractureCount; index += 1) {
         const angle = this.time.now * 0.0012 + index * 2.399;
-        const startRadius = 38 + (index % 3) * 12;
+        const startRadius = 48 + (index % 3) * 14;
         const endRadius = outerRadius + 18 + Math.sin(this.time.now / 180 + index) * 14;
         graphics.lineBetween(
           Math.cos(angle) * startRadius,
-          Math.sin(angle) * startRadius,
+          -18 + Math.sin(angle) * startRadius,
           Math.cos(angle + Math.sin(index) * 0.16) * endRadius,
-          Math.sin(angle + Math.cos(index) * 0.16) * endRadius
+          -18 + Math.sin(angle + Math.cos(index) * 0.16) * endRadius
         );
       }
     }
@@ -59425,14 +59707,27 @@ class SurvivalScene extends Phaser.Scene {
     const danger = unstable || remainingMs <= GATE_URGENT_LEAD_MS;
     const pulse = (Math.sin(this.time.now / (danger ? 90 : 180)) + 1) * 0.5;
     const gatePalette = this.getAnjuGateSkinPalette();
+    const collapseFailureDepth = this.isGateCollapseFailureDepth();
     this.drawStageGateGraphics();
-    gate.container?.setScale(1 + (danger ? pulse * 0.045 : 0));
-    gate.warningText?.setText(unstable ? "UNSTABLE GATE" : (danger ? "GATE COLLAPSING" : "GATE ONLINE"));
+    gate.container?.setScale(1 + (danger ? pulse * 0.035 : 0));
+    gate.warningText?.setText(unstable
+      ? "不安定 GATE"
+      : (danger ? `GATE ${collapseFailureDepth ? "崩壊" : "変調"}接近` : "STAGE GATE"));
     gate.warningText?.setColor(unstable ? "#ffb3e6" : (danger ? "#ffd4ba" : (gatePalette.text || "#aef7ff")));
     gate.stackText
-      ?.setText(unstable ? `INSTABILITY STACK ${stack}` : `COLLAPSE ${this.formatTimeMs(remainingMs)}`)
+      ?.setText(unstable
+        ? `不安定度 ${stack} / 再変調まで ${this.formatTimeMs(remainingMs)}`
+        : `${collapseFailureDepth ? "崩壊" : "変調"}まで ${this.formatTimeMs(remainingMs)}`)
       .setColor(danger ? "#ffb3a8" : "#9fe7ff");
-    gate.core?.setFillStyle(unstable ? 0xff5b73 : (danger ? 0xffc857 : 0x5fdcff), unstable ? 0.22 : (danger ? 0.24 : 0.18));
+    gate.enterText
+      ?.setText(unstable ? "▼ 中央へ進入 / 選択 ▼" : (danger ? "▼ 急いで中央へ進入 ▼" : "▼ 中央へ進入 ▼"))
+      .setColor(danger ? "#fff0b0" : "#ecfaff");
+    const activeTint = unstable ? 0xff5b73 : (danger ? 0xffc857 : (gatePalette.primary || 0x5fdcff));
+    gate.core?.setFillStyle(activeTint, unstable ? 0.22 : (danger ? 0.25 : 0.16));
+    gate.beam
+      ?.setFillStyle(activeTint, unstable ? 0.12 + pulse * 0.14 : 0.07 + pulse * (danger ? 0.13 : 0.07))
+      .setScale(1 + pulse * 0.18, 1 + pulse * 0.04);
+    gate.floorGlow?.setFillStyle(activeTint, danger ? 0.15 + pulse * 0.12 : 0.1 + pulse * 0.07);
 
     gate.particles?.forEach((particle, index) => {
       if (!particle.active) {
@@ -59440,8 +59735,10 @@ class SurvivalScene extends Phaser.Scene {
       }
 
       const angle = particle.baseAngle + this.time.now * particle.orbitSpeed * (danger ? 2.2 : 1);
-      const radius = particle.orbitRadius + Math.sin(this.time.now / (danger ? 90 : 180) + index) * (danger ? 14 : 4);
-      particle.setPosition(Math.cos(angle) * radius, Math.sin(angle) * radius);
+      const wobble = Math.sin(this.time.now / (danger ? 90 : 180) + index);
+      const radiusX = particle.orbitRadiusX + wobble * (danger ? 14 : 5);
+      const radiusY = particle.orbitRadiusY + Math.cos(this.time.now / 150 + index) * (danger ? 16 : 6);
+      particle.setPosition(Math.cos(angle) * radiusX, -20 + Math.sin(angle) * radiusY);
       particle.setFillStyle(
         unstable
           ? (index % 2 === 0 ? 0xff5b73 : 0x9d67ff)
@@ -59473,7 +59770,7 @@ class SurvivalScene extends Phaser.Scene {
   destroyStageGate(resetState = false) {
     const gate = this.stageGate;
     if (gate) {
-      this.tweens.killTweensOf([gate.container, gate.core, ...(gate.particles || [])]);
+      this.tweens.killTweensOf([gate.container, gate.beam, gate.floorGlow, gate.core, ...(gate.particles || [])]);
       gate.container?.destroy();
     }
     this.destroyGateSignalVisual();
@@ -59482,6 +59779,7 @@ class SurvivalScene extends Phaser.Scene {
       this.gateState = {
         status: "closed",
         warningShown: false,
+        finalWarningShown: false,
         activeElapsedMs: 0,
         stableDurationMs: GATE_STABLE_MS,
         stabilizeBonusMs: 0
@@ -59498,14 +59796,252 @@ class SurvivalScene extends Phaser.Scene {
     this.gateState = {
       status: "closed",
       warningShown: false,
+      finalWarningShown: false,
       activeElapsedMs: 0,
       stableDurationMs: GATE_STABLE_MS,
       stabilizeBonusMs: 0
     };
   }
 
+  tryShowGateGuidanceTutorial() {
+    const guidanceState = this.normalizeGateGuidanceState(this.gateGuidanceState);
+    if (
+      guidanceState.tutorialSeen ||
+      !this.isGateCollapseFailureDepth() ||
+      !this.stageGate?.container?.active ||
+      this.gateGuidanceOverlayActive ||
+      this.gateChoiceActive ||
+      this.levelUpActive ||
+      this.gameOver ||
+      this.extractionComplete
+    ) {
+      return false;
+    }
+    return this.showGateGuidanceOverlay("tutorial");
+  }
+
+  showGateGuidanceOverlay(mode = "tutorial") {
+    if (this.gateGuidanceOverlayActive || !this.overlayContainer || !this.overlayBackdrop) {
+      return false;
+    }
+
+    const rescue = mode === "rescue";
+    const accent = rescue ? 0xffc857 : 0x65e6ff;
+    const titleColor = rescue ? "#fff0b0" : "#ecfaff";
+    const riskText = this.getGateGuidanceLossText();
+    const columns = rescue
+      ? [
+          { title: "+15 SEC", detail: "初回だけ\n崩壊を延期" },
+          { title: "中央の光柱", detail: "縦型ポータルへ\n今すぐ急行" },
+          { title: "一度限り", detail: "次回以降は\n救済なし" }
+        ]
+      : [
+          { title: "2:00 戦闘", detail: "30秒前から\n中央に信号表示" },
+          { title: "GATE 開放", detail: "崩壊まで\n基本30秒" },
+          { title: "中央へ進入", detail: "継続または\n帰還を選択" }
+        ];
+
+    this.clearOverlayButtons();
+    this.gateGuidanceOverlayActive = true;
+    this.gateGuidanceOverlayMode = rescue ? "rescue" : "tutorial";
+    this.physics?.world?.pause?.();
+    this.cancelActiveEnemyBeamCharges?.();
+    this.configureOverlayPanel(780, 520);
+    this.overlayPanel
+      .setFillStyle(0x030a12, 0.98)
+      .setStrokeStyle(3, accent, 0.72);
+    this.overlayTitle
+      .setStyle({
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "36px",
+        color: titleColor,
+        fontStyle: "bold",
+        align: "center"
+      })
+      .setOrigin(0.5)
+      .setPosition(0, -216)
+      .setText(rescue ? "EMERGENCY GATE HOLD" : "GATE NAVIGATION");
+    this.overlayBody
+      .setStyle({
+        fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+        fontSize: "17px",
+        color: rescue ? "#ffdca0" : "#9fc9df",
+        fontStyle: "bold",
+        align: "center"
+      })
+      .setOrigin(0.5)
+      .setPosition(0, -172)
+      .setText(rescue
+        ? "初回救済が作動しました。カウントはこの画面を閉じるまで停止します。"
+        : "DEPTH 1〜5では、Gate開放後に中央へ入らないと作戦失敗になります。");
+
+    columns.forEach((column, index) => {
+      const x = -232 + index * 232;
+      this.addOverlayChild(
+        this.add
+          .rectangle(x, -62, 208, 112, 0x0a1b29, 0.98)
+          .setStrokeStyle(2, index === 2 ? accent : 0x6fcfff, index === 2 ? 0.62 : 0.34)
+      );
+      this.createOverlayText(x, -103, `${index + 1}`, {
+        fontFamily: "Consolas, monospace",
+        fontSize: "15px",
+        color: "#051018",
+        fontStyle: "bold",
+        align: "center",
+        origin: { x: 0.5, y: 0 }
+      }).setBackgroundColor(index === 2 ? "#ffc857" : "#65e6ff").setPadding(8, 2, 8, 2);
+      this.createOverlayText(x, -75, column.title, {
+        fontSize: "20px",
+        color: index === 2 ? titleColor : "#d8fbff",
+        fontStyle: "bold",
+        align: "center",
+        origin: { x: 0.5, y: 0 }
+      });
+      this.createOverlayText(x, -42, column.detail, {
+        fontSize: "14px",
+        color: "#9fc9df",
+        align: "center",
+        lineSpacing: 3,
+        origin: { x: 0.5, y: 0 }
+      });
+    });
+
+    this.addOverlayChild(
+      this.add
+        .rectangle(0, 52, 672, 76, rescue ? 0x2b1710 : 0x251017, 0.96)
+        .setStrokeStyle(2, rescue ? 0xffc857 : 0xff6f5e, 0.68)
+    );
+    this.createOverlayText(0, 23, rescue ? "救済終了後も未進入なら作戦失敗" : "GATEを放置すると作戦失敗", {
+      fontSize: "18px",
+      color: "#fff0b0",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+    this.createOverlayText(0, 52, riskText, {
+      fontSize: "16px",
+      color: "#ffb3a8",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+
+    const continueButton = this.addOverlayChild(
+      this.add
+        .rectangle(0, 154, 390, 66, 0x17314a, 0.98)
+        .setStrokeStyle(2, accent, 0.74)
+        .setInteractive({ useHandCursor: true })
+    );
+    continueButton.on("pointerover", () => continueButton.setFillStyle(0x214863, 1));
+    continueButton.on("pointerout", () => continueButton.setFillStyle(0x17314a, 0.98));
+    this.addOverlayAction(continueButton, () => this.closeGateGuidanceOverlay("continue"), true, 10);
+    this.createOverlayText(0, 135, rescue ? "今すぐGATEへ向かう" : "理解してGATEへ向かう", {
+      fontSize: "24px",
+      color: "#f4fdff",
+      fontStyle: "bold",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+    this.createOverlayText(0, 208, "クリック / タップ / Enter・Space・Esc", {
+      fontSize: "13px",
+      color: "#7899ae",
+      align: "center",
+      origin: { x: 0.5, y: 0 }
+    });
+
+    this.gateGuidanceKeyHandler = (event) => {
+      if (!this.gateGuidanceOverlayActive || !["Enter", " ", "Escape"].includes(event.key)) {
+        return;
+      }
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      this.closeGateGuidanceOverlay("keyboard");
+    };
+    this.input?.keyboard?.on("keydown", this.gateGuidanceKeyHandler);
+    this.overlayBackdrop.setFillStyle(0x01040a, 0.9).setAlpha(1).setVisible(true);
+    this.overlayContainer.setAlpha(1).setScale(1).setVisible(true);
+    this.uiContainer?.bringToTop?.(this.overlayBackdrop);
+    this.uiContainer?.bringToTop?.(this.overlayContainer);
+    this.setOverlayFocusedAction(this.overlayActions[0]);
+    return true;
+  }
+
+  teardownGateGuidanceOverlay(reason = "teardown") {
+    if (this.gateGuidanceKeyHandler) {
+      this.input?.keyboard?.off("keydown", this.gateGuidanceKeyHandler);
+      this.gateGuidanceKeyHandler = null;
+    }
+    this.gateGuidanceOverlayActive = false;
+    this.gateGuidanceOverlayMode = "";
+  }
+
+  closeGateGuidanceOverlay(reason = "continue") {
+    if (!this.gateGuidanceOverlayActive) {
+      return false;
+    }
+    const mode = this.gateGuidanceOverlayMode;
+    if (mode === "tutorial") {
+      this.markGateGuidanceTutorialSeen();
+    }
+    this.teardownGateGuidanceOverlay(reason);
+    this.hideOverlay();
+    if (!this.shopActive && !this.gameOver && !this.extractionComplete && !this.gateChoiceActive) {
+      this.resumeGameplayAfterBlockingOverlay("gateGuidance");
+      this.tryOpenPendingPostOverlaySelections?.();
+    }
+    return true;
+  }
+
+  tryActivateGateGuidanceRescue() {
+    if (
+      !this.canUseGateGuidanceRescue() ||
+      !this.stageGate?.container?.active ||
+      !this.gateState ||
+      this.gateState.status !== "stable" ||
+      this.gateGuidanceOverlayActive ||
+      this.gateChoiceActive ||
+      this.gameOver ||
+      this.extractionComplete
+    ) {
+      return false;
+    }
+
+    const activeElapsedMs = Math.max(0, Math.floor(Number(this.gateState.activeElapsedMs) || 0));
+    this.gateState.stableDurationMs = Math.max(
+      this.getCurrentGateStableDurationMs(),
+      activeElapsedMs
+    ) + GATE_GUIDANCE_RESCUE_MS;
+    this.gateState.guidanceRescueBonusMs = GATE_GUIDANCE_RESCUE_MS;
+    this.gateState.finalWarningShown = false;
+    this.gateWarningFlashUntil = this.time.now + 1400;
+    this.markGateGuidanceRescueUsed();
+    const center = this.stageGate.container;
+    this.spawnGateWorldPulse(center.x, center.y, 0xffc857, {
+      startScale: 1.1,
+      endScale: 4,
+      duration: 920,
+      depth: 19.5,
+      glowAlpha: 0.48
+    });
+    this.setLastPickupNotice("GATE RESCUE +15s / ONE TIME");
+    this.showOverflowRewardText("初回救済 +15秒", center.x, center.y - 170, "#fff0b0");
+    this.queueCommsMessage({
+      speaker: "OPERATOR",
+      text: "緊急ホールドを起動。Gate崩壊を15秒延期しました。中央のポータルへ急いでください。この救済は一度限りです。",
+      variant: "warning",
+      duration: 6600,
+      priority: 14,
+      source: "system",
+      category: "gate_guidance_rescue"
+    });
+    this.drawStageGateGraphics();
+    this.updateDepthHud();
+    this.showGateGuidanceOverlay("rescue");
+    return true;
+  }
+
   checkStageGateEntry() {
-    if (!this.stageGate?.container?.active || this.gateChoiceActive || this.gameOver) {
+    if (!this.stageGate?.container?.active || this.gateChoiceActive || this.gateGuidanceOverlayActive || this.gameOver) {
       return;
     }
 
@@ -59521,7 +60057,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   handleGateEnter() {
-    if (!this.stageGate?.container?.active || this.gateChoiceActive || this.gameOver) {
+    if (!this.stageGate?.container?.active || this.gateChoiceActive || this.gateGuidanceOverlayActive || this.gameOver) {
       return;
     }
 
@@ -62148,6 +62684,9 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     if ((this.stageDepth || 1) < GATE_INSTABILITY_DEPTH) {
+      if (this.tryActivateGateGuidanceRescue()) {
+        return;
+      }
       const lost = this.loseRunCoins("gateCollapse");
       this.destroyStageGate(true);
       this.triggerGameOver({ reason: "gateCollapse", skipCoinLoss: true, lostCoins: lost });
@@ -62163,6 +62702,7 @@ class SurvivalScene extends Phaser.Scene {
     this.gateState.activeElapsedMs = 0;
     this.gateState.stableDurationMs = GATE_STABLE_MS;
     this.gateState.stabilizeBonusMs = 0;
+    this.gateState.finalWarningShown = false;
     this.gateInstabilityFlashUntil = this.time.now + 1100;
     if (this.stageGate?.container?.active) {
       this.spawnGateWorldPulse(this.stageGate.container.x, this.stageGate.container.y, 0xff4fb8, {
@@ -62185,6 +62725,18 @@ class SurvivalScene extends Phaser.Scene {
     if (!this.gameplayRuntimeCreated) {
       this.updateGamepadState(time, delta);
       this.updateGamepadOverlayNavigation();
+      return;
+    }
+
+    if (this.gateGuidanceOverlayActive) {
+      this.updateGateVisuals(0);
+      this.updateHud();
+      this.updateMobileControlsVisibility();
+      this.updateGamepadState(time, delta);
+      this.updateGamepadOverlayNavigation();
+      if (this.hasAcMovementVisuals()) {
+        this.cleanupAcMovementVisuals("gateGuidanceOverlay");
+      }
       return;
     }
 
@@ -62214,6 +62766,12 @@ class SurvivalScene extends Phaser.Scene {
     this.updateGamepadState(time, delta);
     this.updateGamepadOverlayNavigation();
     this.tryShowNextCommsMessage();
+    if (this.gateGuidanceOverlayActive) {
+      if (this.hasAcMovementVisuals()) {
+        this.cleanupAcMovementVisuals("gateGuidanceOverlay");
+      }
+      return;
+    }
     this.tryOpenPendingSkillMutationSelection();
     this.tryOpenQueuedLostArmsEvolutionSelection();
     this.tryOpenPendingOverdriveModSelection();
@@ -62290,7 +62848,7 @@ class SurvivalScene extends Phaser.Scene {
       this.updateGateTimer(delta);
     }
 
-    if (this.gameOver || this.gateChoiceActive) {
+    if (this.gameOver || this.gateChoiceActive || this.gateGuidanceOverlayActive) {
       if (this.hasAcMovementVisuals()) {
         this.cleanupAcMovementVisuals("gameOverOrGate");
       }
@@ -78922,6 +79480,14 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   restartGame() {
+    const reason = this.lastGameOverReason?.reason || "";
+    if (reason === "gateCollapse") {
+      const lostCoins = this.normalizeCoinAmount(this.lastGameOverReason?.lostCoins);
+      this.returnToOpeningShop(
+        `Gate崩壊：未確定GEEK ${lostCoins.toLocaleString()}消失／確定GEEK維持。次回は開放後、中央へ進入。`
+      );
+      return;
+    }
     this.returnToOpeningShop("");
   }
 
@@ -79141,25 +79707,33 @@ class SurvivalScene extends Phaser.Scene {
       .setOrigin(0.5, 0)
       .setPosition(0, -260);
 
-    const updateLine = improved ? "\nBEST UPDATE!" : "";
     const reason = this.lastGameOverReason?.reason || "playerDeath";
+    const updateLine = improved
+      ? (reason === "gateCollapse" ? "  / BEST UPDATE!" : "\nBEST UPDATE!")
+      : "";
     const isExtractionResult = this.isExtractionRankingResult();
     const lostCoins = this.normalizeCoinAmount(this.lastGameOverReason?.lostCoins);
     const securedCoins = this.normalizeCoinAmount(this.lastGameOverReason?.securedCoins);
     const lostArmsMessage = this.lastGameOverReason?.lostArmsMessage || "";
     const anjuMemoryText = this.lastGameOverReason?.anjuMemoryText || "";
+    const gateCollapseLostArmsSuffix = lostArmsMessage ? " / LOST ARMS仮強化も消失" : "";
     const reasonLine = isExtractionResult
       ? `EXTRACTED GEEK ${securedCoins.toLocaleString()} / BEST DEPTH ${this.getRecordBestDepth(currentRecord)}${lostCoins > 0 ? ` / LOST ${lostCoins.toLocaleString()}` : ""}\n${anjuMemoryText ? `${anjuMemoryText}\n` : ""}${lostArmsMessage ? `${lostArmsMessage}\n` : ""}`
       : (reason === "gateCollapse"
-        ? `GATE COLLAPSE\n未確定GEEK LOST: ${lostCoins.toLocaleString()}\n${lostArmsMessage ? `${lostArmsMessage}\n` : ""}作戦失敗\n`
+        ? `制限時間内にGateへ進入できず、作戦失敗\n未確定GEEK ${lostCoins.toLocaleString()} 消失 / 確定GEEKは維持\n次回：Gate開放後、崩壊前に中央へ進入${gateCollapseLostArmsSuffix}\n`
         : `${lostCoins > 0 ? `未確定GEEK LOST: ${lostCoins.toLocaleString()}\n` : ""}${lostArmsMessage ? `${lostArmsMessage}\n` : ""}`);
     this.overlayTitle.setText(isExtractionResult
       ? (reason === "emergencyExtract" ? "Emergency Extraction" : "Extraction Complete")
       : (reason === "gateCollapse" ? "Gate Collapse" : "Game Over"));
     const reasonBlock = reasonLine ? `${reasonLine.replace(/\n+$/g, "")}\n` : "";
-    this.overlayBody.setText(
-      `${reasonBlock}RUN  ${this.formatRecordSummary(currentRecord)}\nBEST ${this.formatRecordSummary(bestRecord)}${updateLine}`
-    );
+    if (reason === "gateCollapse") {
+      this.overlayTitle.setPosition(0, -304);
+      this.overlayBody.setPosition(0, -266);
+    }
+    this.overlayBody
+      .setFontSize(reason === "gateCollapse" ? "13px" : "16px")
+      .setLineSpacing(reason === "gateCollapse" ? 2 : 0)
+      .setText(`${reasonBlock}RUN  ${this.formatRecordSummary(currentRecord)}\nBEST ${this.formatRecordSummary(bestRecord)}${updateLine}`);
 
     const nameLabel = this.add.text(-264, -176, this.pendingRankingSaved ? "PLAYER" : "PLAYER NAME", {
       fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
@@ -80137,6 +80711,7 @@ class SurvivalScene extends Phaser.Scene {
     this.teardownStabilizeProtocolOverlay();
     this.teardownDepth20ClearCodeOverlay("clearOverlay");
     this.teardownBaseCalibrationCapUnlockOverlay("clearOverlay");
+    this.teardownGateGuidanceOverlay("clearOverlay");
     this.teardownFinalBossRaidPlaceholder?.("clearOverlay");
     this.teardownFinalBossLiberationGate?.("clearOverlay");
     this.cleanupDeepExtractionResultOverlay("clearOverlay");
@@ -80295,7 +80870,7 @@ class SurvivalScene extends Phaser.Scene {
       const coinScaling = this.getCurrentCoinScaling();
       const milestoneHud = this.getGeekMilestoneHudStrings(coinScaling);
       this.hudDepthText.setText(`DEPTH ${this.stageDepth || 1} FINAL RAID`);
-      this.hudUnsecuredCoinText?.setText(`UNSECURED GEEK ${this.normalizeCoinAmount(this.runUnsecuredCoins).toLocaleString()}`);
+      this.hudUnsecuredCoinText?.setText(`未確定GEEK ${this.normalizeCoinAmount(this.runUnsecuredCoins).toLocaleString()}`);
       this.hudCoinMultiplierText?.setText(milestoneHud.multiplierText);
       this.hudGateText?.setText(`RAID ${this.formatTimeMs(remainingMs)}`);
       this.hudGateText?.setColor(phase?.accent || "#f7d98a");
@@ -80308,6 +80883,7 @@ class SurvivalScene extends Phaser.Scene {
     const coinScaling = this.getCurrentCoinScaling();
     const gateStatus = this.gateState?.status || "closed";
     const tensionState = this.getGateTensionState();
+    const collapseFailureDepth = this.isGateCollapseFailureDepth();
     let gateText = "GATE --:--";
     let gateColor = "#9ab7cc";
     let tensionText = "";
@@ -80316,26 +80892,26 @@ class SurvivalScene extends Phaser.Scene {
     if (gateStatus === "closed") {
       const remainingMs = Math.max(0, GATE_INTERVAL_MS - (this.stageDepthElapsedMs || 0));
       const warningActive = remainingMs <= GATE_WARNING_LEAD_MS;
-      gateText = warningActive
-        ? `GATE SIGNAL ${this.formatTimeMs(remainingMs)}`
-        : `GATE ${this.formatTimeMs(remainingMs)}`;
+      gateText = `GATE出現まで ${this.formatTimeMs(remainingMs)}`;
       gateColor = warningActive ? "#f3c06b" : "#9ab7cc";
       if (warningActive) {
-        tensionText = `SIGNAL LOCK ${Math.round(tensionState.ratio * 100)}%`;
+        tensionText = `中央の出現地点へ移動 / SIGNAL ${Math.round(tensionState.ratio * 100)}%`;
         tensionColor = tensionState.urgent ? "#ffb3a8" : "#f3c06b";
       }
     } else {
       const remainingMs = Math.max(0, this.getCurrentGateStableDurationMs() - (this.gateState?.activeElapsedMs || 0));
       const warningActive = remainingMs <= 10000;
       if (gateStatus === "unstable") {
-        gateText = `UNSTABLE ${this.formatTimeMs(remainingMs)}`;
+        gateText = `不安定GATE ${this.formatTimeMs(remainingMs)}`;
         gateColor = warningActive ? "#ff6f91" : "#ff9de1";
-        tensionText = `INSTABILITY ${this.gateInstabilityStacks || 0} / EXTRACT ${Math.round(coinScaling.emergencyExtractRate * 100)}%`;
+        tensionText = `不安定度 ${this.gateInstabilityStacks || 0} / 緊急帰還 ${Math.round(coinScaling.emergencyExtractRate * 100)}%`;
         tensionColor = warningActive ? "#ff6f91" : "#ff8bd6";
       } else {
-        gateText = `GATE ${this.formatTimeMs(remainingMs)}`;
+        gateText = `${collapseFailureDepth ? "GATE崩壊まで" : "GATE変調まで"} ${this.formatTimeMs(remainingMs)}`;
         gateColor = warningActive ? "#ff7970" : "#9fe7ff";
-        tensionText = warningActive ? "COLLAPSE IMMINENT" : `GATE STABLE ${this.formatTimeMs(remainingMs)}`;
+        tensionText = collapseFailureDepth
+          ? (warningActive ? "未進入で作戦失敗 / 中央へ急行" : "中央へ進入 / 未進入で作戦失敗")
+          : (warningActive ? "未進入で不安定度上昇 / 中央へ急行" : "中央のGATEへ進入");
         tensionColor = warningActive ? "#ffb3a8" : "#9fe7ff";
       }
     }
@@ -80348,7 +80924,7 @@ class SurvivalScene extends Phaser.Scene {
 
     const milestoneHud = this.getGeekMilestoneHudStrings(coinScaling);
     this.hudDepthText.setText(`DEPTH ${this.stageDepth || 1}`);
-    this.hudUnsecuredCoinText?.setText(`UNSECURED GEEK ${this.normalizeCoinAmount(this.runUnsecuredCoins).toLocaleString()}`);
+    this.hudUnsecuredCoinText?.setText(`未確定GEEK ${this.normalizeCoinAmount(this.runUnsecuredCoins).toLocaleString()}`);
     this.hudCoinMultiplierText?.setText(milestoneHud.multiplierText);
     this.hudGateText?.setText(`${gateText}${milestoneHud.gateSuffix}`);
     this.hudGateText?.setColor(gateColor);
