@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="ラスメモヴァンサバ">
+  <title>MIRAGE LABYRINTH</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./style.css?v=asset-lazy-cache-v2">
+  <style>
+    body.umbra-integration-entry { height: 100dvh; overflow: hidden; }
+    body.umbra-integration-entry .app-shell { width: 100%; height: calc(100dvh - var(--umbra-integration-toolbar-height, 72px)); margin: 0; padding: 0; }
+    body.umbra-integration-entry .game-panel { width: 100%; height: 100%; padding: 0; border: 0; border-radius: 0; }
+    body.umbra-integration-entry #game-root { width: 100% !important; height: 100% !important; min-height: 0 !important; border-radius: 0; }
+    #umbra-integration-panel { position: relative; z-index: 5; margin: 0; padding: 4px 10px; border-bottom: 1px solid #467589; background: #091825; font-size: 12px; line-height: 1.4; }
+    #umbra-integration-panel summary { cursor: pointer; color: #acdfff; }
+    #umbra-integration-heading { display: flex; flex-wrap: wrap; gap: 2px 14px; color: #bcefff; font-weight: 700; }
+    @media (max-height: 480px) {
+      #umbra-integration-panel { padding: 1px 6px; line-height: 1.15; }
+      #umbra-integration-heading { font-size: 11px; }
+      #umbra-integration-details[open] { position: absolute; left: 0; right: 0; top: 100%; max-height: 84dvh; overflow-y: auto; padding: 7px; background: #091825; border: 1px solid #467589; }
+    }
+  </style>
+</head>
+<body class="umbra-integration-entry">
+  <aside id="umbra-integration-panel" aria-label="Phase 7B integration test">
+    <div id="umbra-integration-heading"><span>7B TEST / 合成RAM・未公開・永続保存なし</span><span id="umbra-integration-reach-label">MOON current / BRAKE tuned</span></div>
+    <details id="umbra-integration-details" open>
+    <summary>試験設定・状態</summary>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:5px 0">
+      <label>開始fixture <select id="umbra-integration-fixture" aria-label="開始fixture" style="max-width:52vw"></select></label>
+      <label>MOON距離 <select id="umbra-integration-reach"><option value="current">current（現状）</option><option value="wide">wide ×1.5（比較案）</option><option value="extended">extended ×2.0（比較案）</option></select></label>
+      <label>MOON解除後 <select id="umbra-integration-glide"><option value="0">OFF（現状）</option><option value="1">滑走中250ms（比較案）</option></select></label>
+      <label>NOVA保護 <select id="umbra-integration-field"><option value="0">OFF（現状）</option><option value="1">円形180px・3秒（比較案）</option><option value="lane">辻斬り：前方の保護帯・2秒</option></select></label>
+      <button id="umbra-integration-start" type="button" disabled>START / 本編HUBを開始</button>
+      <button id="umbra-integration-end" type="button">試験sessionを終了</button>
+      <button id="umbra-integration-boundary" type="button" hidden>Opening後：合成完成構成を適用</button>
+      <label>表示 <select id="umbra-integration-fx"><option value="image">FX 画像</option><option value="fallback">FX 簡易</option><option value="off">FX OFF</option></select></label>
+      <label><input id="umbra-integration-reach-guide" type="checkbox">ブースト通過距離の目安（被弾しない保証ではありません）</label>
+      <a id="umbra-integration-normal" href="./" style="color:#acdfff">試験を終了して通常ゲームへ</a>
+    </div>
+    <div id="umbra-integration-description" style="color:#b1c8d4">合成開始条件を確認しています。</div>
+    <div id="umbra-integration-status" role="status" aria-live="polite">専用bootstrapが必要です。通常起動への自動切替はありません。</div>
+    <div style="color:#8cabbc">fixture・比較設定の変更はRAMを捨てる新規試験です。開始位置・EN・成長をリセットします。数値は試験用です。NOVA保護は設置成功後の円内だけで、設置直前の接触は防ぎません。FX OFFでも保護円は表示します。</div>
+    </details>
+  </aside>
+  <div id="mobile-start-gate" class="mobile-start-gate" role="dialog" aria-modal="true" aria-labelledby="mobile-start-title" hidden>
+    <div class="mobile-start-panel">
+      <p class="mobile-start-kicker">スマートフォンで接続中</p>
+      <h1 class="mobile-start-logo">MIRAGE LABYRINTH</h1>
+      <p class="mobile-start-subtitle">深層探索型サバイバルゲーム</p>
+      <p id="mobile-start-title" class="mobile-start-prompt">横向きフルスクリーンで開始しますか？</p>
+      <p class="mobile-start-copy">横向きにすると画面全体を使ってプレイできます。対応端末ではフルスクリーンと画面回転をリクエストします。</p>
+      <div class="mobile-start-actions">
+        <button id="mobile-start-fullscreen" type="button">横向きフルスクリーン</button>
+        <button id="mobile-start-windowed" type="button">通常表示で開始</button>
+      </div>
+      <p class="mobile-start-note">端末やブラウザの制限で自動回転できない場合は、端末を横向きにして開始してください。</p>
+    </div>
+  </div>
+
+  <div id="shop-loading-screen" class="shop-loading-screen" role="status" aria-hidden="true" hidden>
+    <div class="shop-loading-panel" aria-labelledby="shop-loading-title">
+      <div class="shop-loading-header">
+        <p class="shop-loading-kicker" data-shop-loading-kicker>OPERATIONS HUB SYSTEM</p>
+        <p class="shop-loading-channel" data-shop-loading-channel>NODE 01/05</p>
+      </div>
+      <div class="shop-loading-visual" aria-hidden="true">
+        <div class="shop-loading-geek-core">
+          <span class="shop-loading-geek-ring"></span>
+          <span class="shop-loading-geek-mark">G</span>
+        </div>
+        <div class="shop-loading-network-core">
+          <span class="shop-loading-network-line line-a"></span>
+          <span class="shop-loading-network-line line-b"></span>
+          <span class="shop-loading-network-line line-c"></span>
+          <span class="shop-loading-network-node node-main"></span>
+          <span class="shop-loading-network-node node-a"></span>
+          <span class="shop-loading-network-node node-b"></span>
+          <span class="shop-loading-network-node node-c"></span>
+        </div>
+      </div>
+      <h2 id="shop-loading-title" aria-live="polite">拠点準備中</h2>
+      <p class="shop-loading-copy" data-shop-loading-copy>拠点モジュールを同期しています</p>
+      <p class="shop-loading-amount" data-shop-loading-amount hidden></p>
+      <p class="shop-loading-total" data-shop-loading-total hidden></p>
+      <div class="shop-loading-flow shop-loading-geek-flow" aria-hidden="true">
+        <div class="shop-loading-flow-line"></div>
+        <div class="shop-loading-flow-node" data-geek-node="run">
+          <span class="shop-loading-node-dot"></span>
+          <span class="shop-loading-node-label">RUN DATA</span>
+        </div>
+        <div class="shop-loading-flow-node" data-geek-node="wallet">
+          <span class="shop-loading-node-dot"></span>
+          <span class="shop-loading-node-label">GEEK WALLET</span>
+        </div>
+        <div class="shop-loading-flow-node" data-geek-node="shop">
+          <span class="shop-loading-node-dot"></span>
+          <span class="shop-loading-node-label">HUB LINK</span>
+        </div>
+      </div>
+      <div class="shop-loading-modules" aria-hidden="true">
+        <div class="shop-loading-module" data-shop-module="cd">
+          <span class="shop-loading-node-dot"></span>
+          <span class="shop-loading-module-label" data-label="CDSHOP" data-short-label="CD">CDSHOP</span>
+        </div>
+        <div class="shop-loading-module" data-shop-module="geek">
+          <span class="shop-loading-node-dot"></span>
+          <span class="shop-loading-module-label" data-label="GEEKSHOP" data-short-label="GEEK">GEEKSHOP</span>
+        </div>
+        <div class="shop-loading-module" data-shop-module="robot">
+          <span class="shop-loading-node-dot"></span>
+          <span class="shop-loading-module-label" data-label="ROBOT CUSTOM" data-short-label="ROBOT">ROBOT CUSTOM</span>
+        </div>
+        <div class="shop-loading-module" data-shop-module="anju">
+          <span class="shop-loading-node-dot"></span>
+          <span class="shop-loading-module-label" data-label="ANJU MEMORY" data-short-label="AM">ANJU MEMORY</span>
+        </div>
+        <div class="shop-loading-module" data-shop-module="archive">
+          <span class="shop-loading-node-dot"></span>
+          <span class="shop-loading-module-label" data-label="ARCHIVE" data-short-label="ARCHIVE">ARCHIVE</span>
+        </div>
+      </div>
+      <p class="shop-loading-status" data-shop-loading-status>CDSHOP SYNC...</p>
+      <div class="shop-loading-ready-sweep" aria-hidden="true"></div>
+    </div>
+  </div>
+
+  <main class="app-shell">
+    <section class="game-panel">
+      <div id="game-root" aria-label="game canvas"></div>
+    </section>
+  </main>
+
+  <script src="./umbraIntegrationBootstrap.js?v=umbra-tsujigiri-v2"></script>
+  <script src="./vendor/phaser.min.js?v=asset-lazy-cache-v2"></script>
+  <script src="./skillDefinitions.js?v=umbra-spike-giant-v1"></script>
+  <script src="./stageDefinitions.js?v=asset-lazy-cache-v2"></script>
+  <script src="./equipmentDefinitions.js?v=asset-lazy-cache-v4"></script>
+  <script src="./umbraPersistence.js?v=umbra-production-v1"></script>
+  <script src="./game.js?v=umbra-production-v1"></script>
+</body>
+</html>

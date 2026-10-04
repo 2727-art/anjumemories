@@ -605,6 +605,115 @@
     }
   };
 
+  // The isolated preview owns frame assets and display state. previewOnly and
+  // the runtime mech/context gates keep this table out of normal acquisition.
+  [
+    { id: "umbraMoonlight", name: "MOONLIGHT", hudLabel: "MOONLIGHT", previewStartsUnlocked: true },
+    { id: "umbraBloodSpike", name: "BLOOD SPIKE", hudLabel: "BLOOD SPIKE", previewStartsUnlocked: false },
+    { id: "umbraPhantomNova", name: "PHANTOM NOVA", hudLabel: "PHANTOM NOVA", previewStartsUnlocked: false }
+  ].forEach((metadata) => {
+    window.skillDefinitions[metadata.id] = {
+      ...metadata,
+      displayName: metadata.name,
+      exclusiveToMechId: "umbraSeraph",
+      previewOnly: true,
+      previewAssetId: metadata.id,
+      behavior: "displayOnly",
+      startsUnlocked: false,
+      description: "PHASE 1 PREVIEW / 攻撃未実装 / 進行保存なし",
+      stages: []
+    };
+  });
+
+  // The historical verification S1 is also the canonical growth S1. Keep one
+  // immutable object so old Phase 3-5 URLs use exactly the same S1 values.
+  window.skillDefinitions.umbraMoonlight.verificationStage1 = Object.freeze({
+    stage: 1,
+    behavior: "umbraMoonlight",
+    damage: 4,
+    passageRadius: 60,
+    leaveMargin: 12,
+    rehitBaseMs: 750,
+    rehitMinMs: 200,
+    fireIntervalBaseMs: 540,
+    fireIntervalFloorMs: 160,
+    maxImpactFx: 12
+  });
+
+  // BLOOD SPIKE S1 retains its existing multi-target radius and timing.
+  window.skillDefinitions.umbraBloodSpike.verificationStage1 = Object.freeze({
+    stage: 1,
+    behavior: "umbraBloodSpike",
+    damage: 5,
+    searchRange: 600,
+    impactRadius: 80,
+    intervalBaseMs: 1800,
+    intervalMinMs: 500,
+    fireIntervalBaseMs: 540,
+    fireIntervalFloorMs: 160,
+    searchRetryMs: 150,
+    maxActiveCasts: 3,
+    frameCount: 8,
+    frameRate: 10,
+    impactFrameIndex: 2,
+    impactOffsetMs: 200,
+    lifetimeMs: 800
+  });
+
+  // NOVA S1 remains one slot. The old initial-slot override is an arena option,
+  // not part of this Stage table or a grant during continuous growth.
+  window.skillDefinitions.umbraPhantomNova.verificationStage1 = Object.freeze({
+    stage: 1,
+    behavior: "umbraPhantomNova",
+    slotCount: 1,
+    maxVerificationSlots: 3,
+    orbitRadius: 80,
+    orbitPeriodMs: 4000,
+    orbitDamage: 2,
+    orbitRange: 220,
+    orbitIntervalBaseMs: 900,
+    orbitIntervalMinMs: 300,
+    deployedDamage: 3,
+    deployedRange: 300,
+    deployedIntervalBaseMs: 500,
+    deployedIntervalMinMs: 200,
+    deployedDurationMs: 3000,
+    regenerationMs: 1200,
+    deployIntervalMs: 800,
+    minDeployDistance: 120,
+    fireIntervalBaseMs: 540,
+    fireIntervalFloorMs: 160,
+    frameCount: 8,
+    frameRate: 8
+  });
+
+  // Phase 6B verification baseline only; Core/Final and public ownership are
+  // intentionally absent. S1 is reused by identity, not copied or redefined.
+  const umbraGrowthValues = {
+    umbraMoonlight: {
+      damage: [5, 6, 7, 8, 9, 10, 12],
+      passageRadius: [60, 62, 64, 64, 66, 68, 70],
+      rehitBaseMs: [750, 750, 725, 725, 700, 675, 650]
+    },
+    umbraBloodSpike: {
+      impactRadius: [90, 100, 110, 122, 135, 147, 240]
+    },
+    umbraPhantomNova: {
+      orbitDamage: [2, 2, 2, 3, 3, 3, 3],
+      orbitRange: [230, 230, 230, 230, 230, 240, 240],
+      deployedRange: [300, 310, 310, 310, 320, 320, 320],
+      slotCount: [1, 1, 2, 2, 2, 2, 3]
+    }
+  };
+  Object.entries(umbraGrowthValues).forEach(([skillId, growth]) => {
+    const definition = window.skillDefinitions[skillId];
+    const firstStage = definition.verificationStage1;
+    definition.stages = Object.freeze(Array.from({ length: 8 }, (_, index) => index === 0
+      ? firstStage
+      : Object.freeze({ ...firstStage, stage: index + 1,
+        ...Object.fromEntries(Object.entries(growth).map(([key, values]) => [key, values[index - 1]])) })));
+  });
+
   window.skillMutationDefinitions = {
     cores: {
       assault: {

@@ -8,7 +8,20 @@ service cloud.firestore {
         && request.auth.token.firebase.sign_in_provider == "google.com";
     }
 
-    function cloudSaveSegmentsMatchAfter(userId, revision) {
+    function isValidCloudSaveRootMetadata(data) {
+      return (data.schemaVersion == 1 && data.keys().hasOnly([
+          "schemaVersion", "revision", "clientUpdatedAt", "updatedAt"
+        ])) || (data.schemaVersion == 2 && data.keys().hasOnly([
+          "schemaVersion", "revision", "clientUpdatedAt", "updatedAt", "minWriterVersion", "requiredCapabilities"
+        ]) && data.minWriterVersion == 2
+        && data.requiredCapabilities is list
+        && data.requiredCapabilities.size() == 4
+        && data.requiredCapabilities.hasAll([
+          "umbra-owned-v1", "umbra-atlas-v1", "umbra-archive-v2", "progression-journal-v1"
+        ]));
+    }
+
+    function cloudSaveSegmentsMatchAfter(userId, revision, schemaVersion) {
       let core = getAfter(
         /databases/$(database)/documents/playerCloudSaves/$(userId)/segments/core
       ).data;
@@ -18,46 +31,35 @@ service cloud.firestore {
       let archive = getAfter(
         /databases/$(database)/documents/playerCloudSaves/$(userId)/segments/archive
       ).data;
-      return core.schemaVersion == 1
+      return core.schemaVersion == schemaVersion
         && core.revision == revision
         && core.updatedAt == request.time
-        && equipment.schemaVersion == 1
+        && equipment.schemaVersion == schemaVersion
         && equipment.revision == revision
         && equipment.updatedAt == request.time
-        && archive.schemaVersion == 1
+        && archive.schemaVersion == schemaVersion
         && archive.revision == revision
         && archive.updatedAt == request.time;
     }
 
     function isValidCloudSaveRootCreate(userId) {
-      return request.resource.data.keys().hasOnly([
-          "schemaVersion",
-          "revision",
-          "clientUpdatedAt",
-          "updatedAt"
-        ])
-        && request.resource.data.schemaVersion == 1
+      return isValidCloudSaveRootMetadata(request.resource.data)
         && request.resource.data.revision == 1
         && request.resource.data.clientUpdatedAt is int
         && request.resource.data.clientUpdatedAt >= 0
         && request.resource.data.updatedAt == request.time
-        && cloudSaveSegmentsMatchAfter(userId, 1);
+        && cloudSaveSegmentsMatchAfter(userId, 1, request.resource.data.schemaVersion);
     }
 
     function isValidCloudSaveRootUpdate(userId) {
-      return request.resource.data.keys().hasOnly([
-          "schemaVersion",
-          "revision",
-          "clientUpdatedAt",
-          "updatedAt"
-        ])
-        && request.resource.data.schemaVersion == 1
-        && resource.data.schemaVersion == 1
+      return isValidCloudSaveRootMetadata(request.resource.data)
+        && resource.data.schemaVersion in [1, 2]
+        && request.resource.data.schemaVersion >= resource.data.schemaVersion
         && request.resource.data.revision == resource.data.revision + 1
         && request.resource.data.clientUpdatedAt is int
         && request.resource.data.clientUpdatedAt >= 0
         && request.resource.data.updatedAt == request.time
-        && cloudSaveSegmentsMatchAfter(userId, request.resource.data.revision);
+        && cloudSaveSegmentsMatchAfter(userId, request.resource.data.revision, request.resource.data.schemaVersion);
     }
 
     function isValidCloudSaveSegmentData(segmentId) {
@@ -68,7 +70,7 @@ service cloud.firestore {
           "data",
           "updatedAt"
         ])
-        && request.resource.data.schemaVersion == 1
+        && request.resource.data.schemaVersion in [1, 2]
         && request.resource.data.revision is int
         && request.resource.data.revision >= 1
         && request.resource.data.data is map
@@ -82,7 +84,7 @@ service cloud.firestore {
       return isValidCloudSaveSegmentData(segmentId)
         && request.resource.data.revision == 1
         && !exists(/databases/$(database)/documents/playerCloudSaves/$(userId))
-        && rootAfter.schemaVersion == 1
+        && rootAfter.schemaVersion == request.resource.data.schemaVersion
         && rootAfter.revision == 1
         && rootAfter.updatedAt == request.time;
     }
@@ -95,10 +97,11 @@ service cloud.firestore {
         /databases/$(database)/documents/playerCloudSaves/$(userId)
       ).data;
       return isValidCloudSaveSegmentData(segmentId)
-        && resource.data.schemaVersion == 1
+        && resource.data.schemaVersion in [1, 2]
         && request.resource.data.revision == resource.data.revision + 1
-        && rootBefore.schemaVersion == 1
-        && rootAfter.schemaVersion == 1
+        && rootBefore.schemaVersion == resource.data.schemaVersion
+        && rootAfter.schemaVersion == request.resource.data.schemaVersion
+        && rootAfter.schemaVersion >= rootBefore.schemaVersion
         && rootAfter.revision == rootBefore.revision + 1
         && request.resource.data.revision == rootAfter.revision
         && rootAfter.updatedAt == request.time;

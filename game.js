@@ -83,6 +83,53 @@ const REGALIA_BASTION_CANNON_CONFIG = Object.freeze({
 });
 const DEFAULT_PLAYER_MECH_ID = "defaultBear";
 const REGALIA_BASTION_MECH_ID = "regaliaBastion";
+const UMBRA_SERAPH_MECH_ID = "umbraSeraph";
+// Human-confirmed UMBRA calibration. Never mutate the shared acV3 preset.
+const UMBRA_AIR_BRAKE_CALIBRATION = Object.freeze({ referenceMs: 200, retainedSpeedRatio: 0.40 });
+const UMBRA_BOOST_TRACE_CONFIG = Object.freeze({ historyLimit: 256, epsilon: 0.0001 });
+// Local comparison values, not canonical Stage balance or saved progression.
+const UMBRA_MOBILITY_TRIAL_SETTINGS = Object.freeze({ moonGlideMs: 250, novaFieldRadius: 180, novaFieldDurationMs: 3000 });
+const UMBRA_TSUJIGIRI_TRIAL_SETTINGS = Object.freeze({ novaFieldShape: "lane", novaFieldDurationMs: 2000, novaFieldForwardLength: 1800, novaFieldRearLength: 120, novaFieldHalfWidth: 120 });
+const UMBRA_MOBILITY_TRIAL_OFF = Object.freeze({ moonGlideMs: 0, novaFieldRadius: 0, novaFieldDurationMs: 0 });
+let umbraBoostTraceRunGeneration = 0;
+let umbraBloodSpikeRunGeneration = 0;
+let umbraPhantomNovaRunGeneration = 0;
+const UMBRA_MOONLIGHT_SKILL_ID = "umbraMoonlight";
+const UMBRA_BLOOD_SPIKE_SKILL_ID = "umbraBloodSpike";
+const UMBRA_PHANTOM_NOVA_SKILL_ID = "umbraPhantomNova";
+// Combat-only registry: never extend Archive, Atlas, ownership or save allowlists.
+const UMBRA_TRIAD_COMBAT_SKILL_IDS = Object.freeze(["umbraMoonlight", "umbraBloodSpike", "umbraPhantomNova"]);
+const UMBRA_SKILL_CORE_SETTINGS = Object.freeze({
+  assaultDamageMultiplier: 1.25,
+  reactorIntervalMultiplier: 0.90,
+  umbraMoonlight: Object.freeze({
+    control: Object.freeze({ normalMultiplier: 0.78, bossMultiplier: 0.92, durationMs: 420 }), reactorLeaveMargin: 8
+  }),
+  umbraBloodSpike: Object.freeze({
+    control: Object.freeze({ normalMultiplier: 0.75, bossMultiplier: 0.92, durationMs: 600 }), reactorSearchRetryMs: 100
+  }),
+  umbraPhantomNova: Object.freeze({
+    control: Object.freeze({ normalMultiplier: 0.85, bossMultiplier: 0.95, durationMs: 250 }), reactorRegenerationMs: 1000
+  })
+});
+const UMBRA_SKILL_FINAL_SETTINGS = Object.freeze({
+  executionMultiplier: 1.25,
+  membership: Object.freeze({ normalMultiplier: 0.85, bossMultiplier: 0.95, intervalMs: 100, maxTargets: 6 }),
+  skills: Object.freeze({
+    umbraMoonlight: Object.freeze({
+      prism: Object.freeze({ radius: 140, maxTargets: 2, rate: 0.35, icdMs: 600 }),
+      field: Object.freeze({ radius: 90, durationMs: 600, icdMs: 750, maxFields: 1, maxRadius: 200, maxDurationMs: 1200 })
+    }),
+    umbraBloodSpike: Object.freeze({
+      prism: Object.freeze({ radius: 140, maxTargets: 2, rate: 0.40, icdMs: 0 }),
+      field: Object.freeze({ radius: null, durationMs: 1000, icdMs: 0, maxFields: 2, maxRadius: 200, maxDurationMs: 1200 })
+    }),
+    umbraPhantomNova: Object.freeze({
+      prism: Object.freeze({ radius: 100, maxTargets: 1, rate: 0.40, icdMs: 500 }),
+      field: Object.freeze({ radius: 80, durationMs: null, icdMs: 0, maxFields: 3, maxRadius: 100 })
+    })
+  })
+});
 const REGALIA_BASTION_ASSET_BASE_PATH = "./画像/player/ALM-01_REGALIA_BASTION";
 const REGALIA_BASTION_SE_BASE_PATH = "./音声/se/regalia_bastion";
 const REGALIA_BASTION_SE_CONFIG = Object.freeze({
@@ -141,8 +188,9 @@ const PLAYER_MECH_HANGAR_ARTWORK_REGIONS = {
   [REGALIA_BASTION_MECH_ID]: { x: 0.19, y: 0.12, width: 0.24, height: 0.66 }
 };
 const PLAYER_MECH_HANGAR_CARD_LAYOUTS = {
-  [DEFAULT_PLAYER_MECH_ID]: { x: 0.024, y: 0.59, width: 0.2, height: 0.32 },
-  [REGALIA_BASTION_MECH_ID]: { x: 0.226, y: 0.535, width: 0.25, height: 0.35 }
+  [DEFAULT_PLAYER_MECH_ID]: { x: 0.024, y: 0.46, width: 0.307, height: 0.47 },
+  [REGALIA_BASTION_MECH_ID]: { x: 0.347, y: 0.46, width: 0.307, height: 0.47 },
+  [UMBRA_SERAPH_MECH_ID]: { x: 0.670, y: 0.46, width: 0.307, height: 0.47 }
 };
 const REGALIA_BASTION_LANDING_FX_CONFIG = Object.freeze({
   cooldownMs: 360,
@@ -177,6 +225,7 @@ const PLAYER_MECH_TEXTURE_OWNER_IDS = Object.freeze(
 );
 const PLAYER_MECH_NEUTRAL_STAT_PROFILE = {
   maxHpAdd: 0,
+  maxHpMultiplier: 1,
   bulletDamageMultiplier: 1,
   moveSpeedMultiplier: 1,
   maxStaminaAdd: 0,
@@ -260,14 +309,47 @@ const PLAYER_MECH_DEFINITIONS = {
       swiftStep: 0.65,
       evasiveFirmware: 0.25
     }
+  },
+  [UMBRA_SERAPH_MECH_ID]: {
+    id: UMBRA_SERAPH_MECH_ID,
+    displayName: "KGK-02 UMBRA SERAPH",
+    shortName: "UMBRA SERAPH",
+    role: "evasiveAssault",
+    previewOnly: false,
+    startsUnlocked: false,
+    purchaseCost: 10000000,
+    unlockRequirement: "finalBossRaidClear",
+    startingSkillId: UMBRA_MOONLIGHT_SKILL_ID,
+    description: "ブーストで斬り抜ける軽量回避機。専用3武装と辻斬りで集団戦を制する。",
+    shopDescription: "Depth10 Final Raid 討伐後に転送可能。\n低AP / 高機動 / 高EN効率。\nMOONLIGHT・BLOOD SPIKE・PHANTOM NOVAを搭載。",
+    visualScaleMultiplier: 1,
+    // Human-accepted UMBRA profile; purchase/ownership never stores run growth.
+    statProfile: {
+      ...PLAYER_MECH_NEUTRAL_STAT_PROFILE,
+      maxHpMultiplier: 0.4,
+      moveSpeedMultiplier: 1.3,
+      quickBoostMaxSpeedMultiplier: 1.4 / 1.3,
+      quickBoostExitSpeedMultiplier: 1.4 / 1.3,
+      boostTerminalSpeedMultiplier: 1.4 / 1.3,
+      boostDrainMultiplier: 0.75,
+      boostRegenMultiplier: 1.25
+    },
+    passiveWeights: { ...PLAYER_MECH_DEFAULT_PASSIVE_WEIGHTS, evasiveFirmware: 3 }
   }
 };
 const SKILL_DEFINITIONS = window.skillDefinitions || {};
 const SKILL_MUTATION_DEFINITIONS = window.skillMutationDefinitions || { cores: {}, finals: {}, skills: {} };
-const DEFAULT_PLAYER_MECH_SKILL_MUTATION_SKILL_IDS = Object.freeze([DEFAULT_SKILL_ID, "tornadoSkill", "rabbitThunderSkill"]);
+// Combat slots include preview metadata; Mutation/Archive allowlists remain release-only.
+const PLAYER_MECH_SKILL_SLOT_IDS = Object.freeze({
+  [DEFAULT_PLAYER_MECH_ID]: Object.freeze([DEFAULT_SKILL_ID, "tornadoSkill", "rabbitThunderSkill"]),
+  [REGALIA_BASTION_MECH_ID]: Object.freeze([REGALIA_BASTION_CANNON_SKILL_ID, "tornadoSkill", "rabbitThunderSkill"]),
+  [UMBRA_SERAPH_MECH_ID]: Object.freeze([UMBRA_MOONLIGHT_SKILL_ID, UMBRA_BLOOD_SPIKE_SKILL_ID, UMBRA_PHANTOM_NOVA_SKILL_ID])
+});
+const DEFAULT_PLAYER_MECH_SKILL_MUTATION_SKILL_IDS = PLAYER_MECH_SKILL_SLOT_IDS[DEFAULT_PLAYER_MECH_ID];
 const PLAYER_MECH_SKILL_MUTATION_SKILL_IDS = Object.freeze({
   [DEFAULT_PLAYER_MECH_ID]: DEFAULT_PLAYER_MECH_SKILL_MUTATION_SKILL_IDS,
-  [REGALIA_BASTION_MECH_ID]: Object.freeze([REGALIA_BASTION_CANNON_SKILL_ID, "tornadoSkill", "rabbitThunderSkill"])
+  [REGALIA_BASTION_MECH_ID]: PLAYER_MECH_SKILL_SLOT_IDS[REGALIA_BASTION_MECH_ID],
+  [UMBRA_SERAPH_MECH_ID]: PLAYER_MECH_SKILL_SLOT_IDS[UMBRA_SERAPH_MECH_ID]
 });
 const SKILL_MUTATION_SKILL_IDS = DEFAULT_PLAYER_MECH_SKILL_MUTATION_SKILL_IDS;
 const SKILL_MUTATION_ARCHIVE_SKILL_IDS = Object.freeze(
@@ -429,7 +511,7 @@ const MUTATION_ATLAS_FINAL_COLUMNS = [
 const MUTATION_ATLAS_BUILD_IDS = MUTATION_ATLAS_CORE_ROWS.flatMap((core) =>
   MUTATION_ATLAS_FINAL_COLUMNS.map((final) => `${core.id}__${final.id}`)
 );
-const MUTATION_ATLAS_PLAYER_MECH_IDS = [DEFAULT_PLAYER_MECH_ID, REGALIA_BASTION_MECH_ID];
+const MUTATION_ATLAS_PLAYER_MECH_IDS = [DEFAULT_PLAYER_MECH_ID, REGALIA_BASTION_MECH_ID, UMBRA_SERAPH_MECH_ID];
 const TRIAD_MATRIX_IDENTITY_MODIFIERS = {
   skillDamageMultiplier: 1,
   controlMultiplier: 1,
@@ -1434,7 +1516,7 @@ const EXTRACTION_MESSAGE_SESSION_KEY = "lastmemoVansabaExtractionMessage";
 const DEEP_EXTRACTION_RESULT_DEBUG_QUERY_PARAM = "debugDeepResult";
 const RUN_ARCHIVE_STORAGE_KEY = "lastmemoVansabaRunArchive";
 const RUN_ARCHIVE_DEBUG_QUERY_PARAM = "debugRunArchive";
-const RUN_ARCHIVE_VERSION = 1;
+const RUN_ARCHIVE_VERSION = 2;
 const RUN_ARCHIVE_MAX_ENTRIES = 20;
 const RUN_ARCHIVE_ENTRIES_PER_PAGE = 7;
 const RUN_ARCHIVE_UNKNOWN_SUBMITTED_AT = "1970-01-01T00:00:00.000Z";
@@ -1924,6 +2006,7 @@ const BEST_RECORD_STORAGE_KEY = "lastmemoVansabaBestRecord";
 const KILL_RANKING_STORAGE_KEY = "lastmemoVansabaKillRanking";
 const COIN_WALLET_STORAGE_KEY = "lastmemoVansabaCoins";
 const SHOP_STATE_STORAGE_KEY = "lastmemoVansabaShopState";
+const SHOP_STATE_VERSION = 2;
 const OPERATOR_ID_STORAGE_KEY = "lastmemoVansabaOperatorId";
 const GATE_GUIDANCE_STORAGE_KEY = "lastmemoVansabaGateGuidanceState";
 const GATE_GUIDANCE_STATE_VERSION = 1;
@@ -2853,7 +2936,10 @@ const FIREBASE_APP_NAME = "lastmemoVansabaLeaderboard";
 const FIREBASE_LEADERBOARD_COLLECTION = "leaderboardKills";
 const FIREBASE_REMOTE_RANKING_LIMIT = 10;
 const FIREBASE_CLOUD_SAVE_COLLECTION = "playerCloudSaves";
-const CLOUD_SAVE_SCHEMA_VERSION = 1;
+const CLOUD_SAVE_SCHEMA_VERSION = 2;
+const CLOUD_SAVE_MIN_WRITER_VERSION = 2;
+const CLOUD_SAVE_REQUIRED_CAPABILITIES = Object.freeze(["umbra-owned-v1", "umbra-atlas-v1", "umbra-archive-v2", "progression-journal-v1"]);
+const CLOUD_SAVE_MIGRATION_BACKUP_STORAGE_KEY = "lastmemoVansabaCloudMigrationBackup";
 const CLOUD_SAVE_META_STORAGE_KEY = "lastmemoVansabaCloudSaveMeta";
 const CLOUD_SAVE_DEBUG_QUARANTINE_STORAGE_KEY = "lastmemoVansabaCloudSaveDebugQuarantine";
 const CLOUD_SAVE_META_VERSION = 1;
@@ -4271,6 +4357,68 @@ const COMMS_BANTER_POOLS = {
   ]
 };
 
+// Phase 7B: decide IO before boot helpers or Scene initialization. Normal IO
+// retains its existing storage objects, keys, formats and failure handling.
+function isUmbraIntegrationRequested() {
+  if (typeof window === "undefined") return false;
+  return /(?:^|\/)umbra-integration\.html$/.test(window.location?.pathname || "")
+    || /(?:[?&])umbraIntegration(?:=|&|$)/.test(window.location?.search || "")
+    || typeof window.__UMBRA_INTEGRATION_ENVIRONMENT__ !== "undefined";
+}
+
+function getSurvivalRunEnvironment() {
+  if (!isUmbraIntegrationRequested()) return null;
+  const environment = window.__UMBRA_INTEGRATION_ENVIRONMENT__;
+  if (!environment || environment.version !== "umbra-phase7b-v1"
+    || environment.mode !== "normal-integration" || !Object.isFrozen(environment)
+    || environment.isValid?.() !== true) throw new Error("Invalid or ended Phase 7B environment");
+  return environment;
+}
+
+function getSurvivalStorage(kind) {
+  const environment = getSurvivalRunEnvironment();
+  const name = kind === "session" ? "sessionStorage" : "localStorage";
+  if (environment) return environment[name];
+  const storage = window[name];
+  if (kind === "session" || !window.__umbraProgressionWriteGuard) return storage;
+  return {
+    getItem: (key) => storage.getItem(key),
+    setItem(key, value) {
+      window.__umbraProgressionWriteGuard(key, String(value));
+      storage.setItem(key, value);
+      window.__umbraProgressionWriteComplete?.(key);
+    },
+    removeItem(key) {
+      window.__umbraProgressionWriteGuard(key, null);
+      storage.removeItem(key);
+      window.__umbraProgressionWriteComplete?.(key);
+    }
+  };
+}
+
+function isSurvivalRemoteIODisabled(operation) {
+  const environment = getSurvivalRunEnvironment();
+  if (!environment) return false;
+  environment.record("remoteDisabled", { operation });
+  return true;
+}
+
+function startUmbraIntegration() {
+  try {
+    const environment = getSurvivalRunEnvironment();
+    if (!environment) throw new Error("Missing Phase 7B permit");
+    return environment.start({ Scene: SurvivalScene, config, gameWidth: GAME_WIDTH, gameHeight: GAME_HEIGHT,
+      mechDefinitions: PLAYER_MECH_DEFINITIONS, skillDefinitions: SKILL_DEFINITIONS, cdCatalog: CD_CATALOG });
+  } catch (error) {
+    const root = document.getElementById("game-root");
+    if (root) { const message = document.createElement("p");
+      message.textContent = "PHASE 7B TEST — 起動を停止しました。許可・fixture・ローカル配信ファイルを確認してください。";
+      root.replaceChildren(message); }
+    window.__UMBRA_INTEGRATION_BOOT_ERROR__ = String(error?.message || error);
+    return false;
+  }
+}
+
 function isCommsStoryDebugResetRequested() {
   const value = getUrlSearchParam(COMMS_STORY_DEBUG_RESET_QUERY_PARAM);
   return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
@@ -4306,7 +4454,7 @@ function logCommsBanterListForDebugOnBoot() {
 
 function markCloudSaveDebugQuarantineForBootMutation() {
   try {
-    window.localStorage?.setItem(CLOUD_SAVE_DEBUG_QUARANTINE_STORAGE_KEY, JSON.stringify({
+    getSurvivalStorage("local")?.setItem(CLOUD_SAVE_DEBUG_QUARANTINE_STORAGE_KEY, JSON.stringify({
       version: 1,
       markedAt: Date.now()
     }));
@@ -4324,8 +4472,8 @@ function resetCommsStoryStorageForDebugOnBoot() {
 
   let hadState = false;
   try {
-    hadState = window.localStorage?.getItem(COMMS_STORY_STORAGE_KEY) !== null;
-    window.localStorage?.removeItem(COMMS_STORY_STORAGE_KEY);
+    hadState = getSurvivalStorage("local")?.getItem(COMMS_STORY_STORAGE_KEY) !== null;
+    getSurvivalStorage("local")?.removeItem(COMMS_STORY_STORAGE_KEY);
   } catch (error) {
     return false;
   }
@@ -4344,7 +4492,7 @@ function resetCommsEpilogueStorageForDebugOnBoot() {
 
   let removedIds = [];
   try {
-    const rawState = window.localStorage?.getItem(COMMS_STORY_STORAGE_KEY) || "";
+    const rawState = getSurvivalStorage("local")?.getItem(COMMS_STORY_STORAGE_KEY) || "";
     if (!rawState) {
       return false;
     }
@@ -4359,7 +4507,7 @@ function resetCommsEpilogueStorageForDebugOnBoot() {
     removedIds.forEach((sequenceId) => {
       delete parsed.played[sequenceId];
     });
-    window.localStorage?.setItem(COMMS_STORY_STORAGE_KEY, JSON.stringify({
+    getSurvivalStorage("local")?.setItem(COMMS_STORY_STORAGE_KEY, JSON.stringify({
       version: COMMS_STORY_VERSION,
       played: parsed.played || {}
     }));
@@ -4376,7 +4524,7 @@ function setPendingCommsEpilogueForDebugOnBoot() {
     return false;
   }
   try {
-    window.sessionStorage?.setItem(COMMS_EPILOGUE_PENDING_SESSION_KEY, "depth10_shop_return_epilogue");
+    getSurvivalStorage("session")?.setItem(COMMS_EPILOGUE_PENDING_SESSION_KEY, "depth10_shop_return_epilogue");
     console.log("[COMMS EPILOGUE] force pending", { key: COMMS_EPILOGUE_PENDING_SESSION_KEY, sequenceId: "depth10_shop_return_epilogue" });
     return true;
   } catch (error) {
@@ -4384,10 +4532,13 @@ function setPendingCommsEpilogueForDebugOnBoot() {
   }
 }
 
-resetCommsStoryStorageForDebugOnBoot();
-resetCommsEpilogueStorageForDebugOnBoot();
-setPendingCommsEpilogueForDebugOnBoot();
-logCommsBanterListForDebugOnBoot();
+// Preview dispatch must precede even the opt-in debug storage helpers.
+if (!isUmbraPhase1PreviewRequested() && !isUmbraIntegrationRequested()) {
+  resetCommsStoryStorageForDebugOnBoot();
+  resetCommsEpilogueStorageForDebugOnBoot();
+  setPendingCommsEpilogueForDebugOnBoot();
+  logCommsBanterListForDebugOnBoot();
+}
 const LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS = 160;
 const LEVEL_UP_PASSIVE_MAX_LEVEL = 10;
 const PLAYER_LEVEL_CAP = 99;
@@ -6520,6 +6671,16 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   init(data = {}) {
+    if (this.isUmbraProductionRunContext(this.umbraRunContext)) {
+      this.endUmbraNormalRun("SCENE_REINITIALIZED");
+      this.umbraRunContext = null;
+      this.umbraProductionEnvironment = null;
+      this.umbraProductionRunOwner = null;
+    }
+    this.runEnvironmentIO = getSurvivalRunEnvironment();
+    this.runEnvironmentIO?.attachScene(this);
+    this.releaseUmbraIntegrationDisposedViews();
+    this.initializeUmbraNormalEndListeners();
     this.initialRunLaunchRequestData = data?.runLaunchRequest || null;
     this.currentStage = this.selectCurrentStageDefinition();
   }
@@ -6541,6 +6702,260 @@ class SurvivalScene extends Phaser.Scene {
     this.preloadAcMovementAudioAssets();
     this.preloadRegaliaBastionAudioAssets();
     this.preloadSkillAssets();
+  }
+
+  isUmbraNormalPresentationContext(context = this.getUmbraRunContext?.()) {
+    return Boolean(["normal-integration", "production-run"].includes(context?.mode) && context.mechId === "umbraSeraph"
+      && this.isUmbraRunContextCurrent?.(context, { requireBody: false }));
+  }
+
+  getUmbraPresentationAssetState() {
+    return [...(this.umbraPresentationAssetRecords?.values() || [])].map(record => ({
+      key: record.key, kind: record.kind, status: record.status, attempts: record.attempts,
+      requestedAtMs: record.requestedAtMs, completedAtMs: record.completedAtMs, error: record.error || null
+    }));
+  }
+
+  showUmbraPresentationRetryControl() {
+    if (!this.runEnvironmentIO?.ownsScene?.(this) || typeof document === "undefined") return;
+    let button = this.umbraPresentationRetryButton;
+    if (!button) {
+      const panel = document.getElementById("umbra-integration-panel");
+      if (!panel) return;
+      button = document.createElement("button");
+      button.id = "umbra-integration-asset-retry"; button.type = "button";
+      button.textContent = "失敗素材だけ再読込";
+      const retry = () => this.retryUmbraPresentationAssets();
+      button.addEventListener("click", retry); panel.appendChild(button);
+      this.umbraPresentationRetryButton = button;
+      this.events.once("shutdown", () => { button.removeEventListener("click", retry); button.remove(); this.umbraPresentationRetryButton = null; });
+    }
+    const failed = this.getUmbraPresentationAssetState().filter(record => record.status === "failed");
+    button.hidden = !failed.length;
+    button.textContent = failed.some(record => record.kind === "code") ? "コード再試行を許可 / 次にSORTIE" : "失敗素材だけ再読込";
+  }
+
+  retryUmbraPresentationAssets() {
+    if (!this.runEnvironmentIO?.ownsScene?.(this)) return Promise.resolve(false);
+    const failed = [...(this.umbraPresentationAssetRecords?.values() || [])].filter(record => record.status === "failed");
+    this.runEnvironmentIO.record("presentation-explicit-retry", { keys: failed.map(record => record.key) });
+    const context = this.getUmbraRunContext?.();
+    const pending = [];
+    for (const record of failed) {
+      if (record.kind === "code" || !this.isUmbraNormalPresentationContext(context)) this.umbraPresentationAssetRecords.delete(record.key);
+      else pending.push(this.requestUmbraPresentationAsset(record.asset, context, { retry: true }));
+    }
+    this.showUmbraPresentationRetryControl();
+    if (!this.isUmbraNormalPresentationContext(context)) this.shopStatusMessage = "再試行を許可しました。SORTIEから新しい出撃を開始してください。";
+    return Promise.all(pending).then(() => true);
+  }
+
+  loadUmbraPresentationModule(path, expectedGlobal, context) {
+    if (!this.isUmbraNormalPresentationContext(context)) return Promise.reject(new Error("UMBRA presentation request expired"));
+    if (!this.umbraPresentationAssetRecords) this.umbraPresentationAssetRecords = new Map();
+    const key = `code:${path}`, previous = this.umbraPresentationAssetRecords.get(key);
+    if (previous?.status === "loading") return previous.promise;
+    if (previous?.status === "failed") return Promise.reject(new Error(previous.error));
+    if (window[expectedGlobal]) return Promise.resolve(true);
+    const record = { key, kind: "code", status: "loading", attempts: (previous?.attempts || 0) + 1, requestedAtMs: Date.now(), completedAtMs: null };
+    this.umbraPresentationAssetRecords.set(key, record);
+    record.promise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      let done = false;
+      const finish = error => {
+        if (done) return; done = true;
+        window.clearTimeout(timeout); script.onload = null; script.onerror = null;
+        record.completedAtMs = Date.now(); record.status = error ? "failed" : "ready"; record.error = error?.message || null;
+        this.runEnvironmentIO?.record("presentation-code-result", { key, status: record.status, error: record.error });
+        this.showUmbraPresentationRetryControl();
+        if (error) { script.remove(); reject(error); } else resolve(true);
+      };
+      const timeout = window.setTimeout(() => finish(new Error(`UMBRA code timeout: ${path}`)), 15000);
+      script.onload = () => finish(window[expectedGlobal] ? null : new Error(`UMBRA code export missing: ${path}`));
+      script.onerror = () => finish(new Error(`UMBRA code unavailable: ${path}`));
+      script.src = `${path}?v=${path.includes("PreviewAssets") ? "umbra-phase2b-v1" : "umbra-spike-giant-v1"}`;
+      document.head.appendChild(script);
+    });
+    return record.promise;
+  }
+
+  requestUmbraPresentationAsset(asset, context, options = {}) {
+    if (!asset?.key || !this.isUmbraNormalPresentationContext(context)) return Promise.resolve({ status: "expired" });
+    if (!this.umbraPresentationAssetRecords) this.umbraPresentationAssetRecords = new Map();
+    const previous = this.umbraPresentationAssetRecords.get(asset.key);
+    if (previous?.status === "loading") return previous.promise;
+    if (previous?.status === "failed" && options.retry !== true) return Promise.resolve({ key: asset.key, status: "failed" });
+    if (this.textures.exists(asset.key)) {
+      window.umbraPresentation.registerEffectFrames(this.textures, window.umbraPreviewAssets, asset.key);
+      return Promise.resolve({ key: asset.key, status: "ready" });
+    }
+    const record = { key: asset.key, kind: "image", asset, status: "loading", attempts: (previous?.attempts || 0) + 1, requestedAtMs: Date.now(), completedAtMs: null };
+    this.umbraPresentationAssetRecords.set(asset.key, record);
+    record.promise = new Promise(resolve => {
+      let done = false;
+      const finish = error => {
+        if (done) return; done = true;
+        window.clearTimeout(timeout);
+        record.completedAtMs = Date.now(); record.status = error ? "failed" : "ready"; record.error = error ? String(error?.message || "Image unavailable") : null;
+        if (!error) window.umbraPresentation.registerEffectFrames(this.textures, window.umbraPreviewAssets, asset.key);
+        const current = this.isUmbraNormalPresentationContext(context);
+        this.runEnvironmentIO?.record("presentation-image-result", { key: asset.key, status: record.status, staleConsumer: !current });
+        this.showUmbraPresentationRetryControl();
+        resolve({ key: asset.key, status: record.status, staleConsumer: !current });
+      };
+      const timeout = window.setTimeout(() => finish(new Error("Image timeout")), 15000);
+      this.loadAssetOnDemand("image", asset.key,
+        () => this.load.image(asset.key, `${asset.path}?v=umbra-assets-compressed-v3`, { timeout: 10000 }),
+        () => finish(null), () => finish(new Error("Image unavailable")));
+    });
+    return record.promise;
+  }
+
+  async prepareUmbraPresentationAssets(context) {
+    if (!this.isUmbraNormalPresentationContext(context)) throw new Error("UMBRA presentation context is unavailable");
+    await this.loadUmbraPresentationModule("./umbraPreviewAssets.js", "umbraPreviewAssets", context);
+    if (!this.isUmbraNormalPresentationContext(context)) throw new Error("UMBRA presentation request expired");
+    await this.loadUmbraPresentationModule("./umbraPresentation.js", "createUmbraPresentation", context);
+    if (!this.isUmbraNormalPresentationContext(context)) throw new Error("UMBRA presentation request expired");
+    const assets = window.umbraPreviewAssets;
+    const images = assets.directionOrder.flatMap(direction => assets.modeOrder.map(mode => assets.getPose(direction, mode)));
+    images.push(assets.effects.umbraMoonlight);
+    const result = await Promise.all(images.map(asset => this.requestUmbraPresentationAsset(asset, context)));
+    if (!this.isUmbraNormalPresentationContext(context)) throw new Error("UMBRA presentation request expired");
+    return result;
+  }
+
+  requestUmbraSkillPresentationAssets(skillId, context = this.getUmbraRunContext?.()) {
+    if (!this.isUmbraNormalPresentationContext(context)) return Promise.resolve(false);
+    const asset = window.umbraPreviewAssets?.effects?.[skillId];
+    return asset ? this.requestUmbraPresentationAsset(asset, context) : Promise.resolve(false);
+  }
+
+  initializeUmbraNormalPresentation(context) {
+    if (!this.isUmbraNormalPresentationContext(context) || !this.isUmbraRunContextCurrent(context, { requireBody: true })) return null;
+    if (this.umbraNormalPresentation?.context === context) return this.umbraNormalPresentation;
+    this.destroyUmbraNormalPresentation("NEW_PRESENTATION_OWNER");
+    if (typeof window.createUmbraPresentation !== "function") throw new Error("Required UMBRA presentation module is unavailable");
+    const current = () => this.umbraNormalPresentation?.context === context && this.isUmbraNormalPresentationContext(context);
+    const active = () => current() && !this.getUmbraNormalCombatBlockReason?.();
+    const ignore = object => this.uiCamera?.ignore(object);
+    const fx = window.createUmbraPresentation(this, { assets: window.umbraPreviewAssets,
+      growth: true, core: true, final: true, spike: true, nova: true, isActive: active,
+      ignoreWorldObject: ignore, isGuidesVisible: () => false });
+    const fallback = this.add.graphics().setDepth(20).setVisible(false);
+    fallback.fillStyle(0x102e45, 0.9).fillRect(-28, -41, 56, 82).lineStyle(2, 0x69b8d8, 0.9).strokeRect(-28, -41, 56, 82)
+      .fillStyle(0x7e548f, 0.95).fillTriangle(-20, -42, 0, -64, 20, -42);
+    const control = this.add.graphics().setDepth(17.4);
+    ignore(fallback); ignore(control);
+    const owner = { context, fx, fallback, control, bindings: [], destroyed: false };
+    this.umbraNormalPresentation = owner;
+    const bind = (name, action) => {
+      const previous = this[name];
+      const callback = (...args) => { if (!current()) return; if (typeof previous === "function") previous.apply(this, args); if (current()) action(...args); };
+      this[name] = callback; owner.bindings.push({ name, previous, callback });
+    };
+    bind("onUmbraMoonlightAcceptedHit", hit => { fx.spawnHitFx(hit); if (hit.finalProfile?.finalId === "execution") fx.spawnFinalMark("execution", "umbraMoonlight", hit); });
+    bind("onUmbraBloodSpikeRuntimeCleared", () => fx.clearSpikeEffects());
+    bind("onUmbraPhantomNovaPulse", hit => { fx.spawnNovaPulseFx(hit); if (hit.finalProfile?.finalId === "execution") fx.spawnFinalMark("execution", "umbraPhantomNova", hit); });
+    bind("onUmbraPhantomNovaRuntimeCleared", () => fx.clearNovaEffects());
+    bind("onUmbraPhantomNovaDepthChanged", () => fx.clearNovaEffects());
+    bind("onUmbraFinalSecondaryAcceptedHit", hit => fx.spawnFinalMark("prism", hit.skillId, hit));
+    return owner;
+  }
+
+  drawUmbraTsujigiriProtectionField(graphics, field) {
+    const point = (along, across) => ({ x: field.x + field.dirX * along - field.dirY * across,
+      y: field.y + field.dirY * along + field.dirX * across });
+    const corners = [point(-field.rearLength, -field.halfWidth), point(field.forwardLength, -field.halfWidth),
+      point(field.forwardLength, field.halfWidth), point(-field.rearLength, field.halfWidth)];
+    const fraction = Phaser.Math.Clamp(field.remainingMs / field.durationMs, 0, 1);
+    const color = field.remainingMs < 600 ? 0xffd48a : 0x80fff0;
+    graphics.fillStyle(0x61eddb, 0.065).fillPoints(corners, true)
+      .lineStyle(2, color, 0.9).strokePoints(corners, true);
+    // Remaining-time bars stay inside fixed long edges; the protection area
+    // itself never shrinks, follows the camera or rotates after deployment.
+    for (const side of [-1, 1]) {
+      const a = point(-field.rearLength, side * (field.halfWidth - 7));
+      const b = point(-field.rearLength + (field.forwardLength + field.rearLength) * fraction, side * (field.halfWidth - 7));
+      graphics.lineStyle(4, color, 0.8).lineBetween(a.x, a.y, b.x, b.y);
+    }
+    // Fixed chevrons communicate the chosen escape direction without a new
+    // asset, timer or GameObject for each field.
+    for (let along = 180; along < field.forwardLength; along += 360) {
+      const a = point(along - 22, -24), b = point(along, 0), c = point(along - 22, 24);
+      graphics.lineStyle(2, color, 0.32).beginPath().moveTo(a.x, a.y).lineTo(b.x, b.y).lineTo(c.x, c.y).strokePath();
+    }
+  }
+
+  updateUmbraNormalPresentation() {
+    const owner = this.umbraNormalPresentation;
+    if (!owner || owner.destroyed) return;
+    if (!this.isUmbraNormalPresentationContext(owner.context)) { this.destroyUmbraNormalPresentation("CONTEXT_ENDED"); return; }
+    owner.fx.update(); owner.control.clear();
+    this.drawUmbraMoonReachGuide(owner.control);
+    // A protection boundary is gameplay information, including with FX OFF.
+    const protection = this.getUmbraNovaProtectionVisualState?.();
+    for (const field of protection?.fields || []) {
+      if (field.shape === "lane") { this.drawUmbraTsujigiriProtectionField(owner.control, field); continue; }
+      const fraction = Phaser.Math.Clamp(field.remainingMs / field.durationMs, 0, 1);
+      owner.control.fillStyle(0x61eddb, 0.065).fillCircle(field.x, field.y, field.radius)
+        .lineStyle(2, 0x80fff0, 0.85).strokeCircle(field.x, field.y, field.radius)
+        .lineStyle(4, 0xd9fff8, 0.9).beginPath()
+        .arc(field.x, field.y, field.radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * fraction, false).strokePath();
+    }
+    if (owner.fx.fxMode !== "off") for (const enemy of this.enemies?.getChildren?.() || []) {
+      const body = enemy?.body;
+      if (!enemy.active || enemy.isDying || !body?.enable || !(this.getUmbraControlSpeedMultiplier?.(enemy) < 1)) continue;
+      window.umbraPresentation.drawControlMark(owner.control, body.center.x, body.center.y, body.halfHeight);
+    }
+    const pose = this.umbraNormalPose || { direction: "down", mode: "idle" };
+    const definition = window.umbraPreviewAssets.getPose(pose.direction, pose.mode);
+    const ready = this.textures.exists(definition?.key);
+    this.playerSprite?.setVisible(ready);
+    owner.fallback.setVisible(!ready).setPosition(this.playerSprite?.x || 0, this.playerSprite?.y || 0).setAngle(this.playerSprite?.angle || 0);
+  }
+
+  setUmbraNormalPresentationFxMode(mode) {
+    if (!this.runEnvironmentIO?.ownsScene?.(this) || !this.umbraNormalPresentation) return false;
+    this.umbraNormalPresentation.fx.setFxMode(mode);
+    this.runEnvironmentIO.record("presentation-fx-mode", { mode: this.umbraNormalPresentation.fx.fxMode });
+    return true;
+  }
+
+  drawUmbraMoonReachGuide(graphics) {
+    const glide = this.umbraMoonlightRuntime?.glide;
+    const gliding = this.umbraMoonlightRuntime?.glideActive === true && glide?.expiresAtSceneMs > this.time.now;
+    if (!this.runEnvironmentIO?.isReachGuideVisible?.() || this.getUmbraNormalCombatBlockReason()
+      || this.acMovementState?.airBrake?.active || (!this.isDashing && !gliding)) return;
+    const body = this.playerHitbox?.body, profile = this.getUmbraMoonlightEffectiveStats();
+    const vx = body?.velocity?.x || 0, vy = body?.velocity?.y || 0, speed = Math.hypot(vx, vy);
+    if (!profile || speed < 1 || !body?.center) return;
+    // Two short side markers, not a collision shield or a persistent aura.
+    // The same effective radius feeds broad phase, sweep, exit and cards.
+    const nx = -vy / speed, ny = vx / speed, tx = vx / speed * 10, ty = vy / speed * 10;
+    graphics.lineStyle(1.5, 0xc7a4e8, 0.5);
+    for (const sign of [-1, 1]) {
+      const x = body.center.x + nx * profile.passageRadius * sign;
+      const y = body.center.y + ny * profile.passageRadius * sign;
+      graphics.lineBetween(x - tx, y - ty, x + tx, y + ty);
+    }
+  }
+
+  clearUmbraNormalPresentationDepth() {
+    this.umbraNormalPresentation?.fx.clearDepth();
+    this.umbraNormalPresentation?.control.clear();
+  }
+
+  destroyUmbraNormalPresentation(reason = "END") {
+    const owner = this.umbraNormalPresentation;
+    if (!owner || owner.destroyed) return;
+    this.closeUmbraPlayerCardDetails?.({ destroying: true });
+    this.restoreUmbraNormalCardOverlayOrder?.();
+    owner.destroyed = true;
+    for (const binding of owner.bindings) if (this[binding.name] === binding.callback) this[binding.name] = binding.previous;
+    owner.bindings.length = 0; owner.fx.destroy(); owner.fallback.destroy(); owner.control.destroy();
+    this.umbraNormalPresentation = null; this.umbraNormalPose = null;
+    this.runEnvironmentIO?.record("presentation-owner-ended", { reason, runId: owner.context.runId });
   }
 
   preloadPlayerAssets() {
@@ -6638,6 +7053,9 @@ class SurvivalScene extends Phaser.Scene {
     };
 
     Object.values(SKILL_DEFINITIONS).forEach((definition) => {
+      if (definition.previewOnly === true) {
+        return;
+      }
       definition.stages.forEach((stage) => {
         if (stage.textureKey && stage.imagePath) {
           loadSkillImageIfNeeded(stage.textureKey, stage.imagePath);
@@ -6741,6 +7159,8 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   loadFinalBossRaidAssetsThenBegin(transition = {}, options = {}) {
+    this.endUmbraNormalRun?.("FINAL_RAID");
+    this.invalidateUmbraBoostTrace?.("FINAL_RAID_PENDING");
     if (this.finalBossRaidAssetsLoading) {
       return true;
     }
@@ -7292,12 +7712,14 @@ class SurvivalScene extends Phaser.Scene {
     );
   }
 
-  isEvasiveFirmwareCandidateAllowed() {
+  isEvasiveFirmwareCandidateAllowed(options = {}) {
     const tuning = this.getActiveAcMovementTuning();
+    const openingBoost = typeof options.openingBoost === "boolean"
+      ? options.openingBoost
+      : Boolean(this.isOpeningBoostDraftActive?.() || this.levelUpOpeningBoostActive);
     return Boolean(
       this.shouldUseAcEvasionPassive(tuning) &&
-      !this.isOpeningBoostDraftActive?.() &&
-      !this.levelUpOpeningBoostActive &&
+      !openingBoost &&
       !this.isFinalBossRaidActive?.()
     );
   }
@@ -7667,7 +8089,7 @@ class SurvivalScene extends Phaser.Scene {
       return "";
     }
     const definition = this.getPlayerMechDefinition(rawMechId);
-    return definition?.id || "";
+    return this.isPlayerMechReleased(rawMechId) ? definition.id : "";
   }
 
   isDebugPlayerMechUnlockEnabled() {
@@ -7975,7 +8397,7 @@ class SurvivalScene extends Phaser.Scene {
     this.physics?.world?.pause();
     this.showPreGameShop(this.consumePendingExtractionShopMessage());
     const cloudBootstrapState = this.cloudSaveState;
-    this.beginCloudSaveBootstrap()
+    (this.runEnvironmentIO ? Promise.resolve(false) : this.beginCloudSaveBootstrap())
       .catch((error) => {
         console.warn("[DATA LINK] bootstrap failed", error);
       })
@@ -8009,6 +8431,9 @@ class SurvivalScene extends Phaser.Scene {
     this.createWorld();
     this.createGroups();
     this.createPlayer();
+    if (this.umbraRunContext && !this.bindUmbraNormalRunContext(this.umbraRunContext)) {
+      throw new Error("Normal run body binding failed");
+    }
     this.createRobotCompanion();
     this.createCleaningRobotCompanion();
     this.createPlayerSkills();
@@ -8484,8 +8909,12 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   createState() {
+    this.umbraNormalResultCompleted = false;
+    this.umbraRamResultUncertain = false;
+    this.runEnvironmentIO?.record("createState", { sceneKey: this.sys?.settings?.key });
+    this.initializeUmbraPersistence();
     this.initializeCloudSaveRuntime();
-    this.recoverEquipmentAnalysisTransaction();
+    if (!this.isProgressionWriteBlocked()) this.recoverEquipmentAnalysisTransaction();
     this.shopState = this.loadShopState();
     this.operatorId = this.loadOrCreateOperatorId();
     this.optionsState = this.loadOptionsState();
@@ -8693,7 +9122,7 @@ class SurvivalScene extends Phaser.Scene {
     this.supplyCodeInputValue = "";
     this.supplyCodeInputElement = null;
     this.supplyCodeInputLayoutHandler = null;
-    this.recoverSupplyCodeTransaction();
+    if (!this.isProgressionWriteBlocked()) this.recoverSupplyCodeTransaction();
     this.coins = this.loadCoinWallet();
     this.uiObjects = [];
     this.worldCamera = this.cameras.main;
@@ -9065,7 +9494,9 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   initializeDepthRunState(options = {}) {
-    const debugStartDepth = this.getDebugStartDepthOverride();
+    const integrationFixture = this.runEnvironmentIO?.getFixture(this);
+    const debugStartDepth = integrationFixture?.mode === "boundary" && !integrationFixture.requestedRelayDepth
+      && integrationFixture.startDepth > 1 ? integrationFixture.startDepth : this.getDebugStartDepthOverride();
     const relayStartQueryPresent = this.hasDebugRelayStartDepthQuery();
     const directDebugRelayDepth = this.getDebugRelayStartDepthOverride();
     const runLaunchRequest = this.normalizeRunLaunchRequest(options.runLaunchRequest);
@@ -11910,6 +12341,10 @@ class SurvivalScene extends Phaser.Scene {
     this.configureEnemyBody(enemy, enemy.enemyDefinition, false);
     this.createVoidHunterVisuals(enemy);
     this.enemies.add(enemy);
+    this.getUmbraNormalEnemyLife?.(enemy, { spawn: true });
+    if (this.umbraMoonlightRuntime) this.registerUmbraMoonlightEnemyLife(enemy);
+    if (this.umbraBloodSpikeRuntime) this.registerUmbraBloodSpikeEnemyLife(enemy);
+    if (this.umbraPhantomNovaRuntime) this.registerUmbraPhantomNovaEnemyLife(enemy);
     state.activeBoss = enemy;
     this.setLastPickupNotice(`VOID HUNTER DEPTH ${enemy.voidHunterDepth}`);
     this.showOverflowRewardText("VOID HUNTER", enemy.x, enemy.y - Math.max(150, enemy.displayHeight * 0.5), "#ffd6ff");
@@ -12766,7 +13201,8 @@ class SurvivalScene extends Phaser.Scene {
       this.playerSkills = {};
     }
 
-    Object.values(SKILL_DEFINITIONS).forEach((definition) => {
+    this.getPlayerSkillSlotIds().forEach((skillId) => {
+      const definition = SKILL_DEFINITIONS[skillId];
       if (!definition?.id || !Array.isArray(definition.stages) || definition.stages.length <= 0) {
         return;
       }
@@ -12952,6 +13388,8 @@ class SurvivalScene extends Phaser.Scene {
 
   rebuildStartingStats(options = {}) {
     this.stats = this.createBasePlayerStats();
+    this.playerMechStatsAppliedReference = null;
+    this.playerMechMaxHpBase = null;
     this.applyPermanentUpgradesToStats();
     this.applyRunEquipmentStartingStatBonuses("rebuildStartingStats");
     if (options.applyPlayerMech === true) {
@@ -12963,19 +13401,133 @@ class SurvivalScene extends Phaser.Scene {
     this.syncPlayerLevelXpRequirement();
   }
 
+  initializeUmbraPersistence() {
+    this.umbraPersistenceUnsupportedKeys = new Set();
+    this.umbraPersistenceBusy = false;
+    this.umbraPersistenceFailure = "";
+    if (this.runEnvironmentIO) return;
+    try {
+      const storage = window.localStorage;
+      this.umbraPersistenceCoordinator = window.umbraPersistence?.create({
+        storage, ownerId: "local", locks: window.navigator?.locks
+      });
+      if (!this.umbraPersistenceCoordinator) throw new Error("PERSISTENCE_MODULE_MISSING");
+      this.umbraPersistenceCoordinator.initialize({ readOnly: true });
+      if (!this.umbraPersistenceCoordinator.status().pending) this.umbraPersistenceCoordinator.validateProtectedRecords();
+      if (this.umbraPersistenceCoordinator.status().pending) {
+        // Scene boot remains synchronous. Hold writes until recovery has the
+        // same cross-tab lock as purchases, then rebuild RAM from durable data.
+        const recovering = this.umbraPersistenceCoordinator;
+        recovering.recoverAsync().then((result) => {
+          if (result.ok && this.umbraPersistenceCoordinator === recovering && this.sys?.isActive?.()) this.scene.restart();
+        }).catch(() => { this.umbraPersistenceFailure = "RECOVERY_FAILED"; });
+      }
+      // Scan before legacy loaders can normalize and write a damaged/newer record.
+      for (const [key, version] of [[SHOP_STATE_STORAGE_KEY, SHOP_STATE_VERSION],
+        [MUTATION_ATLAS_STORAGE_KEY, MUTATION_ATLAS_VERSION], [RUN_ARCHIVE_STORAGE_KEY, RUN_ARCHIVE_VERSION]]) {
+        const raw = storage.getItem(key);
+        if (raw === null) continue;
+        try {
+          const value = JSON.parse(raw);
+          if (!value || typeof value !== "object" || (Array.isArray(value) && key !== RUN_ARCHIVE_STORAGE_KEY)
+            || Number(value.version || 0) > version
+            || (key === RUN_ARCHIVE_STORAGE_KEY && (Array.isArray(value) ? value : value.entries || []).some(entry => Number(entry?.version || 0) > RUN_ARCHIVE_VERSION))) {
+            this.umbraPersistenceUnsupportedKeys.add(key);
+          }
+        } catch (_) { this.umbraPersistenceUnsupportedKeys.add(key); }
+      }
+      const coins = storage.getItem(COIN_WALLET_STORAGE_KEY);
+      if (coins !== null && (!/^\d+$/.test(coins) || !Number.isSafeInteger(Number(coins)))) {
+        this.umbraPersistenceUnsupportedKeys.add(COIN_WALLET_STORAGE_KEY);
+      }
+      this.refreshProgressionStorageBaseline();
+      window.__umbraProgressionWriteGuard = (key, after) => {
+        if (this.isProgressionWriteBlocked()) throw new Error("PROGRESSION_WRITE_HELD");
+        const expected = this.umbraStorageBaseline?.get(key) ?? null;
+        if (storage.getItem(key) !== expected) {
+          this.umbraPersistenceCoordinator.block("EXTERNAL_STORAGE_CHANGE");
+          throw new Error("EXTERNAL_STORAGE_CHANGE");
+        }
+        this.umbraPersistenceCoordinator.validateProtectedWrite(key, after);
+      };
+      window.__umbraProgressionWriteComplete = (key) => {
+        const saved = storage.getItem(key);
+        const result = this.umbraPersistenceCoordinator.recordProtectedWrite(key, saved);
+        if (result !== true) throw new Error("COMPATIBILITY_GUARD_FAILED");
+        this.umbraStorageBaseline?.set(key, saved);
+        const guardKey = window.umbraPersistence.keys.compatibility;
+        this.umbraStorageBaseline?.set(guardKey, storage.getItem(guardKey));
+      };
+      if (this.umbraStorageChangeListener) window.removeEventListener("storage", this.umbraStorageChangeListener);
+      this.umbraStorageChangeListener = (event) => {
+        if (event.storageArea === storage && (!event.key || event.key.startsWith("lastmemoVansaba"))) {
+          this.umbraPersistenceCoordinator.block("EXTERNAL_STORAGE_CHANGE");
+          if (this.shopActive) this.showPreGameShop(this.getProgressionWriteHoldMessage());
+        }
+      };
+      window.addEventListener("storage", this.umbraStorageChangeListener);
+      this.events?.once?.("shutdown", () => window.removeEventListener("storage", this.umbraStorageChangeListener));
+    } catch (error) {
+      this.umbraPersistenceFailure = String(error?.message || "PERSISTENCE_READ_FAILED");
+      window.__umbraProgressionWriteGuard = () => { throw new Error("PROGRESSION_WRITE_HELD"); };
+    }
+  }
+
+  refreshProgressionStorageBaseline() {
+    if (this.runEnvironmentIO) return;
+    const storage = window.localStorage;
+    this.umbraStorageBaseline = new Map();
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+      this.umbraStorageBaseline.set(key, storage.getItem(key));
+    }
+  }
+
+  isProgressionWriteBlocked() {
+    if (this.runEnvironmentIO) return false;
+    const status = this.umbraPersistenceCoordinator?.status?.();
+    return Boolean(this.umbraPersistenceBusy || this.umbraPersistenceFailure
+      || this.umbraPersistenceUnsupportedKeys?.size || status?.blocked || status?.pending || status?.busy);
+  }
+
+  getProgressionWriteHoldMessage() {
+    if (this.umbraPersistenceUnsupportedKeys?.size) {
+      return "保存データの形式を確認できません。上書きを停止しています。対応版で確認し、データは削除しないでください。";
+    }
+    return this.umbraPersistenceBusy ? "保存処理中です。完了までお待ちください。"
+      : "保存を保留しています。他のゲームタブを閉じ、再読込してください。元データは保持しています。";
+  }
+
+  async executeUmbraPersistenceOperation(operation) {
+    if (this.isProgressionWriteBlocked() || !this.umbraPersistenceCoordinator) {
+      return { ok: false, blocked: true, reason: "PROGRESSION_WRITE_HELD" };
+    }
+    this.umbraPersistenceBusy = true;
+    try {
+      const result = await this.umbraPersistenceCoordinator.execute(operation);
+      if (result.ok) this.refreshProgressionStorageBaseline();
+      return result;
+    } finally { this.umbraPersistenceBusy = false; }
+  }
+
   normalizeShopState(record) {
     const catalogIds = new Set(CD_CATALOG.map((cd) => cd.id));
-    const playerMechIds = new Set(Object.keys(PLAYER_MECH_DEFINITIONS));
+    // Storage recognition is independent of temporary sales/publication gates.
+    const source = record && typeof record === "object" && !Array.isArray(record) ? record : {};
     const state = {
+      ...source,
+      version: Math.max(SHOP_STATE_VERSION, Math.floor(Number(source.version) || 0)),
       ownedCdIds: [...DEFAULT_SHOP_STATE.ownedCdIds],
       selectedCdId: DEFAULT_SHOP_STATE.selectedCdId,
-      upgrades: { ...DEFAULT_SHOP_STATE.upgrades },
+      upgrades: { ...(source.upgrades || {}), ...DEFAULT_SHOP_STATE.upgrades },
       reactorCoolingLevel: DEFAULT_SHOP_STATE.reactorCoolingLevel,
       cleaningRobotLevel: DEFAULT_SHOP_STATE.cleaningRobotLevel,
-      robotCustom: { ...DEFAULT_ROBOT_CUSTOM_STATE },
+      robotCustom: { ...(source.robotCustom || {}), ...DEFAULT_ROBOT_CUSTOM_STATE },
       playerMechs: {
+        ...(source.playerMechs || {}),
         ownedIds: [...DEFAULT_SHOP_STATE.playerMechs.ownedIds],
-        selectedId: DEFAULT_SHOP_STATE.playerMechs.selectedId
+        selectedId: DEFAULT_SHOP_STATE.playerMechs.selectedId,
+        purchaseReceipts: { ...(source.playerMechs?.purchaseReceipts || {}) }
       }
     };
     const addOwnedCd = (id) => {
@@ -12984,7 +13536,8 @@ class SurvivalScene extends Phaser.Scene {
       }
     };
     const addOwnedPlayerMech = (id) => {
-      if (playerMechIds.has(id) && !state.playerMechs.ownedIds.includes(id)) {
+      if (typeof id === "string" && id.length <= 80 && !["__proto__", "constructor", "prototype"].includes(id)
+        && !state.playerMechs.ownedIds.includes(id)) {
         state.playerMechs.ownedIds.push(id);
       }
     };
@@ -13063,8 +13616,7 @@ class SurvivalScene extends Phaser.Scene {
     const selectedPlayerMechId = typeof record?.playerMechs?.selectedId === "string"
       ? record.playerMechs.selectedId
       : state.playerMechs.selectedId;
-    state.playerMechs.selectedId = playerMechIds.has(selectedPlayerMechId)
-      && state.playerMechs.ownedIds.includes(selectedPlayerMechId)
+    state.playerMechs.selectedId = state.playerMechs.ownedIds.includes(selectedPlayerMechId)
       ? selectedPlayerMechId
       : DEFAULT_PLAYER_MECH_ID;
 
@@ -13075,7 +13627,7 @@ class SurvivalScene extends Phaser.Scene {
     let rawState = null;
 
     try {
-      rawState = window.localStorage?.getItem(SHOP_STATE_STORAGE_KEY) || null;
+      rawState = getSurvivalStorage("local")?.getItem(SHOP_STATE_STORAGE_KEY) || null;
     } catch (error) {
       rawState = null;
     }
@@ -13092,14 +13644,19 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   saveShopState() {
+    if (this.isProgressionWriteBlocked() || Number(this.shopState?.version) > SHOP_STATE_VERSION) return false;
     this.shopState = this.normalizeShopState(this.shopState);
 
     try {
-      window.localStorage?.setItem(SHOP_STATE_STORAGE_KEY, JSON.stringify(this.shopState));
+      const storage = getSurvivalStorage("local");
+      const serialized = JSON.stringify(this.shopState);
+      storage?.setItem(SHOP_STATE_STORAGE_KEY, serialized);
+      if (storage?.getItem(SHOP_STATE_STORAGE_KEY) !== serialized) return false;
     } catch (error) {
-      // Ignore storage failures so the shop can still be used during this session.
+      return false;
     }
     this.scheduleCloudSave("shopState");
+    return true;
   }
 
   getPlayerMechDefinitions() {
@@ -13107,7 +13664,18 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getPlayerMechDefinition(mechId) {
-    return PLAYER_MECH_DEFINITIONS[mechId] || null;
+    return Object.prototype.hasOwnProperty.call(PLAYER_MECH_DEFINITIONS, mechId)
+      ? PLAYER_MECH_DEFINITIONS[mechId]
+      : null;
+  }
+
+  isPlayerMechReleased(mechId) {
+    const definition = this.getPlayerMechDefinition(mechId);
+    return Boolean(definition && definition.previewOnly !== true);
+  }
+
+  getReleasedPlayerMechIds() {
+    return Object.keys(PLAYER_MECH_DEFINITIONS).filter((mechId) => this.isPlayerMechReleased(mechId));
   }
 
   getDefaultPlayerMechDefinition() {
@@ -13116,7 +13684,7 @@ class SurvivalScene extends Phaser.Scene {
 
   getSelectedPlayerMechId() {
     const selectedId = this.shopState?.playerMechs?.selectedId;
-    return this.getPlayerMechDefinition(selectedId) && this.isPlayerMechOwned(selectedId)
+    return this.isPlayerMechReleased(selectedId) && this.isPlayerMechOwned(selectedId)
       ? selectedId
       : DEFAULT_PLAYER_MECH_ID;
   }
@@ -13138,6 +13706,7 @@ class SurvivalScene extends Phaser.Scene {
     };
     return {
       maxHpAdd: Math.round(readNumber("maxHpAdd")),
+      maxHpMultiplier: readMultiplier("maxHpMultiplier"),
       bulletDamageMultiplier: readMultiplier("bulletDamageMultiplier"),
       moveSpeedMultiplier: readMultiplier("moveSpeedMultiplier"),
       maxStaminaAdd: Math.round(readNumber("maxStaminaAdd")),
@@ -13164,11 +13733,265 @@ class SurvivalScene extends Phaser.Scene {
     return this.runPlayerMechDefinition;
   }
 
+  getUmbraPhase2AVerifiedMechId() {
+    const context = this.verificationContext;
+    if (
+      this.isUmbraPhase2ADrive !== true ||
+      this.sys?.settings?.key !== "UmbraPhase2ADrive" ||
+      context?.kind !== "umbra-phase2a"
+    ) {
+      return "";
+    }
+    return this.getPlayerMechDefinition(context.mechId) ? context.mechId : "";
+  }
+
+  getUmbraRunContext() {
+    // The old arena keeps its exact permission object; normal integration owns
+    // a separate launch context and never impersonates the arena Scene.
+    return this.umbraRunContext || this.verificationContext || null;
+  }
+
+  isUmbraProductionRunContext(context = this.getUmbraRunContext?.()) {
+    return Boolean(context?.mode === "production-run" && context === this.umbraRunContext
+      && context === this.umbraProductionRunOwner
+      && context.scene === this && context.mechId === UMBRA_SERAPH_MECH_ID && !this.runEnvironmentIO
+      && context.environment === this.umbraProductionEnvironment && context.environmentId === context.environment?.id
+      && context.request === this.umbraNormalLaunchRequest && context.generation === this.umbraNormalRunSequence);
+  }
+
+  isUmbraIntegrationRunScope() {
+    const context = this.umbraRunContext;
+    return Boolean(context?.mode === "normal-integration" && context.scene === this
+      && context.environment === this.runEnvironmentIO && context.environmentId === this.runEnvironmentIO?.id
+      && context.mechId === UMBRA_SERAPH_MECH_ID);
+  }
+
+  prepareUmbraProductionEnvironment() {
+    if (this.runEnvironmentIO) return null;
+    const current = this.umbraRunContext;
+    if (current && current.state !== "ENDED") {
+      if (!this.isUmbraProductionRunContext(current) || !this.isUmbraRunContextCurrent(current)) throw new Error("Stale production run launch");
+      return current.environment;
+    }
+    if (this.getSelectedPlayerMechId() !== UMBRA_SERAPH_MECH_ID) {
+      if (current?.state === "ENDED") this.umbraRunContext = null;
+      return null;
+    }
+    if (!this.shopActive || this.gameOver || this.extractionComplete || this.restartInProgress
+      || !this.isPlayerMechReleased(UMBRA_SERAPH_MECH_ID) || !this.isPlayerMechOwned(UMBRA_SERAPH_MECH_ID)
+      || this.isProgressionWriteBlocked?.()) throw new Error("UMBRA sortie requires an owned, available mech and a ready HUB");
+    // This launch owner has no Storage, account, or network adapter. Production
+    // retains the ordinary IO path; only the immutable combat inputs live here.
+    const scene = this, sequence = (this.umbraNormalRunSequence || 0) + 1;
+    const fixture = Object.freeze({ id: "production", mode: "production", mechId: UMBRA_SERAPH_MECH_ID, startDepth: this.stageDepth });
+    const environment = Object.freeze({ id: `umbra-production:${sequence}`, mode: "production-run",
+      moonReach: "extended", moonGlide: true, novaField: true, novaFieldShape: "lane",
+      isValid: () => scene.umbraProductionEnvironment === environment && !scene.runEnvironmentIO,
+      ownsScene: candidate => candidate === scene && scene.umbraProductionEnvironment === environment && !scene.runEnvironmentIO,
+      isClosing: () => false, getFixture: () => fixture, record: () => {} });
+    this.umbraProductionEnvironment = environment;
+    // A new explicit SORTIE is the retry boundary. Never retry a failed code
+    // asset in a frame loop or reuse the failed launch's owner.
+    for (const [key, record] of this.umbraPresentationAssetRecords || []) {
+      if (record.status === "failed") this.umbraPresentationAssetRecords.delete(key);
+    }
+    this.initializeUmbraNormalEndListeners();
+    return environment;
+  }
+
+  initializeUmbraNormalEndListeners() {
+    const previous = this.umbraNormalEndListeners;
+    if (previous) {
+      this.events.off("shutdown", previous.shutdown);
+      this.events.off("destroy", previous.destroy);
+    }
+    this.umbraNormalEndListeners = null;
+    if (!this.runEnvironmentIO && !this.umbraProductionEnvironment) return;
+    // Register before weapon listeners and remove the other terminal listener
+    // as well: Scene.restart can reuse the same Scene and event emitter.
+    const finish = reason => {
+      if (this.umbraNormalEndListeners !== listeners) return;
+      this.events.off("shutdown", listeners.shutdown);
+      this.events.off("destroy", listeners.destroy);
+      this.umbraNormalEndListeners = null;
+      this.endUmbraNormalRun?.(reason);
+      this.prepareUmbraIntegrationSceneShutdown?.();
+    };
+    const listeners = this.umbraNormalEndListeners = {
+      shutdown: () => finish("SCENE_SHUTDOWN"), destroy: () => finish("SCENE_DESTROY")
+    };
+    this.events.once("shutdown", listeners.shutdown);
+    this.events.once("destroy", listeners.destroy);
+  }
+
+  isUmbraRunContextCurrent(context, options = {}) {
+    if (!context) return false;
+    if (!["normal-integration", "production-run"].includes(context.mode)) {
+      return context === this.verificationContext && this.getUmbraPhase2AVerifiedMechId() === UMBRA_SERAPH_MECH_ID;
+    }
+    const environment = context.environment;
+    if (context !== this.umbraRunContext || context.scene !== this || context.environmentId !== environment?.id
+      || (context.mode === "production-run" ? !this.isUmbraProductionRunContext(context)
+        : this.runEnvironmentIO !== environment || environment?.mode !== "normal-integration")
+      || environment.isValid?.() !== true || environment.ownsScene?.(this) !== true
+      || context.request !== this.umbraNormalLaunchRequest || context.generation !== this.umbraNormalRunSequence
+      || context.mechId !== UMBRA_SERAPH_MECH_ID || (context.state === "ENDED" && options.allowEnded !== true)) return false;
+    if (options.requireBody === true || ["BOUND", "ACTIVE", "SUSPENDED"].includes(context.state)) {
+      return context.player === this.playerHitbox && context.body === this.playerHitbox?.body
+        && context.world === this.physics?.world && context.body?.world === context.world
+        && context.player?.active !== false && context.body?.enable === true;
+    }
+    return context.state === "PREPARED" || (options.allowEnded === true && context.state === "ENDED");
+  }
+
+  hasUmbraRunCapability(capability, options = {}) {
+    const context = this.getUmbraRunContext();
+    const flags = { growth: "growthEnabled", core: "coreEnabled", final: "finalEnabled", triad: "triadEnabled",
+      equipment: "equipmentEnabled", moonlight: "moonlightArena", bloodSpike: "bloodSpikeArena", phantomNova: "phantomNovaArena", trace: "traceNotifications" };
+    if (!flags[capability] || !context || !this.isUmbraRunContextCurrent(context, { ...options, requireBody: options.requireBody !== false })) return false;
+    if (!["normal-integration", "production-run"].includes(context.mode)) return capability === "trace" ? context.traceNotifications !== false : context[flags[capability]] === true;
+    const purpose = options.purpose || "read";
+    if (!["read", "select", "combat"].includes(purpose) || context.capabilities[capability] !== true) return false;
+    if (purpose !== "read" && (context.ending || context.environment.isClosing?.())) return false;
+    if (purpose === "select" && (context.state === "PREPARED" || this.gameOver || this.extractionComplete || this.restartInProgress
+      || this.finalBossRaidAssetsLoading || this.isFinalBossRaidActive?.())) return false;
+    if (purpose === "combat" && (context.state !== "ACTIVE" || this.getUmbraNormalCombatBlockReason())) return false;
+    return true;
+  }
+
+  prepareUmbraNormalRunContext(reason = "sortie") {
+    const environment = this.runEnvironmentIO || this.prepareUmbraProductionEnvironment();
+    if (!environment) return null;
+    if (!["normal-integration", "production-run"].includes(environment.mode) || environment.isValid?.() !== true
+      || environment.isClosing?.() || environment.ownsScene?.(this) !== true) throw new Error("Invalid normal run environment");
+    if (this.umbraRunContext && this.umbraRunContext.state !== "ENDED") {
+      if (!this.isUmbraRunContextCurrent(this.umbraRunContext)) throw new Error("Stale normal run launch");
+      return this.umbraRunContext;
+    }
+    const fixture = environment.getFixture(this);
+    if (fixture.mechId !== UMBRA_SERAPH_MECH_ID) return null;
+    if (!this.shopActive || this.gameOver || this.extractionComplete) throw new Error("Normal run must launch from its live HUB");
+    const freeze = value => {
+      if (value && typeof value === "object" && !Object.isFrozen(value)) { Object.values(value).forEach(freeze); Object.freeze(value); }
+      return value;
+    };
+    const generation = this.umbraNormalRunSequence = (this.umbraNormalRunSequence || 0) + 1;
+    const request = this.umbraNormalLaunchRequest = Object.freeze({ generation, fixtureId: fixture.id,
+      mechId: fixture.mechId, startDepth: this.stageDepth, source: reason,
+      moonReach: ["wide", "extended"].includes(environment.moonReach) ? environment.moonReach : "current",
+      moonGlide: environment.moonGlide === true, novaField: environment.novaField === true,
+      ...(environment.novaField === true && environment.novaFieldShape === "lane" ? { novaFieldShape: "lane" } : {}) });
+    const capabilities = Object.freeze(Object.fromEntries(["growth", "core", "final", "triad", "equipment", "moonlight", "bloodSpike", "phantomNova", "trace"].map(id => [id, true])));
+    const context = this.umbraRunContext = {
+      id: `${environment.id}:run:${generation}`, runId: `${environment.id}:run:${generation}`, generation,
+      mode: environment.mode, environmentId: environment.id, environment, scene: this, request, mechId: fixture.mechId,
+      capabilities, growthEnabled: true, coreEnabled: true, finalEnabled: true, triadEnabled: true, equipmentEnabled: true,
+      moonlightArena: true, bloodSpikeArena: true, phantomNovaArena: true, traceNotifications: true,
+      state: "PREPARED", ending: false, player: null, body: null, world: null, inputs: null,
+      assetsPrepared: false, statsApplied: false, skillsBound: false, launchConsumed: false
+    };
+    if (environment.mode === "production-run") this.umbraProductionRunOwner = context;
+    this.captureRunPlayerMechSnapshot(reason);
+    this.resetRunEquipmentCombatLinkState(reason);
+    this.captureRunEquipmentBonuses(reason);
+    this.captureRunEquipmentCombatLinkSnapshot(this.runEquipmentLoadoutSnapshot, reason);
+    context.inputs = freeze({ mechId: context.mechId, mechProfile: this.runPlayerMechStatProfile,
+      equipment: this.runEquipmentLoadoutSnapshot, equipmentBonuses: this.runEquipmentBonuses,
+      startDepth: this.stageDepth, fixtureStartDepth: fixture.startDepth, runStartContext: { ...this.runStartContext },
+      selectedCdId: this.shopState?.selectedCdId || "", fixtureId: fixture.id, mode: fixture.mode,
+      moonReach: request.moonReach, moonGlide: request.moonGlide, novaField: request.novaField,
+      ...(request.novaFieldShape === "lane" ? { novaFieldShape: "lane" } : {}) });
+    for (const key of ["id", "runId", "generation", "mode", "environmentId", "environment", "scene", "request", "mechId", "capabilities", "inputs",
+      "growthEnabled", "coreEnabled", "finalEnabled", "triadEnabled", "equipmentEnabled", "moonlightArena", "bloodSpikeArena", "phantomNovaArena", "traceNotifications"]) {
+      Object.defineProperty(context, key, { writable: false, configurable: false });
+    }
+    this.resetLevelUpCandidatePresentationState();
+    this.initializeUmbraGrowthRun(context.inputs.equipment);
+    environment.record("runPrepared", { runId: context.runId, generation, mechId: context.mechId, startDepth: this.stageDepth,
+      moonReach: request.moonReach, moonGlide: request.moonGlide, novaField: request.novaField,
+      ...(request.novaFieldShape === "lane" ? { novaFieldShape: "lane" } : {}) });
+    return context;
+  }
+
+  bindUmbraNormalRunContext(context = this.umbraRunContext) {
+    if (!this.isUmbraRunContextCurrent(context) || context.ending || context.environment.isClosing?.()) return false;
+    if (context.state !== "PREPARED") return this.isUmbraRunContextCurrent(context, { requireBody: true });
+    const body = this.playerHitbox?.body, world = this.physics?.world;
+    if (!body?.enable || body.world !== world || this.playerHitbox.active === false) return false;
+    context.player = this.playerHitbox; context.body = body; context.world = world;
+    const run = this.umbraGrowthRun;
+    if (!run || run.context !== context || run.closed) return false;
+    run.player = context.player; run.body = body; run.world = world;
+    this.setUmbraNormalRunState("BOUND", "BODY_BOUND", context);
+    world.pause?.();
+    if (!context.statsApplied) { this.rebuildStartingStats({ applyPlayerMech: true }); context.statsApplied = true; }
+    this.initializeUmbraNormalPresentation?.(context);
+    context.environment.record("runBound", { runId: context.runId, maxHp: this.stats.maxHp, maxStamina: this.stats.maxStamina });
+    return true;
+  }
+
+  setUmbraNormalRunState(state, reason, context = this.umbraRunContext) {
+    if (state === "ENDED") {
+      // Shutdown may have disabled the body already. Ending only invalidates
+      // this issued owner; it never grants capability to a broken body.
+      if (!context || context !== this.umbraRunContext || context.scene !== this
+        || (context.mode === "production-run" ? !this.isUmbraProductionRunContext(context) : context.environment !== this.runEnvironmentIO)
+        || context.request !== this.umbraNormalLaunchRequest || context.generation !== this.umbraNormalRunSequence) return false;
+    } else if (!this.isUmbraRunContextCurrent(context)) return false;
+    const allowed = { PREPARED: ["BOUND", "ENDED"], BOUND: ["ACTIVE", "SUSPENDED", "ENDED"],
+      ACTIVE: ["SUSPENDED", "ENDED"], SUSPENDED: ["ACTIVE", "ENDED"], ENDED: [] };
+    if (context.state === state) return true;
+    if (!allowed[context.state]?.includes(state)) return false;
+    if (state === "ACTIVE" && (context.ending || context.environment.isClosing?.())) return false;
+    context.state = state;
+    if (context.environment.isValid?.()) context.environment.record("runState", { runId: context.runId, state, reason });
+    return true;
+  }
+
+  getUmbraNormalCombatBlockReason() {
+    const context = this.umbraRunContext;
+    if (!context) return "";
+    if (!this.isUmbraRunContextCurrent(context) || context.ending || context.environment.isClosing?.()) return "RUN_EXIT";
+    if (context.state === "PREPARED") return "RUN_PREPARED";
+    if (this.finalBossRaidAssetsLoading || this.isFinalBossRaidActive?.()) return "FINAL_RAID";
+    if (this.gameOver || this.extractionComplete || this.restartInProgress || this.shopActive) return "RUN_EXIT";
+    if (!Number.isFinite(this.stats?.hp) || this.stats.hp <= 0) return "PLAYER_DEAD";
+    if (!context.launchConsumed || this.startingUpgradeSelectionsRemaining > 0 || this.pendingLevelUps > 0
+      || this.skillMutationState?.pendingQueue?.length || this.skillMutationSelectionActive || this.runEquipmentOverlimitBonusSelectionActive
+      || this.levelUpActive || this.gateChoiceActive || this.gateGuidanceOverlayActive || this.depth20ClearCodeOverlayActive
+      || this.drivePaused || this.driveHidden || this.umbraBoostTrace?.hidden || this.sys?.isPaused?.() || this.sys?.isSleeping?.()
+      || this.physics?.world?.isPaused) return "PAUSED";
+    return "";
+  }
+
+  updateUmbraNormalRunState() {
+    const context = this.umbraRunContext;
+    if (!context || context.state === "PREPARED" || context.state === "ENDED" || context.ending) return;
+    const blocked = this.getUmbraNormalCombatBlockReason();
+    if (blocked) { if (context.state === "ACTIVE") this.setUmbraNormalRunState("SUSPENDED", blocked, context); }
+    else this.setUmbraNormalRunState("ACTIVE", "NORMAL_UPDATE", context);
+  }
+
   captureRunPlayerMechSnapshot(reason = "runStart") {
+    const normal = this.umbraRunContext;
+    if (normal && this.isUmbraRunContextCurrent(normal)) {
+      if (normal.inputs) return this.runPlayerMechDefinition;
+      const definition = this.getPlayerMechDefinition(normal.mechId);
+      this.runPlayerMechId = definition.id;
+      this.runPlayerMechDefinition = definition;
+      this.runPlayerMechStatProfile = Object.freeze(this.normalizePlayerMechStatProfile(definition.statProfile));
+      this.runPlayerMechSnapshotActive = true;
+      return definition;
+    }
+    const verifiedMechId = this.getUmbraPhase2AVerifiedMechId();
     const debugMechId = this.getDebugPlayerMechIdOverride();
-    const definition = (debugMechId ? this.getPlayerMechDefinition(debugMechId) : null)
+    const requestedDefinition = (verifiedMechId ? this.getPlayerMechDefinition(verifiedMechId) : null)
+      || (debugMechId ? this.getPlayerMechDefinition(debugMechId) : null)
       || this.getSelectedPlayerMechDefinition()
       || this.getDefaultPlayerMechDefinition();
+    const definition = (verifiedMechId === requestedDefinition?.id || this.isPlayerMechReleased(requestedDefinition?.id))
+      ? requestedDefinition
+      : this.getDefaultPlayerMechDefinition();
     this.runPlayerMechId = definition?.id || DEFAULT_PLAYER_MECH_ID;
     this.runPlayerMechDefinition = definition || null;
     this.runPlayerMechStatProfile = this.normalizePlayerMechStatProfile(definition?.statProfile);
@@ -13177,7 +14000,16 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getRunPlayerMechId() {
-    return this.getPlayerMechDefinition(this.runPlayerMechId)
+    // End records retain the issued mech identity, while combat still requires
+    // a current live owner and cannot reactivate an ended run.
+    if (this.isUmbraProductionRunContext(this.umbraRunContext)) return this.umbraRunContext.mechId;
+    if (this.umbraRunContext) return this.isUmbraRunContextCurrent(this.umbraRunContext)
+      ? this.umbraRunContext.mechId : DEFAULT_PLAYER_MECH_ID;
+    const verifiedMechId = this.getUmbraPhase2AVerifiedMechId();
+    if (verifiedMechId) {
+      return verifiedMechId;
+    }
+    return this.isPlayerMechReleased(this.runPlayerMechId)
       ? this.runPlayerMechId
       : DEFAULT_PLAYER_MECH_ID;
   }
@@ -13247,19 +14079,25 @@ class SurvivalScene extends Phaser.Scene {
       ? mechId
       : this.getSkillSelectionPlayerMechId();
     const mechDefinition = this.getPlayerMechDefinition(resolvedMechId) || this.getDefaultPlayerMechDefinition();
+    if (!this.isPlayerMechReleased(mechDefinition.id) && !(mechDefinition.id === UMBRA_SERAPH_MECH_ID
+      && this.umbraRunContext && this.hasUmbraRunCapability("growth", { requireBody: false }))) {
+      return null;
+    }
+    const skillIds = this.getPlayerSkillSlotIds({ mechId: mechDefinition.id });
     const requestedSkillId = mechDefinition?.startingSkillId || DEFAULT_SKILL_ID;
     const requestedDefinition = SKILL_DEFINITIONS[requestedSkillId];
     if (
-      requestedDefinition?.stages?.length &&
-      this.isSkillDefinitionCompatibleWithPlayerMech(requestedDefinition, mechDefinition?.id)
+      skillIds.includes(requestedSkillId) &&
+      this.isSkillAvailableForPlayerMech(requestedSkillId, mechDefinition.id)
     ) {
       return requestedDefinition;
     }
-    return SKILL_DEFINITIONS[DEFAULT_SKILL_ID] || null;
+    const fallbackId = skillIds.find((skillId) => this.isSkillAvailableForPlayerMech(skillId, mechDefinition.id));
+    return SKILL_DEFINITIONS[fallbackId] || null;
   }
 
   getResolvedPlayerMechStartingSkillId(mechId = null) {
-    return this.getResolvedPlayerMechStartingSkillDefinition(mechId)?.id || DEFAULT_SKILL_ID;
+    return this.getResolvedPlayerMechStartingSkillDefinition(mechId)?.id || "";
   }
 
   isSkillReplacedByPlayerMechStarter(skillId, mechId = null) {
@@ -13271,35 +14109,36 @@ class SurvivalScene extends Phaser.Scene {
 
   isSkillAvailableForPlayerMech(skillId, mechId = null) {
     const definition = SKILL_DEFINITIONS[skillId];
+    if ((this.getUmbraRunContext?.() || this.verificationContext)?.growthEnabled === true) {
+      return this.isUmbraGrowthContextActive()
+        && (mechId === null || mechId === UMBRA_SERAPH_MECH_ID)
+        && this.isUmbraGrowthSkillDefinition(definition);
+    }
     const resolvedMechId = this.getPlayerMechDefinition(mechId)
       ? mechId
       : this.getSkillSelectionPlayerMechId();
-    if (!definition?.stages?.length) {
+    if (!this.isPlayerMechReleased(resolvedMechId) || definition?.previewOnly === true || !definition?.stages?.length) {
       return false;
     }
     if (!this.isSkillDefinitionCompatibleWithPlayerMech(definition, resolvedMechId)) {
       return false;
     }
-    return !this.isSkillReplacedByPlayerMechStarter(skillId, resolvedMechId);
+    return this.getPlayerSkillSlotIds({ mechId: resolvedMechId }).includes(skillId);
   }
 
   getPlayerSkillSlotIds(options = {}) {
-    const mechId = this.getSkillSelectionPlayerMechId(options);
-    const ids = [];
-    const addSkillId = (skillId) => {
-      if (!skillId || ids.includes(skillId) || !this.isSkillAvailableForPlayerMech(skillId, mechId)) {
-        return;
-      }
-      ids.push(skillId);
-    };
-
-    addSkillId(this.getResolvedPlayerMechStartingSkillId(mechId));
-    Object.keys(SKILL_DEFINITIONS).forEach((skillId) => addSkillId(skillId));
-    return ids.slice(0, 3);
+    const selectionOptions = typeof options === "string" ? { mechId: options } : options;
+    const mechId = this.getSkillSelectionPlayerMechId(selectionOptions);
+    return [...(PLAYER_MECH_SKILL_SLOT_IDS[mechId] || PLAYER_MECH_SKILL_SLOT_IDS[DEFAULT_PLAYER_MECH_ID])];
   }
 
   getActivePlayerMechIdForRuntime() {
-    if (!this.shopActive && this.getPlayerMechDefinition(this.runPlayerMechId)) {
+    if (this.umbraRunContext && this.isUmbraRunContextCurrent(this.umbraRunContext)) return this.umbraRunContext.mechId;
+    const verifiedMechId = this.getUmbraPhase2AVerifiedMechId();
+    if (verifiedMechId) {
+      return verifiedMechId;
+    }
+    if (!this.shopActive && this.isPlayerMechReleased(this.runPlayerMechId)) {
       return this.runPlayerMechId;
     }
     return this.getSelectedPlayerMechId();
@@ -13348,13 +14187,50 @@ class SurvivalScene extends Phaser.Scene {
     return Number.isFinite(multiplier) && multiplier > 0 ? Phaser.Math.Clamp(multiplier, 0.5, 1.5) : 1;
   }
 
-  applySelectedPlayerMechStatProfile() {
+  getPlayerMechMaxHpForBase(baseMaxHp, profile = this.getRunPlayerMechStatProfile()) {
+    const normalized = this.normalizePlayerMechStatProfile(profile);
+    const base = Math.max(1, Number(baseMaxHp) || 1);
+    return Math.max(1, Math.round((base + normalized.maxHpAdd) * normalized.maxHpMultiplier));
+  }
+
+  getApReinforceBaseMaxHp() {
+    // Keep the unscaled AP basis in the run so repeated upgrades share one rounding boundary.
+    // Deep-level AP is a separate additive bonus and never enters this basis again.
+    if (this.playerMechStatsAppliedReference === this.stats && Number.isFinite(this.playerMechMaxHpBase)) {
+      return this.playerMechMaxHpBase;
+    }
+    const profile = this.getRunPlayerMechStatProfile();
+    const withoutDeepBonus = Math.max(1, (Number(this.stats?.maxHp) || 1) - (Number(this.deepLevelHpBonus) || 0));
+    return withoutDeepBonus / profile.maxHpMultiplier - profile.maxHpAdd;
+  }
+
+  getApReinforceHpGain(baseGain = 20) {
+    const beforeBase = this.getApReinforceBaseMaxHp();
+    const gain = Math.max(0, Number(baseGain) || 0);
+    return Math.max(0, this.getPlayerMechMaxHpForBase(beforeBase + gain) - this.getPlayerMechMaxHpForBase(beforeBase));
+  }
+
+  applyApReinforceUpgrade(baseGain = 20) {
     if (!this.stats) {
+      return 0;
+    }
+    const beforeBase = this.getApReinforceBaseMaxHp();
+    const effectiveGain = this.getApReinforceHpGain(baseGain);
+    const previousHp = Math.max(0, Number(this.stats.hp) || 0);
+    this.playerMechMaxHpBase = beforeBase + Math.max(0, Number(baseGain) || 0);
+    this.playerMechStatsAppliedReference = this.stats;
+    this.stats.maxHp += effectiveGain;
+    this.stats.hp = Math.min(this.stats.maxHp, previousHp + effectiveGain);
+    this.spawnPlayerHealNumber(this.stats.hp - previousHp);
+    return effectiveGain;
+  }
+
+  applySelectedPlayerMechStatProfile() {
+    if (!this.stats || this.playerMechStatsAppliedReference === this.stats) {
       return false;
     }
 
     const profile = this.getRunPlayerMechStatProfile();
-    const hpAdd = Math.round(Number(profile.maxHpAdd) || 0);
     const maxStaminaAdd = Math.round(Number(profile.maxStaminaAdd) || 0);
     const damageMultiplier = Number(profile.bulletDamageMultiplier);
     const moveSpeedMultiplier = Number(profile.moveSpeedMultiplier);
@@ -13363,8 +14239,10 @@ class SurvivalScene extends Phaser.Scene {
 
     const beforeMaxHp = Math.max(1, Number(this.stats.maxHp) || 1);
     const beforeHp = Phaser.Math.Clamp(Number(this.stats.hp) || beforeMaxHp, 0, beforeMaxHp);
-    this.stats.maxHp = Math.max(1, Math.round(beforeMaxHp + hpAdd));
-    this.stats.hp = Phaser.Math.Clamp(beforeHp + hpAdd, 0, this.stats.maxHp);
+    this.playerMechMaxHpBase = beforeMaxHp;
+    this.playerMechStatsAppliedReference = this.stats;
+    this.stats.maxHp = this.getPlayerMechMaxHpForBase(beforeMaxHp, profile);
+    this.stats.hp = Phaser.Math.Clamp(beforeHp + this.stats.maxHp - beforeMaxHp, 0, this.stats.maxHp);
     this.stats.damageMultiplier = Math.max(0, Number(this.stats.damageMultiplier) || 1) * safeDamageMultiplier;
     this.stats.moveSpeed = Math.max(
       PLAYER_MECH_MIN_MOVE_SPEED,
@@ -13475,7 +14353,7 @@ class SurvivalScene extends Phaser.Scene {
 
   isPlayerMechOwned(mechId) {
     const definition = this.getPlayerMechDefinition(mechId);
-    if (!definition) {
+    if (!this.isPlayerMechReleased(mechId)) {
       return false;
     }
     if (definition.startsUnlocked) {
@@ -13489,7 +14367,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   isPlayerMechStartsUnlocked(mechId) {
-    return this.getPlayerMechDefinition(mechId)?.startsUnlocked === true;
+    return this.isPlayerMechReleased(mechId) && this.getPlayerMechDefinition(mechId).startsUnlocked === true;
   }
 
   getPlayerMechPurchaseCost(mechId) {
@@ -13499,14 +14377,14 @@ class SurvivalScene extends Phaser.Scene {
 
   isPlayerMechUnlockRequirementMet(mechId) {
     const definition = this.getPlayerMechDefinition(mechId);
-    if (!definition) {
+    if (!this.isPlayerMechReleased(mechId)) {
       return false;
     }
     if (!definition.unlockRequirement) {
       return true;
     }
     if (definition.unlockRequirement === "finalBossRaidClear") {
-      if (this.isDebugPlayerMechUnlockEnabled?.()) {
+      if (definition.id !== UMBRA_SERAPH_MECH_ID && this.isDebugPlayerMechUnlockEnabled?.()) {
         return true;
       }
       return typeof this.isFinalBossRaidCleared === "function"
@@ -13517,8 +14395,9 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   canPurchasePlayerMech(mechId) {
+    if (this.isProgressionWriteBlocked() || this.cloudSaveState?.busy || this.cloudSaveState?.applyingRemote) return false;
     const definition = this.getPlayerMechDefinition(mechId);
-    if (!definition || this.isPlayerMechOwned(definition.id)) {
+    if (!this.isPlayerMechReleased(mechId) || this.isPlayerMechOwned(definition.id)) {
       return false;
     }
     if (!this.isPlayerMechUnlockRequirementMet(definition.id)) {
@@ -13528,8 +14407,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   purchasePlayerMech(mechId) {
+    if (this.isProgressionWriteBlocked() || this.cloudSaveState?.busy || this.cloudSaveState?.applyingRemote) return false;
+    if (mechId === UMBRA_SERAPH_MECH_ID) return this.purchaseUmbraPlayerMech();
     const definition = this.getPlayerMechDefinition(mechId);
-    if (!definition) {
+    if (!this.isPlayerMechReleased(mechId)) {
       return false;
     }
 
@@ -13553,8 +14434,9 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   selectPlayerMech(mechId) {
+    if (this.isProgressionWriteBlocked() || this.cloudSaveState?.busy || this.cloudSaveState?.applyingRemote) return false;
     const definition = this.getPlayerMechDefinition(mechId);
-    if (!definition) {
+    if (!this.isPlayerMechReleased(mechId)) {
       return false;
     }
 
@@ -13563,8 +14445,65 @@ class SurvivalScene extends Phaser.Scene {
       return false;
     }
 
+    const previousId = this.shopState.playerMechs.selectedId;
     this.shopState.playerMechs.selectedId = definition.id;
-    this.saveShopState();
+    if (!this.saveShopState()) {
+      this.shopState.playerMechs.selectedId = previousId;
+      return false;
+    }
+    return true;
+  }
+
+  async purchaseUmbraPlayerMech() {
+    this.umbraPurchaseFailure = "";
+    if (this.runEnvironmentIO || !this.shopActive || this.isProgressionWriteBlocked()
+      || this.cloudSaveState?.busy || this.cloudSaveState?.applyingRemote) return false;
+    const result = await this.executeUmbraPersistenceOperation({
+      kind: "mechPurchase",
+      prepare: ({ transactionId }) => {
+        const storage = window.localStorage;
+        const beforeShop = storage.getItem(SHOP_STATE_STORAGE_KEY);
+        const beforeCoins = storage.getItem(COIN_WALLET_STORAGE_KEY);
+        const beforeRaid = storage.getItem(FINAL_BOSS_STATE_STORAGE_KEY);
+        // Validate against the opened HUB, not merely a stale in-memory wallet.
+        for (const [key, raw] of [[SHOP_STATE_STORAGE_KEY, beforeShop], [COIN_WALLET_STORAGE_KEY, beforeCoins], [FINAL_BOSS_STATE_STORAGE_KEY, beforeRaid]]) {
+          if (this.umbraStorageBaseline && (this.umbraStorageBaseline.get(key) ?? null) !== raw) {
+            return { ok: false, reason: "EXTERNAL_STORAGE_CHANGE" };
+          }
+        }
+        const rawShop = beforeShop === null ? {} : JSON.parse(beforeShop);
+        if (!rawShop || typeof rawShop !== "object" || Array.isArray(rawShop)
+          || Number(rawShop.version || 0) > SHOP_STATE_VERSION) return { ok: false, reason: "UNSUPPORTED_SHOP" };
+        const shop = this.normalizeShopState(rawShop);
+        if (shop.playerMechs.ownedIds.includes(UMBRA_SERAPH_MECH_ID)) {
+          return { entries: [], value: { shop, coins: this.normalizeCoinAmount(beforeCoins) } };
+        }
+        const raid = beforeRaid === null ? {} : JSON.parse(beforeRaid);
+        if (!(raid?.cleared === true || raid?.depth10RaidCleared === true)) return { ok: false, reason: "FINAL_RAID_REQUIRED" };
+        if (beforeCoins !== null && (!/^\d+$/.test(beforeCoins) || !Number.isSafeInteger(Number(beforeCoins)))) {
+          return { ok: false, reason: "INVALID_WALLET" };
+        }
+        const coins = this.normalizeCoinAmount(beforeCoins);
+        const cost = this.getPlayerMechPurchaseCost(UMBRA_SERAPH_MECH_ID);
+        if (coins < cost) return { ok: false, reason: "INSUFFICIENT_GEEK" };
+        shop.playerMechs.ownedIds.push(UMBRA_SERAPH_MECH_ID);
+        shop.playerMechs.selectedId = UMBRA_SERAPH_MECH_ID;
+        shop.playerMechs.purchaseReceipts[UMBRA_SERAPH_MECH_ID] = { transactionId, cost, purchasedAt: Date.now() };
+        return { entries: [
+          { key: COIN_WALLET_STORAGE_KEY, before: beforeCoins, after: String(coins - cost) },
+          { key: SHOP_STATE_STORAGE_KEY, before: beforeShop, after: JSON.stringify(shop) },
+          { key: FINAL_BOSS_STATE_STORAGE_KEY, before: beforeRaid, after: beforeRaid }
+        ], value: { shop, coins: coins - cost }, metadata: { mechId: UMBRA_SERAPH_MECH_ID, cost } };
+      }
+    });
+    if (!result.ok) {
+      this.umbraPurchaseFailure = result.reason || "SAVE_PENDING";
+      return false;
+    }
+    this.shopState = result.value.shop;
+    this.coins = result.value.coins;
+    this.refreshPersistentWalletHud();
+    this.scheduleCloudSave("umbraPurchase");
     return true;
   }
 
@@ -13581,7 +14520,7 @@ class SurvivalScene extends Phaser.Scene {
     let rawState = null;
 
     try {
-      rawState = window.localStorage?.getItem(OPTIONS_STATE_STORAGE_KEY) || null;
+      rawState = getSurvivalStorage("local")?.getItem(OPTIONS_STATE_STORAGE_KEY) || null;
     } catch (error) {
       rawState = null;
     }
@@ -13601,7 +14540,7 @@ class SurvivalScene extends Phaser.Scene {
     this.optionsState = this.normalizeOptionsState(this.optionsState);
 
     try {
-      window.localStorage?.setItem(OPTIONS_STATE_STORAGE_KEY, JSON.stringify(this.optionsState));
+      getSurvivalStorage("local")?.setItem(OPTIONS_STATE_STORAGE_KEY, JSON.stringify(this.optionsState));
     } catch (error) {
       // Options are a local convenience setting. Storage failure must not block gameplay.
     }
@@ -13625,7 +14564,7 @@ class SurvivalScene extends Phaser.Scene {
   loadGateGuidanceState() {
     let rawState = null;
     try {
-      rawState = window.localStorage?.getItem(GATE_GUIDANCE_STORAGE_KEY) || null;
+      rawState = getSurvivalStorage("local")?.getItem(GATE_GUIDANCE_STORAGE_KEY) || null;
     } catch (error) {
       rawState = null;
     }
@@ -13644,7 +14583,7 @@ class SurvivalScene extends Phaser.Scene {
   saveGateGuidanceState() {
     this.gateGuidanceState = this.normalizeGateGuidanceState(this.gateGuidanceState);
     try {
-      window.localStorage?.setItem(GATE_GUIDANCE_STORAGE_KEY, JSON.stringify(this.gateGuidanceState));
+      getSurvivalStorage("local")?.setItem(GATE_GUIDANCE_STORAGE_KEY, JSON.stringify(this.gateGuidanceState));
     } catch (error) {
       // Guidance recovery is a local-only courtesy. Storage failure must not block the run.
     }
@@ -13772,8 +14711,8 @@ class SurvivalScene extends Phaser.Scene {
   persistEquipmentState(state) {
     try {
       const serialized = JSON.stringify(state);
-      window.localStorage?.setItem(EQUIPMENT_STORAGE_KEY, serialized);
-      const saved = window.localStorage?.getItem(EQUIPMENT_STORAGE_KEY) === serialized;
+      getSurvivalStorage("local")?.setItem(EQUIPMENT_STORAGE_KEY, serialized);
+      const saved = getSurvivalStorage("local")?.getItem(EQUIPMENT_STORAGE_KEY) === serialized;
       if (saved) {
         this.scheduleCloudSave("equipmentState");
       }
@@ -13786,7 +14725,7 @@ class SurvivalScene extends Phaser.Scene {
 
   readEquipmentAnalysisTransaction() {
     try {
-      const raw = window.localStorage?.getItem(EQUIPMENT_ANALYSIS_TRANSACTION_STORAGE_KEY) || "";
+      const raw = getSurvivalStorage("local")?.getItem(EQUIPMENT_ANALYSIS_TRANSACTION_STORAGE_KEY) || "";
       if (!raw) {
         return null;
       }
@@ -13809,7 +14748,7 @@ class SurvivalScene extends Phaser.Scene {
     } catch (error) {
       console.warn("[EQUIPMENT ANALYSIS] invalid transaction journal", error);
       try {
-        window.localStorage?.removeItem(EQUIPMENT_ANALYSIS_TRANSACTION_STORAGE_KEY);
+        getSurvivalStorage("local")?.removeItem(EQUIPMENT_ANALYSIS_TRANSACTION_STORAGE_KEY);
       } catch (removeError) {
         console.warn("[EQUIPMENT ANALYSIS] failed to remove invalid transaction journal", removeError);
       }
@@ -13820,8 +14759,8 @@ class SurvivalScene extends Phaser.Scene {
   persistEquipmentAnalysisTransaction(transaction) {
     try {
       const serialized = JSON.stringify(transaction);
-      window.localStorage?.setItem(EQUIPMENT_ANALYSIS_TRANSACTION_STORAGE_KEY, serialized);
-      return window.localStorage?.getItem(EQUIPMENT_ANALYSIS_TRANSACTION_STORAGE_KEY) === serialized;
+      getSurvivalStorage("local")?.setItem(EQUIPMENT_ANALYSIS_TRANSACTION_STORAGE_KEY, serialized);
+      return getSurvivalStorage("local")?.getItem(EQUIPMENT_ANALYSIS_TRANSACTION_STORAGE_KEY) === serialized;
     } catch (error) {
       console.warn("[EQUIPMENT ANALYSIS] failed to save transaction journal", error);
       return false;
@@ -13830,8 +14769,8 @@ class SurvivalScene extends Phaser.Scene {
 
   clearEquipmentAnalysisTransaction() {
     try {
-      window.localStorage?.removeItem(EQUIPMENT_ANALYSIS_TRANSACTION_STORAGE_KEY);
-      return !window.localStorage?.getItem(EQUIPMENT_ANALYSIS_TRANSACTION_STORAGE_KEY);
+      getSurvivalStorage("local")?.removeItem(EQUIPMENT_ANALYSIS_TRANSACTION_STORAGE_KEY);
+      return !getSurvivalStorage("local")?.getItem(EQUIPMENT_ANALYSIS_TRANSACTION_STORAGE_KEY);
     } catch (error) {
       console.warn("[EQUIPMENT ANALYSIS] failed to clear transaction journal", error);
       return false;
@@ -13840,7 +14779,7 @@ class SurvivalScene extends Phaser.Scene {
 
   readPersistedEquipmentStateForVerification() {
     try {
-      const raw = window.localStorage?.getItem(EQUIPMENT_STORAGE_KEY) || "";
+      const raw = getSurvivalStorage("local")?.getItem(EQUIPMENT_STORAGE_KEY) || "";
       return raw ? this.normalizeEquipmentState(JSON.parse(raw)) : null;
     } catch (error) {
       return null;
@@ -13938,7 +14877,7 @@ class SurvivalScene extends Phaser.Scene {
     let rawState = null;
 
     try {
-      rawState = window.localStorage?.getItem(EQUIPMENT_STORAGE_KEY) || null;
+      rawState = getSurvivalStorage("local")?.getItem(EQUIPMENT_STORAGE_KEY) || null;
     } catch (error) {
       console.warn("[EQUIPMENT] failed to read equipment state", error);
       return this.normalizeEquipmentState(this.createDefaultEquipmentState());
@@ -14594,6 +15533,11 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getRunEquipmentCombatLinkState() {
+    if (this.isUmbraEquipmentScope?.()) {
+      const snapshot = this.getUmbraEquipmentSnapshot();
+      return snapshot ? { ...this.umbraEquipmentState.qualification, overlimitLevels: snapshot.overlimitLevels }
+        : { snapshotCaptured: false, highestTierId: null, combatLinkLevel: 0, overlimitCap: 0, overlimitLevels: {} };
+    }
     return this.cloneRunEquipmentCombatLinkState(
       this.runEquipmentCombatLinkState || this.createDefaultRunEquipmentCombatLinkState()
     );
@@ -14617,6 +15561,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   ensureRunEquipmentOverlimitBonusState() {
+    if (this.isUmbraEquipmentScope?.()) return this.umbraEquipmentState?.bonus || this.createDefaultRunEquipmentOverlimitBonusState();
     if (!this.runEquipmentOverlimitBonusState) {
       this.initializeRunEquipmentOverlimitBonusState();
     }
@@ -14675,6 +15620,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   shouldSuppressRunEquipmentCombatLink() {
+    if (this.isUmbraEquipmentScope?.()) return !this.getUmbraEquipmentSnapshot();
     return this.shouldSuppressRunEquipmentOffenseBonuses();
   }
 
@@ -14693,6 +15639,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   isEquipmentCombatLinkSkillId(skillId) {
+    if (this.isUmbraEquipmentScope?.()) return UMBRA_TRIAD_COMBAT_SKILL_IDS.includes(String(skillId || ""));
     return EQUIPMENT_COMBAT_LINK_SKILL_IDS.includes(String(skillId || ""));
   }
 
@@ -14757,6 +15704,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   canUpgradeRunEquipmentSkillOverlimit(skillId, options = {}) {
+    if (this.isUmbraEquipmentScope?.()) return this.canUpgradeUmbraEquipmentOverlimit(skillId, options);
     if (options?.allowEquipmentOverlimit === false) {
       return false;
     }
@@ -14781,12 +15729,13 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   hasAvailableRunEquipmentOverlimitUpgrade(options = {}) {
-    return EQUIPMENT_COMBAT_LINK_SKILL_IDS.some((skillId) => (
+    return (this.getEquipmentCombatLinkTargetSkillIds?.() || EQUIPMENT_COMBAT_LINK_SKILL_IDS).some((skillId) => (
       this.canUpgradeRunEquipmentSkillOverlimit(skillId, options)
     ));
   }
 
   applyRunEquipmentSkillOverlimitUpgrade(skillId) {
+    if (this.isUmbraEquipmentScope?.()) return false; // Private choices require their captured selection token.
     if (!this.canUpgradeRunEquipmentSkillOverlimit(skillId, { allowEquipmentOverlimit: true })) {
       return false;
     }
@@ -14840,6 +15789,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   buildEquipmentOverlimitChoice(skillId, options = {}) {
+    if (this.isUmbraEquipmentScope?.()) return this.buildUmbraEquipmentOverlimitChoice(skillId, options);
     if (!this.canUpgradeRunEquipmentSkillOverlimit(skillId, options)) {
       return null;
     }
@@ -14863,13 +15813,13 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getAvailableEquipmentOverlimitChoices(options = {}) {
-    return EQUIPMENT_COMBAT_LINK_SKILL_IDS
+    return (this.getEquipmentCombatLinkTargetSkillIds?.() || EQUIPMENT_COMBAT_LINK_SKILL_IDS)
       .map((skillId) => this.buildEquipmentOverlimitChoice(skillId, options))
       .filter(Boolean);
   }
 
   countAvailableEquipmentOverlimitUpgradeSteps(options = {}) {
-    return EQUIPMENT_COMBAT_LINK_SKILL_IDS.reduce((total, skillId) => {
+    return (this.getEquipmentCombatLinkTargetSkillIds?.() || EQUIPMENT_COMBAT_LINK_SKILL_IDS).reduce((total, skillId) => {
       if (!this.canUpgradeRunEquipmentSkillOverlimit(skillId, options)) {
         return total;
       }
@@ -14885,7 +15835,8 @@ class SurvivalScene extends Phaser.Scene {
     return pendingCount + pendingFinalCount + (state?.selectionOpen ? 1 : 0);
   }
 
-  queueFinalMutationEquipmentOverlimitBonus(skillId, reason = "finalMutation") {
+  queueFinalMutationEquipmentOverlimitBonus(skillId, reason = "finalMutation", commitToken = null) {
+    if (this.isUmbraEquipmentScope?.()) return this.queueUmbraFinalOverlimitBonus(skillId, commitToken);
     if (!this.isEquipmentCombatLinkSkillId(skillId)) {
       return false;
     }
@@ -14919,6 +15870,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   queueDeepLevelEquipmentOverlimitBonus(levelsGained = 1, reason = "deepLevel") {
+    if (this.isUmbraEquipmentScope?.()) return this.queueUmbraDeepOverlimitBonus(levelsGained);
     const gained = Math.max(0, Math.floor(Number(levelsGained) || 0));
     if (gained <= 0) {
       return { queued: 0, pendingCount: this.ensureRunEquipmentOverlimitBonusState().pendingCount };
@@ -14946,6 +15898,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   canOpenEquipmentOverlimitBonusSelection() {
+    if (this.isUmbraEquipmentScope?.()) return this.canOpenUmbraEquipmentOverlimitBonusSelection();
     const state = this.runEquipmentOverlimitBonusState;
     const hasFinalPending = Array.isArray(state?.pendingFinalSkillIds) && state.pendingFinalSkillIds.length > 0;
     return (
@@ -14963,6 +15916,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   tryOpenPendingEquipmentOverlimitBonusSelection() {
+    if (this.isUmbraEquipmentScope?.()) return this.tryOpenUmbraEquipmentOverlimitBonusSelection();
     if (!this.canOpenEquipmentOverlimitBonusSelection()) {
       return false;
     }
@@ -15027,6 +15981,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   finishEquipmentOverlimitBonusSelectionOverlay() {
+    if (this.isUmbraEquipmentScope?.()) this.closeUmbraEquipmentOverlimitSelection();
     this.levelUpActive = false;
     this.runEquipmentOverlimitBonusSelectionActive = false;
     if (this.runEquipmentOverlimitBonusState) {
@@ -15119,6 +16074,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   captureRunEquipmentBonuses(reason = "runStart") {
+    if (this.umbraRunContext?.inputs && this.isUmbraRunContextCurrent(this.umbraRunContext)) return this.runEquipmentBonuses;
     const equipmentSystem = this.getEquipmentSystem();
     const snapshot = this.createRunEquipmentLoadoutSnapshot(reason);
     const bonuses = equipmentSystem?.getEquipmentBonusesFromState
@@ -15255,10 +16211,14 @@ class SurvivalScene extends Phaser.Scene {
       : 1;
   }
 
-  applyRunEquipmentPlayerSkillDamageBonus(skillId, damage) {
+  applyRunEquipmentPlayerSkillDamageBonus(skillId, damage, capturedProfile = null) {
     const baseDamage = Math.max(0, Number(damage) || 0);
     if (!this.isRunEquipmentSkillBonusTarget(skillId)) {
       return baseDamage;
+    }
+    if (capturedProfile) {
+      // A/B -> round(OVL) -> round(ARMAMENT). A cast never reads a later OVL level.
+      return this.getUmbraEquipmentDamageBreakdown(baseDamage, capturedProfile).equipmentRaw;
     }
     const overlimitDamage = this.applyRunEquipmentSkillOverlimitDamage(baseDamage, skillId, { effective: true });
     const multiplier = Number(this.getActiveRunEquipmentBonuses().playerSkillDamageMultiplier);
@@ -15266,12 +16226,13 @@ class SurvivalScene extends Phaser.Scene {
     return Math.max(1, Math.round(overlimitDamage * effectiveMultiplier));
   }
 
-  getRunEquipmentAdjustedSkillIntervalMs(skillId, intervalMs, minimumMs = 1) {
+  getRunEquipmentAdjustedSkillIntervalMs(skillId, intervalMs, minimumMs = 1, capturedProfile = null) {
     const baseInterval = Math.max(0, Number(intervalMs) || 0);
     const minimum = Math.max(0, Number(minimumMs) || 0);
+    const sensor = capturedProfile ? Number(capturedProfile.sensorMultiplier) : this.getRunEquipmentAttackIntervalMultiplier(skillId);
     return Math.max(
       minimum,
-      Math.round(baseInterval * this.getRunEquipmentAttackIntervalMultiplier(skillId))
+      Math.round(baseInterval * (Number.isFinite(sensor) && sensor > 0 ? sensor : 1))
     );
   }
 
@@ -17367,7 +18328,7 @@ class SurvivalScene extends Phaser.Scene {
     this.refreshPersistentWalletHud();
 
     try {
-      const savedCoins = this.normalizeCoinAmount(window.localStorage?.getItem(COIN_WALLET_STORAGE_KEY));
+      const savedCoins = this.normalizeCoinAmount(getSurvivalStorage("local")?.getItem(COIN_WALLET_STORAGE_KEY));
       if (savedCoins !== this.coins) {
         console.warn("[EQUIPMENT ANALYSIS] rollback coin save failed", {
           expected: this.coins,
@@ -17385,6 +18346,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   analyzeSecuredEquipmentBox(boxId) {
+    if (this.isProgressionWriteBlocked()) { this.showPreGameShop(this.getProgressionWriteHoldMessage()); return false; }
     if (!this.shopActive || this.shopViewMode !== "geek" || this.geekShopSubView !== GEEK_SHOP_SUB_VIEW_EQUIPMENT_ANALYSIS) {
       return;
     }
@@ -17655,7 +18617,7 @@ class SurvivalScene extends Phaser.Scene {
     let rawState = null;
 
     try {
-      rawState = window.localStorage?.getItem(SUPPORT_LINK_STORAGE_KEY) || null;
+      rawState = getSurvivalStorage("local")?.getItem(SUPPORT_LINK_STORAGE_KEY) || null;
     } catch (error) {
       rawState = null;
     }
@@ -17675,7 +18637,7 @@ class SurvivalScene extends Phaser.Scene {
     this.supportLinkState = this.normalizeSupportLinkState(this.supportLinkState);
 
     try {
-      window.localStorage?.setItem(SUPPORT_LINK_STORAGE_KEY, JSON.stringify(this.supportLinkState));
+      getSurvivalStorage("local")?.setItem(SUPPORT_LINK_STORAGE_KEY, JSON.stringify(this.supportLinkState));
     } catch (error) {
       // Support Link progress is permanent, but storage failures should not stop the current run.
     }
@@ -17902,7 +18864,7 @@ class SurvivalScene extends Phaser.Scene {
     let rawState = null;
 
     try {
-      rawState = window.localStorage?.getItem(FINAL_BOSS_STATE_STORAGE_KEY) || null;
+      rawState = getSurvivalStorage("local")?.getItem(FINAL_BOSS_STATE_STORAGE_KEY) || null;
     } catch (error) {
       rawState = null;
     }
@@ -17922,7 +18884,7 @@ class SurvivalScene extends Phaser.Scene {
     this.finalBossState = this.normalizeFinalBossState(this.finalBossState);
 
     try {
-      window.localStorage?.setItem(FINAL_BOSS_STATE_STORAGE_KEY, JSON.stringify(this.finalBossState));
+      getSurvivalStorage("local")?.setItem(FINAL_BOSS_STATE_STORAGE_KEY, JSON.stringify(this.finalBossState));
     } catch (error) {
       // Ignore storage failures so the run can continue even if this unlock state cannot be persisted.
     }
@@ -17979,7 +18941,7 @@ class SurvivalScene extends Phaser.Scene {
     let state = this.createDefaultDepthRelayState();
 
     try {
-      rawState = window.localStorage?.getItem(DEPTH_RELAY_STATE_STORAGE_KEY) ?? null;
+      rawState = getSurvivalStorage("local")?.getItem(DEPTH_RELAY_STATE_STORAGE_KEY) ?? null;
       hasStoredState = rawState !== null;
     } catch (error) {
       rawState = null;
@@ -18013,7 +18975,7 @@ class SurvivalScene extends Phaser.Scene {
     this.depthRelayState = this.normalizeDepthRelayState(state);
 
     try {
-      window.localStorage?.setItem(DEPTH_RELAY_STATE_STORAGE_KEY, JSON.stringify(this.depthRelayState));
+      getSurvivalStorage("local")?.setItem(DEPTH_RELAY_STATE_STORAGE_KEY, JSON.stringify(this.depthRelayState));
     } catch (error) {
       // Ignore storage failures so Depth Relay unlock data never blocks boot or raid completion.
     }
@@ -18049,7 +19011,7 @@ class SurvivalScene extends Phaser.Scene {
 
   loadDepth20ClearCodeState() {
     try {
-      const rawState = window.localStorage?.getItem(DEPTH20_CLEAR_CODE_STORAGE_KEY) || "";
+      const rawState = getSurvivalStorage("local")?.getItem(DEPTH20_CLEAR_CODE_STORAGE_KEY) || "";
       return rawState
         ? this.normalizeDepth20ClearCodeState(JSON.parse(rawState))
         : this.createDefaultDepth20ClearCodeState();
@@ -18062,8 +19024,8 @@ class SurvivalScene extends Phaser.Scene {
     this.depth20ClearCodeState = this.normalizeDepth20ClearCodeState(state);
     try {
       const serialized = JSON.stringify(this.depth20ClearCodeState);
-      window.localStorage?.setItem(DEPTH20_CLEAR_CODE_STORAGE_KEY, serialized);
-      const saved = window.localStorage?.getItem(DEPTH20_CLEAR_CODE_STORAGE_KEY) === serialized;
+      getSurvivalStorage("local")?.setItem(DEPTH20_CLEAR_CODE_STORAGE_KEY, serialized);
+      const saved = getSurvivalStorage("local")?.getItem(DEPTH20_CLEAR_CODE_STORAGE_KEY) === serialized;
       if (saved) {
         this.scheduleCloudSave("depth20ClearCodeState");
       }
@@ -18621,6 +19583,8 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   beginFinalBossRaid(transition = {}, options = {}) {
+    this.endUmbraNormalRun?.("FINAL_RAID");
+    this.invalidateUmbraBoostTrace?.("FINAL_RAID_BEGIN");
     if (!this.areFinalBossRaidAssetsLoaded()) {
       return this.loadFinalBossRaidAssetsThenBegin(transition, options);
     }
@@ -20523,6 +21487,7 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     const point = this.getFinalBossRaidPlayerStartPosition(this.finalBossRaidState?.currentPhase);
+    this.invalidateUmbraBoostTrace?.("RAID_POSITION_RESET");
     this.playerHitbox.setPosition(point.x, point.y);
     if (this.playerHitbox.body) {
       this.playerHitbox.body.reset?.(point.x, point.y);
@@ -28173,7 +29138,7 @@ class SurvivalScene extends Phaser.Scene {
     let rawState = null;
 
     try {
-      rawState = window.localStorage?.getItem(ANJU_MEMORY_STORAGE_KEY) || null;
+      rawState = getSurvivalStorage("local")?.getItem(ANJU_MEMORY_STORAGE_KEY) || null;
     } catch (error) {
       rawState = null;
     }
@@ -28193,7 +29158,7 @@ class SurvivalScene extends Phaser.Scene {
     this.anjuMemoryState = this.normalizeAnjuMemoryState(this.anjuMemoryState);
 
     try {
-      window.localStorage?.setItem(ANJU_MEMORY_STORAGE_KEY, JSON.stringify(this.anjuMemoryState));
+      getSurvivalStorage("local")?.setItem(ANJU_MEMORY_STORAGE_KEY, JSON.stringify(this.anjuMemoryState));
     } catch (error) {
       // Ignore storage failures so ANJU MEMORY never blocks a run or shop flow.
     }
@@ -28248,6 +29213,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   purchaseAnjuMemoryReward(rewardId) {
+    if (this.isProgressionWriteBlocked()) { this.showPreGameShop(this.getProgressionWriteHoldMessage()); return false; }
     const reward = this.getAnjuMemoryRewardDefinition(rewardId);
     if (!reward) {
       this.showPreGameShop("ANJU MEMORY報酬が見つかりません");
@@ -29102,6 +30068,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   spendCoins(cost) {
+    if (this.isProgressionWriteBlocked()) return false;
     const value = this.normalizeCoinAmount(cost);
     if (value <= 0) {
       return true;
@@ -30126,7 +31093,7 @@ class SurvivalScene extends Phaser.Scene {
     let rawState = null;
 
     try {
-      rawState = window.localStorage?.getItem(LOST_ARMS_STORAGE_KEY) || null;
+      rawState = getSurvivalStorage("local")?.getItem(LOST_ARMS_STORAGE_KEY) || null;
     } catch (error) {
       rawState = null;
     }
@@ -30155,7 +31122,7 @@ class SurvivalScene extends Phaser.Scene {
     this.lostArmsState.pity = storedState.pity;
 
     try {
-      window.localStorage?.setItem(LOST_ARMS_STORAGE_KEY, JSON.stringify(storedState));
+      getSurvivalStorage("local")?.setItem(LOST_ARMS_STORAGE_KEY, JSON.stringify(storedState));
     } catch (error) {
       // Ignore storage failures so the current run can continue.
     }
@@ -31810,7 +32777,7 @@ class SurvivalScene extends Phaser.Scene {
     let rawRecord = null;
 
     try {
-      rawRecord = window.localStorage?.getItem(BEST_RECORD_STORAGE_KEY) || null;
+      rawRecord = getSurvivalStorage("local")?.getItem(BEST_RECORD_STORAGE_KEY) || null;
     } catch (error) {
       rawRecord = null;
     }
@@ -32078,7 +33045,7 @@ class SurvivalScene extends Phaser.Scene {
     this.bestRecord = nextBest;
 
     try {
-      window.localStorage?.setItem(BEST_RECORD_STORAGE_KEY, JSON.stringify(nextBest));
+      getSurvivalStorage("local")?.setItem(BEST_RECORD_STORAGE_KEY, JSON.stringify(nextBest));
     } catch (error) {
       // Ignore storage failures so the run can still end cleanly.
     }
@@ -32202,7 +33169,7 @@ class SurvivalScene extends Phaser.Scene {
     let rawRanking = null;
 
     try {
-      rawRanking = window.localStorage?.getItem(KILL_RANKING_STORAGE_KEY) || null;
+      rawRanking = getSurvivalStorage("local")?.getItem(KILL_RANKING_STORAGE_KEY) || null;
     } catch (error) {
       rawRanking = null;
     }
@@ -32221,7 +33188,7 @@ class SurvivalScene extends Phaser.Scene {
 
   saveKillRanking() {
     try {
-      window.localStorage?.setItem(KILL_RANKING_STORAGE_KEY, JSON.stringify(this.killRanking));
+      getSurvivalStorage("local")?.setItem(KILL_RANKING_STORAGE_KEY, JSON.stringify(this.killRanking));
     } catch (error) {
       // Ignore storage failures so the game over flow can still continue.
     }
@@ -32314,11 +33281,23 @@ class SurvivalScene extends Phaser.Scene {
     return {
       combatLinkLevel,
       overlimitCap,
-      overlimitLevels: this.normalizeRunEquipmentOverlimitLevels(source.overlimitLevels, overlimitCap)
+      // Archive recognition includes every frame without changing combat eligibility.
+      overlimitLevels: SKILL_MUTATION_ARCHIVE_SKILL_IDS.reduce((levels, skillId) => {
+        levels[skillId] = Math.min(overlimitCap, clampArchiveLevel(source.overlimitLevels?.[skillId]));
+        return levels;
+      }, {})
     };
   }
 
   createRunArchiveEquipmentCombatLinkSnapshot(runEquipmentCombatLinkState = this.runEquipmentCombatLinkState) {
+    if (this.isUmbraProductionRunContext?.()) {
+      const equipment = this.umbraNormalEndSnapshot?.equipment || this.getUmbraEquipmentSnapshot?.();
+      return this.normalizeRunArchiveEquipmentCombatLinkSnapshot({
+        combatLinkLevel: equipment?.qualification?.combatLinkLevel ?? equipment?.combatLinkLevel ?? 0,
+        overlimitCap: equipment?.qualification?.overlimitCap ?? equipment?.overlimitCap ?? 0,
+        overlimitLevels: equipment?.overlimitLevels || {}
+      });
+    }
     const state = this.normalizeRunEquipmentCombatLinkState(runEquipmentCombatLinkState);
     return this.normalizeRunArchiveEquipmentCombatLinkSnapshot({
       combatLinkLevel: state.combatLinkLevel,
@@ -32330,7 +33309,7 @@ class SurvivalScene extends Phaser.Scene {
   hasRunArchiveEquipmentCombatLinkData(snapshot) {
     const normalized = this.normalizeRunArchiveEquipmentCombatLinkSnapshot(snapshot);
     return normalized.combatLinkLevel > 0
-      || EQUIPMENT_COMBAT_LINK_SKILL_IDS.some((skillId) => normalized.overlimitLevels[skillId] > 0);
+      || SKILL_MUTATION_ARCHIVE_SKILL_IDS.some((skillId) => normalized.overlimitLevels[skillId] > 0);
   }
 
   normalizeRunArchiveTriadBuild(record = null) {
@@ -32368,6 +33347,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   normalizeRunArchiveEntry(entry = {}) {
+    if (Number(entry?.version) > RUN_ARCHIVE_VERSION) return JSON.parse(JSON.stringify(entry));
     const submittedAt = this.normalizeRunArchiveSubmittedAt(entry.submittedAt);
     const id = this.normalizeRunArchiveShortText(entry.id, 80) || `run-${submittedAt}`;
     const extractMode = this.normalizeRankingExtractMode(entry.extractMode);
@@ -32387,10 +33367,14 @@ class SurvivalScene extends Phaser.Scene {
     const maxDepthReached = this.normalizeDepthValue(entry.maxDepthReached ?? entry.bestDepth, 1);
     const runOriginSnapshot = this.normalizeRunOriginSnapshot(entry, { maxDepthReached });
     const equipmentCombatLink = this.normalizeRunArchiveEquipmentCombatLinkSnapshot(entry.equipmentCombatLink);
+    const inferredMechId = UMBRA_TRIAD_COMBAT_SKILL_IDS.some(id => Number(skills[id]) > 0 || skillMutations[id]?.core)
+      ? UMBRA_SERAPH_MECH_ID : ((Number(skills[REGALIA_BASTION_CANNON_SKILL_ID]) > 0 || skillMutations[REGALIA_BASTION_CANNON_SKILL_ID]?.core)
+        ? REGALIA_BASTION_MECH_ID : DEFAULT_PLAYER_MECH_ID);
 
     const normalizedEntry = {
       id,
       version: RUN_ARCHIVE_VERSION,
+      mechId: MUTATION_ATLAS_PLAYER_MECH_IDS.includes(entry.mechId) ? entry.mechId : inferredMechId,
       submittedAt,
       outcome,
       extractionSucceeded: Boolean(entry.extractionSucceeded) || extractMode !== "none",
@@ -32417,12 +33401,10 @@ class SurvivalScene extends Phaser.Scene {
       stageId: this.normalizeRunArchiveShortText(entry.stageId, 80),
       stageName: this.normalizeRunArchiveShortText(entry.stageName, 80),
 
-      skills: {
-        basicSkill: Math.max(0, Math.floor(Number(skills.basicSkill) || 0)),
-        regaliaBastionCannon: Math.max(0, Math.floor(Number(skills.regaliaBastionCannon) || 0)),
-        tornadoSkill: Math.max(0, Math.floor(Number(skills.tornadoSkill) || 0)),
-        rabbitThunderSkill: Math.max(0, Math.floor(Number(skills.rabbitThunderSkill) || 0))
-      },
+      skills: SKILL_MUTATION_ARCHIVE_SKILL_IDS.reduce((levels, id) => {
+        levels[id] = Math.max(0, Math.min(8, Math.floor(Number(skills[id]) || 0)));
+        return levels;
+      }, {}),
       skillMutations: this.normalizeRunArchiveSkillMutations(skillMutations),
       triadBuild: this.normalizeRunArchiveTriadBuild(entry.triadBuild),
       passives: {
@@ -32430,7 +33412,8 @@ class SurvivalScene extends Phaser.Scene {
         rapidSigil: Math.max(0, Math.floor(Number(passives.rapidSigil) || 0)),
         swiftStep: Math.max(0, Math.floor(Number(passives.swiftStep) || 0)),
         staminaCore: Math.max(0, Math.floor(Number(passives.staminaCore) || 0)),
-        vitalBloom: Math.max(0, Math.floor(Number(passives.vitalBloom) || 0))
+        vitalBloom: Math.max(0, Math.floor(Number(passives.vitalBloom) || 0)),
+        evasiveFirmware: Math.max(0, Math.min(EVASIVE_FIRMWARE_DURATION_MS_BY_LEVEL.length - 1, Math.floor(Number(passives.evasiveFirmware) || 0)))
       },
 
       lostArms: {
@@ -32503,6 +33486,7 @@ class SurvivalScene extends Phaser.Scene {
       }
     }
 
+    if (Number(parsed?.version) > RUN_ARCHIVE_VERSION) return JSON.parse(JSON.stringify(parsed));
     const sourceEntries = Array.isArray(parsed)
       ? parsed
       : (Array.isArray(parsed?.entries) ? parsed.entries : []);
@@ -32516,18 +33500,32 @@ class SurvivalScene extends Phaser.Scene {
 
   loadRunArchive() {
     try {
-      return this.normalizeRunArchive(window.localStorage?.getItem(RUN_ARCHIVE_STORAGE_KEY) || null);
+      const archive = this.normalizeRunArchive(getSurvivalStorage("local")?.getItem(RUN_ARCHIVE_STORAGE_KEY) || null);
+      if (Number(archive.version) > RUN_ARCHIVE_VERSION || archive.entries?.some(entry => Number(entry.version) > RUN_ARCHIVE_VERSION)) {
+        (this.umbraPersistenceUnsupportedKeys ||= new Set()).add(RUN_ARCHIVE_STORAGE_KEY);
+      }
+      return archive;
     } catch (error) {
       return this.normalizeRunArchive(null);
     }
   }
 
   saveRunArchive(archive) {
+    if (this.isProgressionWriteBlocked?.() || Number(archive?.version) > RUN_ARCHIVE_VERSION
+      || archive?.entries?.some(entry => Number(entry.version) > RUN_ARCHIVE_VERSION)) return null;
     const normalized = this.normalizeRunArchive(archive);
     try {
-      window.localStorage?.setItem(RUN_ARCHIVE_STORAGE_KEY, JSON.stringify(normalized));
+      const storage = getSurvivalStorage("local"), previous = this.normalizeRunArchive(storage?.getItem(RUN_ARCHIVE_STORAGE_KEY) || null);
+      if (Number(previous.version) > RUN_ARCHIVE_VERSION || previous.entries?.some(entry => Number(entry.version) > RUN_ARCHIVE_VERSION)) {
+        (this.umbraPersistenceUnsupportedKeys ||= new Set()).add(RUN_ARCHIVE_STORAGE_KEY);
+        return null;
+      }
+      const serialized = JSON.stringify(normalized);
+      if (!storage) return null;
+      storage.setItem(RUN_ARCHIVE_STORAGE_KEY, serialized);
+      if (storage.getItem(RUN_ARCHIVE_STORAGE_KEY) !== serialized) return null;
     } catch (error) {
-      // RUN ARCHIVE is a local convenience log; storage failure must not block the run flow.
+      return null;
     }
     this.scheduleCloudSave("runArchive");
     return normalized;
@@ -32540,7 +33538,7 @@ class SurvivalScene extends Phaser.Scene {
       normalizedEntry,
       ...archive.entries.filter((archiveEntry) => archiveEntry.id !== normalizedEntry.id)
     ].slice(0, RUN_ARCHIVE_MAX_ENTRIES);
-    this.saveRunArchive(archive);
+    if (!this.saveRunArchive(archive)) return null;
 
     if (this.isRunArchiveDebugEnabled()) {
       console.log("[RUN ARCHIVE] saved", {
@@ -32554,6 +33552,9 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getRunArchiveSkillLevels() {
+    if (this.isUmbraProductionRunContext?.() && this.umbraNormalEndSnapshot?.skills) {
+      return Object.fromEntries(this.umbraNormalEndSnapshot.skills.map(skill => [skill.skillId, skill.stage]));
+    }
     const getSkillLevel = (skillId) => {
       const skillState = this.playerSkills?.[skillId];
       if (!skillState) {
@@ -32566,7 +33567,8 @@ class SurvivalScene extends Phaser.Scene {
       basicSkill: getSkillLevel("basicSkill"),
       regaliaBastionCannon: getSkillLevel(REGALIA_BASTION_CANNON_SKILL_ID),
       tornadoSkill: getSkillLevel("tornadoSkill"),
-      rabbitThunderSkill: getSkillLevel("rabbitThunderSkill")
+      rabbitThunderSkill: getSkillLevel("rabbitThunderSkill"),
+      ...Object.fromEntries(UMBRA_TRIAD_COMBAT_SKILL_IDS.map(id => [id, getSkillLevel(id)]))
     };
   }
 
@@ -32576,11 +33578,22 @@ class SurvivalScene extends Phaser.Scene {
       rapidSigil: this.getPassiveLevel("rapidSigil"),
       swiftStep: this.getPassiveLevel("swiftStep"),
       staminaCore: this.getPassiveLevel("staminaCore"),
-      vitalBloom: this.getPassiveLevel("vitalBloom")
+      vitalBloom: this.getPassiveLevel("vitalBloom"),
+      evasiveFirmware: this.isUmbraProductionRunContext?.()
+        ? (this.umbraNormalEndSnapshot?.passives?.evasiveFirmware ?? this.getPassiveLevel(EVASIVE_FIRMWARE_PASSIVE_ID))
+        : this.getPassiveLevel(EVASIVE_FIRMWARE_PASSIVE_ID)
     };
   }
 
   getRunArchiveSkillMutationSnapshot() {
+    if (this.isUmbraProductionRunContext?.()) {
+      const skills = this.umbraNormalEndSnapshot?.skills || UMBRA_TRIAD_COMBAT_SKILL_IDS.map(skillId => {
+        const entry = this.skillMutationState?.entries?.[skillId];
+        return { skillId, core: entry?.stage4Selected ? entry.core : null, final: entry?.stage8Selected ? entry.final : null };
+      });
+      return this.normalizeRunArchiveSkillMutations(Object.fromEntries(skills.map(skill => [skill.skillId,
+        { core: skill.core, final: skill.final, finalFormId: skill.core && skill.final ? `${skill.core}_${skill.final}` : "" }])));
+    }
     const snapshot = {};
     this.getSkillMutationTargetSkillIds().forEach((skillId) => {
       const entry = this.getSkillMutationState(skillId);
@@ -32709,6 +33722,7 @@ class SurvivalScene extends Phaser.Scene {
     );
     const entry = this.normalizeRunArchiveEntry({
       id: `${this.runArchiveSessionId || "run"}-${outcomeOptions.outcome || "unknown"}`,
+      mechId: this.isUmbraProductionRunContext?.() ? (this.umbraNormalEndSnapshot?.mechId || UMBRA_SERAPH_MECH_ID) : this.getRunPlayerMechId(),
       submittedAt: new Date().toISOString(),
       outcome: outcomeOptions.outcome || "unknown",
       extractionSucceeded,
@@ -32769,9 +33783,19 @@ class SurvivalScene extends Phaser.Scene {
       return null;
     }
 
-    const entry = this.createRunArchiveEntry(outcomeOptions);
-    this.runArchiveSaved = true;
-    return this.appendRunArchiveEntry(entry);
+    if (this.isUmbraIntegrationRunScope?.()) {
+      this.runArchiveSaved = true;
+      this.runArchiveUnsupported = true;
+      this.runEnvironmentIO.record("umbra-archive-request-unimplemented", { runId: this.umbraRunContext.runId, outcome: outcomeOptions.outcome,
+        extractedGeek: outcomeOptions.extractedGeek, unconfirmedGeekFinal: outcomeOptions.unconfirmedGeekFinal, snapshot: this.umbraNormalEndSnapshot });
+      return null;
+    }
+    // Retain the first result and ID across failed writes. Never reconstruct it
+    // from a cleaned-up run or charge another result on retry.
+    const entry = this.runArchivePendingEntry ||= this.createRunArchiveEntry(outcomeOptions);
+    const saved = this.appendRunArchiveEntry(entry);
+    if (saved) { this.runArchiveSaved = true; this.runArchivePendingEntry = null; }
+    return saved;
   }
 
   formatRunArchiveDate(isoString) {
@@ -32835,6 +33859,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   async getFirebaseLeaderboardClient() {
+    if (isSurvivalRemoteIODisabled("firebaseClient")) throw new Error("Network disabled for RAM integration");
     const cache = this.getFirebaseLeaderboardCache();
     if (cache.client) {
       return cache.client;
@@ -32896,6 +33921,13 @@ class SurvivalScene extends Phaser.Scene {
       pendingWrite: false,
       lastReason: ""
     };
+    if (this.runEnvironmentIO) {
+      this.cloudSaveState.status = "disabled";
+      this.cloudSaveState.blocking = false;
+      this.cloudSaveState.errorMessage = "PHASE 7B / 合成RAM進行・外部通信なし";
+      this.runEnvironmentIO.record("cloudDisabled", {});
+      return;
+    }
     if (this.isCloudSaveDebugSession()) {
       this.markCloudSaveDebugQuarantine();
     }
@@ -32936,7 +33968,7 @@ class SurvivalScene extends Phaser.Scene {
 
   markCloudSaveDebugQuarantine() {
     try {
-      window.localStorage?.setItem(CLOUD_SAVE_DEBUG_QUARANTINE_STORAGE_KEY, JSON.stringify({
+      getSurvivalStorage("local")?.setItem(CLOUD_SAVE_DEBUG_QUARANTINE_STORAGE_KEY, JSON.stringify({
         version: 1,
         markedAt: Date.now()
       }));
@@ -32947,7 +33979,7 @@ class SurvivalScene extends Phaser.Scene {
 
   hasCloudSaveDebugQuarantine() {
     try {
-      const raw = window.localStorage?.getItem(CLOUD_SAVE_DEBUG_QUARANTINE_STORAGE_KEY) || "";
+      const raw = getSurvivalStorage("local")?.getItem(CLOUD_SAVE_DEBUG_QUARANTINE_STORAGE_KEY) || "";
       return Boolean(raw && JSON.parse(raw)?.version === 1);
     } catch (error) {
       return false;
@@ -32956,7 +33988,7 @@ class SurvivalScene extends Phaser.Scene {
 
   clearCloudSaveDebugQuarantine() {
     try {
-      window.localStorage?.removeItem(CLOUD_SAVE_DEBUG_QUARANTINE_STORAGE_KEY);
+      getSurvivalStorage("local")?.removeItem(CLOUD_SAVE_DEBUG_QUARANTINE_STORAGE_KEY);
     } catch (error) {
       // A stale marker only causes another explicit save choice; it never uploads silently.
     }
@@ -32972,7 +34004,7 @@ class SurvivalScene extends Phaser.Scene {
 
   loadCloudSaveMeta() {
     try {
-      const raw = window.localStorage?.getItem(CLOUD_SAVE_META_STORAGE_KEY) || "";
+      const raw = getSurvivalStorage("local")?.getItem(CLOUD_SAVE_META_STORAGE_KEY) || "";
       if (!raw) {
         return null;
       }
@@ -33008,7 +34040,7 @@ class SurvivalScene extends Phaser.Scene {
       return false;
     }
     try {
-      window.localStorage?.setItem(CLOUD_SAVE_META_STORAGE_KEY, JSON.stringify(normalized));
+      getSurvivalStorage("local")?.setItem(CLOUD_SAVE_META_STORAGE_KEY, JSON.stringify(normalized));
       return true;
     } catch (error) {
       return false;
@@ -33017,7 +34049,7 @@ class SurvivalScene extends Phaser.Scene {
 
   clearCloudSaveMeta() {
     try {
-      window.localStorage?.removeItem(CLOUD_SAVE_META_STORAGE_KEY);
+      getSurvivalStorage("local")?.removeItem(CLOUD_SAVE_META_STORAGE_KEY);
     } catch (error) {
       // Auth logout must still complete when localStorage is unavailable.
     }
@@ -33097,6 +34129,10 @@ class SurvivalScene extends Phaser.Scene {
 
   normalizeCloudSavePayload(record = {}) {
     const source = record && typeof record === "object" && !Array.isArray(record) ? record : {};
+    const recognizedKeys = new Set(["coins", "shopState", "anjuMemoryState", "lostArmsState", "supportLinkState", "finalBossState", "depthRelayState", "depth20ClearCodeState", "mutationAtlasState", "bestRecord", "supplyRedeemedIds", "equipmentState", "killRanking", "runArchive", "commsStoryState"]);
+    if (Object.keys(source).some(key => !recognizedKeys.has(key))) {
+      const error = new Error("Unknown cloud payload fields require a compatible reader."); error.code = "cloud-save/invalid-record"; throw error;
+    }
     const rankingEntries = Array.isArray(source.killRanking) ? source.killRanking : [];
     const supplyRedeemedIds = Array.isArray(source.supplyRedeemedIds) ? source.supplyRedeemedIds : [];
     return {
@@ -33280,7 +34316,12 @@ class SurvivalScene extends Phaser.Scene {
     }
     const rootData = rootSnapshot.data() || {};
     const revision = Math.max(0, Math.floor(Number(rootData.revision) || 0));
-    if (rootData.schemaVersion !== CLOUD_SAVE_SCHEMA_VERSION || revision < 1) {
+    if (![1, CLOUD_SAVE_SCHEMA_VERSION].includes(rootData.schemaVersion) || revision < 1
+      || (rootData.schemaVersion === CLOUD_SAVE_SCHEMA_VERSION
+        && (rootData.minWriterVersion !== CLOUD_SAVE_MIN_WRITER_VERSION
+          || !Array.isArray(rootData.requiredCapabilities)
+          || !CLOUD_SAVE_REQUIRED_CAPABILITIES.every(id => rootData.requiredCapabilities.includes(id))
+          || rootData.requiredCapabilities.some(id => !CLOUD_SAVE_REQUIRED_CAPABILITIES.includes(id))))) {
       const error = new Error("Unsupported cloud save metadata.");
       error.code = "cloud-save/invalid-record";
       throw error;
@@ -33293,7 +34334,7 @@ class SurvivalScene extends Phaser.Scene {
     const snapshots = { core: coreSnapshot, equipment: equipmentSnapshot, archive: archiveSnapshot };
     const valid = Object.values(snapshots).every((snapshot) => (
       snapshot.exists() &&
-      snapshot.data()?.schemaVersion === CLOUD_SAVE_SCHEMA_VERSION &&
+      snapshot.data()?.schemaVersion === rootData.schemaVersion &&
       Math.floor(Number(snapshot.data()?.revision) || 0) === revision &&
       snapshot.data()?.data &&
       typeof snapshot.data().data === "object"
@@ -33309,7 +34350,10 @@ class SurvivalScene extends Phaser.Scene {
     const updatedAt = typeof rootData.updatedAt?.toMillis === "function"
       ? rootData.updatedAt.toMillis()
       : Math.max(0, Math.floor(Number(rootData.clientUpdatedAt) || 0));
+    const rawPayload = { ...coreSnapshot.data().data, ...equipmentSnapshot.data().data, ...archiveSnapshot.data().data };
+    if (rootData.schemaVersion === 1) await this.preserveLegacyCloudSaveBeforeMigration(uid, revision, rawPayload);
     return {
+      schemaVersion: rootData.schemaVersion,
       revision,
       updatedAt,
       payload: this.joinCloudSaveSegments({
@@ -33328,7 +34372,26 @@ class SurvivalScene extends Phaser.Scene {
     return error;
   }
 
+  async preserveLegacyCloudSaveBeforeMigration(uid, revision, rawPayload) {
+    if (this.isProgressionWriteBlocked?.()) throw new Error("Cloud migration is blocked by local recovery.");
+    const value = JSON.stringify({ version: 1, ownerUid: uid, sourceSchema: 1, revision, capturedAt: Date.now(), payload: rawPayload });
+    if (new TextEncoder().encode(value).length > CLOUD_SAVE_MAX_SERIALIZED_BYTES * 3) {
+      const error = new Error("Cloud migration backup exceeds its limit."); error.code = "cloud-save/data-too-large"; throw error;
+    }
+    const result = await this.executeUmbraPersistenceOperation({ kind: "cloudMigrationBackup", prepare: () => {
+      const before = getSurvivalStorage("local")?.getItem(CLOUD_SAVE_MIGRATION_BACKUP_STORAGE_KEY) ?? null;
+      if (before) {
+        const prior = JSON.parse(before);
+        if (prior.version !== 1 || prior.ownerUid !== uid) return { ok: false, reason: "migration-backup-owner-conflict" };
+        if (prior.revision === revision) return { entries: [] };
+      }
+      return { entries: [{ key: CLOUD_SAVE_MIGRATION_BACKUP_STORAGE_KEY, before, after: value }] };
+    }});
+    if (!result.ok) { const error = new Error(result.reason || "Cloud migration backup could not be verified."); error.code = "cloud-save/recovery-required"; throw error; }
+  }
+
   async writeCloudSaveRecord(client, uid, payload, expectedRevision) {
+    if (this.isProgressionWriteBlocked?.()) { const error = new Error("Resolve local recovery before cloud save."); error.code = "cloud-save/recovery-required"; throw error; }
     const refs = this.getCloudSaveDocumentRefs(client, uid);
     const segments = this.splitCloudSavePayload(payload);
     Object.entries(segments).forEach(([segmentId, data]) => {
@@ -33343,6 +34406,20 @@ class SurvivalScene extends Phaser.Scene {
     const clientUpdatedAt = Date.now();
     const nextRevision = await client.firestore.runTransaction(client.db, async (transaction) => {
       const currentSnapshot = await transaction.get(refs.root);
+      const currentData = currentSnapshot.exists() ? currentSnapshot.data() : null;
+      if (currentData?.schemaVersion === 1) {
+        let backup = null;
+        try { backup = JSON.parse(getSurvivalStorage("local")?.getItem(CLOUD_SAVE_MIGRATION_BACKUP_STORAGE_KEY) || "null"); } catch (_) { /* retain the original backup */ }
+        if (backup?.version !== 1 || backup.ownerUid !== uid || backup.revision !== currentData.revision) {
+          const error = new Error("Read and preserve the legacy cloud save before migration."); error.code = "cloud-save/recovery-required"; throw error;
+        }
+      }
+      if (currentData && (![1, CLOUD_SAVE_SCHEMA_VERSION].includes(currentData.schemaVersion)
+        || (currentData.schemaVersion === CLOUD_SAVE_SCHEMA_VERSION && (currentData.minWriterVersion !== CLOUD_SAVE_MIN_WRITER_VERSION
+          || !Array.isArray(currentData.requiredCapabilities) || !CLOUD_SAVE_REQUIRED_CAPABILITIES.every(id => currentData.requiredCapabilities.includes(id))
+          || currentData.requiredCapabilities.some(id => !CLOUD_SAVE_REQUIRED_CAPABILITIES.includes(id)))))) {
+        const error = new Error("This cloud save requires a newer compatible writer."); error.code = "cloud-save/invalid-record"; throw error;
+      }
       const currentRevision = currentSnapshot.exists()
         ? Math.max(0, Math.floor(Number(currentSnapshot.data()?.revision) || 0))
         : 0;
@@ -33353,6 +34430,8 @@ class SurvivalScene extends Phaser.Scene {
       const updatedAt = client.firestore.serverTimestamp();
       transaction.set(refs.root, {
         schemaVersion: CLOUD_SAVE_SCHEMA_VERSION,
+        minWriterVersion: CLOUD_SAVE_MIN_WRITER_VERSION,
+        requiredCapabilities: [...CLOUD_SAVE_REQUIRED_CAPABILITIES],
         revision,
         clientUpdatedAt,
         updatedAt
@@ -33434,6 +34513,8 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   async applyCloudSavePayload(payload, options = {}) {
+    if (isSurvivalRemoteIODisabled("cloudRestore")) return false;
+    if (this.isProgressionWriteBlocked?.()) return false;
     const state = options.state || this.cloudSaveState;
     if (!state || !this.isCloudSaveRequestCurrent(options.requestId, state)) {
       return false;
@@ -33462,21 +34543,24 @@ class SurvivalScene extends Phaser.Scene {
       [RUN_ARCHIVE_STORAGE_KEY, JSON.stringify(normalized.runArchive)],
       [COMMS_STORY_STORAGE_KEY, JSON.stringify(normalized.commsStoryState)]
     ];
-    const previousValues = [];
+    const revision = Math.max(0, Math.floor(Number(options.revision) || state.revision));
+    const updatedAt = Math.max(0, Math.floor(Number(options.updatedAt) || Date.now()));
+    const ownerUid = state.uid;
+    storageWrites.push([CLOUD_SAVE_META_STORAGE_KEY, JSON.stringify({ version: CLOUD_SAVE_META_VERSION,
+      uid: ownerUid, revision, fingerprint: this.getCloudSavePayloadFingerprint(normalized), syncedAt: updatedAt, dirtyAt: 0 })]);
+    if (options.clearDebugQuarantine === true) storageWrites.push([CLOUD_SAVE_DEBUG_QUARANTINE_STORAGE_KEY, null]);
     state.status = "applying";
     state.applyingRemote = true;
     state.blocking = true;
     try {
-      [
-        ...storageWrites.map(([key]) => key),
-        CLOUD_SAVE_META_STORAGE_KEY,
-        CLOUD_SAVE_DEBUG_QUARANTINE_STORAGE_KEY
-      ].forEach((key) => {
-        previousValues.push([key, window.localStorage?.getItem(key) ?? null]);
+      const result = await this.executeUmbraPersistenceOperation({ kind: "cloudRestore",
+        metadata: { ownerUid, sourceRevision: revision, sourceSchema: CLOUD_SAVE_SCHEMA_VERSION },
+        prepare: () => {
+          if (state.uid !== ownerUid || !this.isCloudSaveRequestCurrent(options.requestId, state)) return { ok: false, reason: "cloud-owner-changed" };
+          return { entries: storageWrites.map(([key, after]) => ({ key, before: getSurvivalStorage("local")?.getItem(key) ?? null, after })) };
+        }
       });
-      storageWrites.forEach(([key, value]) => {
-        window.localStorage?.setItem(key, value);
-      });
+      if (!result.ok) { const error = new Error(result.reason || "Local restore requires recovery."); error.code = "cloud-save/recovery-required"; throw error; }
       if (!this.setCloudSaveReady(
         normalized,
         Math.max(0, Math.floor(Number(options.revision) || state.revision)),
@@ -33498,26 +34582,12 @@ class SurvivalScene extends Phaser.Scene {
       }
       return true;
     } catch (error) {
-      previousValues.forEach(([key]) => {
-        try {
-          window.localStorage?.removeItem(key);
-        } catch (rollbackError) {
-          console.warn("[DATA LINK] local rollback cleanup failed", key, rollbackError);
-        }
-      });
-      previousValues.forEach(([key, previousValue]) => {
-        if (previousValue !== null) {
-          try {
-            window.localStorage?.setItem(key, previousValue);
-          } catch (rollbackError) {
-            console.warn("[DATA LINK] local rollback restore failed", key, rollbackError);
-          }
-        }
-      });
+      // Preserve both the durable journal and observed values. Startup recovery
+      // may finish an exact prefix; it never rolls newer progress backwards.
       state.applyingRemote = false;
       state.status = "error";
       state.errorMessage = this.formatCloudSaveError(error);
-      state.blocking = false;
+      state.blocking = this.isProgressionWriteBlocked?.() === true;
       throw error;
     }
   }
@@ -33719,6 +34789,7 @@ class SurvivalScene extends Phaser.Scene {
 
   formatCloudSaveError(error) {
     const code = String(error?.code || "");
+    if (code === "cloud-save/recovery-required") return "保存処理の確認が必要です。購入・同期を保留しています。再読込で復旧を確認してください";
     if (["auth/popup-closed-by-user", "auth/cancelled-popup-request"].includes(code)) {
       return "Googleログインはキャンセルされました";
     }
@@ -33744,7 +34815,7 @@ class SurvivalScene extends Phaser.Scene {
       return "保存データが大きいため同期できません。装備箱を整理してください";
     }
     if (code === "cloud-save/incomplete-record" || code === "cloud-save/invalid-record") {
-      return "クラウド保存の形式を確認できませんでした";
+      return "クラウド保存の互換性を確認できません。対応する最新版へ更新してください";
     }
     return "クラウドに接続できませんでした。ローカルでは遊べます";
   }
@@ -33759,6 +34830,8 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   async beginCloudSaveBootstrap() {
+    if (this.isProgressionWriteBlocked?.()) return false;
+    if (isSurvivalRemoteIODisabled("cloudBootstrap")) return false;
     const state = this.cloudSaveState;
     if (!state || state.busy || state.writePromise) {
       return false;
@@ -33818,6 +34891,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   scheduleCloudSave(reason = "localChange") {
+    if (this.isProgressionWriteBlocked?.()) return false;
     const state = this.cloudSaveState;
     if (
       !state ||
@@ -33838,6 +34912,8 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   async flushCloudSave(reason = "manual", options = {}) {
+    if (isSurvivalRemoteIODisabled("cloudFlush")) return false;
+    if (this.isProgressionWriteBlocked?.()) return false;
     const state = this.cloudSaveState;
     if (
       !state ||
@@ -33968,6 +35044,8 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   async startGoogleCloudLink() {
+    if (this.isProgressionWriteBlocked?.()) return false;
+    if (isSurvivalRemoteIODisabled("googleLink")) return false;
     const state = this.cloudSaveState;
     if (
       !state ||
@@ -34048,6 +35126,8 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   async signOutCloudSaveAccount() {
+    if (this.isProgressionWriteBlocked?.()) return false;
+    if (isSurvivalRemoteIODisabled("googleSignout")) return false;
     const state = this.cloudSaveState;
     if (!state?.client || state.busy || state.writePromise || state.status === "syncing") {
       return false;
@@ -34093,6 +35173,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   async resolveCloudSaveConflict(choice) {
+    if (isSurvivalRemoteIODisabled("cloudConflict")) return false;
     const state = this.cloudSaveState;
     if (
       !state?.conflict ||
@@ -34224,6 +35305,11 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   async loadRemoteKillRanking() {
+    if (isSurvivalRemoteIODisabled("rankingRead")) {
+      this.remoteRankingStatus = "PHASE 7B / LOCAL RAM";
+      this.remoteKillRanking = [];
+      return false;
+    }
     const rankingMode = this.getValidRankingMode(this.rankingDisplayMode);
     const requestId = this.remoteRankingRequestId + 1;
     this.remoteRankingRequestId = requestId;
@@ -34277,6 +35363,11 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   async submitRemoteKillRankingEntry(entry) {
+    if (isSurvivalRemoteIODisabled("rankingWrite")) {
+      this.remoteRankingStatus = "PHASE 7B / LOCAL RAM";
+      this.runEnvironmentIO?.record("rankingWriteSuppressed", { id: entry?.id || "" });
+      return false;
+    }
     this.remoteRankingStatus = "ONLINE 送信中...";
     this.refreshGameOverRankingOverlay();
 
@@ -34415,7 +35506,7 @@ class SurvivalScene extends Phaser.Scene {
   loadOrCreateOperatorId() {
     let rawState = "";
     try {
-      rawState = window.localStorage?.getItem(OPERATOR_ID_STORAGE_KEY) || "";
+      rawState = getSurvivalStorage("local")?.getItem(OPERATOR_ID_STORAGE_KEY) || "";
     } catch (error) {
       rawState = "";
     }
@@ -34437,7 +35528,7 @@ class SurvivalScene extends Phaser.Scene {
 
     const operatorId = this.createOperatorId();
     try {
-      window.localStorage?.setItem(OPERATOR_ID_STORAGE_KEY, JSON.stringify({
+      getSurvivalStorage("local")?.setItem(OPERATOR_ID_STORAGE_KEY, JSON.stringify({
         version: OPERATOR_ID_STATE_VERSION,
         id: operatorId
       }));
@@ -34449,7 +35540,7 @@ class SurvivalScene extends Phaser.Scene {
 
   loadCoinWallet() {
     try {
-      return this.normalizeCoinAmount(window.localStorage?.getItem(COIN_WALLET_STORAGE_KEY));
+      return this.normalizeCoinAmount(getSurvivalStorage("local")?.getItem(COIN_WALLET_STORAGE_KEY));
     } catch (error) {
       return 0;
     }
@@ -34459,8 +35550,8 @@ class SurvivalScene extends Phaser.Scene {
     try {
       const normalizedAmount = this.normalizeCoinAmount(amount);
       const serialized = String(normalizedAmount);
-      window.localStorage?.setItem(COIN_WALLET_STORAGE_KEY, serialized);
-      const saved = window.localStorage?.getItem(COIN_WALLET_STORAGE_KEY) === serialized;
+      getSurvivalStorage("local")?.setItem(COIN_WALLET_STORAGE_KEY, serialized);
+      const saved = getSurvivalStorage("local")?.getItem(COIN_WALLET_STORAGE_KEY) === serialized;
       if (saved) {
         this.scheduleCloudSave("coinWallet");
       }
@@ -34499,7 +35590,7 @@ class SurvivalScene extends Phaser.Scene {
 
   loadSupplyCodeState() {
     try {
-      const rawState = window.localStorage?.getItem(SUPPLY_CODE_STORAGE_KEY) || "";
+      const rawState = getSurvivalStorage("local")?.getItem(SUPPLY_CODE_STORAGE_KEY) || "";
       return rawState
         ? this.normalizeSupplyCodeState(JSON.parse(rawState))
         : this.createDefaultSupplyCodeState();
@@ -34512,8 +35603,8 @@ class SurvivalScene extends Phaser.Scene {
     this.supplyCodeState = this.normalizeSupplyCodeState(this.supplyCodeState);
     try {
       const serialized = JSON.stringify(this.supplyCodeState);
-      window.localStorage?.setItem(SUPPLY_CODE_STORAGE_KEY, serialized);
-      const saved = window.localStorage?.getItem(SUPPLY_CODE_STORAGE_KEY) === serialized;
+      getSurvivalStorage("local")?.setItem(SUPPLY_CODE_STORAGE_KEY, serialized);
+      const saved = getSurvivalStorage("local")?.getItem(SUPPLY_CODE_STORAGE_KEY) === serialized;
       if (saved) {
         this.scheduleCloudSave("supplyRedemption");
       }
@@ -34545,7 +35636,7 @@ class SurvivalScene extends Phaser.Scene {
 
   loadSupplyCodeTransaction() {
     try {
-      const rawTransaction = window.localStorage?.getItem(SUPPLY_CODE_TRANSACTION_STORAGE_KEY) || "";
+      const rawTransaction = getSurvivalStorage("local")?.getItem(SUPPLY_CODE_TRANSACTION_STORAGE_KEY) || "";
       return rawTransaction ? this.normalizeSupplyCodeTransaction(JSON.parse(rawTransaction)) : null;
     } catch (error) {
       return null;
@@ -34559,8 +35650,8 @@ class SurvivalScene extends Phaser.Scene {
     }
     try {
       const serialized = JSON.stringify(normalized);
-      window.localStorage?.setItem(SUPPLY_CODE_TRANSACTION_STORAGE_KEY, serialized);
-      return window.localStorage?.getItem(SUPPLY_CODE_TRANSACTION_STORAGE_KEY) === serialized;
+      getSurvivalStorage("local")?.setItem(SUPPLY_CODE_TRANSACTION_STORAGE_KEY, serialized);
+      return getSurvivalStorage("local")?.getItem(SUPPLY_CODE_TRANSACTION_STORAGE_KEY) === serialized;
     } catch (error) {
       console.warn("[SUPPLY TERMINAL] failed to save transaction", error);
       return false;
@@ -34569,8 +35660,8 @@ class SurvivalScene extends Phaser.Scene {
 
   clearSupplyCodeTransaction() {
     try {
-      window.localStorage?.removeItem(SUPPLY_CODE_TRANSACTION_STORAGE_KEY);
-      return !window.localStorage?.getItem(SUPPLY_CODE_TRANSACTION_STORAGE_KEY);
+      getSurvivalStorage("local")?.removeItem(SUPPLY_CODE_TRANSACTION_STORAGE_KEY);
+      return !getSurvivalStorage("local")?.getItem(SUPPLY_CODE_TRANSACTION_STORAGE_KEY);
     } catch (error) {
       console.warn("[SUPPLY TERMINAL] failed to clear transaction", error);
       return false;
@@ -34658,6 +35749,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   grantSupplyCodeReward(reward) {
+    if (this.isProgressionWriteBlocked()) return { ok: false, reason: "recovery_pending" };
     if (!reward || this.isSupplyCodeRewardRedeemed(reward.id)) {
       return { ok: false, reason: "already_redeemed" };
     }
@@ -34699,6 +35791,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   async submitSupplyCode() {
+    if (this.isProgressionWriteBlocked()) { this.showPreGameShop(this.getProgressionWriteHoldMessage()); return; }
     if (this.supplyCodeSubmitting || !this.shopActive || this.shopViewMode !== "supply") {
       return;
     }
@@ -34778,7 +35871,7 @@ class SurvivalScene extends Phaser.Scene {
     if (runtimeMessage) {
       window.__SURVIVAL_PENDING_SHOP_MESSAGE__ = "";
       try {
-        window.sessionStorage?.removeItem(EXTRACTION_MESSAGE_SESSION_KEY);
+        getSurvivalStorage("session")?.removeItem(EXTRACTION_MESSAGE_SESSION_KEY);
       } catch (error) {
         // The in-memory message is already consumed.
       }
@@ -34786,9 +35879,9 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     try {
-      const message = window.sessionStorage?.getItem(EXTRACTION_MESSAGE_SESSION_KEY) || "";
+      const message = getSurvivalStorage("session")?.getItem(EXTRACTION_MESSAGE_SESSION_KEY) || "";
       if (message) {
-        window.sessionStorage?.removeItem(EXTRACTION_MESSAGE_SESSION_KEY);
+        getSurvivalStorage("session")?.removeItem(EXTRACTION_MESSAGE_SESSION_KEY);
       }
       return message;
     } catch (error) {
@@ -34831,7 +35924,11 @@ class SurvivalScene extends Phaser.Scene {
 
     if (secured > 0) {
       this.coins = this.normalizeCoinAmount(this.coins) + secured;
-      this.saveCoinWallet();
+      const walletSaved = this.saveCoinWallet();
+      if (this.runEnvironmentIO && walletSaved !== true) {
+        this.umbraRamResultUncertain = true;
+        this.runEnvironmentIO.record("ram-wallet-result-uncertain", { secured, coins: this.coins });
+      }
     }
 
     this.runUnsecuredCoins = 0;
@@ -34875,6 +35972,7 @@ class SurvivalScene extends Phaser.Scene {
 
   initializeOverflowRewardState() {
     this.passiveLevels = {};
+    this.resetLevelUpCandidatePresentationState();
     this.acEvasionPassiveStartLevelApplied = false;
     this.overflowRewardState = {
       overdriveGauge: 0,
@@ -35066,7 +36164,8 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getSkillMutationHudLine(skillId) {
-    const entry = this.getSkillMutationState(skillId);
+    const entry = this.isUmbraNormalPresentationContext?.()
+      ? this.skillMutationState?.entries?.[skillId] : this.getSkillMutationState(skillId);
     if (!entry?.core) {
       return "";
     }
@@ -35230,6 +36329,7 @@ class SurvivalScene extends Phaser.Scene {
     const source = record && typeof record === "object" && !Array.isArray(record)
       ? record
       : {};
+    if (Number(source.version) > MUTATION_ATLAS_VERSION) return JSON.parse(JSON.stringify(source));
     const sourceMechBuilds = source.mechBuilds && typeof source.mechBuilds === "object" && !Array.isArray(source.mechBuilds)
       ? source.mechBuilds
       : {};
@@ -35273,22 +36373,33 @@ class SurvivalScene extends Phaser.Scene {
 
   loadMutationAtlasState() {
     try {
-      const rawState = window.localStorage?.getItem(MUTATION_ATLAS_STORAGE_KEY);
+      const rawState = getSurvivalStorage("local")?.getItem(MUTATION_ATLAS_STORAGE_KEY);
       if (!rawState) {
         return this.normalizeMutationAtlasState(this.createDefaultMutationAtlasState());
       }
-      return this.normalizeMutationAtlasState(JSON.parse(rawState));
+      const state = this.normalizeMutationAtlasState(JSON.parse(rawState));
+      if (Number(state.version) > MUTATION_ATLAS_VERSION) (this.umbraPersistenceUnsupportedKeys ||= new Set()).add(MUTATION_ATLAS_STORAGE_KEY);
+      return state;
     } catch (error) {
       return this.normalizeMutationAtlasState(this.createDefaultMutationAtlasState());
     }
   }
 
   saveMutationAtlasState() {
+    if (this.isProgressionWriteBlocked?.() || Number(this.mutationAtlasState?.version) > MUTATION_ATLAS_VERSION) return null;
     this.mutationAtlasState = this.normalizeMutationAtlasState(this.mutationAtlasState);
     try {
-      window.localStorage?.setItem(MUTATION_ATLAS_STORAGE_KEY, JSON.stringify(this.mutationAtlasState));
+      const storage = getSurvivalStorage("local"), raw = storage?.getItem(MUTATION_ATLAS_STORAGE_KEY);
+      if (raw && Number(JSON.parse(raw).version) > MUTATION_ATLAS_VERSION) {
+        (this.umbraPersistenceUnsupportedKeys ||= new Set()).add(MUTATION_ATLAS_STORAGE_KEY);
+        return null;
+      }
+      if (!storage) return null;
+      const serialized = JSON.stringify(this.mutationAtlasState);
+      storage.setItem(MUTATION_ATLAS_STORAGE_KEY, serialized);
+      if (storage.getItem(MUTATION_ATLAS_STORAGE_KEY) !== serialized) return null;
     } catch (error) {
-      // MUTATION ATLAS is a local meta log. Storage failure must not break a run.
+      return null;
     }
     this.scheduleCloudSave("mutationAtlasState");
     return this.mutationAtlasState;
@@ -35354,6 +36465,20 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   startTriadMatrixRun(reason = "gameStart") {
+    if (this.isUmbraNormalRunScope()) {
+      if (this.isUmbraProductionRunContext?.() && !this.umbraRunContext.atlasTargetSnapshot) {
+        this.resetTriadMatrixRunState(reason);
+        this.mutationAtlasState = this.normalizeMutationAtlasState(this.mutationAtlasState || this.loadMutationAtlasState());
+        const scope = this.getMutationAtlasScope(this.mutationAtlasState, UMBRA_SERAPH_MECH_ID);
+        const targetId = this.getValidMutationAtlasBuildId(scope.selectedTargetId);
+        this.umbraRunContext.atlasTargetSnapshot = Object.freeze({ mechId: UMBRA_SERAPH_MECH_ID, buildId: targetId });
+        this.triadMatrixState.runResearchTargetMechId = UMBRA_SERAPH_MECH_ID;
+        this.triadMatrixState.runResearchTargetId = targetId;
+      }
+      this.initializeUmbraTriadRun();
+      this.updateTriadMatrixHud?.();
+      return;
+    }
     this.resetTriadMatrixRunState(reason);
     if (!this.triadMatrixState) {
       this.triadMatrixState = this.createTriadMatrixRunState();
@@ -35380,6 +36505,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   shouldBlockMutationAtlasPersistence(context = {}) {
+    if (this.isUmbraIntegrationRunScope?.() || this.isProgressionWriteBlocked?.()) return true;
     return Boolean(
       context.debugPreview === true ||
       this.triadMatrixState?.debugInjected ||
@@ -35632,6 +36758,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getTriadMatrixSnapshot(options = {}) {
+    const umbraContext = this.getUmbraRunContext?.();
+    if (["normal-integration", "production-run"].includes(umbraContext?.mode) && umbraContext.mechId === "umbraSeraph") {
+      return this.getUmbraTriadSnapshot?.() || this.umbraTriadEndSnapshot || null;
+    }
     if (!this.triadMatrixState) {
       this.triadMatrixState = this.createTriadMatrixRunState();
     }
@@ -35651,6 +36781,11 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   refreshTriadMatrixSnapshot(reason = "refresh", options = {}) {
+    if (this.isUmbraNormalRunScope()) {
+      const snapshot = this.refreshUmbraTriadSnapshot(reason, options) || this.umbraNormalEndSnapshot?.triad || null;
+      if (snapshot && this.isUmbraProductionRunContext?.()) this.updateMutationAtlasProgressFromSnapshot(snapshot, reason);
+      return snapshot;
+    }
     if (!this.triadMatrixState) {
       this.triadMatrixState = this.createTriadMatrixRunState();
     }
@@ -35681,6 +36816,9 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getTriadMatrixModifier(key, fallbackValue = 1) {
+    if ((this.getUmbraRunContext?.() || this.verificationContext)?.triadEnabled === true || this.umbraTriadState || this.umbraTriadWasEnabled) {
+      return this.getUmbraTriadModifier?.(key, fallbackValue) ?? fallbackValue;
+    }
     const snapshot = this.getTriadMatrixSnapshot();
     if (snapshot?.suppressed) {
       return fallbackValue;
@@ -35690,6 +36828,11 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getTriadSkillDamageMultiplier(skillId, context = {}) {
+    if ((this.getUmbraRunContext?.() || this.verificationContext)?.triadEnabled === true || this.umbraTriadState || this.umbraTriadWasEnabled) {
+      const profile = this.getUmbraTriadCombatProfile?.(skillId);
+      return profile ? profile.skillDamageMultiplier * (context.enemy && this.isHighValueMutationTarget(context.enemy)
+        ? profile.executionDamageMultiplier : 1) : 1;
+    }
     if (!this.isSkillMutationTargetSkill(skillId)) {
       return 1;
     }
@@ -35759,6 +36902,7 @@ class SurvivalScene extends Phaser.Scene {
     if (!this.mutationAtlasState) {
       this.mutationAtlasState = this.loadMutationAtlasState();
     }
+    const previousState = this.mutationAtlasState;
     this.mutationAtlasState = this.normalizeMutationAtlasState(this.mutationAtlasState);
     const mechId = this.getMutationAtlasRunMechId();
     const scope = this.getMutationAtlasScope(this.mutationAtlasState, mechId);
@@ -35790,7 +36934,12 @@ class SurvivalScene extends Phaser.Scene {
     }
     scope.entries[buildId] = this.normalizeMutationAtlasEntry(entry);
     this.mutationAtlasState.mechBuilds[mechId] = scope;
-    this.saveMutationAtlasState();
+    if (!this.saveMutationAtlasState()) {
+      this.mutationAtlasState = previousState;
+      this.mutationAtlasPersistencePending = true;
+      return null;
+    }
+    this.mutationAtlasPersistencePending = false;
     const meta = this.getMutationAtlasBuildMeta(buildId);
     const status = {
       buildId,
@@ -35838,6 +36987,11 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   completeMutationAtlasExtractionProgress(options = {}) {
+    if (this.isUmbraIntegrationRunScope?.()) {
+      this.runEnvironmentIO.record("umbra-atlas-request-unimplemented", { runId: this.umbraRunContext.runId, options, snapshot: this.umbraNormalEndSnapshot });
+      return { build: null, atlasStatus: null, atlasBonusAnju: 0, researchCompleted: false, researchRerollTicket: 0, unsupportedScope: true };
+    }
+    if (this.isUmbraProductionRunContext?.()) return this.completeUmbraMutationAtlasExtractionProgress(options);
     const mode = options.emergency ? "emergency" : "normal";
     const snapshot = this.refreshTriadMatrixSnapshot("extractProgress", { notify: false });
     const buildId = snapshot?.buildId;
@@ -35931,7 +37085,75 @@ class SurvivalScene extends Phaser.Scene {
     return result;
   }
 
+  completeUmbraMutationAtlasExtractionProgress(options = {}) {
+    const context = this.umbraRunContext;
+    if (context.atlasExtractionPromise) return context.atlasExtractionPromise;
+    const snapshot = this.umbraNormalEndSnapshot?.triad || this.getUmbraTriadSnapshot?.();
+    const buildId = this.getValidMutationAtlasBuildId(snapshot?.buildId);
+    const empty = { build: snapshot?.completeBuild || null, atlasStatus: null, atlasBonusAnju: 0,
+      researchCompleted: false, researchRerollTicket: 0 };
+    if (!buildId || this.shouldBlockMutationAtlasPersistence(options)) return empty;
+    const depth = this.resolveMutationAtlasRunDepthContext({
+      legacyAbsoluteDepth: options.absoluteMaxDepthReached ?? options.maxDepthReached ?? this.stageDepth,
+      runDepthProgressState: Number.isInteger(options.rewardDepthReached) ? {
+        maxAbsoluteDepthReached: options.absoluteMaxDepthReached ?? this.stageDepth,
+        rewardDepthReached: options.rewardDepthReached
+      } : options.runDepthProgressState,
+      runStartContext: options.runStartContext
+    });
+    const target = context.atlasTargetSnapshot || { mechId: this.triadMatrixState?.runResearchTargetMechId,
+      buildId: this.triadMatrixState?.runResearchTargetId };
+    const normal = options.emergency !== true;
+    let committed = null;
+    const operation = { kind: "atlasReward", prepare: () => {
+      const storage = getSurvivalStorage("local");
+      const atlasRaw = storage.getItem(MUTATION_ATLAS_STORAGE_KEY), memoryRaw = storage.getItem(ANJU_MEMORY_STORAGE_KEY);
+      const atlasSource = atlasRaw ? JSON.parse(atlasRaw) : this.createDefaultMutationAtlasState();
+      if (Number(atlasSource.version) > MUTATION_ATLAS_VERSION) throw new Error("UNKNOWN_ATLAS_VERSION");
+      const atlas = this.normalizeMutationAtlasState(atlasSource);
+      const memory = this.normalizeAnjuMemoryState(memoryRaw ? JSON.parse(memoryRaw) : this.createDefaultAnjuMemoryState());
+      const scope = atlas.mechBuilds[UMBRA_SERAPH_MECH_ID], entry = scope.entries[buildId];
+      entry.discovered = true;
+      entry.bestDepth = Math.max(entry.bestDepth, depth.absoluteMaxDepthReached);
+      let atlasBonusAnju = 0, researchRerollTicket = 0, researchCompleted = false;
+      if (normal && depth.rewardDepthReached >= ANJU_MEMORY_CONFIG.unlockDepth) {
+        entry.preserved = true;
+        if (!entry.preserveRewardClaimed) { atlasBonusAnju = 1; entry.preserveRewardClaimed = true; }
+      }
+      if (normal && depth.rewardDepthReached >= 8 && target.mechId === UMBRA_SERAPH_MECH_ID && target.buildId === buildId) {
+        researchCompleted = !entry.researchCompleted;
+        entry.researchCompleted = true;
+        if (!entry.researchRewardClaimed) { researchRerollTicket = 1; entry.researchRewardClaimed = true; }
+        if (scope.selectedTargetId === buildId) scope.selectedTargetId = null;
+      }
+      memory.amount = this.normalizeAnjuMemoryAmount(memory.amount + atlasBonusAnju);
+      memory.totalEarned = this.normalizeAnjuMemoryAmount(memory.totalEarned + atlasBonusAnju);
+      memory.consumables.openingBoostReroll = this.normalizeAnjuMemoryAmount(memory.consumables.openingBoostReroll + researchRerollTicket);
+      committed = { atlas: this.normalizeMutationAtlasState(atlas), memory, result: {
+        build: this.getMutationAtlasBuildMeta(buildId), mechId: UMBRA_SERAPH_MECH_ID, mechLabel: this.getMutationAtlasMechLabel(UMBRA_SERAPH_MECH_ID),
+        atlasStatus: entry.preserved ? "PRESERVED" : "DISCOVERED", bestDepth: entry.bestDepth,
+        atlasBonusAnju, researchCompleted, researchRerollTicket
+      } };
+      return { entries: [
+        { key: MUTATION_ATLAS_STORAGE_KEY, before: atlasRaw, after: JSON.stringify(committed.atlas) },
+        { key: ANJU_MEMORY_STORAGE_KEY, before: memoryRaw, after: JSON.stringify(memory) }
+      ], metadata: { runId: context.runId, mechId: UMBRA_SERAPH_MECH_ID, buildId } };
+    } };
+    const execute = this.executeUmbraPersistenceOperation?.bind(this)
+      || this.umbraPersistenceCoordinator?.execute?.bind(this.umbraPersistenceCoordinator);
+    if (!execute) return { ...empty, persistencePending: true, persistenceReason: "PERSISTENCE_UNAVAILABLE" };
+    context.atlasExtractionPromise = Promise.resolve().then(() => execute(operation)).then(result => {
+      if (!result?.ok || !committed) return { ...empty, persistencePending: true, persistenceReason: result?.reason || "SAVE_PENDING" };
+      this.mutationAtlasState = committed.atlas;
+      this.anjuMemoryState = committed.memory;
+      this.scheduleCloudSave("mutationAtlasReward");
+      return committed.result;
+    }).catch(error => ({ ...empty, persistencePending: true, persistenceReason: String(error?.message || error) }));
+    return context.atlasExtractionPromise;
+  }
+
   formatMutationAtlasExtractionLines(result = null) {
+    if (result?.persistencePending) return ["MUTATION ATLAS 保存保留 / 再読込で復旧を確認してください"];
     if (!result?.build?.buildId) {
       return [];
     }
@@ -36579,6 +37801,8 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   queueSkillMutationSelect(skillId, phase = "stage4") {
+    if ((this.getUmbraRunContext?.() || this.verificationContext)?.growthEnabled === true) return phase === "stage8"
+      ? (this.queueUmbraFinalMilestone?.(skillId) || false) : this.queueUmbraCoreMilestone(skillId, phase);
     if (!this.isSkillMutationTargetSkill(skillId) || !["stage4", "stage8"].includes(phase)) {
       return false;
     }
@@ -36611,6 +37835,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   handleSkillStageMutationUnlock(skillId, stageNumber) {
+    if ((this.getUmbraRunContext?.() || this.verificationContext)?.growthEnabled === true) {
+      this.recordUmbraDeferredMilestones(skillId, stageNumber);
+      return;
+    }
     if (!this.isSkillMutationTargetSkill(skillId)) {
       return;
     }
@@ -36624,6 +37852,9 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   canOpenSkillMutationSelection() {
+    if ((this.getUmbraRunContext?.() || this.verificationContext)?.growthEnabled === true && (!this.isUmbraCoreContextActive()
+      || this.skillMutationState?.umbraGrowthRun !== this.umbraGrowthRun || this.umbraCoreFixtureBuilding
+      || (this.startingUpgradeSelectionsRemaining || 0) > 0)) return false;
     return (
       Boolean(this.skillMutationState?.pendingQueue?.length) &&
       !this.skillMutationState.selectionOpen &&
@@ -36639,6 +37870,12 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   tryOpenPendingSkillMutationSelection() {
+    if ((this.getUmbraRunContext?.() || this.verificationContext)?.growthEnabled === true) {
+      this.syncUmbraCoreMilestones();
+      if (!this.canOpenSkillMutationSelection()) return false;
+      const request = this.isUmbraFinalContextActive?.() ? this.getUmbraNextMutationRequest() : this.skillMutationState.pendingQueue[0];
+      return Boolean(request && this.showSkillMutationSelect(request.skillId, request.phase));
+    }
     if (!this.canOpenSkillMutationSelection()) {
       return false;
     }
@@ -36671,6 +37908,8 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   buildSkillMutationChoices(skillId, phase = "stage4") {
+    if ((this.getUmbraRunContext?.() || this.verificationContext)?.growthEnabled === true) return phase === "stage4" ? this.buildUmbraCoreChoices(skillId)
+      : phase === "stage8" ? (this.buildUmbraFinalChoices?.(skillId) || []) : [];
     const choices = phase === "stage4"
       ? SKILL_MUTATION_CORE_IDS.map((coreId) => {
         const core = this.getSkillMutationCoreDefinition(coreId) || {};
@@ -36704,6 +37943,26 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   showSkillMutationSelect(skillId, phase = "stage4") {
+    if ((this.getUmbraRunContext?.() || this.verificationContext)?.growthEnabled === true) {
+      const state = this.getUmbraCoreSelectionState();
+      const request = this.isUmbraFinalContextActive?.() ? this.getUmbraNextMutationRequest() : state?.pendingQueue[0];
+      if (!this.canOpenSkillMutationSelection() || request?.skillId !== skillId || request.phase !== phase
+        || (phase !== "stage4" && (phase !== "stage8" || !this.isUmbraFinalContextActive?.()))) return false;
+      state.currentSelection = { skillId, phase, token: ++state.selectionSequence };
+      const choices = this.buildSkillMutationChoices(skillId, phase);
+      if (choices.length !== 3) { state.currentSelection = null; return false; }
+      state.selectionOpen = true; state.selectionLocked = false;
+      state.currentChoices = choices.map(choice => choice.choiceId);
+      this.skillMutationSelectionActive = true; this.levelUpActive = true;
+      this.physics.world.pause();
+      this.showLevelUpCardOverlay(phase === "stage8" ? "FINAL MUTATION SELECT" : "MUTATION CORE SELECT",
+        this.isUmbraProductionRunContext() ? `${phase === "stage8" ? "Stage8 Final" : "Stage4 Core"} / TRIADは確定後に集計 / 今回のランの変異を選択`
+          : this.isUmbraEquipmentContextActive?.() ? `${phase === "stage8" ? "Stage8 Final" : "Stage4 Core"} / TRIADは確定後に集計 / 装備snapshot固定・OVLは別選択 / 進行保存なし`
+          : this.isUmbraTriadContextActive?.() ? `${phase === "stage8" ? "Stage8 Final" : "Stage4 Core"} / TRIADは確定後に集計 / 装備未接続 / 進行保存なし`
+          : this.isUmbraFinalContextActive?.() ? `${phase === "stage8" ? "Stage8 Final" : "Stage4 Core"} / TRIAD・装備未実装 / 進行保存なし`
+          : "Stage4 Core / Final未実装 / 進行保存なし", choices, "skillMutation");
+      return true;
+    }
     const entry = this.getSkillMutationState(skillId);
     const choices = this.buildSkillMutationChoices(skillId, phase);
     if (!entry || choices.length <= 0) {
@@ -36733,6 +37992,8 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   applySkillMutationChoice(skillId, phase = "stage4", choiceId) {
+    if ((this.getUmbraRunContext?.() || this.verificationContext)?.growthEnabled === true) return phase === "stage4" ? this.applyUmbraCoreChoice(skillId, choiceId)
+      : phase === "stage8" && (this.applyUmbraFinalChoice?.(skillId, choiceId) || false);
     const state = this.skillMutationState;
     const entry = this.getSkillMutationState(skillId);
     if (!state || !entry || state.selectionLocked) {
@@ -36789,6 +38050,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   tryOpenPendingPostOverlaySelections() {
+    if (this.umbraRunContext && !this.hasUmbraRunCapability("growth", { purpose: "select" })) return false;
+    if (!this.umbraRunContext && this.verificationContext?.equipmentEnabled === true) return this.tryOpenPendingSkillMutationSelection()
+      || this.tryOpenPendingEquipmentOverlimitBonusSelection();
+    if (!this.umbraRunContext && this.verificationContext?.growthEnabled === true) return this.tryOpenPendingSkillMutationSelection();
     return (
       this.tryOpenPendingSkillMutationSelection?.() ||
       this.tryOpenQueuedLostArmsEvolutionSelection?.() ||
@@ -39319,7 +40584,7 @@ class SurvivalScene extends Phaser.Scene {
     let rawState = null;
 
     try {
-      rawState = window.localStorage?.getItem(COMMS_STORY_STORAGE_KEY) || null;
+      rawState = getSurvivalStorage("local")?.getItem(COMMS_STORY_STORAGE_KEY) || null;
     } catch (error) {
       rawState = null;
     }
@@ -39339,7 +40604,7 @@ class SurvivalScene extends Phaser.Scene {
     this.commsStoryState = this.normalizeCommsStoryState(this.commsStoryState);
 
     try {
-      window.localStorage?.setItem(COMMS_STORY_STORAGE_KEY, JSON.stringify(this.commsStoryState));
+      getSurvivalStorage("local")?.setItem(COMMS_STORY_STORAGE_KEY, JSON.stringify(this.commsStoryState));
       this.scheduleCloudSave("commsStoryState");
       return true;
     } catch (error) {
@@ -39364,8 +40629,8 @@ class SurvivalScene extends Phaser.Scene {
 
     let hadState = false;
     try {
-      hadState = window.localStorage?.getItem(COMMS_STORY_STORAGE_KEY) !== null;
-      window.localStorage?.removeItem(COMMS_STORY_STORAGE_KEY);
+      hadState = getSurvivalStorage("local")?.getItem(COMMS_STORY_STORAGE_KEY) !== null;
+      getSurvivalStorage("local")?.removeItem(COMMS_STORY_STORAGE_KEY);
     } catch (error) {
       return false;
     }
@@ -39921,7 +41186,7 @@ class SurvivalScene extends Phaser.Scene {
       return false;
     }
     try {
-      window.sessionStorage?.setItem(COMMS_EPILOGUE_PENDING_SESSION_KEY, sequence.id);
+      getSurvivalStorage("session")?.setItem(COMMS_EPILOGUE_PENDING_SESSION_KEY, sequence.id);
       this.debugLogCommsEpilogue("pending set", { reason, key: COMMS_EPILOGUE_PENDING_SESSION_KEY, sequenceId: sequence.id });
       return true;
     } catch (error) {
@@ -39931,7 +41196,7 @@ class SurvivalScene extends Phaser.Scene {
 
   peekPendingShopEpilogueComms() {
     try {
-      return this.normalizeCommsEpilogueSequenceId(window.sessionStorage?.getItem(COMMS_EPILOGUE_PENDING_SESSION_KEY) || "");
+      return this.normalizeCommsEpilogueSequenceId(getSurvivalStorage("session")?.getItem(COMMS_EPILOGUE_PENDING_SESSION_KEY) || "");
     } catch (error) {
       return "";
     }
@@ -39939,7 +41204,7 @@ class SurvivalScene extends Phaser.Scene {
 
   clearPendingShopEpilogueComms(reason = "clear") {
     try {
-      window.sessionStorage?.removeItem(COMMS_EPILOGUE_PENDING_SESSION_KEY);
+      getSurvivalStorage("session")?.removeItem(COMMS_EPILOGUE_PENDING_SESSION_KEY);
       this.debugLogCommsEpilogue("pending clear", { reason, key: COMMS_EPILOGUE_PENDING_SESSION_KEY });
       return true;
     } catch (error) {
@@ -41012,15 +42277,29 @@ class SurvivalScene extends Phaser.Scene {
 
   buildInitialSkillStates(options = {}) {
     const skills = {};
+    if ((this.getUmbraRunContext?.() || this.verificationContext)?.growthEnabled === true) {
+      if (this.isUmbraGrowthContextActive() && (!options.mechId || options.mechId === UMBRA_SERAPH_MECH_ID)) {
+        skills.umbraMoonlight = this.createSkillState(SKILL_DEFINITIONS.umbraMoonlight);
+      }
+      return skills;
+    }
     const mechId = this.getSkillSelectionPlayerMechId(options);
+    if (!this.isPlayerMechReleased(mechId)) {
+      return skills;
+    }
+    // The normal HUB boots before a run owner exists, including after loading
+    // a saved UMBRA selection. Its dedicated starter is created once by
+    // initializeUmbraGrowthRun after the owned launch request is prepared.
+    if (mechId === UMBRA_SERAPH_MECH_ID && !this.umbraRunContext) return skills;
     const starterDefinition = this.getResolvedPlayerMechStartingSkillDefinition(mechId);
-    const starterSkillId = starterDefinition?.id || DEFAULT_SKILL_ID;
+    const starterSkillId = starterDefinition?.id || "";
 
-    Object.values(SKILL_DEFINITIONS).forEach((definition) => {
+    this.getPlayerSkillSlotIds({ mechId }).forEach((skillId) => {
+      const definition = SKILL_DEFINITIONS[skillId];
       if (!definition?.id || !definition.stages?.length) {
         return;
       }
-      if (!this.isSkillAvailableForPlayerMech(definition.id, mechId) && definition.id !== starterSkillId) {
+      if (!this.isSkillAvailableForPlayerMech(definition.id, mechId)) {
         return;
       }
 
@@ -41036,10 +42315,6 @@ class SurvivalScene extends Phaser.Scene {
       skills[starterSkillId] = this.createSkillState(starterDefinition);
     }
 
-    if (!Object.keys(skills).length && SKILL_DEFINITIONS[DEFAULT_SKILL_ID]?.stages?.length) {
-      skills[DEFAULT_SKILL_ID] = this.createSkillState(SKILL_DEFINITIONS[DEFAULT_SKILL_ID]);
-    }
-
     if (!Object.keys(skills).length) {
       throw new Error(`Missing starter skill definition: ${starterSkillId}`);
     }
@@ -41051,6 +42326,8 @@ class SurvivalScene extends Phaser.Scene {
     return {
       id: definition.id,
       definition,
+      ...((this.getUmbraRunContext?.() || this.verificationContext)?.growthEnabled === true && this.isUmbraGrowthContextActive() && this.isUmbraGrowthSkillDefinition(definition)
+        ? { verificationOnly: true, umbraGrowthRun: this.umbraGrowthRun } : {}),
       stageIndex: 0,
       currentStage: definition.stages[0],
       orbitAngle: 0,
@@ -42047,7 +43324,7 @@ class SurvivalScene extends Phaser.Scene {
 
   saveStageCollisionZonesToLocalStorage() {
     try {
-      localStorage.setItem(this.getStageCollisionEditorStorageKey(), JSON.stringify(this.cloneCollisionZones(this.currentStage?.collisionZones)));
+      getSurvivalStorage("local").setItem(this.getStageCollisionEditorStorageKey(), JSON.stringify(this.cloneCollisionZones(this.currentStage?.collisionZones)));
       this.setStageCollisionEditorMessage("saved to localStorage", 1600);
     } catch (error) {
       console.warn("Failed to save collision editor data.", error);
@@ -42057,7 +43334,7 @@ class SurvivalScene extends Phaser.Scene {
 
   loadStageCollisionZonesFromLocalStorage() {
     try {
-      const rawValue = localStorage.getItem(this.getStageCollisionEditorStorageKey());
+      const rawValue = getSurvivalStorage("local").getItem(this.getStageCollisionEditorStorageKey());
       if (!rawValue) {
         this.setStageCollisionEditorMessage("no localStorage data for this stage", 1800);
         return;
@@ -42441,6 +43718,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   createPlayer() {
+    this.invalidateUmbraBoostTrace?.("PLAYER_BODY_CREATE");
     this.cleanupAcMovementVisuals("createPlayer");
     this.cleanupRegaliaBastionLandingFxObjects();
     const playBounds = this.getStagePlayBounds(this.currentStage);
@@ -42552,6 +43830,11 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getPlayerRobotTextureKeyForDirection(directionKey = "down", spriteMode = "idle", mechId = null) {
+    if ((!mechId || mechId === "umbraSeraph") && this.isUmbraNormalPresentationContext?.()) {
+      const mode = spriteMode === true || spriteMode === "boost" || spriteMode === "moving" ? "boost" : spriteMode === "move" ? "move" : "idle";
+      const pose = window.umbraPreviewAssets?.getPose(directionKey, mode);
+      return pose && this.textures.exists(pose.key) ? pose.key : "__WHITE";
+    }
     const resolvedMechId = mechId || this.getActivePlayerMechIdForRuntime();
     const asset = this.getPlayerRobotDirectionAsset(directionKey, resolvedMechId);
     const defaultAsset = this.getPlayerRobotDirectionAsset(directionKey, DEFAULT_PLAYER_MECH_ID);
@@ -42628,6 +43911,13 @@ class SurvivalScene extends Phaser.Scene {
 
   scalePlayerRobotSprite() {
     if (!this.playerSprite) {
+      return;
+    }
+
+    if (this.isUmbraNormalPresentationContext?.() && !this.isDepth10HumanPlayerVisualActive()) {
+      const selected = this.umbraNormalPose || { direction: this.playerRobotMotion?.directionKey || "down", mode: "idle" };
+      const pose = window.umbraPreviewAssets?.getPose(selected.direction, selected.mode);
+      if (pose) this.playerSprite.setOrigin(pose.origin.x, pose.origin.y).setScale(pose.displayScale);
       return;
     }
 
@@ -43176,6 +44466,21 @@ class SurvivalScene extends Phaser.Scene {
 
   setPlayerRobotPose(directionKey, moving, boostPoseActive = moving) {
     if (!this.playerSprite) {
+      return;
+    }
+
+    // Dedicated Phase 1 scene only: share the pose entry point without entering combat.
+    if (this.isUmbraPhase1Preview === true) {
+      this.renderUmbraPreviewPose(directionKey, boostPoseActive ? "boost" : (moving ? "move" : "idle"));
+      return;
+    }
+
+    if (this.isUmbraNormalPresentationContext?.() && !this.isDepth10HumanPlayerVisualActive()) {
+      const mode = boostPoseActive ? "boost" : moving ? "move" : "idle";
+      this.umbraNormalPose = { direction: directionKey, mode };
+      const applied = window.umbraPreviewAssets?.applyPose(this.playerSprite, directionKey, mode,
+        this.playerHitbox.x, this.playerHitbox.y + PLAYER_SPRITE_OFFSET_Y);
+      this.playerSprite.setFlipX(false).setVisible(applied === true);
       return;
     }
 
@@ -44113,9 +45418,20 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   createPlayerSkills() {
+    const normal = this.umbraRunContext;
+    if (normal) {
+      if (!this.isUmbraRunContextCurrent(normal, { requireBody: true }) || normal.skillsBound) return;
+      if (!normal.statsApplied) throw new Error("Normal weapon initialization requires starting stats");
+    }
     Object.values(this.playerSkills).forEach((skillState) => {
-      this.applySkillStage(skillState, true);
+      const applied = this.applySkillStage(skillState, true);
+      if (normal && applied !== true) throw new Error(`Normal starter owner initialization failed: ${skillState.id}`);
     });
+    if (normal) {
+      normal.skillsBound = true;
+      this.initializeUmbraTriadRun();
+      normal.environment.record("runSkillsBound", { runId: normal.runId, skills: Object.keys(this.playerSkills) });
+    }
   }
 
   destroyPlayerSkillObjects() {
@@ -44126,6 +45442,11 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   rebuildPlayerSkillsForRun(reason = "runStart") {
+    if (this.umbraRunContext) {
+      if (!this.isUmbraRunContextCurrent(this.umbraRunContext)) return false;
+      if (this.umbraRunContext.state !== "PREPARED") this.createPlayerSkills();
+      return true;
+    }
     this.destroyPlayerSkillObjects();
     const mechId = this.getRunPlayerMechId();
     this.playerSkills = this.buildInitialSkillStates({ reason, mechId });
@@ -44142,10 +45463,14 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   isSkillRuntimeBehaviorImplemented(definition) {
-    return ["orbit", "screenHoming", "directionalDash", "regaliaBastionCannon"].includes(definition?.behavior || "orbit");
+    return definition?.previewOnly !== true
+      && ["orbit", "screenHoming", "directionalDash", "regaliaBastionCannon"].includes(definition?.behavior || "orbit");
   }
 
   applySkillStage(skillState, resetMotion = false) {
+    if (skillState?.definition?.exclusiveToMechId === UMBRA_SERAPH_MECH_ID && skillState.definition.previewOnly === true) {
+      return this.applyUmbraSkillStageChange(skillState, resetMotion ? "ACQUIRE" : "STAGE");
+    }
     if (!skillState?.definition?.stages?.length) {
       return;
     }
@@ -45341,6 +46666,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   resetAcMovementState(reason = "reset") {
+    this.invalidateUmbraBoostTrace?.(reason);
     this.cleanupAcMovementVisuals(reason);
     this.destroyAcMovementDebugHud(reason);
     this.acMovementState = this.initializeAcMovementState();
@@ -50764,7 +52090,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getStandardHudDetailPanelLayout() {
-    const base = DETAIL_HUD_LAYOUT.panels;
+    const defaultPanels = DETAIL_HUD_LAYOUT.panels;
+    const base = this.isUmbraNormalPresentationContext?.()
+      ? { ...defaultPanels, build: { ...defaultPanels.build, y: defaultPanels.build.y - 68, height: defaultPanels.build.height + 68 } }
+      : defaultPanels;
     if (!this.mobileControlsEnabled) {
       return base;
     }
@@ -50864,7 +52193,59 @@ class SurvivalScene extends Phaser.Scene {
     return `${label} L${level}${tags.length ? ` ${tags.join(" ")}` : ""}`;
   }
 
+  getUmbraNormalHudView() {
+    const ids = ["umbraMoonlight", "umbraBloodSpike", "umbraPhantomNova"], labels = ["MOON", "SPIKE", "NOVA"];
+    const equipment = this.getUmbraEquipmentSnapshot?.();
+    const triad = this.getUmbraTriadSnapshot?.();
+    const nova = this.getUmbraPhantomNovaVisualState?.();
+    const slots = nova?.slots || [];
+    const skills = ids.map((id, index) => ({ id, label: labels[index], acquired: Boolean(this.playerSkills?.[id]),
+      stage: this.playerSkills?.[id]?.currentStage?.stage || 0, mutation: this.playerSkills?.[id] ? this.getSkillMutationHudLine(id) : "",
+      overlimit: ["", "I", "II"][equipment?.overlimitLevels?.[id] || 0] || "" }));
+    const waiting = slots.filter(slot => slot.state === "REGENERATING").map(slot => Math.max(0, (slot.regenerateAtMs || 0) - (nova.combatTimeMs || 0)));
+    const oldSnapshots = [];
+    const describeOld = (label, skillId, coreProfile, finalProfile) => {
+      const captured = finalProfile?.equipmentProfile;
+      const oldLevel = Number(captured?.overlimitLevel) || 0, currentLevel = Number(equipment?.overlimitLevels?.[skillId]) || 0;
+      const oldRevision = finalProfile?.triadProfile?.revision ?? coreProfile?.triadProfile?.revision;
+      const oldCore = finalProfile?.coreId || coreProfile?.coreId || null;
+      const currentCore = this.skillMutationState?.entries?.[skillId]?.core || null;
+      if (oldLevel !== currentLevel || (oldRevision != null && oldRevision !== triad?.revision) || oldCore !== currentCore) {
+        return `${label}旧 OVL${["0", "I", "II"][oldLevel] || "0"}/r${oldRevision ?? "—"}`;
+      }
+      return null;
+    };
+    // Show the first retained older snapshot of each type; a current first slot must not hide an older second slot.
+    for (const [label, skillId, sources] of [["SPIKE", "umbraBloodSpike", this.getUmbraBloodSpikeSnapshot?.()?.casts || []],
+      ["DEP", "umbraPhantomNova", slots.filter(slot => slot.state === "DEPLOYED")]]) {
+      for (const source of sources) {
+        const line = describeOld(label, skillId, source.coreProfile, source.finalProfile);
+        if (line) { oldSnapshots.push(line); break; }
+      }
+    }
+    return { skills, equipment, triad, oldSnapshots,
+      nova: { orbit: slots.filter(slot => slot.state === "ORBITING").length, deployed: slots.filter(slot => slot.state === "DEPLOYED").length,
+        regenerating: waiting.length, nextReadyMs: waiting.length ? Math.min(...waiting) : null } };
+  }
+
+  getUmbraNormalSystemsHudLine(view = this.getUmbraNormalHudView()) {
+    const nova = view.nova;
+    const link = ["—", "I", "II"][view.equipment?.combatLinkLevel || 0] || "—";
+    const next = nova.nextReadyMs == null ? "" : ` ${(nova.nextReadyMs / 1000).toFixed(1)}s`;
+    return `CL ${link} / NOVA O${nova.orbit} D${nova.deployed} R${nova.regenerating}${next}`;
+  }
+
   getDetailBuildDiagnosticsLines() {
+    if (this.isUmbraNormalPresentationContext?.()) {
+      const view = this.getUmbraNormalHudView();
+      const lines = view.skills.map(skill => skill.acquired
+        ? `${skill.label} S${skill.stage} ${skill.mutation || "—"}${skill.overlimit ? ` OVL ${skill.overlimit}` : ""}` : `${skill.label} 未取得`);
+      lines.push(`TRIAD C:${view.triad?.core?.shortLabel || "—"} / F:${view.triad?.final?.shortLabel || "—"} / r${view.triad?.revision ?? 0}`);
+      lines.push(this.getUmbraNormalSystemsHudLine(view));
+      if (view.oldSnapshots.length) lines.push(view.oldSnapshots.join(" / "));
+      lines.push(`${this.getDetailLostArmDiagnosticLine("abyssRail")}  ${this.getDetailLostArmDiagnosticLine("gravitySeed")}`);
+      return lines;
+    }
     const skillIds = this.getPlayerSkillSlotIds();
     const skillLabels = {
       [DEFAULT_SKILL_ID]: "ORB",
@@ -51065,15 +52446,17 @@ class SurvivalScene extends Phaser.Scene {
       [DEFAULT_SKILL_ID]: "ORB",
       [REGALIA_BASTION_CANNON_SKILL_ID]: "REG",
       tornadoSkill: "TND",
-      rabbitThunderSkill: "RBT"
+      rabbitThunderSkill: "RBT",
+      umbraMoonlight: "MOON", umbraBloodSpike: "SPIKE", umbraPhantomNova: "NOVA"
     };
     const skillModels = this.getPlayerSkillSlotIds().map((skillId) => {
       const state = this.playerSkills?.[skillId];
       const stage = Math.max(0, Math.floor(Number(state?.currentStage?.stage) || 0));
       const mutationLine = state ? this.getSkillMutationHudLine(skillId) : "";
       const label = skillLabels[skillId] || this.getRunArchiveSkillShortLabel(skillId).slice(0, 3);
+      const umbraOverlimit = this.isUmbraNormalPresentationContext?.() && state ? this.getRunEquipmentSkillOverlimitHudPresentation?.(skillId)?.label : "";
       return {
-        text: state ? `${label} S${stage}${mutationLine ? "*" : ""}` : `${label} --`,
+        text: state ? `${label} S${stage}${mutationLine ? "*" : ""}${umbraOverlimit ? ` ${umbraOverlimit.replace("OVL ", "")}` : ""}` : `${label} --`,
         color: state ? (mutationLine ? "#ffd98e" : "#9ffcff") : "#6f8b96",
         stroke: state ? 0x65e6ff : 0x42606a,
         alpha: state ? 0.78 : 0.42
@@ -52094,13 +53477,19 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   setHudIconToFit(icon, textureKey, maxSize) {
-    icon.setTexture(textureKey);
+    const umbraEffect = this.isUmbraNormalPresentationContext?.()
+      ? Object.values(window.umbraPreviewAssets?.effects || {}).find(effect => effect.key === textureKey) : null;
+    const umbraFrame = umbraEffect?.frames?.[2]?.name;
+    if (umbraFrame && this.textures.get(textureKey).has(umbraFrame)) icon.setTexture(textureKey, umbraFrame);
+    else icon.setTexture(textureKey);
     const frame = icon.frame;
     const longestSide = Math.max(frame?.width || maxSize, frame?.height || maxSize, 1);
     icon.setScale(maxSize / longestSide);
   }
 
   getSkillHudIconKey(definition) {
+    const umbraAsset = this.isUmbraNormalPresentationContext?.() ? window.umbraPreviewAssets?.effects?.[definition?.id] : null;
+    if (umbraAsset) return umbraAsset.key;
     if (definition?.hudIconTextureKey) {
       return definition.hudIconTextureKey;
     }
@@ -53112,6 +54501,11 @@ class SurvivalScene extends Phaser.Scene {
 
   updateGamepadOverlayNavigation() {
     if (!this.overlayContainer?.visible || !this.gamepadState?.available || !this.isControllerInputEnabled()) {
+      return;
+    }
+
+    if (this.umbraPlayerCardDetail && this.isGamepadBackPressed()) {
+      this.closeUmbraPlayerCardDetails();
       return;
     }
 
@@ -55212,8 +56606,11 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getPlayerMechHangarActionPresentation(mechId) {
+    if (this.isProgressionWriteBlocked()) return {
+      state: "saveHeld", status: "SAVE HELD", actionLabel: "保存状態の確認が必要です", actionColor: "#ffd98a", interactive: false
+    };
     const definition = this.getPlayerMechDefinition(mechId);
-    if (!definition) {
+    if (!this.isPlayerMechReleased(mechId)) {
       return {
         state: "missing",
         status: "OFFLINE",
@@ -55256,9 +56653,10 @@ class SurvivalScene extends Phaser.Scene {
     };
   }
 
-  handlePlayerMechHangarAction(mechId) {
+  async handlePlayerMechHangarAction(mechId) {
+    if (this.isProgressionWriteBlocked()) return false;
     const definition = this.getPlayerMechDefinition(mechId);
-    if (!definition) {
+    if (!this.isPlayerMechReleased(mechId)) {
       this.showPreGameShop("PLAYER FRAME SIGNAL LOST");
       return false;
     }
@@ -55280,15 +56678,20 @@ class SurvivalScene extends Phaser.Scene {
       return false;
     }
 
-    const purchased = this.purchasePlayerMech(definition.id);
+    const purchase = this.purchasePlayerMech(definition.id);
+    if (purchase?.then) this.showPreGameShop("機体を転送しています。保存完了までお待ちください。");
+    const purchased = await purchase;
     this.showPreGameShop(purchased
       ? (definition.id === REGALIA_BASTION_MECH_ID ? "REGALIA BASTION TRANSFER COMPLETE" : "PLAYER FRAME TRANSFER COMPLETE")
-      : "INSUFFICIENT GEEK");
+      : (this.umbraPurchaseFailure === "INSUFFICIENT_GEEK" ? "INSUFFICIENT GEEK"
+        : this.umbraPurchaseFailure === "FINAL_RAID_REQUIRED" ? "CLEAR DEPTH10 FINAL RAID"
+        : this.getProgressionWriteHoldMessage()));
     return purchased;
   }
 
   renderPlayerMechHangarContent() {
     this.ensurePlayerMechHangarBackgroundLoading();
+    this.ensureUmbraHangarArtworkLoading();
     this.createOverlayText(-530, -210, "HANGER / PLAYER FRAME", {
       fontSize: "15px",
       color: "#9ffcff",
@@ -55401,7 +56804,7 @@ class SurvivalScene extends Phaser.Scene {
     });
     this.fitOverlayTextToWidth(selectedText, width - 28, 7);
 
-    const mechIds = Object.keys(this.getPlayerMechDefinitions());
+    const mechIds = this.getReleasedPlayerMechIds();
     mechIds.forEach((mechId, index) => {
       const layout = dedicated
         ? this.getPlayerMechHangarCardLayout(mechId, index, mechIds.length, { x, y, width, height })
@@ -55414,7 +56817,7 @@ class SurvivalScene extends Phaser.Scene {
       const gap = 10;
       const cardY = y + 46;
       const cardHeight = height - 54;
-      const cardWidth = Math.floor((width - 28 - gap) / 2);
+      const cardWidth = Math.floor((width - 28 - gap * (mechIds.length - 1)) / mechIds.length);
       this.renderPlayerMechHangarCard(mechId, x + 14 + index * (cardWidth + gap), cardY, cardWidth, cardHeight);
     });
   }
@@ -55497,6 +56900,11 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   renderPlayerMechHangarArtwork(mechId, x, y, width, height, selected = false) {
+    if (mechId === UMBRA_SERAPH_MECH_ID) {
+      if (!this.textures.exists("umbra-hangar-artwork")) return this.renderPlayerMechHangarPlaceholder(mechId, x, y, width, height, selected);
+      return this.addOverlayChild(this.add.image(x + width * 0.65, y + height * 0.49, "umbra-hangar-artwork")
+        .setDisplaySize(Math.min(width, height) * 1.12, Math.min(width, height) * 1.12).setAlpha(selected ? 0.78 : 0.60));
+    }
     if (this.textures.exists(PLAYER_MECH_HANGAR_BACKGROUND_TEXTURE_KEY)) {
       const texture = this.textures.get(PLAYER_MECH_HANGAR_BACKGROUND_TEXTURE_KEY);
       const source = texture?.getSourceImage?.();
@@ -55546,6 +56954,14 @@ class SurvivalScene extends Phaser.Scene {
       graphics.fillCircle(centerX + width * 0.08, baseY - height * 0.31, 2.5);
     }
     return graphics;
+  }
+
+  ensureUmbraHangarArtworkLoading() {
+    if (this.textures.exists("umbra-hangar-artwork") || this.umbraHangarArtworkRequested) return;
+    this.umbraHangarArtworkRequested = true;
+    this.loadImageAssetOnDemand("umbra-hangar-artwork", "画像/player/KGK-02_UMBRA_SERAPH/character/KGK_000.png", () => {
+      if (this.shopActive && this.shopViewMode === "geek" && this.geekShopSubView === GEEK_SHOP_SUB_VIEW_HANGER) this.showPreGameShop(this.shopStatusMessage);
+    });
   }
 
   createPlayerMechHangarButton(centerX, centerY, width, height, label, interactive, onSelect, accent = 0x6fcfff, color = "#9ffcff") {
@@ -56017,6 +57433,7 @@ class SurvivalScene extends Phaser.Scene {
 
   getRunArchiveDisplayEntries() {
     const archive = this.loadRunArchive();
+    if (this.umbraPersistenceUnsupportedKeys?.has(RUN_ARCHIVE_STORAGE_KEY)) return [];
     if (archive.entries.length <= 0 && this.isRunArchiveDebugEnabled()) {
       return this.createDebugRunArchiveEntries();
     }
@@ -56057,6 +57474,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getRunArchiveSkillSlotIds(entry = null) {
+    if (MUTATION_ATLAS_PLAYER_MECH_IDS.includes(entry?.mechId)) return PLAYER_MECH_SKILL_SLOT_IDS[entry.mechId];
     const skills = entry?.skills || {};
     const mutations = entry?.skillMutations || {};
     if ((skills[REGALIA_BASTION_CANNON_SKILL_ID] || 0) > 0 || mutations[REGALIA_BASTION_CANNON_SKILL_ID]?.core) {
@@ -56066,6 +57484,9 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getRunArchiveSkillShortLabel(skillId) {
+    if (skillId === UMBRA_MOONLIGHT_SKILL_ID) return "MOON";
+    if (skillId === UMBRA_BLOOD_SPIKE_SKILL_ID) return "SPIKE";
+    if (skillId === UMBRA_PHANTOM_NOVA_SKILL_ID) return "NOVA";
     if (skillId === REGALIA_BASTION_CANNON_SKILL_ID) {
       return "REGALIA";
     }
@@ -56240,7 +57661,7 @@ class SurvivalScene extends Phaser.Scene {
       `BUILD: ${this.getRunArchiveTriadBuildSummary(entry)}`,
       `SKILLS: ${this.getRunArchiveSkillSummary(entry)}`,
       `MUTATION: ${this.getRunArchiveSkillMutationSummary(entry)}`,
-      `PASSIVE: REACTOR ${passives.overchargeBolt} / FIRE CTRL ${passives.rapidSigil} / BOOSTER ${passives.swiftStep} / ENERGY ${passives.staminaCore} / AP ${passives.vitalBloom}`,
+      `PASSIVE: REACTOR ${passives.overchargeBolt} / FIRE CTRL ${passives.rapidSigil} / BOOSTER ${passives.swiftStep} / ENERGY ${passives.staminaCore} / AP ${passives.vitalBloom} / EVASIVE ${passives.evasiveFirmware || 0}`,
       `LOST ARMS: ${this.getRunArchiveLostArmsSummary(entry)}`,
       `ROBOT: M${robot.missileLevel} / F${robot.recoveryLevel} / RAPID ${robot.rapidLauncherLevel} / WARHEAD ${robot.warheadBoostLevel} / FIELD ${robot.fieldCycleLevel} / CARE ${robot.careOutputLevel} / SYNC ${robot.syncActivations}`,
       `DEEP: CONTRACT ${contractText}`,
@@ -56250,7 +57671,7 @@ class SurvivalScene extends Phaser.Scene {
       `STAGE: ${entry.stageName || "-"} / ${entry.stageId || "-"}`
     ].filter(Boolean);
 
-    this.createOverlayText(x + 18, y + 14, "DETAIL", {
+    this.createOverlayText(x + 18, y + 14, `DETAIL / ${this.getPlayerMechDefinition(entry.mechId)?.shortName || "DEFAULT FRAME"}`, {
       fontSize: "14px",
       color: "#9ffcff",
       fontStyle: "bold"
@@ -56453,8 +57874,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   renderMutationAtlasMechTabs() {
-    this.createMutationAtlasMechTab(162, -162, 178, DEFAULT_PLAYER_MECH_ID);
-    this.createMutationAtlasMechTab(366, -162, 218, REGALIA_BASTION_MECH_ID);
+    MUTATION_ATLAS_PLAYER_MECH_IDS.forEach((mechId, index) => this.createMutationAtlasMechTab(124 + index * 158, -162, 150, mechId));
   }
 
   createMutationAtlasCell(buildId, x, y, width, height, scope, mechId) {
@@ -56674,6 +58094,12 @@ class SurvivalScene extends Phaser.Scene {
     });
 
     const entries = this.getRunArchiveDisplayEntries();
+    if (this.umbraPersistenceUnsupportedKeys?.has(RUN_ARCHIVE_STORAGE_KEY)) {
+      this.createOverlayText(-510, -120, "このRUN ARCHIVEは新しい版で保存されています。\n記録を保持したまま、対応する最新版で開いてください。", {
+        fontSize: "16px", color: "#ffda8c", wordWrap: { width: 980 }
+      });
+      return;
+    }
     if (entries.length <= 0) {
       this.addOverlayChild(
         this.add
@@ -56744,7 +58170,8 @@ class SurvivalScene extends Phaser.Scene {
 
   showPreGameShop(message = "") {
     this.shopActive = true;
-    this.shopStatusMessage = this.consumePendingEquipmentRewardHubNotice(message) || "";
+    this.shopStatusMessage = this.isProgressionWriteBlocked()
+      ? this.getProgressionWriteHoldMessage() : (this.consumePendingEquipmentRewardHubNotice(message) || "");
     this.levelUpActive = false;
     this.physics.world.pause();
     this.clearDepthRelayStartSelectionOverlay("showPreGameShop");
@@ -57184,7 +58611,7 @@ class SurvivalScene extends Phaser.Scene {
     const maxHpBeforeMech = Math.round(
       baseStats.maxHp + baseCalibration.hpAdd + cd.hpAdd + Math.max(0, Math.floor(Number(equipment.maxHpFlat) || 0))
     );
-    const maxHp = Math.max(1, Math.round(maxHpBeforeMech + (Number(playerMechProfile.maxHpAdd) || 0)));
+    const maxHp = this.getPlayerMechMaxHpForBase(maxHpBeforeMech, playerMechProfile);
 
     const moveSpeedBeforeMech = Math.round(baseStats.moveSpeed + baseCalibration.speedAdd + cd.speedAdd);
     const moveSpeed = Math.max(
@@ -58654,6 +60081,14 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   handleSortiePrepRequested() {
+    if (this.runEnvironmentIO) {
+      const fixture = this.runEnvironmentIO.getFixture(this);
+      if (fixture.requestedRelayDepth) {
+        this.runEnvironmentIO.record("fixture-relay-request", { depth: fixture.requestedRelayDepth, synthetic: true });
+        return this.requestSortieWithRunStart({ requestedRelayDepth: fixture.requestedRelayDepth,
+          autoContinueSortie: true, source: "phase7b-fixture", fallbackToStandard: false });
+      }
+    }
     if (this.isCloudSaveSortieBlocked()) {
       this.shopViewMode = "dataLink";
       this.showPreGameShop(this.cloudSaveState?.errorMessage || "DATA LINKの確認が必要です");
@@ -58793,30 +60228,86 @@ class SurvivalScene extends Phaser.Scene {
     if (!this.shopActive) {
       return false;
     }
+    if (this.isProgressionWriteBlocked()) {
+      this.showPreGameShop(this.getProgressionWriteHoldMessage());
+      return false;
+    }
+    if (this.runArchivePendingEntry) {
+      if (!this.appendRunArchiveEntry(this.runArchivePendingEntry)) {
+        this.showPreGameShop("前回のRUN ARCHIVE保存を保留しています。保存状態を確認してから、もう一度SORTIEを選んでください。");
+        return false;
+      }
+      this.runArchivePendingEntry = null;
+      this.runArchiveSaved = true;
+    }
     if (this.isCloudSaveSortieBlocked()) {
       this.shopViewMode = "dataLink";
       this.showPreGameShop(this.cloudSaveState?.errorMessage || "DATA LINKの確認が必要です");
       return false;
     }
 
+    let normal;
+    try { normal = this.prepareUmbraNormalRunContext("gameStart"); }
+    catch (error) {
+      if (this.runEnvironmentIO) throw error;
+      this.showPreGameShop(`出撃を開始できません。所有・保存状態を確認してください: ${String(error?.message || error)}`);
+      return false;
+    }
+    if (this.isUmbraProductionRunContext(normal) && !normal.launchConsumed
+      && (!this.isPlayerMechOwned(UMBRA_SERAPH_MECH_ID) || !this.isPlayerMechReleased(UMBRA_SERAPH_MECH_ID)
+        || this.isProgressionWriteBlocked?.())) {
+      this.endUmbraNormalRun("LAUNCH_UNAVAILABLE");
+      this.showPreGameShop("機体の所有・保存状態を確認してから、もう一度SORTIEを選んでください。");
+      return false;
+    }
+    if (normal && !normal.assetsPrepared) {
+      if (normal.preparationPromise) return normal.preparationPromise;
+      normal.preparationPromise = Promise.resolve().then(async () => {
+        if (!this.isUmbraRunContextCurrent(normal) || normal.ending || normal.environment.isClosing?.()) return false;
+        if (typeof this.prepareUmbraPresentationAssets !== "function") throw new Error("Required UMBRA presentation module is unavailable");
+        await this.prepareUmbraPresentationAssets(normal);
+        if (!this.isUmbraRunContextCurrent(normal) || normal.ending || normal.environment.isClosing?.() || !this.shopActive) return false;
+        normal.assetsPrepared = true;
+        return this.continueSortieFromHub();
+      }).catch(error => {
+        if (this.isUmbraRunContextCurrent(normal)) {
+          normal.ending = true;
+          this.endUmbraNormalRun?.("LOAD_FAILED");
+          if (normal.state !== "ENDED") this.setUmbraNormalRunState("ENDED", "LOAD_FAILED", normal);
+          this.pendingSortieAfterGameplayAssets = false;
+          normal.environment.record("runLaunchFailed", { runId: normal.runId, message: String(error?.message || error) });
+          this.showPreGameShop(`UMBRA出撃準備に失敗しました。明示的に再試行してください: ${String(error?.message || error)}`);
+        }
+        return false;
+      });
+      return normal.preparationPromise;
+    }
+
     if (!this.gameplayRuntimeCreated) {
       return this.loadGameplayAssetsThenContinueSortie();
     }
 
+    if (normal?.launchConsumed) return true;
+
     this.clearDepthRelayStartSelectionOverlay("continueSortie");
-    this.resetRunEquipmentCombatLinkState("gameStart");
-    this.captureRunEquipmentBonuses("gameStart");
-    this.captureRunEquipmentCombatLinkSnapshot(this.runEquipmentLoadoutSnapshot, "gameStart");
-    this.captureRunPlayerMechSnapshot("gameStart");
-    this.rebuildPlayerSkillsForRun("gameStart");
+    if (!normal) {
+      this.resetRunEquipmentCombatLinkState("gameStart");
+      this.captureRunEquipmentBonuses("gameStart");
+      this.captureRunEquipmentCombatLinkSnapshot(this.runEquipmentLoadoutSnapshot, "gameStart");
+      this.captureRunPlayerMechSnapshot("gameStart");
+      this.rebuildPlayerSkillsForRun("gameStart");
+    } else if (!normal.statsApplied || !normal.skillsBound || !this.isUmbraRunContextCurrent(normal, { requireBody: true })) {
+      throw new Error("Normal sortie resumed before initialization completed");
+    }
     this.acMovementDebugStartStaminaApplied = false;
-    this.rebuildStartingStats({ applyPlayerMech: true });
+    if (!normal) this.rebuildStartingStats({ applyPlayerMech: true });
     this.resetAcMovementState("gameStart");
     this.applyAcMovementDebugStartStamina("gameStart");
     const pendingShopEpilogue = this.peekPendingShopEpilogueComms?.() || "";
     this.clearFinalRaidLegendRewardRuntimeState("gameStart");
     this.cleanupCommsEpilogueTimers?.("gameStart");
     this.shopActive = false;
+    if (normal) normal.launchConsumed = true;
     this.shopStatusMessage = "";
     this.runArchiveStarted = true;
     this.runArchiveSaved = false;
@@ -58886,6 +60377,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   loadGameplayAssetsThenContinueSortie() {
+    const umbraContext = this.isUmbraNormalPresentationContext?.() ? this.getUmbraRunContext() : null;
     if (this.gameplayAssetsLoading) {
       this.pendingSortieAfterGameplayAssets = true;
       return true;
@@ -58897,9 +60389,16 @@ class SurvivalScene extends Phaser.Scene {
     showShopLoadingScreen({ mode: "shop", title: "出撃準備中" });
 
     const complete = () => {
+      // A cancelled run can finish after a newer run has begun loading.
+      // Reject its completion before touching any current loader flags.
+      if (umbraContext && !this.isUmbraRunContextCurrent(umbraContext, { requireBody: false })) return;
       this.gameplayAssetsLoading = false;
       this.assetLoadQueueKeys = null;
       this.assetLoadQueuedCount = 0;
+      if (umbraContext && (!this.pendingSortieAfterGameplayAssets || !this.shopActive)) {
+        this.pendingSortieAfterGameplayAssets = false;
+        return;
+      }
       this.createGameplayRuntime();
       if (!this.pendingSortieAfterGameplayAssets || !this.shopActive) {
         return;
@@ -58921,6 +60420,7 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     this.load.once("loaderror", (file) => {
+      if (umbraContext && !this.isUmbraRunContextCurrent(umbraContext, { requireBody: false })) return;
       this.pendingGameplayAssetsLoadErrors.push(file?.src || file?.url || file?.key || "unknown");
     });
     this.load.once("complete", complete);
@@ -61446,11 +62946,13 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   chooseExtract() {
-    if (this.gateChoiceLocked) {
+    if (this.gateChoiceLocked || (this.runEnvironmentIO && this.umbraNormalResultCompleted)) {
       return;
     }
 
     this.gateChoiceLocked = true;
+    this.endUmbraNormalRun("EXTRACT");
+    this.umbraResultIoFailuresAtStart = this.runEnvironmentIO?.getStorageFailureCount?.() || 0;
     const result = this.secureRunCoins(1);
     const lostArmsMessage = this.securePendingLostArms();
     this.completeExtraction(result, false, lostArmsMessage);
@@ -61466,6 +62968,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   beginGateDepthTransition(mode = "next") {
+    this.invalidateUmbraBoostTrace?.("DEPTH_TRANSITION");
     const completedDepth = this.stageDepth || 1;
     const targetDepth = completedDepth + 1;
     const dataCachePayload = this.mergeDataCachePayload(
@@ -61489,6 +62992,8 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   completeGateDepthTransition(transition) {
+    if (this.isUmbraNormalRunScope() && this.umbraRunContext.completedGates?.has(transition)) return false;
+    const umbraGateTicket = this.captureUmbraGateSurvivors(transition);
     const completedDepth = Number.isInteger(transition?.completedDepth) && Number.isSafeInteger(transition.completedDepth)
       ? transition.completedDepth
       : (this.stageDepth || 1);
@@ -61517,6 +63022,7 @@ class SurvivalScene extends Phaser.Scene {
       anchorUnlockEligible: this.depthRelayAnchorProgressState?.anchorUnlockEligible === true
     });
     this.resetAcMovementState("depthTransition");
+    this.adoptUmbraGateSurvivors(umbraGateTicket);
     this.initializeEquipmentProductionDropState(this.stageDepth, "depthTransition");
     this.updateRunRankingDepthProgress(this.stageDepth);
     this.gateInstabilityStacks = Math.max(0, Math.floor(Number(transition?.nextInstabilityStacks) || 0));
@@ -61580,11 +63086,13 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   chooseEmergencyExtract() {
-    if (this.gateChoiceLocked) {
+    if (this.gateChoiceLocked || (this.runEnvironmentIO && this.umbraNormalResultCompleted)) {
       return;
     }
 
     this.gateChoiceLocked = true;
+    this.endUmbraNormalRun("EMERGENCY_EXTRACT");
+    this.umbraResultIoFailuresAtStart = this.runEnvironmentIO?.getStorageFailureCount?.() || 0;
     const coinScaling = this.getCurrentCoinScaling();
     const result = this.secureRunCoins(coinScaling.emergencyExtractRate);
     const anchorMessage = coinScaling.stabilizeProtectionBonus > 0
@@ -61594,7 +63102,11 @@ class SurvivalScene extends Phaser.Scene {
     this.completeExtraction(result, true, lostArmsMessage);
   }
 
-  completeExtraction(result, emergency, lostArmsMessage = "") {
+  async completeExtraction(result, emergency, lostArmsMessage = "") {
+    if (this.runEnvironmentIO && this.umbraNormalResultCompleted) return;
+    const completionOwner = this.isUmbraProductionRunContext?.() ? this.umbraRunContext : null;
+    if (this.runEnvironmentIO) this.umbraNormalResultCompleted = true;
+    this.endUmbraNormalRun(emergency ? "EMERGENCY_EXTRACT" : "EXTRACT");
     const runOriginSnapshot = this.createRunOriginSnapshot(this.runStartContext);
     const deepExtractionContext = this.captureDeepExtractionResultContext(result, emergency, lostArmsMessage, { runOriginSnapshot });
     const equipmentTransfer = this.secureRunEquipmentBoxes(emergency ? "emergencyExtract" : "normalExtract");
@@ -61609,11 +63121,13 @@ class SurvivalScene extends Phaser.Scene {
     const mutationAtlasDepthContext = this.resolveMutationAtlasRunDepthContext({
       legacyAbsoluteDepth: atlasMaxDepthReached
     });
-    const mutationAtlasResult = this.completeMutationAtlasExtractionProgress({
+    const mutationAtlasRequest = this.completeMutationAtlasExtractionProgress({
       emergency,
       absoluteMaxDepthReached: mutationAtlasDepthContext.absoluteMaxDepthReached,
       rewardDepthReached: mutationAtlasDepthContext.rewardDepthReached
     });
+    const mutationAtlasResult = mutationAtlasRequest?.then ? await mutationAtlasRequest : mutationAtlasRequest;
+    if (completionOwner && (this.umbraRunContext !== completionOwner || this.sys?.isActive?.() === false)) return;
     const maxAbsoluteDepthReachedForEquipmentCache = this.getRunMaxAbsoluteDepthReached(this.runDepthProgressState);
     const equipmentDeepCacheReward = !emergency
       ? this.awardEquipmentDeepExtractionCaches({
@@ -61656,6 +63170,7 @@ class SurvivalScene extends Phaser.Scene {
         mutationAtlasResult
       }
     });
+    this.recordUmbraIntegrationResult?.(emergency ? "EMERGENCY_EXTRACT" : "EXTRACT", result);
     this.resetRunEquipmentCombatLinkState(emergency ? "emergencyExtract" : "extract");
     this.extractionComplete = true;
     this.gateChoiceActive = false;
@@ -61677,7 +63192,7 @@ class SurvivalScene extends Phaser.Scene {
     this.hideOverlay();
     this.clearActiveLostArmEffects();
     this.physics.world.pause();
-    const securedText = `${result.secured.toLocaleString()} GEEK SECURED`;
+    const securedText = `${this.umbraRamResultUncertain ? "RAM結果未確認 / " : ""}${result.secured.toLocaleString()} GEEK SECURED`;
     const lostText = result.lost > 0 ? ` / LOST ${result.lost.toLocaleString()}` : "";
     const anjuMemoryText = this.formatAnjuMemoryAwardLine(anjuMemoryAward);
     const mutationAtlasText = this.formatMutationAtlasExtractionLines(mutationAtlasResult).join("\n");
@@ -62722,6 +64237,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   update(time, delta) {
+    this.updateUmbraNormalRunState?.();
     if (!this.gameplayRuntimeCreated) {
       this.updateGamepadState(time, delta);
       this.updateGamepadOverlayNavigation();
@@ -62741,6 +64257,7 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     this.syncPlayerVisuals();
+    this.updateUmbraNormalPresentation?.();
     this.updateSkills(delta);
     this.updateRobotCompanion(delta);
     this.updateCleaningRobotCompanion(delta);
@@ -62775,6 +64292,7 @@ class SurvivalScene extends Phaser.Scene {
     this.tryOpenPendingSkillMutationSelection();
     this.tryOpenQueuedLostArmsEvolutionSelection();
     this.tryOpenPendingOverdriveModSelection();
+    if (this.umbraRunContext) this.tryOpenPendingEquipmentOverlimitBonusSelection();
     this.tryStartFinalBossRaidFromDebugStart("update");
     this.tryQueueDebugFinalRaidRescueEffectPreviewIfNeeded("update");
     this.tryQueueDebugFinalRaidGuildEffectPreviewIfNeeded("update");
@@ -62832,6 +64350,10 @@ class SurvivalScene extends Phaser.Scene {
       }
       return;
     }
+
+    const normal = this.umbraRunContext;
+    if (normal && !finalBossRaidActive && (!this.isUmbraRunContextCurrent(normal)
+      || normal.ending || !normal.launchConsumed || normal.state === "PREPARED" || normal.state === "BOUND")) return;
 
     this.survivalTime += delta;
     if (!finalBossRaidActive) {
@@ -63571,20 +65093,3365 @@ class SurvivalScene extends Phaser.Scene {
     this.dashRegenBlockedUntil = Math.max(Number(this.dashRegenBlockedUntil) || 0, blockUntil);
   }
 
+  // Phase 4: independent physical-step clock. Never consume MOONLIGHT's path
+  // cursor or use trace validity to decide a current-position ground impact.
+  // Phase 6B permission belongs to this isolated live run, never to a HUB
+  // selection or a URL alone. Queries below do not create or reconcile state.
+  // Phase 7B: this identity test remains readable after END solely to prevent
+  // unsupported UMBRA results from being normalized into an older mech scope.
+  isUmbraNormalRunScope() {
+    return this.isUmbraIntegrationRunScope() || this.isUmbraProductionRunContext(this.umbraRunContext);
+  }
+
+  getUmbraNormalEnemyLife(enemy, options = {}) {
+    const context = this.umbraRunContext;
+    if (!this.isUmbraNormalRunScope() || context.ending || context.state === "ENDED" || !enemy?.body) return null;
+    context.enemyLives ||= new WeakMap();
+    let life = context.enemyLives.get(enemy);
+    if (options.spawn || !life || life.body !== enemy.body) {
+      life = Object.freeze({ id: `${context.runId}:enemy:${context.enemyLifeSequence = (context.enemyLifeSequence || 0) + 1}`,
+        body: enemy.body });
+      context.enemyLives.set(enemy, life);
+    }
+    return life;
+  }
+
+  applyUmbraIntegrationBoundaryBuild() {
+    const context = this.umbraRunContext;
+    if (!this.isUmbraIntegrationRunScope() || !this.isUmbraRunContextCurrent(context, { requireBody: true })
+      || context.environment.getFixture(this).mode !== "boundary" || context.boundaryBuildApplied
+      || context.ending || context.state !== "ACTIVE" || this.levelUpActive || this.gateChoiceActive
+      || this.startingUpgradeSelectionsRemaining > 0 || this.pendingLevelUps > 0 || this.skillMutationState?.pendingQueue?.length) return false;
+    context.boundaryBuildApplied = true;
+    this.setUmbraNormalRunState("SUSPENDED", "EXPLICIT_BOUNDARY_BUILD", context);
+    this.physics.world.pause();
+    const before = UMBRA_TRIAD_COMBAT_SKILL_IDS.map(id => ({ id, stage: this.playerSkills[id]?.currentStage?.stage || 0 }));
+    for (const id of UMBRA_TRIAD_COMBAT_SKILL_IDS) {
+      if (!this.playerSkills[id]) this.unlockSkill(id);
+      for (let remaining = 7; remaining > 0 && this.playerSkills[id]?.stageIndex < 7; remaining--) this.upgradeSkill(id);
+    }
+    this.runEnvironmentIO.record("explicit-boundary-build", { runId: context.runId, synthetic: true,
+      methods: ["unlockSkill", "upgradeSkill"], before,
+      after: UMBRA_TRIAD_COMBAT_SKILL_IDS.map(id => ({ id, stage: this.playerSkills[id]?.currentStage?.stage || 0 })),
+      mutations: "normal-pending-cards", xpGranted: 0, levelGranted: 0, passiveGranted: 0 });
+    if (!this.tryOpenPendingPostOverlaySelections()) this.resumeGameplayAfterBlockingOverlay("boundaryBuildReady");
+    return true;
+  }
+
+  captureUmbraNormalEndSnapshot(reason = "RUN_END") {
+    const context = this.umbraRunContext;
+    if (!this.isUmbraNormalRunScope()) return null;
+    if (context.endSnapshot) return context.endSnapshot;
+    // These are IDs and numeric values only. No result callback may keep bodies,
+    // targets, owner Maps, or a live combat permission alive.
+    const plain = value => value == null ? null : JSON.parse(JSON.stringify(value));
+    const skills = UMBRA_TRIAD_COMBAT_SKILL_IDS.map(skillId => {
+      const skill = this.playerSkills?.[skillId], selection = this.skillMutationState?.entries?.[skillId];
+      return { skillId, stage: skill?.currentStage?.stage || 0,
+        core: selection?.stage4Selected ? selection.core : null,
+        final: selection?.stage8Selected ? selection.final : null,
+        overlimit: this.umbraEquipmentState?.overlimitLevels?.[skillId] || 0 };
+    });
+    const attacks = [this.umbraMoonlightRuntime, this.umbraBloodSpikeRuntime, this.umbraPhantomNovaRuntime].map((runtime, index) => ({
+      skillId: UMBRA_TRIAD_COMBAT_SKILL_IDS[index], combatTimeMs: runtime?.combatTimeMs || 0,
+      counts: plain(runtime?.counts || {}), errors: runtime?.errors || 0,
+      liveTargets: runtime?.targets?.size || 0, casts: runtime?.casts?.length || 0,
+      fields: runtime?.finalState?.fields?.size || 0,
+      slots: (runtime?.slots || []).map(slot => ({ slotId: slot.slotId, state: slot.state,
+        regenerateAtMs: slot.regenerateAtMs, deployedUntilMs: slot.deployedUntilMs }))
+    }));
+    const equipment = this.umbraEquipmentState;
+    const snapshot = { version: "umbra-phase7b-end-v1", runId: context.runId, generation: context.generation,
+      environmentId: context.environmentId, mechId: context.mechId, moonReach: context.request.moonReach,
+      moonGlide: context.request.moonGlide, novaField: context.request.novaField, reason, stateBeforeEnd: context.state,
+      atMs: Date.now(), sceneTimeMs: Number(this.time?.now) || 0, depth: this.stageDepth,
+      startDepth: this.runStartContext?.runStartDepth || 1, rewardDepthReached: this.runDepthProgressState?.rewardDepthReached,
+      ap: this.stats?.hp, maxAp: this.stats?.maxHp, en: this.stats?.stamina, maxEn: this.stats?.maxStamina,
+      level: this.stats?.level, kills: this.runStats?.kills || 0, unsecuredGeek: this.runUnsecuredCoins || 0,
+      skills, attacks, passives: { evasiveFirmware: this.getPassiveLevel?.("evasiveFirmware") || 0 }, triad: plain(this.umbraTriadState?.snapshot),
+      equipment: equipment ? { equipmentSnapshotId: equipment.equipmentSnapshotId,
+        bonuses: plain(equipment.bonuses), qualification: plain(equipment.qualification),
+        overlimitLevels: plain(equipment.overlimitLevels), selectionCounts: plain(equipment.selectionCounts) } : null,
+      pending: { normal: this.pendingLevelUps || 0, mutation: this.skillMutationState?.pendingQueue?.length || 0,
+        deepOverlimit: equipment?.bonus?.pendingCount || 0, finalOverlimit: equipment?.bonus?.pendingFinalSkillIds?.length || 0 },
+      archivePersistence: this.isUmbraProductionRunContext(context) ? "PRODUCTION_RESULT_PENDING" : "UNIMPLEMENTED_UMBRA_SCOPE",
+      atlasPersistence: this.isUmbraProductionRunContext(context) ? "PRODUCTION_RESULT_PENDING" : "UNIMPLEMENTED_UMBRA_SCOPE" };
+    const freeze = value => { if (value && typeof value === "object") { Object.values(value).forEach(freeze); Object.freeze(value); } return value; };
+    context.endSnapshot = freeze(snapshot);
+    this.umbraNormalEndSnapshot = context.endSnapshot;
+    context.environment.record("umbra-end-snapshot", context.endSnapshot);
+    return context.endSnapshot;
+  }
+
+  endUmbraNormalRun(reason = "RUN_END") {
+    const context = this.umbraRunContext;
+    if (!this.isUmbraNormalRunScope()) return null;
+    if (context.state === "ENDED") return context.endSnapshot || null;
+    context.ending = true;
+    const snapshot = this.captureUmbraNormalEndSnapshot(reason);
+    context.environment.record("umbra-end-cleanup-start", { runId: context.runId, reason });
+    // Snapshot before any owner cleanup can change eligibility or clear counts.
+    this.destroyUmbraEquipmentRun?.(reason);
+    this.destroyUmbraTriadRun?.(reason);
+    this.destroyUmbraPhantomNovaRuntime?.(reason);
+    this.destroyUmbraBloodSpikeRuntime?.(reason);
+    this.destroyUmbraMoonlightRuntime?.(reason);
+    this.destroyUmbraBoostTrace?.(reason);
+    this.destroyUmbraNormalPresentation?.(reason);
+    if (this.umbraGrowthRun) { this.umbraGrowthRun.closed = true; this.umbraGrowthRun.deferredMilestones.length = 0; }
+    context.enemyLives = new WeakMap();
+    context.pendingGate = null;
+    this.setUmbraNormalRunState?.("ENDED", reason, context);
+    context.environment.record("umbra-end-cleanup-complete", { runId: context.runId, reason,
+      trace: Boolean(this.umbraBoostTrace), moon: Boolean(this.umbraMoonlightRuntime),
+      spike: Boolean(this.umbraBloodSpikeRuntime), nova: Boolean(this.umbraPhantomNovaRuntime) });
+    return snapshot;
+  }
+
+  recordUmbraIntegrationResult(reason, result) {
+    const environment = this.runEnvironmentIO;
+    if (!environment) return null;
+    const failures = environment.getStorageFailureCount?.() || 0;
+    this.umbraRamResultUncertain ||= failures > (this.umbraResultIoFailuresAtStart || 0);
+    const value = { reason, status: this.umbraRamResultUncertain ? "RAM_RESULT_UNCERTAIN" : "RAM_ONLY_COMPLETE",
+      secured: result?.secured || 0, lost: result?.lost || 0, ramWallet: this.coins,
+      newStorageFailures: Math.max(0, failures - (this.umbraResultIoFailuresAtStart || 0)),
+      persistence: "RAM_ONLY", runId: this.umbraRunContext?.runId || null };
+    environment.record("ram-run-result", value);
+    environment.reportResult?.(value);
+    return value;
+  }
+
+  releaseUmbraIntegrationDisposedViews() {
+    if (!this.runEnvironmentIO) return;
+    // A same-session Scene.restart reuses this Scene instance. Its previous
+    // GameObjects have already been destroyed by Phaser, but direct HUD fields
+    // can still point to them when createState initializes systems before HUD.
+    // Drop only destroyed GameObject references; preserve RAM and data models.
+    const released = [];
+    for (const key of Object.keys(this)) {
+      const value = this[key];
+      if (value instanceof Phaser.GameObjects.GameObject && !value.scene) {
+        this[key] = null;
+        released.push(key);
+      }
+    }
+    if (released.length) this.runEnvironmentIO.record("integration-disposed-view-references", { released });
+  }
+
+  prepareUmbraIntegrationSceneShutdown() {
+    if (!this.runEnvironmentIO) return;
+    // Directive objects unregister themselves from physics Groups. Release
+    // that owner while the Groups still exist, before the engine shutdown;
+    // the later existing reset then sees an empty owner instead of dead Groups.
+    this.cleanupDepthDirectiveObjects("integrationSceneShutdown");
+    // Detach first, then destroy. Both Layer.destroy(true)'s DESTROY listener
+    // and removeAll(true)'s child.removeFromDisplayList -> Layer.remove(true)
+    // can reenter Text.destroy in this vendor. removeAll(false) clears the
+    // listener AND displayList before any child destruction starts.
+    // Use the existing APIs only at the whole integration Scene teardown.
+    const layers = (this.children?.list || []).filter(object => object?.type === "Layer" && object.scene);
+    const children = layers.reduce((count, layer) => count + (layer.list?.length || 0), 0);
+    const drain = layer => {
+      const owned = [...(layer.list || [])];
+      layer.removeAll(false);
+      for (const object of owned) {
+        if (!object?.scene) continue;
+        if (object.type === "Layer") drain(object);
+        object.destroy();
+      }
+    };
+    for (const layer of layers) drain(layer);
+    this.runEnvironmentIO.record("integration-scene-layers-drained", { layers: layers.length, children });
+  }
+
+  returnUmbraIntegrationToHub(message = "") {
+    const environment = this.runEnvironmentIO;
+    if (!environment || !environment.isValid() || environment.isClosing?.() || !environment.ownsScene(this)) return false;
+    if (this.restartInProgress) return true;
+    this.endUmbraNormalRun("HUB_RETURN");
+    this.restartInProgress = true;
+    this.releaseMobileControlPointers?.();
+    this.physics?.world?.pause();
+    this.sound?.stopAll();
+    this.prepareUmbraIntegrationSceneShutdown();
+    setPendingOpeningShopMessage(message);
+    environment.record("same-session-hub-return", { runId: this.umbraRunContext?.runId || null, message });
+    try { this.scene.restart({}); return true; }
+    catch (error) {
+      environment.record("same-session-hub-return-failed", { message: error?.message || String(error) });
+      environment.end("HUB_RETURN_FAILED");
+      return false;
+    }
+  }
+
+  captureUmbraGateSurvivors(transition) {
+    const context = this.umbraRunContext;
+    if (!this.isUmbraNormalRunScope() || context.ending || context.state === "ENDED") return null;
+    context.completedGates ||= new WeakSet();
+    if (!transition || typeof transition !== "object" || context.completedGates.has(transition)) return null;
+    context.completedGates.add(transition);
+    const runtimes = [this.umbraMoonlightRuntime, this.umbraBloodSpikeRuntime, this.umbraPhantomNovaRuntime];
+    const ticket = { context, transition, fromDepth: this.stageDepth, toDepth: transition.targetDepth, consumed: false,
+      runtimes, clocks: runtimes.map(runtime => runtime?.combatTimeMs ?? null),
+      enemies: (this.enemies?.getChildren?.() || []).filter(enemy => enemy?.active && !enemy.isDying && enemy.hp > 0).map(enemy => ({
+        enemy, body: enemy.body, life: context.enemyLives?.get(enemy), records: runtimes.map(runtime => runtime?.targets.get(enemy) || null)
+      })) };
+    context.pendingGate = ticket;
+    this.setUmbraNormalRunState?.("SUSPENDED", "GATE_TRANSITION", context);
+    context.environment.record("umbra-gate-capture", { runId: context.runId, fromDepth: ticket.fromDepth,
+      toDepth: ticket.toDepth, alive: ticket.enemies.length, clocks: ticket.clocks });
+    return ticket;
+  }
+
+  adoptUmbraGateSurvivors(ticket) {
+    const context = this.umbraRunContext;
+    if (!ticket || ticket.consumed || ticket.context !== context || context.pendingGate !== ticket
+      || !this.isUmbraNormalRunScope() || context.ending || this.stageDepth !== ticket.toDepth) return null;
+    ticket.consumed = true; context.pendingGate = null;
+    const runtimes = [this.umbraMoonlightRuntime, this.umbraBloodSpikeRuntime, this.umbraPhantomNovaRuntime];
+    this.invalidateUmbraBoostTrace?.("GATE_ADOPT");
+    this.prepareUmbraBloodSpikeFrame?.();
+    this.handleUmbraPhantomNovaDepthChange?.(this.stageDepth);
+    for (let index = 0; index < runtimes.length; index++) {
+      const runtime = runtimes[index];
+      if (!runtime || runtime !== ticket.runtimes[index] || runtime.destroyed) continue;
+      this.clearUmbraFinalFields?.(UMBRA_TRIAD_COMBAT_SKILL_IDS[index], runtime, "GATE_ADOPT");
+      runtime.controlContributions?.clear();
+      if (runtime.finalState?.moonParent) runtime.finalState.moonParent = null;
+      runtime.targets.clear();
+    }
+    const present = new Set(this.enemies?.getChildren?.() || []), adopted = [], rejected = [];
+    for (const item of ticket.enemies) {
+      const { enemy, body, life } = item;
+      const valid = present.has(enemy) && enemy?.active && !enemy.isDying && enemy.hp > 0
+        && body === enemy.body && body?.enable && body.world === this.physics?.world
+        && (!this.physics?.world?.bodies?.contains || this.physics.world.bodies.contains(body))
+        && life && context.enemyLives?.get(enemy) === life;
+      if (!valid) { rejected.push(life?.id || "UNKNOWN"); continue; }
+      const ids = [];
+      for (let index = 0; index < runtimes.length; index++) {
+        const runtime = runtimes[index], record = item.records[index];
+        if (!runtime || runtime !== ticket.runtimes[index] || runtime.destroyed || !record || record.normalLife !== life) continue;
+        record.depth = this.stageDepth;
+        if (index === 0) {
+          runtime.runGeneration = this.umbraBoostTrace.runGeneration;
+          runtime.depthGeneration = this.umbraBoostTrace.depthGeneration;
+          runtime.basisGeneration = this.umbraBoostTrace.basisGeneration;
+          record.initialEligible = false; record.armed = false; record.passConsumed = true;
+          record.radiusRebasePending = true; record.cursor = null;
+          record.registeredAtStep = this.umbraBoostTrace.physicalStep;
+          this.snapshotUmbraMoonlightEnemy(enemy, record, true);
+          record.reason = "DEPTH_ADOPT_REENTRY_REQUIRED";
+        } else record.depthGeneration = runtime.depthGeneration;
+        runtime.targets.set(enemy, record); ids.push({ skillId: UMBRA_TRIAD_COMBAT_SKILL_IDS[index], lifeId: record.lifeId,
+          lastHitAt: record.lastHitAt ?? null, initialEligible: record.initialEligible ?? null });
+      }
+      adopted.push({ enemyLife: life.id, ids });
+    }
+    ticket.enemies.length = 0;
+    this.clearUmbraNormalPresentationDepth?.("GATE_ADOPT");
+    const result = { runId: context.runId, fromDepth: ticket.fromDepth, toDepth: this.stageDepth,
+      clockPolicy: "continue-combat-clocks", clocksBefore: ticket.clocks,
+      clocksAfter: runtimes.map(runtime => runtime?.combatTimeMs ?? null), adopted, rejected,
+      novaSlots: (this.umbraPhantomNovaRuntime?.slots || []).map(slot => ({ slotId: slot.slotId, state: slot.state,
+        regenerateAtMs: slot.regenerateAtMs, deployedUntilMs: slot.deployedUntilMs })) };
+    context.environment.record("umbra-gate-adopt", result);
+    return result;
+  }
+
+  isUmbraGrowthContextActive() {
+    const normal = this.umbraRunContext;
+    if (normal) {
+      const run = this.umbraGrowthRun;
+      return Boolean(this.hasUmbraRunCapability("growth", { requireBody: normal.state !== "PREPARED" })
+        && run && !run.closed && run.context === normal && run.generation === normal.generation
+        && (normal.state === "PREPARED" || (run.player === normal.player && run.body === normal.body && run.world === normal.world))
+        && (normal.ending || (!this.gameOver && !this.extractionComplete && !this.restartInProgress
+          && !this.finalBossRaidAssetsLoading && !this.isFinalBossRaidActive())));
+    }
+    const run = this.umbraGrowthRun, context = this.verificationContext;
+    return Boolean(run && context?.growthEnabled === true && run.context === context
+      && this.isUmbraPhase2ADrive === true && this.sys?.settings?.key === "UmbraPhase2ADrive"
+      && context.kind === "umbra-phase2a" && context.mechId === UMBRA_SERAPH_MECH_ID
+      && context.moonlightArena === true && context.bloodSpikeArena === true && context.phantomNovaArena === true
+      && this.getUmbraPhase2AVerifiedMechId() === UMBRA_SERAPH_MECH_ID
+      && this.getRunPlayerMechId() === UMBRA_SERAPH_MECH_ID
+      && run.player === this.playerHitbox && run.body === this.playerHitbox?.body
+      && run.world === this.physics?.world && run.body?.world === run.world
+      && run.player?.active !== false && run.body?.enable === true
+      && !this.driveShuttingDown && this.sys?.isActive?.() !== false
+      && !run.closed && !this.gameOver && !this.extractionComplete && !this.restartInProgress && !this.shopActive
+      && !this.finalBossRaidAssetsLoading && !this.isFinalBossRaidActive());
+  }
+
+  isUmbraGrowthSkillDefinition(definition) {
+    return Boolean(definition && ["umbraMoonlight", "umbraBloodSpike", "umbraPhantomNova"].includes(definition.id)
+      && definition === SKILL_DEFINITIONS[definition.id] && definition.previewOnly === true
+      && definition.exclusiveToMechId === UMBRA_SERAPH_MECH_ID && definition.stages?.length === 8
+      && definition.stages[0] === definition.verificationStage1);
+  }
+
+  getUmbraActiveSkillStage(skillId) {
+    if (!this.isUmbraGrowthContextActive()) return null;
+    const skill = this.playerSkills?.[skillId], definition = SKILL_DEFINITIONS[skillId];
+    if (!this.isUmbraGrowthSkillDefinition(definition) || skill?.id !== skillId || skill.definition !== definition
+      || skill.verificationOnly !== true || skill.umbraGrowthRun !== this.umbraGrowthRun
+      || !Number.isInteger(skill.stageIndex) || skill.stageIndex < 0 || skill.stageIndex >= definition.stages.length) return null;
+    const stage = definition.stages[skill.stageIndex];
+    return skill.currentStage === stage && stage?.behavior === skillId && stage.stage === skill.stageIndex + 1 ? stage : null;
+  }
+
+  initializeUmbraGrowthRun(ramEquipment) {
+    const normal = this.umbraRunContext;
+    if (normal) {
+      if (!this.isUmbraRunContextCurrent(normal) || normal.ending || normal.environment.isClosing?.()) return null;
+      if (this.umbraGrowthRun?.context === normal) return this.umbraGrowthRun.closed ? null : this.umbraGrowthRun;
+      if (normal.state !== "PREPARED") return null;
+      const run = this.umbraGrowthRun = { context: normal, player: null, body: null, world: null,
+        generation: normal.generation, deferredMilestones: [], closed: false };
+      this.playerSkills = this.buildInitialSkillStates({ mechId: UMBRA_SERAPH_MECH_ID });
+      if (ramEquipment !== undefined) this.initializeUmbraEquipmentRun(ramEquipment);
+      return run;
+    }
+    if ((this.getUmbraRunContext?.() || this.verificationContext)?.growthEnabled !== true || this.getUmbraPhase2AVerifiedMechId() !== UMBRA_SERAPH_MECH_ID) return null;
+    const run = this.umbraGrowthRun = {
+      context: this.verificationContext, player: this.playerHitbox, body: this.playerHitbox?.body, world: this.physics?.world,
+      generation: this.umbraGrowthRunSequence = (this.umbraGrowthRunSequence || 0) + 1,
+      deferredMilestones: [], closed: false
+    };
+    if (!this.isUmbraGrowthContextActive()) { this.umbraGrowthRun = null; return null; }
+    this.playerSkills = this.buildInitialSkillStates({ mechId: UMBRA_SERAPH_MECH_ID });
+    if ((this.getUmbraRunContext?.() || this.verificationContext)?.equipmentEnabled === true && ramEquipment !== undefined) this.initializeUmbraEquipmentRun(ramEquipment);
+    this.applySkillStage(this.playerSkills.umbraMoonlight, true);
+    return run;
+  }
+
+  // Dedicated combat permission; never expands the archive/Atlas/static allowlists.
+  isUmbraTriadContextActive() {
+    return Boolean((this.getUmbraRunContext?.() || this.verificationContext)?.triadEnabled === true && this.isUmbraFinalContextActive()
+      && !this.finalBossRaidAssetsLoading && !this.isTriadMatrixFinalRaidSuppressed());
+  }
+
+  isUmbraEquipmentContextActive() {
+    return Boolean((this.getUmbraRunContext?.() || this.verificationContext)?.equipmentEnabled === true && this.isUmbraTriadContextActive());
+  }
+
+  isUmbraEquipmentScope() {
+    return Boolean((this.getUmbraRunContext?.() || this.verificationContext)?.equipmentEnabled === true || this.umbraEquipmentState || this.umbraEquipmentWasEnabled);
+  }
+
+  getEquipmentCombatLinkTargetSkillIds() {
+    return this.isUmbraEquipmentScope?.() ? UMBRA_TRIAD_COMBAT_SKILL_IDS : EQUIPMENT_COMBAT_LINK_SKILL_IDS;
+  }
+
+  initializeUmbraEquipmentRun(ramEquipment) {
+    if (!this.isUmbraEquipmentContextActive()) return null;
+    if (this.umbraEquipmentState?.run === this.umbraGrowthRun) return this.getUmbraEquipmentSnapshot();
+    this.destroyUmbraEquipmentRun("REPLACED");
+    const system = this.getEquipmentSystem(), freeze = value => {
+      if (value && typeof value === "object" && !Object.isFrozen(value)) { Object.values(value).forEach(freeze); Object.freeze(value); }
+      return value;
+    };
+    const loadout = freeze(this.normalizeEquipmentState(ramEquipment));
+    const bonuses = freeze(this.cloneEquipmentBonuses(system?.getEquipmentBonusesFromState?.(loadout) || this.createEmptyEquipmentBonuses()));
+    const resolved = this.resolveRunEquipmentCombatLinkSnapshot(loadout);
+    const qualification = freeze({ snapshotCaptured: true, highestTierId: resolved.highestTierId,
+      combatLinkLevel: resolved.combatLinkLevel, overlimitCap: resolved.overlimitCap });
+    const run = this.umbraGrowthRun;
+    this.umbraEquipmentWasEnabled = true; this.umbraEquipmentEndSnapshot = null;
+    this.umbraEquipmentState = { run, equipmentSnapshotId: `umbra-equipment-${run.generation}`, loadout, bonuses, qualification,
+      overlimitLevels: Object.freeze(Object.fromEntries(UMBRA_TRIAD_COMBAT_SKILL_IDS.map(id => [id, 0]))), overlimitRevision: 0,
+      lastSelectionSource: "", selectionCounts: { normal: 0, final: 0, deep: 0 }, lastDeepLevel: Math.max(1, Number(this.stats?.level) || 1), ticketSerial: 0,
+      bonus: { ...this.createDefaultRunEquipmentOverlimitBonusState(), currentSelection: null },
+      pastFinalIds: new Set(UMBRA_TRIAD_COMBAT_SKILL_IDS.filter(id => this.getUmbraSelectedFinalId(id))), finalCommitToken: null };
+    return this.getUmbraEquipmentSnapshot();
+  }
+
+  getUmbraEquipmentSnapshot() {
+    const state = this.umbraEquipmentState;
+    if (!state || state.run !== this.umbraGrowthRun || !this.isUmbraEquipmentContextActive()) return null;
+    const bonus = state.bonus, current = bonus.currentSelection;
+    return Object.freeze({ equipmentSnapshotId: state.equipmentSnapshotId, sensorMultiplier: state.bonuses.attackIntervalMultiplier,
+      armamentMultiplier: state.bonuses.playerSkillDamageMultiplier, loadout: state.loadout, bonuses: state.bonuses,
+      ...state.qualification, overlimitLevels: state.overlimitLevels, overlimitRevision: state.overlimitRevision,
+      lastSelectionSource: state.lastSelectionSource, selectionCounts: Object.freeze({ ...state.selectionCounts }),
+      pendingFinalSkillIds: Object.freeze([...bonus.pendingFinalSkillIds]),
+      pendingDeepCount: bonus.pendingCount, currentSelection: current ? Object.freeze({ id: current.id, source: current.source,
+        skillId: current.skillId || null, status: current.status }) : null });
+  }
+
+  getUmbraEquipmentCombatProfile(skillId, overlimitOverride) {
+    const snapshot = this.getUmbraEquipmentSnapshot();
+    if (!snapshot || !UMBRA_TRIAD_COMBAT_SKILL_IDS.includes(skillId) || !this.getUmbraActiveSkillStage(skillId)
+      || !this.isUmbraCoreSkillOwnerValid(skillId)) return null;
+    let level = snapshot.overlimitLevels[skillId] || 0;
+    if (overlimitOverride !== undefined) {
+      if (!Number.isInteger(overlimitOverride) || overlimitOverride < 0 || overlimitOverride > snapshot.overlimitCap
+        || (overlimitOverride > 0 && !this.getUmbraSelectedFinalId(skillId))) return null;
+      level = overlimitOverride;
+    }
+    return Object.freeze({ equipmentSnapshotId: snapshot.equipmentSnapshotId, overlimitRevision: snapshot.overlimitRevision,
+      sensorMultiplier: snapshot.sensorMultiplier, armamentMultiplier: snapshot.armamentMultiplier,
+      overlimitLevel: level, overlimitMultiplier: EQUIPMENT_OVERLIMIT_DAMAGE_MULTIPLIERS[level] || 1 });
+  }
+
+  destroyUmbraEquipmentRun(reason = "RUN_END") {
+    const state = this.umbraEquipmentState;
+    if (!state) return this.umbraEquipmentEndSnapshot || null;
+    const current = this.getUmbraEquipmentSnapshot();
+    this.umbraEquipmentEndSnapshot = current ? Object.freeze({ ...current, ended: true, endReason: reason }) : null;
+    state.bonus.currentSelection = null; state.bonus.currentChoices = []; state.bonus.pendingCount = 0;
+    state.bonus.pendingFinalSkillIds = []; state.finalCommitToken = null; state.pastFinalIds.clear(); state.run = null;
+    this.umbraEquipmentState = null; this.runEquipmentOverlimitBonusSelectionActive = false;
+    return this.umbraEquipmentEndSnapshot;
+  }
+
+  canUpgradeUmbraEquipmentOverlimit(skillId, options = {}) {
+    const snapshot = this.getUmbraEquipmentSnapshot(), stage = this.getUmbraActiveSkillStage(skillId);
+    if (!snapshot || options.allowEquipmentOverlimit === false || !UMBRA_TRIAD_COMBAT_SKILL_IDS.includes(skillId)
+      || !stage || stage.stage !== 8 || !this.isUmbraCoreSkillOwnerValid(skillId) || !this.getUmbraSelectedCoreId(skillId)
+      || !this.getUmbraSelectedFinalId(skillId) || !snapshot.snapshotCaptured || snapshot.overlimitCap <= 0
+      || options.openingBoost === true || options.source === "openingBoost" || this.isOpeningBoostDraftActive?.()) return false;
+    const mutation = this.getUmbraCoreSelectionState();
+    if (mutation?.pendingQueue?.some(entry => entry.skillId === skillId)
+      || (!options.ignoreActiveSkillMutationSelection && mutation?.selectionOpen && mutation.currentSelection?.skillId === skillId)) return false;
+    return snapshot.overlimitLevels[skillId] < snapshot.overlimitCap;
+  }
+
+  buildUmbraEquipmentOverlimitChoice(skillId, options = {}) {
+    if (!this.canUpgradeUmbraEquipmentOverlimit(skillId, options)) return null;
+    const state = this.umbraEquipmentState, run = state.run, owner = this.getUmbraControlOwner(skillId);
+    const next = state.overlimitLevels[skillId] + 1, skill = this.playerSkills[skillId], source = options.source || "levelUp";
+    const label = this.formatEquipmentOverlimitLevelLabel(next), cap = state.qualification.overlimitCap;
+    const option = { type: "equipmentOverlimit", actionType: "equipmentOverlimit", skillId, definition: skill.definition,
+      currentStage: skill.currentStage, nextOverlimitLevel: next, overlimitCap: cap, multiplier: EQUIPMENT_OVERLIMIT_DAMAGE_MULTIPLIERS[next],
+      title: `${skill.definition.name} OVERLIMIT ${label}`, description: `武装別 OVERLIMIT ${label} / Stage8維持 / RUN ONLY`,
+      umbraEquipmentCard: { skillId, stage: 8, nextOverlimitLevel: next, source,
+        description: next === 1 && cap === 2 ? "現在の丸め差が0でも、IはIIへの前段階です。通常選択なら通常pendingを1回消費します。" : `上限${this.formatEquipmentOverlimitLevelLabel(cap)}。Stage・球数・既存攻撃の値を変更しません。`,
+        chips: [{ label: `OVL ${this.formatEquipmentOverlimitLevelLabel(next)} ×${EQUIPMENT_OVERLIMIT_DAMAGE_MULTIPLIERS[next].toFixed(2)}`, priority: 110 },
+          { label: `CAP ${this.formatEquipmentOverlimitLevelLabel(cap)}`, priority: 100 }] },
+      onSelect: () => this.applyUmbraEquipmentOverlimitChoice(skillId, { option, state, run, owner, skill, next, source }) };
+    const difference = this.getUmbraEquipmentOverlimitCardDifference(skillId, next);
+    option.umbraEquipmentCard.chips.unshift(...difference.chips);
+    option.umbraEquipmentCard.zeroCurrentDifference = difference.zeroCurrentDifference;
+    option.umbraEquipmentCard.description = `${difference.zeroCurrentDifference ? "この構成の現在の主・副受付前Eは整数丸めで差0。" : "共通受付倍率前の主・副受付前E差。"}${option.umbraEquipmentCard.description}`;
+    option.description = option.umbraEquipmentCard.description;
+    return option;
+  }
+
+  getUmbraEquipmentOverlimitCardDifference(skillId, nextLevel) {
+    const before = this.getUmbraEquipmentCombatProfile(skillId), after = this.getUmbraEquipmentCombatProfile(skillId, nextLevel);
+    if (!before || !after) return { chips: [], zeroCurrentDifference: false };
+    const stage = this.getUmbraActiveSkillStage(skillId), chips = [], deltas = [];
+    const targets = [{ hp: 10, maxHp: 10 }, { hp: 1, maxHp: 10 }];
+    const modes = skillId === UMBRA_PHANTOM_NOVA_SKILL_ID ? [["周回", "orbit"], ["残留", "deployed"]] : [["主", "orbit"]];
+    const format = values => values.map(([a, b], i) => `${i === 0 ? "強" : "他"}${a}→${b} (${b - a >= 0 ? "+" : ""}${b - a})`).join(" / ");
+    for (const [label, mode] of modes) {
+      const profile = this.getUmbraSkillFinalProfile(skillId, stage, mode);
+      if (!profile) continue;
+      const compare = raw => {
+        const a = this.getUmbraEquipmentDamageBreakdown(raw, before).equipmentRaw;
+        const b = this.getUmbraEquipmentDamageBreakdown(raw, after).equipmentRaw;
+        deltas.push(b - a); return [a, b];
+      };
+      chips.push({ label: `${label} 受付前E ${format(targets.map(target => compare(this.getUmbraFinalMainRawDamage(profile, target, 0))))}`, priority: 120 });
+      if (profile.finalId === "prism") {
+        const rate = UMBRA_SKILL_FINAL_SETTINGS.skills[skillId].prism.rate;
+        chips.push({ label: `${label} PRISM 受付前E ${format(targets.map(target => compare(this.getUmbraFinalSecondaryRawDamage(profile, target, rate))))}`, priority: 115 });
+      }
+    }
+    return { chips, zeroCurrentDifference: deltas.length > 0 && deltas.every(delta => delta === 0) };
+  }
+
+  applyUmbraEquipmentOverlimitChoice(skillId, token) {
+    if (this.umbraRunContext && !this.hasUmbraRunCapability("equipment", { purpose: "select" })) return false;
+    const state = this.umbraEquipmentState, ticket = state?.bonus.currentSelection;
+    if (!token || token.state !== state || token.run !== this.umbraGrowthRun || token.run !== state?.run
+      || token.owner !== this.getUmbraControlOwner(skillId) || token.skill !== this.playerSkills?.[skillId]
+      || !this.levelUpActive || !this.levelUpSelectionLocked || !this.levelUpCardRecords?.some(record => record.model?.option === token.option)
+      || !this.canUpgradeUmbraEquipmentOverlimit(skillId, { source: token.source })
+      || token.next !== state.overlimitLevels[skillId] + 1) return false;
+    const bonusMode = this.levelUpSelectionMode === "equipmentOverlimitBonus";
+    if (bonusMode ? !ticket || ticket.status !== "open" || ticket.source !== token.source
+      || (ticket.skillId && ticket.skillId !== skillId) : this.levelUpSelectionMode !== "level" || this.pendingLevelUps <= 0) return false;
+    const nextLevels = Object.freeze({ ...state.overlimitLevels, [skillId]: token.next });
+    state.overlimitLevels = nextLevels; state.overlimitRevision++; state.lastSelectionSource = token.source;
+    state.selectionCounts[bonusMode ? ticket.skillId ? "final" : "deep" : "normal"]++;
+    if (bonusMode) ticket.status = "selected";
+    try { this.updateHud?.(); } catch (error) { state.lastError = String(error?.stack || error).slice(0, 1600); }
+    return true;
+  }
+
+  queueUmbraEquipmentFinalCommit(skillId) {
+    const state = this.umbraEquipmentState;
+    if (!this.getUmbraEquipmentSnapshot() || state.pastFinalIds.has(skillId)) return false;
+    const token = { run: state.run, skillId };
+    state.finalCommitToken = token;
+    try { return this.queueFinalMutationEquipmentOverlimitBonus(skillId, "umbraFinalCommit", token); }
+    finally { state.finalCommitToken = null; }
+  }
+
+  queueUmbraFinalOverlimitBonus(skillId, token) {
+    const state = this.umbraEquipmentState, bonus = state?.bonus;
+    if (!token || state?.finalCommitToken !== token || token.run !== state.run || token.skillId !== skillId
+      || !this.canUpgradeUmbraEquipmentOverlimit(skillId, { ignoreActiveSkillMutationSelection: true })
+      || bonus.finalConsumedSkillIds.includes(skillId)) return false;
+    bonus.pendingFinalSkillIds.push(skillId); bonus.finalConsumedSkillIds.push(skillId);
+    this.tryOpenPendingPostOverlaySelections();
+    return true;
+  }
+
+  queueUmbraDeepOverlimitBonus(levelsGained = 1) {
+    const state = this.umbraEquipmentState, snapshot = this.getUmbraEquipmentSnapshot();
+    if (!snapshot || !this.isDeepLevelUnlocked() || Number(this.stats?.level) < PLAYER_DEEP_LEVEL_START
+      || !(Number(levelsGained) > 0)) return { queued: 0, pendingCount: state?.bonus.pendingCount || 0 };
+    const level = Math.min(PLAYER_LEVEL_CAP, Math.floor(Number(this.stats?.level) || 0));
+    const gained = Math.min(Math.max(0, Math.floor(Number(levelsGained) || 0)), Math.max(0, level - Math.max(25, state.lastDeepLevel)));
+    state.lastDeepLevel = Math.max(state.lastDeepLevel, level);
+    const available = this.countAvailableEquipmentOverlimitUpgradeSteps({ source: "deepLevelOverlimitBonus" });
+    const bonus = state.bonus, pending = bonus.pendingCount + bonus.pendingFinalSkillIds.length + (bonus.currentSelection?.status === "open" ? 1 : 0);
+    const queued = Math.min(gained, Math.max(0, available - pending));
+    bonus.pendingCount += queued;
+    if (queued) this.tryOpenPendingPostOverlaySelections();
+    return { queued, pendingCount: bonus.pendingCount };
+  }
+
+  canOpenUmbraEquipmentOverlimitBonusSelection() {
+    const state = this.umbraEquipmentState, bonus = state?.bonus;
+    return Boolean(this.getUmbraEquipmentSnapshot() && !bonus.currentSelection && (bonus.pendingCount || bonus.pendingFinalSkillIds.length)
+      && !this.levelUpActive && !this.gateChoiceActive && !this.overlayContainer?.visible && !this.isOpeningBoostDraftActive?.()
+      && (this.pendingLevelUps || 0) <= 0 && !this.skillMutationSelectionActive && !this.getUmbraNextMutationRequest?.());
+  }
+
+  tryOpenUmbraEquipmentOverlimitBonusSelection() {
+    if (!this.canOpenUmbraEquipmentOverlimitBonusSelection()) return false;
+    const state = this.umbraEquipmentState, bonus = state.bonus;
+    while (bonus.pendingFinalSkillIds.length || bonus.pendingCount > 0) {
+      const skillId = bonus.pendingFinalSkillIds[0] || null;
+      const source = skillId ? "finalMutationOverlimitBonus" : "deepLevelOverlimitBonus";
+      const choices = skillId ? [this.buildEquipmentOverlimitChoice(skillId, { source })].filter(Boolean)
+        : this.getAvailableEquipmentOverlimitChoices({ source }).slice(0, 3);
+      if (skillId) bonus.pendingFinalSkillIds.shift(); else bonus.pendingCount--;
+      if (!choices.length) continue;
+      const ticket = { id: ++state.ticketSerial, source, skillId, status: "open" };
+      bonus.currentSelection = ticket;
+      try {
+        if (this.openEquipmentOverlimitBonusSelection(choices, { source, title: skillId ? "FINAL COMBAT LINK" : "DEEP COMBAT LINK",
+          body: "武装別OVERLIMIT / 通常pending・Stageは消費しません" })) return true;
+      } catch (error) { state.lastError = String(error?.stack || error).slice(0, 1600); }
+      this.closeUmbraEquipmentOverlimitSelection();
+      this.hideOverlay(); this.levelUpActive = false;
+      this.resumeGameplayAfterBlockingOverlay("umbraEquipmentOpenDeferred");
+      return false;
+    }
+    return false;
+  }
+
+  closeUmbraEquipmentOverlimitSelection() {
+    const state = this.umbraEquipmentState, bonus = state?.bonus, ticket = bonus?.currentSelection;
+    if (!ticket) return false;
+    if (ticket.status === "open" && state.run === this.umbraGrowthRun && this.isUmbraEquipmentContextActive()) {
+      if (ticket.skillId) bonus.pendingFinalSkillIds.unshift(ticket.skillId); else bonus.pendingCount++;
+    }
+    bonus.currentSelection = null; bonus.selectionOpen = false; bonus.selectionLocked = false;
+    bonus.currentChoices = []; bonus.currentBonusSource = "";
+    this.runEquipmentOverlimitBonusSelectionActive = false;
+    return true;
+  }
+
+  rejectUmbraEquipmentOverlimitSelection(error) {
+    if (this.umbraEquipmentState && error) this.umbraEquipmentState.lastError = String(error?.stack || error).slice(0, 1600);
+    const bonus = this.levelUpSelectionMode === "equipmentOverlimitBonus";
+    if (bonus) this.closeUmbraEquipmentOverlimitSelection();
+    this.hideOverlay(); this.levelUpActive = false;
+    this.resumeGameplayAfterBlockingOverlay("umbraEquipmentSelectionDeferred");
+    // Rebuild on the next explicit L/open request. Never reinterpret an old I
+    // choice as II, consume normal pending, or recursively reopen an exception.
+    return false;
+  }
+
+  getUmbraTriadTargetSkillIds() {
+    return UMBRA_TRIAD_COMBAT_SKILL_IDS;
+  }
+
+  createUmbraTriadSnapshot(selections, revision = 0, reason = "COMPUTE") {
+    // The production axis/coefficient/name calculations are reused with a pure
+    // selection adapter. No generic state getter, Atlas load or refresh is called.
+    const ids = this.getUmbraTriadTargetSkillIds();
+    const selected = Object.fromEntries(ids.map(id => [id, {
+      core: SKILL_MUTATION_CORE_IDS.includes(selections?.[id]?.core) ? selections[id].core : null,
+      final: SKILL_MUTATION_CORE_IDS.includes(selections?.[id]?.core) && SKILL_MUTATION_FINAL_IDS.includes(selections?.[id]?.final)
+        ? selections[id].final : null
+    }]));
+    const adapter = {
+      getSkillMutationTargetSkillIds: () => ids,
+      getSkillMutationCore: id => selected[id]?.core || null,
+      getSkillMutationFinal: id => selected[id]?.final || null,
+      resolveTriadMatrixAxis: this.resolveTriadMatrixAxis,
+      buildTriadMatrixCombatModifiers: this.buildTriadMatrixCombatModifiers,
+      getMutationAtlasBuildMeta: this.getMutationAtlasBuildMeta,
+      getValidMutationAtlasBuildId: this.getValidMutationAtlasBuildId,
+      isTriadMatrixFinalRaidSuppressed: () => false
+    };
+    const snapshot = this.createTriadMatrixSnapshot.call(adapter);
+    snapshot.revision = revision; snapshot.reason = reason;
+    snapshot.selectedCounts = { core: ids.filter(id => selected[id].core).length, final: ids.filter(id => selected[id].final).length };
+    const freeze = value => {
+      if (value && typeof value === "object" && !Object.isFrozen(value)) { Object.values(value).forEach(freeze); Object.freeze(value); }
+      return value;
+    };
+    return freeze(snapshot);
+  }
+
+  initializeUmbraTriadRun() {
+    if (!this.isUmbraTriadContextActive()) return null;
+    if (this.umbraTriadState?.run === this.umbraGrowthRun) return this.getUmbraTriadSnapshot();
+    this.destroyUmbraTriadRun("REPLACED");
+    this.umbraTriadWasEnabled = true; this.umbraTriadEndSnapshot = null;
+    this.umbraTriadState = { run: this.umbraGrowthRun, owners: new Map(), bindings: new Map(), snapshot: null, revision: -1, signature: "", notifications: 0 };
+    return this.refreshUmbraTriadSnapshot("INITIALIZE", { notify: false });
+  }
+
+  bindUmbraTriadOwner(skillId, runtime) {
+    const state = this.umbraTriadState;
+    if (!state || state.run !== this.umbraGrowthRun || !runtime || runtime.umbraTriadRun === state.run) return;
+    runtime.umbraTriadRun = state.run;
+    const cleanup = () => {
+      runtime.umbraTriadRun = null;
+      state.bindings.delete(runtime);
+      if (this.umbraTriadState !== state) return;
+      this.refreshUmbraTriadSnapshot(`OWNER_END:${skillId}`, { notify: false });
+    };
+    state.bindings.set(runtime, cleanup); runtime.cleanups?.push(cleanup);
+  }
+
+  refreshUmbraTriadSnapshot(reason = "ELIGIBILITY", options = {}) {
+    const state = this.umbraTriadState, run = this.umbraGrowthRun;
+    if (!state) return null;
+    if (state.run !== run) { this.destroyUmbraTriadRun("RUN_REPLACED"); return null; }
+    // In-flight same-Stage application may expose Core/Final solely to its own
+    // profile. A TRIAD commit only sees fully selected entries after success.
+    if (run.coreApplying || run.finalApplying) return state.snapshot;
+    if (!this.isUmbraTriadContextActive()) {
+      if (run.closed || this.gameOver || this.extractionComplete || this.restartInProgress || this.shopActive || this.driveShuttingDown
+        || run.player !== this.playerHitbox || run.body !== this.playerHitbox?.body || run.world !== this.physics?.world) {
+        this.destroyUmbraTriadRun(reason);
+      }
+      return null;
+    }
+    const selectionState = this.getUmbraCoreSelectionState(), owners = new Map(), selections = {};
+    for (const id of this.getUmbraTriadTargetSkillIds()) {
+      const stage = this.getUmbraActiveSkillStage(id), owner = this.getUmbraControlOwner(id), entry = selectionState?.entries[id];
+      const eligible = stage && this.isUmbraCoreSkillOwnerValid(id);
+      const core = eligible && stage.stage >= 4 && entry?.stage4Selected === true && SKILL_MUTATION_CORE_IDS.includes(entry.core) ? entry.core : null;
+      const final = core && stage.stage === 8 && entry?.stage8Selected === true && SKILL_MUTATION_FINAL_IDS.includes(entry.final) ? entry.final : null;
+      selections[id] = { core, final };
+      if (eligible) { owners.set(id, owner); this.bindUmbraTriadOwner(id, owner); }
+    }
+    // A canonical Stage/skill may become ineligible before its runtime is
+    // destroyed. Release that binding at the eligibility boundary as well.
+    const liveOwners = new Set(owners.values());
+    for (const [owner, cleanup] of state.bindings) {
+      if (liveOwners.has(owner)) continue;
+      const index = owner.cleanups?.indexOf(cleanup) ?? -1;
+      if (index >= 0) owner.cleanups.splice(index, 1);
+      if (owner.umbraTriadRun === run) owner.umbraTriadRun = null;
+      state.bindings.delete(owner);
+    }
+    const signature = this.getUmbraTriadTargetSkillIds().map(id => `${id}:${owners.has(id) ? "owned" : "none"}:${selections[id].core || "-"}:${selections[id].final || "-"}`).join("|");
+    const previous = state.snapshot;
+    state.owners = owners;
+    if (signature === state.signature && previous) {
+      if (this.mutationAtlasPersistencePending && this.isUmbraProductionRunContext?.()) this.updateMutationAtlasProgressFromSnapshot(previous, reason);
+      return previous;
+    }
+    const snapshot = this.createUmbraTriadSnapshot(selections, state.revision + 1, reason);
+    state.signature = signature; state.revision = snapshot.revision; state.snapshot = snapshot;
+    const axisSignature = value => `${value?.core?.id || "-"}|${value?.final?.id || "-"}|${value?.buildId || "-"}`;
+    if (options.notify !== false && previous && axisSignature(snapshot) !== axisSignature(previous)) {
+      state.notifications++;
+      this.onUmbraTriadSnapshotChanged?.(snapshot, previous, reason);
+    }
+    if (this.isUmbraProductionRunContext?.() && snapshot.buildId) this.updateMutationAtlasProgressFromSnapshot(snapshot, reason);
+    return snapshot;
+  }
+
+  getUmbraTriadSnapshot() {
+    const state = this.umbraTriadState;
+    if (!state || !this.isUmbraTriadContextActive() || state.run !== this.umbraGrowthRun || !state.snapshot) return null;
+    const entries = this.getUmbraCoreSelectionState()?.entries;
+    // Validate captured ownership/selection without rebuilding either axis,
+    // changing revision or touching any attack/field/clock from this observer.
+    for (const [id, owner] of state.owners) {
+      const stage = this.getUmbraActiveSkillStage(id), selected = state.snapshot.selections[id], entry = entries?.[id];
+      if (!stage || this.getUmbraControlOwner(id) !== owner || !this.isUmbraCoreSkillOwnerValid(id)
+        || (selected.core && (stage.stage < 4 || entry?.stage4Selected !== true || entry.core !== selected.core))
+        || (selected.final && (stage.stage !== 8 || entry?.stage8Selected !== true || entry.final !== selected.final))) return null;
+    }
+    return state.snapshot;
+  }
+
+  getUmbraTriadCombatProfile(skillId) {
+    const snapshot = this.getUmbraTriadSnapshot();
+    if (!snapshot || !this.getUmbraTriadTargetSkillIds().includes(skillId) || !this.getUmbraActiveSkillStage(skillId)
+      || !this.isUmbraCoreSkillOwnerValid(skillId)) return null;
+    return Object.freeze({ revision: snapshot.revision, ...snapshot.modifiers });
+  }
+
+  getUmbraTriadModifier(key, fallbackValue = 1) {
+    const value = this.getUmbraTriadSnapshot()?.modifiers[key];
+    return Number.isFinite(value) ? value : fallbackValue;
+  }
+
+  destroyUmbraTriadRun(reason = "RUN_END") {
+    const state = this.umbraTriadState;
+    if (!state) return this.umbraTriadEndSnapshot || null;
+    const snapshot = state.snapshot ? Object.freeze({ ...state.snapshot, ended: true, endReason: reason }) : null;
+    for (const [owner, cleanup] of state.bindings) {
+      const index = owner.cleanups?.indexOf(cleanup) ?? -1;
+      if (index >= 0) owner.cleanups.splice(index, 1);
+      if (owner.umbraTriadRun === state.run) owner.umbraTriadRun = null;
+    }
+    state.bindings.clear();
+    for (const owner of state.owners.values()) if (owner.umbraTriadRun === state.run) owner.umbraTriadRun = null;
+    state.owners.clear(); state.run = null;
+    this.umbraTriadState = null; this.umbraTriadEndSnapshot = snapshot;
+    return snapshot;
+  }
+
+  isUmbraCoreContextActive() {
+    return (this.getUmbraRunContext?.() || this.verificationContext)?.coreEnabled === true && this.isUmbraGrowthContextActive();
+  }
+
+  isUmbraFinalContextActive() {
+    return (this.getUmbraRunContext?.() || this.verificationContext)?.finalEnabled === true && this.isUmbraCoreContextActive();
+  }
+
+  isUmbraFinalSkillEligible(skillId) {
+    const stage = this.getUmbraActiveSkillStage(skillId);
+    const entry = this.getUmbraCoreSelectionState()?.entries[skillId];
+    return Boolean(this.isUmbraFinalContextActive() && this.isUmbraCoreSkillOwnerValid(skillId)
+      && stage?.stage === 8 && entry?.stage4Selected === true && this.getUmbraSelectedCoreId(skillId));
+  }
+
+  getUmbraSelectedFinalId(skillId) {
+    if (!this.isUmbraFinalSkillEligible(skillId)) return null;
+    const applying = this.umbraGrowthRun.finalApplying, entry = this.getUmbraCoreSelectionState().entries[skillId];
+    const id = applying?.skillId === skillId ? applying.choiceId : entry?.stage8Selected === true ? entry.final : null;
+    return ["execution", "prism", "singularity"].includes(id) ? id : null;
+  }
+
+  getUmbraCoreSelectionState(create = false) {
+    if (!this.isUmbraCoreContextActive()) return null;
+    if (this.skillMutationState?.umbraGrowthRun === this.umbraGrowthRun) return this.skillMutationState;
+    if (!create) return null;
+    return this.skillMutationState = { umbraGrowthRun: this.umbraGrowthRun, entries: {}, pendingQueue: [],
+      selectionOpen: false, selectionLocked: false, currentSelection: null, currentChoices: [], selectionSequence: 0 };
+  }
+
+  getUmbraSelectedCoreId(skillId, stageConfig = null) {
+    if (!this.isUmbraCoreSkillOwnerValid(skillId)) return null;
+    const stage = this.getUmbraActiveSkillStage(skillId), definition = SKILL_DEFINITIONS[skillId];
+    if (!stage || stage.stage < 4 || (stageConfig && (!definition.stages.includes(stageConfig) || stageConfig.stage < stage.stage))) return null;
+    const applying = this.umbraGrowthRun.coreApplying, entry = this.getUmbraCoreSelectionState()?.entries[skillId];
+    const coreId = applying?.skillId === skillId ? applying.choiceId : entry?.stage4Selected ? entry.core : null;
+    return ["assault", "control", "reactor"].includes(coreId) ? coreId : null;
+  }
+
+  queueUmbraCoreMilestone(skillId, phase = "stage4") {
+    const stage = this.getUmbraActiveSkillStage(skillId);
+    if (!this.isUmbraCoreSkillOwnerValid(skillId) || phase !== "stage4" || !stage || stage.stage < 4) return false;
+    const milestone = this.umbraGrowthRun.deferredMilestones.find(entry => entry.skillId === skillId && entry.phase === "core");
+    if (!milestone) return false;
+    const state = this.getUmbraCoreSelectionState(true);
+    const entry = state.entries[skillId] ||= { core: null, stage4Selected: false, stage4Queued: false };
+    if (entry.stage4Selected || entry.stage4Queued || state.pendingQueue.some(request => request.skillId === skillId)) return false;
+    state.pendingQueue.push(Object.freeze({ skillId, phase, order: milestone.order }));
+    state.pendingQueue.sort((left, right) => left.order - right.order);
+    entry.stage4Queued = true;
+    return true;
+  }
+
+  queueUmbraFinalMilestone(skillId) {
+    if (!this.isUmbraFinalSkillEligible(skillId)) return false;
+    const run = this.umbraGrowthRun, state = this.getUmbraCoreSelectionState(), entry = state.entries[skillId];
+    const milestone = run.deferredMilestones.find(item => item.skillId === skillId && item.phase === "final");
+    if (!milestone || !Number.isInteger(milestone.order) || milestone.order < 1 || entry.stage8Selected || entry.stage8Queued
+      || state.pendingQueue.some(request => request.skillId === skillId && request.phase === "stage8")) return false;
+    state.pendingQueue.push(Object.freeze({ skillId, phase: "stage8", order: milestone.order }));
+    state.pendingQueue.sort((left, right) => left.order - right.order);
+    entry.stage8Queued = true;
+    return true;
+  }
+
+  getUmbraNextMutationRequest() {
+    if (!this.isUmbraFinalContextActive()) return null;
+    const state = this.getUmbraCoreSelectionState();
+    let next = null;
+    for (const request of state?.pendingQueue || []) {
+      const stage = this.getUmbraActiveSkillStage(request?.skillId), entry = state.entries[request?.skillId];
+      const milestonePhase = request?.phase === "stage4" ? "core" : request?.phase === "stage8" ? "final" : null;
+      const recorded = milestonePhase && this.umbraGrowthRun.deferredMilestones.some(item => item.skillId === request.skillId
+        && item.phase === milestonePhase && item.order === request.order && Number.isInteger(item.order) && item.order > 0);
+      if (!recorded || !entry || !this.isUmbraCoreSkillOwnerValid(request.skillId) || !stage) continue;
+      if (request.phase === "stage4" ? stage.stage < 4 || entry.stage4Selected
+        : !this.isUmbraFinalSkillEligible(request.skillId) || entry.stage8Selected) continue;
+      if (!next || request.order < next.order) next = request;
+    }
+    return next;
+  }
+
+  syncUmbraCoreMilestones() {
+    if (!this.isUmbraCoreContextActive()) return false;
+    // An explicitly authorized same-RAM 6B fixture can attach control ownership
+    // without replacing an existing attack runtime or reading persistence.
+    for (const skillId of ["umbraMoonlight", "umbraBloodSpike", "umbraPhantomNova"]) {
+      const owner = this.getUmbraControlOwner(skillId);
+      if (owner && !owner.destroyed && !owner.umbraGrowthRun && this.getUmbraActiveSkillStage(skillId)) {
+        this.initializeUmbraControlOwner(skillId, owner);
+      }
+    }
+    // Source history stays immutable, including each Final and its original order.
+    // Successful queue membership/selection, not deletion, marks a transfer.
+    for (const milestone of this.umbraGrowthRun.deferredMilestones) {
+      if (milestone.phase === "core") this.queueSkillMutationSelect(milestone.skillId, "stage4");
+      else if (milestone.phase === "final" && this.isUmbraFinalContextActive?.()) this.queueSkillMutationSelect(milestone.skillId, "stage8");
+    }
+    if (this.isUmbraFinalContextActive?.()) {
+      const state = this.getUmbraCoreSelectionState();
+      if (state) state.finalQueueIssues = state.pendingQueue.filter(request => {
+        const stage = this.getUmbraActiveSkillStage(request?.skillId), entry = state.entries[request?.skillId];
+        const phase = request?.phase === "stage4" ? "core" : request?.phase === "stage8" ? "final" : null;
+        return !stage || !entry || !this.isUmbraCoreSkillOwnerValid(request.skillId) || !phase
+          || !this.umbraGrowthRun.deferredMilestones.some(item => item.skillId === request.skillId && item.phase === phase && item.order === request.order)
+          || (phase === "core" ? entry.stage4Selected : entry.stage8Selected || !this.isUmbraFinalSkillEligible(request.skillId));
+      }).slice(0, 12).map(request => `${request?.skillId || "unknown"}:${request?.phase || "unknown"}:INELIGIBLE_QUEUE_ENTRY`);
+    }
+    return true;
+  }
+
+  buildUmbraCoreChoices(skillId) {
+    const stage = this.getUmbraActiveSkillStage(skillId), state = this.getUmbraCoreSelectionState();
+    if (!this.isUmbraCoreSkillOwnerValid(skillId) || !stage || stage.stage < 4 || !state || state.entries[skillId]?.stage4Selected) return [];
+    const run = this.umbraGrowthRun, selection = state.currentSelection;
+    return ["assault", "control", "reactor"].map(choiceId => ({
+      type: "skillMutation", phase: "stage4", skillId, choiceId,
+      ...this.buildUmbraCoreCard(skillId, choiceId),
+      onSelect: () => {
+        if (!selection || this.umbraGrowthRun !== run || this.getUmbraCoreSelectionState() !== state
+          || state.currentSelection !== selection || !state.selectionOpen) return false;
+        return this.applySkillMutationChoice(skillId, "stage4", choiceId);
+      }
+    }));
+  }
+
+  applyUmbraCoreChoice(skillId, choiceId) {
+    if (this.umbraRunContext && !this.hasUmbraRunCapability("core", { purpose: "select" })) return false;
+    const state = this.getUmbraCoreSelectionState(), stage = this.getUmbraActiveSkillStage(skillId);
+    const entry = state?.entries[skillId], selection = state?.currentSelection;
+    const owner = this.getUmbraControlOwner(skillId);
+    const request = this.isUmbraFinalContextActive?.() ? this.getUmbraNextMutationRequest() : state?.pendingQueue[0];
+    if (!this.isUmbraCoreSkillOwnerValid(skillId) || !stage || stage.stage < 4 || !entry || entry.stage4Selected || state.selectionLocked || !state.selectionOpen
+      || !this.skillMutationSelectionActive || !this.levelUpActive || !this.levelUpSelectionLocked
+      || selection?.skillId !== skillId || selection.phase !== "stage4" || request?.skillId !== skillId || request.phase !== "stage4"
+      || !state.currentChoices.includes(choiceId) || !["assault", "control", "reactor"].includes(choiceId)) return false;
+    state.selectionLocked = true;
+    // Publish selected only after the same-Stage numerical profile was applied.
+    const run = this.umbraGrowthRun;
+    run.coreApplying = { skillId, choiceId };
+    let applied = false;
+    try { applied = this.applyUmbraSkillStageChange(this.playerSkills[skillId], "CORE"); }
+    catch (error) { state.lastError = String(error?.stack || error).slice(0, 1600); }
+    finally { delete run.coreApplying; }
+    if (!applied || this.umbraGrowthRun !== run || this.getUmbraControlOwner(skillId) !== owner) { state.selectionLocked = false; return false; }
+    entry.core = choiceId; entry.stage4Selected = true; entry.stage4Queued = false;
+    state.pendingQueue.splice(state.pendingQueue.indexOf(request), 1); state.selectionOpen = false;
+    this.refreshUmbraTriadSnapshot?.(`CORE_COMMIT:${skillId}`);
+    this.updateHud?.();
+    return true;
+  }
+
+  buildUmbraFinalChoices(skillId) {
+    const state = this.getUmbraCoreSelectionState();
+    if (!this.isUmbraFinalSkillEligible(skillId) || state.entries[skillId].stage8Selected) return [];
+    const run = this.umbraGrowthRun, owner = this.getUmbraControlOwner(skillId), selection = state.currentSelection;
+    return ["execution", "prism", "singularity"].map(choiceId => ({
+      type: "skillMutation", phase: "stage8", skillId, choiceId,
+      ...this.buildUmbraFinalCard(skillId, choiceId),
+      onSelect: () => {
+        if (!selection || this.umbraGrowthRun !== run || this.getUmbraControlOwner(skillId) !== owner
+          || this.getUmbraCoreSelectionState() !== state || state.currentSelection !== selection || !state.selectionOpen) return false;
+        return this.applySkillMutationChoice(skillId, "stage8", choiceId);
+      }
+    }));
+  }
+
+  applyUmbraFinalChoice(skillId, choiceId) {
+    if (this.umbraRunContext && !this.hasUmbraRunCapability("final", { purpose: "select" })) return false;
+    if (!this.isUmbraFinalSkillEligible(skillId)) return false;
+    const state = this.getUmbraCoreSelectionState(), entry = state.entries[skillId], selection = state.currentSelection;
+    const request = this.getUmbraNextMutationRequest(), owner = this.getUmbraControlOwner(skillId), run = this.umbraGrowthRun;
+    if (entry.stage8Selected || state.selectionLocked || !state.selectionOpen || !this.skillMutationSelectionActive
+      || !this.levelUpActive || !this.levelUpSelectionLocked || selection?.skillId !== skillId || selection.phase !== "stage8"
+      || request?.skillId !== skillId || request.phase !== "stage8" || !state.currentChoices.includes(choiceId)
+      || !["execution", "prism", "singularity"].includes(choiceId)) return false;
+    state.selectionLocked = true; run.finalApplying = { skillId, choiceId };
+    let applied = false;
+    try { applied = this.applyUmbraSkillStageChange(this.playerSkills[skillId], "FINAL"); }
+    catch (error) { state.lastError = String(error?.stack || error).slice(0, 1600); }
+    finally { delete run.finalApplying; }
+    if (!applied || this.umbraGrowthRun !== run || this.getUmbraCoreSelectionState() !== state
+      || this.getUmbraControlOwner(skillId) !== owner || !this.isUmbraFinalSkillEligible(skillId)) {
+      state.selectionLocked = false; return false;
+    }
+    entry.final = choiceId; entry.stage8Selected = true; entry.stage8Queued = false;
+    state.pendingQueue.splice(state.pendingQueue.indexOf(request), 1); state.selectionOpen = false;
+    this.refreshUmbraTriadSnapshot?.(`FINAL_COMMIT:${skillId}`);
+    this.queueUmbraEquipmentFinalCommit?.(skillId);
+    this.updateHud?.();
+    return true;
+  }
+
+  closeUmbraCoreSelection() {
+    const state = this.getUmbraCoreSelectionState();
+    if (!state) return false;
+    state.selectionOpen = false; state.selectionLocked = false; state.currentSelection = null; state.currentChoices = [];
+    this.skillMutationSelectionActive = false;
+    return true;
+  }
+
+  getUmbraControlOwner(skillId) {
+    const key = { umbraMoonlight: "umbraMoonlightRuntime", umbraBloodSpike: "umbraBloodSpikeRuntime",
+      umbraPhantomNova: "umbraPhantomNovaRuntime" }[skillId];
+    return key ? this[key] : null;
+  }
+
+  isUmbraCoreSkillOwnerValid(skillId) {
+    const owner = this.getUmbraControlOwner(skillId);
+    return Boolean(this.isUmbraCoreContextActive() && owner && !owner.destroyed
+      && owner.umbraGrowthRun === this.umbraGrowthRun && this.getUmbraActiveSkillStage(skillId));
+  }
+
+  isUmbraControlOwnerActive(skillId, runtime) {
+    if (!this.isUmbraCoreSkillOwnerValid(skillId) || this.getUmbraControlOwner(skillId) !== runtime) return false;
+    if (skillId === "umbraMoonlight" && (this.moonlightAttackEnabled === false || !this.isUmbraBoostTraceEnabled()
+      || runtime.trace !== this.umbraBoostTrace)) return false;
+    if (skillId === "umbraBloodSpike" && this.bloodSpikeAttackEnabled === false) return false;
+    return true;
+  }
+
+  initializeUmbraControlOwner(skillId, runtime) {
+    if (!this.isUmbraCoreContextActive() || !runtime || runtime.destroyed || runtime.umbraGrowthRun) return;
+    runtime.umbraGrowthRun = this.umbraGrowthRun;
+    runtime.controlContributions = new Map();
+    const prune = () => this.pruneUmbraControlContributions(skillId, runtime);
+    this.events?.on?.("preupdate", prune);
+    runtime.cleanups.push(() => { this.events?.off?.("preupdate", prune); runtime.controlContributions.clear(); });
+    this.refreshUmbraTriadSnapshot?.(`OWNER_BOUND:${skillId}`, { notify: false });
+  }
+
+  isUmbraControlBossTarget(enemy) {
+    // Real flags only. Full HP / high HP / elite status do not classify a Boss.
+    return Boolean(enemy?.isBoss || enemy?.isWaveBoss || enemy?.isRobotBoss
+      || enemy?.isNemesisBoss || enemy?.isVoidHunterBoss);
+  }
+
+  isUmbraControlRecordValid(enemy, runtime, record) {
+    return Boolean(enemy?.active && !enemy.isDying && Number.isFinite(enemy.hp) && enemy.hp > 0
+      && enemy.body === record.body && enemy.body?.enable && enemy.body.world === this.physics?.world
+      && runtime.targets.get(enemy) === record.life && record.life.depth === this.stageDepth
+      && record.run === this.umbraGrowthRun && record.ownerGeneration === runtime.runGeneration
+      && !enemy.isFinalBossRaidBoss && !enemy.isFinalBossRaidMinion && !enemy.isFinalBossRaidGiantWeapon);
+  }
+
+  pruneUmbraControlContributions(skillId, runtime = this.getUmbraControlOwner(skillId)) {
+    this.pruneUmbraFinalFields?.(skillId, runtime);
+    if (!runtime?.controlContributions) return;
+    if (!this.isUmbraControlOwnerActive(skillId, runtime)) { runtime.controlContributions.clear(); return; }
+    for (const [enemy, strengths] of runtime.controlContributions) {
+      for (const [multiplier, record] of strengths) {
+        if (!this.isUmbraControlRecordValid(enemy, runtime, record)
+          || runtime.combatTimeMs + 1e-7 >= record.expiresAtMs) strengths.delete(multiplier);
+      }
+      if (!strengths.size) runtime.controlContributions.delete(enemy);
+    }
+  }
+
+  getUmbraTriadSlowMultiplier(baseMultiplier, boss, triadProfile) {
+    const control = triadProfile && this.isUmbraTriadContextActive?.() ? triadProfile.controlMultiplier : 1;
+    return Math.max(boss ? 0.90 : 0.65, Math.min(1, 1 - (1 - baseMultiplier) * control));
+  }
+
+  getUmbraControlEffectStats(profile, boss = false) {
+    const settings = profile?.coreId === "control" ? profile.controlSettings : null;
+    if (!settings) return null;
+    const control = profile.triadProfile && this.isUmbraTriadContextActive?.() ? profile.triadProfile.controlMultiplier : 1;
+    return { multiplier: this.getUmbraTriadSlowMultiplier(boss ? settings.bossMultiplier : settings.normalMultiplier, boss, profile.triadProfile),
+      durationMs: Math.max(0, Math.min(1000, settings.durationMs * control)) };
+  }
+
+  applyUmbraControlHit(skillId, runtime, enemy, life, profile, sourceAttackId) {
+    const settings = profile?.coreId === "control" ? profile.controlSettings : null;
+    if (!settings || !sourceAttackId || !this.isUmbraControlOwnerActive(skillId, runtime)
+      || runtime.targets.get(enemy) !== life || !enemy?.active || enemy.isDying || !Number.isFinite(enemy.hp) || enemy.hp <= 0) return false;
+    const boss = this.isUmbraControlBossTarget(enemy);
+    const { multiplier, durationMs } = this.getUmbraControlEffectStats(profile, boss), now = runtime.combatTimeMs;
+    if (!Number.isFinite(multiplier) || !Number.isFinite(durationMs) || !Number.isFinite(now) || multiplier >= 1 || durationMs <= 0) return false;
+    const record = { skillId, ownerGeneration: runtime.runGeneration, run: this.umbraGrowthRun,
+      life, lifeId: life.lifeId, body: enemy.body, multiplier, appliedAtMs: now, expiresAtMs: now + durationMs, sourceAttackId,
+      ...(profile.triadProfile ? { triadProfile: profile.triadProfile } : {}) };
+    if (!this.isUmbraControlRecordValid(enemy, runtime, record)) return false;
+    this.pruneUmbraControlContributions(skillId, runtime);
+    const contributions = runtime.controlContributions ||= new Map();
+    const strengths = contributions.get(enemy) || new Map(), previous = strengths.get(multiplier);
+    if (previous?.sourceAttackId === sourceAttackId && previous.life === life) return false;
+    if (previous?.life === life) record.expiresAtMs = Math.max(previous.expiresAtMs, record.expiresAtMs);
+    strengths.set(multiplier, record); contributions.set(enemy, strengths);
+    return true;
+  }
+
+  getUmbraControlSpeedMultiplier(enemy) {
+    // Read-only: no clock advancement, record mutation, Timer or enemy velocity writes.
+    if ((this.getUmbraRunContext?.() || this.verificationContext)?.coreEnabled !== true) return 1;
+    if ((this.getUmbraRunContext?.() || this.verificationContext)?.triadEnabled === true && !this.isUmbraTriadContextActive?.()) return 1;
+    let multiplier = 1;
+    for (const skillId of ["umbraMoonlight", "umbraBloodSpike", "umbraPhantomNova"]) {
+      const owner = this.getUmbraControlOwner(skillId);
+      if (!this.isUmbraControlOwnerActive(skillId, owner)) continue;
+      for (const record of owner.controlContributions?.get(enemy)?.values() || []) {
+        if (this.isUmbraControlRecordValid(enemy, owner, record) && owner.combatTimeMs + 1e-7 < record.expiresAtMs) {
+          multiplier = Math.min(multiplier, record.multiplier);
+        }
+      }
+      multiplier = Math.min(multiplier, this.getUmbraFinalFieldSpeedMultiplier?.(skillId, owner, enemy) ?? 1);
+    }
+    return multiplier;
+  }
+
+  getUmbraFinalMainRawDamage(profile, enemy, fallbackRaw) {
+    if (!profile || (!profile.finalId && !profile.triadProfile) || !this.isUmbraFinalContextActive?.()) return fallbackRaw;
+    const triad = profile.triadProfile && this.isUmbraTriadContextActive?.() ? profile.triadProfile : null;
+    const highValue = (profile.finalId === "execution" || (triad && triad.executionDamageMultiplier !== 1))
+      && this.isHighValueMutationTarget(enemy);
+    const finalMultiplier = profile.finalId === "execution" && highValue
+      ? UMBRA_SKILL_FINAL_SETTINGS.executionMultiplier : 1;
+    const coreFinal = profile.coreDamageMultiplier * finalMultiplier;
+    const multiplier = triad ? Phaser.Math.Clamp(coreFinal * triad.skillDamageMultiplier
+      * (highValue ? triad.executionDamageMultiplier : 1), 0.72, 1.9) : coreFinal;
+    // R is captured before Core rounding; evaluate this target immediately before reception.
+    return Math.max(1, Math.round(profile.addedRaw * multiplier));
+  }
+
+  getUmbraFinalSecondaryRawDamage(profile, enemy, branchRate) {
+    const triad = profile?.triadProfile && this.isUmbraTriadContextActive?.() ? profile.triadProfile : null;
+    const base = triad ? this.getUmbraFinalMainRawDamage(profile, enemy, 0)
+      : Math.max(1, Math.round(profile.addedRaw * profile.coreDamageMultiplier));
+    return Math.max(1, Math.round(base * branchRate * (triad?.prismDamageMultiplier ?? 1)));
+  }
+
+  getUmbraEquipmentAttackDamage(skillId, rawDamage, finalProfile) {
+    const equipment = finalProfile?.equipmentProfile;
+    if (!equipment) return rawDamage;
+    // Existing attack/target guards run first. Zero-damage fields never enter this path.
+    const state = this.umbraEquipmentState;
+    if (!(rawDamage > 0) || !this.isUmbraEquipmentContextActive?.() || !state || state.run !== this.umbraGrowthRun
+      || equipment.equipmentSnapshotId !== state.equipmentSnapshotId) return 0;
+    return this.applyRunEquipmentPlayerSkillDamageBonus(skillId, rawDamage, equipment);
+  }
+
+  getUmbraEquipmentDamageBreakdown(damage, equipmentProfile) {
+    const inputRaw = Math.max(0, Number(damage) || 0);
+    const ovl = Number(equipmentProfile?.overlimitMultiplier), armament = Number(equipmentProfile?.armamentMultiplier);
+    if (!Number.isFinite(inputRaw) || !inputRaw || !Number.isFinite(ovl) || ovl <= 0
+      || !Number.isFinite(armament) || armament <= 0) return { inputRaw, overlimitRaw: 0, equipmentRaw: 0 };
+    const overlimitRaw = Math.round(inputRaw * ovl);
+    return { inputRaw, overlimitRaw, equipmentRaw: Math.max(1, Math.round(overlimitRaw * armament)) };
+  }
+
+  getUmbraEquipmentReactorCardDisplay(weapons) {
+    if (!this.isUmbraEquipmentContextActive?.()) return null;
+    const rows = [], targets = [{ hp: 10, maxHp: 10 }, { hp: 1, maxHp: 10 }];
+    for (const weapon of weapons || []) {
+      const modes = weapon.id === UMBRA_PHANTOM_NOVA_SKILL_ID ? [["周回", "orbit"], ["残留", "deployed"]] : [["", "orbit"]];
+      for (const [label, mode] of modes) {
+        const before = this.getUmbraSkillFinalProfile(weapon.id, undefined, mode);
+        if (!before?.equipmentProfile) continue;
+        const after = { ...before, addedRaw: before.addedRaw + 1 };
+        const values = targets.map((target, index) => {
+          const a = this.getUmbraFinalMainRawDamage(before, target, 0), b = this.getUmbraFinalMainRawDamage(after, target, 0);
+          const current = this.getUmbraEquipmentDamageBreakdown(a, before.equipmentProfile).equipmentRaw;
+          const next = this.getUmbraEquipmentDamageBreakdown(b, before.equipmentProfile).equipmentRaw;
+          return `${index ? "他" : "強"}${current}→${next}`;
+        });
+        rows.push(`${weapon.shortLabel}${label} E ${values.join(" / ")}`);
+      }
+    }
+    if (!rows.length) return null;
+    return { description: `${rows.join("\n")}\n共通raw加算+1を一度。OVL→ARM後・共通受付補正前。`,
+      cardDescription: `${rows.join("\n")}\n現在の確定Core/Final/TRIAD・装備で丸めた受付前E。既存cast/DEPは保持。`,
+      chipLabel: "共通raw +1 / 装備後Eは本文" };
+  }
+
+  isUmbraFinalOwnerActive(skillId, runtime) {
+    return Boolean(this.isUmbraFinalContextActive?.() && runtime && this.isUmbraControlOwnerActive(skillId, runtime)
+      && this.isUmbraFinalSkillEligible(skillId) && (skillId === "umbraMoonlight"
+        ? runtime.trace?.depth === this.stageDepth && runtime.depthGeneration === runtime.trace.depthGeneration
+        : runtime.depth === this.stageDepth && (skillId !== "umbraPhantomNova" || this.novaAttackEnabled !== false)));
+  }
+
+  ensureUmbraFinalState(skillId, runtime) {
+    if (!this.isUmbraFinalOwnerActive(skillId, runtime)) return null;
+    if (!runtime.finalState) {
+      runtime.finalState = { fields: new Map(), fieldSequence: 0, attackSequence: 0,
+        prismNextAtMs: 0, fieldNextAtMs: 0, moonParent: null, history: [], skips: {},
+        counts: { dispatchAttempts: 0, dispatches: 0, secondaryAttempts: 0, secondaryAccepted: 0,
+          secondaryRejected: 0, hpDelta: 0, effectiveHealthLoss: 0, kills: 0,
+          fieldsCreated: 0, fieldsEnded: 0, membershipUpdates: 0, memberEntries: 0, memberExits: 0, maxFields: 0, maxMembers: 0 } };
+      runtime.cleanups.push(() => this.clearUmbraFinalFields(skillId, runtime, "OWNER_END"));
+    }
+    return runtime.finalState;
+  }
+
+  recordUmbraFinalSkip(runtime, reason) {
+    const state = runtime?.finalState;
+    if (!state) return;
+    const key = Object.hasOwn(state.skips, reason) || Object.keys(state.skips).length < 32 ? reason : "OTHER";
+    state.skips[key] = (state.skips[key] || 0) + 1;
+  }
+
+  clearUmbraFinalFields(skillId, runtime, reason) {
+    const state = runtime?.finalState;
+    if (!state) return;
+    for (const field of state.fields.values()) this.endUmbraFinalField(runtime, field, reason);
+  }
+
+  endUmbraFinalField(runtime, field, reason) {
+    const state = runtime?.finalState;
+    if (!state?.fields.delete(field.fieldId)) return;
+    state.counts.fieldsEnded++; state.counts.memberExits += field.members.size;
+    field.members.clear();
+    state.history.push(Object.freeze({ type: "FIELD_END", fieldId: field.fieldId, reason, combatTimeMs: runtime.combatTimeMs }));
+    if (state.history.length > 128) state.history.shift();
+  }
+
+  isUmbraFinalFieldLive(skillId, runtime, field) {
+    if (!this.isUmbraFinalOwnerActive(skillId, runtime) || field.run !== this.umbraGrowthRun
+      || field.depth !== this.stageDepth || field.ownerGeneration !== runtime.runGeneration
+      || field.depthGeneration !== runtime.depthGeneration || runtime.combatTimeMs + 1e-7 >= field.expiresAtMs) return false;
+    if (skillId === "umbraPhantomNova") {
+      const slot = runtime.slots.find(item => item.slotId === field.slotId);
+      if (!slot || slot.state !== "DEPLOYED" || slot.cycleGeneration !== field.cycleGeneration
+        || slot.deployedUntilMs !== field.expiresAtMs) return false;
+    }
+    return true;
+  }
+
+  pruneUmbraFinalFields(skillId, runtime) {
+    if (!runtime?.finalState) return;
+    for (const field of runtime.finalState.fields.values()) {
+      if (!this.isUmbraFinalFieldLive(skillId, runtime, field)) this.endUmbraFinalField(runtime, field,
+        runtime.combatTimeMs + 1e-7 >= field.expiresAtMs ? "EXPIRED" : "OWNER_OR_DEPTH_END");
+    }
+  }
+
+  snapshotUmbraFinalEnemy(skillId, runtime, enemy) {
+    // Current physical body only. This observer never advances Moon's sweep cursor.
+    const life = runtime?.targets.get(enemy), body = enemy?.body, world = this.physics?.world;
+    if (!life || life.depth !== this.stageDepth || runtime.targets.get(enemy) !== life
+      || (life.depthGeneration !== undefined && life.depthGeneration !== runtime.depthGeneration)
+      || !enemy?.active || enemy.isDying || !Number.isFinite(enemy.hp) || enemy.hp <= 0
+      || !body?.enable || body.world !== world || (world?.bodies?.contains && !world.bodies.contains(body))
+      || enemy.isFinalBossRaidBoss || enemy.isFinalBossRaidMinion || enemy.isFinalBossRaidGiantWeapon
+      || (this.time?.now ?? 0) < (enemy.supportDamageHoldUntil || 0)) return null;
+    const halfWidth = body.width / 2, halfHeight = body.height / 2;
+    const x = body.position?.x + (body.isCircle ? body.halfWidth : halfWidth);
+    const y = body.position?.y + (body.isCircle ? body.halfHeight : halfHeight);
+    if (![x, y, halfWidth, halfHeight].every(Number.isFinite) || halfWidth <= 0 || halfHeight <= 0
+      || (body.isCircle && (!Number.isFinite(body.halfWidth) || body.halfWidth <= 0))) return null;
+    return { enemy, life, body, position: { x, y }, shape: body.isCircle ? { kind: "circle", radius: body.halfWidth }
+      : { kind: "rect", halfWidth, halfHeight } };
+  }
+
+  findUmbraFinalTargets(skillId, runtime, position, radius, maxTargets, excluded = new Set()) {
+    // Bounded nearest K insertion, no full-list distance sort and no line damage.
+    const selected = [], seen = new Set();
+    for (const enemy of this.enemies?.getChildren?.() || []) {
+      if (seen.has(enemy)) continue;
+      seen.add(enemy);
+      const target = this.snapshotUmbraFinalEnemy(skillId, runtime, enemy);
+      if (!target || excluded.has(target.life.lifeId)) continue;
+      const nearest = this.getUmbraMoonlightNearestTargetPoint(position, target.position, target.shape);
+      const distance = Math.hypot(nearest.x - position.x, nearest.y - position.y);
+      if (distance > radius + 1e-9 || this.isUmbraMoonlightLineBlocked(position, nearest)) continue;
+      const candidate = { ...target, nearest, distance, order: seen.size };
+      const index = selected.findIndex(item => distance < item.distance - 1e-9
+        || (Math.abs(distance - item.distance) <= 1e-9 && candidate.order < item.order));
+      if (index < 0) { if (selected.length < maxTargets) selected.push(candidate); }
+      else { selected.splice(index, 0, candidate); if (selected.length > maxTargets) selected.pop(); }
+    }
+    return selected;
+  }
+
+  getUmbraFinalMoonParent(event, profile) {
+    if (!profile?.finalId || !["prism", "singularity"].includes(profile.finalId)) return null;
+    const runtime = this.umbraMoonlightRuntime, state = this.ensureUmbraFinalState("umbraMoonlight", runtime);
+    if (!state) return null;
+    const id = `M:${runtime.runGeneration}:${runtime.depthGeneration}:${event.boostSequence}`;
+    if (state.moonParent?.id !== id) state.moonParent = { id, attempted: new Set(), consumed: false, pending: null,
+      basisGeneration: event.basisGeneration, depthGeneration: event.depthGeneration, depth: this.stageDepth };
+    return state.moonParent;
+  }
+
+  reserveUmbraFinalDispatch(skillId, runtime, parent, position, coreProfile, finalProfile) {
+    if (!parent || parent.consumed || !["prism", "singularity"].includes(finalProfile?.finalId)) return null;
+    parent.consumed = true; // First successful main consumes the attempt, including blocked/empty dispatches.
+    const state = this.ensureUmbraFinalState(skillId, runtime);
+    if (!state) return null;
+    state.counts.dispatchAttempts++;
+    const mode = finalProfile.finalId === "prism" ? "prism" : "field";
+    if (mode === "field" && skillId === "umbraPhantomNova") return null; // DEP commit only.
+    const settings = UMBRA_SKILL_FINAL_SETTINGS.skills[skillId][mode], clockKey = mode === "prism" ? "prismNextAtMs" : "fieldNextAtMs";
+    if (runtime.combatTimeMs + 1e-7 < state[clockKey]) { this.recordUmbraFinalSkip(runtime, `${mode.toUpperCase()}_ICD`); return null; }
+    state[clockKey] = runtime.combatTimeMs + settings.icdMs;
+    return Object.freeze({ skillId, runtime, run: this.umbraGrowthRun, depth: parent.depth ?? this.stageDepth,
+      generation: runtime.runGeneration, depthGeneration: parent.depthGeneration ?? runtime.depthGeneration,
+      basisGeneration: Object.hasOwn(parent, "basisGeneration") ? parent.basisGeneration : this.umbraBoostTrace?.basisGeneration,
+      parentId: parent.id, excluded: parent.attempted, position: Object.freeze({ x: position.x, y: position.y }),
+      coreProfile, finalProfile, mode });
+  }
+
+  isUmbraFinalDispatchLive(ticket) {
+    const { skillId, runtime } = ticket;
+    const block = skillId === "umbraMoonlight" ? this.getUmbraMoonlightBlockReason()
+      : skillId === "umbraBloodSpike" ? this.getUmbraBloodSpikeBlockReason() : this.getUmbraPhantomNovaBlockReason();
+    return Boolean(!block && this.isUmbraFinalOwnerActive(skillId, runtime) && ticket.run === this.umbraGrowthRun
+      && ticket.depth === this.stageDepth && ticket.generation === runtime.runGeneration
+      && ticket.depthGeneration === runtime.depthGeneration && ticket.basisGeneration === this.umbraBoostTrace?.basisGeneration);
+  }
+
+  dispatchUmbraFinalSecondary(ticket) {
+    if (!ticket || ticket.mode !== "prism" || !this.isUmbraFinalDispatchLive(ticket)) return;
+    const { skillId, runtime, position, coreProfile, finalProfile, parentId } = ticket, state = runtime.finalState;
+    const settings = UMBRA_SKILL_FINAL_SETTINGS.skills[skillId].prism;
+    const attackId = `${skillId}:${runtime.runGeneration}:${runtime.depthGeneration}:secondary:${++state.attackSequence}`;
+    const candidates = this.findUmbraFinalTargets(skillId, runtime, position, settings.radius, settings.maxTargets, ticket.excluded);
+    state.counts.dispatches++;
+    if (!candidates.length) this.recordUmbraFinalSkip(runtime, "SECONDARY_EMPTY");
+    const hitLives = new Set();
+    for (const target of candidates) {
+      if (!this.isUmbraFinalDispatchLive(ticket)) { this.recordUmbraFinalSkip(runtime, "SECONDARY_INTERRUPTED"); break; }
+      const live = this.snapshotUmbraFinalEnemy(skillId, runtime, target.enemy);
+      if (!live || live.body !== target.body || live.life !== target.life || hitLives.has(live.life.lifeId)) {
+        this.recordUmbraFinalSkip(runtime, "SECONDARY_TARGET_CHANGED"); continue;
+      }
+      const nearest = this.getUmbraMoonlightNearestTargetPoint(position, live.position, live.shape);
+      if (Math.hypot(nearest.x - position.x, nearest.y - position.y) > settings.radius + 1e-9
+        || this.isUmbraMoonlightLineBlocked(position, nearest)) { this.recordUmbraFinalSkip(runtime, "SECONDARY_GEOMETRY_CHANGED"); continue; }
+      hitLives.add(live.life.lifeId); state.counts.secondaryAttempts++;
+      const hpBefore = target.enemy.hp;
+      const rawDamage = this.getUmbraFinalSecondaryRawDamage(finalProfile, target.enemy, settings.rate);
+      const equipmentDamage = this.getUmbraEquipmentAttackDamage?.(skillId, rawDamage, finalProfile) ?? rawDamage;
+      this.applyDamageToEnemy(target.enemy, equipmentDamage, 0xc9caff, null);
+      const hpAfter = Number.isFinite(target.enemy.hp) ? target.enemy.hp : hpBefore;
+      const hpDelta = Math.max(0, hpBefore - hpAfter);
+      if (!hpDelta) { state.counts.secondaryRejected++; this.recordUmbraFinalSkip(runtime, "SECONDARY_RECEIVER_REJECTED"); continue; }
+      const effectiveHealthLoss = Math.max(0, Math.max(0, hpBefore) - Math.max(0, hpAfter));
+      const killed = hpBefore > 0 && (hpAfter <= 0 || target.enemy.isDying || !target.enemy.active);
+      state.counts.secondaryAccepted++; state.counts.hpDelta += hpDelta;
+      state.counts.effectiveHealthLoss += effectiveHealthLoss; state.counts.kills += Number(killed);
+      const hit = Object.freeze({ skillId, attackId, parentId, secondaryDepth: 1, budget: settings.maxTargets,
+        lifeId: live.life.lifeId, position: nearest, sourcePosition: position, coreProfile, finalProfile,
+        combatTimeMs: runtime.combatTimeMs, ownerGeneration: runtime.runGeneration, rawDamage, hpBefore, hpAfter, hpDelta, effectiveHealthLoss, killed,
+        ...(finalProfile?.equipmentProfile ? { equipmentDamage } : {}) });
+      state.history.push(hit); if (state.history.length > 128) state.history.shift();
+      if (!this.isUmbraFinalDispatchLive(ticket)) break;
+      this.onUmbraFinalSecondaryAcceptedHit?.(hit);
+    }
+  }
+
+  getUmbraFinalFieldSettings(skillId, finalProfile, source = {}, combatTimeMs = 0) {
+    if (finalProfile?.finalId !== "singularity") return null;
+    const settings = UMBRA_SKILL_FINAL_SETTINGS.skills[skillId]?.field;
+    if (!settings) return null;
+    const triad = finalProfile.triadProfile && this.isUmbraTriadContextActive?.() ? finalProfile.triadProfile : null;
+    const singularity = triad?.singularityMultiplier ?? 1, membership = UMBRA_SKILL_FINAL_SETTINGS.membership;
+    return { radius: Math.min(settings.maxRadius, Math.max(0, (settings.radius ?? source.radius) * singularity)),
+      durationMs: skillId === UMBRA_PHANTOM_NOVA_SKILL_ID ? source.expiresAtMs - combatTimeMs
+        : Math.min(settings.maxDurationMs, settings.durationMs * singularity),
+      normalMultiplier: this.getUmbraTriadSlowMultiplier(membership.normalMultiplier, false, triad),
+      bossMultiplier: this.getUmbraTriadSlowMultiplier(membership.bossMultiplier, true, triad) };
+  }
+
+  createUmbraFinalField(skillId, runtime, position, coreProfile, finalProfile, source = {}) {
+    if (finalProfile?.finalId !== "singularity") return null;
+    const state = this.ensureUmbraFinalState(skillId, runtime);
+    if (!state || !Number.isFinite(position?.x) || !Number.isFinite(position?.y)) return null;
+    this.pruneUmbraFinalFields(skillId, runtime);
+    const settings = UMBRA_SKILL_FINAL_SETTINGS.skills[skillId].field;
+    if (state.fields.size >= settings.maxFields) { this.recordUmbraFinalSkip(runtime, "FIELD_CAP"); return null; }
+    const fieldSettings = this.getUmbraFinalFieldSettings(skillId, finalProfile, source, runtime.combatTimeMs);
+    const { radius, durationMs } = fieldSettings;
+    if (!Number.isFinite(radius) || radius <= 0 || !Number.isFinite(durationMs) || durationMs <= 0) return null;
+    const field = { fieldId: `${skillId}:${runtime.runGeneration}:${runtime.depthGeneration}:field:${++state.fieldSequence}`,
+      skillId, run: this.umbraGrowthRun, depth: this.stageDepth, ownerGeneration: runtime.runGeneration, depthGeneration: runtime.depthGeneration,
+      position: Object.freeze({ x: position.x, y: position.y }), radius, createdAtMs: runtime.combatTimeMs,
+      expiresAtMs: runtime.combatTimeMs + durationMs, coreProfile, finalProfile,
+      ...(finalProfile.triadProfile ? { fieldSettings: Object.freeze(fieldSettings) } : {}),
+      slotId: source.slotId, cycleGeneration: source.cycleGeneration, members: new Map(), nextMembershipAtMs: runtime.combatTimeMs };
+    // Only membership and its next observation deadline are mutable. Generation,
+    // geometry, selected profiles and the lifetime remain the creation snapshot.
+    for (const key of Object.keys(field)) if (!["members", "nextMembershipAtMs"].includes(key)) {
+      Object.defineProperty(field, key, { writable: false, configurable: false });
+    }
+    Object.seal(field);
+    state.fields.set(field.fieldId, field); state.counts.fieldsCreated++;
+    state.counts.maxFields = Math.max(state.counts.maxFields, state.fields.size);
+    state.history.push(Object.freeze({ type: "FIELD_CREATE", fieldId: field.fieldId, position: field.position,
+      radius, createdAtMs: field.createdAtMs, expiresAtMs: field.expiresAtMs }));
+    if (state.history.length > 128) state.history.shift();
+    this.updateUmbraFinalFieldMembership(skillId, runtime, field);
+    return field;
+  }
+
+  updateUmbraFinalFieldMembership(skillId, runtime, field) {
+    if (!this.isUmbraFinalFieldLive(skillId, runtime, field)) return;
+    const settings = UMBRA_SKILL_FINAL_SETTINGS.membership, next = new Map();
+    for (const target of this.findUmbraFinalTargets(skillId, runtime, field.position, field.radius, settings.maxTargets)) {
+      next.set(target.enemy, { life: target.life, body: target.body });
+    }
+    const counts = runtime.finalState.counts;
+    for (const [enemy, record] of field.members) if (next.get(enemy)?.life !== record.life) counts.memberExits++;
+    for (const [enemy, record] of next) if (field.members.get(enemy)?.life !== record.life) counts.memberEntries++;
+    field.members = next; field.nextMembershipAtMs = runtime.combatTimeMs + settings.intervalMs;
+    counts.membershipUpdates++; counts.maxMembers = Math.max(counts.maxMembers, next.size);
+  }
+
+  updateUmbraFinalFields(skillId, runtime) {
+    this.pruneUmbraFinalFields(skillId, runtime);
+    for (const field of runtime?.finalState?.fields.values() || []) {
+      if (runtime.combatTimeMs + 1e-7 >= field.nextMembershipAtMs) this.updateUmbraFinalFieldMembership(skillId, runtime, field);
+    }
+  }
+
+  getUmbraFinalFieldSpeedMultiplier(skillId, runtime, enemy) {
+    let multiplier = 1;
+    for (const field of runtime?.finalState?.fields.values() || []) {
+      const member = field.members.get(enemy);
+      if (!member || !this.isUmbraFinalFieldLive(skillId, runtime, field)) continue;
+      // Recheck immediate protection/life/body invalidation between 100ms membership ticks.
+      const target = this.snapshotUmbraFinalEnemy(skillId, runtime, enemy);
+      if (target && target.life === member.life && target.body === member.body) {
+        const settings = field.fieldSettings || UMBRA_SKILL_FINAL_SETTINGS.membership;
+        multiplier = Math.min(multiplier, this.isUmbraControlBossTarget(enemy) ? settings.bossMultiplier : settings.normalMultiplier);
+      }
+    }
+    return multiplier;
+  }
+
+  getUmbraFinalVisualState() {
+    const owners = [], fields = [];
+    for (const skillId of ["umbraMoonlight", "umbraBloodSpike", "umbraPhantomNova"]) {
+      const runtime = this.getUmbraControlOwner(skillId);
+      if (!this.isUmbraFinalOwnerActive(skillId, runtime)) continue;
+      owners.push({ skillId, generation: runtime.runGeneration, combatTimeMs: runtime.combatTimeMs });
+      for (const field of runtime.finalState?.fields.values() || []) {
+        if (this.isUmbraFinalFieldLive(skillId, runtime, field)) fields.push({ fieldId: field.fieldId, skillId,
+          ownerGeneration: field.ownerGeneration, position: field.position, radius: field.radius,
+          createdAtMs: field.createdAtMs, expiresAtMs: field.expiresAtMs, combatTimeMs: runtime.combatTimeMs,
+          coreProfile: field.coreProfile, finalProfile: field.finalProfile, membershipCount: field.members.size,
+          ...(field.fieldSettings ? { fieldSettings: field.fieldSettings } : {}) });
+      }
+    }
+    return { owners, fields };
+  }
+
+  getUmbraFinalSnapshot() {
+    return { ...this.getUmbraFinalVisualState(), runtimes: ["umbraMoonlight", "umbraBloodSpike", "umbraPhantomNova"].flatMap(skillId => {
+      const runtime = this.getUmbraControlOwner(skillId), state = runtime?.finalState;
+      return state ? [{ skillId, generation: runtime.runGeneration, combatTimeMs: runtime.combatTimeMs,
+        prismNextAtMs: state.prismNextAtMs, fieldNextAtMs: state.fieldNextAtMs,
+        counts: { ...state.counts }, skips: { ...state.skips }, history: state.history.slice(),
+        fields: Array.from(state.fields.values(), field => ({ fieldId: field.fieldId, nextMembershipAtMs: field.nextMembershipAtMs,
+          lifeIds: Array.from(field.members.values(), member => member.life.lifeId) })) }] : [];
+    }) };
+  }
+
+  getEnemySpeedMultiplier(enemy) {
+    const legacy = this.getEnemyLostArmsSlowMultiplier(enemy) * this.getEnemyCleaningRobotSlowMultiplier(enemy)
+      * this.getEnemySkillMutationSlowMultiplier(enemy);
+    return Math.min(legacy, this.getUmbraControlSpeedMultiplier(enemy));
+  }
+
+  applyUmbraControlMovementMultiplier(enemy, legacyMultiplier) {
+    if ((this.getUmbraRunContext?.() || this.verificationContext)?.coreEnabled !== true) return;
+    // Boss lightning dash retains a command across updates. Only a command
+    // captured at its actual AI start may be reconstructed, never a cached velocity.
+    if (enemy.isBossDashing && !this.isUmbraBossDashCommandActive(enemy)) return;
+    const control = this.getUmbraControlSpeedMultiplier(enemy);
+    // updateEnemies has just issued the current AI's velocity and applied its
+    // original three factors. Scale only the difference to min(legacy, CONTROL).
+    if (control < legacyMultiplier && enemy.body?.velocity) enemy.body.velocity.scale(control / legacyMultiplier);
+  }
+
+  recordUmbraBossDashCommand(enemy, angle) {
+    if (!this.isUmbraCoreContextActive() || !Number.isFinite(angle)) return;
+    const commands = this.umbraGrowthRun.controlDashCommands ||= new WeakMap();
+    commands.set(enemy, { angle, body: enemy.body, endsAt: enemy.bossDashEndsAt,
+      depth: this.stageDepth, activated: false });
+  }
+
+  isUmbraBossDashCommandActive(enemy) {
+    const command = this.umbraGrowthRun?.controlDashCommands?.get(enemy);
+    return Boolean(this.isUmbraCoreContextActive() && command && enemy.isBossDashing
+      && command.body === enemy.body && command.depth === this.stageDepth && command.endsAt === enemy.bossDashEndsAt);
+  }
+
+  updateUmbraBossDashCommand(enemy) {
+    if (!this.isUmbraBossDashCommandActive(enemy)) return;
+    const command = this.umbraGrowthRun.controlDashCommands.get(enemy);
+    if (this.getUmbraControlSpeedMultiplier(enemy) < 1) command.activated = true;
+    if (command.activated) this.physics.velocityFromRotation(command.angle, enemy.dashSpeed || 340, enemy.body.velocity);
+  }
+
+  recordUmbraDeferredMilestones(skillId, stageNumber) {
+    const stage = this.getUmbraActiveSkillStage(skillId), run = this.umbraGrowthRun;
+    if (!stage || stage.stage !== stageNumber) return false;
+    for (const [threshold, phase] of [[4, "core"], [8, "final"]]) {
+      if (stage.stage >= threshold && !run.deferredMilestones.some(entry => entry.skillId === skillId && entry.phase === phase)) {
+        run.deferredMilestones.push(Object.freeze({ skillId, phase, order: run.deferredMilestones.length + 1 }));
+      }
+    }
+    this.syncUmbraCoreMilestones?.();
+    return true;
+  }
+
+  applyUmbraSkillStageChange(skill, reason = "STAGE") {
+    if (this.umbraRunContext && !this.hasUmbraRunCapability("growth", { purpose: "select" })) return false;
+    if (!this.isUmbraGrowthContextActive() || !this.isUmbraGrowthSkillDefinition(skill?.definition)
+      || this.playerSkills?.[skill.id] !== skill || skill.umbraGrowthRun !== this.umbraGrowthRun || skill.verificationOnly !== true
+      || !Number.isInteger(skill.stageIndex) || skill.stageIndex < 0 || skill.stageIndex > 7) return false;
+    const stage = skill.definition.stages[skill.stageIndex];
+    // A direct upward diagnostic boundary is allowed; reducing Stage is a fresh-run reset.
+    if (stage.behavior !== skill.id || !skill.definition.stages.includes(skill.currentStage)
+      || (Number.isInteger(skill.umbraAppliedStageIndex) && (skill.stageIndex < skill.umbraAppliedStageIndex
+        || skill.currentStage !== skill.definition.stages[skill.umbraAppliedStageIndex]))) return false;
+    const names = {
+      umbraMoonlight: ["umbraMoonlightRuntime", "initializeUmbraMoonlightRuntime", "getUmbraMoonlightEffectiveStats", "registerUmbraMoonlightEnemyLife"],
+      umbraBloodSpike: ["umbraBloodSpikeRuntime", "initializeUmbraBloodSpikeRuntime", "getUmbraBloodSpikeEffectiveStats", "registerUmbraBloodSpikeEnemyLife"],
+      umbraPhantomNova: ["umbraPhantomNovaRuntime", "initializeUmbraPhantomNovaRuntime", "getUmbraPhantomNovaEffectiveStats", "registerUmbraPhantomNovaEnemyLife"]
+    }[skill.id];
+    const existed = Boolean(this[names[0]]), previous = this[names[0]]?.appliedGrowthProfile;
+    skill.currentStage = stage;
+    const profile = this[names[2]]();
+    const runtime = this[names[0]] || this[names[1]]();
+    if (!runtime) return false;
+    if (!existed) {
+      for (const enemy of this.enemies?.getChildren?.() || []) {
+        if (enemy?.active && !enemy.isDying && enemy.hp > 0) this[names[3]](enemy);
+      }
+      // Unlock order is player-selected. A later SPIKE acquisition still keeps
+      // its physics observer before NOVA without replacing any live runtime.
+      const nova = this.umbraPhantomNovaRuntime;
+      if (skill.id === "umbraBloodSpike" && nova?.worldStepRegistered && nova.worldStepHandler) {
+        this.physics.world.off("worldstep", nova.worldStepHandler);
+        this.physics.world.on("worldstep", nova.worldStepHandler);
+      }
+    }
+    if (skill.id === "umbraMoonlight" && previous
+      && (previous.passageRadius !== profile.passageRadius || previous.exitRadius !== profile.exitRadius)) {
+      for (const record of runtime.targets.values()) {
+        record.radiusRebasePending = true; record.armed = false; record.initialEligible = false;
+        record.reason = "RADIUS_REBASE";
+      }
+    }
+    if (skill.id === "umbraPhantomNova") this.reconcileUmbraPhantomNovaSlots(stage.slotCount);
+    // Keep actual numbers, not only the canonical Stage reference: a future
+    // same-Stage profile update must still be compared with its previous values.
+    runtime.appliedGrowthProfile = Object.freeze({ ...profile });
+    skill.umbraAppliedStageIndex = skill.stageIndex;
+    this.recordUmbraDeferredMilestones(skill.id, stage.stage);
+    this.refreshUmbraTriadSnapshot?.(`STAGE_ELIGIBILITY:${skill.id}`, { notify: false });
+    if (!existed && this.umbraRunContext) this.requestUmbraSkillPresentationAssets?.(skill.id, this.umbraRunContext);
+    return true;
+  }
+
+  reconcileUmbraPhantomNovaSlots(targetTotal) {
+    const stage = this.getUmbraActiveSkillStage("umbraPhantomNova"), runtime = this.umbraPhantomNovaRuntime;
+    if (!stage || !runtime || runtime.destroyed || runtime.player !== this.playerHitbox || runtime.body !== this.playerHitbox.body
+      || targetTotal !== stage.slotCount || ![1, 2, 3].includes(targetTotal) || runtime.slots.length > targetTotal) return false;
+    const tau = Math.PI * 2, interval = this.getUmbraPhantomNovaEffectiveStats().orbitIntervalMs;
+    while (runtime.slots.length < targetTotal) {
+      const angles = runtime.slots.map(slot => ((slot.phaseOffset % tau) + tau) % tau).sort((a, b) => a - b);
+      let phaseOffset = 0, largestGap = -1;
+      for (let index = 0; index < angles.length; index++) {
+        const start = angles[index], end = index + 1 < angles.length ? angles[index + 1] : angles[0] + tau;
+        if (end - start > largestGap + 1e-10) { largestGap = end - start; phaseOffset = (start + largestGap / 2) % tau; }
+      }
+      runtime.slots.push({
+        slotId: Math.max(0, ...runtime.slots.map(slot => slot.slotId)) + 1,
+        state: "ORBITING", cycleGeneration: 0, pulseSerial: 0, phaseOffset, position: null,
+        nextPulseAtMs: runtime.combatTimeMs + interval, lastPulseSceneUpdate: -1,
+        deployedAtMs: null, deployedUntilMs: null, regenerateAtMs: null, deployedSnapshot: null
+      });
+    }
+    runtime.totalSlots = targetTotal;
+    return true;
+  }
+
+  isUmbraBloodSpikeVerificationEnabled() {
+    if (this.umbraRunContext) return this.hasUmbraRunCapability("bloodSpike", { requireBody: true });
+    return this.verificationContext?.bloodSpikeArena === true
+      && this.getUmbraPhase2AVerifiedMechId() === UMBRA_SERAPH_MECH_ID
+      && this.getRunPlayerMechId() === UMBRA_SERAPH_MECH_ID;
+  }
+
+  getUmbraBloodSpikeCombatBlockReason() {
+    if (this.umbraRunContext) {
+      const reason = this.getUmbraNormalCombatBlockReason();
+      if (reason) return reason;
+      if (this.umbraRunContext.state !== "ACTIVE") return "RUN_BOUND";
+    }
+    if (this.finalBossRaidAssetsLoading || this.isFinalBossRaidActive()) return "FINAL_RAID";
+    if (this.gameOver || this.extractionComplete || this.restartInProgress || this.shopActive) return "RUN_EXIT";
+    if (!Number.isFinite(this.stats?.hp) || this.stats.hp <= 0) return "PLAYER_DEAD";
+    if (this.drivePaused || this.driveHidden || this.selectionObjects?.length || this.levelUpActive
+      || this.gateGuidanceOverlayActive || this.gateChoiceActive || this.sys?.isPaused?.()
+      || this.sys?.isSleeping?.() || this.physics?.world?.isPaused || this.umbraBloodSpikeRuntime?.hidden) return "PAUSED";
+    const body = this.playerHitbox?.body;
+    if (!body?.enable || body.world !== this.physics?.world
+      || !Number.isFinite(body.position?.x) || !Number.isFinite(body.position?.y)) return "INVALID_BODY";
+    return "";
+  }
+
+  getUmbraBloodSpikeBlockReason() {
+    if (!this.isUmbraBloodSpikeVerificationEnabled()) return "CONTEXT_DISABLED";
+    const skill = this.playerSkills?.umbraBloodSpike;
+    const acquired = (this.getUmbraRunContext?.() || this.verificationContext)?.growthEnabled === true || skill?.umbraGrowthRun ? this.getUmbraActiveSkillStage("umbraBloodSpike")
+      : skill?.verificationOnly && skill.currentStage?.behavior === "umbraBloodSpike" && skill.currentStage === this.getUmbraBloodSpikeStage1Config();
+    if (!acquired || this.bloodSpikeAttackEnabled === false) return "SKILL_INACTIVE";
+    return this.getUmbraBloodSpikeCombatBlockReason();
+  }
+
+  // PHANTOM NOVA owns only its slots, target lives and allowed-physics clock.
+  // Trace delivery records a decision; this observer advances time and commits it
+  // before any pulse. Neither input, movement nor either older weapon is changed.
+  isUmbraPhantomNovaVerificationEnabled() {
+    if (this.umbraRunContext) return this.hasUmbraRunCapability("phantomNova", { requireBody: true });
+    return this.verificationContext?.phantomNovaArena === true
+      && this.getUmbraPhase2AVerifiedMechId() === UMBRA_SERAPH_MECH_ID
+      && this.getRunPlayerMechId() === UMBRA_SERAPH_MECH_ID;
+  }
+
+  getUmbraPhantomNovaCombatBlockReason() {
+    if (this.umbraRunContext) {
+      const reason = this.getUmbraNormalCombatBlockReason();
+      if (reason) return reason;
+      if (this.umbraRunContext.state !== "ACTIVE") return "RUN_BOUND";
+    }
+    if (this.finalBossRaidAssetsLoading || this.isFinalBossRaidActive()) return "FINAL_RAID";
+    if (this.gameOver || this.extractionComplete || this.restartInProgress || this.shopActive) return "RUN_EXIT";
+    if (!Number.isFinite(this.stats?.hp) || this.stats.hp <= 0) return "PLAYER_DEAD";
+    if (this.drivePaused || this.driveHidden || this.selectionObjects?.length || this.levelUpActive
+      || this.gateGuidanceOverlayActive || this.gateChoiceActive || this.sys?.isPaused?.()
+      || this.sys?.isSleeping?.() || this.physics?.world?.isPaused || this.umbraPhantomNovaRuntime?.hidden) return "PAUSED";
+    const body = this.playerHitbox?.body;
+    if (!body?.enable || body.world !== this.physics?.world
+      || !Number.isFinite(body.position?.x) || !Number.isFinite(body.position?.y)) return "INVALID_BODY";
+    return "";
+  }
+
+  getUmbraPhantomNovaBlockReason() {
+    if (!this.isUmbraPhantomNovaVerificationEnabled()) return "CONTEXT_DISABLED";
+    const skill = this.playerSkills?.umbraPhantomNova;
+    const acquired = (this.getUmbraRunContext?.() || this.verificationContext)?.growthEnabled === true || skill?.umbraGrowthRun ? this.getUmbraActiveSkillStage("umbraPhantomNova")
+      : skill?.verificationOnly && skill.currentStage?.behavior === UMBRA_PHANTOM_NOVA_SKILL_ID && skill.currentStage === this.getUmbraPhantomNovaStage1Config();
+    if (!acquired || this.novaAttackEnabled === false) return "SKILL_INACTIVE";
+    return this.getUmbraPhantomNovaCombatBlockReason();
+  }
+
+  initializeUmbraPhantomNovaRuntime() {
+    if (this.umbraRunContext && !this.hasUmbraRunCapability("phantomNova", { purpose: "select" })) return null;
+    if (!this.isUmbraPhantomNovaVerificationEnabled() || this.getUmbraPhantomNovaBlockReason() === "SKILL_INACTIVE") return null;
+    if (this.umbraPhantomNovaRuntime) return this.umbraPhantomNovaRuntime;
+    const world = this.physics?.world;
+    if (!world?.on || !this.events?.on) return null;
+    const stats = this.getUmbraPhantomNovaEffectiveStats();
+    const requested = Number((this.getUmbraRunContext?.() || this.verificationContext)?.novaSlots);
+    const totalSlots = (this.getUmbraRunContext?.() || this.verificationContext)?.growthEnabled === true
+      ? this.getUmbraActiveSkillStage("umbraPhantomNova").slotCount : [1, 2, 3].includes(requested) ? requested : 1;
+    const runtime = this.umbraPhantomNovaRuntime = {
+      runGeneration: ++umbraPhantomNovaRunGeneration, depth: this.stageDepth, depthGeneration: 1,
+      player: this.playerHitbox, body: this.playerHitbox?.body, combatTimeMs: 0, physicalSteps: 0, sceneUpdates: 0,
+      totalSlots, slots: [], targets: new Map(), lifeSequence: 0, reservation: null, pendingPhysical: null,
+      lastDeployAtMs: null, trace: null, unsubscribeTrace: null, lastEventOrder: 0, lastStartSequence: 0,
+      cleanups: [], destroyed: false, hidden: false, blockReason: "", errors: 0, lastError: "",
+      applyingPulse: false, currentPulse: null, history: [], pulseHistory: [], lastPulse: null,
+      counts: { steps: 0, starts: 0, reservations: 0, cancelled: 0, deployed: 0, expired: 0, regenerated: 0,
+        depthChanges: 0, pulses: 0, orbitPulses: 0, deployedPulses: 0, skippedCatchup: 0, searches: 0,
+        attempts: 0, accepted: 0, rejected: 0, hpDelta: 0, effectiveHealthLoss: 0, kills: 0 }, skips: {},
+      lastProcessingMs: 0, maxProcessingMs: 0, totalProcessingMs: 0
+    };
+    for (let index = 0; index < totalSlots; index++) runtime.slots.push({
+      slotId: index + 1, state: "ORBITING", cycleGeneration: 0, pulseSerial: 0,
+      phaseOffset: Math.PI * 2 * index / totalSlots, position: null,
+      nextPulseAtMs: stats.orbitIntervalMs, lastPulseSceneUpdate: -1,
+      deployedAtMs: null, deployedUntilMs: null, regenerateAtMs: null, deployedSnapshot: null
+    });
+    const listen = (emitter, event, handler) => {
+      if (!emitter?.on) return;
+      const ownedHandler = (...args) => {
+        if (this.umbraPhantomNovaRuntime === runtime && !runtime.destroyed) handler(...args);
+      };
+      emitter.on(event, ownedHandler); runtime.cleanups.push(() => emitter.off?.(event, ownedHandler));
+    };
+    runtime.worldStepHandler = delta => {
+      if (this.umbraPhantomNovaRuntime !== runtime || runtime.destroyed) return;
+      try { this.observeUmbraPhantomNovaStep(delta); }
+      catch (error) { runtime.errors++; runtime.lastError = String(error?.stack || error).slice(0, 1600); throw error; }
+    };
+    this.connectUmbraPhantomNovaTrace();
+    const worldStepHandler = runtime.worldStepHandler;
+    world.on("worldstep", worldStepHandler); runtime.worldStepRegistered = true;
+    runtime.cleanups.push(() => world.off("worldstep", worldStepHandler));
+    listen(this.events, "preupdate", (time, delta) => {
+      runtime.sceneUpdates++;
+      if (this.prepareUmbraPhantomNovaFrame()) this.advanceUmbraNovaProtectionClock(delta);
+    });
+    for (const event of ["pause", "sleep"]) listen(this.events, event, () => this.cancelUmbraPhantomNovaReservation(`SCENE_${event.toUpperCase()}`));
+    listen(world, "pause", () => this.cancelUmbraPhantomNovaReservation("WORLD_PAUSE"));
+    listen(this.game?.events, "hidden", () => { runtime.hidden = true; this.cancelUmbraPhantomNovaReservation("HIDDEN"); });
+    listen(this.game?.events, "visible", () => { runtime.hidden = false; });
+    for (const event of ["shutdown", "destroy"]) listen(this.events, event, () => this.destroyUmbraPhantomNovaRuntime(event.toUpperCase()));
+    this.initializeUmbraControlOwner?.("umbraPhantomNova", runtime);
+    this.updateUmbraPhantomNovaPositions();
+    return runtime;
+  }
+
+  connectUmbraPhantomNovaTrace() {
+    const runtime = this.umbraPhantomNovaRuntime;
+    if (!runtime || runtime.destroyed) return;
+    const trace = this.isUmbraBoostTraceEnabled() ? this.ensureUmbraBoostTrace() : null;
+    if (trace === runtime.trace) return;
+    this.cancelUmbraPhantomNovaReservation("TRACE_CHANGED");
+    runtime.unsubscribeTrace?.(); runtime.unsubscribeTrace = null; runtime.trace = trace;
+    runtime.lastEventOrder = trace?.order || 0; runtime.lastStartSequence = trace?.boostSequence || 0;
+    if (!trace) return;
+    runtime.unsubscribeTrace = this.subscribeUmbraBoostTrace("umbra-phantom-nova", event => {
+      if (this.umbraPhantomNovaRuntime === runtime && !runtime.destroyed && runtime.trace === trace && this.umbraBoostTrace === trace) {
+        this.receiveUmbraPhantomNovaTrace(event);
+      }
+    });
+    // Only our observer moves when the source itself is replaced. Older weapon
+    // listeners and ordinary diagnostic visibility retain their existing order.
+    if (runtime.worldStepRegistered) {
+      this.physics.world.off("worldstep", runtime.worldStepHandler);
+      this.physics.world.on("worldstep", runtime.worldStepHandler);
+    }
+  }
+
+  destroyUmbraPhantomNovaRuntime(reason = "DESTROY") {
+    const runtime = this.umbraPhantomNovaRuntime;
+    if (!runtime || runtime.destroyed) return;
+    this.cancelUmbraPhantomNovaReservation(reason);
+    runtime.destroyed = true; runtime.blockReason = reason;
+    runtime.unsubscribeTrace?.(); runtime.unsubscribeTrace = null;
+    for (const cleanup of runtime.cleanups.splice(0)) cleanup();
+    runtime.targets.clear(); runtime.slots.length = 0; runtime.history.length = 0; runtime.pulseHistory.length = 0;
+    runtime.trace = null; runtime.player = null; runtime.body = null; runtime.lastPulse = null;
+    runtime.currentPulse = null; runtime.applyingPulse = false; runtime.worldStepHandler = null;
+    this.umbraPhantomNovaRuntime = null;
+    this.onUmbraPhantomNovaRuntimeCleared?.(reason);
+  }
+
+  prepareUmbraPhantomNovaFrame() {
+    const runtime = this.umbraPhantomNovaRuntime;
+    if (!runtime || runtime.destroyed) return false;
+    const block = this.getUmbraPhantomNovaBlockReason();
+    if (["CONTEXT_DISABLED", "SKILL_INACTIVE", "RUN_EXIT", "PLAYER_DEAD", "FINAL_RAID"].includes(block)
+      || runtime.player !== this.playerHitbox) {
+      this.destroyUmbraPhantomNovaRuntime(block || "PLAYER_REPLACED"); return false;
+    }
+    if (runtime.depth !== this.stageDepth) this.handleUmbraPhantomNovaDepthChange(this.stageDepth);
+    if (runtime.body !== this.playerHitbox?.body) {
+      this.clearUmbraNovaProtectionFields();
+      this.cancelUmbraPhantomNovaReservation("BODY_REPLACED"); runtime.body = this.playerHitbox?.body;
+    }
+    runtime.blockReason = block;
+    if (block) this.cancelUmbraPhantomNovaReservation(block);
+    this.connectUmbraPhantomNovaTrace();
+    const reservation = runtime.reservation, trace = runtime.trace;
+    if (reservation && (trace?.runGeneration !== reservation.traceRunGeneration
+      || trace?.depthGeneration !== reservation.traceDepthGeneration || trace?.basisGeneration !== reservation.basisGeneration)) {
+      this.cancelUmbraPhantomNovaReservation("GENERATION_CHANGED");
+    }
+    return !block;
+  }
+
+  handleUmbraPhantomNovaDepthChange(targetDepth = this.stageDepth) {
+    const runtime = this.umbraPhantomNovaRuntime;
+    if (!runtime || runtime.destroyed || runtime.depth === targetDepth) return false;
+    this.cancelUmbraPhantomNovaReservation("DEPTH_CHANGED");
+    this.clearUmbraNovaProtectionFields();
+    runtime.depth = targetDepth; runtime.depthGeneration++; runtime.counts.depthChanges++;
+    runtime.targets.clear(); runtime.history.length = 0; runtime.pulseHistory.length = 0; runtime.lastPulse = null;
+    for (const slot of runtime.slots) {
+      if (slot.state === "DEPLOYED") {
+        slot.state = "REGENERATING";
+        slot.regenerateAtMs = slot.deployedUntilMs + slot.deployedSnapshot.regenerationMs;
+        slot.nextPulseAtMs = null;
+      }
+      slot.position = null;
+      if (slot.state === "REGENERATING") {
+        slot.deployedAtMs = null; slot.deployedUntilMs = null; slot.deployedSnapshot = null;
+      }
+    }
+    this.onUmbraPhantomNovaDepthChanged?.("DEPTH_CHANGED");
+    this.updateUmbraPhantomNovaPositions();
+    return true;
+  }
+
+  recordUmbraPhantomNovaSkip(reason, count = 1) {
+    const runtime = this.umbraPhantomNovaRuntime;
+    if (!runtime) return;
+    const key = Object.hasOwn(runtime.skips, reason) || Object.keys(runtime.skips).length < 40 ? reason : "OTHER";
+    runtime.skips[key] = (runtime.skips[key] || 0) + count;
+  }
+
+  recordUmbraPhantomNovaTransition(type, detail = {}) {
+    const runtime = this.umbraPhantomNovaRuntime;
+    if (!runtime) return;
+    runtime.history.push(Object.freeze({ type, combatTimeMs: runtime.combatTimeMs, physicalStep: runtime.physicalSteps,
+      sceneUpdate: runtime.sceneUpdates, depthGeneration: runtime.depthGeneration, ...detail }));
+    if (runtime.history.length > 128) runtime.history.shift();
+  }
+
+  cancelUmbraPhantomNovaReservation(reason = "CANCELLED") {
+    const runtime = this.umbraPhantomNovaRuntime;
+    if (!runtime) return false;
+    const reservation = runtime.reservation;
+    runtime.reservation = null; runtime.pendingPhysical = null;
+    if (!reservation) return false;
+    runtime.counts.cancelled++; this.recordUmbraPhantomNovaSkip(reason);
+    this.recordUmbraPhantomNovaTransition("CANCEL", { reason, slotId: reservation.slotId, boostSequence: reservation.boostSequence });
+    return true;
+  }
+
+  getUmbraPhantomNovaPlacementBlockReason(position) {
+    if (!Number.isFinite(position?.x) || !Number.isFinite(position?.y)) return "INVALID_POSITION";
+    const bounds = this.physics?.world?.bounds;
+    if (!bounds || position.x < bounds.x || position.y < bounds.y
+      || position.x > bounds.x + bounds.width || position.y > bounds.y + bounds.height) return "OUT_OF_BOUNDS";
+    return this.isUmbraMoonlightLineBlocked(position, position) ? "IN_WALL" : "";
+  }
+
+  receiveUmbraPhantomNovaTrace(event) {
+    const runtime = this.umbraPhantomNovaRuntime, trace = runtime?.trace;
+    if (!runtime || runtime.destroyed || !trace || trace !== this.umbraBoostTrace
+      || !Number.isFinite(event?.order) || event.order <= runtime.lastEventOrder) return;
+    const sourceMatches = event.runGeneration === trace.runGeneration && event.depthGeneration === trace.depthGeneration
+      && event.basisGeneration === trace.basisGeneration;
+    // A delayed old-generation end/high order must not consume a newer source's
+    // cursor or cancel its reservation. Current invalidation uses the new basis.
+    if (!sourceMatches) return;
+    runtime.lastEventOrder = event.order;
+    if (event.type === "end" || event.type === "invalidate") { this.cancelUmbraPhantomNovaReservation(event.reason || event.type.toUpperCase()); return; }
+    if (event.type === "start") {
+      if (!Number.isFinite(event.boostSequence) || event.boostSequence <= runtime.lastStartSequence) return;
+      runtime.lastStartSequence = event.boostSequence; runtime.counts.starts++;
+      this.cancelUmbraPhantomNovaReservation("NEW_START");
+      const block = this.getUmbraPhantomNovaBlockReason();
+      if (block || !this.isUmbraBoostTraceEnabled()) { this.recordUmbraPhantomNovaSkip(block || "TRACE_DISABLED"); return; }
+      if (runtime.depth !== this.stageDepth) { this.recordUmbraPhantomNovaSkip("DEPTH_CHANGED"); return; }
+      const stats = this.getUmbraPhantomNovaEffectiveStats();
+      const slot = runtime.slots.find(candidate => candidate.state === "ORBITING");
+      let reason = slot ? "" : "NO_ORBITING_SLOT";
+      if (!reason && runtime.lastDeployAtMs !== null && runtime.combatTimeMs + 1e-7 < runtime.lastDeployAtMs + stats.deployIntervalMs) reason = "DEPLOY_COOLDOWN";
+      if (!reason) reason = this.getUmbraPhantomNovaPlacementBlockReason(event.fixedStart);
+      if (!reason && runtime.slots.some(candidate => candidate.state === "DEPLOYED"
+        && Math.hypot(candidate.position.x - event.fixedStart.x, candidate.position.y - event.fixedStart.y) < stats.minDeployDistance - 1e-9)) reason = "DEPLOY_TOO_CLOSE";
+      if (reason) { this.recordUmbraPhantomNovaSkip(reason); return; }
+      runtime.reservation = Object.freeze({ slotId: slot.slotId, cycleGeneration: slot.cycleGeneration,
+        boostSequence: event.boostSequence, fixedStart: Object.freeze({ x: event.fixedStart.x, y: event.fixedStart.y }),
+        runGeneration: runtime.runGeneration, depthGeneration: runtime.depthGeneration,
+        traceRunGeneration: event.runGeneration, traceDepthGeneration: event.depthGeneration, basisGeneration: event.basisGeneration,
+        reservedPhysicalStep: event.physicalStep, reservedCombatTimeMs: runtime.combatTimeMs });
+      runtime.counts.reservations++;
+      this.recordUmbraPhantomNovaTransition("RESERVE", runtime.reservation);
+    } else if (event.type === "step" && runtime.reservation && !runtime.pendingPhysical
+      && event.boostSequence === runtime.reservation.boostSequence) {
+      // A first failed physical evaluation is final, even if a later segment is
+      // valid for MOONLIGHT. Receiving a notification does not advance our clock.
+      const reservation = runtime.reservation;
+      const moved = Math.hypot(event.to?.x - event.from?.x, event.to?.y - event.from?.y) > 1e-9;
+      const valid = event.firstPhysicalEvaluation === true && event.valid === true && moved
+        && event.physicalStep > reservation.reservedPhysicalStep
+        && event.runGeneration === reservation.traceRunGeneration && event.depthGeneration === reservation.traceDepthGeneration
+        && event.basisGeneration === reservation.basisGeneration;
+      let physicalDirection;
+      if (valid && this.getUmbraMobilityTrialSettings?.().novaFieldShape === "lane"
+        && [event.from?.x, event.from?.y, event.to?.x, event.to?.y].every(Number.isFinite)) {
+        const dx = event.to.x - event.from.x, dy = event.to.y - event.from.y, length = Math.hypot(dx, dy);
+        if (Number.isFinite(length) && length > 1e-9) physicalDirection = Object.freeze({ x: dx / length, y: dy / length });
+      }
+      runtime.pendingPhysical = Object.freeze({ valid, reason: valid ? "" : event.reason || "FIRST_PHYSICAL_REJECTED",
+        physicalStep: event.physicalStep, boostSequence: event.boostSequence,
+        ...(physicalDirection ? { physicalDirection } : {}) });
+    }
+  }
+
+  commitUmbraPhantomNovaReservation() {
+    const runtime = this.umbraPhantomNovaRuntime, reservation = runtime?.reservation, decision = runtime?.pendingPhysical;
+    if (!runtime || !reservation || !decision) return false;
+    if (!decision.valid) { this.cancelUmbraPhantomNovaReservation(decision.reason); return false; }
+    const trace = runtime.trace, slot = runtime.slots.find(candidate => candidate.slotId === reservation.slotId);
+    const stats = this.getUmbraPhantomNovaEffectiveStats();
+    let reason = this.getUmbraPhantomNovaBlockReason();
+    if (!reason && (!this.isUmbraBoostTraceEnabled() || trace !== this.umbraBoostTrace
+      || trace?.runGeneration !== reservation.traceRunGeneration || trace?.depthGeneration !== reservation.traceDepthGeneration
+      || trace?.basisGeneration !== reservation.basisGeneration || runtime.runGeneration !== reservation.runGeneration
+      || runtime.depthGeneration !== reservation.depthGeneration || runtime.depth !== this.stageDepth)) reason = "GENERATION_CHANGED";
+    if (!reason && (!slot || slot.state !== "ORBITING" || slot.cycleGeneration !== reservation.cycleGeneration)) reason = "RESERVED_SLOT_UNAVAILABLE";
+    if (!reason) reason = this.getUmbraPhantomNovaPlacementBlockReason(reservation.fixedStart);
+    if (!reason && runtime.lastDeployAtMs !== null && runtime.combatTimeMs + 1e-7 < runtime.lastDeployAtMs + stats.deployIntervalMs) reason = "DEPLOY_COOLDOWN";
+    if (!reason && runtime.slots.some(candidate => candidate.state === "DEPLOYED"
+      && Math.hypot(candidate.position.x - reservation.fixedStart.x, candidate.position.y - reservation.fixedStart.y) < stats.minDeployDistance - 1e-9)) reason = "DEPLOY_TOO_CLOSE";
+    if (reason) { this.cancelUmbraPhantomNovaReservation(reason); return false; }
+    slot.state = "DEPLOYED"; slot.cycleGeneration++; slot.position = reservation.fixedStart;
+    slot.deployedSnapshot = Object.freeze({ rawDamage: stats.deployedRawDamage, range: stats.deployedRange,
+      intervalMs: stats.deployedIntervalMs, durationMs: stats.deployedDurationMs, regenerationMs: stats.regenerationMs,
+      ...(stats.coreProfile ? { coreProfile: stats.coreProfile } : {}),
+      ...(stats.deployedFinalProfile ? { finalProfile: stats.deployedFinalProfile } : {}) });
+    slot.deployedAtMs = runtime.combatTimeMs; slot.deployedUntilMs = runtime.combatTimeMs + slot.deployedSnapshot.durationMs;
+    slot.nextPulseAtMs = runtime.combatTimeMs + slot.deployedSnapshot.intervalMs; slot.regenerateAtMs = null;
+    runtime.lastDeployAtMs = runtime.combatTimeMs; runtime.reservation = null; runtime.pendingPhysical = null;
+    runtime.counts.deployed++;
+    this.createUmbraNovaProtectionField(slot, decision.physicalDirection);
+    if (slot.deployedSnapshot.finalProfile?.finalId === "singularity") this.createUmbraFinalField("umbraPhantomNova", runtime,
+      slot.position, slot.deployedSnapshot.coreProfile, slot.deployedSnapshot.finalProfile,
+      { slotId: slot.slotId, cycleGeneration: slot.cycleGeneration, expiresAtMs: slot.deployedUntilMs });
+    this.recordUmbraPhantomNovaTransition("DEPLOY", { slotId: slot.slotId, cycleGeneration: slot.cycleGeneration,
+      boostSequence: reservation.boostSequence, position: slot.position, physicalStep: decision.physicalStep });
+    return true;
+  }
+
+  advanceUmbraNovaProtectionClock(deltaMs) {
+    const runtime = this.umbraPhantomNovaRuntime;
+    if (!runtime || runtime.destroyed || !(this.getUmbraMobilityTrialSettings?.().novaFieldDurationMs > 0)) return;
+    // Scene PRE_UPDATE precedes Arcade colliders, whereas WORLD_STEP follows
+    // them. This second, allowed-frame deadline closes that one-step expiry
+    // gap without moving the existing NOVA attack/deployment clock forward.
+    const elapsed = Number.isFinite(deltaMs) && deltaMs > 0 ? deltaMs : 0;
+    runtime.protectionTimeMs = Math.max(runtime.protectionTimeMs || 0, runtime.combatTimeMs) + elapsed;
+    for (const slot of runtime.slots) {
+      const field = slot.protectionField;
+      if (field && (runtime.protectionTimeMs + 1e-7 >= field.protectionExpiresAtMs
+        || runtime.combatTimeMs + 1e-7 >= field.expiresAtMs)) slot.protectionField = null;
+    }
+  }
+
+  createUmbraNovaProtectionField(slot, physicalDirection = null) {
+    const runtime = this.umbraPhantomNovaRuntime, settings = this.getUmbraMobilityTrialSettings?.();
+    if (!runtime || runtime.destroyed || !runtime.slots.includes(slot) || slot.state !== "DEPLOYED"
+      || slot.deployedAtMs !== runtime.combatTimeMs
+      || slot.protectionField || !(settings?.novaFieldRadius > 0) || !(settings.novaFieldDurationMs > 0)
+      || this.getUmbraPhantomNovaBlockReason()) return false;
+    const durationMs = Math.min(settings.novaFieldDurationMs, slot.deployedUntilMs - runtime.combatTimeMs);
+    if (!Number.isFinite(durationMs) || durationMs <= 0 || !Number.isFinite(slot.position?.x)
+      || !Number.isFinite(slot.position?.y)) return false;
+    let lane;
+    if (settings.novaFieldShape === "lane") {
+      if (!this.getUmbraActiveSkillStage("umbraMoonlight") || !this.getUmbraActiveSkillStage("umbraPhantomNova")) return false;
+      const length = Math.hypot(physicalDirection?.x, physicalDirection?.y);
+      const forwardLength = settings.novaFieldForwardLength, rearLength = settings.novaFieldRearLength, halfWidth = settings.novaFieldHalfWidth;
+      if (!Number.isFinite(length) || length <= 1e-9 || ![forwardLength, rearLength, halfWidth].every(Number.isFinite)
+        || forwardLength <= 0 || rearLength < 0 || halfWidth <= 0) return false;
+      // The accepted first physical step owns the lane direction. Camera,
+      // later steering, facing, and EN never reinterpret this snapshot.
+      lane = { shape: "lane", dirX: physicalDirection.x / length, dirY: physicalDirection.y / length,
+        forwardLength, rearLength, halfWidth };
+    }
+    const protectionTimeMs = Math.max(runtime.protectionTimeMs || 0, runtime.combatTimeMs);
+    slot.protectionField = Object.freeze({ runContext: this.umbraRunContext, runGeneration: runtime.runGeneration,
+      depth: runtime.depth, depthGeneration: runtime.depthGeneration, body: runtime.body,
+      slotId: slot.slotId, cycleGeneration: slot.cycleGeneration,
+      x: slot.position.x, y: slot.position.y, radius: settings.novaFieldRadius, durationMs, ...(lane || {}),
+      createdAtMs: runtime.combatTimeMs, expiresAtMs: runtime.combatTimeMs + durationMs,
+      deployedUntilMs: slot.deployedUntilMs, protectionExpiresAtMs: protectionTimeMs + durationMs });
+    return true;
+  }
+
+  clearUmbraNovaProtectionFields() {
+    for (const slot of this.umbraPhantomNovaRuntime?.slots || []) if (slot.protectionField) slot.protectionField = null;
+  }
+
+  isUmbraNovaProtectionFieldCurrent(slot, runtime = this.umbraPhantomNovaRuntime) {
+    const field = slot?.protectionField;
+    return Boolean(field && runtime && runtime === this.umbraPhantomNovaRuntime && !runtime.destroyed
+      && runtime.slots.includes(slot) && slot.state === "DEPLOYED" && field.runContext === this.umbraRunContext
+      && field.runGeneration === runtime.runGeneration && field.depth === this.stageDepth && runtime.depth === this.stageDepth
+      && field.depthGeneration === runtime.depthGeneration && field.cycleGeneration === slot.cycleGeneration
+      && (field.shape !== "lane" || (this.getUmbraActiveSkillStage("umbraMoonlight") && this.getUmbraActiveSkillStage("umbraPhantomNova")))
+      && runtime.player === this.playerHitbox && field.body === this.playerHitbox?.body && field.body === runtime.body
+      && slot.deployedUntilMs === field.deployedUntilMs && runtime.combatTimeMs + 1e-7 < field.expiresAtMs
+      && Math.max(runtime.protectionTimeMs || 0, runtime.combatTimeMs) + 1e-7 < field.protectionExpiresAtMs);
+  }
+
+  isPointInsideUmbraNovaProtectionField(point, field) {
+    if (![point?.x, point?.y, field?.x, field?.y].every(Number.isFinite)) return false;
+    const dx = point.x - field.x, dy = point.y - field.y;
+    if (field.shape === "lane") {
+      const { dirX, dirY, forwardLength, rearLength, halfWidth } = field;
+      if (![dirX, dirY, forwardLength, rearLength, halfWidth].every(Number.isFinite)
+        || Math.abs(Math.hypot(dirX, dirY) - 1) > 1e-9 || forwardLength <= 0 || rearLength < 0 || halfWidth <= 0) return false;
+      const along = dx * dirX + dy * dirY, across = -dx * dirY + dy * dirX;
+      return along >= -rearLength - 1e-9 && along <= forwardLength + 1e-9 && Math.abs(across) <= halfWidth + 1e-9;
+    }
+    if (field.shape && field.shape !== "circle") return false;
+    return Number.isFinite(field.radius) && field.radius > 0 && dx ** 2 + dy ** 2 <= field.radius ** 2 + 1e-9;
+  }
+
+  getUmbraNovaProtectionVisualState() {
+    const runtime = this.umbraPhantomNovaRuntime;
+    const disabled = { enabled: false, protected: false, fields: [] };
+    if (!runtime || !(this.getUmbraMobilityTrialSettings?.().novaFieldDurationMs > 0)
+      || this.getUmbraPhantomNovaBlockReason() || this.overlayContainer?.visible) return disabled;
+    const point = this.getUmbraBoostTraceBodyPoint();
+    if (!point) return disabled;
+    const fields = [];
+    for (const slot of runtime.slots) {
+      if (!this.isUmbraNovaProtectionFieldCurrent(slot, runtime)) continue;
+      const field = slot.protectionField;
+      fields.push({ slotId: field.slotId, cycleGeneration: field.cycleGeneration, x: field.x, y: field.y,
+        radius: field.radius, durationMs: field.durationMs, expiresAtMs: field.expiresAtMs,
+        ...(field.shape === "lane" ? { shape: field.shape, dirX: field.dirX, dirY: field.dirY,
+          forwardLength: field.forwardLength, rearLength: field.rearLength, halfWidth: field.halfWidth } : {}),
+        remainingMs: Math.max(0, Math.min(field.expiresAtMs - runtime.combatTimeMs,
+          field.protectionExpiresAtMs - Math.max(runtime.protectionTimeMs || 0, runtime.combatTimeMs))),
+        containsPlayer: this.isPointInsideUmbraNovaProtectionField(point, field) });
+    }
+    return { enabled: true, protected: fields.some(field => field.containsPlayer), fields };
+  }
+
+  isPlayerProtectedByUmbraNovaField() {
+    const runtime = this.umbraPhantomNovaRuntime;
+    if (!runtime || !(this.getUmbraMobilityTrialSettings?.().novaFieldDurationMs > 0)
+      || this.getUmbraPhantomNovaBlockReason() || this.overlayContainer?.visible) return false;
+    const point = this.getUmbraBoostTraceBodyPoint();
+    if (!point) return false;
+    for (const slot of runtime.slots) {
+      if (!this.isUmbraNovaProtectionFieldCurrent(slot, runtime)) continue;
+      const field = slot.protectionField;
+      if (this.isPointInsideUmbraNovaProtectionField(point, field)) return true;
+    }
+    return false;
+  }
+
+  updateUmbraPhantomNovaPositions() {
+    const runtime = this.umbraPhantomNovaRuntime;
+    if (!runtime) return;
+    const center = this.getUmbraBoostTraceBodyPoint(), stats = this.getUmbraPhantomNovaEffectiveStats();
+    for (const slot of runtime.slots) {
+      if (slot.state === "REGENERATING") slot.position = null;
+      else if (slot.state === "ORBITING") {
+        const angle = runtime.combatTimeMs * Math.PI * 2 / stats.orbitPeriodMs + slot.phaseOffset;
+        slot.position = center ? Object.freeze({ x: center.x + Math.cos(angle) * stats.orbitRadius,
+          y: center.y + Math.sin(angle) * stats.orbitRadius }) : null;
+      }
+    }
+  }
+
+  registerUmbraPhantomNovaEnemyLife(enemy) {
+    if (this.umbraPhantomNovaRuntime?.depth !== this.stageDepth) this.prepareUmbraPhantomNovaFrame();
+    const runtime = this.umbraPhantomNovaRuntime;
+    if (!runtime || runtime.destroyed || !enemy) return null;
+    const normalLife = this.getUmbraNormalEnemyLife?.(enemy);
+    const existing = runtime.targets.get(enemy);
+    if (normalLife && existing?.normalLife === normalLife && existing.depth === this.stageDepth
+      && enemy.active && !enemy.isDying && enemy.hp > 0) return existing.lifeId;
+    runtime.controlContributions?.delete(enemy);
+    const sequence = ++runtime.lifeSequence;
+    const record = { lifeId: `${runtime.runGeneration}:${runtime.depthGeneration}:${sequence}`,
+      sequence, depth: runtime.depth, depthGeneration: runtime.depthGeneration };
+    if (normalLife) record.normalLife = normalLife;
+    runtime.targets.set(enemy, record); return record.lifeId;
+  }
+
+  snapshotUmbraPhantomNovaEnemy(enemy, record = this.umbraPhantomNovaRuntime?.targets.get(enemy)) {
+    const runtime = this.umbraPhantomNovaRuntime, body = enemy?.body, world = this.physics?.world;
+    const invalid = reason => ({ enemy, record, reason });
+    if (!record || record.depth !== this.stageDepth || record.depthGeneration !== runtime?.depthGeneration
+      || runtime?.targets.get(enemy) !== record) return invalid("TARGET_UNREGISTERED");
+    if (!enemy?.active || enemy.isDying || !Number.isFinite(enemy.hp) || enemy.hp <= 0) return invalid("TARGET_DEAD");
+    if (!body?.enable || body.world !== world || (world?.bodies?.contains && !world.bodies.contains(body))) return invalid("TARGET_BODY_INACTIVE");
+    if (enemy.isFinalBossRaidBoss || enemy.isFinalBossRaidMinion || enemy.isFinalBossRaidGiantWeapon) return invalid("TARGET_FINAL_RAID");
+    const halfWidth = body.width / 2, halfHeight = body.height / 2;
+    const ox = body.isCircle ? body.halfWidth : halfWidth, oy = body.isCircle ? body.halfHeight : halfHeight;
+    const position = Object.freeze({ x: body.position?.x + ox, y: body.position?.y + oy });
+    const shape = Object.freeze(body.isCircle ? { kind: "circle", radius: body.halfWidth } : { kind: "rect", halfWidth, halfHeight });
+    if (![position.x, position.y, halfWidth, halfHeight, ox, oy].every(Number.isFinite) || halfWidth <= 0 || halfHeight <= 0
+      || (body.isCircle && (!Number.isFinite(shape.radius) || shape.radius <= 0))) return invalid("TARGET_INVALID_GEOMETRY");
+    return { enemy, record, reason: "", position, shape };
+  }
+
+  getUmbraPhantomNovaTargets() {
+    const runtime = this.umbraPhantomNovaRuntime;
+    if (!runtime) return [];
+    const enemies = [...new Set(this.enemies?.getChildren?.() || [])], present = new Set(enemies);
+    for (const [enemy, record] of runtime.targets) {
+      if (!present.has(enemy) || !enemy?.active || enemy.isDying || enemy.hp <= 0
+        || record.depth !== this.stageDepth || record.depthGeneration !== runtime.depthGeneration) runtime.targets.delete(enemy);
+    }
+    return enemies.map(enemy => this.snapshotUmbraPhantomNovaEnemy(enemy));
+  }
+
+  applyUmbraPhantomNovaPulse(slot, targets, stats) {
+    const runtime = this.umbraPhantomNovaRuntime;
+    if (!runtime || !runtime.slots.includes(slot) || this.getUmbraPhantomNovaBlockReason()
+      || slot.state === "REGENERATING" || slot.lastPulseSceneUpdate === runtime.sceneUpdates) return;
+    if (slot.state === "ORBITING" && this.isUmbraTriadContextActive?.()) {
+      // Only this due pulse takes the latest committed profile. Existing deadlines and DEP stay intact.
+      stats = { ...stats, coreProfile: this.getUmbraSkillCoreProfile(UMBRA_PHANTOM_NOVA_SKILL_ID),
+        finalProfile: this.getUmbraSkillFinalProfile(UMBRA_PHANTOM_NOVA_SKILL_ID, undefined, "orbit") };
+    }
+    slot.pulseSerial++; slot.lastPulseSceneUpdate = runtime.sceneUpdates;
+    runtime.counts.pulses++; runtime.counts[slot.state === "ORBITING" ? "orbitPulses" : "deployedPulses"]++;
+    let reason = this.getUmbraPhantomNovaPlacementBlockReason(slot.position);
+    if (!reason && slot.state === "ORBITING" && this.isUmbraMoonlightLineBlocked(this.getUmbraBoostTraceBodyPoint(), slot.position)) reason = "ORBIT_LINK_LOS";
+    if (reason) { this.recordUmbraPhantomNovaSkip(reason); return; }
+    runtime.counts.searches++;
+    let best = null;
+    for (const target of targets) {
+      if (target.reason || !target.enemy.active || target.enemy.isDying || target.enemy.hp <= 0
+        || runtime.targets.get(target.enemy) !== target.record || target.record.depthGeneration !== runtime.depthGeneration) continue;
+      const nearest = this.getUmbraMoonlightNearestTargetPoint(slot.position, target.position, target.shape);
+      const distance = Math.hypot(nearest.x - slot.position.x, nearest.y - slot.position.y);
+      if (distance > stats.range + 1e-9) continue;
+      if (this.isUmbraMoonlightLineBlocked(slot.position, nearest)) { this.recordUmbraPhantomNovaSkip("PULSE_LOS"); continue; }
+      if (!best || distance < best.distance - 1e-9 || (Math.abs(distance - best.distance) <= 1e-9 && target.record.sequence < best.record.sequence)) best = { ...target, nearest, distance };
+    }
+    if (!best) { this.recordUmbraPhantomNovaSkip("NO_VALID_TARGET"); return; }
+    if (runtime !== this.umbraPhantomNovaRuntime || runtime.destroyed || this.getUmbraPhantomNovaBlockReason()
+      || runtime.depth !== this.stageDepth || this.snapshotUmbraPhantomNovaEnemy(best.enemy, best.record).reason) return;
+    const hpBefore = best.enemy.hp;
+    runtime.counts.attempts++; runtime.applyingPulse = true;
+    runtime.currentPulse = { slotId: slot.slotId, cycleGeneration: slot.cycleGeneration, pulseSerial: slot.pulseSerial };
+    const rawDamage = this.getUmbraFinalMainRawDamage?.(stats.finalProfile, best.enemy, stats.rawDamage) ?? stats.rawDamage;
+    const equipmentDamage = this.getUmbraEquipmentAttackDamage?.(UMBRA_PHANTOM_NOVA_SKILL_ID, rawDamage, stats.finalProfile) ?? rawDamage;
+    const finalBasis = this.umbraBoostTrace?.basisGeneration, finalDepth = runtime.depth, finalDepthGeneration = runtime.depthGeneration;
+    try { this.applyDamageToEnemy(best.enemy, equipmentDamage, 0xa6a0ff, null); }
+    finally { runtime.applyingPulse = false; runtime.currentPulse = null; }
+    const hpAfter = Number.isFinite(best.enemy.hp) ? best.enemy.hp : hpBefore;
+    const hpDelta = Math.max(0, hpBefore - hpAfter);
+    const effectiveHealthLoss = Math.max(0, Math.max(0, hpBefore) - Math.max(0, hpAfter));
+    if (!hpDelta) { runtime.counts.rejected++; this.recordUmbraPhantomNovaSkip("RECEIVER_REJECTED"); return; }
+    const killed = hpBefore > 0 && (hpAfter <= 0 || best.enemy.isDying || !best.enemy.active);
+    this.applyUmbraControlHit?.("umbraPhantomNova", runtime, best.enemy, best.record, stats.coreProfile,
+      `${slot.slotId}:${slot.cycleGeneration}:${slot.pulseSerial}`);
+    runtime.counts.accepted++; runtime.counts.hpDelta += hpDelta; runtime.counts.effectiveHealthLoss += effectiveHealthLoss; runtime.counts.kills += Number(killed);
+    const hit = Object.freeze({ slotId: slot.slotId, cycleGeneration: slot.cycleGeneration, pulseSerial: slot.pulseSerial,
+      state: slot.state, lifeId: best.record.lifeId, position: best.nearest, sourcePosition: slot.position,
+      combatTimeMs: runtime.combatTimeMs, physicalStep: runtime.physicalSteps, sceneUpdate: runtime.sceneUpdates,
+      rawDamage, hpBefore, hpAfter, hpDelta, effectiveHealthLoss, killed,
+      ...(stats.finalProfile?.equipmentProfile ? { equipmentDamage } : {}),
+      ...(stats.coreProfile ? { coreProfile: stats.coreProfile } : {}),
+      ...(stats.finalProfile ? { finalProfile: stats.finalProfile } : {}) });
+    if (runtime !== this.umbraPhantomNovaRuntime || runtime.destroyed || runtime.depth !== this.stageDepth) return;
+    let finalDispatch = null;
+    if (stats.finalProfile?.finalId === "prism") {
+      const parent = { id: `N:${runtime.runGeneration}:${runtime.depthGeneration}:${slot.slotId}:${slot.cycleGeneration}:${slot.pulseSerial}`,
+        attempted: new Set([best.record.lifeId]), consumed: false, basisGeneration: finalBasis, depth: finalDepth, depthGeneration: finalDepthGeneration };
+      finalDispatch = this.reserveUmbraFinalDispatch("umbraPhantomNova", runtime, parent, hit.position, stats.coreProfile, stats.finalProfile);
+    }
+    runtime.lastPulse = hit; runtime.pulseHistory.push(hit); if (runtime.pulseHistory.length > 128) runtime.pulseHistory.shift();
+    this.onUmbraPhantomNovaPulse?.(hit);
+    this.dispatchUmbraFinalSecondary?.(finalDispatch);
+  }
+
+  observeUmbraPhantomNovaStep(deltaSeconds) {
+    const runtime = this.umbraPhantomNovaRuntime;
+    if (!runtime || runtime.destroyed) return;
+    runtime.physicalSteps++;
+    if (!this.prepareUmbraPhantomNovaFrame() || runtime !== this.umbraPhantomNovaRuntime) return;
+    const deltaMs = deltaSeconds * 1000;
+    if (!Number.isFinite(deltaMs) || deltaMs <= 0) return;
+    const started = performance.now();
+    runtime.combatTimeMs += deltaMs; runtime.counts.steps++;
+    this.pruneUmbraControlContributions?.("umbraPhantomNova", runtime);
+    this.updateUmbraFinalFields?.("umbraPhantomNova", runtime);
+    this.commitUmbraPhantomNovaReservation();
+    const now = runtime.combatTimeMs, effective = this.getUmbraPhantomNovaEffectiveStats();
+    for (const slot of runtime.slots) {
+      // Half-open deployment lifetime: expiry wins over a pulse at the end.
+      if (slot.state === "DEPLOYED" && now + 1e-7 >= slot.deployedUntilMs) {
+        const unconsumed = Math.max(0, Math.ceil((slot.deployedUntilMs - slot.nextPulseAtMs - 1e-7) / slot.deployedSnapshot.intervalMs));
+        if (unconsumed) {
+          runtime.counts.skippedCatchup += unconsumed;
+          this.recordUmbraPhantomNovaSkip("EXPIRED_UNCONSUMED_PULSES", unconsumed);
+        }
+        slot.state = "REGENERATING"; slot.position = null; slot.nextPulseAtMs = null;
+        if (slot.protectionField) slot.protectionField = null;
+        slot.regenerateAtMs = slot.deployedUntilMs + slot.deployedSnapshot.regenerationMs;
+        slot.deployedAtMs = null; slot.deployedUntilMs = null; slot.deployedSnapshot = null; runtime.counts.expired++;
+        this.recordUmbraPhantomNovaTransition("EXPIRE", { slotId: slot.slotId, cycleGeneration: slot.cycleGeneration });
+      }
+      if (slot.state === "REGENERATING" && now + 1e-7 >= slot.regenerateAtMs) {
+        slot.state = "ORBITING"; slot.regenerateAtMs = null; slot.nextPulseAtMs = now + effective.orbitIntervalMs;
+        runtime.counts.regenerated++;
+        this.recordUmbraPhantomNovaTransition("REGENERATE", { slotId: slot.slotId, cycleGeneration: slot.cycleGeneration });
+      }
+    }
+    this.updateUmbraPhantomNovaPositions();
+    let targets = null;
+    for (const slot of runtime.slots) {
+      if (slot.state === "REGENERATING" || now + 1e-7 < slot.nextPulseAtMs) continue;
+      const stats = slot.state === "DEPLOYED" ? slot.deployedSnapshot : {
+        rawDamage: effective.orbitRawDamage, range: effective.orbitRange, intervalMs: effective.orbitIntervalMs,
+        ...(effective.coreProfile ? { coreProfile: effective.coreProfile } : {}),
+        ...(effective.orbitFinalProfile ? { finalProfile: effective.orbitFinalProfile } : {}) };
+      const elapsedIntervals = Math.max(1, Math.floor((now - slot.nextPulseAtMs + 1e-7) / stats.intervalMs) + 1);
+      const alreadyPulsed = slot.lastPulseSceneUpdate === runtime.sceneUpdates;
+      const skipped = elapsedIntervals - Number(!alreadyPulsed);
+      slot.nextPulseAtMs += elapsedIntervals * stats.intervalMs;
+      if (skipped) { runtime.counts.skippedCatchup += skipped; this.recordUmbraPhantomNovaSkip("SKIPPED_CATCHUP", skipped); }
+      if (alreadyPulsed) continue;
+      // One current-body snapshot per physical evaluation, shared by <=3 slots.
+      if (!targets) targets = this.getUmbraPhantomNovaTargets();
+      this.applyUmbraPhantomNovaPulse(slot, targets, stats);
+      if (!this.prepareUmbraPhantomNovaFrame() || runtime !== this.umbraPhantomNovaRuntime) return;
+    }
+    runtime.lastProcessingMs = performance.now() - started;
+    runtime.maxProcessingMs = Math.max(runtime.maxProcessingMs, runtime.lastProcessingMs);
+    runtime.totalProcessingMs += runtime.lastProcessingMs;
+  }
+
+  getUmbraPhantomNovaVisualState() {
+    const runtime = this.umbraPhantomNovaRuntime;
+    if (!runtime) return { enabled: false, combatTimeMs: 0, slots: [], reservation: null };
+    const effective = this.getUmbraPhantomNovaEffectiveStats(), orbitRange = effective.orbitRange;
+    return { enabled: true, combatTimeMs: runtime.combatTimeMs, totalSlots: runtime.totalSlots,
+      reservation: runtime.reservation ? { ...runtime.reservation } : null,
+      slots: runtime.slots.map(slot => ({ slotId: slot.slotId, state: slot.state, cycleGeneration: slot.cycleGeneration,
+        pulseSerial: slot.pulseSerial, position: slot.position, nextPulseAtMs: slot.nextPulseAtMs,
+        range: slot.state === "DEPLOYED" ? slot.deployedSnapshot.range : slot.state === "ORBITING" ? orbitRange : 0,
+        deployedSnapshot: slot.deployedSnapshot,
+        ...(effective.coreProfile ? { coreProfile: slot.state === "DEPLOYED" ? slot.deployedSnapshot.coreProfile : effective.coreProfile } : {}),
+        ...(effective.orbitFinalProfile ? { finalProfile: slot.state === "DEPLOYED" ? slot.deployedSnapshot.finalProfile : effective.orbitFinalProfile } : {}),
+        deployedAtMs: slot.deployedAtMs, deployedUntilMs: slot.deployedUntilMs, regenerateAtMs: slot.regenerateAtMs })) };
+  }
+
+  getUmbraPhantomNovaSnapshot() {
+    const runtime = this.umbraPhantomNovaRuntime, visual = this.getUmbraPhantomNovaVisualState();
+    if (!runtime) return { ...visual, blockReason: this.getUmbraPhantomNovaBlockReason() };
+    return { ...visual, blockReason: this.getUmbraPhantomNovaBlockReason(), runGeneration: runtime.runGeneration,
+      depth: runtime.depth, depthGeneration: runtime.depthGeneration, physicalSteps: runtime.physicalSteps, sceneUpdates: runtime.sceneUpdates,
+      lastDeployAtMs: runtime.lastDeployAtMs, liveTargets: runtime.targets.size,
+      slots: visual.slots.map((slot, index) => ({ ...slot, deployedSnapshot: runtime.slots[index].deployedSnapshot })),
+      counts: { ...runtime.counts }, skips: { ...runtime.skips }, history: runtime.history.slice(), pulseHistory: runtime.pulseHistory.slice(),
+      lastPulse: runtime.lastPulse, errors: runtime.errors, lastError: runtime.lastError,
+      lastProcessingMs: runtime.lastProcessingMs, maxProcessingMs: runtime.maxProcessingMs, totalProcessingMs: runtime.totalProcessingMs };
+  }
+
+  initializeUmbraBloodSpikeRuntime() {
+    if (this.umbraRunContext && !this.hasUmbraRunCapability("bloodSpike", { purpose: "select" })) return null;
+    if (!this.isUmbraBloodSpikeVerificationEnabled()) return null;
+    if ((this.getUmbraRunContext?.() || this.verificationContext)?.growthEnabled === true && !this.getUmbraActiveSkillStage("umbraBloodSpike")) return null;
+    if (this.umbraBloodSpikeRuntime) return this.umbraBloodSpikeRuntime;
+    const world = this.physics?.world;
+    if (!world?.on || !this.events?.on) return null;
+    const runtime = this.umbraBloodSpikeRuntime = {
+      runGeneration: ++umbraBloodSpikeRunGeneration, depth: this.stageDepth, depthGeneration: 1,
+      player: this.playerHitbox, combatTimeMs: 0, nextCastAtMs: 0, physicalSteps: 0, sceneUpdates: 0, lastCastSceneUpdate: -1,
+      lifeSequence: 0, castSequence: 0, targets: new Map(), casts: [], cleanups: [],
+      destroyed: false, hidden: false, errors: 0, lastError: "", blockReason: "",
+      counts: { steps: 0, searches: 0, casts: 0, impacts: 0, expired: 0, eligible: 0,
+        attempts: 0, accepted: 0, hpDelta: 0, effectiveHealthLoss: 0, kills: 0, rejected: 0 },
+      skips: {}, lastCast: null, lastImpact: null, castHistory: [], impactHistory: [],
+      lastProcessingMs: 0, maxProcessingMs: 0, totalProcessingMs: 0
+    };
+    const listen = (emitter, event, handler) => {
+      if (!emitter?.on) return;
+      emitter.on(event, handler); runtime.cleanups.push(() => emitter.off?.(event, handler));
+    };
+    // The arena connects the existing trace/MOONLIGHT first, then this observer.
+    // Diagnostic visibility never reorders or re-registers either observer.
+    listen(world, "worldstep", delta => {
+      try { this.observeUmbraBloodSpikeStep(delta); }
+      catch (error) { runtime.errors++; runtime.lastError = String(error?.stack || error).slice(0, 1600); throw error; }
+    });
+    listen(this.events, "preupdate", () => { runtime.sceneUpdates++; this.prepareUmbraBloodSpikeFrame(); });
+    listen(this.game?.events, "hidden", () => { runtime.hidden = true; });
+    listen(this.game?.events, "visible", () => { runtime.hidden = false; });
+    for (const event of ["shutdown", "destroy"]) listen(this.events, event, () => this.destroyUmbraBloodSpikeRuntime(event.toUpperCase()));
+    this.initializeUmbraControlOwner?.("umbraBloodSpike", runtime);
+    return runtime;
+  }
+
+  destroyUmbraBloodSpikeRuntime(reason = "DESTROY") {
+    const runtime = this.umbraBloodSpikeRuntime;
+    if (!runtime || runtime.destroyed) return;
+    runtime.destroyed = true; runtime.blockReason = reason;
+    for (const cleanup of runtime.cleanups.splice(0)) cleanup();
+    runtime.targets.clear(); runtime.casts.length = 0;
+    runtime.castHistory.length = 0; runtime.impactHistory.length = 0;
+    runtime.lastCast = null; runtime.lastImpact = null; runtime.player = null;
+    this.umbraBloodSpikeRuntime = null;
+    this.onUmbraBloodSpikeRuntimeCleared?.(reason);
+  }
+
+  prepareUmbraBloodSpikeFrame() {
+    const runtime = this.umbraBloodSpikeRuntime;
+    if (!runtime || runtime.destroyed) return false;
+    const block = this.getUmbraBloodSpikeBlockReason();
+    if (["CONTEXT_DISABLED", "RUN_EXIT", "PLAYER_DEAD"].includes(block) || runtime.player !== this.playerHitbox) {
+      this.destroyUmbraBloodSpikeRuntime(block || "PLAYER_REPLACED"); return false;
+    }
+    if (runtime.depth !== this.stageDepth) {
+      runtime.depth = this.stageDepth; runtime.depthGeneration++;
+      runtime.targets.clear(); runtime.casts.length = 0;
+      runtime.castHistory.length = 0; runtime.impactHistory.length = 0;
+      runtime.lastCast = null; runtime.lastImpact = null;
+      runtime.nextCastAtMs = runtime.combatTimeMs;
+      this.onUmbraBloodSpikeRuntimeCleared?.("DEPTH_CHANGED");
+    }
+    runtime.blockReason = block;
+    return !block;
+  }
+
+  registerUmbraBloodSpikeEnemyLife(enemy) {
+    if (this.umbraBloodSpikeRuntime?.depth !== this.stageDepth) this.prepareUmbraBloodSpikeFrame();
+    const runtime = this.umbraBloodSpikeRuntime;
+    if (!runtime || runtime.destroyed || !enemy) return null;
+    // Explicit spawn/reuse only. Reconfiguring a living body keeps its life ID.
+    const normalLife = this.getUmbraNormalEnemyLife?.(enemy);
+    const existing = runtime.targets.get(enemy);
+    if (normalLife && existing?.normalLife === normalLife && existing.depth === this.stageDepth
+      && enemy.active && !enemy.isDying && enemy.hp > 0) return existing.lifeId;
+    runtime.controlContributions?.delete(enemy);
+    const sequence = ++runtime.lifeSequence;
+    const record = { lifeId: `${runtime.runGeneration}:${runtime.depthGeneration}:${sequence}`,
+      sequence, depth: this.stageDepth, depthGeneration: runtime.depthGeneration };
+    if (normalLife) record.normalLife = normalLife;
+    runtime.targets.set(enemy, record);
+    return record.lifeId;
+  }
+
+  snapshotUmbraBloodSpikeEnemy(enemy, record = this.umbraBloodSpikeRuntime?.targets.get(enemy)) {
+    const runtime = this.umbraBloodSpikeRuntime, body = enemy?.body, world = this.physics?.world;
+    const invalid = reason => ({ enemy, record, reason });
+    if (!record || record.depth !== this.stageDepth || record.depthGeneration !== runtime?.depthGeneration
+      || runtime?.targets.get(enemy) !== record) return invalid("TARGET_UNREGISTERED");
+    if (!enemy?.active || enemy.isDying || !Number.isFinite(enemy.hp) || enemy.hp <= 0) return invalid("TARGET_DEAD");
+    if (!body?.enable || body.world !== world || (world?.bodies?.contains && !world.bodies.contains(body))) return invalid("TARGET_BODY_INACTIVE");
+    if (enemy.isFinalBossRaidBoss || enemy.isFinalBossRaidMinion || enemy.isFinalBossRaidGiantWeapon) return invalid("TARGET_FINAL_RAID");
+    const halfWidth = body.width / 2, halfHeight = body.height / 2;
+    const ox = body.isCircle ? body.halfWidth : halfWidth, oy = body.isCircle ? body.halfHeight : halfHeight;
+    const position = Object.freeze({ x: body.position?.x + ox, y: body.position?.y + oy });
+    const shape = Object.freeze(body.isCircle ? { kind: "circle", radius: body.halfWidth }
+      : { kind: "rect", halfWidth, halfHeight });
+    if (![position.x, position.y, halfWidth, halfHeight, ox, oy].every(Number.isFinite) || halfWidth <= 0 || halfHeight <= 0
+      || (body.isCircle && (!Number.isFinite(shape.radius) || shape.radius <= 0))) return invalid("TARGET_INVALID_GEOMETRY");
+    // Deliberately do not read prev/newVelocity or updateFromGameObject here.
+    return { enemy, record, reason: "", position, shape };
+  }
+
+  getUmbraBloodSpikeTargets() {
+    const runtime = this.umbraBloodSpikeRuntime;
+    if (!runtime) return [];
+    const enemies = [...new Set(this.enemies?.getChildren?.() || [])], present = new Set(enemies);
+    for (const [enemy, record] of runtime.targets) {
+      if (!present.has(enemy) || !enemy?.active || enemy.isDying || enemy.hp <= 0
+        || record.depth !== this.stageDepth || record.depthGeneration !== runtime.depthGeneration) runtime.targets.delete(enemy);
+    }
+    return enemies.map(enemy => this.snapshotUmbraBloodSpikeEnemy(enemy));
+  }
+
+  recordUmbraBloodSpikeSkip(reason, cast = null) {
+    const runtime = this.umbraBloodSpikeRuntime;
+    if (!runtime) return;
+    const key = Object.hasOwn(runtime.skips, reason) || Object.keys(runtime.skips).length < 40 ? reason : "OTHER";
+    runtime.skips[key] = (runtime.skips[key] || 0) + 1;
+    if (cast) cast.skips[key] = (cast.skips[key] || 0) + 1;
+  }
+
+  findUmbraBloodSpikePlacement(targets = this.getUmbraBloodSpikeTargets()) {
+    const runtime = this.umbraBloodSpikeRuntime, body = this.playerHitbox?.body;
+    if (!runtime || !body) return null;
+    const player = { x: body.position.x + body.width / 2, y: body.position.y + body.height / 2 };
+    const range = this.getUmbraBloodSpikeEffectiveStats().searchRange, bounds = this.physics.world.bounds;
+    let best = null;
+    for (const target of targets) {
+      if (target.reason) { this.recordUmbraBloodSpikeSkip(target.reason); continue; }
+      const p = target.position, distance = Math.hypot(p.x - player.x, p.y - player.y);
+      if (distance > range + 1e-9) continue;
+      if (!bounds || p.x < bounds.x || p.y < bounds.y || p.x > bounds.x + bounds.width || p.y > bounds.y + bounds.height) {
+        this.recordUmbraBloodSpikeSkip("PLACEMENT_OUT_OF_BOUNDS"); continue;
+      }
+      if (this.isUmbraMoonlightLineBlocked(p, p)) { this.recordUmbraBloodSpikeSkip("PLACEMENT_IN_WALL"); continue; }
+      if (this.isUmbraMoonlightLineBlocked(player, p)) { this.recordUmbraBloodSpikeSkip("PLACEMENT_LOS"); continue; }
+      if (!best || distance < best.distance - 1e-9 || (Math.abs(distance - best.distance) <= 1e-9 && target.record.sequence < best.record.sequence)) {
+        best = { ...target, distance };
+      }
+    }
+    return best;
+  }
+
+  createUmbraBloodSpikeCast(target) {
+    const runtime = this.umbraBloodSpikeRuntime, stats = this.getUmbraBloodSpikeEffectiveStats();
+    if (!runtime || this.getUmbraBloodSpikeBlockReason() || !target || runtime.casts.length >= stats.maxActiveCasts) return null;
+    const cast = {
+      castId: `${runtime.runGeneration}:${runtime.depthGeneration}:${++runtime.castSequence}`,
+      depth: runtime.depth, depthGeneration: runtime.depthGeneration, targetLifeId: target.record.lifeId,
+      position: Object.freeze({ x: target.position.x, y: target.position.y }),
+      createdCombatTimeMs: runtime.combatTimeMs, impactDueAtMs: runtime.combatTimeMs + stats.impactOffsetMs,
+      appliedAtMs: null, rawDamage: stats.rawDamage, radius: stats.impactRadius,
+      ...(stats.coreProfile ? { coreProfile: stats.coreProfile } : {}),
+      ...(stats.finalProfile ? { finalProfile: stats.finalProfile } : {}),
+      durationMs: stats.lifetimeMs, frameRate: stats.frameRate, frameCount: stats.frameCount,
+      impactFrameIndex: stats.impactFrameIndex, intervalMs: stats.intervalMs,
+      nextCastAtMs: runtime.combatTimeMs + stats.intervalMs,
+      targets: 0, accepted: 0, kills: 0, hpDelta: 0, effectiveHealthLoss: 0,
+      skips: {}, attempted: new Set(), reason: "WAITING_IMPACT"
+    };
+    runtime.nextCastAtMs = cast.nextCastAtMs; runtime.lastCastSceneUpdate = runtime.sceneUpdates;
+    runtime.casts.push(cast); runtime.counts.casts++;
+    runtime.lastCast = this.getUmbraBloodSpikeCastSnapshot(cast);
+    runtime.castHistory.push(runtime.lastCast); if (runtime.castHistory.length > 128) runtime.castHistory.shift();
+    return cast;
+  }
+
+  applyUmbraBloodSpikeImpact(cast) {
+    const runtime = this.umbraBloodSpikeRuntime;
+    if (!runtime || cast.appliedAtMs !== null || !runtime.casts.includes(cast) || this.getUmbraBloodSpikeBlockReason()
+      || cast.depth !== this.stageDepth || cast.depthGeneration !== runtime.depthGeneration) return;
+    // Mark before any receiver/callback: a rejection or synchronous transition
+    // can never schedule another attempt from a later visual frame.
+    cast.appliedAtMs = runtime.combatTimeMs; cast.reason = "IMPACT_COMPLETE"; runtime.counts.impacts++;
+    const targets = this.getUmbraBloodSpikeTargets();
+    const finalParent = cast.finalProfile?.finalId ? { id: `B:${cast.castId}`, attempted: cast.attempted, consumed: false,
+      basisGeneration: this.umbraBoostTrace?.basisGeneration, depth: cast.depth, depthGeneration: cast.depthGeneration } : null;
+    let finalDispatch = null;
+    for (const target of targets) {
+      if (target.reason) { this.recordUmbraBloodSpikeSkip(target.reason, cast); continue; }
+      const nearest = this.getUmbraMoonlightNearestTargetPoint(cast.position, target.position, target.shape);
+      if (Math.hypot(nearest.x - cast.position.x, nearest.y - cast.position.y) > cast.radius + 1e-9) continue;
+      if (this.isUmbraMoonlightLineBlocked(cast.position, nearest)) { this.recordUmbraBloodSpikeSkip("IMPACT_LOS", cast); continue; }
+      cast.targets++; runtime.counts.eligible++;
+      if (this.umbraBloodSpikeRuntime !== runtime || runtime.destroyed || this.getUmbraBloodSpikeBlockReason()
+        || cast.depth !== this.stageDepth || cast.depthGeneration !== runtime.depthGeneration) { cast.reason = "INTERRUPTED"; break; }
+      const { enemy, record } = target;
+      if (runtime.targets.get(enemy) !== record || this.snapshotUmbraBloodSpikeEnemy(enemy, record).reason) {
+        this.recordUmbraBloodSpikeSkip("TARGET_CHANGED_BEFORE_APPLY", cast); continue;
+      }
+      if (cast.attempted.has(record.lifeId)) continue;
+      cast.attempted.add(record.lifeId); runtime.counts.attempts++;
+      const hpBefore = enemy.hp;
+      const rawDamage = this.getUmbraFinalMainRawDamage?.(cast.finalProfile, enemy, cast.rawDamage) ?? cast.rawDamage;
+      const equipmentDamage = this.getUmbraEquipmentAttackDamage?.(UMBRA_BLOOD_SPIKE_SKILL_ID, rawDamage, cast.finalProfile) ?? rawDamage;
+      this.applyDamageToEnemy(enemy, equipmentDamage, 0xff7595, null);
+      const hpAfter = Number.isFinite(enemy.hp) ? enemy.hp : hpBefore;
+      const hpDelta = Math.max(0, hpBefore - hpAfter);
+      const effectiveHealthLoss = Math.max(0, Math.max(0, hpBefore) - Math.max(0, hpAfter));
+      if (!hpDelta) { runtime.counts.rejected++; this.recordUmbraBloodSpikeSkip("RECEIVER_REJECTED", cast); continue; }
+      const killed = hpBefore > 0 && (hpAfter <= 0 || enemy.isDying || !enemy.active);
+      this.applyUmbraControlHit?.("umbraBloodSpike", runtime, enemy, record, cast.coreProfile, cast.castId);
+      cast.accepted++; cast.kills += Number(killed); cast.hpDelta += hpDelta; cast.effectiveHealthLoss += effectiveHealthLoss;
+      runtime.counts.accepted++; runtime.counts.kills += Number(killed);
+      runtime.counts.hpDelta += hpDelta; runtime.counts.effectiveHealthLoss += effectiveHealthLoss;
+      const hit = Object.freeze({ castId: cast.castId, lifeId: record.lifeId, position: nearest,
+        fixedPosition: cast.position, rawDamage, hpBefore, hpAfter, hpDelta, effectiveHealthLoss, killed,
+        ...(cast.finalProfile?.equipmentProfile ? { equipmentDamage } : {}),
+        ...(cast.coreProfile ? { coreProfile: cast.coreProfile } : {}),
+        ...(cast.finalProfile ? { finalProfile: cast.finalProfile } : {}),
+        combatTimeMs: runtime.combatTimeMs, physicalStep: runtime.physicalSteps, impactDueAtMs: cast.impactDueAtMs });
+      if (finalParent && !finalParent.consumed) finalDispatch = this.reserveUmbraFinalDispatch("umbraBloodSpike", runtime,
+        finalParent, hit.position, cast.coreProfile, cast.finalProfile);
+      this.onUmbraBloodSpikeAcceptedHit?.(hit);
+      this.prepareUmbraBloodSpikeFrame();
+      if (this.umbraBloodSpikeRuntime !== runtime || runtime.destroyed || cast.depth !== this.stageDepth
+        || cast.depthGeneration !== runtime.depthGeneration) return;
+    }
+    if (this.umbraBloodSpikeRuntime !== runtime || runtime.destroyed) return;
+    if (finalDispatch && this.isUmbraFinalDispatchLive(finalDispatch)) {
+      if (finalDispatch.mode === "field") this.createUmbraFinalField("umbraBloodSpike", runtime, cast.position,
+        cast.coreProfile, cast.finalProfile, { radius: cast.radius });
+      else this.dispatchUmbraFinalSecondary(finalDispatch);
+    }
+    const result = this.getUmbraBloodSpikeCastSnapshot(cast);
+    runtime.lastImpact = result; runtime.lastCast = result;
+    runtime.impactHistory.push(result); if (runtime.impactHistory.length > 128) runtime.impactHistory.shift();
+  }
+
+  observeUmbraBloodSpikeStep(deltaSeconds) {
+    const runtime = this.umbraBloodSpikeRuntime;
+    if (!runtime || runtime.destroyed) return;
+    runtime.physicalSteps++;
+    if (!this.prepareUmbraBloodSpikeFrame() || this.umbraBloodSpikeRuntime !== runtime) return;
+    const deltaMs = deltaSeconds * 1000;
+    if (!Number.isFinite(deltaMs) || deltaMs <= 0) return;
+    const started = performance.now();
+    runtime.combatTimeMs += deltaMs; runtime.counts.steps++;
+    this.pruneUmbraControlContributions?.("umbraBloodSpike", runtime);
+    this.updateUmbraFinalFields?.("umbraBloodSpike", runtime);
+    // Impact first, including when a large physical delta also crosses FX end.
+    // Then expire, and consider at most ONE new cast: no catch-up fire queue.
+    for (const cast of runtime.casts.slice()) {
+      if (cast.appliedAtMs === null && runtime.combatTimeMs + 1e-7 >= cast.impactDueAtMs) this.applyUmbraBloodSpikeImpact(cast);
+      if (!this.prepareUmbraBloodSpikeFrame() || this.umbraBloodSpikeRuntime !== runtime) return;
+    }
+    runtime.casts = runtime.casts.filter(cast => {
+      if (runtime.combatTimeMs + 1e-7 < cast.createdCombatTimeMs + cast.durationMs) return true;
+      cast.attempted.clear(); runtime.counts.expired++; return false;
+    });
+    if (runtime.combatTimeMs + 1e-7 >= runtime.nextCastAtMs && runtime.lastCastSceneUpdate !== runtime.sceneUpdates) {
+      const stats = this.getUmbraBloodSpikeEffectiveStats();
+      if (runtime.casts.length >= stats.maxActiveCasts) {
+        this.recordUmbraBloodSpikeSkip("CAST_CAP"); runtime.nextCastAtMs = runtime.combatTimeMs + this.getUmbraSkillStatsConfig("umbraBloodSpike").searchRetryMs;
+      } else {
+        runtime.counts.searches++;
+        const placement = this.findUmbraBloodSpikePlacement();
+        if (placement) this.createUmbraBloodSpikeCast(placement);
+        else { this.recordUmbraBloodSpikeSkip("NO_VALID_TARGET"); runtime.nextCastAtMs = runtime.combatTimeMs + stats.searchRetryMs; }
+      }
+    }
+    runtime.lastProcessingMs = performance.now() - started;
+    runtime.maxProcessingMs = Math.max(runtime.maxProcessingMs, runtime.lastProcessingMs);
+    runtime.totalProcessingMs += runtime.lastProcessingMs;
+  }
+
+  getUmbraBloodSpikeCastSnapshot(cast) {
+    const elapsed = Math.max(0, (this.umbraBloodSpikeRuntime?.combatTimeMs || 0) - cast.createdCombatTimeMs);
+    return Object.freeze({ castId: cast.castId, targetLifeId: cast.targetLifeId, position: cast.position,
+      createdCombatTimeMs: cast.createdCombatTimeMs, impactDueAtMs: cast.impactDueAtMs, appliedAtMs: cast.appliedAtMs,
+      quantizationMs: cast.appliedAtMs === null ? null : Math.max(0, cast.appliedAtMs - cast.impactDueAtMs),
+      rawDamage: cast.rawDamage, radius: cast.radius, durationMs: cast.durationMs, intervalMs: cast.intervalMs,
+      ...(cast.coreProfile ? { coreProfile: cast.coreProfile } : {}),
+      ...(cast.finalProfile ? { finalProfile: cast.finalProfile } : {}),
+      nextCastAtMs: cast.nextCastAtMs, impactFrameIndex: cast.impactFrameIndex,
+      frameIndex: Math.min(cast.frameCount - 1, Math.floor((elapsed + 1e-7) * cast.frameRate / 1000)),
+      targets: cast.targets, accepted: cast.accepted, kills: cast.kills, hpDelta: cast.hpDelta,
+      effectiveHealthLoss: cast.effectiveHealthLoss, skips: Object.freeze({ ...cast.skips }), reason: cast.reason });
+  }
+
+  getUmbraBloodSpikeSnapshot() {
+    const runtime = this.umbraBloodSpikeRuntime;
+    if (!runtime) return { enabled: false, blockReason: this.getUmbraBloodSpikeBlockReason(), casts: [] };
+    return { enabled: true, blockReason: this.getUmbraBloodSpikeBlockReason(), combatTimeMs: runtime.combatTimeMs,
+      runGeneration: runtime.runGeneration, depthGeneration: runtime.depthGeneration,
+      nextCastAtMs: runtime.nextCastAtMs, nextCastRemainingMs: Math.max(0, runtime.nextCastAtMs - runtime.combatTimeMs),
+      physicalSteps: runtime.physicalSteps, sceneUpdates: runtime.sceneUpdates, liveTargets: runtime.targets.size,
+      casts: runtime.casts.map(cast => this.getUmbraBloodSpikeCastSnapshot(cast)), counts: { ...runtime.counts }, skips: { ...runtime.skips },
+      lastCast: runtime.lastCast, lastImpact: runtime.lastImpact, castHistory: runtime.castHistory.slice(), impactHistory: runtime.impactHistory.slice(),
+      errors: runtime.errors, lastError: runtime.lastError, lastProcessingMs: runtime.lastProcessingMs,
+      maxProcessingMs: runtime.maxProcessingMs, totalProcessingMs: runtime.totalProcessingMs };
+  }
+
+  // UMBRA MOONLIGHT geometry: numeric snapshots only; no movement or damage writes.
+  getUmbraMoonlightGeometryEpsilon() {
+    return 1e-9;
+  }
+
+  getUmbraMoonlightShapeHalfExtents(shape) {
+    if (shape?.kind === "circle" && Number.isFinite(shape.radius) && shape.radius >= 0) {
+      return { x: shape.radius, y: shape.radius };
+    }
+    if (shape?.kind === "rect" && Number.isFinite(shape.halfWidth) && shape.halfWidth >= 0
+      && Number.isFinite(shape.halfHeight) && shape.halfHeight >= 0) {
+      return { x: shape.halfWidth, y: shape.halfHeight };
+    }
+    return null;
+  }
+
+  getUmbraMoonlightSegmentCircleInterval(from, to, centerX, centerY, radius) {
+    const epsilon = this.getUmbraMoonlightGeometryEpsilon();
+    const x = from.x - centerX, y = from.y - centerY;
+    const dx = to.x - from.x, dy = to.y - from.y, lengthSq = dx * dx + dy * dy;
+    if (lengthSq <= epsilon * epsilon) return Math.hypot(x, y) <= radius + epsilon ? { enter: 0, exit: 1 } : null;
+    const closestTime = -(x * dx + y * dy) / lengthSq;
+    const closestDistance = Math.hypot(x + dx * closestTime, y + dy * closestTime);
+    if (closestDistance > radius + epsilon) return null;
+    const halfSpan = Math.sqrt(Math.max(0, (radius - closestDistance) * (radius + closestDistance)) / lengthSq);
+    const enter = Math.max(0, closestTime - halfSpan), exit = Math.min(1, closestTime + halfSpan);
+    return enter <= exit + epsilon ? { enter: Math.min(1, enter), exit: Math.max(0, exit) } : null;
+  }
+
+  getUmbraMoonlightSegmentRectInterval(from, to, left, top, right, bottom) {
+    const epsilon = this.getUmbraMoonlightGeometryEpsilon();
+    let enter = 0, exit = 1;
+    for (const [axis, min, max] of [["x", left, right], ["y", top, bottom]]) {
+      const delta = to[axis] - from[axis];
+      if (Math.abs(delta) <= epsilon) {
+        if (from[axis] < min - epsilon || from[axis] > max + epsilon) return null;
+      } else {
+        const a = (min - from[axis]) / delta, b = (max - from[axis]) / delta;
+        enter = Math.max(enter, Math.min(a, b)); exit = Math.min(exit, Math.max(a, b));
+        if (enter > exit + epsilon) return null;
+      }
+    }
+    return { enter: Math.min(1, Math.max(0, enter)), exit: Math.min(1, Math.max(0, exit)) };
+  }
+
+  getUmbraMoonlightRelativeShapeInterval(from, to, shape, radius) {
+    if (shape.kind === "circle") return this.getUmbraMoonlightSegmentCircleInterval(from, to, 0, 0, shape.radius + radius);
+    const x = shape.halfWidth, y = shape.halfHeight;
+    // A rectangle plus a disk is exactly these two strips and four corner disks.
+    // Unlike an expanded AABB or a circumscribed circle, it keeps rounded corners.
+    const intervals = [
+      this.getUmbraMoonlightSegmentRectInterval(from, to, -x - radius, -y, x + radius, y),
+      this.getUmbraMoonlightSegmentRectInterval(from, to, -x, -y - radius, x, y + radius)
+    ];
+    for (const cornerX of [-x, x]) for (const cornerY of [-y, y]) {
+      intervals.push(this.getUmbraMoonlightSegmentCircleInterval(from, to, cornerX, cornerY, radius));
+    }
+    const hits = intervals.filter(Boolean);
+    // The union is convex, so its intersection with one line is one interval.
+    return hits.length ? { enter: Math.min(...hits.map(hit => hit.enter)), exit: Math.max(...hits.map(hit => hit.exit)) } : null;
+  }
+
+  getUmbraMoonlightNearestTargetPoint(player, center, shape) {
+    if (shape.kind === "circle") {
+      const x = player.x - center.x, y = player.y - center.y, distance = Math.hypot(x, y);
+      const ratio = distance > shape.radius ? shape.radius / distance : 1;
+      return Object.freeze({ x: center.x + x * ratio, y: center.y + y * ratio });
+    }
+    return Object.freeze({
+      x: Math.min(center.x + shape.halfWidth, Math.max(center.x - shape.halfWidth, player.x)),
+      y: Math.min(center.y + shape.halfHeight, Math.max(center.y - shape.halfHeight, player.y))
+    });
+  }
+
+  sweepUmbraMoonlightTarget(P0, P1, E0, E1, shape, radius) {
+    const miss = () => Object.freeze({ hit: false, enter: null, exit: null, startInside: false, endInside: false, playerAtHit: null, targetAtHit: null });
+    const half = this.getUmbraMoonlightShapeHalfExtents(shape);
+    if (![P0, P1, E0, E1].every(point => Number.isFinite(point?.x) && Number.isFinite(point?.y))
+      || !Number.isFinite(radius) || radius < 0 || !half
+      || !Number.isFinite(half.x + radius) || !Number.isFinite(half.y + radius)) return miss();
+    const from = { x: P0.x - E0.x, y: P0.y - E0.y }, to = { x: P1.x - E1.x, y: P1.y - E1.y };
+    if (![from.x, from.y, to.x, to.y, to.x - from.x, to.y - from.y].every(Number.isFinite)) return miss();
+    const interval = this.getUmbraMoonlightRelativeShapeInterval(from, to, shape, radius);
+    if (!interval) return miss();
+    const epsilon = this.getUmbraMoonlightGeometryEpsilon();
+    const inside = point => shape.kind === "circle"
+      ? Math.hypot(point.x, point.y) <= shape.radius + radius + epsilon
+      : Math.hypot(Math.max(0, Math.abs(point.x) - shape.halfWidth), Math.max(0, Math.abs(point.y) - shape.halfHeight)) <= radius + epsilon;
+    const playerAtHit = Object.freeze({ x: P0.x + (P1.x - P0.x) * interval.enter, y: P0.y + (P1.y - P0.y) * interval.enter });
+    const enemyAtHit = { x: E0.x + (E1.x - E0.x) * interval.enter, y: E0.y + (E1.y - E0.y) * interval.enter };
+    return Object.freeze({ hit: true, enter: interval.enter, exit: interval.exit,
+      startInside: inside(from), endInside: inside(to), playerAtHit,
+      targetAtHit: this.getUmbraMoonlightNearestTargetPoint(playerAtHit, enemyAtHit, shape) });
+  }
+
+  isUmbraMoonlightBroadPhaseCandidate(P0, P1, E0, E1, shape, radius) {
+    const half = this.getUmbraMoonlightShapeHalfExtents(shape);
+    if (!half || !Number.isFinite(radius) || radius < 0
+      || ![P0, P1, E0, E1].every(point => Number.isFinite(point?.x) && Number.isFinite(point?.y))) return false;
+    const epsilon = this.getUmbraMoonlightGeometryEpsilon();
+    for (const axis of ["x", "y"]) {
+      if (Math.max(P0[axis], P1[axis]) + radius < Math.min(E0[axis], E1[axis]) - half[axis] - epsilon
+        || Math.min(P0[axis], P1[axis]) - radius > Math.max(E0[axis], E1[axis]) + half[axis] + epsilon) return false;
+    }
+    return true;
+  }
+
+  isUmbraMoonlightLineBlocked(from, to) {
+    if (![from, to].every(point => Number.isFinite(point?.x) && Number.isFinite(point?.y))) return true;
+    // These are the same physical groups used by production and the isolated Drive.
+    for (const object of (this.stageObstacleBodies || this.walls)?.getChildren?.() || []) {
+      const body = object?.body;
+      if (!body?.enable || body.checkCollision?.none) continue;
+      const left = body.left ?? body.x, top = body.top ?? body.y;
+      const right = body.right ?? left + body.width, bottom = body.bottom ?? top + body.height;
+      if (![left, top, right, bottom].every(Number.isFinite) || right < left || bottom < top) return true;
+      // Closed solid bounds deliberately block an exactly grazing line of sight.
+      if (this.getUmbraMoonlightSegmentRectInterval(from, to, left, top, right, bottom)) return true;
+    }
+    return false;
+  }
+
+  // Phase 3 consumer: physical trace delivery is the sole attack clock/source.
+  // Verification acquisition is separate from the unreleased public skill registry.
+  isUmbraMoonlightVerificationEnabled() {
+    if (this.umbraRunContext) return this.hasUmbraRunCapability("moonlight", { requireBody: true });
+    return this.verificationContext?.moonlightArena === true
+      && this.getUmbraPhase2AVerifiedMechId() === UMBRA_SERAPH_MECH_ID
+      && this.getRunPlayerMechId() === UMBRA_SERAPH_MECH_ID;
+  }
+
+  getUmbraMoonlightBlockReason() {
+    if (!this.isUmbraMoonlightVerificationEnabled()) return "CONTEXT_DISABLED";
+    const skill = this.playerSkills?.umbraMoonlight;
+    const acquired = (this.getUmbraRunContext?.() || this.verificationContext)?.growthEnabled === true || skill?.umbraGrowthRun ? this.getUmbraActiveSkillStage("umbraMoonlight")
+      : skill?.verificationOnly && skill.currentStage?.behavior === "umbraMoonlight" && skill.currentStage === this.getUmbraMoonlightStage1Config();
+    if (!acquired) return "SKILL_INACTIVE";
+    if (!Number.isFinite(this.stats?.hp) || this.stats.hp <= 0) return "PLAYER_DEAD";
+    return this.getUmbraBoostTraceBlockReason();
+  }
+
+  initializeUmbraMoonlightRuntime() {
+    if (this.umbraRunContext && !this.hasUmbraRunCapability("moonlight", { purpose: "select" })) return null;
+    if (!this.isUmbraMoonlightVerificationEnabled()) return null;
+    if ((this.getUmbraRunContext?.() || this.verificationContext)?.growthEnabled === true && !this.getUmbraActiveSkillStage("umbraMoonlight")) return null;
+    if (this.umbraMoonlightRuntime) return this.umbraMoonlightRuntime;
+    const trace = this.ensureUmbraBoostTrace();
+    const runtime = this.umbraMoonlightRuntime = {
+      trace, runGeneration: trace?.runGeneration, depthGeneration: trace?.depthGeneration,
+      basisGeneration: trace?.basisGeneration, lastOrder: trace?.order || 0,
+      lastStep: trace?.physicalStep || 0, combatTimeMs: 0, lifeSequence: 0,
+      glide: null, glideActive: false, glidePoweredSequence: 0, glideLastReason: "INITIAL",
+      targets: new Map(), cleanups: [], destroyed: false, errors: 0, lastError: "",
+      counts: { steps: 0, targets: 0, broadCandidates: 0, geometryTests: 0, candidates: 0,
+        attempts: 0, accepted: 0, hpDamage: 0, kills: 0, rejected: 0, losBlocked: 0,
+        glideArmed: 0, glideSteps: 0, glideAccepted: 0, glideExpired: 0, glideCancelled: 0 },
+      skips: {}, lastHit: null, hitHistory: [], lastProcessingMs: 0, maxProcessingMs: 0, totalProcessingMs: 0
+    };
+    if (trace) runtime.cleanups.push(this.subscribeUmbraBoostTrace("umbra-moonlight", event => {
+      try { this.receiveUmbraMoonlightTrace(event); }
+      catch (error) { runtime.errors++; runtime.lastError = String(error?.stack || error).slice(0, 1600); throw error; }
+    }));
+    for (const event of ["shutdown", "destroy"]) {
+      const handler = () => this.destroyUmbraMoonlightRuntime(event.toUpperCase());
+      this.events?.on?.(event, handler);
+      runtime.cleanups.push(() => this.events?.off?.(event, handler));
+    }
+    this.initializeUmbraControlOwner?.("umbraMoonlight", runtime);
+    return runtime;
+  }
+
+  destroyUmbraMoonlightRuntime(reason = "DESTROY") {
+    const runtime = this.umbraMoonlightRuntime;
+    if (!runtime || runtime.destroyed) return;
+    runtime.destroyed = true;
+    this.clearUmbraMoonlightGlide(reason);
+    for (const cleanup of runtime.cleanups.splice(0)) cleanup();
+    runtime.targets.clear(); runtime.hitHistory.length = 0; runtime.lastHit = null; runtime.trace = null;
+    this.umbraMoonlightRuntime = null;
+  }
+
+  registerUmbraMoonlightEnemyLife(enemy) {
+    const runtime = this.umbraMoonlightRuntime;
+    if (!runtime || runtime.destroyed || !enemy) return null;
+    const normalLife = this.getUmbraNormalEnemyLife?.(enemy);
+    const existing = runtime.targets.get(enemy);
+    if (normalLife && existing?.normalLife === normalLife && existing.depth === this.stageDepth
+      && enemy.active && !enemy.isDying && enemy.hp > 0) return existing.lifeId;
+    runtime.controlContributions?.delete(enemy);
+    // Call only at spawn/reuse, never when configuring a living body's shape.
+    const record = { lifeId: `${runtime.runGeneration || 0}:${++runtime.lifeSequence}`,
+      depth: this.stageDepth, body: null, cursor: null, shapeKey: null,
+      registeredAtStep: runtime.trace?.physicalStep || 0,
+      initialEligible: true, armed: false, passConsumed: false, passId: 0,
+      lastHitAt: null, reason: "NEW_LIFE", hp: Number(enemy.hp) || 0 };
+    if (normalLife) record.normalLife = normalLife;
+    runtime.targets.set(enemy, record);
+    this.snapshotUmbraMoonlightEnemy(enemy, record, true);
+    return record.lifeId;
+  }
+
+  snapshotUmbraMoonlightEnemy(enemy, record, registering = false) {
+    const body = enemy?.body, world = this.physics?.world;
+    let reason = "";
+    if (!enemy?.active || enemy.isDying || !Number.isFinite(enemy.hp) || enemy.hp <= 0) reason = "TARGET_DEAD";
+    else if (!body?.enable || body.world !== world || body.moves === false || body.directControl
+      || (world?.bodies?.contains && !world.bodies.contains(body))) reason = "TARGET_BODY_INACTIVE";
+    else if (enemy.isFinalBossRaidBoss || enemy.isFinalBossRaidMinion || enemy.isFinalBossRaidGiantWeapon) reason = "TARGET_FINAL_RAID";
+    if (reason) return { enemy, record, reason };
+    const shape = body.isCircle ? { kind: "circle", radius: body.halfWidth }
+      : { kind: "rect", halfWidth: body.width / 2, halfHeight: body.height / 2 };
+    const ox = body.isCircle ? body.halfWidth : body.width / 2;
+    const oy = body.isCircle ? body.halfHeight : body.height / 2;
+    const from = { x: body.prev?.x + ox, y: body.prev?.y + oy };
+    const to = { x: body.position?.x + ox, y: body.position?.y + oy };
+    const shapeKey = `${shape.kind}/${body.width}/${body.height}/${ox}/${oy}`;
+    if (![from.x, from.y, to.x, to.y, body.newVelocity?.x, body.newVelocity?.y, ox, oy].every(Number.isFinite)
+      || ox <= 0 || oy <= 0) return { enemy, record, reason: "TARGET_INVALID_GEOMETRY" };
+    const epsilon = UMBRA_BOOST_TRACE_CONFIG.epsilon;
+    if (!registering) {
+      if (record.body !== body || record.shapeKey !== shapeKey) reason = "TARGET_BODY_CHANGED";
+      else if (record.cursor && Math.hypot(from.x - record.cursor.x, from.y - record.cursor.y) > epsilon) reason = "TARGET_DISCONTINUITY";
+      else if (Math.hypot(to.x - from.x - body.newVelocity.x, to.y - from.y - body.newVelocity.y) > epsilon) reason = "TARGET_CORRECTION";
+      else if (record.registeredAtStep >= (this.umbraBoostTrace?.physicalStep || 0)) reason = "TARGET_NEW_LIFE";
+    }
+    record.body = body; record.shapeKey = shapeKey; record.cursor = to; record.hp = enemy.hp;
+    return { enemy, record, body, shape, from, to, reason };
+  }
+
+  snapshotUmbraMoonlightTargets() {
+    const runtime = this.umbraMoonlightRuntime;
+    const enemies = (this.enemies?.getChildren?.().slice() || []).filter(enemy =>
+      enemy?.active && !enemy.isDying && Number.isFinite(enemy.hp) && enemy.hp > 0);
+    const living = new Set(enemies);
+    for (const [enemy, record] of runtime.targets) {
+      if (!living.has(enemy) || !enemy.active || enemy.isDying || record.depth !== this.stageDepth) runtime.targets.delete(enemy);
+    }
+    // Finish every body's numeric snapshot before the first damage call can kill,
+    // resize, move, remove, or spawn a target. No FX retains any of these references.
+    return enemies.map(enemy => {
+      const record = runtime.targets.get(enemy);
+      // Only a real spawn/reuse hook may assign a living generation. In
+      // particular, clearing a Depth cannot relabel surviving old enemies.
+      if (!record) return { enemy, record: null, reason: "TARGET_UNREGISTERED" };
+      return this.snapshotUmbraMoonlightEnemy(enemy, record);
+    });
+  }
+
+  recordUmbraMoonlightSkip(reason, record) {
+    const runtime = this.umbraMoonlightRuntime;
+    if (!runtime) return;
+    const key = Object.hasOwn(runtime.skips, reason) || Object.keys(runtime.skips).length < 40 ? reason : "OTHER";
+    runtime.skips[key] = (runtime.skips[key] || 0) + 1;
+    if (record) record.reason = reason;
+  }
+
+  invalidateUmbraMoonlightPasses(reason) {
+    const runtime = this.umbraMoonlightRuntime;
+    if (!runtime) return;
+    for (const record of runtime.targets.values()) {
+      record.cursor = null; record.armed = false;
+      // A basis/pause is not a new living enemy and does not erase the hit clock.
+      if (!record.initialEligible) record.passConsumed = true;
+      record.reason = reason;
+    }
+  }
+
+  clearUmbraMoonlightGlide(reason = "INVALIDATED") {
+    const runtime = this.umbraMoonlightRuntime;
+    if (!runtime) return;
+    if (runtime.glide) {
+      const key = reason === "EXPIRED" ? "glideExpired" : "glideCancelled";
+      runtime.counts[key] = (runtime.counts[key] || 0) + 1;
+    }
+    runtime.glide = null; runtime.glideActive = false; runtime.glidePoweredSequence = 0; runtime.glideLastReason = reason;
+  }
+
+  updateUmbraMoonlightGlideTrace(event) {
+    const runtime = this.umbraMoonlightRuntime;
+    if (!runtime) return;
+    const durationMs = Number(this.getUmbraMobilityTrialSettings?.()?.moonGlideMs) || 0;
+    if (durationMs <= 0) { this.clearUmbraMoonlightGlide("TRIAL_DISABLED"); return; }
+    if (event.type === "start" || event.type === "invalidate") {
+      this.clearUmbraMoonlightGlide(event.reason || event.type.toUpperCase()); return;
+    }
+    if (event.type !== "end") return;
+    const velocity = this.playerHitbox?.body?.velocity;
+    const releaseAllowed = event.reason === "RELEASE" && !event.cancelled
+      && event.boostSequence > 0 && runtime.glidePoweredSequence === event.boostSequence
+      && this.moonlightAttackEnabled !== false && !this.getUmbraMoonlightBlockReason()
+      && Number.isFinite(event.timeMs) && Number.isFinite(velocity?.x) && Number.isFinite(velocity?.y)
+      && Math.hypot(velocity.x, velocity.y) > UMBRA_BOOST_TRACE_CONFIG.epsilon;
+    this.clearUmbraMoonlightGlide(`END_${event.reason || "UNKNOWN"}`);
+    if (!releaseAllowed) return;
+    // Both clocks start at the actual release notification. Physical catch-up
+    // steps cannot extend the budget, and a long Scene frame cannot renew it.
+    runtime.glide = { boostSequence: event.boostSequence, releasedAtMs: runtime.combatTimeMs,
+      expiresAtMs: runtime.combatTimeMs + durationMs, releasedAtSceneMs: event.timeMs,
+      expiresAtSceneMs: event.timeMs + durationMs };
+    runtime.glideLastReason = "RELEASE"; runtime.counts.glideArmed++;
+  }
+
+  getUmbraMoonlightGlideStepLimit(event, clockStart, normalPath) {
+    const runtime = this.umbraMoonlightRuntime, trace = this.umbraBoostTrace;
+    runtime.glideActive = false;
+    if (this.moonlightAttackEnabled === false) { this.clearUmbraMoonlightGlide("ATTACK_DISABLED"); return 0; }
+    if (!(Number(this.getUmbraMobilityTrialSettings?.()?.moonGlideMs) > 0)) {
+      this.clearUmbraMoonlightGlide("TRIAL_DISABLED"); return 0;
+    }
+    const epsilon = UMBRA_BOOST_TRACE_CONFIG.epsilon, body = this.playerHitbox.body;
+    const distance = Math.hypot(event.to.x - event.from.x, event.to.y - event.from.y);
+    if (event.valid) {
+      runtime.glidePoweredSequence = event.mode === "BOOST" && event.reason === "VALID_BOOST"
+        && event.boostSequence > 0 && trace.active?.sequence === event.boostSequence
+        && distance > epsilon && !event.nextCommandExcludedReason ? event.boostSequence : 0;
+      return 0;
+    }
+    runtime.glidePoweredSequence = 0;
+    const glide = runtime.glide;
+    if (!glide) return 0;
+    const command = trace.command, dt = event.deltaMs / 1000;
+    const blocked = [body.blocked, body.touching].some(flags =>
+      flags?.left || flags?.right || flags?.up || flags?.down);
+    const safe = normalPath && event.reason === "POST_BOOST_GLIDE" && event.mode === "POST_BOOST_GLIDE"
+      && event.boostSequence === glide.boostSequence && !trace.active && !blocked && distance > epsilon
+      && command && !command.powered && command.mode === "POST_BOOST_GLIDE"
+      && command.body === body && command.basis === event.basisGeneration && command.order === event.commandOrder
+      && Number.isFinite(event.timeMs) && event.timeMs >= glide.releasedAtSceneMs
+      && Number.isFinite(body.velocity?.x) && Number.isFinite(body.velocity?.y)
+      && Math.hypot(body.velocity.x, body.velocity.y) > epsilon
+      && Math.hypot(body.newVelocity.x - command.expectedVelocity?.x * dt,
+        body.newVelocity.y - command.expectedVelocity?.y * dt) <= epsilon
+      && Math.hypot(body.newVelocity.x - body.velocity.x * dt, body.newVelocity.y - body.velocity.y * dt) <= epsilon;
+    if (!safe) { this.clearUmbraMoonlightGlide(`UNSAFE_${event.reason || "UNKNOWN"}`); return 0; }
+    const sceneStart = Math.max(glide.releasedAtSceneMs, event.timeMs - event.deltaMs);
+    const remainingMs = Math.min(glide.expiresAtMs - clockStart, glide.expiresAtSceneMs - sceneStart);
+    if (remainingMs <= 0) { this.clearUmbraMoonlightGlide("EXPIRED"); return 0; }
+    runtime.glideActive = true;
+    runtime.counts.glideSteps++;
+    return remainingMs / event.deltaMs;
+  }
+
+  receiveUmbraMoonlightTrace(event) {
+    const runtime = this.umbraMoonlightRuntime, trace = this.umbraBoostTrace;
+    if (!runtime || runtime.destroyed || runtime.trace !== trace || !event) return;
+    if (event.order <= runtime.lastOrder) { this.recordUmbraMoonlightSkip("DUPLICATE_ORDER"); return; }
+    runtime.lastOrder = event.order;
+    if (event.runGeneration !== trace?.runGeneration || event.depthGeneration !== trace.depthGeneration
+      || event.basisGeneration !== trace.basisGeneration) { this.recordUmbraMoonlightSkip("STALE_GENERATION"); return; }
+    if (runtime.depthGeneration !== event.depthGeneration || runtime.runGeneration !== event.runGeneration) {
+      this.clearUmbraMoonlightGlide("GENERATION_CHANGED");
+      runtime.targets.clear(); runtime.depthGeneration = event.depthGeneration; runtime.runGeneration = event.runGeneration;
+    }
+    if (event.type === "invalidate" || runtime.basisGeneration !== event.basisGeneration) {
+      this.clearUmbraMoonlightGlide(event.reason || "BASIS_CHANGED");
+      runtime.basisGeneration = event.basisGeneration;
+      this.invalidateUmbraMoonlightPasses(event.reason || "BASIS_CHANGED");
+    }
+    this.updateUmbraMoonlightGlideTrace(event);
+    if (event.type !== "step") return;
+    if (event.physicalStep <= runtime.lastStep) { this.recordUmbraMoonlightSkip("DUPLICATE_STEP"); return; }
+    runtime.lastStep = event.physicalStep;
+    const blocked = this.getUmbraMoonlightBlockReason();
+    if (blocked) { this.clearUmbraMoonlightGlide(blocked); this.recordUmbraMoonlightSkip(blocked); this.invalidateUmbraMoonlightPasses(blocked); return; }
+    if (!Number.isFinite(event.deltaMs) || event.deltaMs <= 0 || !event.from || !event.to) {
+      this.clearUmbraMoonlightGlide("INVALID_STEP");
+      this.recordUmbraMoonlightSkip("INVALID_STEP"); this.invalidateUmbraMoonlightPasses("INVALID_STEP"); return;
+    }
+    const clockStart = runtime.combatTimeMs;
+    runtime.combatTimeMs += event.deltaMs; runtime.counts.steps++;
+    this.pruneUmbraControlContributions?.("umbraMoonlight", runtime);
+    this.updateUmbraFinalFields?.("umbraMoonlight", runtime);
+    const started = globalThis.performance?.now?.() || 0;
+    try { this.processUmbraMoonlightStep(event, clockStart); }
+    finally {
+      if (runtime.glide && (runtime.combatTimeMs >= runtime.glide.expiresAtMs
+        || event.timeMs >= runtime.glide.expiresAtSceneMs)) this.clearUmbraMoonlightGlide("EXPIRED");
+      // A throwing cosmetic consumer cannot carry an unflushed attack into a later frame.
+      if (runtime.finalState?.moonParent) runtime.finalState.moonParent.pending = null;
+      runtime.lastProcessingMs = Math.max(0, (globalThis.performance?.now?.() || 0) - started);
+      runtime.maxProcessingMs = Math.max(runtime.maxProcessingMs, runtime.lastProcessingMs);
+      runtime.totalProcessingMs += runtime.lastProcessingMs;
+    }
+  }
+
+  processUmbraMoonlightStep(event, clockStart) {
+    const runtime = this.umbraMoonlightRuntime, trace = this.umbraBoostTrace;
+    const targets = this.snapshotUmbraMoonlightTargets(), stats = this.getUmbraMoonlightEffectiveStats();
+    runtime.counts.targets += targets.length;
+    const body = this.playerHitbox.body, epsilon = UMBRA_BOOST_TRACE_CONFIG.epsilon;
+    const normalPath = ["NORMAL", "POST_BOOST_GLIDE", "AIR_BRAKE", "ZERO_MOVEMENT"].includes(event.reason)
+      && Math.hypot(event.to.x - event.from.x - body.newVelocity.x, event.to.y - event.from.y - body.newVelocity.y) <= epsilon
+      && !this.doesUmbraBoostTraceCrossWall(event.from, event.to, body);
+    const glideLimit = this.getUmbraMoonlightGlideStepLimit(event, clockStart, normalPath);
+    if (!event.valid && !normalPath) {
+      this.recordUmbraMoonlightSkip(`PATH_${event.reason || "UNKNOWN"}`);
+      this.invalidateUmbraMoonlightPasses(`PATH_${event.reason || "UNKNOWN"}`);
+      return;
+    }
+    const attackAllowed = (event.valid || glideLimit > 0) && this.moonlightAttackEnabled !== false;
+    if (!event.valid && !glideLimit) this.recordUmbraMoonlightSkip(`NON_ATTACK_${event.reason}`);
+    else if (!attackAllowed) this.recordUmbraMoonlightSkip("ATTACK_DISABLED");
+    for (const target of targets) {
+      // Damage handlers and consumers may stop the scene or replace its generation.
+      if (this.umbraMoonlightRuntime !== runtime || this.umbraBoostTrace !== trace || runtime.destroyed
+        || event.basisGeneration !== trace.basisGeneration || event.depthGeneration !== trace.depthGeneration
+        || this.getUmbraMoonlightBlockReason()) break;
+      const { enemy, record, shape, from, to } = target;
+      if (target.reason) {
+        if (record) { record.armed = false; if (!record.initialEligible) record.passConsumed = true; }
+        this.recordUmbraMoonlightSkip(target.reason, record); continue;
+      }
+      if (runtime.targets.get(enemy) !== record || enemy.body !== target.body || !enemy.active || enemy.isDying) {
+        this.recordUmbraMoonlightSkip("TARGET_CHANGED_DURING_DELIVERY", record); continue;
+      }
+      const broadExit = this.isUmbraMoonlightBroadPhaseCandidate(event.from, event.to, from, to, shape, stats.exitRadius);
+      if (record.radiusRebasePending) {
+        const boundary = broadExit ? this.sweepUmbraMoonlightTarget(event.from, event.to, from, to, shape, stats.exitRadius) : null;
+        if (!boundary || !boundary.startInside) {
+          record.radiusRebasePending = false; record.armed = true; record.passConsumed = false;
+        } else {
+          if (!boundary.endInside) { record.radiusRebasePending = false; record.armed = true; record.passConsumed = false; }
+          this.recordUmbraMoonlightSkip("RADIUS_REBASE", record);
+          continue;
+        }
+      }
+      if (!broadExit) { record.armed = true; record.passConsumed = false; record.reason = "OUTSIDE"; continue; }
+      runtime.counts.geometryTests++;
+      const leave = this.sweepUmbraMoonlightTarget(event.from, event.to, from, to, shape, stats.exitRadius);
+      // An observed outside start is sufficient after rebaselining; an excluded
+      // chord itself never proves an exit, nor bridges to the next step.
+      if (!leave.startInside) { record.armed = true; record.passConsumed = false; }
+      const broadHit = this.isUmbraMoonlightBroadPhaseCandidate(event.from, event.to, from, to, shape, stats.passageRadius);
+      if (broadHit) {
+        runtime.counts.broadCandidates++; runtime.counts.geometryTests++;
+        const hit = this.sweepUmbraMoonlightTarget(event.from, event.to, from, to, shape, stats.passageRadius);
+        if (hit.hit) {
+          runtime.counts.candidates++;
+          const entry = record.armed || record.initialEligible;
+          if (!entry) this.recordUmbraMoonlightSkip("SAME_PASS", record);
+          else if (!attackAllowed || (!event.valid && hit.enter >= glideLimit)) {
+            if (!record.initialEligible) { record.armed = false; record.passConsumed = true; }
+            this.recordUmbraMoonlightSkip("ENTRY_WITHOUT_BOOST", record);
+          } else {
+            record.armed = false; record.initialEligible = false; record.passConsumed = true; record.passId++;
+            const hitTime = clockStart + event.deltaMs * hit.enter;
+            const remaining = record.lastHitAt === null ? 0 : stats.rehitMs - (hitTime - record.lastHitAt);
+            if (remaining > 0.000001) this.recordUmbraMoonlightSkip("REHIT_WAIT", record);
+            else if (this.isUmbraMoonlightLineBlocked(hit.playerAtHit, hit.targetAtHit)) {
+              runtime.counts.losBlocked++; this.recordUmbraMoonlightSkip("WALL_OCCLUDED", record);
+            } else this.applyUmbraMoonlightHit(target, hit, event, hitTime, stats.rawDamage, stats.coreProfile, stats.finalProfile);
+          }
+        } else this.recordUmbraMoonlightSkip("OUT_OF_RANGE", record);
+      } else record.reason = "LEAVE_MARGIN";
+      if (!leave.endInside) { record.armed = true; record.passConsumed = false; }
+      if (!enemy.active || enemy.isDying) runtime.targets.delete(enemy);
+    }
+    const parent = runtime.finalState?.moonParent, ticket = parent?.pending;
+    if (ticket) {
+      parent.pending = null; // Never queue a callback/next-frame dispatch.
+      if (this.isUmbraFinalDispatchLive(ticket)) {
+        if (ticket.mode === "field") this.createUmbraFinalField("umbraMoonlight", runtime, ticket.position, ticket.coreProfile, ticket.finalProfile);
+        else this.dispatchUmbraFinalSecondary(ticket);
+      }
+    }
+  }
+
+  applyUmbraMoonlightHit(target, hit, event, hitTime, rawDamage, coreProfile = null, finalProfile = null) {
+    const runtime = this.umbraMoonlightRuntime, { enemy, record } = target;
+    if (!runtime || this.moonlightAttackEnabled === false || this.getUmbraMoonlightBlockReason() || !enemy.active || enemy.isDying
+      || runtime.targets.get(enemy) !== record || enemy.body !== target.body) return;
+    if (this.isUmbraTriadContextActive?.()) {
+      // Each lawful main entry captures the committed TRIAD once for its own main/secondary/field.
+      coreProfile = this.getUmbraSkillCoreProfile(UMBRA_MOONLIGHT_SKILL_ID);
+      finalProfile = this.getUmbraSkillFinalProfile(UMBRA_MOONLIGHT_SKILL_ID);
+    }
+    runtime.counts.attempts++;
+    const finalParent = this.getUmbraFinalMoonParent?.(event, finalProfile);
+    finalParent?.attempted.add(record.lifeId);
+    const hpBefore = enemy.hp;
+    rawDamage = this.getUmbraFinalMainRawDamage?.(finalProfile, enemy, rawDamage) ?? rawDamage;
+    const equipmentDamage = this.getUmbraEquipmentAttackDamage?.(UMBRA_MOONLIGHT_SKILL_ID, rawDamage, finalProfile) ?? rawDamage;
+    // The receiver still owns common/hit-time modifiers, suppression, kills and drops.
+    this.applyDamageToEnemy(enemy, equipmentDamage, 0x9feaff, null);
+    const hpAfter = enemy.hp, damage = hpBefore - hpAfter;
+    if (!Number.isFinite(damage) || damage <= 0) {
+      runtime.counts.rejected++; this.recordUmbraMoonlightSkip("DAMAGE_REJECTED", record); return;
+    }
+    record.lastHitAt = hitTime; record.hp = hpAfter; record.reason = "ACCEPTED";
+    runtime.counts.accepted++; runtime.counts.hpDamage += damage;
+    if (!event.valid && event.reason === "POST_BOOST_GLIDE") runtime.counts.glideAccepted++;
+    const killed = Boolean(enemy.isDying || hpAfter <= 0);
+    this.applyUmbraControlHit?.("umbraMoonlight", runtime, enemy, record, coreProfile, `${record.lifeId}:${record.passId}`);
+    if (killed) runtime.counts.kills++;
+    const accepted = Object.freeze({ lifeId: record.lifeId, passId: record.passId,
+      enemyKind: enemy.enemyKey || enemy.enemyType || (enemy.isBoss ? "boss" : "enemy"),
+      position: Object.freeze({ ...hit.targetAtHit }), playerPosition: Object.freeze({ ...hit.playerAtHit }),
+      combatTimeMs: hitTime, physicalStep: event.physicalStep, sceneTimeMs: event.timeMs,
+      damage, hpBefore, hpAfter, killed, ...(coreProfile ? { coreProfile } : {}), ...(finalProfile ? { finalProfile } : {}),
+      ...(finalProfile?.equipmentProfile ? { rawDamage, equipmentDamage } : {}) });
+    if (finalParent && !finalParent.consumed) finalParent.pending = this.reserveUmbraFinalDispatch("umbraMoonlight", runtime,
+      finalParent, accepted.position, coreProfile, finalProfile);
+    runtime.lastHit = accepted; runtime.hitHistory.push(accepted);
+    if (runtime.hitHistory.length > 128) runtime.hitHistory.shift();
+    this.onUmbraMoonlightAcceptedHit?.(accepted);
+  }
+
+  getUmbraMoonlightSnapshot() {
+    const runtime = this.umbraMoonlightRuntime;
+    if (!runtime) return null;
+    const rehitMs = this.getUmbraMoonlightRehitIntervalMs();
+    return { enabled: this.moonlightAttackEnabled !== false && !this.getUmbraMoonlightBlockReason(),
+      blockReason: this.moonlightAttackEnabled === false ? "ATTACK_DISABLED" : this.getUmbraMoonlightBlockReason(), combatTimeMs: runtime.combatTimeMs,
+      counts: { ...runtime.counts }, skips: { ...runtime.skips }, errors: runtime.errors, lastError: runtime.lastError,
+      lastHit: runtime.lastHit, hitHistory: runtime.hitHistory.slice(), liveTargets: runtime.targets.size,
+      glide: { ...(runtime.glide || {}), active: Boolean(runtime.glide),
+        lastStepActive: Boolean(runtime.glideActive),
+        poweredSequence: runtime.glidePoweredSequence || 0, lastReason: runtime.glideLastReason,
+        remainingMs: runtime.glide ? Math.max(0, Math.min(runtime.glide.expiresAtMs - runtime.combatTimeMs,
+          runtime.glide.expiresAtSceneMs - (Number(this.time?.now) || 0))) : 0 },
+      lastProcessingMs: runtime.lastProcessingMs, maxProcessingMs: runtime.maxProcessingMs, totalProcessingMs: runtime.totalProcessingMs,
+      targets: Array.from(runtime.targets.values()).slice(0, 32).map(record => ({ lifeId: record.lifeId,
+        hp: record.hp, passId: record.passId, passConsumed: record.passConsumed, armed: record.armed,
+        lastHitAt: record.lastHitAt, waitMs: record.lastHitAt === null ? 0 : Math.max(0, rehitMs - (runtime.combatTimeMs - record.lastHitAt)),
+        reason: record.reason })) };
+  }
+
+  isUmbraBoostTraceEnabled() {
+    return this.getRunPlayerMechId() === UMBRA_SERAPH_MECH_ID
+      && !(this.getUmbraPhase2AVerifiedMechId() === UMBRA_SERAPH_MECH_ID
+        && this.verificationContext?.traceNotifications === false);
+  }
+
+  getUmbraBoostTraceBlockReason() {
+    if (this.umbraRunContext) {
+      const reason = this.getUmbraNormalCombatBlockReason();
+      if (reason) return reason;
+      if (this.umbraRunContext.state !== "ACTIVE") return "RUN_BOUND";
+    }
+    if (!this.isUmbraBoostTraceEnabled()) return "CONTEXT_DISABLED";
+    if (this.finalBossRaidAssetsLoading || this.isFinalBossRaidActive()) return "FINAL_RAID";
+    if (this.gameOver || this.extractionComplete || this.restartInProgress || this.shopActive) return "RUN_EXIT";
+    if (this.drivePaused || this.driveHidden || this.selectionObjects?.length || this.levelUpActive
+      || this.gateGuidanceOverlayActive || this.gateChoiceActive || this.sys?.isPaused?.()
+      || this.sys?.isSleeping?.() || this.physics?.world?.isPaused || this.umbraBoostTrace?.hidden) return "PAUSED";
+    const body = this.playerHitbox?.body;
+    if (!body || !body.enable || !body.world || body.moves === false || body.directControl
+      || !Number.isFinite(body.position?.x) || !Number.isFinite(body.position?.y)
+      || !Number.isFinite(body.velocity?.x) || !Number.isFinite(body.velocity?.y)) return "INVALID_BODY";
+    return "";
+  }
+
+  getUmbraBoostTraceBodyPoint(body = this.playerHitbox?.body, previous = false) {
+    const position = previous ? body?.prev : body?.position;
+    const x = position?.x + body?.halfWidth, y = position?.y + body?.halfHeight;
+    return Number.isFinite(x) && Number.isFinite(y) ? Object.freeze({ x, y }) : null;
+  }
+
+  ensureUmbraBoostTrace() {
+    if (this.umbraRunContext && (this.umbraRunContext.ending || this.umbraRunContext.environment.isClosing?.())) return null;
+    if (!this.isUmbraBoostTraceEnabled()) {
+      if (this.umbraBoostTrace) this.destroyUmbraBoostTrace("CONTEXT_DISABLED");
+      return null;
+    }
+    if (this.umbraBoostTrace) return this.umbraBoostTrace;
+    const world = this.physics?.world;
+    if (!world?.on || !this.events?.on || !this.playerHitbox?.body) return null;
+    const trace = this.umbraBoostTrace = {
+      runGeneration: ++umbraBoostTraceRunGeneration, depthGeneration: 1, basisGeneration: 1,
+      depth: this.stageDepth, context: this.verificationContext, body: this.playerHitbox.body,
+      shape: `${this.playerHitbox.body.width}/${this.playerHitbox.body.height}`,
+      boostSequence: 0, order: 0, physicalStep: 0, sceneUpdates: 0, commandOrder: 0,
+      fixedStart: null, active: null, command: null, cursor: this.getUmbraBoostTraceBodyPoint(),
+      counts: { start: 0, physical: 0, segment: 0, firstMove: 0, end: 0, invalidate: 0 },
+      events: [], consumers: new Map(), cleanups: [], hidden: false, blocked: "", destroyed: false,
+      deliveryQueue: [], delivering: false, consumerErrors: 0
+    };
+    const listen = (emitter, event, handler) => {
+      if (!emitter?.on) return;
+      emitter.on(event, handler);
+      trace.cleanups.push(() => emitter.off?.(event, handler));
+    };
+    listen(this.events, "preupdate", () => this.prepareUmbraBoostTraceFrame());
+    listen(world, "worldstep", delta => this.observeUmbraBoostTraceStep(delta));
+    listen(world, "pause", () => this.invalidateUmbraBoostTrace("WORLD_PAUSE"));
+    listen(world, "resume", () => this.invalidateUmbraBoostTrace("WORLD_RESUME"));
+    for (const event of ["pause", "sleep"]) listen(this.events, event, () => this.invalidateUmbraBoostTrace(`SCENE_${event.toUpperCase()}`));
+    for (const event of ["resume", "wake"]) listen(this.events, event, () => this.invalidateUmbraBoostTrace(`SCENE_${event.toUpperCase()}`));
+    listen(this.game?.events, "hidden", () => { trace.hidden = true; this.invalidateUmbraBoostTrace("HIDDEN"); });
+    listen(this.game?.events, "visible", () => { trace.hidden = false; this.invalidateUmbraBoostTrace("VISIBLE"); });
+    for (const event of ["shutdown", "destroy"]) listen(this.events, event, () => this.destroyUmbraBoostTrace(event.toUpperCase()));
+    return trace;
+  }
+
+  subscribeUmbraBoostTrace(id, consumer) {
+    const trace = this.ensureUmbraBoostTrace();
+    if (!trace || typeof consumer !== "function") return () => {};
+    // Reusing an owner replaces its subscription; there is no replay or destructive read.
+    trace.consumers.set(id, consumer);
+    return () => { if (trace.consumers.get(id) === consumer) trace.consumers.delete(id); };
+  }
+
+  emitUmbraBoostTrace(type, detail = {}) {
+    const trace = this.umbraBoostTrace;
+    if (!trace || trace.destroyed || trace.deliverySuppressed) return;
+    const point = value => value && Number.isFinite(value.x) && Number.isFinite(value.y)
+      ? Object.freeze({ x: value.x, y: value.y }) : null;
+    const event = Object.freeze({
+      type, order: ++trace.order, boostSequence: trace.active?.sequence ?? trace.boostSequence,
+      physicalStep: trace.physicalStep, sceneUpdates: trace.sceneUpdates,
+      runGeneration: trace.runGeneration, depthGeneration: trace.depthGeneration, basisGeneration: trace.basisGeneration,
+      timeMs: Number(this.time?.now) || 0, deltaMs: 0, fixedStart: point(trace.fixedStart),
+      valid: false, reason: "", mode: "NONE", firstPhysicalEvaluation: false, firstValidMovement: false, cancelled: false,
+      ...detail, from: point(detail.from), to: point(detail.to)
+    });
+    if (type === "start") trace.counts.start++;
+    if (type === "step") { trace.counts.physical++; if (event.valid) trace.counts.segment++; }
+    if (event.firstValidMovement) trace.counts.firstMove++;
+    if (type === "end") trace.counts.end++;
+    if (type === "invalidate") trace.counts.invalidate++;
+    trace.events.push(event);
+    if (trace.events.length > UMBRA_BOOST_TRACE_CONFIG.historyLimit) trace.events.shift();
+    // Synchronous fan-out, with ordered reentrant delivery and a bounded diagnostic history.
+    // No consumer can mutate a shared point or remove another consumer's event.
+    if (trace.deliveryQueue.length >= UMBRA_BOOST_TRACE_CONFIG.historyLimit) {
+      trace.consumerErrors++;
+      trace.deliveryQueue.length = 0;
+      trace.command = null;
+      trace.active = null;
+      trace.fixedStart = null;
+      trace.basisGeneration++;
+      trace.deliveryQueue.push(Object.freeze({ ...event, type: "invalidate", valid: false,
+        firstPhysicalEvaluation: false, firstValidMovement: false, fixedStart: null,
+        basisGeneration: trace.basisGeneration, reason: "DELIVERY_GAP" }));
+    } else trace.deliveryQueue.push(event);
+    if (trace.delivering) return;
+    trace.delivering = true;
+    try {
+      let delivered = 0;
+      while (trace.deliveryQueue.length && !trace.destroyed) {
+        if (++delivered > UMBRA_BOOST_TRACE_CONFIG.historyLimit) {
+          trace.deliveryQueue.length = 0;
+          trace.command = null; trace.active = null; trace.fixedStart = null;
+          trace.basisGeneration++; trace.consumerErrors++; trace.counts.invalidate++;
+          const gap = Object.freeze({ ...event, order: ++trace.order, type: "invalidate", valid: false,
+            firstPhysicalEvaluation: false, firstValidMovement: false, fixedStart: null,
+            basisGeneration: trace.basisGeneration, reason: "DELIVERY_GAP" });
+          trace.events.push(gap);
+          trace.events = trace.events.slice(-UMBRA_BOOST_TRACE_CONFIG.historyLimit);
+          trace.deliverySuppressed = true;
+          for (const consumer of trace.consumers.values()) { try { consumer(gap); } catch (_) { trace.consumerErrors++; } }
+          trace.deliverySuppressed = false;
+          break;
+        }
+        const next = trace.deliveryQueue.shift();
+        for (const [id, consumer] of Array.from(trace.consumers)) {
+          if (trace.consumers.get(id) !== consumer) continue;
+          try { consumer(next); } catch (_) { trace.consumerErrors++; }
+        }
+      }
+    } finally { trace.delivering = false; }
+  }
+
+  getUmbraBoostTraceSnapshot() {
+    const trace = this.umbraBoostTrace;
+    if (!trace) return null;
+    return Object.freeze({ boostSequence: trace.boostSequence, active: Boolean(trace.active), fixedStart: trace.fixedStart,
+      order: trace.order, physicalStep: trace.physicalStep, sceneUpdates: trace.sceneUpdates,
+      counts: Object.freeze({ ...trace.counts }), consumerErrors: trace.consumerErrors,
+      generations: Object.freeze({ run: trace.runGeneration, depth: trace.depthGeneration, basis: trace.basisGeneration }),
+      events: Object.freeze(trace.events.slice()) });
+  }
+
+  beginUmbraBoostTrace(now, source) {
+    const trace = this.ensureUmbraBoostTrace();
+    if (!trace || this.getUmbraBoostTraceBlockReason() || trace.active) return;
+    trace.fixedStart = this.getUmbraBoostTraceBodyPoint();
+    trace.cursor = trace.fixedStart;
+    trace.active = { sequence: ++trace.boostSequence, source, firstPhysical: false, firstMove: false };
+    this.emitUmbraBoostTrace("start", { reason: "BOOST_SUCCESS", mode: "BOOST", timeMs: now, from: trace.fixedStart, to: trace.fixedStart });
+  }
+
+  endUmbraBoostTrace(reason, cancelled = false, now = Number(this.time?.now) || 0) {
+    const trace = this.umbraBoostTrace;
+    if (!trace?.active) return;
+    this.emitUmbraBoostTrace("end", { reason, cancelled, timeMs: now, to: this.getUmbraBoostTraceBodyPoint() });
+    trace.active = null;
+    if (trace.command) { trace.command.powered = false; trace.command.mode = "POST_BOOST_GLIDE"; }
+  }
+
+  invalidateUmbraBoostTrace(reason = "RESET") {
+    const trace = this.umbraBoostTrace;
+    if (!trace || trace.destroyed) return;
+    this.endUmbraBoostTrace(reason, true);
+    trace.basisGeneration++;
+    if (trace.depth !== this.stageDepth) { trace.depth = this.stageDepth; trace.depthGeneration++; }
+    trace.context = this.verificationContext;
+    trace.command = null;
+    trace.fixedStart = null;
+    trace.body = this.playerHitbox?.body;
+    trace.shape = `${trace.body?.width}/${trace.body?.height}`;
+    trace.cursor = this.getUmbraBoostTraceBodyPoint();
+    this.emitUmbraBoostTrace("invalidate", { reason, to: trace.cursor, cancelled: true });
+  }
+
+  destroyUmbraBoostTrace(reason = "DESTROY") {
+    const trace = this.umbraBoostTrace;
+    if (!trace || trace.destroyed) return;
+    this.invalidateUmbraBoostTrace(reason);
+    trace.destroyed = true;
+    for (const cleanup of trace.cleanups.splice(0)) cleanup();
+    trace.consumers.clear(); trace.events.length = 0; trace.deliveryQueue.length = 0;
+    trace.command = null; trace.body = null; trace.context = null;
+    this.umbraBoostTrace = null;
+  }
+
+  prepareUmbraBoostTraceFrame() {
+    const trace = this.umbraBoostTrace;
+    if (!trace) return;
+    if (!this.isUmbraBoostTraceEnabled()) { this.destroyUmbraBoostTrace("CONTEXT_DISABLED"); return; }
+    const reason = this.getUmbraBoostTraceBlockReason();
+    if (reason) {
+      if (trace.blocked !== reason) this.invalidateUmbraBoostTrace(reason);
+      trace.blocked = reason;
+      return;
+    }
+    trace.blocked = "";
+    const body = this.playerHitbox.body;
+    if (trace.body !== body || trace.shape !== `${body.width}/${body.height}`) this.invalidateUmbraBoostTrace("BODY_CHANGED");
+    else if (trace.context !== this.verificationContext || trace.depth !== this.stageDepth) this.invalidateUmbraBoostTrace("CONTEXT_CHANGED");
+  }
+
+  submitUmbraBoostTraceCommand(state, now, powered, mode) {
+    const trace = this.ensureUmbraBoostTrace();
+    if (!trace) return;
+    trace.sceneUpdates++;
+    const reason = this.getUmbraBoostTraceBlockReason();
+    if (reason) { if (trace.blocked !== reason) this.invalidateUmbraBoostTrace(reason); trace.blocked = reason; return; }
+    if (trace.active && !powered) this.endUmbraBoostTrace(mode === "AIR_BRAKE" ? "AIR_BRAKE" : "BOOST_COMPLETE", false, now);
+    const body = this.playerHitbox.body;
+    trace.command = { order: ++trace.commandOrder, body, basis: trace.basisGeneration,
+      sequence: trace.active?.sequence ?? 0, powered: Boolean(powered && trace.active), mode,
+      expectedVelocity: { x: body.velocity.x, y: body.velocity.y } };
+  }
+
+  doesUmbraBoostTraceCrossWall(from, to, body) {
+    const epsilon = UMBRA_BOOST_TRACE_CONFIG.epsilon;
+    const obstacles = this.stageObstacleBodies || this.walls;
+    for (const object of obstacles?.getChildren?.() || []) {
+      const wall = object?.body;
+      if (!wall?.enable) continue;
+      // Rectangle Minkowski bound: deliberately conservative at circular corners.
+      const min = { x: wall.x - body.halfWidth + epsilon, y: wall.y - body.halfHeight + epsilon };
+      const max = { x: wall.x + wall.width + body.halfWidth - epsilon, y: wall.y + wall.height + body.halfHeight - epsilon };
+      let enter = 0, leave = 1, intersects = true;
+      for (const axis of ["x", "y"]) {
+        const delta = to[axis] - from[axis];
+        if (Math.abs(delta) < epsilon) {
+          if (from[axis] <= min[axis] || from[axis] >= max[axis]) { intersects = false; break; }
+        } else {
+          const a = (min[axis] - from[axis]) / delta, b = (max[axis] - from[axis]) / delta;
+          enter = Math.max(enter, Math.min(a, b)); leave = Math.min(leave, Math.max(a, b));
+          if (enter >= leave) { intersects = false; break; }
+        }
+      }
+      if (intersects && enter < leave) return true;
+    }
+    return false;
+  }
+
+  isUmbraBoostTraceKnownContact(point, body) {
+    const epsilon = UMBRA_BOOST_TRACE_CONFIG.epsilon;
+    const onBoundary = (left, top, right, bottom) =>
+      ((Math.abs(point.x - left) <= epsilon || Math.abs(point.x - right) <= epsilon)
+        && point.y >= top - epsilon && point.y <= bottom + epsilon)
+      || ((Math.abs(point.y - top) <= epsilon || Math.abs(point.y - bottom) <= epsilon)
+        && point.x >= left - epsilon && point.x <= right + epsilon);
+    const bounds = body.customBoundsRectangle || body.world?.bounds;
+    if (body.collideWorldBounds && bounds && onBoundary(bounds.left + body.halfWidth, bounds.top + body.halfHeight,
+      bounds.right - body.halfWidth, bounds.bottom - body.halfHeight)) return true;
+    for (const object of (this.stageObstacleBodies || this.walls)?.getChildren?.() || []) {
+      const wall = object?.body;
+      if (wall?.enable && onBoundary(wall.x - body.halfWidth, wall.y - body.halfHeight,
+        wall.x + wall.width + body.halfWidth, wall.y + wall.height + body.halfHeight)) return true;
+    }
+    return false;
+  }
+
+  observeUmbraBoostTraceStep(deltaSeconds) {
+    const trace = this.umbraBoostTrace;
+    if (!trace || trace.destroyed) return;
+    trace.physicalStep++;
+    this.prepareUmbraBoostTraceFrame();
+    if (this.umbraBoostTrace !== trace || trace.blocked) return;
+    const body = this.playerHitbox.body, from = this.getUmbraBoostTraceBodyPoint(body, true), to = this.getUmbraBoostTraceBodyPoint(body);
+    if (!from || !to || !Number.isFinite(deltaSeconds) || deltaSeconds <= 0
+      || !Number.isFinite(body.newVelocity?.x) || !Number.isFinite(body.newVelocity?.y)) {
+      this.invalidateUmbraBoostTrace("INVALID_STEP"); return;
+    }
+    const epsilon = UMBRA_BOOST_TRACE_CONFIG.epsilon;
+    if (trace.cursor && Math.hypot(from.x - trace.cursor.x, from.y - trace.cursor.y) > epsilon) {
+      this.invalidateUmbraBoostTrace("POSITION_DISCONTINUITY");
+      this.emitUmbraBoostTrace("step", { reason: "POSITION_DISCONTINUITY", mode: "DISCONTINUITY", from, to, deltaMs: deltaSeconds * 1000 });
+      trace.cursor = to;
+      return;
+    }
+    const command = trace.command;
+    let reason = !command ? "NO_COMMAND" : !command.powered ? command.mode : "VALID_BOOST";
+    let valid = Boolean(command?.powered && trace.active?.sequence === command.sequence
+      && command.body === body && command.basis === trace.basisGeneration);
+    const firstPhysicalEvaluation = Boolean(valid && !trace.active.firstPhysical);
+    if (valid) trace.active.firstPhysical = true;
+    const dx = to.x - from.x, dy = to.y - from.y;
+    if (valid) {
+      const planned = body.newVelocity;
+      const expected = command.expectedVelocity;
+      if (!planned || Math.hypot(planned.x - expected.x * deltaSeconds, planned.y - expected.y * deltaSeconds) > epsilon) {
+        valid = false; reason = "EXTERNAL_VELOCITY";
+        // Later catch-up steps must not adopt this unexplained velocity as an
+        // authoritative boost command. Only the next movement submission can do so.
+        command.powered = false; command.mode = "EXTERNAL_MOTION";
+      } else {
+        const projected = (actual, intended) => Math.abs(actual) <= Math.abs(intended) + epsilon && actual * intended >= -epsilon;
+        const corrected = Math.hypot(dx - planned.x, dy - planned.y) > epsilon;
+        const knownCollision = body.blocked?.left || body.blocked?.right || body.blocked?.up || body.blocked?.down
+          || body.touching?.left || body.touching?.right || body.touching?.up || body.touching?.down;
+        if (corrected && (!knownCollision || !this.isUmbraBoostTraceKnownContact(to, body)
+          || !projected(dx, planned.x) || !projected(dy, planned.y))) {
+          valid = false; reason = "UNEXPLAINED_CORRECTION";
+        } else if (Math.hypot(dx, dy) <= epsilon) { valid = false; reason = "ZERO_MOVEMENT"; }
+        else if (this.doesUmbraBoostTraceCrossWall(from, to, body)) { valid = false; reason = "WALL_CHORD_UNVERIFIED"; }
+      }
+    }
+    const firstValidMovement = Boolean(valid && !trace.active.firstMove);
+    if (firstValidMovement) trace.active.firstMove = true;
+    // A collider/overlap can change velocity AFTER integration. The current path
+    // may still be valid, but that change cannot authorize the next catch-up step.
+    const resolvedVelocity = { x: body.velocity.x, y: body.velocity.y };
+    const integratedVelocity = { x: body.newVelocity.x / deltaSeconds, y: body.newVelocity.y / deltaSeconds };
+    const velocityChanged = Math.hypot(resolvedVelocity.x - integratedVelocity.x, resolvedVelocity.y - integratedVelocity.y) > epsilon;
+    const collisionProjection = ["x", "y"].every(axis => Math.abs(resolvedVelocity[axis]) <= Math.abs(integratedVelocity[axis]) + epsilon
+      && resolvedVelocity[axis] * integratedVelocity[axis] >= -epsilon);
+    const externalAfterIntegration = Boolean(command?.powered && velocityChanged
+      && !(collisionProjection && this.isUmbraBoostTraceKnownContact(to, body)));
+    this.emitUmbraBoostTrace("step", { valid, reason, mode: command?.mode || "NONE", firstPhysicalEvaluation,
+      firstValidMovement, from, to, deltaMs: deltaSeconds * 1000, commandOrder: command?.order || 0,
+      nextCommandExcludedReason: externalAfterIntegration ? "EXTERNAL_POST_COLLIDER_VELOCITY" : "" });
+    trace.cursor = to;
+    if (command) {
+      command.expectedVelocity = resolvedVelocity;
+      if (externalAfterIntegration) { command.powered = false; command.mode = "EXTERNAL_MOTION"; }
+    }
+  }
+
+  getUmbraAirBrakeCalibration() {
+    if (this.getRunPlayerMechId() !== UMBRA_SERAPH_MECH_ID) return null;
+    // Only an explicit, isolated legacy comparison opts out of the adopted default.
+    if (this.getUmbraPhase2AVerifiedMechId() === UMBRA_SERAPH_MECH_ID
+      && this.verificationContext?.airBrakeVariant === "legacy") return null;
+    return UMBRA_AIR_BRAKE_CALIBRATION;
+  }
+
+  retainUmbraAirBrakePhysicalVelocity(state) {
+    // Physics runs before Scene.update. Keep a collision's actual reduced velocity,
+    // including its tangential direction, instead of restoring the cached command.
+    const physical = this.playerHitbox?.body?.velocity;
+    if (physical && Math.hypot(physical.x, physical.y) < Math.hypot(state.velocity.x, state.velocity.y)) {
+      state.velocity.x = physical.x;
+      state.velocity.y = physical.y;
+    }
+  }
+
+  applyUmbraAirBrakeVelocity(state, now, calibration) {
+    const brake = state.airBrake;
+    const through = Math.min(now, brake.until);
+    const previous = Number.isFinite(brake.umbraLastAppliedAt) ? brake.umbraLastAppliedAt : brake.startedAt;
+    const elapsedMs = Math.max(0, through - Math.max(brake.startedAt, previous));
+    brake.umbraLastAppliedAt = Math.max(previous, through);
+    this.retainUmbraAirBrakePhysicalVelocity(state);
+    const retention = Math.pow(calibration.retainedSpeedRatio, brake.strength * elapsedMs / calibration.referenceMs);
+    state.velocity.x *= retention;
+    state.velocity.y *= retention;
+    brake.speedCurrent = Math.hypot(state.velocity.x, state.velocity.y);
+    // Diagnostic curve only; the start speed is never assigned back to velocity.
+    brake.targetSpeed = brake.speedBefore * Math.pow(calibration.retainedSpeedRatio,
+      brake.strength * Math.max(0, through - brake.startedAt) / calibration.referenceMs);
+    return brake.speedCurrent;
+  }
+
   startAcAirBrake(state = this.ensureAcMovementState(), time = this.time?.now || 0, components = null) {
     if (!state?.airBrake || !state?.velocity) {
       return false;
     }
 
     const tuning = this.getActiveAcMovementTuning();
+    const calibration = this.getUmbraAirBrakeCalibration();
+    if (calibration) this.retainUmbraAirBrakePhysicalVelocity(state);
     const airBrake = state.airBrake;
     const now = Math.max(0, Number(time) || 0);
     const data = components || this.getAcAirBrakeComponents(state, state.lastInputVector);
     const durationMs = Math.max(40, Number(tuning.airBrakeDurationMs) || 200);
     const cooldownMs = Math.max(0, Number(tuning.airBrakeCooldownMs) || 600);
     const regenBlockMs = Math.max(0, Number(tuning.airBrakeRegenBlockMs) || 300);
-    const speedBefore = Math.max(0, Number(data.speed) || Math.hypot(Number(state.velocity.x) || 0, Number(state.velocity.y) || 0));
-    const targetRatio = Phaser.Math.Clamp(Number(tuning.airBrakeTargetSpeedRatio) || 0.52, 0.1, 0.95);
+    const speedBefore = calibration ? Math.hypot(state.velocity.x, state.velocity.y)
+      : Math.max(0, Number(data.speed) || Math.hypot(Number(state.velocity.x) || 0, Number(state.velocity.y) || 0));
+    const targetRatio = calibration?.retainedSpeedRatio ?? Phaser.Math.Clamp(Number(tuning.airBrakeTargetSpeedRatio) || 0.52, 0.1, 0.95);
     const dotThreshold = Math.abs(Phaser.Math.Clamp(Number(tuning.airBrakeDotThreshold) || -0.65, -1, 0));
     const dotStrength = Phaser.Math.Clamp((Math.abs(Number(data.opposingDot) || 0) - dotThreshold) / Math.max(0.05, 1 - dotThreshold), 0, 1);
     const speedStrength = Phaser.Math.Clamp((speedBefore - Math.max(0, Number(tuning.airBrakeMinSpeed) || 220)) / Math.max(80, this.getAcMovementBaseSpeed()), 0, 1);
@@ -63593,6 +68460,7 @@ class SurvivalScene extends Phaser.Scene {
 
     airBrake.active = true;
     airBrake.startedAt = now;
+    if (calibration) airBrake.umbraLastAppliedAt = now;
     airBrake.until = now + durationMs;
     airBrake.cooldownUntil = airBrake.until + cooldownMs;
     airBrake.lastTriggerAt = now;
@@ -63608,7 +68476,7 @@ class SurvivalScene extends Phaser.Scene {
     airBrake.speedBefore = speedBefore;
     airBrake.speedCurrent = speedBefore;
     airBrake.targetSpeedRatio = targetRatio;
-    airBrake.targetSpeed = speedBefore * targetRatio;
+    airBrake.targetSpeed = calibration ? speedBefore : speedBefore * targetRatio;
     airBrake.strength = strength;
     airBrake.durationRemainingMs = durationMs;
     airBrake.regenBlockedUntil = Math.max(Number(airBrake.regenBlockedUntil) || 0, airBrake.until + regenBlockMs);
@@ -63657,30 +68525,36 @@ class SurvivalScene extends Phaser.Scene {
 
     const tuning = this.getActiveAcMovementTuning();
     const now = Math.max(0, Number(time) || 0);
-    const dt = this.clampAcMovementDelta(delta);
-    const durationMs = Math.max(1, (Number(airBrake.until) || now) - (Number(airBrake.startedAt) || now));
-    const elapsedRatio = Phaser.Math.Clamp((now - (Number(airBrake.startedAt) || now)) / durationMs, 0, 1);
-    const eased = 1 - Math.pow(1 - elapsedRatio, 3);
-    const currentSpeed = Math.hypot(Number(state.velocity.x) || 0, Number(state.velocity.y) || 0);
-    const beforeSpeed = Math.max(currentSpeed, Number(airBrake.speedBefore) || currentSpeed);
-    const targetSpeedRatio = Phaser.Math.Clamp(Number(airBrake.targetSpeedRatio) || Number(tuning.airBrakeTargetSpeedRatio) || 0.52, 0.1, 0.95);
-    const targetSpeed = beforeSpeed * Phaser.Math.Linear(1, targetSpeedRatio, eased);
-    const dampingPerSecond = Math.max(0, Number(tuning.airBrakeVelocityDampingPerSecond) || 6.2);
-    const damping = Phaser.Math.Clamp(1 - Math.exp(-dampingPerSecond * dt * Math.max(0.25, Number(airBrake.strength) || 0.5)), 0, 1);
-    const counterThrust = Math.max(0, Number(tuning.airBrakeCounterThrustPerSecond) || 480)
-      * dt
-      * Phaser.Math.Linear(0.42, 1, Phaser.Math.Clamp(Number(airBrake.strength) || 0.5, 0, 1));
-    const frameTargetSpeed = Math.max(targetSpeed, currentSpeed - counterThrust);
-    const nextSpeed = Math.max(0, Phaser.Math.Linear(currentSpeed, Math.min(currentSpeed, frameTargetSpeed), damping));
-    const fallbackX = Number(airBrake.velocityBefore?.x) || Number(state.lastMoveDirection?.x) || 0;
-    const fallbackY = Number(airBrake.velocityBefore?.y) || Number(state.lastMoveDirection?.y) || 1;
-    const fallbackLength = Math.hypot(fallbackX, fallbackY) || 1;
-    const dirX = currentSpeed > 0 ? state.velocity.x / currentSpeed : fallbackX / fallbackLength;
-    const dirY = currentSpeed > 0 ? state.velocity.y / currentSpeed : fallbackY / fallbackLength;
-    state.velocity.x = dirX * nextSpeed;
-    state.velocity.y = dirY * nextSpeed;
-    airBrake.speedCurrent = nextSpeed;
-    airBrake.targetSpeed = targetSpeed;
+    const calibration = this.getUmbraAirBrakeCalibration();
+    let nextSpeed;
+    if (calibration) {
+      nextSpeed = this.applyUmbraAirBrakeVelocity(state, now, calibration);
+    } else {
+      const dt = this.clampAcMovementDelta(delta);
+      const durationMs = Math.max(1, (Number(airBrake.until) || now) - (Number(airBrake.startedAt) || now));
+      const elapsedRatio = Phaser.Math.Clamp((now - (Number(airBrake.startedAt) || now)) / durationMs, 0, 1);
+      const eased = 1 - Math.pow(1 - elapsedRatio, 3);
+      const currentSpeed = Math.hypot(Number(state.velocity.x) || 0, Number(state.velocity.y) || 0);
+      const beforeSpeed = Math.max(currentSpeed, Number(airBrake.speedBefore) || currentSpeed);
+      const targetSpeedRatio = Phaser.Math.Clamp(Number(airBrake.targetSpeedRatio) || Number(tuning.airBrakeTargetSpeedRatio) || 0.52, 0.1, 0.95);
+      const targetSpeed = beforeSpeed * Phaser.Math.Linear(1, targetSpeedRatio, eased);
+      const dampingPerSecond = Math.max(0, Number(tuning.airBrakeVelocityDampingPerSecond) || 6.2);
+      const damping = Phaser.Math.Clamp(1 - Math.exp(-dampingPerSecond * dt * Math.max(0.25, Number(airBrake.strength) || 0.5)), 0, 1);
+      const counterThrust = Math.max(0, Number(tuning.airBrakeCounterThrustPerSecond) || 480)
+        * dt
+        * Phaser.Math.Linear(0.42, 1, Phaser.Math.Clamp(Number(airBrake.strength) || 0.5, 0, 1));
+      const frameTargetSpeed = Math.max(targetSpeed, currentSpeed - counterThrust);
+      nextSpeed = Math.max(0, Phaser.Math.Linear(currentSpeed, Math.min(currentSpeed, frameTargetSpeed), damping));
+      const fallbackX = Number(airBrake.velocityBefore?.x) || Number(state.lastMoveDirection?.x) || 0;
+      const fallbackY = Number(airBrake.velocityBefore?.y) || Number(state.lastMoveDirection?.y) || 1;
+      const fallbackLength = Math.hypot(fallbackX, fallbackY) || 1;
+      const dirX = currentSpeed > 0 ? state.velocity.x / currentSpeed : fallbackX / fallbackLength;
+      const dirY = currentSpeed > 0 ? state.velocity.y / currentSpeed : fallbackY / fallbackLength;
+      state.velocity.x = dirX * nextSpeed;
+      state.velocity.y = dirY * nextSpeed;
+      airBrake.speedCurrent = nextSpeed;
+      airBrake.targetSpeed = targetSpeed;
+    }
     airBrake.durationRemainingMs = Math.max(0, (Number(airBrake.until) || now) - now);
     state.boostMode = AC_CONTINUOUS_BOOST_MODE.AIR_BRAKE;
     state.mode = AC_MOVEMENT_CONFIG.airBrakeMode;
@@ -63690,11 +68564,13 @@ class SurvivalScene extends Phaser.Scene {
     const exitSpeed = Math.max(0, Number(tuning.airBrakeExitSpeedEpsilon) || 20);
     if (now >= (Number(airBrake.until) || 0)) {
       this.endAcAirBrake(state, now, "DURATION");
-      return false;
+      // This update already consumed its brake interval. Resume steering next update,
+      // avoiding a second full-delta movement calculation on the terminal frame.
+      return Boolean(calibration);
     }
     if (nextSpeed <= exitSpeed) {
       this.endAcAirBrake(state, now, "LOW_SPEED");
-      return false;
+      return Boolean(calibration);
     }
     return true;
   }
@@ -63896,6 +68772,7 @@ class SurvivalScene extends Phaser.Scene {
       terminalSpeed: continuousBoost.terminalSpeed,
       direction: normalizedDirection
     });
+    this.beginUmbraBoostTrace?.(now, "CONTINUOUS");
     return true;
   }
 
@@ -63994,6 +68871,7 @@ class SurvivalScene extends Phaser.Scene {
       glideDuration,
       lockoutUntil: state.boostLockoutUntil
     });
+    this.endUmbraBoostTrace?.(fullOverheatEnd ? AC_QUICK_BOOST_END_REASON.FULL_OVERHEAT : reason, false, now);
   }
 
   updateAcContinuousBoost(now, delta, input, dashInput, baseMoveSpeed) {
@@ -64235,6 +69113,7 @@ class SurvivalScene extends Phaser.Scene {
       visualRatio,
       initialImpulseRatio
     });
+    this.beginUmbraBoostTrace?.(now, "VARIABLE");
     return true;
   }
 
@@ -64298,6 +69177,7 @@ class SurvivalScene extends Phaser.Scene {
       consumedCost: variableQuickBoost.consumedCost,
       postBoostGlideDurationMs: variableQuickBoost.postBoostGlideDurationMs
     });
+    this.endUmbraBoostTrace?.(reason, false, now);
   }
 
   updateAcVariableQuickBoost(now, delta, input, dashInput, baseMoveSpeed) {
@@ -64577,6 +69457,7 @@ class SurvivalScene extends Phaser.Scene {
     this.triggerAcQuickBoostVisuals(now, normalizedDirection);
     this.triggerAcQuickBoostSe(now, state);
     this.logAcQuickBoostEvent("quick boost", { cost, direction: normalizedDirection });
+    this.beginUmbraBoostTrace?.(now, "FIXED");
     return true;
   }
 
@@ -65672,6 +70553,12 @@ class SurvivalScene extends Phaser.Scene {
     this.syncPlayerVisuals();
     this.constrainPlayerToMovementBounds();
     this.updateAcEvadeWindow(now, delta, state);
+    // This command belongs to the NEXT physics step. The terminal Air Brake update
+    // remains braking even when updateAcAirBrake has already cleared active.
+    this.submitUmbraBoostTraceCommand?.(state, now,
+      !airBrakeActive && (quickBoostActive || state.continuousBoost?.active || state.variableQuickBoost?.active),
+      airBrakeActive ? "AIR_BRAKE" : (quickBoostActive || state.continuousBoost?.active || state.variableQuickBoost?.active)
+        ? "BOOST" : postBoostGlideActive ? "POST_BOOST_GLIDE" : "NORMAL");
     this.updatePlayerRobotBoostVisuals(delta);
     this.updateAcMovementVisuals(now, delta);
     this.updateDashStaminaGauge();
@@ -66971,6 +71858,7 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
+    this.invalidateUmbraBoostTrace?.("RAID_POSITION_CLAMP");
     this.playerHitbox.setPosition(clampedPoint.x, clampedPoint.y);
     if (this.playerHitbox.body) {
       this.playerHitbox.body.updateFromGameObject?.();
@@ -67131,6 +72019,8 @@ class SurvivalScene extends Phaser.Scene {
       if (mutationSlowMultiplier < 1 && enemy.body?.velocity) {
         enemy.body.velocity.scale(mutationSlowMultiplier);
       }
+
+      this.applyUmbraControlMovementMultiplier?.(enemy, lostArmsSlowMultiplier * cleaningRobotSlowMultiplier * mutationSlowMultiplier);
 
       this.constrainEnemyToMovementBounds(enemy);
     });
@@ -67503,6 +72393,7 @@ class SurvivalScene extends Phaser.Scene {
     enemy.setFlipX(this.playerHitbox.x > enemy.x);
 
     if (enemy.isBossDashing) {
+      this.updateUmbraBossDashCommand?.(enemy);
       return;
     }
 
@@ -67827,6 +72718,7 @@ class SurvivalScene extends Phaser.Scene {
 
     enemy.isBossDashing = true;
     enemy.bossDashEndsAt = this.time.now + (enemy.dashDurationMs || 520);
+    this.recordUmbraBossDashCommand?.(enemy, angle);
     this.physics.velocityFromRotation(angle, enemy.dashSpeed || 340, enemy.body.velocity);
     enemy.bossDashStopEvent = this.queueBossAttackEvent(enemy, enemy.dashDurationMs || 520, () => {
       if (enemy.active && !enemy.isDying) {
@@ -70206,6 +75098,10 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     this.enemies.add(enemy);
+    this.getUmbraNormalEnemyLife?.(enemy, { spawn: true });
+    if (this.umbraMoonlightRuntime) this.registerUmbraMoonlightEnemyLife(enemy);
+    if (this.umbraBloodSpikeRuntime) this.registerUmbraBloodSpikeEnemyLife(enemy);
+    if (this.umbraPhantomNovaRuntime) this.registerUmbraPhantomNovaEnemyLife(enemy);
     return enemy;
   }
   fireAtClosestEnemy(time) {
@@ -72527,6 +77423,8 @@ class SurvivalScene extends Phaser.Scene {
       return false;
     }
 
+    if (this.isPlayerProtectedByUmbraNovaField?.()) return false;
+
     if (this.time.now < this.invincibleUntil) {
       return false;
     }
@@ -72632,6 +77530,9 @@ class SurvivalScene extends Phaser.Scene {
 
     this.trySpawnProductionEquipmentBox(enemy);
     enemy.isDying = true;
+    this.umbraMoonlightRuntime?.targets.delete(enemy);
+    this.umbraBloodSpikeRuntime?.targets.delete(enemy);
+    this.umbraPhantomNovaRuntime?.targets.delete(enemy);
     this.releaseRobotMissileLockTarget(enemy, "enemyKilled");
     const isNemesis = this.isNemesisBoss(enemy);
     const isVoidHunter = this.isVoidHunterBoss(enemy);
@@ -78444,19 +83345,7 @@ class SurvivalScene extends Phaser.Scene {
 
   showLevelUpChoices() {
     const isStartingDraft = this.isOpeningBoostDraftActive();
-    const choiceLimit = this.getOpeningBoostChoiceLimit(isStartingDraft);
-    const skillChoices = this.getAvailableSkillChoices({
-      source: isStartingDraft ? "openingBoost" : "levelUp",
-      openingBoost: isStartingDraft,
-      allowEquipmentOverlimit: !isStartingDraft
-    });
-    let passiveChoices = this.weightedShuffleUpgradeChoices(
-      this.getPassiveUpgradeChoices(),
-      this.getSelectedPlayerMechPassiveWeights()
-    );
-    passiveChoices = this.prioritizeEvasiveFirmwareChoice(passiveChoices);
-    const skillChoiceLimit = Math.min(passiveChoices.length > 0 ? Math.min(2, choiceLimit - 1) : choiceLimit, skillChoices.length);
-    const upgrades = [...skillChoices.slice(0, skillChoiceLimit), ...passiveChoices].slice(0, choiceLimit);
+    const upgrades = this.buildLevelUpUpgradeChoices({ openingBoost: isStartingDraft });
 
     if (!upgrades.length) {
       this.pendingLevelUps = 0;
@@ -78486,13 +83375,400 @@ class SurvivalScene extends Phaser.Scene {
     );
   }
 
-  getPassiveUpgradeChoices() {
+  resetLevelUpCandidatePresentationState() {
+    this.levelUpCandidatePresentationState = { evasiveFirmwarePresented: false };
+    return this.levelUpCandidatePresentationState;
+  }
+
+  buildLevelUpUpgradeChoices(options = {}) {
+    const openingBoost = typeof options.openingBoost === "boolean"
+      ? options.openingBoost
+      : this.isOpeningBoostDraftActive();
+    const requestedLimit = Number(options.choiceLimit);
+    const choiceLimit = Math.max(1, Math.min(openingBoost ? 4 : 3,
+      Number.isFinite(requestedLimit) && requestedLimit > 0
+        ? Math.floor(requestedLimit)
+        : this.getOpeningBoostChoiceLimit(openingBoost)));
+    const context = { ...options, openingBoost };
+    const skillChoices = this.getAvailableSkillChoices({
+      ...context,
+      source: openingBoost ? "openingBoost" : "levelUp",
+      allowEquipmentOverlimit: !openingBoost
+    });
+    let passiveChoices = this.weightedShuffleUpgradeChoices(
+      this.getPassiveUpgradeChoices(context),
+      this.getSelectedPlayerMechPassiveWeights()
+    );
+    passiveChoices = this.prioritizeEvasiveFirmwareChoice(passiveChoices, context);
+    // Restore the existing mechs' normal skill-only fallback when no effective
+    // passive remains. Opening Boost and the UMBRA preview keep their own limits.
+    const allowLegacySkillOnlyChoices = !openingBoost && passiveChoices.length === 0 &&
+      [DEFAULT_PLAYER_MECH_ID, REGALIA_BASTION_MECH_ID].includes(this.getSkillSelectionPlayerMechId(context));
+    const skillChoiceLimit = Math.min(
+      passiveChoices.length > 0 ? Math.min(2, choiceLimit - 1)
+        : allowLegacySkillOnlyChoices ? choiceLimit : Math.min(2, choiceLimit),
+      skillChoices.length
+    );
+    return [...skillChoices.slice(0, skillChoiceLimit), ...passiveChoices].slice(0, choiceLimit);
+  }
+
+  markLevelUpChoicesPresented(choices, context = {}) {
+    const state = this.levelUpCandidatePresentationState;
+    if (!state || state.evasiveFirmwarePresented ||
+      (context.presentationState && context.presentationState !== state) ||
+      (context.selectionMode || "level") !== "level" ||
+      this.getSkillSelectionPlayerMechId(context) !== UMBRA_SERAPH_MECH_ID ||
+      !this.isEvasiveFirmwareCandidateAllowed(context) ||
+      !choices?.some((choice) => choice?.type === "passive" && choice.id === EVASIVE_FIRMWARE_PASSIVE_ID)) {
+      return false;
+    }
+    state.evasiveFirmwarePresented = true;
+    return true;
+  }
+
+  getBoosterTuningSpeedGain(baseGain = 30) {
+    const gain = Math.max(0, Number(baseGain) || 0);
+    if (this.getUmbraPhase2AVerifiedMechId?.() !== UMBRA_SERAPH_MECH_ID
+      && !(this.umbraRunContext && this.hasUmbraRunCapability("growth", { requireBody: false }))) {
+      return gain;
+    }
+    return gain * this.getRunPlayerMechStatProfile().moveSpeedMultiplier;
+  }
+
+  getUmbraMoonlightStage1Config() {
+    return SKILL_DEFINITIONS[UMBRA_MOONLIGHT_SKILL_ID]?.verificationStage1 || null;
+  }
+
+  getUmbraSkillStatsConfig(skillId, stageConfig) {
+    if (![UMBRA_MOONLIGHT_SKILL_ID, UMBRA_BLOOD_SPIKE_SKILL_ID, UMBRA_PHANTOM_NOVA_SKILL_ID].includes(skillId)) return null;
+    const definition = SKILL_DEFINITIONS[skillId];
+    // Explicit canonical values support pure next-Stage card calculation. They
+    // cannot activate a weapon: consumers still resolve the acquired owner.
+    if (stageConfig !== undefined) return definition?.stages?.includes(stageConfig)
+      && stageConfig?.behavior === skillId ? stageConfig : null;
+    if ((this.getUmbraRunContext?.() || this.verificationContext)?.growthEnabled === true || this.umbraGrowthRun || this.playerSkills?.[skillId]?.umbraGrowthRun) {
+      return this.getUmbraActiveSkillStage?.(skillId) || null;
+    }
+    return definition?.verificationStage1 || null;
+  }
+
+  getUmbraSkillCoreProfile(skillId, stageConfig, coreOverride) {
+    if (!this.isUmbraCoreContextActive?.() || !this.isUmbraCoreSkillOwnerValid?.(skillId)) return null;
+    const config = this.getUmbraSkillStatsConfig(skillId, stageConfig);
+    const activeStage = this.getUmbraActiveSkillStage(skillId);
+    const settings = UMBRA_SKILL_CORE_SETTINGS[skillId];
+    if (!config || !activeStage || !settings || config.stage < activeStage.stage) return null;
+    // An explicit override is a pure card prediction, never a selected value.
+    // Both the acquired and predicted canonical Stages must permit a Core.
+    const coreId = activeStage.stage < 4 || config.stage < 4 ? null
+      : coreOverride !== undefined ? (["assault", "control", "reactor"].includes(coreOverride) ? coreOverride : null)
+      : this.getUmbraSelectedCoreId(skillId, config);
+    const triadProfile = this.getUmbraTriadCombatProfile?.(skillId);
+    return Object.freeze({
+      coreId,
+      coreDamageMultiplier: coreId === "assault" ? UMBRA_SKILL_CORE_SETTINGS.assaultDamageMultiplier : 1,
+      coreIntervalMultiplier: coreId === "reactor" && skillId !== UMBRA_PHANTOM_NOVA_SKILL_ID
+        ? UMBRA_SKILL_CORE_SETTINGS.reactorIntervalMultiplier : 1,
+      controlSettings: coreId === "control" ? settings.control : null,
+      ...(triadProfile ? { triadProfile } : {})
+    });
+  }
+
+  getUmbraSkillFinalProfile(skillId, stageConfig, mode = "orbit", finalOverride) {
+    const triadProfile = this.getUmbraTriadCombatProfile?.(skillId), finalEligible = this.isUmbraFinalSkillEligible?.(skillId);
+    if (!finalEligible && !triadProfile) return null;
+    const config = this.getUmbraSkillStatsConfig(skillId, stageConfig);
+    if (!config || (!triadProfile && config.stage !== 8) || config !== this.getUmbraActiveSkillStage(skillId)) return null;
+    const finalId = !finalEligible ? null : finalOverride === undefined ? this.getUmbraSelectedFinalId(skillId)
+      : ["execution", "prism", "singularity"].includes(finalOverride) ? finalOverride : null;
+    const coreId = this.getUmbraSelectedCoreId(skillId), bullet = Number(this.stats?.bulletDamage);
+    const base = skillId === UMBRA_PHANTOM_NOVA_SKILL_ID
+      ? mode === "deployed" ? config.deployedDamage : config.orbitDamage : config.damage;
+    const equipmentProfile = this.getUmbraEquipmentCombatProfile?.(skillId);
+    return Object.freeze({ finalId, coreId, addedRaw: base + Math.max(0, (Number.isFinite(bullet) ? bullet : 1) - 1),
+      coreDamageMultiplier: coreId === "assault" ? UMBRA_SKILL_CORE_SETTINGS.assaultDamageMultiplier : 1,
+      ...(triadProfile ? { triadProfile } : {}), ...(equipmentProfile ? { equipmentProfile } : {}) });
+  }
+
+  getUmbraMoonlightRawDamage(stageConfig, coreOverride) {
+    const config = this.getUmbraSkillStatsConfig(UMBRA_MOONLIGHT_SKILL_ID, stageConfig);
+    if (!config) {
+      return 0;
+    }
+    const bulletDamage = Number(this.stats?.bulletDamage);
+    const reactorBonus = Math.max(0, (Number.isFinite(bulletDamage) ? bulletDamage : 1) - 1);
+    const raw = config.damage + reactorBonus;
+    const core = this.getUmbraSkillCoreProfile(UMBRA_MOONLIGHT_SKILL_ID, config, coreOverride);
+    return core?.coreId === "assault" ? Math.max(1, Math.round(raw * core.coreDamageMultiplier)) : raw;
+  }
+
+  getUmbraMoonlightRehitIntervalMs(fireInterval = this.stats?.fireInterval, stageConfig, coreOverride) {
+    const config = this.getUmbraSkillStatsConfig(UMBRA_MOONLIGHT_SKILL_ID, stageConfig);
+    if (!config) {
+      return Infinity;
+    }
+    const interval = Number(fireInterval);
+    const ratio = Phaser.Math.Clamp(
+      ((Number.isFinite(interval) ? interval : config.fireIntervalBaseMs) - config.fireIntervalFloorMs) /
+        (config.fireIntervalBaseMs - config.fireIntervalFloorMs),
+      0,
+      1
+    );
+    const baseInterval = Math.max(config.rehitMinMs, Math.round(config.rehitMinMs + (config.rehitBaseMs - config.rehitMinMs) * ratio));
+    const core = this.getUmbraSkillCoreProfile(UMBRA_MOONLIGHT_SKILL_ID, config, coreOverride);
+    // Explicit canonical Stage is also used for an unowned Unlock prediction and initial scheduling.
+    const equipment = this.getUmbraEquipmentCombatProfile?.(UMBRA_MOONLIGHT_SKILL_ID)
+      || (stageConfig ? this.getUmbraEquipmentSnapshot?.() : null);
+    if (equipment) return this.getRunEquipmentAdjustedSkillIntervalMs(UMBRA_MOONLIGHT_SKILL_ID,
+      baseInterval * (core?.coreIntervalMultiplier ?? 1), config.rehitMinMs, equipment);
+    return core?.coreId === "reactor" ? Math.max(config.rehitMinMs, Math.round(baseInterval * core.coreIntervalMultiplier)) : baseInterval;
+  }
+
+  getUmbraMoonlightReachMultiplier() {
+    const context = this.umbraRunContext;
+    if (!["normal-integration", "production-run"].includes(context?.mode) || context.mechId !== UMBRA_SERAPH_MECH_ID
+      || !this.isUmbraRunContextCurrent(context, { requireBody: false })) return 1;
+    return context.request?.moonReach === "extended" ? 2 : context.request?.moonReach === "wide" ? 1.5 : 1;
+  }
+
+  getUmbraMobilityTrialSettings() {
+    const context = this.umbraRunContext;
+    if (!["normal-integration", "production-run"].includes(context?.mode) || context.mechId !== UMBRA_SERAPH_MECH_ID
+      || !this.isUmbraRunContextCurrent(context, { requireBody: false })) return UMBRA_MOBILITY_TRIAL_OFF;
+    // Immutable request, not mutable HUB selection or a query read during combat.
+    if (!context.mobilityTrialSettings) Object.defineProperty(context, "mobilityTrialSettings", { value: Object.freeze({
+      moonGlideMs: context.request.moonGlide === true ? UMBRA_MOBILITY_TRIAL_SETTINGS.moonGlideMs : 0,
+      novaFieldRadius: context.request.novaField === true ? UMBRA_MOBILITY_TRIAL_SETTINGS.novaFieldRadius : 0,
+      novaFieldDurationMs: context.request.novaField === true ? UMBRA_MOBILITY_TRIAL_SETTINGS.novaFieldDurationMs : 0,
+      ...(context.request.novaField === true && context.request.novaFieldShape === "lane" ? UMBRA_TSUJIGIRI_TRIAL_SETTINGS : {})
+    }), writable: false, configurable: false });
+    return context.mobilityTrialSettings;
+  }
+
+  getUmbraMoonlightEffectiveStats(stageConfig, coreOverride, finalOverride) {
+    const config = this.getUmbraSkillStatsConfig(UMBRA_MOONLIGHT_SKILL_ID, stageConfig);
+    if (!config) {
+      return null;
+    }
+    const rawDamage = this.getUmbraMoonlightRawDamage(config, coreOverride);
+    const coreProfile = this.getUmbraSkillCoreProfile(UMBRA_MOONLIGHT_SKILL_ID, config, coreOverride);
+    const finalProfile = this.getUmbraSkillFinalProfile?.(UMBRA_MOONLIGHT_SKILL_ID, config, "orbit", finalOverride);
+    const leaveMargin = coreProfile?.coreId === "reactor" ? UMBRA_SKILL_CORE_SETTINGS.umbraMoonlight.reactorLeaveMargin : config.leaveMargin;
+    const passageRadius = config.passageRadius * this.getUmbraMoonlightReachMultiplier();
+    const bulletDamage = Number(this.stats?.bulletDamage);
+    return {
+      stage: config.stage,
+      baseDamage: config.damage,
+      reactorBonus: (config.damage + Math.max(0, (Number.isFinite(bulletDamage) ? bulletDamage : 1) - 1)) - config.damage,
+      rawDamage,
+      // Display estimate only. The attack passes rawDamage to the existing
+      // reception once; vulnerable/Hunter modifiers depend on each target.
+      damageBeforeTargetModifiers: this.scalePlayerDamage(rawDamage),
+      rehitMs: this.getUmbraMoonlightRehitIntervalMs(this.stats?.fireInterval, config, coreOverride),
+      passageRadius,
+      exitRadius: passageRadius + leaveMargin,
+      leaveMargin,
+      maxImpactFx: config.maxImpactFx,
+      ...(coreProfile ? { coreProfile } : {}), ...(finalProfile ? { finalProfile } : {})
+    };
+  }
+
+  getUmbraBloodSpikeStage1Config() {
+    return SKILL_DEFINITIONS[UMBRA_BLOOD_SPIKE_SKILL_ID]?.verificationStage1 || null;
+  }
+
+  getUmbraBloodSpikeRawDamage(stageConfig, coreOverride) {
+    const config = this.getUmbraSkillStatsConfig(UMBRA_BLOOD_SPIKE_SKILL_ID, stageConfig);
+    if (!config) {
+      return 0;
+    }
+    const bulletDamage = Number(this.stats?.bulletDamage);
+    const reactorBonus = Math.max(0, (Number.isFinite(bulletDamage) ? bulletDamage : 1) - 1);
+    const raw = config.damage + reactorBonus;
+    const core = this.getUmbraSkillCoreProfile(UMBRA_BLOOD_SPIKE_SKILL_ID, config, coreOverride);
+    return core?.coreId === "assault" ? Math.max(1, Math.round(raw * core.coreDamageMultiplier)) : raw;
+  }
+
+  getUmbraBloodSpikeIntervalMs(fireInterval = this.stats?.fireInterval, stageConfig, coreOverride) {
+    const config = this.getUmbraSkillStatsConfig(UMBRA_BLOOD_SPIKE_SKILL_ID, stageConfig);
+    if (!config) {
+      return Infinity;
+    }
+    const interval = Number(fireInterval);
+    const ratio = Phaser.Math.Clamp(
+      ((Number.isFinite(interval) ? interval : config.fireIntervalBaseMs) - config.fireIntervalFloorMs) /
+        (config.fireIntervalBaseMs - config.fireIntervalFloorMs),
+      0,
+      1
+    );
+    const baseInterval = Math.max(config.intervalMinMs, Math.round(config.intervalMinMs + (config.intervalBaseMs - config.intervalMinMs) * ratio));
+    const core = this.getUmbraSkillCoreProfile(UMBRA_BLOOD_SPIKE_SKILL_ID, config, coreOverride);
+    const equipment = this.getUmbraEquipmentCombatProfile?.(UMBRA_BLOOD_SPIKE_SKILL_ID)
+      || (stageConfig ? this.getUmbraEquipmentSnapshot?.() : null);
+    if (equipment) return this.getRunEquipmentAdjustedSkillIntervalMs(UMBRA_BLOOD_SPIKE_SKILL_ID,
+      baseInterval * (core?.coreIntervalMultiplier ?? 1), config.intervalMinMs, equipment);
+    return core?.coreId === "reactor" ? Math.max(config.intervalMinMs, Math.round(baseInterval * core.coreIntervalMultiplier)) : baseInterval;
+  }
+
+  getUmbraBloodSpikeEffectiveStats(stageConfig, coreOverride, finalOverride) {
+    const config = this.getUmbraSkillStatsConfig(UMBRA_BLOOD_SPIKE_SKILL_ID, stageConfig);
+    if (!config) {
+      return null;
+    }
+    const rawDamage = this.getUmbraBloodSpikeRawDamage(config, coreOverride);
+    const coreProfile = this.getUmbraSkillCoreProfile(UMBRA_BLOOD_SPIKE_SKILL_ID, config, coreOverride);
+    const finalProfile = this.getUmbraSkillFinalProfile?.(UMBRA_BLOOD_SPIKE_SKILL_ID, config, "orbit", finalOverride);
+    const bulletDamage = Number(this.stats?.bulletDamage);
+    return {
+      stage: config.stage,
+      baseDamage: config.damage,
+      reactorBonus: (config.damage + Math.max(0, (Number.isFinite(bulletDamage) ? bulletDamage : 1) - 1)) - config.damage,
+      rawDamage,
+      // Reception applies this estimate once; per-target modifiers stay there.
+      damageBeforeTargetModifiers: this.scalePlayerDamage(rawDamage),
+      intervalMs: this.getUmbraBloodSpikeIntervalMs(this.stats?.fireInterval, config, coreOverride),
+      searchRange: config.searchRange,
+      impactRadius: config.impactRadius,
+      searchRetryMs: coreProfile?.coreId === "reactor" ? UMBRA_SKILL_CORE_SETTINGS.umbraBloodSpike.reactorSearchRetryMs : config.searchRetryMs,
+      maxActiveCasts: config.maxActiveCasts,
+      frameCount: config.frameCount,
+      frameRate: config.frameRate,
+      impactFrameIndex: config.impactFrameIndex,
+      impactOffsetMs: config.impactOffsetMs,
+      lifetimeMs: config.lifetimeMs,
+      ...(coreProfile ? { coreProfile } : {}), ...(finalProfile ? { finalProfile } : {})
+    };
+  }
+
+  getUmbraPhantomNovaStage1Config() {
+    return SKILL_DEFINITIONS[UMBRA_PHANTOM_NOVA_SKILL_ID]?.verificationStage1 || null;
+  }
+
+  getUmbraPhantomNovaRawDamage(mode = "orbit", stageConfig, coreOverride) {
+    const config = this.getUmbraSkillStatsConfig(UMBRA_PHANTOM_NOVA_SKILL_ID, stageConfig);
+    if (!config) return 0;
+    const bulletDamage = Number(this.stats?.bulletDamage);
+    const raw = (mode === "deployed" ? config.deployedDamage : config.orbitDamage)
+      + Math.max(0, (Number.isFinite(bulletDamage) ? bulletDamage : 1) - 1);
+    const core = this.getUmbraSkillCoreProfile(UMBRA_PHANTOM_NOVA_SKILL_ID, config, coreOverride);
+    return core?.coreId === "assault" ? Math.max(1, Math.round(raw * core.coreDamageMultiplier)) : raw;
+  }
+
+  getUmbraPhantomNovaIntervalMs(mode = "orbit", fireInterval = this.stats?.fireInterval, stageConfig) {
+    const config = this.getUmbraSkillStatsConfig(UMBRA_PHANTOM_NOVA_SKILL_ID, stageConfig);
+    if (!config) return Infinity;
+    const interval = Number(fireInterval);
+    const q = Phaser.Math.Clamp(((Number.isFinite(interval) ? interval : config.fireIntervalBaseMs)
+      - config.fireIntervalFloorMs) / (config.fireIntervalBaseMs - config.fireIntervalFloorMs), 0, 1);
+    const base = mode === "deployed" ? config.deployedIntervalBaseMs : config.orbitIntervalBaseMs;
+    const floor = mode === "deployed" ? config.deployedIntervalMinMs : config.orbitIntervalMinMs;
+    const baseInterval = Math.max(floor, Math.round(floor + (base - floor) * q));
+    const equipment = this.getUmbraEquipmentCombatProfile?.(UMBRA_PHANTOM_NOVA_SKILL_ID)
+      || (stageConfig ? this.getUmbraEquipmentSnapshot?.() : null);
+    return equipment ? this.getRunEquipmentAdjustedSkillIntervalMs(UMBRA_PHANTOM_NOVA_SKILL_ID, baseInterval, floor, equipment) : baseInterval;
+  }
+
+  getUmbraPhantomNovaEffectiveStats(stageConfig, coreOverride, finalOverride) {
+    const config = this.getUmbraSkillStatsConfig(UMBRA_PHANTOM_NOVA_SKILL_ID, stageConfig);
+    if (!config) return null;
+    const orbitRawDamage = this.getUmbraPhantomNovaRawDamage("orbit", config, coreOverride);
+    const deployedRawDamage = this.getUmbraPhantomNovaRawDamage("deployed", config, coreOverride);
+    const coreProfile = this.getUmbraSkillCoreProfile(UMBRA_PHANTOM_NOVA_SKILL_ID, config, coreOverride);
+    const orbitFinalProfile = this.getUmbraSkillFinalProfile?.(UMBRA_PHANTOM_NOVA_SKILL_ID, config, "orbit", finalOverride);
+    const deployedFinalProfile = this.getUmbraSkillFinalProfile?.(UMBRA_PHANTOM_NOVA_SKILL_ID, config, "deployed", finalOverride);
+    return { ...config, orbitRawDamage, deployedRawDamage,
+      orbitIntervalMs: this.getUmbraPhantomNovaIntervalMs("orbit", this.stats?.fireInterval, config),
+      deployedIntervalMs: this.getUmbraPhantomNovaIntervalMs("deployed", this.stats?.fireInterval, config),
+      // Estimates for cards only. Reception applies common modifiers once,
+      // and an already deployed slot keeps its own raw/interval snapshot.
+      orbitDamageBeforeTargetModifiers: this.scalePlayerDamage(orbitRawDamage),
+      deployedDamageBeforeTargetModifiers: this.scalePlayerDamage(deployedRawDamage),
+      ...(coreProfile ? { coreProfile, regenerationMs: coreProfile.coreId === "reactor"
+        ? UMBRA_SKILL_CORE_SETTINGS.umbraPhantomNova.reactorRegenerationMs : config.regenerationMs } : {}),
+      ...(orbitFinalProfile ? { orbitFinalProfile, deployedFinalProfile } : {}) };
+  }
+
+  getUmbraVerificationPassiveWeapons() {
+    if ((this.getUmbraRunContext?.() || this.verificationContext)?.growthEnabled === true || this.umbraGrowthRun
+      || [UMBRA_MOONLIGHT_SKILL_ID, UMBRA_BLOOD_SPIKE_SKILL_ID, UMBRA_PHANTOM_NOVA_SKILL_ID]
+        .some(id => this.playerSkills?.[id]?.umbraGrowthRun)) {
+      if (!this.isUmbraGrowthContextActive?.()) return [];
+      return [
+        { id: UMBRA_MOONLIGHT_SKILL_ID, label: "MOONLIGHT", shortLabel: "MOON", getter: "getUmbraMoonlightEffectiveStats" },
+        { id: UMBRA_BLOOD_SPIKE_SKILL_ID, label: "BLOOD SPIKE", shortLabel: "SPIKE", getter: "getUmbraBloodSpikeEffectiveStats" },
+        { id: UMBRA_PHANTOM_NOVA_SKILL_ID, label: "PHANTOM NOVA", shortLabel: "NOVA", getter: "getUmbraPhantomNovaEffectiveStats" }
+      ].flatMap(({ getter, ...weapon }) => this.getUmbraActiveSkillStage(weapon.id)
+        ? [{ ...weapon, stats: this[getter]() }] : []);
+    }
+    const phase4Arena = this.verificationContext?.bloodSpikeArena === true;
+    const phase5Arena = this.verificationContext?.phantomNovaArena === true;
+    const moonlightContext = this.isUmbraMoonlightVerificationEnabled?.() === true;
+    if ((!phase5Arena && !phase4Arena && !moonlightContext)
+      || this.getUmbraPhase2AVerifiedMechId?.() !== UMBRA_SERAPH_MECH_ID
+      || this.getRunPlayerMechId() !== UMBRA_SERAPH_MECH_ID) return null;
+    const weapons = [];
+    const hasStage = (id, config) => {
+      const skill = this.playerSkills?.[id];
+      return !!config && skill?.verificationOnly === true && skill.currentStage === config
+        && skill.currentStage.behavior === id;
+    };
+    // Acquisition/weapon toggles are independent of transient pause, candidate,
+    // hidden-tab and EN states. A candidate dialog must not invalidate itself.
+    if (moonlightContext && this.moonlightAttackEnabled !== false
+      && this.verificationContext?.traceNotifications !== false
+      && hasStage(UMBRA_MOONLIGHT_SKILL_ID, this.getUmbraMoonlightStage1Config())) {
+      weapons.push({ id: UMBRA_MOONLIGHT_SKILL_ID, label: "MOONLIGHT", shortLabel: "MOON", stats: this.getUmbraMoonlightEffectiveStats() });
+    }
+    if (phase4Arena && this.bloodSpikeAttackEnabled !== false
+      && hasStage(UMBRA_BLOOD_SPIKE_SKILL_ID, this.getUmbraBloodSpikeStage1Config())) {
+      weapons.push({ id: UMBRA_BLOOD_SPIKE_SKILL_ID, label: "BLOOD SPIKE", shortLabel: "SPIKE", stats: this.getUmbraBloodSpikeEffectiveStats() });
+    }
+    if (phase5Arena && this.novaAttackEnabled !== false
+      && hasStage(UMBRA_PHANTOM_NOVA_SKILL_ID, this.getUmbraPhantomNovaStage1Config())) {
+      weapons.push({ id: UMBRA_PHANTOM_NOVA_SKILL_ID, label: "PHANTOM NOVA", shortLabel: "NOVA", stats: this.getUmbraPhantomNovaEffectiveStats() });
+    }
+    // Only the Phase 4 arena suppresses ineffective attack passives with no
+    // active weapon. The earlier trace-only drive keeps its original choices.
+    return phase5Arena || phase4Arena || weapons.length ? weapons : null;
+  }
+
+  getPassiveUpgradeChoices(options = {}) {
+    const apReinforceGain = this.getApReinforceHpGain();
+    const boosterTuningGain = this.getBoosterTuningSpeedGain();
+    const verificationWeapons = this.getUmbraVerificationPassiveWeapons?.() ?? null;
+    const formatDamage = (value) => Number(value.toFixed(2));
+    const reactorWeapons = (verificationWeapons || []).flatMap(weapon => weapon.id === UMBRA_PHANTOM_NOVA_SKILL_ID
+      ? [
+        { ...weapon, label: "NOVA 周回（次の放電から）", shortLabel: "NOVA周回",
+          stats: { baseDamage: weapon.stats.orbitDamage, damageBeforeTargetModifiers: weapon.stats.orbitDamageBeforeTargetModifiers,
+            ...(weapon.stats.coreProfile ? { coreProfile: weapon.stats.coreProfile } : {}) } },
+        { ...weapon, label: "NOVA 残留（次の設置から）", shortLabel: "NOVA残留",
+          stats: { baseDamage: weapon.stats.deployedDamage, damageBeforeTargetModifiers: weapon.stats.deployedDamageBeforeTargetModifiers,
+            ...(weapon.stats.coreProfile ? { coreProfile: weapon.stats.coreProfile } : {}) } }
+      ] : [weapon]);
+    const reactorChanges = reactorWeapons.map(weapon => {
+      const bulletDamage = Number(this.stats?.bulletDamage);
+      const nextBaseRaw = weapon.stats.baseDamage + Math.max(0, Number.isFinite(bulletDamage) ? bulletDamage : 0);
+      const nextRaw = weapon.stats.coreProfile?.coreId === "assault"
+        ? Math.max(1, Math.round(nextBaseRaw * weapon.stats.coreProfile.coreDamageMultiplier)) : nextBaseRaw;
+      const nextDamage = this.scalePlayerDamage(nextRaw);
+      const gain = formatDamage(nextDamage - weapon.stats.damageBeforeTargetModifiers);
+      return { ...weapon, nextDamage, gain };
+    }).filter(change => change.gain > 0);
+    const verificationReactorDisplay = verificationWeapons ? {
+      description: reactorChanges.map(change => `${change.label} 威力 +${change.gain}（基礎 +1、対象固有補正前）`).join("\n"),
+      cardDescription: reactorChanges.map(change => `${change.label} 威力 ${formatDamage(change.stats.damageBeforeTargetModifiers)} → ${formatDamage(change.nextDamage)}（基礎 +1、対象固有補正前）`).join("\n"),
+      chipLabel: reactorChanges.map(change => `${change.shortLabel} +${change.gain}`).join(" / ")
+    } : {};
+    const equipmentReactorDisplay = this.getUmbraEquipmentReactorCardDisplay?.(verificationWeapons);
     const choices = [
       {
         id: "overchargeBolt",
         type: "passive",
         title: "Reactor Overcharge",
         description: "電撃ダメージ +1",
+        ...verificationReactorDisplay,
+        ...(equipmentReactorDisplay || {}),
         onSelect: () => {
           this.stats.bulletDamage += 1;
         }
@@ -78501,9 +83777,11 @@ class SurvivalScene extends Phaser.Scene {
         id: "swiftStep",
         type: "passive",
         title: "Booster Tuning",
-        description: "推進出力 +30",
+        description: `推進出力 +${boosterTuningGain}`,
+        cardDescription: `推進出力 +${boosterTuningGain}`,
+        chipLabel: `推進 +${boosterTuningGain}`,
         onSelect: () => {
-          this.stats.moveSpeed += 30;
+          this.stats.moveSpeed += boosterTuningGain;
         }
       },
       {
@@ -78521,39 +83799,80 @@ class SurvivalScene extends Phaser.Scene {
         id: "vitalBloom",
         type: "passive",
         title: "AP Reinforce",
-        description: "最大AP +20、APも20回復",
-        onSelect: () => {
-          const previousHp = this.stats.hp;
-          this.stats.maxHp += 20;
-          this.stats.hp = Math.min(this.stats.maxHp, this.stats.hp + 20);
-          this.spawnPlayerHealNumber(this.stats.hp - previousHp);
-        }
+        description: `最大AP +${apReinforceGain}、APも${apReinforceGain}回復`,
+        cardDescription: `最大AP +${apReinforceGain}、APも${apReinforceGain}回復`,
+        chipLabel: `AP +${apReinforceGain}`,
+        onSelect: () => this.applyApReinforceUpgrade()
       }
     ];
 
     if ((this.stats.fireInterval || 0) > LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS) {
       const effectiveReduction = Math.min(70, this.stats.fireInterval - LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS);
+      const nextFireInterval = Math.max(LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS, this.stats.fireInterval - 70);
+      const intervalChanges = (verificationWeapons || []).flatMap(weapon => {
+        if (weapon.id === UMBRA_PHANTOM_NOVA_SKILL_ID) {
+          const config = this.getUmbraSkillStatsConfig(UMBRA_PHANTOM_NOVA_SKILL_ID);
+          return ["orbit", "deployed"].map(mode => {
+            const currentMs = mode === "orbit" ? weapon.stats.orbitIntervalMs : weapon.stats.deployedIntervalMs;
+            const nextMs = this.getUmbraPhantomNovaIntervalMs(mode, nextFireInterval);
+            return { ...weapon, novaMode: mode, shortLabel: mode === "orbit" ? "NOVA周回" : "NOVA残留",
+              currentMs, nextMs, floorMs: mode === "orbit" ? config.orbitIntervalMinMs : config.deployedIntervalMinMs,
+              reductionMs: currentMs - nextMs };
+          });
+        }
+        const moonlight = weapon.id === UMBRA_MOONLIGHT_SKILL_ID;
+        const currentMs = moonlight ? weapon.stats.rehitMs : weapon.stats.intervalMs;
+        const nextMs = moonlight ? this.getUmbraMoonlightRehitIntervalMs(nextFireInterval) : this.getUmbraBloodSpikeIntervalMs(nextFireInterval);
+        const floorMs = moonlight ? this.getUmbraSkillStatsConfig(UMBRA_MOONLIGHT_SKILL_ID).rehitMinMs
+          : this.getUmbraSkillStatsConfig(UMBRA_BLOOD_SPIKE_SKILL_ID).intervalMinMs;
+        return [{ ...weapon, moonlight, currentMs, nextMs, floorMs, reductionMs: currentMs - nextMs }];
+      }).filter(change => change.reductionMs > 0);
+      const verificationFireDisplay = verificationWeapons ? {
+        description: intervalChanges.map(change => change.novaMode
+          ? `NOVA ${change.novaMode === "orbit" ? "周回" : "残留"} 放電間隔 -${change.reductionMs}ms（${change.novaMode === "orbit" ? "次の放電後の待ちから" : "次の設置から"}）`
+          : change.moonlight
+          ? `MOONLIGHT 再命中間隔 -${change.reductionMs}ms（離脱・再進入が必要）`
+          : `BLOOD SPIKE 発動間隔 -${change.reductionMs}ms（突き上げ・再生速度は不変）`).join("\n"),
+        cardDescription: intervalChanges.map(change => change.novaMode
+          ? `NOVA ${change.novaMode === "orbit" ? "周回" : "残留"} ${change.currentMs} → ${change.nextMs}ms / 下限 ${change.floorMs}ms / ${change.novaMode === "orbit" ? "次の放電後の待ちから" : "次の設置から"}`
+          : change.moonlight
+          ? `MOONLIGHT 再命中 ${change.currentMs} → ${change.nextMs}ms / 下限 ${change.floorMs}ms / 離脱・再進入が必要`
+          : `BLOOD SPIKE 発動 ${change.currentMs} → ${change.nextMs}ms / 下限 ${change.floorMs}ms / 突き上げ・再生速度は不変`).join("\n"),
+        chipLabel: intervalChanges.map(change => intervalChanges.length === 1
+          ? `${change.moonlight ? "再命中" : "発動"} -${change.reductionMs}ms`
+          : `${change.shortLabel} -${change.reductionMs}ms`).join(" / "),
+        moonlightRehitReductionMs: intervalChanges.find(change => change.moonlight)?.reductionMs || 0,
+        bloodSpikeIntervalReductionMs: intervalChanges.find(change => change.id === UMBRA_BLOOD_SPIKE_SKILL_ID)?.reductionMs || 0,
+        novaOrbitIntervalReductionMs: intervalChanges.find(change => change.novaMode === "orbit")?.reductionMs || 0,
+        novaDeployedIntervalReductionMs: intervalChanges.find(change => change.novaMode === "deployed")?.reductionMs || 0,
+        verificationIntervalReductionMs: intervalChanges.reduce((sum, change) => sum + change.reductionMs, 0)
+      } : {};
       choices.splice(1, 0, {
         id: "rapidSigil",
         type: "passive",
         title: "Fire Control Link",
         description: `放電間隔 -${effectiveReduction}ms`,
+        ...verificationFireDisplay,
         onSelect: () => {
           this.stats.fireInterval = Math.max(LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS, this.stats.fireInterval - 70);
         }
       });
     }
 
-    const evasiveFirmwareChoice = this.createEvasiveFirmwarePassiveChoice();
+    const evasiveFirmwareChoice = this.createEvasiveFirmwarePassiveChoice(options);
     if (evasiveFirmwareChoice) {
       choices.push(evasiveFirmwareChoice);
     }
 
-    return choices.map((choice) => this.buildPassiveUpgradeChoice(choice)).filter(Boolean);
+    return choices
+      .filter((choice) => choice.id !== "swiftStep" || boosterTuningGain > 0)
+      .filter((choice) => !verificationWeapons || choice.id !== "overchargeBolt" || reactorChanges.length > 0)
+      .filter((choice) => !verificationWeapons || choice.id !== "rapidSigil" || choice.verificationIntervalReductionMs > 0)
+      .map((choice) => this.buildPassiveUpgradeChoice(choice)).filter(Boolean);
   }
 
-  createEvasiveFirmwarePassiveChoice() {
-    if (!this.isEvasiveFirmwareCandidateAllowed()) {
+  createEvasiveFirmwarePassiveChoice(options = {}) {
+    if (!this.isEvasiveFirmwareCandidateAllowed(options)) {
       return null;
     }
 
@@ -78568,6 +83887,9 @@ class SurvivalScene extends Phaser.Scene {
     const currentBreakdown = this.getAcEvadeWindowDurationBreakdown(currentLevel, tuning, { preview: true });
     const nextBreakdown = this.getAcEvadeWindowDurationBreakdown(nextLevel, tuning, { preview: true });
     const deltaMs = Math.max(0, nextBreakdown.durationMs - currentBreakdown.durationMs);
+    if (deltaMs <= 0) {
+      return null;
+    }
 
     return {
       id: EVASIVE_FIRMWARE_PASSIVE_ID,
@@ -78581,8 +83903,11 @@ class SurvivalScene extends Phaser.Scene {
     };
   }
 
-  prioritizeEvasiveFirmwareChoice(passiveChoices) {
-    if (!this.isAcEvasionPassiveForceCandidateDebugEnabled() || !this.isEvasiveFirmwareCandidateAllowed()) {
+  prioritizeEvasiveFirmwareChoice(passiveChoices, options = {}) {
+    const needsFirstUmbraPresentation = this.getSkillSelectionPlayerMechId(options) === UMBRA_SERAPH_MECH_ID &&
+      !this.levelUpCandidatePresentationState?.evasiveFirmwarePresented;
+    if ((!needsFirstUmbraPresentation && !this.isAcEvasionPassiveForceCandidateDebugEnabled()) ||
+      !this.isEvasiveFirmwareCandidateAllowed(options)) {
       return passiveChoices;
     }
 
@@ -78626,7 +83951,7 @@ class SurvivalScene extends Phaser.Scene {
     const upgradeChoices = [];
     const unlockChoices = [];
 
-    Object.keys(SKILL_DEFINITIONS).forEach((skillId) => {
+    this.getPlayerSkillSlotIds(options).forEach((skillId) => {
       const choice = this.buildSkillChoice(skillId, options);
       if (!choice) {
         return;
@@ -78644,6 +83969,11 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   buildSkillChoice(skillId, options = {}) {
+    if ((this.getUmbraRunContext?.() || this.verificationContext)?.growthEnabled === true) {
+      if (options.mechId && options.mechId !== UMBRA_SERAPH_MECH_ID) return null;
+      return this.buildUmbraSkillGrowthChoice(skillId) || ((this.getUmbraRunContext?.() || this.verificationContext)?.equipmentEnabled === true
+        ? this.buildEquipmentOverlimitChoice(skillId, options) : null);
+    }
     if (!this.isSkillAvailableForPlayerMech(skillId, this.getSkillSelectionPlayerMechId(options))) {
       return null;
     }
@@ -78673,6 +84003,207 @@ class SurvivalScene extends Phaser.Scene {
       description: this.buildSkillUnlockSummary(definition, firstStage),
       onSelect: () => {
         this.unlockSkill(skillId);
+      }
+    };
+  }
+
+  buildUmbraSkillGrowthCard(skillId, beforeStage, afterStage) {
+    const after = this.getUmbraSkillStatsConfig(skillId, afterStage);
+    const before = beforeStage == null ? null : this.getUmbraSkillStatsConfig(skillId, beforeStage);
+    if (!after || (beforeStage != null && !before)) return null;
+    const chips = [];
+    const add = (label, previous, next, unit = "", priority = 100) => {
+      if (!before) chips.push({ label: `${label} ${next}${unit}`, priority });
+      else if (next !== previous) chips.push({ label: `${label} ${next > previous ? "+" : ""}${next - previous}${unit}`, priority });
+    };
+    let description;
+    if (skillId === UMBRA_MOONLIGHT_SKILL_ID) {
+      const nextStats = this.getUmbraMoonlightEffectiveStats(after);
+      const oldStats = before ? this.getUmbraMoonlightEffectiveStats(before) : null;
+      add("基礎威力", oldStats?.rawDamage, nextStats.rawDamage, "", 120);
+      add("通過半径", oldStats?.passageRadius, nextStats.passageRadius, "px", 115);
+      add("離脱外縁", oldStats?.exitRadius, nextStats.exitRadius, "px", 110);
+      add("再命中", oldStats?.rehitMs, nextStats.rehitMs, "ms", 105);
+      description = `有効ブーストで通過。再攻撃には離脱・再進入が必要。\n通過半径 ${nextStats.passageRadius}px／離脱外縁 ${nextStats.exitRadius}px。半径成長時は新外縁の外へ離脱後に再進入。`;
+    } else if (skillId === UMBRA_BLOOD_SPIKE_SKILL_ID) {
+      const nextStats = this.getUmbraBloodSpikeEffectiveStats(after);
+      const oldStats = before ? this.getUmbraBloodSpikeEffectiveStats(before) : null;
+      add("攻撃半径", oldStats?.impactRadius, nextStats.impactRadius, "px", 120);
+      add("基礎威力", oldStats?.rawDamage, nextStats.rawDamage, "", 115);
+      add("探索距離", oldStats?.searchRange, nextStats.searchRange, "px", 110);
+      add("再発動", oldStats?.intervalMs, nextStats.intervalMs, "ms", 105);
+      description = `次の生成から攻撃半径 ${nextStats.impactRadius}px。角と地面の発光も半径に比例して拡大。探索距離600pxとは別。\n複数敵へ各1回。Stageによる単体威力・周期は固定。生成済みの位置・半径・時刻を維持。`;
+    } else {
+      const nextStats = this.getUmbraPhantomNovaEffectiveStats(after);
+      const oldStats = before ? this.getUmbraPhantomNovaEffectiveStats(before) : null;
+      add("保有枠", oldStats?.slotCount, nextStats.slotCount, "", 125);
+      add("周回基礎威力", oldStats?.orbitRawDamage, nextStats.orbitRawDamage, "", 120);
+      add("残留基礎威力", oldStats?.deployedRawDamage, nextStats.deployedRawDamage, "", 115);
+      add("周回射程", oldStats?.orbitRange, nextStats.orbitRange, "px", 110);
+      add("残留射程", oldStats?.deployedRange, nextStats.deployedRange, "px", 105);
+      if (!before) chips.push({ label: `周回 ${nextStats.orbitIntervalMs}ms／残留 ${nextStats.deployedIntervalMs}ms`, priority: 100 });
+      else {
+        add("周回間隔", oldStats.orbitIntervalMs, nextStats.orbitIntervalMs, "ms");
+        add("残留間隔", oldStats.deployedIntervalMs, nextStats.deployedIntervalMs, "ms");
+      }
+      description = `周回 ${nextStats.orbitRange}px／残留 ${nextStats.deployedRange}px。新枠は ${nextStats.orbitIntervalMs}ms 待って初回放電。\n既存周回の次の放電時刻と再生成待ちを維持。既配置球の威力・射程・残り時間は配置時のまま。`;
+    }
+    return { description, chips: chips.sort((left, right) => right.priority - left.priority) };
+  }
+
+  buildUmbraFinalCard(skillId, finalId) {
+    if (!this.isUmbraFinalSkillEligible?.(skillId) || !["execution", "prism", "singularity"].includes(finalId)) return null;
+    const stage = this.getUmbraActiveSkillStage(skillId), coreId = this.getUmbraSelectedCoreId(skillId);
+    const settings = UMBRA_SKILL_FINAL_SETTINGS.skills[skillId], membership = UMBRA_SKILL_FINAL_SETTINGS.membership;
+    const name = SKILL_DEFINITIONS[skillId].name, chips = [], add = label => chips.push({ label, priority: chips.length });
+    const profiles = skillId === UMBRA_PHANTOM_NOVA_SKILL_ID
+      ? [["周回", this.getUmbraSkillFinalProfile(skillId, stage, "orbit", finalId)], ["残留", this.getUmbraSkillFinalProfile(skillId, stage, "deployed", finalId)]]
+      : [["主", this.getUmbraSkillFinalProfile(skillId, stage, "orbit", finalId)]];
+    if (profiles.some(([, profile]) => !profile)) return null;
+    const triad = profiles[0][1].triadProfile, strongTarget = { hp: 10, maxHp: 10 }, ordinaryTarget = { hp: 1, maxHp: 10 };
+    const fmt = value => Number(value.toFixed(6));
+    let description;
+    if (finalId === "execution") {
+      for (const [label, profile] of profiles) {
+        const ordinary = triad ? this.getUmbraFinalMainRawDamage(profile, ordinaryTarget, 1) : Math.max(1, Math.round(profile.addedRaw * profile.coreDamageMultiplier));
+        const strong = triad ? this.getUmbraFinalMainRawDamage(profile, strongTarget, 1) : Math.max(1, Math.round(profile.addedRaw * profile.coreDamageMultiplier * UMBRA_SKILL_FINAL_SETTINGS.executionMultiplier));
+        if (profile.equipmentProfile) add(`${label} A 強${strong}・他${ordinary} / E 強${this.getUmbraEquipmentDamageBreakdown(strong, profile.equipmentProfile).equipmentRaw}・他${this.getUmbraEquipmentDamageBreakdown(ordinary, profile.equipmentProfile).equipmentRaw}`);
+        else add(`${label} raw 強対象 ${strong} / その他 ${ordinary}`);
+      }
+      add("主強対象 ×1.25 / 一段丸め");
+      description = "各主受付直前にBoss・Elite・Nemesis、HP比62%以上、または最大HP36以上を判定。満HPの小さい一般敵も対象。\nReactor加算後のR×Core×1.25を1回だけ丸めます。追加攻撃・即死なし。表示は共通補正・実HP受付前。";
+      if (triad) description = description.replace("R×Core×1.25", "R×clamp(Core×1.25×現在TRIAD, 0.72, 1.9)");
+    } else if (finalId === "prism") {
+      const p = settings.prism;
+      const secondary = profiles.map(([label, profile]) => triad
+        ? profile.equipmentProfile
+          ? `${label}E強${this.getUmbraEquipmentDamageBreakdown(this.getUmbraFinalSecondaryRawDamage(profile, strongTarget, p.rate), profile.equipmentProfile).equipmentRaw}・他${this.getUmbraEquipmentDamageBreakdown(this.getUmbraFinalSecondaryRawDamage(profile, ordinaryTarget, p.rate), profile.equipmentProfile).equipmentRaw}`
+          : `${label}強${this.getUmbraFinalSecondaryRawDamage(profile, strongTarget, p.rate)}・他${this.getUmbraFinalSecondaryRawDamage(profile, ordinaryTarget, p.rate)}`
+        : `${label}${Math.max(1, Math.round(Math.max(1, Math.round(profile.addedRaw * profile.coreDamageMultiplier)) * p.rate))}`).join(" / ");
+      add(`副${profiles[0][1].equipmentProfile ? "受付前" : "raw"} ${secondary} / 各${Math.round(p.rate * 100)}%`);
+      add(`最大${p.maxTargets}本 / 成功点から${p.radius}px`);
+      add(p.icdMs ? `${skillId === UMBRA_PHANTOM_NOVA_SKILL_ID ? "全slot共有" : "武装"}待ち ${p.icdMs}ms` : "1castに1試行 / 追加ICDなし");
+      description = `${skillId === UMBRA_MOONLIGHT_SKILL_ID ? "1boostに1試行。主ループ後、そのboostの全主試行lifeを除外。" : skillId === UMBRA_BLOOD_SPIKE_SKILL_ID ? "1castに1試行。同impactの全主試行lifeを除外。" : "1pulseに1試行。全slot・周回/残留で待ちを共有。"}\n成功主命中点から別敵へ有限分岐。待ち・対象なし・拒否でも同じ親から再試行しません。副からCore/Final再帰なし。主が全拒否なら副も0。`;
+    } else {
+      const f = settings.field, nova = skillId === UMBRA_PHANTOM_NOVA_SKILL_ID;
+      const adjusted = this.getUmbraFinalFieldSettings(skillId, profiles[0][1], { radius: stage.impactRadius, expiresAtMs: stage.deployedDurationMs }, 0);
+      const radius = adjusted ? fmt(adjusted.radius) : f.radius ?? stage.impactRadius;
+      add(`ダメージ0 / 半径${radius}px / 同時${f.maxFields}`);
+      add(`寿命 ${nova ? `DEP期限${stage.deployedDurationMs}ms未満` : `${adjusted ? fmt(adjusted.durationMs) : f.durationMs}ms`}`);
+      add(`各field最大${membership.maxTargets}体 / 通常${adjusted ? fmt(adjusted.normalMultiplier) : 0.85}・Boss系${adjusted ? fmt(adjusted.bossMultiplier) : 0.95}`);
+      description = `${nova ? "正常DEP確定時に球中心へ生成。敵なしでも配置成功なら生成。周回/再生成にはfieldなし。" : skillId === UMBRA_BLOOD_SPIKE_SKILL_ID ? "主impact成功時のcast中心へ1回。角800ms終了後もfield自身の1000ms期限まで残ります。" : "最初の成功主命中点へ1boost1試行。武装待ち750ms。"}\n100msごとに現在body・LOSから近い最大6体を交換。満杯は見送り、旧fieldは延長しません。${coreId === "control" ? "主CONTROLの短い期限とfieldは別所有。" : "現在CoreがCONTROLでなくても有効。"}`;
+      if (triad && skillId === UMBRA_BLOOD_SPIKE_SKILL_ID) description = description.replace("field自身の1000ms期限", `field自身の${fmt(adjusted.durationMs)}ms期限`);
+    }
+    if (triad) { add(`現在TRIAD r${triad.revision} / 主×${triad.skillDamageMultiplier}・強×${triad.executionDamageMultiplier}・副×${triad.prismDamageMultiplier}`);
+      description += "\n現在確定済みのTRIADで計算。今回選択後の組合せ予測ではありません。旧cast・DEP・fieldは旧snapshotを保持。"; }
+    const colors = { assault: [0xffbd73, "#ffe0a5"], control: [0x999bff, "#c4cbff"], reactor: [0x9ff5ef, "#c6fffa"] };
+    return { skillId, coreId, finalId, title: `${name}\n${coreId.toUpperCase()} + ${finalId.toUpperCase()}`,
+      description, chips, themeColor: colors[coreId][0], accentColor: colors[coreId][1],
+      umbraFinalCard: { description, chips, skillId, coreId, finalId } };
+  }
+
+  buildUmbraCoreCard(skillId, coreId) {
+    const stage = this.getUmbraActiveSkillStage?.(skillId);
+    if (!this.isUmbraCoreContextActive?.() || !stage || stage.stage < 4
+      || !["assault", "control", "reactor"].includes(coreId)) return null;
+    const getter = {
+      umbraMoonlight: "getUmbraMoonlightEffectiveStats",
+      umbraBloodSpike: "getUmbraBloodSpikeEffectiveStats",
+      umbraPhantomNova: "getUmbraPhantomNovaEffectiveStats"
+    }[skillId];
+    const before = this[getter](stage, null), after = this[getter](stage, coreId);
+    if (!before || !after?.coreProfile || after.coreProfile.coreId !== coreId) return null;
+    const name = SKILL_DEFINITIONS[skillId].name;
+    const chips = [], add = label => chips.push({ label, priority: 100 - chips.length });
+    const triad = after.coreProfile.triadProfile, fmt = value => Number(value.toFixed(6));
+    let description;
+    if (coreId === "assault") {
+      add("主威力係数 +25%（×1.25）");
+      const values = skillId === UMBRA_PHANTOM_NOVA_SKILL_ID
+        ? [["周回", before.orbitRawDamage, after.orbitRawDamage], ["残留", before.deployedRawDamage, after.deployedRawDamage]]
+        : [["主攻撃", before.rawDamage, after.rawDamage]];
+      for (const [index, [label, oldRaw, newRaw]] of values.entries()) {
+        if (!triad) add(`${label} raw ${oldRaw} → ${newRaw}（+${newRaw - oldRaw}）`);
+        else {
+          const profile = this.getUmbraSkillFinalProfile(skillId, stage, index === 1 ? "deployed" : "orbit", null);
+          const oldProfile = { ...profile, coreId: null, coreDamageMultiplier: 1 }, newProfile = { ...profile, coreId, coreDamageMultiplier: after.coreProfile.coreDamageMultiplier };
+          const strong = { hp: 10, maxHp: 10 }, ordinary = { hp: 1, maxHp: 10 };
+          const value = (p, target, raw) => {
+            const a = this.getUmbraFinalMainRawDamage(p, target, raw);
+            return p.equipmentProfile ? this.getUmbraEquipmentDamageBreakdown(a, p.equipmentProfile).equipmentRaw : a;
+          };
+          add(`${label} ${profile.equipmentProfile ? "受付前E" : "raw"} 強${value(oldProfile, strong, oldRaw)}→${value(newProfile, strong, newRaw)} / 他${value(oldProfile, ordinary, oldRaw)}→${value(newProfile, ordinary, newRaw)}`);
+        }
+      }
+      description = `Reactor加算後に係数×1.25を1回、整数丸め。\n表示は丸め後の受付前値。追加攻撃・対象数増加なし。${skillId === UMBRA_PHANTOM_NOVA_SKILL_ID ? "既配置球は旧威力を保持。" : skillId === UMBRA_BLOOD_SPIKE_SKILL_ID ? "生成済みcastは旧威力を保持。" : "通過・離脱・再命中条件は維持。"}`;
+      if (triad) description = description.replace("係数×1.25を1回、整数丸め", "Core×現在TRIADを合成後に一度丸め（自身Finalなしの比較）");
+    } else if (coreId === "control") {
+      const settings = after.coreProfile.controlSettings;
+      const normal = triad ? this.getUmbraControlEffectStats(after.coreProfile, false) : { multiplier: settings.normalMultiplier, durationMs: settings.durationMs };
+      const boss = triad ? this.getUmbraControlEffectStats(after.coreProfile, true) : { multiplier: settings.bossMultiplier, durationMs: settings.durationMs };
+      const normalPercent = triad ? fmt((1 - normal.multiplier) * 100) : Math.round((1 - settings.normalMultiplier) * 100);
+      const bossPercent = triad ? fmt((1 - boss.multiplier) * 100) : Math.round((1 - settings.bossMultiplier) * 100);
+      add(`通常敵 移動速度 -${normalPercent}% / ${fmt(normal.durationMs)}ms`);
+      add(`Boss系 移動速度 -${bossPercent}% / ${fmt(boss.durationMs)}ms`);
+      if (triad) add(`主CONTROL 倍率 通常${fmt(normal.multiplier)} / Boss${fmt(boss.multiplier)}`);
+      add("主威力・攻撃周期は不変");
+      description = `主攻撃で実HPが減り、生存する敵にだけ付与。\n減速は移動だけ。完全停止・スタンなし。${skillId === UMBRA_BLOOD_SPIKE_SKILL_ID ? "同castの命中した各敵が対象。" : skillId === UMBRA_PHANTOM_NOVA_SKILL_ID ? "次の正規pulseで更新可能。" : "同じ通過・同じ敵に1回。"}別武装の期限は延長せず、強い減速を優先。`;
+    } else if (skillId === UMBRA_MOONLIGHT_SKILL_ID) {
+      if (before.rehitMs > after.rehitMs) add(`再命中 ${before.rehitMs} → ${after.rehitMs}ms（-${before.rehitMs - after.rehitMs}ms）`);
+      else add(`再命中 ${after.rehitMs}ms（下限・短縮なし）`);
+      add(`離脱余白 ${before.leaveMargin} → ${after.leaveMargin}px（-4px）`);
+      add(`離脱外縁 ${before.exitRadius} → ${after.exitRadius}px`);
+      description = "再命中待ち×0.90、下限200ms。通過半径は維持。\n新外縁の外側確認後に有効ブーストで再進入。選択時の即命中なし。プレイヤーEN・移動・無敵は不変。";
+    } else if (skillId === UMBRA_BLOOD_SPIKE_SKILL_ID) {
+      if (before.intervalMs > after.intervalMs) add(`再発動 ${before.intervalMs} → ${after.intervalMs}ms（-${before.intervalMs - after.intervalMs}ms）`);
+      else add(`再発動 ${after.intervalMs}ms（下限・短縮なし）`);
+      add(`敵なし再探索 ${before.searchRetryMs} → ${after.searchRetryMs}ms`);
+      add("impact 200ms / 寿命800msは維持");
+      description = "再発動待ち×0.90、下限500ms。敵なし時だけ再探索100ms。\n現在の待ち期限は維持し、次の待ち設定から反映。既存cast・上限待ち・ENは変更しません。";
+    } else {
+      add(`次配置の再生成 ${before.regenerationMs} → ${after.regenerationMs}ms（-200ms）`);
+      add(`周回 ${after.orbitIntervalMs}ms / 残留 ${after.deployedIntervalMs}msは維持`);
+      add(`残留 ${after.deployedDurationMs}ms未満 / 保有${after.slotCount}枠は維持`);
+      description = "次に正常配置する球だけ、残留後の再生成待ち1000ms。\n既配置球は旧1200ms、現在の再生成期限・初回pulse待ちは保持。即補充・再配置・BOOST EN回復強化なし。";
+    }
+    if (triad) {
+      description = description.replace("プレイヤーEN・移動・無敵は不変。", "Core単体のEN・移動・無敵は不変。TRIAD消費倍率は別。")
+        .replace("既存cast・上限待ち・ENは変更しません。", "既存cast・上限待ちは維持。TRIAD成立時のEN消費倍率は別。");
+      add(`現在TRIAD r${triad.revision} / 制御×${triad.controlMultiplier}・DASH EN×${triad.dashStaminaDrainMultiplier}`);
+      description += "\n現在確定済みTRIADで表示。選択後の組合せは確定時に別集計。";
+    }
+    const colors = { assault: [0xffbd73, "#ffe0a5"], control: [0x999bff, "#c4cbff"], reactor: [0x9ff5ef, "#c6fffa"] };
+    return { skillId, coreId, title: `${name}\n${coreId.toUpperCase()} CORE`, description, chips,
+      themeColor: colors[coreId][0], accentColor: colors[coreId][1],
+      umbraCoreCard: { description, chips, coreId, skillId } };
+  }
+
+  buildUmbraSkillGrowthChoice(skillId) {
+    if (!this.isUmbraGrowthContextActive?.()) return null;
+    const definition = SKILL_DEFINITIONS[skillId];
+    if (![UMBRA_MOONLIGHT_SKILL_ID, UMBRA_BLOOD_SPIKE_SKILL_ID, UMBRA_PHANTOM_NOVA_SKILL_ID].includes(skillId)
+      || definition?.previewOnly !== true) return null;
+    const skillState = this.playerSkills?.[skillId] || null;
+    const currentStage = skillState ? this.getUmbraActiveSkillStage(skillId) : null;
+    if (skillState && !currentStage) return null;
+    const oldIndex = skillState?.stageIndex ?? -1;
+    const nextStage = definition.stages[oldIndex + 1];
+    if (!nextStage) return null;
+    const umbraGrowthCard = this.buildUmbraSkillGrowthCard(skillId, currentStage, nextStage);
+    if (!umbraGrowthCard?.chips.length) return null;
+    const run = this.umbraGrowthRun;
+    let selected = false;
+    return {
+      type: "skill", actionType: skillState ? "upgrade" : "unlock", skillId, definition,
+      currentStage, nextStage, title: skillState ? `${definition.name} Stage ${nextStage.stage}` : `Unlock ${definition.name}`,
+      description: umbraGrowthCard.description, umbraGrowthCard,
+      onSelect: () => {
+        if (selected || !this.isUmbraGrowthContextActive?.() || this.umbraGrowthRun !== run
+          || (this.playerSkills?.[skillId] || null) !== skillState
+          || (skillState && (skillState.stageIndex !== oldIndex || this.getUmbraActiveSkillStage(skillId) !== currentStage))) return;
+        selected = true;
+        if (skillState) this.upgradeSkill(skillId);
+        else this.unlockSkill(skillId);
       }
     };
   }
@@ -78840,6 +84371,214 @@ class SurvivalScene extends Phaser.Scene {
     return Math.max(...(definition?.stages || []).map((stage, index) => stage.stage || index + 1), 1);
   }
 
+  // Player-facing cards are a projection of the existing choices. The diagnostic
+  // models above/below and every onSelect token remain untouched.
+  getUmbraPlayerCardDamageRows(skillId, stage, changes = {}) {
+    const getter = { umbraMoonlight: "getUmbraMoonlightEffectiveStats", umbraBloodSpike: "getUmbraBloodSpikeEffectiveStats", umbraPhantomNova: "getUmbraPhantomNovaEffectiveStats" }[skillId];
+    const stats = this[getter]?.(stage, changes.coreId);
+    if (!stats) return [];
+    const modes = skillId === UMBRA_PHANTOM_NOVA_SKILL_ID
+      ? [["周回", "orbit", stats.orbitRawDamage], ["設置", "deployed", stats.deployedRawDamage]] : [["威力", "orbit", stats.rawDamage]];
+    return modes.map(([label, mode, raw]) => {
+      let profile = this.getUmbraSkillFinalProfile?.(skillId, stage, mode, changes.finalId);
+      if (!profile) {
+        const activeStage = this.getUmbraActiveSkillStage?.(skillId);
+        const current = activeStage && this.getUmbraSkillFinalProfile?.(skillId, activeStage, mode, changes.finalId);
+        const canonical = this.getUmbraSkillStatsConfig?.(skillId, stage);
+        // A next-Stage card is a display prediction, never a combat capability.
+        // Preserve the current captured modifiers and replace only the canonical
+        // base increment before using the same production damage calculators.
+        if (current && canonical) {
+          const key = skillId === UMBRA_PHANTOM_NOVA_SKILL_ID ? mode === "deployed" ? "deployedDamage" : "orbitDamage" : "damage";
+          profile = { ...current, addedRaw: current.addedRaw + canonical[key] - activeStage[key] };
+        }
+      }
+      if (profile) {
+        profile = { ...profile };
+        if (Object.hasOwn(changes, "coreId")) Object.assign(profile, { coreId: changes.coreId, coreDamageMultiplier: stats.coreProfile?.coreDamageMultiplier || 1 });
+        if (changes.bulletIncrease) profile.addedRaw += changes.bulletIncrease;
+      }
+      const equipment = Object.hasOwn(changes, "equipmentLevel")
+        ? this.getUmbraEquipmentCombatProfile?.(skillId, changes.equipmentLevel) : profile?.equipmentProfile || this.getUmbraEquipmentCombatProfile?.(skillId);
+      const damage = (target, secondary = false) => {
+        const base = profile ? secondary
+          ? this.getUmbraFinalSecondaryRawDamage(profile, target, UMBRA_SKILL_FINAL_SETTINGS.skills[skillId].prism.rate)
+          : this.getUmbraFinalMainRawDamage(profile, target, raw) : raw;
+        return equipment ? this.getUmbraEquipmentDamageBreakdown(base, equipment).equipmentRaw : base;
+      };
+      return { label, strong: damage({ hp: 10, maxHp: 10 }), ordinary: damage({ hp: 1, maxHp: 10 }),
+        ...(profile?.finalId === "prism" ? { secondaryStrong: damage({ hp: 10, maxHp: 10 }, true), secondaryOrdinary: damage({ hp: 1, maxHp: 10 }, true) } : {}) };
+    });
+  }
+
+  buildUmbraPlayerCardModel(model) {
+    if (!this.isUmbraNormalPresentationContext?.() || !model?.option) return model;
+    const option = model.option, id = option.skillId, core = option.umbraCoreCard?.coreId, final = option.umbraFinalCard?.finalId;
+    const dedicated = [UMBRA_MOONLIGHT_SKILL_ID, UMBRA_BLOOD_SPIKE_SKILL_ID, UMBRA_PHANTOM_NOVA_SKILL_ID].includes(id);
+    const passives = ["overchargeBolt", "rapidSigil", "swiftStep", "staminaCore", "vitalBloom", EVASIVE_FIRMWARE_PASSIVE_ID];
+    if (!dedicated && !(option.type === "passive" && passives.includes(option.id))) return model;
+    const moon = id === UMBRA_MOONLIGHT_SKILL_ID, spike = id === UMBRA_BLOOD_SPIKE_SKILL_ID, nova = id === UMBRA_PHANTOM_NOVA_SKILL_ID;
+    const fmt = number => String(Number(Number(number || 0).toFixed(3))), seconds = number => `${fmt(number / 1000)}秒`;
+    const changes = [], details = [], numbers = [], add = (label, before, after, unit = "") => {
+      if (!Number.isFinite(after)) return;
+      const value = before == null ? `${fmt(after)}${unit}` : `${fmt(before)} → ${fmt(after)}${unit}`;
+      details.push(`${label}：${value}`); numbers.push({ label, before: before ?? null, after, unit });
+      if (before == null || before !== after) changes.push(`${label} ${before == null ? fmt(after) : `${after > before ? "+" : ""}${fmt(after - before)}`}${unit}`);
+    };
+    const damageRows = (before, after) => after.forEach((row, i) => {
+      const old = before?.[i];
+      if (row.strong === row.ordinary && (!old || old.strong === old.ordinary)) add(row.label, old?.ordinary, row.ordinary);
+      else { add(`${row.label}・強い敵`, old?.strong, row.strong); add(`${row.label}・その他`, old?.ordinary, row.ordinary); }
+      if (row.secondaryOrdinary !== undefined) {
+        add(`${row.label}の分岐・強い敵`, old?.secondaryStrong, row.secondaryStrong);
+        add(`${row.label}の分岐・その他`, old?.secondaryOrdinary, row.secondaryOrdinary);
+      }
+    });
+    const getter = { umbraMoonlight: "getUmbraMoonlightEffectiveStats", umbraBloodSpike: "getUmbraBloodSpikeEffectiveStats", umbraPhantomNova: "getUmbraPhantomNovaEffectiveStats" }[id];
+    const stage = dedicated ? option.nextStage || option.currentStage || this.getUmbraActiveSkillStage(id) : null;
+    let summary = "", condition = "", title = model.title, kindLabel = model.typeLabel;
+    const damageNote = "威力は現在の装備・選択済み強化を反映。敵や支援の補正により実際のダメージは変わります。";
+    const futureNote = "既に出ている角や設置済みの雷球はそのまま。新しい攻撃から反映します。";
+    if (core) {
+      title = `${core.toUpperCase()} CORE`; kindLabel = "CORE 選択";
+      const before = this[getter](stage, null), after = this[getter](stage, core);
+      if (core === "assault") {
+        summary = "この武器の威力を\n高める。";
+        damageRows(this.getUmbraPlayerCardDamageRows(id, stage, { coreId: null, finalId: null }), this.getUmbraPlayerCardDamageRows(id, stage, { coreId: core, finalId: null }));
+        details.push("この武器だけを強化します。攻撃回数や対象数は増えません。", damageNote);
+      } else if (core === "control") {
+        summary = "命中した敵の移動を\n短時間遅くする。";
+        const normal = this.getUmbraControlEffectStats(after.coreProfile, false), boss = this.getUmbraControlEffectStats(after.coreProfile, true);
+        changes.push(`移動速度 −${fmt((1 - normal.multiplier) * 100)}%`, `${seconds(normal.durationMs)}`);
+        details.push(`通常敵：移動速度 −${fmt((1 - normal.multiplier) * 100)}% / ${seconds(normal.durationMs)}`,
+          `Boss・Elite・Nemesis：−${fmt((1 - boss.multiplier) * 100)}% / ${seconds(boss.durationMs)}`,
+          "主攻撃でダメージを与え、生き残った敵が対象です。動きを完全に止める効果ではありません。", "複数の減速は強いものを優先します。別の武器による減速時間は延ばしません。");
+      } else if (moon) {
+        summary = "再び斬れるまでを短縮。\n離脱もしやすくなる。";
+        add("再攻撃待ち", before.rehitMs / 1000, after.rehitMs / 1000, "秒"); add("離脱の外縁", before.exitRadius, after.exitRadius, "px");
+        details.push(this.getUmbraMobilityTrialSettings().moonGlideMs > 0 ? "同じ敵には、離脱の外縁を越えてから有効な斬撃区間で入り直す必要があります。" : "同じ敵には、離脱の外縁を越えてからブーストで入り直す必要があります。", "攻撃の届く範囲は広がりません。BOOST EN の回復速度を上げる効果ではありません。");
+      } else if (spike) {
+        summary = "次の角を出すまでの\n待ち時間を短くする。";
+        add("発動間隔", before.intervalMs / 1000, after.intervalMs / 1000, "秒");
+        details.push(`敵がいない時の再探索：${seconds(after.searchRetryMs)}`, "現在の待ち時間はそのまま。次の待ちから反映します。", "突き上げの速さ・攻撃範囲・BOOST EN の回復速度は変わりません。");
+      } else {
+        summary = "設置した雷球が戻る\nまでの待ちを短縮。";
+        add("再生成待ち", before.regenerationMs / 1000, after.regenerationMs / 1000, "秒");
+        details.push("次に設置する雷球から反映。現在の再生成待ちは短縮しません。", "即座に補充する効果ではありません。放電間隔・保有数・BOOST EN の回復速度は変わりません。");
+      }
+      details.push("TRIAD の組合せは確定後に更新されます。この画面は現在の組合せによる値です。", futureNote);
+    } else if (final) {
+      title = final.toUpperCase(); kindLabel = "FINAL 選択";
+      const profile = this.getUmbraSkillFinalProfile(id, stage, "orbit", final), settings = UMBRA_SKILL_FINAL_SETTINGS.skills[id];
+      if (final === "execution") {
+        summary = "強敵や HP の多い敵に\n高いダメージ。"; condition = "条件に合う敵への威力強化";
+        const before = this.getUmbraPlayerCardDamageRows(id, stage, { finalId: null }), after = this.getUmbraPlayerCardDamageRows(id, stage, { finalId: final });
+        damageRows(before, after);
+        details.push("次のどれかに当てはまる敵が対象です。", "・Boss / Elite / Nemesis", "・残り HP が最大 HP の 62%以上", "・最大 HP が 36以上", "HP が満タンの小さな敵も対象です。即死や追加攻撃ではありません。", damageNote);
+      } else if (final === "prism") {
+        summary = "命中から別の敵へ\n電撃が分岐する。";
+        changes.push(`最大 ${settings.prism.maxTargets}体`, `届く距離 ${fmt(settings.prism.radius)}px`);
+        damageRows(null, this.getUmbraPlayerCardDamageRows(id, stage, { finalId: final }));
+        details.push(`成功した主攻撃の近くにいる別の敵へ、最大 ${settings.prism.maxTargets}体まで分岐します。`, `分岐が届く距離：${settings.prism.radius}px`,
+          moon ? "1回のブーストにつき分岐の機会は1回です。" : spike ? "角の1回の攻撃につき分岐の機会は1回です。" : "1回の放電につき分岐の機会は1回。周回と設置した雷球で待ち時間を共有します。",
+          settings.prism.icdMs ? `分岐の待ち時間：${seconds(settings.prism.icdMs)}` : "追加の待ち時間はありません。",
+          "主攻撃の対象にした敵には分岐しません。分岐からさらに分岐することはありません。", damageNote);
+      } else {
+        summary = nova ? "雷球の設置地点に\n敵を遅くする領域。" : "命中地点に\n敵を遅くする領域。";
+        condition = "領域の追加ダメージは 0";
+        const values = this.getUmbraFinalFieldSettings(id, profile, { radius: stage.impactRadius, expiresAtMs: stage.deployedDurationMs }, 0);
+        changes.push(`半径 ${fmt(values.radius)}px`, `最長 ${seconds(values.durationMs)}`);
+        details.push(nova ? "雷球を正常に設置した時に発生します。命中は不要で、周回や再生成だけでは発生しません。" : spike ? "角が敵にダメージを与えると、その角の中心に発生します。" : this.getUmbraMobilityTrialSettings().moonGlideMs > 0 ? "ブーストと解除直後の有効な斬撃区間で、最初にダメージを与えた地点に発生します。" : "ブースト中に最初にダメージを与えた地点に発生します。",
+          `領域の半径：${fmt(values.radius)}px / 最長 ${seconds(values.durationMs)}`, `この武器の領域は同時に ${settings.field.maxFields}個まで。各領域は近い ${UMBRA_SKILL_FINAL_SETTINGS.membership.maxTargets}体までを減速します。`,
+          `通常敵：移動速度 −${fmt((1 - values.normalMultiplier) * 100)}%`, `Boss 系：移動速度 −${fmt((1 - values.bossMultiplier) * 100)}%`,
+          "追加ダメージはありません。満杯の時は新しい領域を作らず、古い領域を延長しません。", nova ? "雷球が消える時に領域も終わります。" : "元の攻撃が消えた後も、領域自身の時間まで残ります。");
+      }
+      details.push("表示は現在の TRIAD を反映しています。今回の選択による新しい組合せは確定後に更新されます。", futureNote);
+    } else if (option.type === "equipmentOverlimit") {
+      const zero = option.umbraEquipmentCard?.zeroCurrentDifference, cap = option.overlimitCap, next = option.nextOverlimitLevel;
+      title = `OVERLIMIT ${this.formatEquipmentOverlimitLevelLabel(next)}`; kindLabel = "装備連携強化";
+      summary = zero ? "今の威力は\n変わりません。" : "この武器の威力を\nさらに高める。";
+      damageRows(this.getUmbraPlayerCardDamageRows(id, stage), this.getUmbraPlayerCardDamageRows(id, stage, { equipmentLevel: next }));
+      if (zero) { changes.length = 0; changes.push("現在の威力差 0"); }
+      if (next === 1 && cap === 2) { condition = "II へ進むための前段階"; details.push("I は II へ進むための前段階です。現在の威力差が 0 でも選べます。"); }
+      details.push("この武器だけが対象です。Stage・雷球の数・攻撃範囲は変わりません。", `この装備の上限：${this.formatEquipmentOverlimitLevelLabel(cap)}`,
+        ({ levelUp: "通常の強化を1回使います。", finalMutationOverlimitBonus: "Final 確定による、この武器への追加強化です。", deepLevelOverlimitBonus: "Deep Lv 上昇による追加強化です。" })[option.umbraEquipmentCard?.source] || "表示中の強化機会を1回使います。", damageNote, futureNote);
+    } else if (dedicated && option.type === "skill") {
+      const after = this[getter](stage), before = option.currentStage ? this[getter](option.currentStage) : null;
+      title = SKILL_DEFINITIONS[id].name; kindLabel = before ? "STAGE 強化" : "新しい武器";
+      if (moon) {
+        if (before) damageRows(this.getUmbraPlayerCardDamageRows(id, option.currentStage), this.getUmbraPlayerCardDamageRows(id, stage));
+        add("攻撃半径", before?.passageRadius, after.passageRadius, "px");
+        add("再攻撃待ち", before ? before.rehitMs / 1000 : null, after.rehitMs / 1000, "秒");
+        summary = !before ? "ブースト中に\n近くの敵を斬る。" : before.passageRadius !== after.passageRadius ? "斬撃が届く範囲を\n広げる。" : "斬撃の威力を\n高める。";
+        const glideMs = this.getUmbraMobilityTrialSettings().moonGlideMs;
+        if (!before && glideMs > 0) summary = "ブーストと解除直後に\n近くの敵を斬る。";
+        details.push(`攻撃半径：${fmt(after.passageRadius)}px / 離脱の外縁：${fmt(after.exitRadius)}px`, `再攻撃待ち：${seconds(after.rehitMs)}`,
+          "ブーストで実際に移動している時に斬ります。ブレーキ中や押し付けで動いていない時は斬りません。", glideMs > 0 ? "同じ敵には再攻撃待ちと外縁からの再離脱・再進入が必要です。短押しでも命中履歴はリセットしません。" : "同じ敵へ再び当てるには、待ち時間に加え、外縁の外へ離れてから再びブーストで入り直す必要があります。");
+      } else if (spike) {
+        add("攻撃半径", before?.impactRadius, after.impactRadius, "px");
+        summary = after.stage === 8 ? "巨大な角で突き上げ、\n敵集団を巻き込む。" : before ? "角が届く範囲を広げ、\n周りの敵を巻き込む。" : "地面から角を出し、\n周りをまとめて攻撃。";
+        details.push(`敵を探す距離：${fmt(after.searchRange)}px / 発動間隔：${seconds(after.intervalMs)}`, "攻撃範囲内の複数の敵へ、それぞれ1回ずつ当たります。", "Stage による成長は攻撃半径です。角と地面の発光も同じ比率で大きくなります。単体への威力と発動間隔は変わりません。", "成長は次に生成する角から反映し、生成済みの角の位置・大きさ・期限は変えません。", "敵を探す距離と、角が当たる半径は別です。");
+      } else {
+        add("雷球の数", before?.slotCount, after.slotCount, "基");
+        if (before) damageRows(this.getUmbraPlayerCardDamageRows(id, option.currentStage), this.getUmbraPlayerCardDamageRows(id, stage));
+        add("周回の射程", before?.orbitRange, after.orbitRange, "px"); add("設置の射程", before?.deployedRange, after.deployedRange, "px");
+        summary = !before ? "雷球が自動攻撃。\nブーストで1基を設置。" : before.slotCount !== after.slotCount ? "雷球が\n1基増える。" : before.orbitRawDamage !== after.orbitRawDamage || before.deployedRawDamage !== after.deployedRawDamage ? "雷球の威力を\n高める。" : "雷球が攻撃できる\n範囲を広げる。";
+        if (!before && this.getUmbraMobilityTrialSettings().novaFieldRadius > 0) summary = "雷球で攻撃。設置時に\n短い安全地帯を作る。";
+        details.push(`周回の放電間隔：${seconds(after.orbitIntervalMs)} / 設置後：${seconds(after.deployedIntervalMs)}`, `設置時間：${seconds(after.deployedDurationMs)} / 再生成待ち：${seconds(after.regenerationMs)}`,
+          "ブーストで実際に移動した時、使える雷球を1基設置します。条件を満たしても雷球がなければ設置しません。", "追加された雷球は最初の放電まで待ちます。既存の雷球を即座に放電・補充する効果ではありません。");
+      }
+      details.push(damageNote, futureNote);
+    } else {
+      const passive = option.id; title = model.title; kindLabel = "機体強化";
+      if (passive === "overchargeBolt") {
+        summary = "専用武器の\n威力を底上げする。";
+        for (const weapon of this.getUmbraVerificationPassiveWeapons?.() || []) {
+          const current = this.getUmbraActiveSkillStage(weapon.id), old = this.getUmbraPlayerCardDamageRows(weapon.id, current), next = this.getUmbraPlayerCardDamageRows(weapon.id, current, { bulletIncrease: 1 });
+          const shortName = weapon.id === UMBRA_MOONLIGHT_SKILL_ID ? "斬撃" : weapon.id === UMBRA_BLOOD_SPIKE_SKILL_ID ? "角" : "雷球";
+          details.push(SKILL_DEFINITIONS[weapon.id].name); damageRows(old.map(row => ({ ...row, label: `${shortName}${row.label}` })), next.map(row => ({ ...row, label: `${shortName}${row.label}` })));
+        }
+        details.push(damageNote, futureNote);
+      } else if (passive === "rapidSigil") {
+        summary = "専用武器の攻撃を\n待つ時間を短縮。";
+        const next = Math.max(LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS, this.stats.fireInterval - 70);
+        for (const weapon of this.getUmbraVerificationPassiveWeapons?.() || []) {
+          if (weapon.id === UMBRA_MOONLIGHT_SKILL_ID) add("斬撃の再攻撃待ち", weapon.stats.rehitMs / 1000, this.getUmbraMoonlightRehitIntervalMs(next) / 1000, "秒");
+          else if (weapon.id === UMBRA_BLOOD_SPIKE_SKILL_ID) add("角の発動間隔", weapon.stats.intervalMs / 1000, this.getUmbraBloodSpikeIntervalMs(next) / 1000, "秒");
+          else { add("周回の放電間隔", weapon.stats.orbitIntervalMs / 1000, this.getUmbraPhantomNovaIntervalMs("orbit", next) / 1000, "秒"); add("設置の放電間隔", weapon.stats.deployedIntervalMs / 1000, this.getUmbraPhantomNovaIntervalMs("deployed", next) / 1000, "秒"); }
+        }
+        details.push("MOONLIGHT は離脱・再進入も必要です。", "角の突き上げ速度と、雷球の再生成待ちは変わりません。", "既に始まった待ち時間はそのまま。次の待ち時間から反映します。");
+      } else if (passive === "swiftStep") { summary = "機体の推進出力を\n高める。"; add("推進出力", this.stats.moveSpeed, this.stats.moveSpeed + this.getBoosterTuningSpeedGain());
+      } else if (passive === "staminaCore") { summary = "ブースト EN の最大量を\n増やし、EN を回復。"; add("最大 EN", this.stats.maxStamina, this.stats.maxStamina + 25); details.push("同時に EN を25回復します。最大量を超えた分は回復しません。");
+      } else if (passive === "vitalBloom") { summary = "最大 AP を増やし、\nAP を回復する。"; add("最大 AP", this.stats.maxHp, this.stats.maxHp + this.getApReinforceHpGain()); details.push(`同時に AP を${this.getApReinforceHpGain()}回復します。最大量を超えた分は回復しません。`);
+      } else {
+        summary = "ブースト開始直後の\n無敵時間を長くする。";
+        const tuning = this.getActiveAcMovementTuning(), level = this.getEvasiveFirmwareLevel(tuning);
+        const before = this.getAcEvadeWindowDurationBreakdown(level, tuning, { preview: true }), after = this.getAcEvadeWindowDurationBreakdown(level + 1, tuning, { preview: true });
+        add("瞬間回避", before.durationMs / 1000, after.durationMs / 1000, "秒");
+        details.push("ブースト開始時の短い回避時間だけを強化します。", "ブーストを押し続けている間ずっと無敵になる効果ではありません。再び発動するには既存の再使用条件を満たす必要があります。");
+      }
+    }
+    const mobilityTrial = dedicated ? this.getUmbraMobilityTrialSettings() : UMBRA_MOBILITY_TRIAL_OFF;
+    if (moon && mobilityTrial.moonGlideMs > 0) details.push(`${this.isUmbraProductionRunContext() ? "" : "試験設定："}正常なブーストを解除した後、実際の滑走中だけ最大${mobilityTrial.moonGlideMs}ms斬撃を継続します。制動・停止・壁への押し付けでは終了します。無敵時間は増えません。`);
+    if ((moon || nova) && mobilityTrial.novaFieldShape === "lane") {
+      if (option.type === "skill" && !option.currentStage) summary = nova
+        ? "ブーストで設置し、\n斬り抜ける進路を守る。" : "ブーストで敵を斬る。\nNOVAと揃うと辻斬り。";
+      details.push(`シナジー「辻斬り」：MOONLIGHTとNOVAを所持すると、NOVAの正常設置時に進行方向へ固定の長方形保護帯を最大${seconds(mobilityTrial.novaFieldDurationMs)}展開します。`,
+        `${this.isUmbraProductionRunContext() ? "保護範囲：" : "比較値："}前方${mobilityTrial.novaFieldForwardLength}px／後方${mobilityTrial.novaFieldRearLength}px／幅${mobilityTrial.novaFieldHalfWidth * 2}px。機体の判定中心が帯内にある間、解除後の滑走・制動中も被ダメージを防ぎます。`,
+        "設置点へ戻る必要はありません。帯の位置・向きは固定され、カメラや旋回に追従しません。再進入や重なりで期限は延びません。帯外・期限終了・設置前の接触は保護しません。",
+        "NOVA自身の放電範囲・威力は変わりません。保護帯全体が攻撃判定になる効果ではありません。MOONLIGHTの再攻撃待ち・離脱と再進入の条件も維持します。",
+        "FX OFFでも保護帯を表示します。縁のゲージが残り時間を表し、終了直前は黄色になります。SINGULARITYの減速とは別効果です。");
+    } else if (nova && mobilityTrial.novaFieldRadius > 0) details.push(`試験設定：正常設置後、半径${mobilityTrial.novaFieldRadius}pxにアルティメットフィールドを${seconds(mobilityTrial.novaFieldDurationMs)}展開します。機体の判定中心が円内にある間だけ被ダメージを防ぎます。`,
+      "円外への退出・期限終了で保護も終了します。設置前の接触は防ぎません。重なっても時間は加算せず、SINGULARITYの減速とは別効果です。FX OFFでも保護円と残り時間の輪を表示します。");
+    if (!details.length) details.push(summary.replace(/\n/g, ""));
+    const playerCard = Object.freeze({ title, kindLabel, summary, condition, importantChanges: Object.freeze(changes.slice(0, 2)),
+      detailLines: Object.freeze(details), numbers: Object.freeze(numbers.map(Object.freeze)), skillName: dedicated ? SKILL_DEFINITIONS[id].name : null,
+      stageLabel: option.type === "skill" ? option.currentStage ? `Stage ${option.currentStage.stage} → ${option.nextStage.stage}` : "Stage 1" : core ? "Stage 4" : final ? "Stage 8" : model.stageLabel,
+      original: Object.freeze({ description: model.description, chips: Object.freeze((model.chips || []).map(chip => chip.label)) }) });
+    return { ...model, umbraPlayerCard: playerCard };
+  }
+
   buildLevelUpCardModel(option, index) {
     if (option?.type === "robotAbility") {
       return this.buildRobotTuningCardModel(option, index);
@@ -78868,6 +84607,8 @@ class SurvivalScene extends Phaser.Scene {
       const overlimitLabel = this.formatEquipmentOverlimitLevelLabel(nextLevel);
       const multiplier = Number.isFinite(option.multiplier) && option.multiplier > 0 ? option.multiplier : 1;
       const typeMeta = LEVEL_UP_CARD_TYPE_META.equipmentOverlimit;
+      const umbraCard = option.umbraEquipmentCard && this.isUmbraEquipmentContextActive?.() ? option.umbraEquipmentCard : null;
+      const selectionSource = { levelUp: "通常選択", finalMutationOverlimitBonus: "Final追加", deepLevelOverlimitBonus: "Deep追加" }[umbraCard?.source] || "";
       return {
         option,
         index,
@@ -78877,10 +84618,10 @@ class SurvivalScene extends Phaser.Scene {
         typeColor: typeMeta.color,
         typeTextColor: typeMeta.textColor,
         title: meta.displayName,
-        stageLabel: `OVERLIMIT ${overlimitLabel}`,
-        description: "Combat LinkでStage8後の実ダメージを強化",
+        stageLabel: `OVERLIMIT ${overlimitLabel}${umbraCard ? ` / ${selectionSource}` : ""}`,
+        description: umbraCard ? umbraCard.description : "Combat LinkでStage8後の実ダメージを強化",
         stageProgress: this.formatStageProgress(maxStage, maxStage),
-        chips: [
+        chips: umbraCard ? umbraCard.chips : [
           { label: `SKILL DMG x${multiplier.toFixed(2)}`, priority: 130 },
           { label: "STAGE 8 MAX", priority: 110 },
           { label: `CAP ${this.formatEquipmentOverlimitLevelLabel(option.overlimitCap || nextLevel)}`, priority: 100 },
@@ -78900,10 +84641,11 @@ class SurvivalScene extends Phaser.Scene {
       const maxStage = this.getSkillMaxStage(option.definition);
       const currentStageNumber = option.currentStage?.stage || 0;
       const nextStageNumber = option.nextStage?.stage || 1;
-      const newEffects = this.detectNewEffects(option.currentStage, option.nextStage, option.skillId);
+      const growthCard = option.umbraGrowthCard;
+      const newEffects = growthCard ? [] : this.detectNewEffects(option.currentStage, option.nextStage, option.skillId);
       const cardType = this.getLevelUpCardType(option, newEffects);
       const typeMeta = LEVEL_UP_CARD_TYPE_META[cardType] || LEVEL_UP_CARD_TYPE_META.skillUpgrade;
-      const chips = this.formatStatDiffChips(option.currentStage, option.nextStage, option.skillId)
+      const chips = (growthCard ? growthCard.chips : this.formatStatDiffChips(option.currentStage, option.nextStage, option.skillId))
         .slice(0, newEffects.length > 0 ? 4 : 6);
 
       return {
@@ -78918,7 +84660,7 @@ class SurvivalScene extends Phaser.Scene {
         stageLabel: option.actionType === "unlock"
           ? `Unlock Stage ${nextStageNumber}`
           : (nextStageNumber >= maxStage ? "FINAL STAGE" : `Stage ${currentStageNumber} → ${nextStageNumber}`),
-        description: meta.description,
+        description: growthCard ? growthCard.description : meta.description,
         stageProgress: this.formatStageProgress(nextStageNumber, maxStage),
         chips,
         newEffects,
@@ -79051,6 +84793,24 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   buildSkillMutationCardModel(option, index) {
+    if (option.umbraCoreCard && this.isUmbraCoreContextActive?.()) {
+      const data = option.umbraCoreCard, definition = SKILL_DEFINITIONS[option.skillId];
+      return { option, index, kind: "skill", cardType: "skillMutation", typeLabel: "MUTATION CORE",
+        typeColor: option.themeColor, typeTextColor: "#061018", title: option.title,
+        stageLabel: `${definition.name} / Stage4 / ${data.coreId.toUpperCase()}`,
+        description: data.description, stageProgress: "●●●●○○○○", chips: data.chips, newEffects: [data.coreId.toUpperCase()],
+        themeColor: option.themeColor, glowColor: option.themeColor, accentColor: option.accentColor,
+        iconTone: data.coreId.toUpperCase(), iconTextureKey: definition.hudIconTextureKey || definition.stages[0]?.textureKey || null };
+    }
+    if (option.umbraFinalCard && this.isUmbraFinalSkillEligible?.(option.skillId)) {
+      const data = option.umbraFinalCard, definition = SKILL_DEFINITIONS[option.skillId];
+      return { option, index, kind: "skill", cardType: "skillMutation", typeLabel: "FINAL CATALYST",
+        typeColor: option.themeColor, typeTextColor: "#061018", title: option.title,
+        stageLabel: `${definition.name} / Stage8 / ${data.coreId.toUpperCase()} + ${data.finalId.toUpperCase()}`,
+        description: data.description, stageProgress: "●●●●●●●●", chips: data.chips, newEffects: [data.finalId.toUpperCase()],
+        themeColor: option.themeColor, glowColor: option.themeColor, accentColor: option.accentColor,
+        iconTone: data.finalId.toUpperCase(), iconTextureKey: definition.hudIconTextureKey || definition.stages[0]?.textureKey || null };
+    }
     const typeMeta = LEVEL_UP_CARD_TYPE_META.skillMutation;
     const phase = option.phase === "stage8" ? "stage8" : "stage4";
     const mutation = option.mutationDefinition || {};
@@ -79337,6 +85097,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   unlockSkill(skillId) {
+    if (this.umbraRunContext && !this.hasUmbraRunCapability("growth", { purpose: "select" })) return false;
     const definition = SKILL_DEFINITIONS[skillId];
     if (!definition?.stages?.length || this.playerSkills[skillId] || !this.isSkillAvailableForPlayerMech(skillId)) {
       return;
@@ -79350,7 +85111,9 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   upgradeSkill(skillId) {
+    if (this.umbraRunContext && !this.hasUmbraRunCapability("growth", { purpose: "select" })) return false;
     const skillState = this.playerSkills[skillId];
+    if ((this.getUmbraRunContext?.() || this.verificationContext)?.growthEnabled === true && !this.getUmbraActiveSkillStage(skillId)) return;
     if (!skillState || !this.isSkillAvailableForPlayerMech(skillId) || skillState.stageIndex >= skillState.definition.stages.length - 1) {
       return;
     }
@@ -79362,12 +85125,15 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   triggerGameOver(options = {}) {
-    if (this.gameOver) {
+    if (this.gameOver || (this.runEnvironmentIO && this.umbraNormalResultCompleted)) {
       return;
     }
 
     const gameOverOptions = typeof options === "string" ? { reason: options } : (options || {});
     const reason = gameOverOptions.reason || "playerDeath";
+    if (this.runEnvironmentIO) this.umbraNormalResultCompleted = true;
+    this.endUmbraNormalRun(reason);
+    this.umbraResultIoFailuresAtStart = this.runEnvironmentIO?.getStorageFailureCount?.() || 0;
     const lostCoins = gameOverOptions.skipCoinLoss
       ? this.normalizeCoinAmount(gameOverOptions.lostCoins)
       : this.loseRunCoins(reason);
@@ -79396,6 +85162,7 @@ class SurvivalScene extends Phaser.Scene {
         instabilityStacks: this.gateInstabilityStacks || 0
       }
     });
+    this.recordUmbraIntegrationResult?.(reason, { secured: 0, lost: lostCoins });
     this.resetRunEquipmentCombatLinkState(reason);
 
     this.gameOver = true;
@@ -79552,9 +85319,11 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   returnToOpeningShop(message = "", options = {}) {
+    if (this.runEnvironmentIO) return this.returnUmbraIntegrationToHub(message);
     if (this.restartInProgress) {
       return;
     }
+    this.endUmbraNormalRun("HUB_RETURN");
 
     const wantsFullscreenOnReturn = wantsMobileLandscapeFullscreen();
     const shopReturnOptions = { ...options };
@@ -79835,11 +85604,17 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   showLevelUpCardOverlay(title, body, options, selectionMode = "level", context = {}) {
+    if (this.isUmbraNormalPresentationContext?.()) {
+      for (const option of options || []) if (option?.skillId) this.requestUmbraSkillPresentationAssets(option.skillId);
+    }
     this.clearOverlayButtons();
     this.levelUpSelectionMode = selectionMode;
     this.levelUpOpeningBoostActive = Boolean(context.openingBoost);
-    const models = (options || []).map((option, index) => this.buildLevelUpCardModel(option, index));
-    const layout = this.getLevelUpCardLayout(models.length);
+    const models = (options || []).map((option, index) => {
+      const model = this.buildLevelUpCardModel(option, index);
+      return this.buildUmbraPlayerCardModel?.(model) || model;
+    });
+    const layout = models.every(model => model.umbraPlayerCard) ? this.getUmbraPlayerCardLayout(models.length) : this.getLevelUpCardLayout(models.length);
 
     this.configureOverlayPanel(layout.panelWidth, layout.panelHeight);
     this.overlayPanel
@@ -79866,13 +85641,13 @@ class SurvivalScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setPosition(0, layout.bodyY)
-      .setText(body);
+      .setText(layout.playerCards ? "効果を選んで強化 / 詳細は選択を確定しません" : body);
 
     const panelFrame = this.createLevelUpPanelFrame(layout);
     const keyHint = models.map((model, index) => String(index + 1)).join("・") + "キー";
-    const hint = this.add.text(0, layout.hintY, `クリック / タップ / ${keyHint}で選択`, {
+    const hint = this.add.text(0, layout.hintY, layout.playerCards ? `${keyHint} 選択 / D 詳細 / パッドは「詳細」へ移動して決定` : `クリック / タップ / ${keyHint}で選択`, {
       fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
-      fontSize: "15px",
+      fontSize: layout.playerCards ? `${Math.max(16, Math.ceil(10 / layout.cssScale))}px` : "15px",
       color: "#bcecff",
       fontStyle: "bold",
       align: "center"
@@ -79894,7 +85669,28 @@ class SurvivalScene extends Phaser.Scene {
       .setVisible(true)
       .setAlpha(0)
       .setScale(0.96);
+    this.raiseUmbraNormalCardOverlay?.();
     this.playLevelUpOpenAnimation(this.overlayContainer, this.levelUpCardRecords);
+  }
+
+  raiseUmbraNormalCardOverlay() {
+    if (!this.isUmbraNormalPresentationContext?.()) return;
+    const parent = this.uiContainer, objects = [this.overlayBackdrop, this.overlayContainer];
+    if (!parent?.list || objects.some(object => !object || !parent.list.includes(object))) return;
+    // Container children render in list order, not their individual depth.
+    // Preserve that order and raise only this normal UMBRA card overlay.
+    this.restoreUmbraNormalCardOverlayOrder();
+    this.umbraNormalCardOverlayOrder = { parent, entries: objects.map(object => ({ object, index: parent.list.indexOf(object) })) };
+    for (const object of objects) parent.bringToTop(object);
+  }
+
+  restoreUmbraNormalCardOverlayOrder() {
+    const saved = this.umbraNormalCardOverlayOrder;
+    this.umbraNormalCardOverlayOrder = null;
+    if (!saved?.parent?.scene || !saved.parent.list) return;
+    for (const entry of saved.entries.sort((a, b) => a.index - b.index)) {
+      if (saved.parent.list.includes(entry.object)) saved.parent.moveTo(entry.object, Math.min(entry.index, saved.parent.list.length - 1));
+    }
   }
 
   createOpeningBoostRerollButton(layout) {
@@ -79935,9 +85731,165 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
+  getUmbraPlayerCardLayout(cardCount) {
+    const bounds = this.game?.canvas?.getBoundingClientRect?.();
+    const cssScale = Math.max(0.1, Math.min((bounds?.width || GAME_WIDTH) / GAME_WIDTH, (bounds?.height || GAME_HEIGHT) / GAME_HEIGHT));
+    const narrow = cssScale < 0.7, rows = narrow && cardCount <= 3, grid = narrow && cardCount > 3;
+    // One internal pixel absorbs the entry panel's final CSS-pixel rounding
+    // after its settings fold closes; no world/camera dimensions are changed.
+    const fontSize = Math.max(20, Math.ceil(14 / cssScale) + 1);
+    const width = rows ? 1150 : grid ? 562 : cardCount <= 2 ? 440 : cardCount >= 4 ? 278 : 358;
+    const height = rows ? 178 : grid ? 276 : 516, gap = rows ? 12 : 18;
+    const columns = rows ? 1 : grid ? 2 : cardCount, rowCount = Math.ceil(cardCount / columns);
+    const totalWidth = columns * width + (columns - 1) * gap, totalHeight = rowCount * height + (rowCount - 1) * gap;
+    return { playerCards: true, rowCards: rows, gridCards: grid, cssScale, fontSize, orientation: "horizontal", panelWidth: 1210, panelHeight: 700,
+      cardWidth: width, cardHeight: height, titleY: -320, bodyY: -280, hintY: 323,
+      cardPositions: Array.from({ length: cardCount }, (_, i) => ({ x: -totalWidth / 2 + width / 2 + i % columns * (width + gap), y: -totalHeight / 2 + height / 2 + Math.floor(i / columns) * (height + gap) + 24 })) };
+  }
+
+  createUmbraPlayerLevelUpCard(model, index, layout) {
+    const point = layout.cardPositions[index], container = this.add.container(point.x, point.y), background = this.add.graphics();
+    const record = { model, index, layout, container, background, focused: false, selected: false, disabled: false, playerTexts: [] };
+    const context = this.getUmbraRunContext();
+    const isCurrent = () => this.levelUpCardRecords?.[index] === record && this.isUmbraRunContextCurrent(context) && this.isUmbraNormalPresentationContext?.();
+    const select = () => { if (isCurrent()) this.selectLevelUpCard(index); };
+    const showDetails = () => { if (isCurrent()) this.openUmbraPlayerCardDetails(index); };
+    const data = model.umbraPlayerCard, width = layout.cardWidth, height = layout.cardHeight, left = -width / 2, top = -height / 2;
+    container.add(background); this.drawLevelUpCardBackground(record);
+    const text = (x, y, value, size, wrap, color = "#eaf8ff", bold = false) => {
+      const item = this.add.text(x, y, value, { fontFamily: "Segoe UI, Yu Gothic UI, sans-serif", fontSize: `${size}px`, color,
+        fontStyle: bold ? "bold" : "normal", lineSpacing: 2, wordWrap: { width: wrap, useAdvancedWrap: true } }).setOrigin(0, 0);
+      item.umbraPlayerText = true; container.add(item); record.playerTexts.push(item); return item;
+    };
+    const subtitle = data.skillName && data.title !== data.skillName ? data.skillName : data.kindLabel;
+    const changeLines = [...data.importantChanges, ...(data.condition ? [data.condition] : [])];
+    let button;
+    if (layout.rowCards) {
+      text(left + 22, top + 14, `${index + 1}  ${data.title}`, Math.max(26, layout.fontSize), 338, "#f3fbff", true);
+      text(left + 22, top + 57, `${subtitle}\n${data.stageLabel}`, Math.max(22, Math.ceil(11 / layout.cssScale)), 328, model.accentColor);
+      text(left + 372, top + 12, data.summary, layout.fontSize, width - 400);
+      text(left + 372, top + 90, changeLines.join(" / "), layout.fontSize, width - 400, "#bcefff", true);
+      button = { x: left + 174, y: top + height - 32, width: 300, height: 50 };
+    } else if (layout.gridCards) {
+      text(left + 20, top + 13, `${index + 1}  ${data.title}`, layout.fontSize, width - 40, "#f3fbff", true);
+      text(left + 20, top + 54, `${subtitle} / ${data.stageLabel}`, Math.ceil(10 / layout.cssScale), width - 40, model.accentColor);
+      text(left + 20, top + 86, data.summary, layout.fontSize, width - 40);
+      text(left + 20, top + 166, changeLines.join(" / "), layout.fontSize, width - 40, "#bcefff", true);
+      button = { x: 0, y: height / 2 - 28, width: width - 40, height: 44 };
+    } else {
+      text(left + 22, top + 22, `${index + 1}  ${data.kindLabel}`, 18, width - 44, model.accentColor, true);
+      text(left + 22, top + 66, data.title, width < 300 ? 24 : 28, width - 44, "#f3fbff", true);
+      text(left + 22, top + 135, `${subtitle}\n${data.stageLabel}`, 18, width - 44, model.accentColor);
+      text(left + 22, top + 210, data.summary, layout.fontSize, width - 44);
+      text(left + 22, top + 299, changeLines.join("\n"), layout.fontSize, width - 44, "#bcefff", true);
+      button = { x: 0, y: height / 2 - 43, width: width - 44, height: 54 };
+    }
+    const hitZone = this.add.zone(0, 0, width, height).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    hitZone.on("pointerover", () => { if (isCurrent()) { this.umbraPlayerCardFocusIndex = index; this.setLevelUpCardFocused(record, true); } });
+    hitZone.on("pointerout", () => { if (isCurrent()) this.setLevelUpCardFocused(record, false); });
+    hitZone.on("pointerup", (pointer, x, y, event) => {
+      event?.stopPropagation?.();
+      if (!isCurrent()) return;
+      const detailAction = this.overlayActions.find(action => action.panel === record.detailButton);
+      if (detailAction && this.isPointInsideOverlayAction(detailAction, this.getOverlayPointerGamePosition(pointer))) {
+        this.umbraPlayerCardConsumedPointerEvent = pointer?.event || null; showDetails();
+      }
+      else select();
+    });
+    container.add(hitZone); record.hitZone = hitZone;
+    const panel = this.add.rectangle(button.x, button.y, button.width, button.height, 0x16324a, 1).setStrokeStyle(1, model.themeColor, 0.85).setInteractive({ useHandCursor: true });
+    const label = text(button.x - button.width / 2 + 16, button.y - layout.fontSize / 2 - 2, "詳細  ›", layout.fontSize, button.width - 32, "#d9f8ff", true);
+    container.add(panel); container.bringToTop(label); record.detailButton = panel;
+    panel.on("pointerup", (pointer, x, y, event) => { event?.stopPropagation?.(); if (isCurrent()) { this.umbraPlayerCardConsumedPointerEvent = pointer?.event || null; showDetails(); } });
+    this.overlayContainer.add(container); this.overlayButtons.push(container);
+    this.overlayActions.push({ panel: hitZone, onSelect: select, handlesOwnFlow: true },
+      { panel, onSelect: showDetails, handlesOwnFlow: true });
+    return record;
+  }
+
+  openUmbraPlayerCardDetails(index = 0) {
+    if (this.umbraPlayerCardDetail || !this.isUmbraNormalPresentationContext?.() || !this.levelUpActive || !this.levelUpInputEnabled || this.levelUpSelectionLocked) return false;
+    const records = this.levelUpCardRecords, record = records?.[index];
+    if (!record?.model?.umbraPlayerCard) return false;
+    const context = this.getUmbraRunContext(), container = this.add.container(0, 0), layout = this.getUmbraPlayerCardLayout(records.length);
+    const saved = { container, context, records, index, actions: this.overlayActions, focusedPanel: this.overlayFocusedPanel, page: 0, pages: [], objects: [], fontSize: layout.fontSize,
+      hiddenObjects: this.overlayContainer.list.filter(item => item !== this.overlayPanel && item.visible).map(item => ({ item, visible: item.visible })) };
+    this.umbraPlayerCardDetail = saved;
+    saved.hiddenObjects.forEach(({ item }) => item.setVisible(false));
+    this.overlayContainer.add(container); this.overlayActions = []; this.overlayFocusedPanel = null; this.overlayFocusRing?.clear?.();
+    const blocker = this.add.rectangle(0, 0, 1194, 684, 0x06101c, 1).setStrokeStyle(2, record.model.themeColor, 0.9).setInteractive();
+    blocker.on("pointerup", (pointer, x, y, event) => { event?.stopPropagation?.(); this.umbraPlayerCardConsumedPointerEvent = pointer?.event || null; }); container.add(blocker);
+    const makeText = (x, y, value, size, wrap) => {
+      const item = this.add.text(x, y, value, { fontFamily: "Segoe UI, Yu Gothic UI, sans-serif", fontSize: `${size}px`, color: "#eaf7ff", lineSpacing: 6,
+        wordWrap: { width: wrap, useAdvancedWrap: true } }).setOrigin(0, 0); item.umbraPlayerText = true; container.add(item); return item;
+    };
+    saved.title = makeText(-553, -311, `${record.model.umbraPlayerCard.title}  詳細`, Math.max(28, layout.fontSize), 1106);
+    saved.body = makeText(-553, -240, "", layout.fontSize, 1106);
+    // Pagination uses Phaser's measured wrapped height. It never changes fonts,
+    // choices, timers or the captured numerical model while the details are open.
+    let page = "";
+    for (const line of record.model.umbraPlayerCard.detailLines) {
+      const candidate = page ? `${page}\n\n${line}` : line;
+      saved.body.setText(candidate);
+      if (page && saved.body.height > 466) { saved.pages.push(page); page = line; }
+      else page = candidate;
+    }
+    if (page) saved.pages.push(page);
+    const control = (x, label, action) => {
+      const panel = this.add.rectangle(x, 287, 282, 62, 0x17364d, 1).setStrokeStyle(1, record.model.themeColor, 0.8).setInteractive({ useHandCursor: true });
+      const labelObject = makeText(x - 122, 267, label, Math.max(24, layout.fontSize), 244);
+      container.add(panel); container.bringToTop(labelObject);
+      const guarded = () => { if (this.umbraPlayerCardDetail === saved && this.levelUpCardRecords === records && this.isUmbraRunContextCurrent(context)) action(); };
+      panel.on("pointerup", (pointer, px, py, event) => {
+        event?.stopPropagation?.();
+        if (this.umbraPlayerCardDetail === saved) this.umbraPlayerCardConsumedPointerEvent = pointer?.event || null;
+        guarded();
+      });
+      this.overlayActions.push({ panel, onSelect: guarded, handlesOwnFlow: true }); return panel;
+    };
+    control(-390, "‹ 前のページ", () => this.turnUmbraPlayerCardDetailPage(-1));
+    control(0, "次のページ ›", () => this.turnUmbraPlayerCardDetailPage(1));
+    saved.closeButton = control(390, "戻る  Esc / B", () => this.closeUmbraPlayerCardDetails());
+    this.turnUmbraPlayerCardDetailPage(0);
+    this.setOverlayFocusedAction?.(this.overlayActions[2]);
+    return true;
+  }
+
+  turnUmbraPlayerCardDetailPage(direction) {
+    const detail = this.umbraPlayerCardDetail;
+    if (!detail || !this.isUmbraRunContextCurrent(detail.context) || this.levelUpCardRecords !== detail.records) return false;
+    detail.page = Math.max(0, Math.min(detail.pages.length - 1, detail.page + direction));
+    detail.body.setText(detail.pages[detail.page] || "");
+    detail.title.setText(`${detail.records[detail.index].model.umbraPlayerCard.title}  詳細  ${detail.page + 1}/${detail.pages.length}`);
+    return true;
+  }
+
+  closeUmbraPlayerCardDetails({ destroying = false } = {}) {
+    const detail = this.umbraPlayerCardDetail;
+    if (!detail) return false;
+    this.umbraPlayerCardDetail = null;
+    detail.container.destroy();
+    if (!destroying && this.levelUpCardRecords === detail.records && this.isUmbraRunContextCurrent(detail.context)) {
+      detail.hiddenObjects.forEach(({ item, visible }) => { if (item.scene) item.setVisible(visible); });
+      this.overlayActions = detail.actions; this.overlayFocusedPanel = detail.focusedPanel;
+      this.overlayFocusRing?.setVisible?.(true);
+    }
+    return true;
+  }
+
   getLevelUpCardLayout(cardCount) {
     const bounds = this.game?.canvas?.getBoundingClientRect?.();
     const isNarrow = bounds && bounds.width > 0 && (bounds.width < 760 || bounds.height > bounds.width * 1.05);
+
+    if (this.isUmbraNormalPresentationContext?.()) {
+      // Full dedicated effect descriptions need the same three real cards at
+      // narrow widths too; the old 158px row cannot hold Core/Final/OVL text.
+      const cardWidth = cardCount >= 4 ? 274 : cardCount <= 2 ? 370 : 340;
+      const gap = 18, totalWidth = cardCount * cardWidth + Math.max(0, cardCount - 1) * gap;
+      return { orientation: "horizontal", panelWidth: Math.max(1128, totalWidth + 58), panelHeight: 690,
+        cardWidth, cardHeight: 530, titleY: -314, bodyY: -278, hintY: 317,
+        cardPositions: Array.from({ length: cardCount }, (_, index) => ({ x: -totalWidth / 2 + cardWidth / 2 + index * (cardWidth + gap), y: 25 })) };
+    }
 
     if (isNarrow) {
       const cardWidth = 640;
@@ -80014,6 +85966,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   createLevelUpCard(model, index, layout) {
+    if (model.umbraPlayerCard && layout.playerCards) return this.createUmbraPlayerLevelUpCard(model, index, layout);
     const position = layout.cardPositions[index] || { x: 0, y: 0 };
     const container = this.add.container(position.x, position.y);
     const background = this.add.graphics();
@@ -80032,6 +85985,7 @@ class SurvivalScene extends Phaser.Scene {
     this.drawLevelUpCardBackground(record);
 
     const compact = layout.orientation === "vertical";
+    const umbraDetails = this.isUmbraNormalPresentationContext?.() === true;
     const width = layout.cardWidth;
     const height = layout.cardHeight;
     const left = -width / 2;
@@ -80060,22 +86014,25 @@ class SurvivalScene extends Phaser.Scene {
     record.keyText = keyText;
 
     if (model.kind === "skill") {
-      const iconSize = compact ? 62 : 98;
-      const iconX = compact ? left + 70 : 0;
-      const iconY = compact ? 10 : -83;
+      const iconSize = umbraDetails ? 62 : compact ? 62 : 98;
+      const iconX = umbraDetails ? left + 60 : compact ? left + 70 : 0;
+      const iconY = umbraDetails ? top + 88 : compact ? 10 : -83;
       this.createLevelUpSkillIcon(container, model, iconX, iconY, iconSize);
     } else if (model.kind === "robot") {
-      const iconSize = compact ? 62 : 96;
-      const iconX = compact ? left + 70 : 0;
-      const iconY = compact ? 10 : -82;
+      const iconSize = umbraDetails ? 62 : compact ? 62 : 96;
+      const iconX = umbraDetails ? left + 60 : compact ? left + 70 : 0;
+      const iconY = umbraDetails ? top + 88 : compact ? 10 : -82;
       this.createLevelUpRobotIcon(container, model, iconX, iconY, iconSize);
     } else {
-      const iconSize = compact ? 62 : 92;
-      const iconX = compact ? left + 70 : 0;
-      const iconY = compact ? 10 : -80;
+      const iconSize = umbraDetails ? 62 : compact ? 62 : 92;
+      const iconX = umbraDetails ? left + 60 : compact ? left + 70 : 0;
+      const iconY = umbraDetails ? top + 88 : compact ? 10 : -80;
       this.createLevelUpPassiveIcon(container, model, iconX, iconY, iconSize);
     }
 
+    if (umbraDetails) {
+      this.createUmbraNormalCardContent(container, model, layout);
+    } else {
     const contentLeft = compact ? left + 118 : left + 24;
     const contentWidth = compact ? width - 150 : width - 48;
     const titleX = compact ? contentLeft : 0;
@@ -80158,6 +86115,7 @@ class SurvivalScene extends Phaser.Scene {
       }
     );
 
+    }
     const hitZone = this.add.zone(0, 0, width, height)
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true });
@@ -80181,7 +86139,36 @@ class SurvivalScene extends Phaser.Scene {
     return record;
   }
 
+  createUmbraNormalCardContent(container, model, layout) {
+    const width = layout.cardWidth, height = layout.cardHeight, left = -width / 2, top = -height / 2;
+    const fullWidth = width - 36;
+    const text = (x, y, value, size, color, wrapWidth = fullWidth) => {
+      const item = this.add.text(x, y, String(value || ""), { fontFamily: "Segoe UI, Yu Gothic UI, sans-serif", fontSize: `${size}px`,
+        color, wordWrap: { width: wrapWidth, useAdvancedWrap: true }, lineSpacing: 2 });
+      container.add(item); return item;
+    };
+    const title = text(left + 104, top + 57, model.title.replace(/\n/g, " "), width < 300 ? 17 : 20, "#f4fbff", width - 122);
+    while (title.height > 61 && parseInt(title.style.fontSize, 10) > 15) title.setFontSize(parseInt(title.style.fontSize, 10) - 1);
+    text(left + 18, top + 126, model.stageLabel, 12, this.colorToCss(model.themeColor));
+    text(left + 18, top + 159, `${model.stageProgress || ""}${model.newEffects?.length ? ` / NEW ${model.newEffects[0]}` : ""}`, 13, this.colorToCss(model.themeColor));
+    const description = text(left + 18, top + 184, model.description, width < 300 ? 12 : 13, "#b9d8e8");
+    while (description.height > 133 && parseInt(description.style.fontSize, 10) > 10) description.setFontSize(parseInt(description.style.fontSize, 10) - 1);
+    const chipY = Math.max(top + 329, description.y + description.height + 10);
+    this.createLevelUpChipList(container, model.chips, left + 18, chipY, fullWidth, {
+      maxChips: 12, maxRows: 0, fontSize: "11px", minFontSize: 9, chipHeight: 19, lineHeight: 23,
+      minWidth: 48, paddingX: 7, gap: 6, color: model.kind === "passive" ? 0x27344e : 0x10283a, stroke: model.themeColor
+    });
+  }
+
   createLevelUpSkillIcon(container, model, x, y, size) {
+    if (this.isUmbraNormalPresentationContext?.() && model.option?.skillId) {
+      const effect = window.umbraPreviewAssets?.effects?.[model.option.skillId];
+      const frame = effect?.frames?.[2];
+      if (effect && frame && this.textures.exists(effect.key) && this.textures.get(effect.key).has(frame.name)) {
+        const icon = this.add.image(x, y, effect.key, frame.name).setAlpha(0.96);
+        icon.setScale(size / Math.max(frame.width, frame.height)); container.add(icon); return;
+      }
+    }
     if (model.iconTextureKey && this.textures.exists(model.iconTextureKey)) {
       const frame = this.add.rectangle(x, y, size + 16, size + 16, 0x07131c, 0.78)
         .setStrokeStyle(1, model.themeColor, 0.46);
@@ -80398,9 +86385,32 @@ class SurvivalScene extends Phaser.Scene {
       this.input.keyboard.off("keydown", this.levelUpKeyHandler);
     }
 
+    const playerRecords = this.levelUpCardRecords?.some(record => record.model.umbraPlayerCard) ? this.levelUpCardRecords : null;
+    const playerContext = playerRecords ? this.getUmbraRunContext() : null;
     this.levelUpKeyHandler = (event) => {
+      if (playerRecords && (this.levelUpCardRecords !== playerRecords || !this.isUmbraRunContextCurrent(playerContext))) return;
       if (!this.levelUpActive || !this.levelUpInputEnabled || this.levelUpSelectionLocked) {
         return;
+      }
+
+      if (this.umbraPlayerCardDetail) {
+        event.preventDefault?.(); event.stopPropagation?.();
+        if (event.key === "Escape" || event.key.toLowerCase() === "d") this.closeUmbraPlayerCardDetails();
+        else if (event.key === "ArrowLeft") this.turnUmbraPlayerCardDetailPage(-1);
+        else if (event.key === "ArrowRight" || event.key === "Enter" || event.key === " ") this.turnUmbraPlayerCardDetailPage(1);
+        return;
+      }
+      if (this.levelUpCardRecords?.some(record => record.model.umbraPlayerCard)) {
+        const key = event.key.toLowerCase();
+        if (key === "d") {
+          event.preventDefault?.(); event.stopPropagation?.();
+          const focused = this.levelUpCardRecords.find(record => record.hitZone === this.overlayFocusedPanel || record.detailButton === this.overlayFocusedPanel);
+          this.openUmbraPlayerCardDetails(focused?.index ?? this.umbraPlayerCardFocusIndex ?? 0);
+          return;
+        }
+        const direction = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", ArrowDown: "down" }[event.key];
+        if (direction) { event.preventDefault?.(); event.stopPropagation?.(); this.moveOverlayFocus(direction); return; }
+        if (event.key === "Enter") { event.preventDefault?.(); event.stopPropagation?.(); const action = this.getCurrentOverlayFocusedAction(this.getFocusableOverlayActions()); if (action) this.activateOverlayAction(action.panel); return; }
       }
 
       if (this.levelUpSelectionMode === "overdriveMod" && event.key === "Escape") {
@@ -80414,7 +86424,7 @@ class SurvivalScene extends Phaser.Scene {
         return;
       }
 
-      const index = ["1", "2", "3"].indexOf(event.key);
+      const index = (this.levelUpCardRecords?.some(record => record.model.umbraPlayerCard) ? ["1", "2", "3", "4"] : ["1", "2", "3"]).indexOf(event.key);
       if (index < 0) {
         return;
       }
@@ -80429,6 +86439,12 @@ class SurvivalScene extends Phaser.Scene {
   playLevelUpOpenAnimation(container, cards) {
     this.levelUpInputEnabled = false;
     this.levelUpSelectionLocked = false;
+    const presentationContext = {
+      openingBoost: this.levelUpOpeningBoostActive,
+      selectionMode: this.levelUpSelectionMode,
+      presentationState: this.levelUpCandidatePresentationState,
+      mechId: this.getSkillSelectionPlayerMechId()
+    };
     cards.forEach((record, index) => {
       record.baseY = record.container.y;
       record.container
@@ -80442,7 +86458,18 @@ class SurvivalScene extends Phaser.Scene {
         scale: 1,
         delay: 140 + index * 90,
         duration: 260,
-        ease: "Cubic.easeOut"
+        ease: "Cubic.easeOut",
+        onComplete: () => {
+          // The query and alpha-zero setup do not count as a visible offer.
+          // Ignore callbacks from an overlay/run that has already been replaced.
+          if (record.model?.option?.id !== EVASIVE_FIRMWARE_PASSIVE_ID ||
+            cards !== this.levelUpCardRecords || container !== this.overlayContainer ||
+            !container.visible || container.active === false || container.alpha <= 0 ||
+            record.container.active === false || record.container.alpha <= 0) {
+            return;
+          }
+          this.markLevelUpChoicesPresented(cards.map((card) => card.model.option), presentationContext);
+        }
       });
     });
 
@@ -80466,6 +86493,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   selectLevelUpCard(index) {
+    if (this.umbraPlayerCardDetail) return;
     const record = this.levelUpCardRecords?.[index];
     if (!record || !this.levelUpInputEnabled || this.levelUpSelectionLocked) {
       return;
@@ -80510,7 +86538,13 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   completeLevelUpCardSelection(option) {
-    option?.onSelect?.();
+    if (this.umbraRunContext && (!this.hasUmbraRunCapability("growth", { purpose: "select" })
+      || !this.levelUpCardRecords?.some(record => record.model?.option === option))) return false;
+    if (option?.umbraEquipmentCard) {
+      if (!this.levelUpCardRecords?.some(record => record.model?.option === option)) return false;
+      try { if (option.onSelect?.() !== true) return this.rejectUmbraEquipmentOverlimitSelection(); }
+      catch (error) { return this.rejectUmbraEquipmentOverlimitSelection(error); }
+    } else option?.onSelect?.();
     if (this.levelUpSelectionMode === "overdriveMod") {
       if (this.gameOver) {
         return;
@@ -80603,6 +86637,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   teardownLevelUpOverlay() {
+    this.closeUmbraPlayerCardDetails?.({ destroying: true });
+    this.umbraPlayerCardFocusIndex = 0;
+    this.umbraPlayerCardConsumedPointerEvent = null;
+    this.restoreUmbraNormalCardOverlayOrder?.();
     if (this.levelUpKeyHandler) {
       this.input.keyboard.off("keydown", this.levelUpKeyHandler);
       this.levelUpKeyHandler = null;
@@ -80740,6 +86778,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   handleOverlayPointerUp(pointer) {
+    if (pointer?.event && this.umbraPlayerCardConsumedPointerEvent === pointer.event) return;
     if (
       this.depthRelayStartOverlayActive ||
       !this.isPrimaryPointerActivation(pointer) ||
@@ -80749,6 +86788,13 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     const point = this.getOverlayPointerGamePosition(pointer);
+    // The generic panel hit includes the detail button. Resolve the narrower
+    // player-detail target first without changing legacy card/overlay priority.
+    if (!this.umbraPlayerCardDetail && this.isUmbraNormalPresentationContext?.()) {
+      const detailAction = this.overlayActions.find(action => this.levelUpCardRecords?.some(record => record.model?.umbraPlayerCard && record.detailButton === action.panel)
+        && this.isPointInsideOverlayAction(action, point));
+      if (detailAction) { this.umbraPlayerCardConsumedPointerEvent = pointer?.event || null; this.activateOverlayAction(detailAction.panel); return; }
+    }
     for (const action of this.overlayActions) {
       if (this.isPointInsideOverlayAction(action, point)) {
         this.activateOverlayAction(action.panel);
@@ -80955,7 +87001,7 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
     const snapshot = this.getTriadMatrixSnapshot({ refresh: true });
-    const researchLine = this.getTriadResearchHudLine();
+    const researchLine = this.isUmbraNormalPresentationContext?.() ? this.getUmbraNormalSystemsHudLine() : this.getTriadResearchHudLine();
     const hasTriadState = (snapshot?.core?.level || 0) > 0 || (snapshot?.final?.level || 0) > 0;
     const visible = hasTriadState || Boolean(researchLine);
     this.hudTriadPanel.setVisible(visible);
@@ -81283,9 +87329,9 @@ function consumeMobileLaunchGateSkip() {
   const urlSkip = consumeMobileLaunchGateSkipFromUrl();
 
   try {
-    const storedSkip = window.sessionStorage?.getItem(MOBILE_GATE_SKIP_SESSION_KEY) === "1";
+    const storedSkip = getSurvivalStorage("session")?.getItem(MOBILE_GATE_SKIP_SESSION_KEY) === "1";
     if (storedSkip) {
-      window.sessionStorage?.removeItem(MOBILE_GATE_SKIP_SESSION_KEY);
+      getSurvivalStorage("session")?.removeItem(MOBILE_GATE_SKIP_SESSION_KEY);
     }
     return inMemorySkip || storedSkip || urlSkip;
   } catch (error) {
@@ -81314,7 +87360,7 @@ function skipMobileLaunchGateOnce() {
 
   window.__SURVIVAL_SKIP_MOBILE_GATE_ONCE__ = true;
   try {
-    window.sessionStorage?.setItem(MOBILE_GATE_SKIP_SESSION_KEY, "1");
+    getSurvivalStorage("session")?.setItem(MOBILE_GATE_SKIP_SESSION_KEY, "1");
   } catch (error) {
     // The in-memory flag still covers same-document fallbacks.
   }
@@ -81327,7 +87373,7 @@ function clearMobileLaunchGateSkip() {
 
   window.__SURVIVAL_SKIP_MOBILE_GATE_ONCE__ = false;
   try {
-    window.sessionStorage?.removeItem(MOBILE_GATE_SKIP_SESSION_KEY);
+    getSurvivalStorage("session")?.removeItem(MOBILE_GATE_SKIP_SESSION_KEY);
   } catch (error) {
     // Ignore storage failures; the in-memory flag was already cleared.
   }
@@ -81341,9 +87387,9 @@ function setMobileFullscreenRequested(requested) {
   window.__SURVIVAL_MOBILE_FULLSCREEN_REQUESTED__ = Boolean(requested);
   try {
     if (requested) {
-      window.sessionStorage?.setItem(MOBILE_FULLSCREEN_REQUESTED_SESSION_KEY, "1");
+      getSurvivalStorage("session")?.setItem(MOBILE_FULLSCREEN_REQUESTED_SESSION_KEY, "1");
     } else {
-      window.sessionStorage?.removeItem(MOBILE_FULLSCREEN_REQUESTED_SESSION_KEY);
+      getSurvivalStorage("session")?.removeItem(MOBILE_FULLSCREEN_REQUESTED_SESSION_KEY);
     }
   } catch (error) {
     // The in-memory flag still covers the current page session.
@@ -81360,7 +87406,7 @@ function wantsMobileLandscapeFullscreen() {
   }
 
   try {
-    return window.sessionStorage?.getItem(MOBILE_FULLSCREEN_REQUESTED_SESSION_KEY) === "1";
+    return getSurvivalStorage("session")?.getItem(MOBILE_FULLSCREEN_REQUESTED_SESSION_KEY) === "1";
   } catch (error) {
     return false;
   }
@@ -81725,9 +87771,9 @@ function setPendingOpeningShopMessage(message = "") {
 
   try {
     if (normalizedMessage) {
-      window.sessionStorage?.setItem(EXTRACTION_MESSAGE_SESSION_KEY, normalizedMessage);
+      getSurvivalStorage("session")?.setItem(EXTRACTION_MESSAGE_SESSION_KEY, normalizedMessage);
     } else {
-      window.sessionStorage?.removeItem(EXTRACTION_MESSAGE_SESSION_KEY);
+      getSurvivalStorage("session")?.removeItem(EXTRACTION_MESSAGE_SESSION_KEY);
     }
   } catch (error) {
     // The in-memory message is enough when storage is blocked.
@@ -81744,7 +87790,7 @@ function peekPendingOpeningShopMessage() {
   }
 
   try {
-    return window.sessionStorage?.getItem(EXTRACTION_MESSAGE_SESSION_KEY) || "";
+    return getSurvivalStorage("session")?.getItem(EXTRACTION_MESSAGE_SESSION_KEY) || "";
   } catch (error) {
     return "";
   }
@@ -82213,6 +88259,11 @@ function hideShopLoadingScreen(options = {}) {
 }
 
 function startSurvivalGame(loadingTitle = "拠点準備中") {
+  if (isUmbraIntegrationRequested()) return startUmbraIntegration();
+  if (isUmbraPhase1PreviewRequested()) {
+    startUmbraPhase1Preview();
+    return;
+  }
   if (window.__SURVIVAL_GAME__) {
     return;
   }
@@ -82335,6 +88386,13 @@ function restartSurvivalSceneToShop(scene, message = "", options = {}) {
 }
 
 function resetSurvivalGameToShop(message = "", options = {}) {
+  if (isUmbraIntegrationRequested()) {
+    const environment = getSurvivalRunEnvironment();
+    const scene = window.__SURVIVAL_GAME__?.scene?.getScene?.("survival-scene");
+    if (scene && environment?.ownsScene(scene)) return scene.returnUmbraIntegrationToHub(message);
+    environment?.end("HUB_RETURN_UNAVAILABLE");
+    return false;
+  }
   if (typeof window === "undefined") {
     return;
   }
@@ -82418,6 +88476,128 @@ function setupMobileLaunchGate() {
   }, { once: true });
 }
 
+function isUmbraPhase1PreviewRequested() {
+  return getUrlSearchParam("umbraPreview") === "1";
+}
+
+async function startUmbraPhase1Preview() {
+  if (window.__SURVIVAL_GAME__ || window.__UMBRA_PHASE1_BOOTING__) {
+    return;
+  }
+  window.__UMBRA_PHASE1_BOOTING__ = true;
+  const root = document.getElementById("game-root");
+  // Reuse only the existing viewport CSS, without normal mobile/save boot.
+  const fitPreviewViewport = () => {
+    const compact = window.innerWidth <= 900 || window.innerHeight <= 600;
+    document.documentElement.classList.toggle("mobile-session", compact);
+    document.body.classList.toggle("mobile-session", compact);
+    window.__SURVIVAL_GAME__?.scale?.refresh();
+  };
+  fitPreviewViewport();
+  const message = document.createElement("p");
+  message.textContent = "PHASE 1 PREVIEW／攻撃未実装／進行保存なし — 検証画面を準備中";
+  message.style.cssText = "color:#c5eaff;padding:24px;font:16px sans-serif";
+  root.appendChild(message);
+  try {
+    // These modules and all 27 images are excluded from the normal HUB/sortie loader.
+    const umbraGrowth = getUrlSearchParam("umbraDrive") === "1" && getUrlSearchParam("umbraGrowth") === "1";
+    const umbraCore = umbraGrowth && getUrlSearchParam("umbraCore") === "1";
+    const umbraFinal = umbraCore && getUrlSearchParam("umbraFinal") === "1";
+    const umbraTriad = umbraFinal && getUrlSearchParam("umbraTriad") === "1";
+    const umbraEquipment = umbraTriad && getUrlSearchParam("umbraEquipment") === "1";
+    const moonlightArena = umbraGrowth || (getUrlSearchParam("umbraDrive") === "1" && getUrlSearchParam("umbraMoonlight") === "1");
+    const bloodSpikeArena = umbraGrowth || (getUrlSearchParam("umbraDrive") === "1" && getUrlSearchParam("umbraBloodSpike") === "1");
+    const phantomNovaArena = umbraGrowth || (getUrlSearchParam("umbraDrive") === "1" && getUrlSearchParam("umbraPhantomNova") === "1");
+    const novaSlots = phantomNovaArena && ["1", "2", "3"].includes(getUrlSearchParam("umbraNovaSlots"))
+      ? Number(getUrlSearchParam("umbraNovaSlots")) : 1;
+    const attackArena = moonlightArena || bloodSpikeArena || phantomNovaArena;
+    const previewModules = [
+      ["./umbraPreviewAssets.js", "umbra-phase2b-v1"],
+      ...(attackArena ? [["./umbraPresentation.js", "umbra-spike-giant-v1"]] : []),
+      ["./umbraDriveRuntime.js", "umbra-tsujigiri-v1"],
+      ["./umbraDriveFixtures.js", "umbra-phase6d2-v1"],
+      ...(attackArena ? [["./umbraMoonlightArena.js", "umbra-phase7b-v1"]] : []),
+      ["./umbraDrive.js", "umbra-phase6d2-v1"], ["./umbraPreview.js", "umbra-phase2b-v1"]
+    ];
+    for (const [path, version] of previewModules) {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        const timeout = window.setTimeout(() => finish(new Error("Preview module timeout")), 15000);
+        const finish = (error) => {
+          window.clearTimeout(timeout);
+          script.onload = null;
+          script.onerror = null;
+          if (error) { script.remove(); reject(error); } else { resolve(); }
+        };
+        script.onload = () => finish();
+        script.onerror = () => finish(new Error("Preview module unavailable"));
+        script.src = `${path}?v=${version}`;
+        document.head.appendChild(script);
+      });
+    }
+    const previewScenes = window.createUmbraPhase1Scenes({
+      width: GAME_WIDTH,
+      height: GAME_HEIGHT,
+      hitboxRadius: PLAYER_HITBOX_RADIUS,
+      spriteOffsetY: PLAYER_SPRITE_OFFSET_Y,
+      mechDefinition: PLAYER_MECH_DEFINITIONS.umbraSeraph,
+      skillDefinitions: SKILL_DEFINITIONS,
+      umbraGrowth,
+      umbraCore,
+      umbraFinal,
+      umbraTriad,
+      umbraEquipment,
+      ignoredNovaSlots: umbraGrowth && ["2", "3"].includes(getUrlSearchParam("umbraNovaSlots")) ? getUrlSearchParam("umbraNovaSlots") : "",
+      ignoredWeaponFlags: umbraGrowth && ["umbraMoonlight", "umbraBloodSpike", "umbraPhantomNova"].some(key => getUrlSearchParam(key) !== null),
+      moonlightArena,
+      bloodSpikeArena,
+      phantomNovaArena,
+      novaSlots,
+      attackArena,
+      enemyDefinitions: ENEMY_DEFINITIONS,
+      skillSlots: PLAYER_MECH_SKILL_SLOT_IDS.umbraSeraph,
+      setPlayerRobotPose: SurvivalScene.prototype.setPlayerRobotPose,
+      updatePlayerRobotMotion: SurvivalScene.prototype.updatePlayerRobotMotion,
+      getPlayerRobotDirectionKeyForAngle: SurvivalScene.prototype.getPlayerRobotDirectionKeyForAngle,
+      createAcAfterimageObject: SurvivalScene.prototype.createAcAfterimageObject,
+      afterimageTuning: AC_MOVEMENT_CONFIG,
+      sourcePrototype: SurvivalScene.prototype,
+      movementConfig: AC_MOVEMENT_CONFIG,
+      movementPresets: AC_MOVEMENT_PRESETS,
+      mechDefinitions: PLAYER_MECH_DEFINITIONS,
+      cdCatalog: CD_CATALOG,
+      mechDirectionAssets: PLAYER_MECH_DIRECTION_ASSET_DEFINITIONS,
+      startDrive: getUrlSearchParam("umbraDrive") === "1",
+      airBrakeVariant: getUrlSearchParam("umbraBrake") === "legacy" ? "legacy" : "tuned",
+      traceVisible: getUrlSearchParam("umbraTrace") !== "0",
+      traceNotifications: getUrlSearchParam("umbraTraceNotify") !== "0"
+    });
+    message.remove();
+    const requestedDriveFps = Number(getUrlSearchParam("driveFps"));
+    const driveFrameRate = getUrlSearchParam("umbraDrive") === "1" && [30, 60, 120].includes(requestedDriveFps)
+      ? requestedDriveFps : null;
+    window.__SURVIVAL_GAME__ = new Phaser.Game({
+      type: Phaser.AUTO, parent: "game-root", width: GAME_WIDTH, height: GAME_HEIGHT,
+      backgroundColor: "#040a11", scene: previewScenes,
+      physics: { default: "arcade", arcade: { gravity: { y: 0 }, debug: false } },
+      audio: { noAudio: true }, input: { activePointers: 3, gamepad: false },
+      ...(driveFrameRate ? { fps: { target: driveFrameRate, forceSetTimeOut: true, smoothStep: false } } : {}),
+      scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH }
+    });
+    window.addEventListener("resize", fitPreviewViewport);
+    window.__SURVIVAL_GAME__.events.once("destroy", () => window.removeEventListener("resize", fitPreviewViewport));
+  } catch (error) {
+    message.textContent = "PHASE 1 PREVIEW／攻撃未実装／進行保存なし — 検証画面を読み込めません。ローカル配信ファイルを確認して再読み込みしてください。";
+  } finally {
+    window.__UMBRA_PHASE1_BOOTING__ = false;
+  }
+}
+
 window.addEventListener("load", () => {
+  if (isUmbraIntegrationRequested()) { startUmbraIntegration(); return; }
+  if (isUmbraPhase1PreviewRequested()) {
+    startUmbraPhase1Preview();
+    return;
+  }
   setupMobileLaunchGate();
 });

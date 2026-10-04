@@ -18,6 +18,150 @@ http://127.0.0.1:4173/
 
 このリポジトリはビルドなしの静的構成です。`file://` 直開きは画像、音声、Phaser の読み込みで不安定になる可能性があるため、ローカル HTTP サーバー経由で確認してください。
 
+### KGK-02 UMBRA SERAPH — 通常プレイ・購入・保存への接続
+
+バランス調整完了と通常プレイ・購入・保存互換への実装に続き、2026-10-04の「本番デプロイまで」の依頼を受けた公開版です。通常URLの **GEEKSHOP → HANGER** に3機体を表示します。UMBRAは **Depth10 Final Raid討伐済み・確定10,000,000 GEEK** で一度購入すると永続所有し、購入保存成功後に選択されます。出撃は手動で、毎runはMOONLIGHT S1から開始、SPIKE／NOVAは通常カードで取得します。
+
+通常UMBRAには採用済みAir Brake tuned、MOONLIGHT半径2倍・正常ブースト解除後の実滑走中最大250ms、NOVAの辻斬り2秒（前方1800px／後方120px／幅240px）、SPIKE S8半径240と3倍表示を固定適用します。比較URLのqueryで通常性能は切り替わりません。専用Stage／Core／Final、TRIAD／装備補正、HUDは既存の検証実装を共有します。
+
+機体購入・Atlas帰還報酬・Google保存の復元には中断記録と読戻し確認を使います。旧Shop／Atlas／Archiveを読取り、Shop／Archiveをv2、Google保存をschema2へ接続しました。新しい形式、競合、未完了の保存は上書きせず保留します。旧版タブとの同時起動は避けてください。旧版によるローカル書込み自体を完全に防止する構造ではありませんが、競合やUMBRA所有／Atlas scopeの消失を検出すると保存と出撃を止めます。
+
+変更範囲・追加保存キー・検証は [通常プレイ接続レポート](docs/umbra-production-report.md) を参照してください。同レポートの未deployは実装完了時点の記録です。公開対象と事前検証は [公開記録](docs/umbra-release-report.md) に分離しました。Google schema2対応のFirestore Rulesをゲーム本体より先に反映しています。公開先は [Cloudflare](https://miragelabyrinth.anjugames.workers.dev/) と [GitHub Pages](https://2727-art.github.io/anjumemories/) です。
+
+以下は過去の段階実装時の検証入口と比較経緯です。当時の「未公開」「未実装」「未採用」はそのPhaseの状態を示します。現在の通常接続については上記と最新レポートを優先してください。隔離入口は引き続き実保存・通信を使いません。
+
+### KGK-02 UMBRA SERAPH — Phase 7B 未公開通常Scene・合成RAM試験（当時の記録）
+
+ローカル専用の `http://127.0.0.1:4173/umbra-integration.html?fixture=baseline` を開き、常時表示の `7B TEST / 合成RAM・未公開・永続保存なし` を確認してSTARTを押します。本編HUBのSORTIE PREPから、実Opening3回、自然spawn・撃破・XP回収・通常カード・120秒Gateへ進みます。既存Preview／Driveとは別の入口です。通常HANGERは既存2機体のままで、UMBRAの公開・購入・永続所有は追加していません。
+
+`fixture=medium` は開始強化・装備を増やした通常進行、`fixture=complete` は5LEGEND等の合成開始進行を使う境界試験です。completeの設定欄には、Opening後に正規強化処理で全S8を合成する明示ボタンがあり、Core／Finalは通常カードで選びます。このボタンを使った構成は自然成長ではありません。`depth5`、`relay10`、`relay20`、`relay30` は資格・開始Depthを合成した境界入口、`standard`／`regalia` は既存機体のRAM回帰入口です。fixture変更は試験session全体を終了してRAMを作り直します。
+
+移動・DASH・カード・HUDは本編の操作を使います。旧arenaのL合成XPやRリセットへ本編キーを置換していません。設定欄の画像／簡易／FX OFFは表示だけを切り替えます。通常の抽出・死亡からHUBへ戻った場合は同sessionのRAM進行を保持し、再出撃は新runのMoon S1から開始します。「試験終了」またはページを離れるとRAMを破棄します。実Storage・認証・cloud・ランキング通信はboot前から分離し、画像欠損は表示fallback、必要コード欠損はエラー終了します。
+
+通常Sceneへ戦闘・成長・表示・終了snapshotを接続した範囲と、検証結果・未確認事項・正確なfixture条件は [Phase 7B報告](docs/umbra-phase7b-report.md) を参照してください。RAMでの抽出成功は永続保存成功ではありません。購入transaction、永続Atlas／Archive、新保存互換、Google保存対応、通常公開は未着手です。Phase 7A設計第10.2節は未承認のままです。
+
+Phase 7B補正では専用URLへ `&moonReach=current`（既定）または `&moonReach=wide` を付け、MOONLIGHT主通過半径の現状／1.5倍案を比較できます。設定欄のMOON距離切替はRAMを捨てる新規試験で、同じrunの移動中には変更しません。どちらもAir Brakeは採用済みtunedです。wideは未採用の比較案で、敵との接触を防ぐ無敵効果はありません。通常UMBRAカードの短い説明・詳細、比較操作、実測と残課題は [Phase 7B補正報告](docs/umbra-phase7b-adjustment-report.md) を参照してください。
+
+Phase 7Bの継続フィードバックを受けた追加比較は、`http://127.0.0.1:4173/umbra-integration.html?fixture=relay20&moonReach=extended&moonGlide=1&novaField=1`。MOONLIGHTの元半径2.0倍、正常解除後の実滑走中だけ最大250msの斬撃、NOVA正常設置後の半径180px・最大3秒の保護を個別に比較できます。保護時間は「ブーストで戻る前に消える」という継続フィードバックにより、初案の1秒からNOVA本体の設置寿命と同じ3秒へ延長しました。通常進行中の設置時点から数え、再進入では期限を延長しません。設定欄の切替はRAMを破棄する新規試験です。NOVAの円内は機体判定中心で保護し、退出・期限終了で保護を終えます。設置直前の接触は防ぎません。FX OFFでも保護円を表示します。通常URL・既存2機体・旧Drive・current/wideの既定効果は維持し、正式採用や公開はしていません。初案の条件と結果は [移動攻撃・NOVA保護の比較報告](docs/umbra-mobility-trial-report.md)、今回の変更と確認は [NOVA保護時間の補正報告](docs/umbra-nova-field-duration-report.md) を参照してください。
+
+MOONLIGHT＋NOVAのシナジー「辻斬り」の比較は、`http://127.0.0.1:4173/umbra-integration.html?fixture=relay20&moonReach=extended&moonGlide=1&novaField=lane`。両スキルを所持し、NOVAが正常設置されたとき、設置を成立させた実ブースト方向に固定の長方形保護帯を展開します。比較値は設置点から前方1800px／後方120px／幅240px、最大2秒（人間フィードバックにより前方1440px／幅360px／3秒から調整）。縦横は設置時の進行方向を基準とし、前方へ長く、左右へ細い帯です。NOVA本体の放電寿命3秒は維持するため、保護帯は本体より1秒早く終了します。カメラ・画面比率・旋回には追従しません。帯内は滑走・制動中も保護し、設置点に戻らず斬り抜けて離脱する操作を支えます。MOONLIGHTの再命中条件、NOVA本体の放電範囲・威力・再生成は従来どおりで、保護帯全体が攻撃範囲になる効果ではありません。画面のNOVA保護欄でOFF／円形／辻斬りを切り替えるとRAMを破棄して新規試走になります。`novaField=1` は従来の円形3秒を維持し、不正・重複指定はOFFです。初案は [辻斬り実装報告](docs/umbra-tsujigiri-report.md)、2秒・形状調整の確認範囲は [辻斬り調整報告](docs/umbra-tsujigiri-adjustment-report.md) を参照してください。通常公開・購入・保存への接続は行っていません。
+
+### KGK-02 UMBRA SERAPH — Phase 1 検証専用
+
+Preview素材の差し替えは、通常素材用の `STATIC_ASSET_VERSION` とは別の専用URL版番号で反映します。差し替え後はページ全体を再読み込みしてください（画面内の再起動は既存Textureを再利用します）。
+
+ローカル配信で `http://127.0.0.1:4173/?umbraPreview=1` を開くと、通常の保存・通信初期化より前に専用Sceneへ分岐します。画面には `PHASE 1 PREVIEW／攻撃未実装／進行保存なし` を表示します。実セーブは読み書きせず、Firebase・認証・ランキングも開始しません。通常HANGER・購入・選択・出撃では使用できません。この素材Previewは攻撃判定を持ちません。正式Stage成長、Mutation、永続保存の追加も未実装です。検証用の移動性能は下記Phase 2A／2B試走、MOONLIGHT基本攻撃はPhase 3専用入口で確認できます。
+
+- 方向ボタンまたは `←` `→` で8方向、`1` `2` `3` で停止・通常移動・ブーストを切り替えます。`G` は8方向一覧、`H` は基準点・半径22のhitboxガイド、`M` は既存の傾き・浮遊補正、`T` は既存の残像描画の確認です。
+- 右の3スキルボタンで素材を選び、`[` `]` で8コマ送り、`Space` で先頭から再生／停止、`V` で8コマ一覧を表示します。MOONLIGHT／BLOOD SPIKEは1回、NOVAはループ。速度は表示確認用です。`U` で取得／未取得表示を切り替えられ、初期表示はMOONLIGHTのみ取得済みです。
+- `F` は欠損fallbackの表示確認、`R` は表示Scene再起動、`Escape` は検証終了です。再起動は表示状態のみ初期化し、ロード済み素材を再利用します。終了画面の「通常ゲームを開く」で通常URLへ移動すると、通常の保存・通信処理が始まります。
+
+素材は検証入口でのみ27枚をロードします。元PNGを変更せず、24姿勢の胴体基準点と3素材×8コマの矩形を明示登録しています。詳細・原本ハッシュは [素材記録](docs/umbra-phase1-assets.md) を参照してください。NOVAの8→1には元素材の炎形状の差があり、完全に継ぎ目のないループとしては未確定です。検証は新規の隔離ブラウザコンテキストで外部通信を遮断して行います。再現用テストは `node tests/umbra-registry.test.cjs` と、既存Playwright実行環境を使う `tests/umbra-preview-browser.cjs` です（依存ライブラリの追加・ビルドは不要）。
+
+### KGK-02 UMBRA SERAPH — Phase 2B 移動通知の隔離試走
+
+素材Previewの「移動通知 PHASE 2B [D]」または `D` から移動します。直接起動は `http://127.0.0.1:4173/?umbraPreview=1&umbraDrive=1`。画面の `PHASE 2B TEST / 移動通知のみ / 攻撃未実装 / 進行保存なし` を確認してください。通常Sceneの起動処理を呼ばず、既存AC移動・EN・回避・能力合成・候補生成と移動通知の関数を、独立Sceneの半径22の物理bodyと一時fixtureへ接続しています。
+
+`WASD` / 矢印で移動、`Shift` / `Space` でDASH。画面のスティックとDASHも使え、コントローラーは既存入力集約を利用します。上部で標準機・REGALIA・UMBRAと基礎／中程度／上限内の深層向けfixtureを切替でき、ショップLv・CD・装備と精錬・パッシブは画面に表示します。実ユーザーの保存から取得した構成ではありません。床の100pxグリッド、直進レーン、下側の壁・内角・四角い障害物で操作感を確認できます。
+
+右側の操作はEvasive Lv、AP Reinforce、通常3択（`L`）、Opening候補確認、停止／再開（`P`）、hitbox表示（`H`）。候補は`1`〜`3`で選択、`Escape`で取得せず閉じられます。機体・fixture切替と`R`は新規試走で、AP・EN・速度・入力・候補提示済み状態をリセットします。停止／候補画面／タブ非表示はブーストを中断し、EN・過熱と待ち時間を維持します。素材Previewへの復帰と検証終了も画面から操作できます。
+
+UMBRAの仮profileは開始AP×0.40、通常移動×1.30、boost専用上限補正1.40/1.30、EN消費×0.75、回復×1.25、Evade×1.00。AP Reinforceは実効+8、Booster Tuningは+39で表示も一致します。Evasiveは通常重み3、初回通常カード提示時に1度だけ候補保証（取得任意、Opening対象外）。Deepの既存丸め／最低+1は維持するため、高LvのAP比率は40%固定ではありません。詳細なfixture・実測・制約は [Phase 2A報告](docs/umbra-phase2a-report.md) を参照してください。Phase 2B入口は正常ブースト開始・固定開始位置・実物理区間・終了／無効化の通知だけを行います。MOONLIGHTの攻撃確認は下記Phase 3の明示入口で行います。
+
+継続テストでAir Brakeの効きが弱いとのフィードバックを受け、初期確認の「切り返し・Air Brakeに問題なし」は履歴として保持し、Air Brakeだけを再調整対象に更新しました。既存の750ms全入力解除測定は惰性滑走の値で、Air Brake性能の値ではありません。
+
+人間操作で確認したtunedをUMBRAの後続基準として採用しました。Air Brake未指定・`umbraBrake=tuned`・不正値は採用版、明示的な `?umbraPreview=1&umbraDrive=1&umbraBrake=legacy` だけが旧方式比較です。実行方式は `BRAKE: UMBRA採用版`／`BRAKE: 旧方式比較`／既存2機体の `BRAKE: 標準仕様` で表示します。同じ機体・fixtureを選んでRで初期位置・満ENから開始し、WASD/矢印＋Shift/Spaceでブースト、DASHを離して正反対の方向を保持するとAir Brakeが発動します。URLの再読込／機体・fixture切替は新規試走となり、比較設定は保存されません。
+
+採用した制動式は変更していません。最大強度・無障害で正常発動後200msの速度40%、70ms保持・200ms制動・終了予定後600ms再使用待ち・終了予定後300ms回復抑制を維持します。強度や衝突により残速度は異なり、全端末・全fixture・実戦バランスの合格を示すものではありません。過去の比較は [Air Brake補正報告](docs/umbra-airbrake-report.md)、今回の別測定は [Phase 2B報告](docs/umbra-phase2b-report.md) を参照してください。
+
+試走の `T`／TRACEボタンで移動通知の表示を切り替えます。固定開始マーカー、sequence、有効区間、通常移動／滑走／制動／不連続の色分けとconsumer A/Bを表示します。表示履歴は120件・5秒、通知履歴は256件を上限とし、停止・切替時に移動基準を取り直します。`&umbraTrace=0` は表示OFF、`&umbraTraceNotify=0` は隔離性能比較用の通知OFFです。通常ゲームには診断表示を追加せず、既存2機体では専用通知runtimeを作りません。標準機／REGALIAの通常候補では、実効パッシブ候補が0件のときだけ有効スキルを最大3枚とする旧例外を復元しました。Opening Boost・チケット・Rerollは維持しています。
+
+### KGK-02 UMBRA SERAPH — Phase 3 MOONLIGHT基本攻撃の隔離試験
+
+直接起動は `http://127.0.0.1:4173/?umbraPreview=1&umbraDrive=1&umbraMoonlight=1`。追加指定時だけ攻撃場moduleを読み込み、UMBRAにMOONLIGHT検証S1を取得させます。通常公開・通常候補・正式Stage成長は解除しません。この入口ではBLOOD SPIKE／PHANTOM NOVAは未取得です。画面に「PHASE 3 TEST / MOONLIGHT基本攻撃 / 性能は仮値 / 進行保存なし」を表示し、実セーブ・認証・通常SurvivalSceneのcreateを使用しません。
+
+WASD／矢印とShift／Spaceで敵の側面を通過します。「配置切替」で静止・移動横断・16体集団・通常Boss相当の円と大矩形・壁前後・内外角・敵なしを切替。R／機体／fixture／配置／MOONLIGHT ON/OFFは位置・EN・敵・履歴を新規試験としてリセットします。「接触被弾 OFF（観測）」が初期値で、「ON（既存受付）」では本番の接触→プレイヤー被弾受付を使います。Pで停止／再開、Lで候補、Tで通知表示。停止・候補開閉・表示切替では同じ敵の再命中制限を保持します。
+
+仮値は基礎威力4、プレイヤーbody中心から半径60px＋実敵body、離脱余白12px、再命中750ms（Fire Controlによる下限200ms）、FX同時12個。Reactorで基礎威力+1、Fire Controlで実効待ち時間を短縮します。既存ダメージ受付へ補正前の威力を1回だけ渡し、離脱→新しい有効ブースト進入→間隔経過を満たしたときだけ再命中します。8コマは1回の成功表示で、FX上限／簡易表示／FX OFFはダメージを制限しません。半径22のプレイヤーhitboxは攻撃半径へ加算しません。
+
+`&umbraTrace=0` は通知表示だけを消し、攻撃結果を維持します。`&umbraTraceNotify=0` は通知自体を止める診断条件で、MOONLIGHTの攻撃も0です。通常移動・滑走・Air Brake・移動0・不明な補正・Phase 2Bで保守除外された角では攻撃しません。壁越しの遮断を別に確認します。詳細な接続、補正、実測、隔離adapterと未確認範囲は [Phase 3報告](docs/umbra-phase3-report.md) を参照してください。Phase 4着手時に人間操作では問題なしとの確認を追記しました。確認端末・fixture等は未指定で、正式性能／全条件の最終合格とは扱いません。
+
+### KGK-02 UMBRA SERAPH — Phase 4 BLOOD SPIKE基本攻撃の隔離試験
+
+単体は `http://127.0.0.1:4173/?umbraPreview=1&umbraDrive=1&umbraBloodSpike=1`、併用はこれに `&umbraMoonlight=1` を追加します。既存攻撃場を再利用し、「PHASE 4 TEST / BLOOD SPIKE基本攻撃 / 性能は仮値 / 進行保存なし」を表示します。武装ボタンでSPIKEのみ／MOONLIGHTのみ／両方／攻撃なしを切り替えると、位置・EN・敵・時計・履歴を新規試験としてリセットします。既存の移動、fixture、配置、接触被弾ON/OFF、P／L／T／Rと画像／簡易／FX OFFを使用します。追加配置は静止単体・脱出・進入・MOONLIGHT先行撃破です。
+
+BLOOD SPIKEの仮値はraw `5 + max(0, bulletDamage - 1)`、探索600px、固定地面中心から半径80px、生成間隔1800ms（Fire Control下限500ms）、空探索150ms、同時3件。現行画像の3コマ目（index 2、生成200ms後）で現在の円／矩形bodyと実壁を判定し、既存ダメージ受付へ1回ずつ渡します。8コマ10fps・800msの表示と攻撃は独立した物理stepの戦闘時計を共有します。静止・EN0・Air Brake・MOONLIGHT未取得・`umbraTraceNotify=0`でもSPIKEは作動します。停止中は時計と残り時間を保持し、Depth・ラン終了・Scene終了では破棄します。詳細と証跡は [Phase 4報告](docs/umbra-phase4-report.md) を参照してください。Phase 4時点ではPHANTOM NOVA、正式Stage成長、通常販売は未着手で、BLOOD SPIKEの正式性能は人間確認前です。
+
+Phase 4後の「SPIKEのStage上昇で範囲が広がり、敵集団を巻き込む成長感がほしい」という要望は、[Phase 6向け成長メモ](docs/umbra-bloodspike-growth-notes.md) に未承認候補として記録しました。S1の半径80・複数命中は維持し、成長値は実装していません。大きなGame.step遅延の同条件比較は [Phase 4補足・遅延調査](docs/umbra-phase4-latency-report.md) を参照してください。この感想や短時間の再測定を、Phase 4全項目・正式性能・全端末での滑らかさの最終合格には扱いません。
+
+### KGK-02 UMBRA SERAPH — Phase 5 PHANTOM NOVAと3武装共存の隔離試験
+
+Phase 5着手承認により、NOVA検証S1を追加しました。単体は `http://127.0.0.1:4173/?umbraPreview=1&umbraDrive=1&umbraPhantomNova=1`、3武装はさらに `&umbraMoonlight=1&umbraBloodSpike=1`。通常入口の公開・購入・所有許可は拡張していません。Phase 5画面だけで8通りの武装構成を選べます。`&umbraNovaSlots=2`／`3`は独立枠の検証用で、正式S1は1枠です。武装・枠数・fixture変更は位置・ENを含む新規試験、pause・FX切替は状態を保持します。
+
+NOVAは半径80・周期4000msで周回し、射程220・raw2・基本900msで1体へ放電します。成功boost開始で1基を予約し、最初の物理評価で有効移動を確認した場合だけ保存開始位置へ固定します。残留は射程300・raw3・基本500ms、3000ms未満の5pulse後に1200ms再生成待ちへ入ります。設置間隔800ms・現存球から120pxを維持し、長押し中の追加設置はありません。Reactorは共通raw加算、Fire Controlは周回下限300ms／残留下限200ms。既設置のraw・interval等は生成時に固定します。
+
+通知OFFは新設置を止めますが、周回・既設置・再生成は独立時計で継続します。FX画像／簡易／OFFで攻撃は同じです。Depthは既設置を「残留の残り＋再生成待ち」へ変換し、通常boost終了・Air Brake・画面外は残留を消しません。Final Raid・死亡・終了では専用runtimeを破棄します。実装・検証・未確認事項は [Phase 5報告](docs/umbra-phase5-report.md) を参照してください。正式Stage成長、Mutation、装備の新3武装対応、通常販売・保存は未着手です。
+
+Phase 5の人間確認を受け、[Phase 6A：成長・Mutation設計案](docs/umbra-phase6a-design.md) を作成しました。設計作成時点は未承認で、製品コードを変更しなかった記録を維持します。その後の承認範囲である基本Stage成長をPhase 6Bへ、Stage4 Coreを下記Phase 6C1へ、Stage8 FinalをPhase 6C2へ、TRIAD戦闘接続をPhase 6D1の明示隔離入口へ接続しています。装備の新対応は後続承認が必要です。
+
+### KGK-02 UMBRA SERAPH — Phase 6B 基本Stage成長の隔離試験
+
+直接起動は `http://127.0.0.1:4173/?umbraPreview=1&umbraDrive=1&umbraGrowth=1`。`PHASE 6B TEST / 基本Stage成長 / Mutation未実装 / 進行保存なし` を確認してください。初期取得はMOONLIGHT S1だけで、SPIKE／NOVAはNEW SKILLから取得します。Opening Boostの3選択を終えると走行でき、`L` は次Lvまでの合成XPをRAMに入力して実際の候補生成・選択・適用処理を呼びます。敵からの自然なXP獲得や通常ランでの到達可能性を証明する入口ではありません。
+
+カードはクリック／タップ／`1`～`3`で選択します。選択は即時ロックし、360msの確認演出後に1回だけ適用します。`Esc` は保留分を保持して閉じ、`L` で再表示できます。Stage強化では位置・EN・敵・生成済みcast・設置球・攻撃時計を保持します。MOONLIGHTの半径拡大時は新しい離脱外縁を実移動で確認してから再進入が必要です。SPIKEの生成済みcastは旧半径を維持し、次castから拡大します。NOVAはS4で2枠、S8で3枠へ増え、新枠は初回待ちから始まります。既設置の性能と期限、再生成待ちは変えません。
+
+「新規比較 S1／S4／S6／S8」は全3武装を指定Stageへ直接初期化する別試験です。位置・EN・敵・時計をリセットするため、連続強化の証拠には使いません。「連続成長へ新規リセット」でMoon S1／Opening3から戻ります。SPIKE半径80／110／135／240、Moon S1／S4／S8、NOVA増枠を比較できます。機体・fixture・配置切替と`R`も新規試験です。成長モードのmedium／deepは永続強化・CD・装備入力だけを引き継ぎ、開始パッシブは0に分けています。従来のPhase 2A～5 fixtureの付与パッシブは維持します。
+
+`P`停止、`H`診断表示、`T`移動通知表示、画像／簡易／FX OFFの切替は従来どおりです。SPIKEの拡大した地面円はcast半径に対応し、診断Hを消しても表示します。当初は主画像の高さ・倍率を固定していましたが、巨大な角への追加要望により、角の画像・簡易形状・地面の発光をcast半径に比例して拡大します。S1～7の半径は80／90／100／110／122／135／147pxを維持、S8は160→240pxへ変更し、S1比3倍の角になります。元画像・frame矩形・地面pivot・8コマ・200msの突き上げは維持し、強化は次castから反映します。SINGULARITYの副領域は別効果として既存の最大半径200pxを維持します。詳細は [BLOOD SPIKE巨大化報告](docs/umbra-spike-giant-report.md) を参照してください。`umbraGrowth=1`では旧武装指定と`umbraNovaSlots=2/3`を無視し、HUDへその旨を表示します。Phase 3／4／5の旧URLは検証S1のまま、成長候補を出しません。
+
+基本Stage完成にはMoon7＋SPIKE8＋NOVA8＝23選択が必要です。Opening3＋Lv1→25の24選択＝27選択に対し、他へ4選択なら全S8、5選択なら1段不足します。Depth6以上ではLv25到達後にDEEP LEVELが優先され、未完成武装の通常カードを追加しません。S4／S8到達は最大6件のRAM待機記録だけを残し、Mutationカード・実効果・保存・Atlas・TRIADは接続していません。基本値も正式公開の最終バランスではありません。実装結果、測定条件、未確認事項は [Phase 6B報告](docs/umbra-phase6b-report.md) を参照してください。
+
+### KGK-02 UMBRA SERAPH — Phase 6C1 Stage4 Coreの隔離試験
+
+直接起動は `http://127.0.0.1:4173/?umbraPreview=1&umbraDrive=1&umbraGrowth=1&umbraCore=1`。`PHASE 6C1 TEST / Core変異 / Final未実装 / 進行保存なし` を確認してください。Phase 6Bはユーザーから「人間確認では問題なし」と報告されていますが、確認端末・fixture・選択経路は未指定です。今回のCoreも検証用性能です。
+
+Moon S1からOpening 3回、`L`で合成XPによる通常成長を進めます。各武装のS4到達時にCoreを予約し、通常pending／Openingが終わってから到達順に3択を表示します。クリック／タップ／`1`～`3`で入力をlockし、360msの既存確認演出後に1回適用します。CoreはStage、通常pending、Opening、Evasive保証を消費しません。`Esc`は未選択のまま保留し、`L`で再表示します。S8 FinalはRAMのdeferredに残り、後続CoreやS8攻撃を止めません。
+
+ASSAULTは加算後の主rawを1.25倍して整数丸め。CONTROLは成功した主受付後も生存する敵の実移動を短く減速します（Moon 0.78／420ms、SPIKE 0.75／600ms、NOVA 0.85／250ms。Boss系はそれぞれ0.92／0.92／0.95）。独立した武装時計で期限を管理し、既存減速との強い方を採用します。REACTORはMoonの再命中待ち×0.90・離脱余白8、SPIKEの再発動待ち×0.90・敵なし再探索100ms、NOVAの次の正常配置から再生成1000msです。既存cast・配置済み球・再生成期限は遡って変更しません。
+
+「新規比較S4／S8」等と「比較武装」ボタンは同じfixture・初期位置・ENからの**新規試験**です。Coreは自動選択されず、`L`で順番に選びます。構成を変えるときも新規リセットしてください。配置の「Core 移動16体」は同じ往復進路へ本番の速度合成を使い、「Core 本番AI移動 / 4種」は通常追跡・dash・ranged・Boss接近の本番処理を使用します。試験用の配置・進路・攻撃開始保留を、通常の全敵AI検証とは扱いません。画像／簡易／FX OFFでも論理効果は同じです。
+
+保存・通信・通常公開・24姿勢／27PNGは変更していません。Final、TRIAD、装備対応、通常販売は未着手です。測定範囲、snapshot・時計の扱い、検証結果と残課題は [Phase 6C1報告](docs/umbra-phase6c1-report.md) に記録します。
+
+接触被弾ONでは、敵への接触でAPが0になると試走終了です。成長試走では中央に終了理由を表示し、終了時のStage/Coreを未取得と混同せず表示します。`P`では復帰せず、`R`または上部リセットで同じ配置・比較設定から新規試験へ戻ります。攻撃の観測を続けたい場合は「接触被弾OFF」へ切り替えてからリセットしてください。OFFへの切替だけではAPは回復しません。[AP0停止の切り分け・表示補正](docs/umbra-phase6c1-ap-zero-report.md) に再現結果を記録しています。
+
+### KGK-02 UMBRA SERAPH — Phase 6C2 Stage8 Finalの隔離試験
+
+直接起動は `http://127.0.0.1:4173/?umbraPreview=1&umbraDrive=1&umbraGrowth=1&umbraCore=1&umbraFinal=1`。画面の `PHASE 6C2 TEST / Final変異 / TRIAD・装備対応未実装 / 進行保存なし` を確認してください。Coreはユーザーから人間確認では問題なしと報告されています。旧6B/6C1入口はFinalを有効化せず、Final単独フラグでも取得・Stage・Coreの条件を省略しません。
+
+連続成長はMoon S1・Opening3から始まり、各武装S4でCore、S8かつCore選択済みでFinalを選びます。通常pending／Openingを優先し、選択可能なCore／Finalを元の到達順で提示します。`L`で合成XP／保留カード、クリック・タップ・`1`～`3`で360ms確認後に適用、`Esc`は保留を維持します。Finalは通常のStage・パッシブ枠を消費しません。基本23＋パッシブ4＋Core3＋Final3の33操作は合成XPの検証経路です。
+
+EXECUTIONは既存の強対象条件を主命中の受付直前に評価し、加算後raw×Core係数×1.25を一度だけ丸めます。PRISMは成功主命中点から有限の別敵へ分岐し、Moonは最大2体×35%／600ms・1boost1試行、SPIKEは最大2体×40%・1cast1試行、NOVAは最大1体×40%／全slot共有500ms・1pulse1試行です。主試行対象を除外し、副攻撃から再帰・CONTROLを起こしません。SINGULARITYはダメージなしで通常0.85／Boss0.95、各領域の最近傍6体を100msごとに更新します。Moonは半径90／600ms／最大1、SPIKEはcast半径／1000ms／最大2、NOVAは正常DEPに半径80／DEP期限まで／最大3。主CONTROLや既存減速とは独立した期限で強い方を使います。
+
+「比較武装」と「新規比較S8」で同じ位置・ENから単武装／3武装を初期化し、`L`でCore／Finalを正規選択できます。選択済み効果を移動中に差し替える比較ではありません。「配置切替」にはFinal分岐、SPIKE外縁分岐、9体の領域入替、壁遮断を追加しました。P停止／復帰、画像／簡易／FX OFFは期限と選択を保持し、R・fixture・機体・配置切替は新規試験です。Finalの印・成功副線・地面領域は既存Core色に重ね、元PNG・frame・pivot・倍率を変えません。
+
+既存cast・DEPは作成時のCore／Final profileを維持し、選択後の次cast／正常DEPから反映します。AP0の試走終了表示はFinal選択も保持して表示します。保存・認証・通常公開は拡張していません。検証条件、開始時rAF差、Final性能観測と未確認範囲は [Phase 6C2報告](docs/umbra-phase6c2-report.md) を参照してください。Finalの体感・視認性・公開版バランスは人間確認前です。
+
+### KGK-02 UMBRA SERAPH — Phase 6D1 TRIAD MATRIXの隔離試験
+
+直接起動は `http://127.0.0.1:4173/?umbraPreview=1&umbraDrive=1&umbraGrowth=1&umbraCore=1&umbraFinal=1&umbraTriad=1`。`PHASE 6D1 TEST / TRIAD戦闘接続 / 装備対応未実装 / 進行保存なし` を確認してください。Finalはユーザーから人間確認では問題なしと報告されていますが、端末・全形態・性能課題の確認範囲は未指定です。旧6C2 URLはTRIADなしを維持します。
+
+専用3IDの正規Core/Final確定後、保存と分離したRAMでTRIADを自動集計します。同種2つ・2:1はLINK I、同種3つ・3異種はMATRIX II、両軸IIだけラン内完成名を表示します。新しい取得カードを消費せず、L/Esc/1～3と33操作の検証予算は従来どおりです。「TRIAD比較」ボタンは未成立、2:1、ASSAULT/EXECUTION、CONTROL/SINGULARITY、REACTOR EN、混成、1武装S1＋他2LINKの推薦列を切り替え、毎回新規リセットします。Core/Finalは自動選択せず実カードで選びます。配置の6field上限補足16体も比較用で、自然成長の証明ではありません。
+
+主威力はCore/Final/TRIADをまとめて一度丸め、副は副対象向け主段階からbranch×TRIAD PRISMを一度丸めます。CONTROLは減速量と主付与時間、SINGULARITYはfield半径と寿命だけに補正し、SPIKE主半径・NOVA DEP期限・分岐数・membership上限を変えません。生成済みcast/DEP/fieldの旧係数は保持し、HUDで現在のrevisionと区別します。
+
+TRIAD REACTOR I/IIのDASH消費は0.97/0.94、TRINITYは0.97を既存入口で機体基礎0.75へ一度合成します。EN返金・回復強化・新たな無敵はありません。既存OD/Robot Sync増加入力の倍率だけを接続し、専用攻撃を新しいゲージ発生源にはしません。移動・Air Brake tuned・AP・素材・通常公開・保存は維持。実装と実測、ゲージ試験で遮断した下流、未解決の開始rAF間隔は [Phase 6D1報告](docs/umbra-phase6d1-report.md) を参照してください。この6D1入口ではSENSOR/ARMAMENT/COMBAT LINK/OVERLIMITの専用3スキルへの追加接続は無効です。
+
+### KGK-02 UMBRA SERAPH — Phase 6D2 装備・OVERLIMITの隔離試験
+
+直接起動は `http://127.0.0.1:4173/?umbraPreview=1&umbraDrive=1&umbraGrowth=1&umbraCore=1&umbraFinal=1&umbraTriad=1&umbraEquipment=1`。`PHASE 6D2 TEST / 装備・OVERLIMIT統合 / 通常販売未実装 / 進行保存なし` を確認してください。TRIADはユーザーから人間確認では問題なしと報告されていますが、端末・fixture・全組合せの範囲は未指定です。装備は新規試走のRAM snapshotで固定し、SENSORは専用4周期だけ、ARMAMENTと武装別OVLは主・副の各受付直前に一度適用します。計算順はCore/Final/TRIAD後に整数丸め、OVL後に整数丸め、ARMAMENT後に整数丸め。既存cast/DEP/REGENの値・期限、通常移動、Air Brake tuned、EN、無敵は維持します。
+
+「RAM装備」で装備なし・片部位・SR・5SSR・5LEGEND・1部位不足を新規リセット比較できます。5SSR以上はCOMBAT LINK I（OVL I上限）、5LEGENDはII（OVL II上限）で、装備だけではOVLは0です。取得済みS8＋Core/Final済みの各武装に、通常選択／その武装のFinal確定後の追加選択／実Deep上昇後の追加選択を接続します。`L`は通常pending→Core/Final→OVL bonus→新しい合成XPの順、Escは保留、未処理カード再表示はXPを増やしません。「開始Depth 1/6」もLv1からの新規試験で、自然到達や入手の証明ではありません。整数丸めで現在差0のOVL Iも段階として取得可能ですが、全実効周期が下限のFire Controlは候補から外れます。正確な操作・条件付き33/36/39操作の予算・実測・未確認事項は [Phase 6D2報告](docs/umbra-phase6d2-report.md) を参照してください。通常公開、購入、Atlas/Archive、Google保存は未着手で、装備の体感・自然進行・深層バランスの人間確認は別に残します。
+
+Phase 7Aの[通常プレイ接続・購入／保存・旧版互換の設計案](docs/umbra-phase7a-design.md)を作成しました。Phase 6D2の人間確認を履歴へ追記し、通常Sceneの初期化・状態所有、購入の中断復旧、Atlas／Archive、Google保存と旧版対策、7B以降の承認事項を整理しています。今回は文書のみで、製品コード・保存schema・公開状態は未変更です。
+
+販売仕様は採用済みです。Depth10 Final Raid討伐後、確定GEEK 10,000,000で購入、永続所持、切替無料、死亡で所有権を失いません。正式販売処理と通常公開は今回も未実装です。
+
 LAN 上のスマートフォンで確認する場合は、PC とスマートフォンを同じネットワークに接続し、PC の LAN IP に対して HTTP サーバーへアクセスします。
 
 公開環境では初回の OPERATIONS HUB 表示を軽くするため、起動時 preload は Shop 表示に必要な背景、CDジャケット、GEEKアイコン、回収ロボ画像などに絞っています。戦闘用のプレイヤー、敵、ステージ、アイテム、選択中CD音源などは `SORTIE PREP` 押下後にロードされます。HANGER 背景、Support 演出、Final Raid 専用素材は通常起動・通常出撃時には読み込まず、必要な表示やイベントの直前に遅延ロードします。遅延ロードはアセットキー単位で完了・失敗を管理し、別アセットのロード中でも要求を破棄しません。
