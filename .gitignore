@@ -27,3 +27,7 @@ Thumbs.db
 !.dev.vars.example
 .env*
 !.env.example
+
+# Blender asset pipeline caches and work files (WORLD_DESIGN.md section 6)
+asset-src/
+*.blend1
