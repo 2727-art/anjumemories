@@ -60777,6 +60777,11 @@ class SurvivalScene extends Phaser.Scene {
     if (!view || !(view.width > 0) || !(view.height > 0)) {
       return frame;
     }
+    // worldView is refreshed at render time; before the first frame (the opening wave is spawned
+    // right after createPlayer) it still describes the camera's initial view at the map origin.
+    if (Math.abs(view.centerX - frame.centerX) > view.width || Math.abs(view.centerY - frame.centerY) > view.height) {
+      return frame;
+    }
     const targetViewScale = Math.max(WORLD_VIEW_SCALE, Number(this.acCameraRigState?.targetViewScale) || WORLD_VIEW_SCALE);
     return {
       centerX: view.centerX,
