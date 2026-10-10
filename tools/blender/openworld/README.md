@@ -1,7 +1,7 @@
 # Open World Asset Pipeline (Blender)
 
 `WORLD_DESIGN.md` 6 章「素材パイプライン仕様」の実装です。広域マップ（`?debugOpenWorld=1`）の街の素材を、CC0 テクスチャと Blender で描き出します。
-現在は 6.10 のパイロット段階で、描き出したのはパイロット分だけです。`画像/openworld/manifest.json` は、パイロットが合格してから作ります（6.10 手順 5）。
+パイロット（6.10 手順 1〜4）は画風の承認済みです（2026-10-10）。`画像/openworld/manifest.json` には、承認済みのうち地面と路面標示の 6 点を `publish_manifest.py` で載せています。建物 `ow-bld-a01` は南面を補助光を上げて描き直してから載せます（WORLD_DESIGN.md 6.5、6.10）。
 
 ## 使った環境
 
@@ -34,7 +34,13 @@ node tools/blender/openworld/capture_game.cjs
 
 # 5. 画風の確認用合成画像 preview/pilot-mock.png を作る
 python tools/blender/openworld/make_pilot_mock.py
+
+# 6. 承認済みの素材を 画像/openworld/manifest.json に書き出し（hash 付き）、検証する
+python tools/blender/openworld/publish_manifest.py --exclude ow-bld-a01
+python tools/blender/openworld/verify_assets.py --manifest 画像/openworld/manifest.json --out tools/blender/openworld/preview/published-verify.txt
 ```
+
+ゲームは `manifest.json` に載った素材だけを読みます。画像を描き直したら、手順 6 をやり直して `hash` を更新してください（`画像/*` は 1 年キャッシュされ、ゲームは `?v=<hash>` で読むため）。
 
 `build_all.py` は乱数の種を固定しているので、同じ版の Blender と同じテクスチャなら同じ画像になります（GPU の違いでノイズが少し変わることはあります）。
 作業用の `.blend` は `asset-src/openworld/<key>.blend` に保存されます（git に入れない）。Blender で開いて直接調整できます。
@@ -50,7 +56,8 @@ python tools/blender/openworld/make_pilot_mock.py
 | `ow_ground.py` | 地面タイル（`ow-asphalt-a`、`ow-sidewalk`） |
 | `ow_markings.py` | 路面標示（`ow-dash-v` / `-h`、`ow-zebra-v` / `-h`） |
 | `ow_building.py` | 建物（`ow-bld-a01`：roof / south / 各 emit） |
-| `verify_assets.py` | 6.9 の検証 |
+| `verify_assets.py` | 6.9 の検証（manifest に `hash` があればその一致も） |
+| `publish_manifest.py` | 承認済みの素材を `画像/openworld/manifest.json` に書き出し、`hash` を付ける（標準ライブラリだけ） |
 | `capture_game.cjs` | 現在のゲーム画面（広域マップ 1a、東京ステージ）を 1280x720 で撮る |
 | `make_pilot_mock.py` | 画風の確認用合成画像 |
 | `preview/` | 合成画像、2x2 の並べ画像、撮影した現在の画面、パイロットの manifest と検証結果 |
@@ -95,7 +102,7 @@ python tools/blender/openworld/make_pilot_mock.py
 ## 既知の制限と次の確認
 
 - `ow-asphalt-a` は元テクスチャの大きなひびがタイルごとに同じ位置に出ます。区画ごとに `ow-asphalt-b` と混ぜる前提です。
-- 建物の南面には北西からの主光が当たらないため、屋上より暗く写ります（屋上の平均輝度 0.45、南面 0.31）。
+- 建物の南面には北西からの主光が当たらないため、屋上より暗く写ります（屋上の平均輝度 0.45、南面 0.31、店舗帯 0.25）。主光はそのままで、空の光（補助光）を上げて南面 0.36〜0.38、店舗帯 0.30 以上にすることに決まりました（`ow_common.LIGHT`、未対応）。
 - 看板の文字は Blender 同梱の Noto Sans CJK です（SIL Open Font License）。
 - 合成画像の夜の色調・街灯の光だまり・発光のにじみは、ゲーム側の光の層（6.11）の代わりに置いた近似です。
 - `capture_game.cjs` は Operations Hub の SORTIE PREP ボタンの位置（1280x720 で 1015, 660）をクリックして出撃します。HUB の配置が変わったら直してください。

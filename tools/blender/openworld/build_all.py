@@ -10,9 +10,9 @@ Options after "--":
     --only K1,K2     build only these keys (e.g. ow-asphalt-a,ow-bld-a01)
     --quick          low sample counts for layout checks (do not ship these images)
 
-Writes the images under --out and a manifest of what was built. For the pilot the manifest goes to
-tools/blender/openworld/preview/pilot-manifest.json; 画像/openworld/manifest.json is written only
-after the pilot is approved (6.10 step 5), so the game does not pick up unapproved art.
+Writes the images under --out and a manifest of what was built to
+tools/blender/openworld/preview/pilot-manifest.json. The game reads 画像/openworld/manifest.json, which
+publish_manifest.py writes from it with the approved keys only, so it never picks up unapproved art.
 """
 
 import argparse

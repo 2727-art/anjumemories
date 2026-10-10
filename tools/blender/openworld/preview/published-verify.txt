@@ -1,0 +1,50 @@
+manifest: 画像/openworld/manifest.json  (Blender 5.2.2 LTS)
+  ok    6 unique keys
+  ok    ow-asphalt-a: ground/ow-asphalt-a.jpg 1024x1024
+  ok    ow-asphalt-a: mean sRGB luma 0.368
+  ok    ow-asphalt-a: seamless (edge/inner step ratio x 1.19, y 1.14)
+  ok    ow-asphalt-a: 2x2 preview tools/blender/openworld/preview/tile-ow-asphalt-a-2x2.jpg
+  ok    ow-asphalt-a: hash aed8a6c20666
+  ok    ow-dash-h: markings/ow-dash-h.png 1920x16
+  ok    ow-dash-h: no paint outside the layout (gaps and margins alpha = 0)
+  ok    ow-dash-h: painted area mean alpha 0.71
+  ok    ow-dash-h: 8 segments of 120 px every 240 px from pixel 0 (weakest mean alpha 0.70)
+  ok    ow-dash-h: pattern starts at the first pixel
+  ok    ow-dash-h: hash da2a40ca2438
+  ok    ow-dash-v: markings/ow-dash-v.png 16x1920
+  ok    ow-dash-v: no paint outside the layout (gaps and margins alpha = 0)
+  ok    ow-dash-v: painted area mean alpha 0.88
+  ok    ow-dash-v: 8 segments of 120 px every 240 px from pixel 0 (weakest mean alpha 0.74)
+  ok    ow-dash-v: pattern starts at the first pixel
+  ok    ow-dash-v: hash 78b663a4bd47
+  ok    ow-sidewalk: ground/ow-sidewalk.jpg 512x512
+  ok    ow-sidewalk: mean sRGB luma 0.419
+  ok    ow-sidewalk: seamless (edge/inner step ratio x 1.00, y 1.06)
+  ok    ow-sidewalk: 2x2 preview tools/blender/openworld/preview/tile-ow-sidewalk-2x2.jpg
+  ok    ow-sidewalk: hash b75a9c7a25f3
+  ok    ow-zebra-h: markings/ow-zebra-h.png 150x704
+  ok    ow-zebra-h: no paint outside the layout (gaps and margins alpha = 0)
+  ok    ow-zebra-h: painted area mean alpha 0.66
+  ok    ow-zebra-h: 11 segments of 34 px every 64 px from pixel 0 (weakest mean alpha 0.28)
+  ok    ow-zebra-h: pattern starts at the first pixel
+  ok    ow-zebra-h: hash 9fce9f595d72
+  ok    ow-zebra-v: markings/ow-zebra-v.png 704x150
+  ok    ow-zebra-v: no paint outside the layout (gaps and margins alpha = 0)
+  ok    ow-zebra-v: painted area mean alpha 0.65
+  ok    ow-zebra-v: 11 segments of 34 px every 64 px from pixel 0 (weakest mean alpha 0.34)
+  ok    ow-zebra-v: pattern starts at the first pixel
+  ok    ow-zebra-v: hash 0b421b32cd57
+
+files:
+  ground/ow-asphalt-a.jpg                     1024x1024     270.4 KB
+  markings/ow-dash-h.png                      1920x16        18.8 KB
+  markings/ow-dash-v.png                        16x1920      17.7 KB
+  ground/ow-sidewalk.jpg                       512x512       62.2 KB
+  markings/ow-zebra-h.png                      150x704      102.1 KB
+  markings/ow-zebra-v.png                      704x150      105.2 KB
+
+  ok    ground total 0.56 MB (budget 15 MB)
+  ok    buildings total 0.00 MB (budget 20 MB)
+  ok    GPU memory estimate 6.0 MB (budget 96 MB)
+
+RESULT: OK

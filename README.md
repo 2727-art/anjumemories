@@ -831,6 +831,8 @@ OPTION では `BGM OUTPUT`、`SFX / VOICE OUTPUT`、`CONTROLLER INPUT` を ON / 
 
 Phase 1a の広域マップも debug 限定です。`?debugOpenWorld=1` で 24,000px 四方の自動生成の街 `openWorldCity` に出撃します（`?debugOpenWorldSeed=<文字列>` で配置を固定）。外周から 1,000px 内側が作戦領域で、領域外に 10 秒いると AP が毎秒減り始めます。敵は画面のすぐ外から出現し、遠くに置き去りにした敵は前方へ再配置されます。Gate は信号が出た時点の自機から 1,800〜2,800px の地点に開きます。Depth10 Final Raid は従来どおりの 4096px フィールドで行います。
 
+広域マップでは、Blender で作った街の素材（`画像/openworld/`、一覧は `manifest.json`）を出撃時に読み込み、道路・歩道・路面標示に使います。地面には夜の色調・街灯の光だまり・画面端の暗さを重ねます（自機・敵・HUD はそのままの色）。`&debugOpenWorldAssets=0` で素材を使わない描画、`&debugOpenWorldLight=0` で夜の光なしの描画に切り替えられます。素材が読めないときは従来の描画で進みます。詳細は `WORLD_DESIGN.md` の 6・7 章です。
+
 ## Googleアカウント データ連携
 
 OPERATIONS HUB の `DATA LINK` タブから、任意でGoogleアカウントを連携できます。連携後は同じGoogleアカウントで開いたスマートフォンとPCブラウザーの間で、確定済みの進行データを共有できます。クラウドへの自動保存は、作戦終了後にOPERATIONS HUBへ帰還するときの変更分1回だけです。`今すぐ同期` から手動でも保存でき、ラン中やHUB内の個別操作ではlocalStorageだけを更新してFirestoreへ逐次書き込みません。未連携または通信失敗時も従来どおりlocalStorageで遊べます。

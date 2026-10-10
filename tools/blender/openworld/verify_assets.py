@@ -5,8 +5,8 @@
 
 Checks: files exist, sizes match the manifest, opaque/transparent as expected, no duplicate keys,
 2048 px limit, formats (JPG tiles / PNG otherwise), ground tile brightness, seams of repeating tiles
-(and writes 2x2 previews to preview/), road-marking layout to the pixel, file-size and GPU budgets.
-Exit code 1 if any check fails.
+(and writes 2x2 previews to preview/), road-marking layout to the pixel, file-size and GPU budgets,
+and the "hash" of each asset when the manifest has one (publish_manifest.py). Exit code 1 if any check fails.
 """
 
 import argparse
@@ -16,6 +16,11 @@ import sys
 
 import numpy as np
 from PIL import Image
+
+sys.dont_write_bytecode = True  # keep __pycache__ out of the repository
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from publish_manifest import asset_hash  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.normpath(os.path.join(HERE, "..", "..", ".."))
@@ -213,6 +218,16 @@ def main():
                 check_file(key, asset["southEmit"], south_size, True, "buildings", "PNG")
         else:
             report.fail(f"{key}: unknown type {kind}")
+            continue
+        if "hash" in asset:
+            try:
+                actual = asset_hash(args.root, asset)
+            except OSError:
+                continue  # the missing file is already reported above
+            if actual == asset["hash"]:
+                report.ok(f"{key}: hash {actual}")
+            else:
+                report.fail(f"{key}: hash {asset['hash']} in the manifest, files hash to {actual} (run publish_manifest.py)")
 
     mb = lambda b: b / (1024 * 1024)
     report.info("")
