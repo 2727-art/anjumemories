@@ -1,0 +1,211 @@
+manifest: tools\blender\openworld\preview\build-manifest.json  (Blender 5.2.2 LTS)
+  ok    42 unique keys
+  ok    ow-asphalt-a: ground/ow-asphalt-a.jpg 1024x1024
+  ok    ow-asphalt-a: mean sRGB luma 0.368
+  ok    ow-asphalt-a: seamless (edge/inner step ratio x 1.19, y 1.14)
+  ok    ow-asphalt-a: 2x2 preview tools\blender\openworld\preview\tile-ow-asphalt-a-2x2.jpg
+  ok    ow-asphalt-b: ground/ow-asphalt-b.jpg 1024x1024
+  ok    ow-asphalt-b: mean sRGB luma 0.369
+  ok    ow-asphalt-b: seamless (edge/inner step ratio x 1.17, y 1.13)
+  ok    ow-asphalt-b: 2x2 preview tools\blender\openworld\preview\tile-ow-asphalt-b-2x2.jpg
+  ok    ow-bld-a01: buildings/ow-bld-a01-roof.png 768x1024
+  ok    ow-bld-a01: buildings/ow-bld-a01-south.png 768x384
+  ok    ow-bld-a01: south facade mean sRGB luma 0.370 (target 0.36-0.38)
+  ok    ow-bld-a01: shop band (bottom 64 px) luma 0.310 (min 0.3)
+  ok    ow-bld-a01: roof mean sRGB luma 0.446 (target 0.4-0.5)
+  ok    ow-bld-a01: buildings/ow-bld-a01-roof_emit.png 768x1024
+  ok    ow-bld-a01: buildings/ow-bld-a01-south_emit.png 768x384
+  ok    ow-curb-h: ground/ow-curb-h.jpg 1024x16
+  ok    ow-curb-h: seamless (edge/inner step ratio x 2.77 (pattern edge))
+  ok    ow-curb-v: ground/ow-curb-v.jpg 16x1024
+  ok    ow-curb-v: seamless (edge/inner step ratio y 3.31 (pattern edge))
+  ok    ow-dash-h: markings/ow-dash-h.png 1920x16
+  ok    ow-dash-h: no paint outside the layout (gaps and margins alpha = 0)
+  ok    ow-dash-h: painted area mean alpha 0.71
+  ok    ow-dash-h: 8 segments of 120 px every 240 px from pixel 0 (weakest mean alpha 0.70)
+  ok    ow-dash-h: pattern starts at the first pixel
+  ok    ow-dash-v: markings/ow-dash-v.png 16x1920
+  ok    ow-dash-v: no paint outside the layout (gaps and margins alpha = 0)
+  ok    ow-dash-v: painted area mean alpha 0.88
+  ok    ow-dash-v: 8 segments of 120 px every 240 px from pixel 0 (weakest mean alpha 0.74)
+  ok    ow-dash-v: pattern starts at the first pixel
+  ok    ow-edgeline-h: markings/ow-edgeline-h.png 2048x8
+  ok    ow-edgeline-h: no paint outside the layout (gaps and margins alpha = 0)
+  ok    ow-edgeline-h: painted area mean alpha 0.71
+  ok    ow-edgeline-h: paint along 100.0% of the length
+  ok    ow-edgeline-h: seamless along its length (edge/inner step ratio 0.52)
+  ok    ow-edgeline-v: markings/ow-edgeline-v.png 8x2048
+  ok    ow-edgeline-v: no paint outside the layout (gaps and margins alpha = 0)
+  ok    ow-edgeline-v: painted area mean alpha 0.84
+  ok    ow-edgeline-v: paint along 100.0% of the length
+  ok    ow-edgeline-v: seamless along its length (edge/inner step ratio 0.42)
+  ok    ow-grit: ground/ow-grit.png 512x512
+  ok    ow-grit: seamless (edge/inner step ratio x 0.68, y 0.88)
+  ok    ow-grit: 2x2 preview tools\blender\openworld\preview\tile-ow-grit-2x2.jpg
+  ok    ow-lot: ground/ow-lot.jpg 1024x1024
+  ok    ow-lot: mean sRGB luma 0.380
+  ok    ow-lot: seamless (edge/inner step ratio x 1.24, y 1.49)
+  ok    ow-lot: 2x2 preview tools\blender\openworld\preview\tile-ow-lot-2x2.jpg
+  ok    ow-park: ground/ow-park.jpg 1024x1024
+  ok    ow-park: mean sRGB luma 0.359
+  ok    ow-park: seamless (edge/inner step ratio x 1.10, y 1.15)
+  ok    ow-park: 2x2 preview tools\blender\openworld\preview\tile-ow-park-2x2.jpg
+  ok    ow-parking: ground/ow-parking.jpg 960x960
+  ok    ow-parking: mean sRGB luma 0.378
+  ok    ow-parking: seamless (edge/inner step ratio x 17.81 (pattern edge), y 1.28)
+  ok    ow-parking: 2x2 preview tools\blender\openworld\preview\tile-ow-parking-2x2.jpg
+  ok    ow-plaza: ground/ow-plaza.jpg 1024x1024
+  ok    ow-plaza: mean sRGB luma 0.418
+  ok    ow-plaza: seamless (edge/inner step ratio x 0.59, y 0.59)
+  ok    ow-plaza: 2x2 preview tools\blender\openworld\preview\tile-ow-plaza-2x2.jpg
+  ok    ow-prop-barricade-h: props/ow-prop-barricade-h.png 176x56
+  ok    ow-prop-barricade-h: border alpha max 0/255 (limit 8)
+  ok    ow-prop-barricade-h: origin [0.5, 0.5], footprint 148x32
+  ok    ow-prop-barricade-v: props/ow-prop-barricade-v.png 56x176
+  ok    ow-prop-barricade-v: border alpha max 0/255 (limit 8)
+  ok    ow-prop-barricade-v: origin [0.5, 0.5], footprint 32x148
+  ok    ow-prop-car-a-h: props/ow-prop-car-a-h.png 196x92
+  ok    ow-prop-car-a-h: border alpha max 0/255 (limit 8)
+  ok    ow-prop-car-a-h: origin [0.5, 0.5], footprint 172x68
+  ok    ow-prop-car-a-v: props/ow-prop-car-a-v.png 92x196
+  ok    ow-prop-car-a-v: border alpha max 0/255 (limit 8)
+  ok    ow-prop-car-a-v: origin [0.5, 0.5], footprint 68x172
+  ok    ow-prop-car-b-h: props/ow-prop-car-b-h.png 196x92
+  ok    ow-prop-car-b-h: border alpha max 0/255 (limit 8)
+  ok    ow-prop-car-b-h: origin [0.5, 0.5], footprint 136x60
+  ok    ow-prop-car-b-v: props/ow-prop-car-b-v.png 92x196
+  ok    ow-prop-car-b-v: border alpha max 0/255 (limit 8)
+  ok    ow-prop-car-b-v: origin [0.5, 0.5], footprint 60x136
+  ok    ow-prop-car-c-h: props/ow-prop-car-c-h.png 196x92
+  ok    ow-prop-car-c-h: border alpha max 0/255 (limit 8)
+  ok    ow-prop-car-c-h: origin [0.5, 0.5], footprint 172x68
+  ok    ow-prop-car-c-v: props/ow-prop-car-c-v.png 92x196
+  ok    ow-prop-car-c-v: border alpha max 0/255 (limit 8)
+  ok    ow-prop-car-c-v: origin [0.5, 0.5], footprint 68x172
+  ok    ow-prop-crack-a: props/ow-prop-crack-a.png 256x256
+  ok    ow-prop-crack-a: border alpha max 0/255 (limit 8)
+  ok    ow-prop-crack-a: origin [0.5, 0.5], footprint 236x236
+  ok    ow-prop-crack-b: props/ow-prop-crack-b.png 384x384
+  ok    ow-prop-crack-b: border alpha max 0/255 (limit 8)
+  ok    ow-prop-crack-b: origin [0.5, 0.5], footprint 350x350
+  ok    ow-prop-crack-c: props/ow-prop-crack-c.png 512x512
+  ok    ow-prop-crack-c: border alpha max 0/255 (limit 8)
+  ok    ow-prop-crack-c: origin [0.5, 0.5], footprint 440x440
+  ok    ow-prop-debris-a: props/ow-prop-debris-a.png 96x96
+  ok    ow-prop-debris-a: border alpha max 0/255 (limit 8)
+  ok    ow-prop-debris-a: origin [0.5, 0.5], footprint 80x80
+  ok    ow-prop-debris-b: props/ow-prop-debris-b.png 160x160
+  ok    ow-prop-debris-b: border alpha max 0/255 (limit 8)
+  ok    ow-prop-debris-b: origin [0.5, 0.5], footprint 140x140
+  ok    ow-prop-debris-c: props/ow-prop-debris-c.png 192x128
+  ok    ow-prop-debris-c: border alpha max 0/255 (limit 8)
+  ok    ow-prop-debris-c: origin [0.5, 0.5], footprint 176x104
+  ok    ow-prop-debris-d: props/ow-prop-debris-d.png 256x256
+  ok    ow-prop-debris-d: border alpha max 0/255 (limit 8)
+  ok    ow-prop-debris-d: origin [0.5, 0.5], footprint 224x224
+  ok    ow-prop-drain: props/ow-prop-drain.png 48x96
+  ok    ow-prop-drain: border alpha max 0/255 (limit 8)
+  ok    ow-prop-drain: origin [0.5, 0.5], footprint 36x88
+  ok    ow-prop-lamp: props/ow-prop-lamp.png 48x48
+  ok    ow-prop-lamp: border alpha max 0/255 (limit 8)
+  ok    ow-prop-lamp: origin [0.5, 0.5], footprint 30x14
+  ok    ow-prop-manhole: props/ow-prop-manhole.png 72x72
+  ok    ow-prop-manhole: border alpha max 0/255 (limit 8)
+  ok    ow-prop-manhole: origin [0.5, 0.5], footprint 64x64
+  ok    ow-prop-puddle-a: props/ow-prop-puddle-a.png 192x144
+  ok    ow-prop-puddle-a: border alpha max 0/255 (limit 8)
+  ok    ow-prop-puddle-a: props/ow-prop-puddle-a_water.png 192x144
+  ok    ow-prop-puddle-a: water mask covers 44.1% of the sprite, inside the puddle, clear border
+  ok    ow-prop-puddle-a: origin [0.5, 0.5], footprint 160x116
+  ok    ow-prop-puddle-b: props/ow-prop-puddle-b.png 320x224
+  ok    ow-prop-puddle-b: border alpha max 0/255 (limit 8)
+  ok    ow-prop-puddle-b: props/ow-prop-puddle-b_water.png 320x224
+  ok    ow-prop-puddle-b: water mask covers 43.9% of the sprite, inside the puddle, clear border
+  ok    ow-prop-puddle-b: origin [0.5, 0.5], footprint 270x180
+  ok    ow-prop-puddle-c: props/ow-prop-puddle-c.png 448x288
+  ok    ow-prop-puddle-c: border alpha max 0/255 (limit 8)
+  ok    ow-prop-puddle-c: props/ow-prop-puddle-c_water.png 448x288
+  ok    ow-prop-puddle-c: water mask covers 45.8% of the sprite, inside the puddle, clear border
+  ok    ow-prop-puddle-c: origin [0.5, 0.5], footprint 380x240
+  ok    ow-prop-trash: props/ow-prop-trash.png 96x96
+  ok    ow-prop-trash: border alpha max 0/255 (limit 8)
+  ok    ow-prop-trash: origin [0.5, 0.5], footprint 80x76
+  ok    ow-prop-tree-a: props/ow-prop-tree-a.png 192x192
+  ok    ow-prop-tree-a: border alpha max 0/255 (limit 8)
+  ok    ow-prop-tree-a: origin [0.5, 0.5], footprint 176x176
+  ok    ow-prop-tree-b: props/ow-prop-tree-b.png 224x224
+  ok    ow-prop-tree-b: border alpha max 0/255 (limit 8)
+  ok    ow-prop-tree-b: origin [0.5, 0.5], footprint 204x204
+  ok    ow-prop-tree-c: props/ow-prop-tree-c.png 256x256
+  ok    ow-prop-tree-c: border alpha max 0/255 (limit 8)
+  ok    ow-prop-tree-c: origin [0.5, 0.5], footprint 236x236
+  ok    ow-sidewalk: ground/ow-sidewalk.jpg 512x512
+  ok    ow-sidewalk: mean sRGB luma 0.419
+  ok    ow-sidewalk: seamless (edge/inner step ratio x 1.00, y 1.06)
+  ok    ow-sidewalk: 2x2 preview tools\blender\openworld\preview\tile-ow-sidewalk-2x2.jpg
+  ok    ow-zebra-h: markings/ow-zebra-h.png 150x704
+  ok    ow-zebra-h: no paint outside the layout (gaps and margins alpha = 0)
+  ok    ow-zebra-h: painted area mean alpha 0.66
+  ok    ow-zebra-h: 11 segments of 34 px every 64 px from pixel 0 (weakest mean alpha 0.28)
+  ok    ow-zebra-h: pattern starts at the first pixel
+  ok    ow-zebra-v: markings/ow-zebra-v.png 704x150
+  ok    ow-zebra-v: no paint outside the layout (gaps and margins alpha = 0)
+  ok    ow-zebra-v: painted area mean alpha 0.65
+  ok    ow-zebra-v: 11 segments of 34 px every 64 px from pixel 0 (weakest mean alpha 0.34)
+  ok    ow-zebra-v: pattern starts at the first pixel
+
+files:
+  ground/ow-asphalt-a.jpg                     1024x1024     270.4 KB
+  ground/ow-asphalt-b.jpg                     1024x1024     185.4 KB
+  buildings/ow-bld-a01-roof.png                768x1024     985.2 KB
+  buildings/ow-bld-a01-south.png               768x384      361.9 KB
+  buildings/ow-bld-a01-roof_emit.png           768x1024      82.6 KB
+  buildings/ow-bld-a01-south_emit.png          768x384       84.6 KB
+  ground/ow-curb-h.jpg                        1024x16         3.5 KB
+  ground/ow-curb-v.jpg                          16x1024       3.4 KB
+  markings/ow-dash-h.png                      1920x16        18.8 KB
+  markings/ow-dash-v.png                        16x1920      17.7 KB
+  markings/ow-edgeline-h.png                  2048x8         21.6 KB
+  markings/ow-edgeline-v.png                     8x2048      22.2 KB
+  ground/ow-grit.png                           512x512      256.4 KB
+  ground/ow-lot.jpg                           1024x1024     161.4 KB
+  ground/ow-park.jpg                          1024x1024     174.2 KB
+  ground/ow-parking.jpg                        960x960      123.9 KB
+  ground/ow-plaza.jpg                         1024x1024     266.1 KB
+  props/ow-prop-barricade-h.png                176x56        12.9 KB
+  props/ow-prop-barricade-v.png                 56x176       13.2 KB
+  props/ow-prop-car-a-h.png                    196x92        25.9 KB
+  props/ow-prop-car-a-v.png                     92x196       26.7 KB
+  props/ow-prop-car-b-h.png                    196x92        25.9 KB
+  props/ow-prop-car-b-v.png                     92x196       25.9 KB
+  props/ow-prop-car-c-h.png                    196x92        27.3 KB
+  props/ow-prop-car-c-v.png                     92x196       27.9 KB
+  props/ow-prop-crack-a.png                    256x256       83.8 KB
+  props/ow-prop-crack-b.png                    384x384      259.2 KB
+  props/ow-prop-crack-c.png                    512x512      321.8 KB
+  props/ow-prop-debris-a.png                    96x96        17.5 KB
+  props/ow-prop-debris-b.png                   160x160       19.8 KB
+  props/ow-prop-debris-c.png                   192x128       25.7 KB
+  props/ow-prop-debris-d.png                   256x256      107.4 KB
+  props/ow-prop-drain.png                       48x96         8.1 KB
+  props/ow-prop-lamp.png                        48x48         2.1 KB
+  props/ow-prop-manhole.png                     72x72         8.1 KB
+  props/ow-prop-puddle-a.png                   192x144       34.3 KB
+  props/ow-prop-puddle-a_water.png             192x144        3.8 KB
+  props/ow-prop-puddle-b.png                   320x224       78.8 KB
+  props/ow-prop-puddle-b_water.png             320x224        8.3 KB
+  props/ow-prop-puddle-c.png                   448x288      129.6 KB
+  props/ow-prop-puddle-c_water.png             448x288       13.7 KB
+  props/ow-prop-trash.png                       96x96        11.4 KB
+  props/ow-prop-tree-a.png                     192x192       57.3 KB
+  props/ow-prop-tree-b.png                     224x224       89.5 KB
+  props/ow-prop-tree-c.png                     256x256       58.1 KB
+  ground/ow-sidewalk.jpg                       512x512       62.2 KB
+  markings/ow-zebra-h.png                      150x704      102.1 KB
+  markings/ow-zebra-v.png                      704x150      105.2 KB
+
+  ok    ground total 3.24 MB (budget 15 MB)
+  ok    buildings total 1.48 MB (budget 20 MB)
+  ok    GPU memory estimate 40.2 MB (budget 96 MB)
+
+RESULT: OK

@@ -1425,6 +1425,105 @@ const OPEN_WORLD_CONFIG = Object.freeze({
   companionRecallDistance: 1500,
   finalRaidFieldSize: 4096
 });
+// WORLD_DESIGN.md 6.11: Blender assets listed in 画像/openworld/manifest.json replace the runtime textures
+// of the open world. They load with the sortie only in the open world; anything missing keeps the runtime drawing.
+const OPEN_WORLD_ASSETS_QUERY_PARAM = "debugOpenWorldAssets";
+const OPEN_WORLD_LIGHT_QUERY_PARAM = "debugOpenWorldLight";
+const OPEN_WORLD_ASSET_CONFIG = Object.freeze({
+  root: "画像/openworld/",
+  manifestFile: "manifest.json",
+  manifestCacheKey: "ow-asset-manifest",
+  textureKeyPrefix: "owasset:",
+  maxTextureSize: 2048,
+  // Keys the open world draws today, with their manifest type. Other manifest entries are not downloaded.
+  usedKeys: Object.freeze({
+    "ow-asphalt-a": "tile",
+    "ow-asphalt-b": "tile",
+    "ow-sidewalk": "tile",
+    "ow-plaza": "tile",
+    "ow-parking": "tile",
+    "ow-park": "tile",
+    "ow-lot": "tile",
+    "ow-curb-h": "tile",
+    "ow-curb-v": "tile",
+    "ow-grit": "tile",
+    "ow-dash-v": "marking",
+    "ow-dash-h": "marking",
+    "ow-zebra-v": "marking",
+    "ow-zebra-h": "marking",
+    "ow-edgeline-v": "marking",
+    "ow-edgeline-h": "marking",
+    "ow-hazard-h": "marking",
+    "ow-hazard-v": "marking",
+    ...Object.fromEntries([
+      "ow-prop-manhole", "ow-prop-drain",
+      "ow-prop-puddle-a", "ow-prop-puddle-b", "ow-prop-puddle-c",
+      "ow-prop-crack-a", "ow-prop-crack-b", "ow-prop-crack-c",
+      "ow-prop-debris-a", "ow-prop-debris-b", "ow-prop-debris-c", "ow-prop-debris-d",
+      "ow-prop-trash", "ow-prop-barricade-h", "ow-prop-barricade-v",
+      "ow-prop-car-a-h", "ow-prop-car-a-v", "ow-prop-car-b-h", "ow-prop-car-b-v", "ow-prop-car-c-h", "ow-prop-car-c-v",
+      "ow-prop-tree-a", "ow-prop-tree-b", "ow-prop-tree-c", "ow-prop-lamp"
+    ].map((key) => [key, "prop"]))
+  }),
+  // Companion images loaded with an entry (same size): the open-water mask of a puddle, for reflections.
+  companionFields: Object.freeze({ prop: Object.freeze(["water"]) }),
+  // Curb strips (ow-curb-h / -v): 10 px of gutter on the road, then the 6 px curb top on the block.
+  // The images have the road on top (-h) / on the left (-v); the far side of a road uses a mirrored copy.
+  curb: Object.freeze({ roadSide: 10, top: 6 }),
+  // Until a block's own tile (ow-plaza, ow-parking, ow-lot) is loaded, other loaded tiles stand in for it,
+  // tinted. The plaza follows the pilot mock: sidewalk paving a shade darker, joints offset from the ring.
+  standIns: Object.freeze({
+    plaza: Object.freeze({ key: "ow-sidewalk", tint: 0xd1d1d1, offsetX: 17, offsetY: 31 }),
+    parking: Object.freeze({ key: "ow-asphalt-a", tint: 0xbdbdbd }),
+    lot: Object.freeze({ key: "ow-asphalt-a", tint: 0xc9b9a2 })
+  })
+});
+// Night lighting of the open world: a low-resolution light map multiplied over the ground (night tint,
+// street lamp pools, vignette) plus additive lamp glows. Characters, drops and the HUD are drawn above it.
+const OPEN_WORLD_LIGHT_CONFIG = Object.freeze({
+  depth: -4.5, // between stageGroundLayer (-5) and stageCrosswalkLayer (-4)
+  lightmapWidth: 480,
+  lightmapHeight: 270,
+  coverScale: 1.4, // the light map covers the view x1.4 so a one-frame camera lag never shows its edge
+  ambient: 0x9ca5be, // pilot-mock night ambient (linear 0.34 / 0.38 / 0.53) in sRGB multiply terms
+  vignetteStrength: 0.32,
+  poolTextureSize: 128,
+  poolAlpha: 0.9,
+  glowRadius: 70,
+  glowAlpha: 0.3,
+  // Lamp light mirrored on the open water of puddles (their _water masks, added over the light map):
+  // strength x intensity x (1 - d^2 / (radius x reach)^2)^2 of the brightest lit lamp, set at each
+  // corner of the mask so it fades away from the lamp across the puddle.
+  reflection: Object.freeze({ strength: 0.6, reach: 1.0 }),
+  lamp: Object.freeze({
+    spacing: 960, // per side; the two sides are staggered by half
+    endMargin: 150,
+    curbOffset: 18, // pole distance from the curb, on the sidewalk
+    reach: 70, // arm length: the luminaire and the centre of its pool hang this far over the road
+    radiusMin: 280,
+    radiusMax: 340,
+    brokenChance: 0.15,
+    flickerChance: 0.08,
+    coolChance: 0.22,
+    warmColor: 0xff9447,
+    coolColor: 0x9ec4ff
+  })
+});
+// Props of 6.6 C and the road-surface mix, placed from the run seed while a chunk is built (each prop
+// belongs to the chunk that contains its centre). Chances are per road segment / per block / per stall.
+const OPEN_WORLD_PROP_CONFIG = Object.freeze({
+  depths: Object.freeze({ decal: -5.35, standing: -5.15, lamp: -5.12, tree: -5.05 }),
+  asphaltBChance: 0.45, // road segments paved with ow-asphalt-b instead of -a
+  roadEndMargin: 230, // keeps road props off the crosswalks at both ends of a segment
+  road: Object.freeze({ puddle: 0.35, manhole: 0.5, drain: 0.6, crack: 0.3, sinkhole: 0.05, car: 0.18, debris: 0.2, barricade: 0.06 }),
+  puddles: Object.freeze(["ow-prop-puddle-a", "ow-prop-puddle-a", "ow-prop-puddle-b", "ow-prop-puddle-c"]),
+  cars: Object.freeze(["ow-prop-car-a", "ow-prop-car-a", "ow-prop-car-b", "ow-prop-car-c"]),
+  parkingCarChance: 0.12,
+  trees: Object.freeze(["ow-prop-tree-a", "ow-prop-tree-a", "ow-prop-tree-b", "ow-prop-tree-c"]),
+  treeArea: 240000, // park area per tree
+  maxTrees: 12,
+  cornerTrashChance: 0.2
+});
 const MOBILE_CONTROL_QUERY_PARAM = "mobileControls";
 const COMMS_UI_DEBUG_QUERY_PARAM = "debugComms";
 const COMMS_STORY_DEBUG_QUERY_PARAM = "debugCommsStory";
@@ -7300,6 +7399,9 @@ class SurvivalScene extends Phaser.Scene {
     this.getStageAssetEntries(stage).forEach((asset) => {
       this.loadImageIfNeeded(asset.textureKey, asset.imagePath);
     });
+    if (this.isOpenWorldStage(stage)) {
+      this.preloadOpenWorldAssets();
+    }
   }
 
   preloadEnemyAssets() {
@@ -42545,7 +42647,12 @@ class SurvivalScene extends Phaser.Scene {
   buildOpenWorld(stage) {
     this.ensureOpenWorldTextures();
     this.openWorldState = this.createOpenWorldState(stage);
-    this.createOpenWorldNoiseOverlay();
+    // The runtime grit stands in for surface detail; Blender tiles carry their own, so it is only
+    // laid over them when an ow-grit asset replaces it.
+    if (!this.resolveOpenWorldTextureKey("ow-asphalt-a", null) || this.resolveOpenWorldTextureKey("ow-grit", null)) {
+      this.createOpenWorldNoiseOverlay();
+    }
+    this.openWorldState.light = this.createOpenWorldLighting();
     const start = stage?.playerStart || this.getStageWorldBounds(stage);
     this.updateOpenWorldChunks({ x: start.x ?? start.centerX, y: start.y ?? start.centerY }, true);
   }
@@ -42562,6 +42669,7 @@ class SurvivalScene extends Phaser.Scene {
       chunksY: Math.ceil(world.height / chunkSize),
       chunks: new Map(),
       noiseOverlay: null,
+      light: null,
       gateCenter: null,
       nextEnemyRecycleAt: 0,
       recycledEnemyCount: 0,
@@ -42596,6 +42704,167 @@ class SurvivalScene extends Phaser.Scene {
     hash = Math.imul(hash ^ (hash >>> 16), 3266489909) >>> 0;
     hash ^= hash >>> 16;
     return (hash >>> 0) / 4294967296;
+  }
+
+  isOpenWorldAssetsEnabled() {
+    return !this.isQueryFlagValueDisabled(this.getUrlStageParam(OPEN_WORLD_ASSETS_QUERY_PARAM));
+  }
+
+  // Queues manifest.json into the sortie load batch; its images join the same batch once it arrives,
+  // so the world is built with them. A missing manifest only logs the batch's load warning.
+  preloadOpenWorldAssets() {
+    const config = OPEN_WORLD_ASSET_CONFIG;
+    if (!this.isOpenWorldAssetsEnabled()) {
+      return false;
+    }
+    if (this.cache.json.exists(config.manifestCacheKey)) {
+      return this.queueOpenWorldManifestImages(this.cache.json.get(config.manifestCacheKey));
+    }
+    if (this.isAssetLoadQueued("json", config.manifestCacheKey)) {
+      return false;
+    }
+    const completeEvent = `filecomplete-json-${config.manifestCacheKey}`;
+    const handleComplete = (key, type, data) => {
+      this.load.off("loaderror", handleError);
+      this.queueOpenWorldManifestImages(data);
+    };
+    const handleError = (file) => {
+      if (file?.key === config.manifestCacheKey) {
+        this.load.off(completeEvent, handleComplete);
+        this.load.off("loaderror", handleError);
+      }
+    };
+    this.load.once(completeEvent, handleComplete);
+    this.load.on("loaderror", handleError);
+    this.markAssetLoadQueued("json", config.manifestCacheKey);
+    // The manifest always loads fresh: its per-file hashes are what bust the immutable 画像/* cache (_headers).
+    this.load.json(config.manifestCacheKey, `${config.root}${config.manifestFile}?t=${Date.now()}`);
+    return true;
+  }
+
+  getOpenWorldManifestEntries(manifest) {
+    const config = OPEN_WORLD_ASSET_CONFIG;
+    if (!manifest || manifest.version !== 1 || !Array.isArray(manifest.assets)) {
+      return [];
+    }
+    const isSize = (value) => Number.isInteger(value) && value > 0 && value <= config.maxTextureSize;
+    return manifest.assets.filter((asset) => (
+      Boolean(asset) && config.usedKeys[asset.key] === asset.type
+      && typeof asset.file === "string" && /^[\w-]+(\/[\w-]+)*\.(jpg|png)$/.test(asset.file)
+      && isSize(asset.width) && isSize(asset.height)
+    ));
+  }
+
+  getOpenWorldAssetTextureKey(key) {
+    return `${OPEN_WORLD_ASSET_CONFIG.textureKeyPrefix}${key}`;
+  }
+
+  queueOpenWorldManifestImages(manifest) {
+    const config = OPEN_WORLD_ASSET_CONFIG;
+    let queued = 0;
+    this.getOpenWorldManifestEntries(manifest).forEach((asset) => {
+      const version = /^[0-9a-f]{6,64}$/.test(String(asset.hash || "")) ? asset.hash : STATIC_ASSET_VERSION;
+      // The entry's image, then its companions (a puddle's water mask) as `<key>_<field>`.
+      const files = [[asset.key, asset.file]];
+      (config.companionFields[asset.type] || []).forEach((field) => {
+        if (typeof asset[field] === "string" && /^[\w-]+(\/[\w-]+)*\.png$/.test(asset[field])) {
+          files.push([`${asset.key}_${field}`, asset[field]]);
+        }
+      });
+      files.forEach(([key, file]) => {
+        const textureKey = this.getOpenWorldAssetTextureKey(key);
+        if (this.textures.exists(textureKey) || this.isAssetLoadQueued("image", textureKey)) {
+          return;
+        }
+        this.load.once(`filecomplete-image-${textureKey}`, () => this.validateOpenWorldAssetTexture(textureKey, { ...asset, key, file }));
+        this.markAssetLoadQueued("image", textureKey);
+        this.load.image(textureKey, `${config.root}${file}?v=${version}`);
+        queued += 1;
+      });
+    });
+    return queued > 0;
+  }
+
+  // Pattern periods depend on the sheet size (WORLD_DESIGN.md 6.6), so a file that does not match its
+  // manifest entry is dropped and the runtime texture stays in use.
+  validateOpenWorldAssetTexture(textureKey, asset) {
+    const frame = this.textures.getFrame(textureKey);
+    if (frame && (frame.width !== asset.width || frame.height !== asset.height)) {
+      console.warn("[OPEN WORLD] asset size does not match manifest.json; using the runtime texture", {
+        key: asset.key, file: asset.file, manifest: [asset.width, asset.height], actual: [frame.width, frame.height]
+      });
+      this.textures.remove(textureKey);
+    }
+  }
+
+  // Loaded Blender asset for `key`, otherwise `fallbackKey` (the runtime texture, or null).
+  resolveOpenWorldTextureKey(key, fallbackKey = key) {
+    const assetKey = this.getOpenWorldAssetTextureKey(key);
+    return this.textures.exists(assetKey) ? assetKey : fallbackKey;
+  }
+
+  // Mirrored copy (axis "x" or "y") of a loaded asset, made once: curb strips on the far side of a road.
+  getOpenWorldMirroredTextureKey(key, axis) {
+    const sourceKey = this.resolveOpenWorldTextureKey(key, null);
+    if (!sourceKey) {
+      return null;
+    }
+    const mirroredKey = `${sourceKey}:flip${axis}`;
+    if (this.textures.exists(mirroredKey)) {
+      return mirroredKey;
+    }
+    const source = this.textures.get(sourceKey).getSourceImage();
+    const texture = this.textures.createCanvas(mirroredKey, source.width, source.height);
+    const context = texture?.getContext();
+    if (!context) {
+      return null;
+    }
+    context.save();
+    context.translate(axis === "x" ? source.width : 0, axis === "y" ? source.height : 0);
+    context.scale(axis === "x" ? -1 : 1, axis === "y" ? -1 : 1);
+    context.drawImage(source, 0, 0);
+    context.restore();
+    texture.refresh();
+    return mirroredKey;
+  }
+
+  getOpenWorldLoadedAssetKeys() {
+    return Object.keys(OPEN_WORLD_ASSET_CONFIG.usedKeys)
+      .filter((key) => this.textures.exists(this.getOpenWorldAssetTextureKey(key)));
+  }
+
+  // Mean colour of a texture, drawn under textured surfaces so that sub-pixel gaps between the
+  // cropped tiles never show a different colour.
+  getOpenWorldTextureAverageColor(textureKey, fallbackColor) {
+    if (!this.openWorldTextureAverageColors) {
+      this.openWorldTextureAverageColors = new Map();
+    }
+    if (this.openWorldTextureAverageColors.has(textureKey)) {
+      return this.openWorldTextureAverageColors.get(textureKey);
+    }
+    let color = fallbackColor;
+    try {
+      const source = this.textures.get(textureKey).getSourceImage();
+      const size = 32;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      context.drawImage(source, 0, 0, size, size);
+      const data = context.getImageData(0, 0, size, size).data;
+      const sum = [0, 0, 0];
+      for (let index = 0; index < data.length; index += 4) {
+        sum[0] += data[index];
+        sum[1] += data[index + 1];
+        sum[2] += data[index + 2];
+      }
+      const count = data.length / 4;
+      color = (Math.round(sum[0] / count) << 16) | (Math.round(sum[1] / count) << 8) | Math.round(sum[2] / count);
+    } catch (error) {
+      color = fallbackColor;
+    }
+    this.openWorldTextureAverageColors.set(textureKey, color);
+    return color;
   }
 
   // Phaser 3.70 TileSprites allocate a canvas the size of the sprite, so large repeating
@@ -42704,6 +42973,266 @@ class SurvivalScene extends Phaser.Scene {
         g.fillPoints([{ x: 0, y }, { x: 0, y: y + 32 }, { x: width, y: y + 32 + width }, { x: width, y: y + width }], true);
       }
     });
+    // Street lamp from above, pointing +x: pole cap at x = 6, arm, luminaire centred at x = 6 + reach.
+    make("ow-lamp", OPEN_WORLD_LIGHT_CONFIG.lamp.reach + 18, 16, (g, width) => {
+      g.fillStyle(0x000000, 0.35);
+      g.fillCircle(8, 10, 6);
+      g.fillRoundedRect(width - 20, 6, 20, 10, 4);
+      g.fillStyle(0x3a4146, 1);
+      g.fillCircle(6, 8, 5);
+      g.fillStyle(0x2c3236, 1);
+      g.fillRect(9, 6, width - 26, 4);
+      g.fillStyle(0x23282b, 1);
+      g.fillRoundedRect(width - 22, 3, 20, 10, 4);
+      g.fillStyle(0xd9e2e6, 0.85);
+      g.fillRoundedRect(width - 19, 5, 14, 6, 3);
+    });
+  }
+
+  // Greyscale light shapes for the light map, drawn per pixel so the falloff is smooth.
+  ensureOpenWorldLightTextures() {
+    const make = (key, width, height, shade) => {
+      if (this.textures.exists(key)) {
+        return;
+      }
+      const texture = this.textures.createCanvas(key, width, height);
+      const context = texture?.getContext();
+      if (!context) {
+        return;
+      }
+      const image = context.createImageData(width, height);
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          const [value, alpha] = shade(((x + 0.5) / width) * 2 - 1, ((y + 0.5) / height) * 2 - 1);
+          const offset = (y * width + x) * 4;
+          image.data[offset] = Math.round(value * 255);
+          image.data[offset + 1] = image.data[offset];
+          image.data[offset + 2] = image.data[offset];
+          image.data[offset + 3] = Math.round(alpha * 255);
+        }
+      }
+      context.putImageData(image, 0, 0);
+      texture.refresh();
+    };
+    const config = OPEN_WORLD_LIGHT_CONFIG;
+    // Lamp pool: (1 - d^2)^2, the falloff of the pilot mock.
+    make("ow-light-pool", config.poolTextureSize, config.poolTextureSize, (nx, ny) => [1, Math.max(0, 1 - (nx * nx + ny * ny)) ** 2]);
+    make("ow-light-glow", 64, 64, (nx, ny) => [1, Math.max(0, 1 - Math.hypot(nx, ny)) ** 2.2]);
+    // Opaque multiplier: the mock's linear vignette 1 - k * clamp(sqrt(0.6 nx^2 + 0.9 ny^2) - 0.35), in sRGB.
+    make("ow-light-vignette", 128, 72, (nx, ny) => [
+      (1 - config.vignetteStrength * Phaser.Math.Clamp(Math.sqrt(nx * nx * 0.6 + ny * ny * 0.9) - 0.35, 0, 1)) ** (1 / 2.2),
+      1
+    ]);
+  }
+
+  isOpenWorldLightEnabled() {
+    // Blend modes of the light map need WebGL; the Canvas renderer keeps the neutral look.
+    return this.renderer?.type === Phaser.WEBGL
+      && !this.isQueryFlagValueDisabled(this.getUrlStageParam(OPEN_WORLD_LIGHT_QUERY_PARAM));
+  }
+
+  createOpenWorldLighting() {
+    if (!this.isOpenWorldLightEnabled()) {
+      return null;
+    }
+    const config = OPEN_WORLD_LIGHT_CONFIG;
+    this.ensureOpenWorldLightTextures();
+    // The light map stays out of Layers: a Layer destroyed with the scene destroys its children twice,
+    // and a RenderTexture's second destroy throws (Phaser 3.70). The glows (plain Images) use a Layer.
+    const lightmap = this.add
+      .renderTexture(0, 0, config.lightmapWidth, config.lightmapHeight)
+      .setOrigin(0, 0)
+      .setBlendMode(Phaser.BlendModes.MULTIPLY)
+      .setDepth(config.depth);
+    const glowLayer = this.add.layer().setDepth(config.depth + 0.01);
+    return { lightmap, glowLayer, visible: true, drawnPools: 0 };
+  }
+
+  // Street lamps on both sidewalks of every road segment, staggered between the two sides. A lamp
+  // belongs to the chunk that contains its pole; the light map draws its pool every frame.
+  addOpenWorldStreetLamps(objects, roadsX, roadsY, clip, nearX = roadsX, nearY = roadsY) {
+    const config = OPEN_WORLD_LIGHT_CONFIG;
+    const lampConfig = config.lamp;
+    const light = this.openWorldState?.light;
+    const lamps = [];
+    [["x", nearX, roadsY], ["y", nearY, roadsX]].forEach(([axis, roads, crossRoads]) => {
+      const vertical = axis === "x";
+      const axisId = vertical ? 1 : 2;
+      roads.forEach((road) => {
+        for (let index = 0; index < crossRoads.length - 1; index += 1) {
+          if (!this.isOpenWorldSegmentNearClip(vertical, crossRoads[index].end, crossRoads[index + 1].start, clip)) {
+            continue;
+          }
+          const from = crossRoads[index].end + lampConfig.endMargin;
+          const to = crossRoads[index + 1].start - lampConfig.endMargin;
+          [-1, 1].forEach((side, sideIndex) => {
+            const across = side < 0 ? road.start - lampConfig.curbOffset : road.end + lampConfig.curbOffset;
+            const poolAcross = across - side * lampConfig.reach;
+            let step = 0;
+            for (let along = from + sideIndex * lampConfig.spacing * 0.5; along <= to; along += lampConfig.spacing, step += 1) {
+              const x = vertical ? across : along;
+              const y = vertical ? along : across;
+              if (x < clip.left || x >= clip.right || y < clip.top || y >= clip.bottom) {
+                continue;
+              }
+              const roll = (salt) => this.getOpenWorldHash(salt, axisId, road.index, crossRoads[index].index, sideIndex * 64 + step);
+              const lit = roll(41) >= lampConfig.brokenChance;
+              const lamp = {
+                x,
+                y,
+                poolX: vertical ? poolAcross : along,
+                poolY: vertical ? along : poolAcross,
+                lit,
+                flicker: lit && roll(42) < lampConfig.flickerChance,
+                color: roll(43) < lampConfig.coolChance ? lampConfig.coolColor : lampConfig.warmColor,
+                radius: lampConfig.radiusMin + roll(44) * (lampConfig.radiusMax - lampConfig.radiusMin),
+                intensity: 0.85 + roll(45) * 0.3,
+                phase: roll(46) * 10000,
+                glow: null
+              };
+              const angle = vertical ? (side < 0 ? 0 : 180) : (side < 0 ? 90 : -90);
+              const head = this.add
+                .image(x, y, "ow-lamp")
+                .setOrigin(6 / (lampConfig.reach + 18), 0.5)
+                .setAngle(angle)
+                .setDepth(OPEN_WORLD_CONFIG.depths.detail);
+              this.stageGroundLayer?.add(head);
+              objects.push(head);
+              // The Blender luminaire (its arm stub points back at the pole) over the end of the arm.
+              this.addOpenWorldProp(objects, "ow-prop-lamp", lamp.poolX, lamp.poolY, { left: -Infinity, top: -Infinity, right: Infinity, bottom: Infinity }, {
+                angle,
+                depth: OPEN_WORLD_PROP_CONFIG.depths.lamp
+              });
+              if (light && lit) {
+                lamp.glow = this.add
+                  .image(lamp.poolX, lamp.poolY, "ow-light-glow")
+                  .setDisplaySize(config.glowRadius * 2, config.glowRadius * 2)
+                  .setTint(lamp.color)
+                  .setAlpha(config.glowAlpha * lamp.intensity)
+                  .setBlendMode(Phaser.BlendModes.ADD);
+                light.glowLayer.add(lamp.glow);
+                objects.push(lamp.glow);
+              }
+              lamps.push(lamp);
+            }
+          });
+        }
+      });
+    });
+    return lamps;
+  }
+
+  // A failing ballast: mostly on, with short irregular drop-outs.
+  getOpenWorldLampFlickerLevel(lamp, now) {
+    const t = (now + lamp.phase) / 1000;
+    const wave = Math.sin(t * 7.3) + Math.sin(t * 17.9 + 1.7) * 0.6 + Math.sin(t * 2.1 + 0.4);
+    return wave > 1.55 ? 0.15 : 1;
+  }
+
+  // Redraws the light map over the area around the view: night ambient, lamp pools (additive) and the
+  // vignette (multiplied). The map sits in world space, so it never trails the ground it lights.
+  updateOpenWorldLighting(hidden = false) {
+    const state = this.openWorldState;
+    const light = state?.light;
+    if (!light?.lightmap?.texture) {
+      return;
+    }
+    if (light.visible === hidden) {
+      light.visible = !hidden;
+      light.lightmap.setVisible(!hidden);
+      light.glowLayer.setVisible(!hidden);
+    }
+    const view = this.worldCamera?.worldView;
+    if (hidden || !view || !(view.width > 0) || !(view.height > 0)) {
+      return;
+    }
+
+    const config = OPEN_WORLD_LIGHT_CONFIG;
+    const width = view.width * config.coverScale;
+    const height = view.height * config.coverScale;
+    const left = view.centerX - width / 2;
+    const top = view.centerY - height / 2;
+    const scaleX = config.lightmapWidth / width;
+    const scaleY = config.lightmapHeight / height;
+    const poolSize = config.poolTextureSize;
+    const now = this.time?.now || 0;
+    const texture = light.lightmap.texture;
+    light.lightmap.setPosition(left, top).setDisplaySize(width, height);
+    texture.fill(config.ambient, 1);
+    texture.beginDraw();
+    let drawn = 0;
+    state.chunks.forEach((chunk) => (chunk.lamps || []).forEach((lamp) => {
+      if (!lamp.lit) {
+        return;
+      }
+      const level = lamp.flicker ? this.getOpenWorldLampFlickerLevel(lamp, now) : 1;
+      if (lamp.flicker) {
+        lamp.glow?.setAlpha(config.glowAlpha * lamp.intensity * level);
+      }
+      const radius = lamp.radius;
+      if (lamp.poolX + radius < left || lamp.poolX - radius > left + width
+        || lamp.poolY + radius < top || lamp.poolY - radius > top + height) {
+        return;
+      }
+      texture.stamp("ow-light-pool", undefined, (lamp.poolX - left) * scaleX, (lamp.poolY - top) * scaleY, {
+        scaleX: (radius * 2 * scaleX) / poolSize,
+        scaleY: (radius * 2 * scaleY) / poolSize,
+        tint: lamp.color,
+        alpha: config.poolAlpha * lamp.intensity * level,
+        blendMode: Phaser.BlendModes.ADD,
+        skipBatch: true
+      });
+      drawn += 1;
+    }));
+    texture.endDraw();
+    texture.stamp("ow-light-vignette", undefined, (view.centerX - left) * scaleX, (view.centerY - top) * scaleY, {
+      scaleX: (view.width * scaleX) / 128,
+      scaleY: (view.height * scaleY) / 72,
+      blendMode: Phaser.BlendModes.MULTIPLY
+    });
+    light.drawnPools = drawn;
+    this.updateOpenWorldReflections(now);
+  }
+
+  // Puddle water masks take the colour of the brightest lit lamp whose pool reaches them. The alpha is
+  // set per corner from that lamp's falloff, so the side of the puddle nearer the lamp shines more.
+  updateOpenWorldReflections(now) {
+    const state = this.openWorldState;
+    const reflection = OPEN_WORLD_LIGHT_CONFIG.reflection;
+    const lamps = [];
+    state.chunks.forEach((chunk) => (chunk.lamps || []).forEach((lamp) => {
+      if (lamp.lit) {
+        lamps.push(lamp);
+      }
+    }));
+    const falloff = (lamp, x, y) => {
+      const reach = lamp.radius * reflection.reach;
+      const d2 = ((lamp.poolX - x) ** 2 + (lamp.poolY - y) ** 2) / (reach * reach);
+      return d2 >= 1 ? 0 : (1 - d2) ** 2;
+    };
+    state.chunks.forEach((chunk) => (chunk.reflections || []).forEach((entry) => {
+      let best = 0;
+      let bestLamp = null;
+      let bestLevel = 1;
+      lamps.forEach((lamp) => {
+        const level = lamp.flicker ? this.getOpenWorldLampFlickerLevel(lamp, now) : 1;
+        // The centre picks the lamp; any corner within reach counts so edge-on puddles still light up.
+        const value = Math.max(falloff(lamp, entry.x, entry.y), ...entry.corners.map((corner) => falloff(lamp, corner.x, corner.y)))
+          * lamp.intensity * level;
+        if (value > best) {
+          best = value;
+          bestLamp = lamp;
+          bestLevel = level;
+        }
+      });
+      if (!bestLamp) {
+        entry.image.setVisible(false);
+        return;
+      }
+      const scale = reflection.strength * bestLamp.intensity * bestLevel;
+      const [topLeft, topRight, bottomLeft, bottomRight] = entry.corners.map((corner) => Math.min(1, falloff(bestLamp, corner.x, corner.y) * scale));
+      entry.image.setVisible(true).setTint(bestLamp.color).setAlpha(topLeft, topRight, bottomLeft, bottomRight);
+    }));
   }
 
 
@@ -42711,9 +43240,10 @@ class SurvivalScene extends Phaser.Scene {
     const config = OPEN_WORLD_CONFIG;
     const cell = config.noiseCellSize;
     const images = [];
+    const textureKey = this.resolveOpenWorldTextureKey("ow-grit");
     for (let index = 0; index < config.noiseGridColumns * config.noiseGridRows; index += 1) {
       const image = this.add
-        .image(0, 0, "ow-grit")
+        .image(0, 0, textureKey)
         .setOrigin(0, 0)
         .setAlpha(config.noiseOverlayAlpha)
         .setDepth(config.depths.noise);
@@ -42818,6 +43348,8 @@ class SurvivalScene extends Phaser.Scene {
     (chunk?.objects || []).forEach((object) => object?.destroy?.());
     if (chunk) {
       chunk.objects = [];
+      chunk.lamps = [];
+      chunk.reflections = [];
     }
   }
 
@@ -42857,7 +43389,7 @@ class SurvivalScene extends Phaser.Scene {
     return right - left >= 1 && bottom - top >= 1 ? { left, top, right, bottom } : null;
   }
 
-  addOpenWorldRect(objects, rect, clip, color, alpha = 1, depth = OPEN_WORLD_CONFIG.depths.ground) {
+  addOpenWorldRect(objects, rect, clip, color, alpha = 1, depth = OPEN_WORLD_CONFIG.depths.ground, layer = this.stageGroundLayer) {
     const piece = this.clipOpenWorldRect(rect, clip);
     if (!piece) {
       return null;
@@ -42869,16 +43401,17 @@ class SurvivalScene extends Phaser.Scene {
       .setTint(color)
       .setAlpha(alpha)
       .setDepth(depth);
-    this.stageGroundLayer?.add(image);
+    layer?.add(image);
     objects.push(image);
     return image;
   }
 
-  // Pattern origin is (originX, originY) in world space so tiles stay continuous across chunks.
   // Fills rect ∩ clip with a repeating sheet using cropped Images. The sheet grid is anchored at
-  // (originX, originY) in world space so the pattern stays continuous across chunks.
-  addOpenWorldPattern(objects, rect, clip, textureKey, options = {}) {
+  // (originX, originY) in world space so the pattern stays continuous across chunks. A loaded Blender
+  // asset with the same key replaces the runtime sheet; with neither, nothing is drawn.
+  addOpenWorldPattern(objects, rect, clip, sheetKey, options = {}) {
     const piece = this.clipOpenWorldRect(rect, clip);
+    const textureKey = options.textureKey || this.resolveOpenWorldTextureKey(sheetKey);
     const frame = this.textures.getFrame(textureKey);
     if (!piece || !frame) {
       return;
@@ -42911,7 +43444,7 @@ class SurvivalScene extends Phaser.Scene {
         if (options.tint !== undefined) {
           image.setTint(options.tint);
         }
-        this.stageGroundLayer?.add(image);
+        (options.layer || this.stageGroundLayer)?.add(image);
         objects.push(image);
       }
     }
@@ -42933,7 +43466,15 @@ class SurvivalScene extends Phaser.Scene {
     const roadsX = this.getOpenWorldRoadsInRange("x", clip.left - pad, clip.right + pad);
     const roadsY = this.getOpenWorldRoadsInRange("y", clip.top - pad, clip.bottom + pad);
 
-    this.addOpenWorldRect(objects, clip, clip, config.colors.asphalt);
+    const reflections = [];
+    // Roads that touch this chunk (with room for lamp heads and props); the full lists still give the crossings.
+    const near = (axis) => (road) => (axis === "x"
+      ? road.end + 120 > clip.left && road.start - 120 < clip.right
+      : road.end + 120 > clip.top && road.start - 120 < clip.bottom);
+    const nearX = roadsX.filter(near("x"));
+    const nearY = roadsY.filter(near("y"));
+    this.addOpenWorldSurface(objects, clip, clip, config.colors.asphalt, { key: "ow-asphalt-a" });
+    this.addOpenWorldRoadSections(objects, nearX, nearY, roadsX, roadsY, clip);
     for (let ix = 0; ix < roadsX.length - 1; ix += 1) {
       for (let iy = 0; iy < roadsY.length - 1; iy += 1) {
         const block = {
@@ -42943,14 +43484,164 @@ class SurvivalScene extends Phaser.Scene {
           bottom: roadsY[iy + 1].start
         };
         if (this.clipOpenWorldRect(block, clip)) {
-          this.addOpenWorldBlock(objects, roadsX[ix].index, roadsY[iy].index, block, clip);
+          this.addOpenWorldBlock(objects, roadsX[ix].index, roadsY[iy].index, block, clip, reflections);
         }
       }
     }
-    roadsX.forEach((road) => this.addOpenWorldRoadMarkings(objects, road, "x", roadsY, clip));
-    roadsY.forEach((road) => this.addOpenWorldRoadMarkings(objects, road, "y", roadsX, clip));
+    nearX.forEach((road) => this.addOpenWorldRoadMarkings(objects, road, "x", roadsY, clip));
+    nearY.forEach((road) => this.addOpenWorldRoadMarkings(objects, road, "y", roadsX, clip));
+    this.addOpenWorldRoadProps(objects, nearX, nearY, roadsX, roadsY, clip, reflections);
+    const lamps = this.addOpenWorldStreetLamps(objects, roadsX, roadsY, clip, nearX, nearY);
     this.addOpenWorldBoundary(objects, clip);
-    return { cx, cy, objects, staleSince: 0 };
+    return { cx, cy, objects, lamps, reflections, staleSince: 0 };
+  }
+
+  // Road segments (between two crossings) paved with ow-asphalt-b instead of -a, picked per segment.
+  addOpenWorldRoadSections(objects, nearX, nearY, roadsX, roadsY, clip) {
+    if (!this.resolveOpenWorldTextureKey("ow-asphalt-b", null)) {
+      return;
+    }
+    [["x", nearX, roadsY], ["y", nearY, roadsX]].forEach(([axis, roads, crossRoads]) => {
+      const vertical = axis === "x";
+      roads.forEach((road) => {
+        for (let index = 0; index < crossRoads.length - 1; index += 1) {
+          if (!this.isOpenWorldSegmentNearClip(vertical, crossRoads[index].end, crossRoads[index + 1].start, clip)) {
+            continue;
+          }
+          if (this.getOpenWorldHash(51, vertical ? 1 : 2, road.index, crossRoads[index].index) >= OPEN_WORLD_PROP_CONFIG.asphaltBChance) {
+            continue;
+          }
+          const from = crossRoads[index].end;
+          const to = crossRoads[index + 1].start;
+          const rect = vertical
+            ? { left: road.start, right: road.end, top: from, bottom: to }
+            : { left: from, right: to, top: road.start, bottom: road.end };
+          this.addOpenWorldPattern(objects, rect, clip, "ow-asphalt-b", { depth: OPEN_WORLD_CONFIG.depths.ground });
+        }
+      });
+    });
+  }
+
+  // Whether the part [from, to] of a road (along its own axis) overlaps the chunk.
+  isOpenWorldSegmentNearClip(vertical, from, to, clip) {
+    return vertical ? to > clip.top && from < clip.bottom : to > clip.left && from < clip.right;
+  }
+
+  // One prop image (WORLD_DESIGN.md 6.6 C) centred on (x, y), drawn by the chunk that contains the
+  // centre. Puddles also put their open-water mask on the light layer for lamp reflections.
+  addOpenWorldProp(objects, key, x, y, clip, options = {}) {
+    if (x < clip.left || x >= clip.right || y < clip.top || y >= clip.bottom) {
+      return null;
+    }
+    const textureKey = this.resolveOpenWorldTextureKey(key, null);
+    if (!textureKey) {
+      return null;
+    }
+    const angle = options.angle || 0;
+    const image = this.add
+      .image(x, y, textureKey)
+      .setAngle(angle)
+      .setDepth(options.depth ?? OPEN_WORLD_PROP_CONFIG.depths.standing);
+    this.stageGroundLayer?.add(image);
+    objects.push(image);
+    const waterKey = options.reflections ? this.resolveOpenWorldTextureKey(`${key}_water`, null) : null;
+    const light = this.openWorldState?.light;
+    if (waterKey && light?.glowLayer) {
+      // Hidden until a lamp reaches it. (Phaser 3.70's four-corner setAlpha does not touch the render
+      // flag, so the image keeps alpha 1 and is shown or hidden instead.)
+      const reflection = this.add.image(x, y, waterKey).setAngle(angle).setVisible(false).setBlendMode(Phaser.BlendModes.ADD);
+      light.glowLayer.add(reflection);
+      objects.push(reflection);
+      // World positions of the corners, in setAlpha(topLeft, topRight, bottomLeft, bottomRight) order.
+      const corners = [reflection.getTopLeft(), reflection.getTopRight(), reflection.getBottomLeft(), reflection.getBottomRight()]
+        .map((point) => ({ x: point.x, y: point.y }));
+      options.reflections.push({ image: reflection, x, y, corners });
+    }
+    return image;
+  }
+
+  // Props on one road: per segment between two crossings, decided by the run seed.
+  addOpenWorldRoadProps(objects, nearX, nearY, roadsX, roadsY, clip, reflections) {
+    const config = OPEN_WORLD_PROP_CONFIG;
+    const chance = config.road;
+    const depths = config.depths;
+    const pick = (list, value) => list[Math.min(list.length - 1, Math.floor(value * list.length))];
+    [["x", nearX, roadsY], ["y", nearY, roadsX]].forEach(([axis, roads, crossRoads]) => {
+      const vertical = axis === "x";
+      roads.forEach((road) => {
+        for (let index = 0; index < crossRoads.length - 1; index += 1) {
+          const from = crossRoads[index].end + config.roadEndMargin;
+          const to = crossRoads[index + 1].start - config.roadEndMargin;
+          if (to <= from || !this.isOpenWorldSegmentNearClip(vertical, crossRoads[index].end, crossRoads[index + 1].start, clip)) {
+            continue;
+          }
+          const roll = (salt, n = 0) => this.getOpenWorldHash(salt, vertical ? 1 : 2, road.index, crossRoads[index].index, n);
+          const along = (salt) => from + roll(salt) * (to - from);
+          const point = (alongValue, across) => (vertical ? [across, alongValue] : [alongValue, across]);
+          const inLane = (salt) => road.start + 50 + roll(salt) * (road.width - 100);
+          const add = (key, alongValue, across, options = {}) => {
+            const [x, y] = point(alongValue, across);
+            return this.addOpenWorldProp(objects, key, x, y, clip, options);
+          };
+          if (roll(60) < chance.puddle) {
+            add(pick(config.puddles, roll(61)), along(62), inLane(63), { depth: depths.decal, angle: Math.floor(roll(64) * 4) * 90, reflections });
+          }
+          if (roll(65) < chance.manhole) {
+            add("ow-prop-manhole", along(66), road.start + road.width * (roll(67) < 0.5 ? 0.25 : 0.75), { depth: depths.decal });
+          }
+          if (roll(68) < chance.drain) {
+            const side = roll(69) < 0.5;
+            add("ow-prop-drain", from - 40, side ? road.start + 16 : road.end - 16, { depth: depths.decal, angle: vertical ? 0 : 90 });
+          }
+          if (roll(70) < chance.crack) {
+            add(roll(71) < 0.6 ? "ow-prop-crack-a" : "ow-prop-crack-b", along(72), inLane(73), { depth: depths.decal, angle: Math.floor(roll(74) * 4) * 90 });
+          }
+          if (roll(75) < chance.sinkhole && to - from > 700) {
+            // A road subsidence with barricades across the road on both sides.
+            const center = along(76);
+            const across = road.center;
+            if (add("ow-prop-crack-c", center, across, { depth: depths.decal })) {
+              const barricade = vertical ? "ow-prop-barricade-h" : "ow-prop-barricade-v";
+              add(barricade, center - 280, across, { depth: depths.standing });
+              add(barricade, center + 280, across, { depth: depths.standing });
+            }
+          }
+          if (roll(77) < chance.car) {
+            // Abandoned at the kerb, facing along the road.
+            const across = roll(78) < 0.5 ? road.start + 64 : road.end - 64;
+            add(`${pick(config.cars, roll(79))}-${vertical ? "v" : "h"}`, along(80), across, { depth: depths.standing });
+          }
+          if (roll(81) < chance.debris) {
+            // Standing props keep their baked north-west light, so they are never rotated.
+            add(roll(82) < 0.6 ? "ow-prop-debris-a" : "ow-prop-debris-b", along(83), inLane(84), { depth: depths.standing });
+          }
+          if (roll(86) < chance.barricade) {
+            add(vertical ? "ow-prop-barricade-h" : "ow-prop-barricade-v", along(87), inLane(88), { depth: depths.standing });
+          }
+        }
+      });
+    });
+  }
+
+  // Flat fill, covered by the Blender tile `source.key` (optionally tinted) when it is loaded
+  // (WORLD_DESIGN.md 6.6 A). Returns whether the tile was used.
+  addOpenWorldSurface(objects, rect, clip, fallbackColor, source, patternRects = [rect]) {
+    const textureKey = this.resolveOpenWorldTextureKey(source.key, null);
+    if (!textureKey) {
+      this.addOpenWorldRect(objects, rect, clip, fallbackColor);
+      return false;
+    }
+    const average = this.getOpenWorldTextureAverageColor(textureKey, fallbackColor);
+    const tint = source.tint ?? 0xffffff;
+    const channel = (shift) => Math.round((((average >> shift) & 0xff) * ((tint >> shift) & 0xff)) / 255) << shift;
+    this.addOpenWorldRect(objects, rect, clip, channel(16) | channel(8) | channel(0));
+    patternRects.forEach((part) => this.addOpenWorldPattern(objects, part, clip, source.key, {
+      depth: OPEN_WORLD_CONFIG.depths.ground,
+      tint: source.tint,
+      originX: source.originX,
+      originY: source.originY
+    }));
+    return true;
   }
 
   pickOpenWorldBlockType(ix, iy) {
@@ -42967,7 +43658,7 @@ class SurvivalScene extends Phaser.Scene {
     return entries[0][0];
   }
 
-  addOpenWorldBlock(objects, ix, iy, block, clip) {
+  addOpenWorldBlock(objects, ix, iy, block, clip, reflections = []) {
     const config = OPEN_WORLD_CONFIG;
     const colors = config.colors;
     const type = this.pickOpenWorldBlockType(ix, iy);
@@ -42978,51 +43669,185 @@ class SurvivalScene extends Phaser.Scene {
       right: block.right - sidewalk,
       bottom: block.bottom - sidewalk
     };
-    this.addOpenWorldRect(objects, block, clip, colors.curb);
-    this.addOpenWorldRect(objects, { left: block.left + 6, top: block.top + 6, right: block.right - 6, bottom: block.bottom - 6 }, clip, colors.sidewalk);
-    if (inner.right - inner.left < 32 || inner.bottom - inner.top < 32) {
+    const curbs = this.getOpenWorldCurbTextures();
+    if (!curbs) {
+      this.addOpenWorldRect(objects, block, clip, colors.curb);
+    }
+    const paved = { left: block.left + 6, top: block.top + 6, right: block.right - 6, bottom: block.bottom - 6 };
+    const hasInner = inner.right - inner.left >= 32 && inner.bottom - inner.top >= 32;
+    // The paving texture only goes on the sidewalk ring; the block interior is drawn over it.
+    const ring = hasInner ? [
+      { left: paved.left, top: paved.top, right: paved.right, bottom: inner.top },
+      { left: paved.left, top: inner.bottom, right: paved.right, bottom: paved.bottom },
+      { left: paved.left, top: inner.top, right: inner.left, bottom: inner.bottom },
+      { left: inner.right, top: inner.top, right: paved.right, bottom: inner.bottom }
+    ] : [paved];
+    this.addOpenWorldSurface(objects, paved, clip, colors.sidewalk, { key: "ow-sidewalk" }, ring);
+    if (curbs) {
+      this.addOpenWorldCurbs(objects, block, clip, curbs);
+    }
+    if (!hasInner) {
       return;
     }
 
+    // A block's own tile (6.6 A) when loaded; otherwise a tinted stand-in tile, then the runtime drawing.
+    const hasTile = (key) => Boolean(this.resolveOpenWorldTextureKey(key, null));
+    const standIns = OPEN_WORLD_ASSET_CONFIG.standIns;
     if (type === "plaza") {
-      this.addOpenWorldRect(objects, inner, clip, colors.plaza);
-      this.addOpenWorldPattern(objects, inner, clip, "ow-tile", { originX: inner.left, originY: inner.top });
-      return;
-    }
-    if (type === "parking") {
-      this.addOpenWorldRect(objects, inner, clip, colors.parking);
-      const lot = { left: inner.left + 40, top: inner.top + 40, right: inner.right - 40, bottom: inner.bottom - 40 };
-      this.addOpenWorldPattern(objects, lot, clip, "ow-stalls", { originX: lot.left, originY: lot.top, tint: colors.edgeLine });
-      return;
-    }
-    if (type === "park") {
-      this.addOpenWorldRect(objects, inner, clip, colors.park);
-      const area = (inner.right - inner.left) * (inner.bottom - inner.top);
-      const count = Math.min(28, Math.floor(area / 110000));
-      for (let index = 0; index < count; index += 1) {
-        const x = inner.left + 50 + this.getOpenWorldHash(4, ix, iy, index) * Math.max(1, inner.right - inner.left - 100);
-        const y = inner.top + 50 + this.getOpenWorldHash(5, ix, iy, index) * Math.max(1, inner.bottom - inner.top - 100);
-        if (x < clip.left || x >= clip.right || y < clip.top || y >= clip.bottom) {
-          continue;
+      if (hasTile("ow-plaza")) {
+        this.addOpenWorldSurface(objects, inner, clip, colors.plaza, { key: "ow-plaza", originX: inner.left, originY: inner.top });
+      } else {
+        const paving = { ...standIns.plaza, originX: inner.left + standIns.plaza.offsetX, originY: inner.top + standIns.plaza.offsetY };
+        if (!this.addOpenWorldSurface(objects, inner, clip, colors.plaza, paving)) {
+          this.addOpenWorldPattern(objects, inner, clip, "ow-tile", { originX: inner.left, originY: inner.top });
         }
-        const tree = this.add
-          .image(x, y, "ow-tree")
-          .setTint(colors.tree)
-          .setScale(0.8 + this.getOpenWorldHash(6, ix, iy, index) * 0.7)
-          .setDepth(config.depths.detail);
-        this.stageGroundLayer?.add(tree);
-        objects.push(tree);
+      }
+    } else if (type === "parking") {
+      const lot = { left: inner.left + 40, top: inner.top + 40, right: inner.right - 40, bottom: inner.bottom - 40 };
+      if (hasTile("ow-parking")) {
+        // The tile has the stall lines of ow-stalls built in; its grid starts where ow-stalls did.
+        this.addOpenWorldSurface(objects, inner, clip, colors.parking, { key: "ow-parking", originX: lot.left, originY: lot.top });
+      } else {
+        this.addOpenWorldSurface(objects, inner, clip, colors.parking, standIns.parking);
+        this.addOpenWorldPattern(objects, lot, clip, "ow-stalls", { originX: lot.left, originY: lot.top, tint: colors.edgeLine });
+      }
+    } else if (type === "park") {
+      this.addOpenWorldSurface(objects, inner, clip, colors.park, { key: "ow-park", originX: inner.left, originY: inner.top });
+      if (!hasTile("ow-prop-tree-a")) {
+        const area = (inner.right - inner.left) * (inner.bottom - inner.top);
+        const count = Math.min(28, Math.floor(area / 110000));
+        for (let index = 0; index < count; index += 1) {
+          const x = inner.left + 50 + this.getOpenWorldHash(4, ix, iy, index) * Math.max(1, inner.right - inner.left - 100);
+          const y = inner.top + 50 + this.getOpenWorldHash(5, ix, iy, index) * Math.max(1, inner.bottom - inner.top - 100);
+          if (x < clip.left || x >= clip.right || y < clip.top || y >= clip.bottom) {
+            continue;
+          }
+          const tree = this.add
+            .image(x, y, "ow-tree")
+            .setTint(colors.tree)
+            .setScale(0.8 + this.getOpenWorldHash(6, ix, iy, index) * 0.7)
+            .setDepth(config.depths.detail);
+          this.stageGroundLayer?.add(tree);
+          objects.push(tree);
+        }
+      }
+    } else if (hasTile("ow-lot")) {
+      this.addOpenWorldSurface(objects, inner, clip, colors.lot, { key: "ow-lot", originX: inner.left, originY: inner.top });
+    } else {
+      this.addOpenWorldSurface(objects, inner, clip, colors.lot, standIns.lot);
+      for (let index = 0; index < 3; index += 1) {
+        const width = 120 + this.getOpenWorldHash(7, ix, iy, index) * 260;
+        const height = 80 + this.getOpenWorldHash(8, ix, iy, index) * 200;
+        const x = inner.left + this.getOpenWorldHash(9, ix, iy, index) * Math.max(1, inner.right - inner.left - width);
+        const y = inner.top + this.getOpenWorldHash(10, ix, iy, index) * Math.max(1, inner.bottom - inner.top - height);
+        this.addOpenWorldRect(objects, { left: x, top: y, right: x + width, bottom: y + height }, clip, 0x000000, 0.18, config.depths.detail);
+      }
+    }
+    this.addOpenWorldBlockProps(objects, type, ix, iy, block, inner, clip, reflections);
+  }
+
+  // Loaded curb strips and their mirrored copies, or null to keep the flat curb band.
+  getOpenWorldCurbTextures() {
+    const roadTop = this.resolveOpenWorldTextureKey("ow-curb-h", null);
+    const roadLeft = this.resolveOpenWorldTextureKey("ow-curb-v", null);
+    if (!roadTop || !roadLeft) {
+      return null;
+    }
+    const roadBottom = this.getOpenWorldMirroredTextureKey("ow-curb-h", "y");
+    const roadRight = this.getOpenWorldMirroredTextureKey("ow-curb-v", "x");
+    return roadBottom && roadRight ? { roadTop, roadBottom, roadLeft, roadRight } : null;
+  }
+
+  // Curb strips round a block: the gutter lies on the road, the curb top on the block's outer 6 px.
+  addOpenWorldCurbs(objects, block, clip, curbs) {
+    const { roadSide, top } = OPEN_WORLD_ASSET_CONFIG.curb;
+    const depth = OPEN_WORLD_CONFIG.depths.ground;
+    const strips = [
+      [{ left: block.left, right: block.right, top: block.top - roadSide, bottom: block.top + top }, curbs.roadTop, 0, block.top - roadSide],
+      [{ left: block.left, right: block.right, top: block.bottom - top, bottom: block.bottom + roadSide }, curbs.roadBottom, 0, block.bottom - top],
+      [{ left: block.left - roadSide, right: block.left + top, top: block.top, bottom: block.bottom }, curbs.roadLeft, block.left - roadSide, 0],
+      [{ left: block.right - top, right: block.right + roadSide, top: block.top, bottom: block.bottom }, curbs.roadRight, block.right - top, 0]
+    ];
+    strips.forEach(([rect, textureKey, originX, originY]) => this.addOpenWorldPattern(objects, rect, clip, null, {
+      textureKey, originX, originY, depth
+    }));
+  }
+
+  // Props inside a block and on its sidewalk corners, decided by the run seed.
+  addOpenWorldBlockProps(objects, type, ix, iy, block, inner, clip, reflections) {
+    const config = OPEN_WORLD_PROP_CONFIG;
+    const depths = config.depths;
+    const roll = (salt, n = 0) => this.getOpenWorldHash(salt, ix, iy, n);
+    const pick = (list, value) => list[Math.min(list.length - 1, Math.floor(value * list.length))];
+    const width = inner.right - inner.left;
+    const height = inner.bottom - inner.top;
+    const inside = (salt, margin = 80) => [
+      inner.left + margin + roll(salt) * Math.max(1, width - margin * 2),
+      inner.top + margin + roll(salt + 1) * Math.max(1, height - margin * 2)
+    ];
+    const add = (key, [x, y], options = {}) => this.addOpenWorldProp(objects, key, x, y, clip, options);
+
+    // Rubbish bags on some sidewalk corners.
+    [[block.left + 30, block.top + 30], [block.right - 30, block.top + 30], [block.left + 30, block.bottom - 30], [block.right - 30, block.bottom - 30]]
+      .forEach((corner, index) => {
+        if (roll(90, index) < config.cornerTrashChance) {
+          add("ow-prop-trash", corner);
+        }
+      });
+
+    if (type === "park") {
+      const count = Math.min(config.maxTrees, Math.floor((width * height) / config.treeArea));
+      for (let index = 0; index < count; index += 1) {
+        add(pick(config.trees, roll(91, index)), [
+          inner.left + 110 + roll(92, index) * Math.max(1, width - 220),
+          inner.top + 110 + roll(93, index) * Math.max(1, height - 220)
+        ], { depth: depths.tree });
       }
       return;
     }
-
-    this.addOpenWorldRect(objects, inner, clip, colors.lot);
-    for (let index = 0; index < 3; index += 1) {
-      const width = 120 + this.getOpenWorldHash(7, ix, iy, index) * 260;
-      const height = 80 + this.getOpenWorldHash(8, ix, iy, index) * 200;
-      const x = inner.left + this.getOpenWorldHash(9, ix, iy, index) * Math.max(1, inner.right - inner.left - width);
-      const y = inner.top + this.getOpenWorldHash(10, ix, iy, index) * Math.max(1, inner.bottom - inner.top - height);
-      this.addOpenWorldRect(objects, { left: x, top: y, right: x + width, bottom: y + height }, clip, 0x000000, 0.18, config.depths.detail);
+    if (type === "parking") {
+      // Cars left in the stalls of the parking tile (120 px stalls, rows 190 px deep, 480 px period).
+      const lotLeft = inner.left + 40;
+      const lotTop = inner.top + 40;
+      for (let period = 0; lotTop + period * 480 < inner.bottom; period += 1) {
+        [95, 385].forEach((rowCenter, row) => {
+          const y = lotTop + period * 480 + rowCenter;
+          for (let column = 0; lotLeft + column * 120 + 120 <= inner.right; column += 1) {
+            if (y + 90 > inner.bottom || roll(94, period * 512 + row * 256 + column) >= config.parkingCarChance) {
+              continue;
+            }
+            add(`${pick(config.cars, roll(95, period * 512 + row * 256 + column))}-v`, [lotLeft + column * 120 + 62.5, y]);
+          }
+        });
+      }
+      return;
+    }
+    if (type === "plaza") {
+      if (roll(96) < 0.3) {
+        add("ow-prop-debris-b", inside(97));
+      }
+      if (roll(99) < 0.25) {
+        add("ow-prop-puddle-a", inside(100), { depth: depths.decal, reflections });
+      }
+      return;
+    }
+    // Vacant lot: rubble heaps, a fallen sign, rubbish, a puddle.
+    if (roll(102) < 0.6) {
+      add("ow-prop-debris-d", inside(103, 160));
+    }
+    for (let index = 0; index < 2; index += 1) {
+      if (roll(105, index) < 0.5) {
+        add("ow-prop-debris-a", inside(106 + index * 2));
+      }
+    }
+    if (roll(110) < 0.4) {
+      add("ow-prop-debris-c", inside(111, 120));
+    }
+    if (roll(113) < 0.3) {
+      add("ow-prop-trash", inside(114));
+    }
+    if (roll(116) < 0.25) {
+      add("ow-prop-puddle-c", inside(117, 240), { depth: depths.decal, reflections });
     }
   }
 
@@ -43045,8 +43870,21 @@ class SurvivalScene extends Phaser.Scene {
       const markEnd = segmentEnd - gap - crossDepth - 36;
       if (markEnd > markStart) {
         const rect = along(markStart, markEnd);
-        this.addOpenWorldRect(objects, rect(road.start + inset, road.start + inset + lineWidth), clip, colors.edgeLine, 0.55, config.depths.detail);
-        this.addOpenWorldRect(objects, rect(road.end - inset - lineWidth, road.end - inset), clip, colors.edgeLine, 0.55, config.depths.detail);
+        const edgeKey = vertical ? "ow-edgeline-v" : "ow-edgeline-h";
+        if (this.resolveOpenWorldTextureKey(edgeKey, null)) {
+          // 8 px strips (a 6 px worn line with 1 px margins) over the runtime line positions.
+          [road.start + inset - 1, road.end - inset - lineWidth - 1].forEach((start) => {
+            this.addOpenWorldPattern(objects, rect(start, start + lineWidth + 2), clip, edgeKey, {
+              originX: vertical ? start : 0,
+              originY: vertical ? 0 : start,
+              tint: colors.edgeLine,
+              alpha: 0.8
+            });
+          });
+        } else {
+          this.addOpenWorldRect(objects, rect(road.start + inset, road.start + inset + lineWidth), clip, colors.edgeLine, 0.55, config.depths.detail);
+          this.addOpenWorldRect(objects, rect(road.end - inset - lineWidth, road.end - inset), clip, colors.edgeLine, 0.55, config.depths.detail);
+        }
         const dashKey = vertical ? "ow-dash-v" : "ow-dash-h";
         const dashLanes = road.arterial ? [road.center - road.width * 0.25, road.center + road.width * 0.25] : [road.center];
         dashLanes.forEach((laneCenter) => {
@@ -43088,6 +43926,8 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
+    // Above the night light layer so the warning colours stay readable.
+    const layer = this.stageCrosswalkLayer;
     const depth = config.depths.boundary;
     const outside = [
       { left: world.left, top: world.top, right: world.right, bottom: area.top },
@@ -43095,7 +43935,7 @@ class SurvivalScene extends Phaser.Scene {
       { left: world.left, top: area.top, right: area.left, bottom: area.bottom },
       { left: area.right, top: area.top, right: world.right, bottom: area.bottom }
     ];
-    outside.forEach((rect) => this.addOpenWorldRect(objects, rect, clip, colors.outside, config.outsideTintAlpha, depth));
+    outside.forEach((rect) => this.addOpenWorldRect(objects, rect, clip, colors.outside, config.outsideTintAlpha, depth, layer));
 
     const band = config.boundaryHazardWidth;
     const edges = [
@@ -43108,7 +43948,8 @@ class SurvivalScene extends Phaser.Scene {
       originX: index < 2 ? 0 : rect.left,
       originY: index < 2 ? rect.top : 0,
       alpha: 0.7,
-      depth
+      depth,
+      layer
     }));
     const lines = [
       { left: area.left, top: area.top - 3, right: area.right, bottom: area.top + 3 },
@@ -43116,7 +43957,7 @@ class SurvivalScene extends Phaser.Scene {
       { left: area.left - 3, top: area.top, right: area.left + 3, bottom: area.bottom },
       { left: area.right - 3, top: area.top, right: area.right + 3, bottom: area.bottom }
     ];
-    lines.forEach((rect) => this.addOpenWorldRect(objects, rect, clip, colors.boundary, 0.9, depth));
+    lines.forEach((rect) => this.addOpenWorldRect(objects, rect, clip, colors.boundary, 0.9, depth, layer));
   }
 
   updateOpenWorld(delta, finalRaidActive = false) {
@@ -43126,6 +43967,8 @@ class SurvivalScene extends Phaser.Scene {
 
     this.updateOpenWorldNoiseOverlay();
     this.updateOpenWorldChunks();
+    // The Final Raid field covers the city; its light map would only cost fill rate.
+    this.updateOpenWorldLighting(finalRaidActive);
     if (finalRaidActive) {
       this.setOpenWorldOutOfAreaHudVisible(false);
       return;
@@ -43441,14 +44284,34 @@ class SurvivalScene extends Phaser.Scene {
       return { active: false };
     }
     let objectCount = 0;
+    let lampCount = 0;
+    let litLampCount = 0;
+    let propCount = 0;
+    let reflectionCount = 0;
+    const propPrefix = this.getOpenWorldAssetTextureKey("ow-prop-");
     state.chunks.forEach((chunk) => {
       objectCount += chunk.objects.length;
+      lampCount += (chunk.lamps || []).length;
+      litLampCount += (chunk.lamps || []).filter((lamp) => lamp.lit).length;
+      reflectionCount += (chunk.reflections || []).length;
+      // Puddle water masks share the prop prefix; they are counted as reflections, not props.
+      propCount += chunk.objects.filter((object) => {
+        const key = String(object?.texture?.key || "");
+        return key.startsWith(propPrefix) && !key.endsWith("_water");
+      }).length;
     });
     return {
       active: true,
       seed: state.seed,
       chunkCount: state.chunks.size,
       objectCount,
+      assetKeys: this.getOpenWorldLoadedAssetKeys(),
+      lighting: Boolean(state.light),
+      lampCount,
+      litLampCount,
+      propCount,
+      reflectionCount,
+      drawnLampPools: state.light?.drawnPools ?? 0,
       outOfArea: state.outOfArea.active,
       outsideMs: state.outOfArea.outsideMs,
       outOfAreaTicks: state.outOfArea.ticks,
@@ -71694,7 +72557,7 @@ class SurvivalScene extends Phaser.Scene {
     }
     const player = this.playerHitbox?.active ? `${Math.round(this.playerHitbox.x)},${Math.round(this.playerHitbox.y)}` : "-";
     const gate = world.gateCenter ? `${world.gateCenter.x},${world.gateCenter.y}` : "-";
-    return `openWorld:ON chunks:${world.chunkCount} objs:${world.objectCount} pos:${player} area:${world.outOfArea ? `OUT ${(world.outsideMs / 1000).toFixed(1)}s x${world.outOfAreaTicks}` : "IN"} gate:${gate} recycled:${world.recycledEnemyCount}`;
+    return `openWorld:ON chunks:${world.chunkCount} objs:${world.objectCount} pos:${player} area:${world.outOfArea ? `OUT ${(world.outsideMs / 1000).toFixed(1)}s x${world.outOfAreaTicks}` : "IN"} gate:${gate} recycled:${world.recycledEnemyCount} assets:${world.assetKeys.length} light:${world.lighting ? `${world.drawnLampPools}/${world.lampCount}` : "OFF"} props:${world.propCount} refl:${world.reflectionCount}`;
   }
 
   formatAcCameraRigDebugHudLine() {

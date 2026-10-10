@@ -1,0 +1,620 @@
+{
+  "version": 1,
+  "scalePxPerMeter": 40.0,
+  "facadeVerticalScale": 0.5,
+  "blenderVersion": "5.2.2 LTS",
+  "assets": [
+    {
+      "key": "ow-asphalt-a",
+      "type": "tile",
+      "file": "ground/ow-asphalt-a.jpg",
+      "width": 1024,
+      "height": 1024,
+      "hash": "aed8a6c20666"
+    },
+    {
+      "key": "ow-asphalt-b",
+      "type": "tile",
+      "file": "ground/ow-asphalt-b.jpg",
+      "width": 1024,
+      "height": 1024,
+      "hash": "1bcf4cad4e2a"
+    },
+    {
+      "key": "ow-bld-a01",
+      "type": "building",
+      "footprint": [
+        768,
+        1024
+      ],
+      "floors": 6,
+      "roof": "buildings/ow-bld-a01-roof.png",
+      "roofEmit": "buildings/ow-bld-a01-roof_emit.png",
+      "south": "buildings/ow-bld-a01-south.png",
+      "southEmit": "buildings/ow-bld-a01-south_emit.png",
+      "southSize": [
+        768,
+        384
+      ],
+      "facadeFill": {
+        "strength": 1.005,
+        "southLumaBefore": 0.308,
+        "southLuma": 0.37,
+        "shopBandLumaBefore": 0.245,
+        "shopBandLuma": 0.31
+      },
+      "hash": "63fea1ddd3e6"
+    },
+    {
+      "key": "ow-curb-h",
+      "type": "tile",
+      "file": "ground/ow-curb-h.jpg",
+      "width": 1024,
+      "height": 16,
+      "roadSide": "top",
+      "hash": "63032b127f5f"
+    },
+    {
+      "key": "ow-curb-v",
+      "type": "tile",
+      "file": "ground/ow-curb-v.jpg",
+      "width": 16,
+      "height": 1024,
+      "roadSide": "left",
+      "hash": "17ea65c245dd"
+    },
+    {
+      "key": "ow-dash-h",
+      "type": "marking",
+      "file": "markings/ow-dash-h.png",
+      "width": 1920,
+      "height": 16,
+      "period": [
+        240,
+        16
+      ],
+      "hash": "da2a40ca2438"
+    },
+    {
+      "key": "ow-dash-v",
+      "type": "marking",
+      "file": "markings/ow-dash-v.png",
+      "width": 16,
+      "height": 1920,
+      "period": [
+        16,
+        240
+      ],
+      "hash": "78b663a4bd47"
+    },
+    {
+      "key": "ow-edgeline-h",
+      "type": "marking",
+      "file": "markings/ow-edgeline-h.png",
+      "width": 2048,
+      "height": 8,
+      "period": [
+        2048,
+        8
+      ],
+      "hash": "68ac83488d24"
+    },
+    {
+      "key": "ow-edgeline-v",
+      "type": "marking",
+      "file": "markings/ow-edgeline-v.png",
+      "width": 8,
+      "height": 2048,
+      "period": [
+        8,
+        2048
+      ],
+      "hash": "dc0d17f6e990"
+    },
+    {
+      "key": "ow-grit",
+      "type": "tile",
+      "file": "ground/ow-grit.png",
+      "width": 512,
+      "height": 512,
+      "transparent": true,
+      "hash": "088c0c4ca2ed"
+    },
+    {
+      "key": "ow-lot",
+      "type": "tile",
+      "file": "ground/ow-lot.jpg",
+      "width": 1024,
+      "height": 1024,
+      "hash": "20f30a31ebbb"
+    },
+    {
+      "key": "ow-park",
+      "type": "tile",
+      "file": "ground/ow-park.jpg",
+      "width": 1024,
+      "height": 1024,
+      "hash": "f8539b116cad"
+    },
+    {
+      "key": "ow-parking",
+      "type": "tile",
+      "file": "ground/ow-parking.jpg",
+      "width": 960,
+      "height": 960,
+      "period": [
+        120,
+        480
+      ],
+      "hash": "508134c40cae"
+    },
+    {
+      "key": "ow-plaza",
+      "type": "tile",
+      "file": "ground/ow-plaza.jpg",
+      "width": 1024,
+      "height": 1024,
+      "hash": "a54cf2026553"
+    },
+    {
+      "key": "ow-prop-barricade-h",
+      "type": "prop",
+      "file": "props/ow-prop-barricade-h.png",
+      "width": 176,
+      "height": 56,
+      "origin": [
+        0.5,
+        0.5
+      ],
+      "footprint": [
+        148,
+        32
+      ],
+      "decal": false,
+      "hash": "a33ffa6e6d3b"
+    },
+    {
+      "key": "ow-prop-barricade-v",
+      "type": "prop",
+      "file": "props/ow-prop-barricade-v.png",
+      "width": 56,
+      "height": 176,
+      "origin": [
+        0.5,
+        0.5
+      ],
+      "footprint": [
+        32,
+        148
+      ],
+      "decal": false,
+      "hash": "48a4acdb08a8"
+    },
+    {
+      "key": "ow-prop-car-a-h",
+      "type": "prop",
+      "file": "props/ow-prop-car-a-h.png",
+      "width": 196,
+      "height": 92,
+      "origin": [
+        0.5,
+        0.5
+      ],
+      "footprint": [
+        172,
+        68
+      ],
+      "decal": false,
+      "hash": "2129b4af457d"
+    },
+    {
+      "key": "ow-prop-car-a-v",
+      "type": "prop",
+      "file": "props/ow-prop-car-a-v.png",
+      "width": 92,
+      "height": 196,
+      "origin": [
+        0.5,
+        0.5
+      ],
+      "footprint": [
+        68,
+        172
+      ],
+      "decal": false,
+      "hash": "2c0f6d2ee401"
+    },
+    {
+      "key": "ow-prop-car-b-h",
+      "type": "prop",
+      "file": "props/ow-prop-car-b-h.png",
+      "width": 196,
+      "height": 92,
+      "origin": [
+        0.5,
+        0.5
+      ],
+      "footprint": [
+        136,
+        60
+      ],
+      "decal": false,
+      "hash": "a208dd9c4ae3"
+    },
+    {
+      "key": "ow-prop-car-b-v",
+      "type": "prop",
+      "file": "props/ow-prop-car-b-v.png",
+      "width": 92,
+      "height": 196,
+      "origin": [
+        0.5,
+        0.5
+      ],
+      "footprint": [
+        60,
+        136
+      ],
+      "decal": false,
+      "hash": "ebeef4d790c5"
+    },
+    {
+      "key": "ow-prop-car-c-h",
+      "type": "prop",
+      "file": "props/ow-prop-car-c-h.png",
+      "width": 196,
+      "height": 92,
+      "origin": [
+        0.5,
+        0.5
+      ],
+      "footprint": [
+        172,
+        68
+      ],
+      "decal": false,
+      "hash": "d5fed7eb01d2"
+    },
+    {
+      "key": "ow-prop-car-c-v",
+      "type": "prop",
+      "file": "props/ow-prop-car-c-v.png",
+      "width": 92,
+      "height": 196,
+      "origin": [
+        0.5,
+        0.5
+      ],
+      "footprint": [
+        68,
+        172
+      ],
+      "decal": false,
+      "hash": "38726603e1c6"
+    },
+    {
+      "key": "ow-prop-crack-a",
+      "type": "prop",
+      "file": "props/ow-prop-crack-a.png",
+      "width": 256,
+      "height": 256,
+      "origin": [
+        0.5,
+        0.5
+      ],
+      "footprint": [
+        236,
+        236
+      ],
+      "decal": true,
+      "hash": "ee0de108a28d"
+    },
+    {
+      "key": "ow-prop-crack-b",
+      "type": "prop",
+      "file": "props/ow-prop-crack-b.png",
+      "width": 384,
+      "height": 384,
+      "origin": [
+        0.5,
+        0.5
+      ],
+      "footprint": [
+        350,
+        350
+      ],
+      "decal": true,
+      "hash": "d1b0e85aa8f3"
+    },
+    {
+      "key": "ow-prop-crack-c",
+      "type": "prop",
+      "file": "props/ow-prop-crack-c.png",
+      "width": 512,
+      "height": 512,
+      "origin": [
+        0.5,
+        0.5
+      ],
+      "footprint": [
+        440,
+        440
+      ],
+      "decal": true,
+      "hash": "7fb6459f0b0f"
+    },
+    {
+      "key": "ow-prop-debris-a",
+      "type": "prop",
+      "file": "props/ow-prop-debris-a.png",
+      "width": 96,
+      "height": 96,
+      "origin": [
+        0.5,
+        0.5
+      ],
+      "footprint": [
+        80,
+        80
+      ],
+      "decal": false,
+      "hash": "30cfda20515d"
+    },
+    {
+      "key": "ow-prop-debris-b",
+      "type": "prop",
+      "file": "props/ow-prop-debris-b.png",
+      "width": 160,
+      "height": 160,
+      "origin": [
+        0.5,
+        0.5
+      ],
+      "footprint": [
+        140,
+        140
+      ],
+      "decal": false,
+      "hash": "009412ed1eeb"
+    },
+    {
+      "key": "ow-prop-debris-c",
+      "type": "prop",
+      "file": "props/ow-prop-debris-c.png",
+      "width": 192,
+      "height": 128,
+      "origin": [
+        0.5,
+        0.5
+      ],
+      "footprint": [
+        176,
+        104
+      ],
+      "decal": false,
+      "hash": "7a2fc7111e8f"
+    },
+    {
+      "key": "ow-prop-debris-d",
+      "type": "prop",
+      "file": "props/ow-prop-debris-d.png",
+      "width": 256,
+      "height": 256,
+      "origin": [
+        0.5,
+        0.5
+      ],
+      "footprint": [
+        224,
+        224
+      ],
+      "decal": false,
+      "hash": "1d94d536ac49"
+    },
+    {
+      "key": "ow-prop-drain",
+      "type": "prop",
+      "file": "props/ow-prop-drain.png",
+      "width": 48,
+      "height": 96,
+      "origin": [
+        0.5,
+        0.5
+      ],
+      "footprint": [
+        36,
+        88
+      ],
+      "decal": true,
+      "hash": "d9e428969e84"
+    },
+    {
+      "key": "ow-prop-lamp",
+      "type": "prop",
+      "file": "props/ow-prop-lamp.png",
+      "width": 48,
+      "height": 48,
+      "origin": [
+        0.5,
+        0.5
+      ],
+      "footprint": [
+        30,
+        14
+      ],
+      "decal": false,
+      "hash": "79a095b7f9ed"
+    },
+    {
+      "key": "ow-prop-manhole",
+      "type": "prop",
+      "file": "props/ow-prop-manhole.png",
+      "width": 72,
+      "height": 72,
+      "origin": [
+        0.5,
+        0.5
+      ],
+      "footprint": [
+        64,
+        64
+      ],
+      "decal": true,
+      "hash": "4d59a70d38ef"
+    },
+    {
+      "key": "ow-prop-puddle-a",
+      "type": "prop",
+      "file": "props/ow-prop-puddle-a.png",
+      "width": 192,
+      "height": 144,
+      "origin": [
+        0.5,
+        0.5
+      ],
+      "footprint": [
+        160,
+        116
+      ],
+      "decal": true,
+      "water": "props/ow-prop-puddle-a_water.png",
+      "hash": "bc3c50fa21dd"
+    },
+    {
+      "key": "ow-prop-puddle-b",
+      "type": "prop",
+      "file": "props/ow-prop-puddle-b.png",
+      "width": 320,
+      "height": 224,
+      "origin": [
+        0.5,
+        0.5
+      ],
+      "footprint": [
+        270,
+        180
+      ],
+      "decal": true,
+      "water": "props/ow-prop-puddle-b_water.png",
+      "hash": "5f2f7edbde1b"
+    },
+    {
+      "key": "ow-prop-puddle-c",
+      "type": "prop",
+      "file": "props/ow-prop-puddle-c.png",
+      "width": 448,
+      "height": 288,
+      "origin": [
+        0.5,
+        0.5
+      ],
+      "footprint": [
+        380,
+        240
+      ],
+      "decal": true,
+      "water": "props/ow-prop-puddle-c_water.png",
+      "hash": "ba87a2471f7e"
+    },
+    {
+      "key": "ow-prop-trash",
+      "type": "prop",
+      "file": "props/ow-prop-trash.png",
+      "width": 96,
+      "height": 96,
+      "origin": [
+        0.5,
+        0.5
+      ],
+      "footprint": [
+        80,
+        76
+      ],
+      "decal": false,
+      "hash": "23d2756c5540"
+    },
+    {
+      "key": "ow-prop-tree-a",
+      "type": "prop",
+      "file": "props/ow-prop-tree-a.png",
+      "width": 192,
+      "height": 192,
+      "origin": [
+        0.5,
+        0.5
+      ],
+      "footprint": [
+        176,
+        176
+      ],
+      "decal": false,
+      "hash": "077e52112c29"
+    },
+    {
+      "key": "ow-prop-tree-b",
+      "type": "prop",
+      "file": "props/ow-prop-tree-b.png",
+      "width": 224,
+      "height": 224,
+      "origin": [
+        0.5,
+        0.5
+      ],
+      "footprint": [
+        204,
+        204
+      ],
+      "decal": false,
+      "hash": "e3422cc915f0"
+    },
+    {
+      "key": "ow-prop-tree-c",
+      "type": "prop",
+      "file": "props/ow-prop-tree-c.png",
+      "width": 256,
+      "height": 256,
+      "origin": [
+        0.5,
+        0.5
+      ],
+      "footprint": [
+        236,
+        236
+      ],
+      "decal": false,
+      "hash": "3889be282dd9"
+    },
+    {
+      "key": "ow-sidewalk",
+      "type": "tile",
+      "file": "ground/ow-sidewalk.jpg",
+      "width": 512,
+      "height": 512,
+      "hash": "b75a9c7a25f3"
+    },
+    {
+      "key": "ow-zebra-h",
+      "type": "marking",
+      "file": "markings/ow-zebra-h.png",
+      "width": 150,
+      "height": 704,
+      "period": [
+        150,
+        64
+      ],
+      "hash": "9fce9f595d72"
+    },
+    {
+      "key": "ow-zebra-v",
+      "type": "marking",
+      "file": "markings/ow-zebra-v.png",
+      "width": 704,
+      "height": 150,
+      "period": [
+        64,
+        150
+      ],
+      "hash": "0b421b32cd57"
+    }
+  ]
+}
