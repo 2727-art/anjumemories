@@ -11,3 +11,11 @@ node_modules/**
 .codex-remote-attachments/**
 .tmp_*
 .tmp_*/**
+
+# Asset pipeline sources (WORLD_DESIGN.md section 6) are not runtime assets.
+tools
+tools/**
+asset-src
+asset-src/**
+*.blend
+*.blend1
