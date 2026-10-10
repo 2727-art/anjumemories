@@ -14,6 +14,7 @@ All randomness comes from the building seed, so a rebuild gives the same images.
 import math
 import os
 import random
+import tempfile
 
 import bmesh
 import bpy
@@ -33,6 +34,18 @@ WINDOW_H = 1.45
 SILL_ABOVE_FLOOR = 0.85
 SHELL_DEPTH = 0.25  # facade wall thickness
 ROOM_DEPTH = 3.0  # interior visible through windows ends here (y)
+# The north-west key light (ow_common.LIGHT) never reaches a south facade, so the facade render adds a
+# soft, low fill from the south (2026-10-10 decision, WORLD_DESIGN.md 6.5). Only the facade render uses
+# it; the roof render and the ground tiles keep the plain sky + key light. The strength is solved per
+# building so the facade's mean sRGB luma hits the target.
+FACADE_FILL = {
+    "azimuth_deg": 180.0,  # from the street side (south)
+    "elevation_deg": 20.0,
+    "angle_deg": 45.0,  # very soft, no hard shadow edges
+    "target_luma": 0.37,  # mean sRGB luma of the south image (spec 0.36-0.38)
+    "shop_band_min": 0.30,  # mean of the bottom 64 px (ground-floor shops)
+    "calibration_samples": 64,
+}
 WINDOW_STATES = [("dark", 0.40), ("blinds", 0.16), ("curtain", 0.08), ("broken", 0.14), ("boarded", 0.10), ("lit", 0.12)]
 
 COLORS = {
@@ -748,13 +761,18 @@ def build(key, out_root, samples_scale=1.0):
     facade_h_px = int(round(builder.H * ow.PX_PER_M * ow.FACADE_K))
     ow.setup_render(scene, fw, facade_h_px, samples=samples, pixel_aspect_y=1.0 / ow.FACADE_K)
     ow.add_ortho_camera_south(scene, 0.0, 0.0, builder.W, builder.H)
+    fill = ow.add_directional_light(scene, "ow_facade_fill", 0.0, FACADE_FILL["azimuth_deg"],
+                                    FACADE_FILL["elevation_deg"], FACADE_FILL["angle_deg"])
+    exclude_upper_rooms_from_fill(scene, builder, fill)
+    fill_stats = calibrate_facade_fill(scene, fill, key)
     files["south"] = f"buildings/{key}-south.png"
     files["southEmit"] = f"buildings/{key}-south_emit.png"
     ow.save_blend(os.path.join(ow.WORK_DIR, f"{key}.blend"))
     ow.render_still(scene, os.path.join(out_root, files["south"]), "PNG")
     builder.emit.render(scene, os.path.join(out_root, files["southEmit"]))
 
-    # Roof: top-down over the footprint.
+    # Roof: top-down over the footprint, without the facade fill.
+    fill.hide_render = True
     ow.setup_render(scene, fw, fd, samples=samples)
     ow.add_ortho_camera_top(scene, 0.0, 0.0, builder.W, builder.D)
     files["roof"] = f"buildings/{key}-roof.png"
@@ -767,4 +785,78 @@ def build(key, out_root, samples_scale=1.0):
         "roof": files["roof"], "roofEmit": files["roofEmit"],
         "south": files["south"], "southEmit": files["southEmit"],
         "southSize": [fw, facade_h_px],
+        "facadeFill": fill_stats,
     }]
+
+
+def exclude_upper_rooms_from_fill(scene, builder, fill):
+    """Keep the office rooms behind the upper windows dark: the fill stands for light bouncing off the
+    street, which lights the wall but not the depth of the rooms. Ground-floor shops stay lit. Glass is
+    excluded too, or it mirrors the low fill and every window turns grey."""
+    interior = {builder.mats["interior"].name, builder.mats["interior_dark"].name, builder.mats["floor_slab"].name}
+    collection = bpy.data.collections.new("ow_facade_fill_exclude")
+    for obj in scene.objects:
+        if obj.name in builder.emit.glass:
+            collection.objects.link(obj)
+            continue
+        if obj.type != "MESH" or not obj.data.materials or obj.data.materials[0] is None:
+            continue
+        if obj.data.materials[0].name not in interior:
+            continue
+        lowest = min(v.co.z for v in obj.data.vertices)
+        if obj.name == "room_back" or lowest >= GROUND_FLOOR_M - 0.25:
+            collection.objects.link(obj)
+    fill.light_linking.receiver_collection = collection
+    for item in collection.collection_objects:
+        item.light_linking.link_state = "EXCLUDE"  # everything else still receives the fill
+    print(f"[facade fill] {len(collection.objects)} glass and upper-floor room objects excluded from the fill")
+
+
+def calibrate_facade_fill(scene, fill, key):
+    """Solve the fill strength for the facade's target mean luma from two linear renders.
+
+    Light transport is linear, so image(s) = base + s * fill_only. The base render has the fill off;
+    the fill-only render has the sky and key light off and the fill at strength 1.
+    """
+    tmp = os.path.join(tempfile.gettempdir(), "ow_fill")
+    cycles = scene.cycles
+    saved = (cycles.samples, cycles.use_denoising)
+    cycles.samples = FACADE_FILL["calibration_samples"]
+    cycles.use_denoising = False
+    world = scene.world.node_tree.nodes["Background"].inputs["Strength"]
+    sky = world.default_value
+    others = [obj for obj in scene.objects if obj.type == "LIGHT" and obj is not fill]
+
+    fill.data.energy = 0.0
+    base = ow.read_linear(ow.render_still(scene, tmp + "_base.exr", "EXR"))
+    fill.data.energy = 1.0
+    world.default_value = 0.0
+    for obj in others:
+        obj.hide_render = True
+    unit = ow.read_linear(ow.render_still(scene, tmp + "_unit.exr", "EXR"))
+    world.default_value = sky
+    for obj in others:
+        obj.hide_render = False
+    cycles.samples, cycles.use_denoising = saved
+
+    def luma(strength, rows=slice(None)):
+        return float(ow.srgb_luma(ow.linear_to_srgb(base[rows] + strength * unit[rows])).mean())
+
+    low, high = 0.0, 50.0
+    for _ in range(40):
+        mid = (low + high) / 2.0
+        low, high = (mid, high) if luma(mid) < FACADE_FILL["target_luma"] else (low, mid)
+    strength = (low + high) / 2.0
+    band = slice(-64, None)  # bottom 64 px = the ground-floor shops
+    stats = {
+        "strength": round(strength, 3),
+        "southLumaBefore": round(luma(0.0), 3),
+        "southLuma": round(luma(strength), 3),
+        "shopBandLumaBefore": round(luma(0.0, band), 3),
+        "shopBandLuma": round(luma(strength, band), 3),
+    }
+    fill.data.energy = strength
+    print(f"[facade fill] {key}: {stats}")
+    if stats["shopBandLuma"] < FACADE_FILL["shop_band_min"]:
+        print(f"[facade fill] WARNING {key}: shop band {stats['shopBandLuma']} < {FACADE_FILL['shop_band_min']}")
+    return stats

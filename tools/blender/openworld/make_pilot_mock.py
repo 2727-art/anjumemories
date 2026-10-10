@@ -301,7 +301,7 @@ def sheet(panels, notes):
 
 
 def main():
-    with open(os.path.join(PREVIEW, "pilot-manifest.json"), encoding="utf-8") as handle:
+    with open(os.path.join(PREVIEW, "build-manifest.json"), encoding="utf-8") as handle:
         manifest = {a["key"]: a for a in json.load(handle)["assets"]}
     tex = {}
     for key in ("ow-asphalt-a", "ow-sidewalk", "ow-dash-v", "ow-dash-h", "ow-zebra-v", "ow-zebra-h"):

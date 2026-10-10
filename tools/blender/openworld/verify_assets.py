@@ -5,8 +5,9 @@
 
 Checks: files exist, sizes match the manifest, opaque/transparent as expected, no duplicate keys,
 2048 px limit, formats (JPG tiles / PNG otherwise), ground tile brightness, seams of repeating tiles
-(and writes 2x2 previews to preview/), road-marking layout to the pixel, file-size and GPU budgets,
-and the "hash" of each asset when the manifest has one (publish_manifest.py). Exit code 1 if any check fails.
+(and writes 2x2 previews to preview/), road-marking layout to the pixel, props (transparent border,
+origin, footprint), building brightness (6.5), file-size and GPU budgets, and the "hash" of each asset
+when the manifest has one (publish_manifest.py). Exit code 1 if any check fails.
 """
 
 import argparse
@@ -33,10 +34,17 @@ BUDGET_BUILDINGS_MB = 20.0
 BUDGET_GPU_MB = 96.0
 GROUND_LUMA = (0.35, 0.45)
 SEAM_RATIO_LIMIT = 1.6
+PROP_BORDER_ALPHA_MAX = 8  # of 255: sprites must fade out before their edge
+# Building brightness (WORLD_DESIGN.md 6.5): mean sRGB luma of the south facade, its ground-floor
+# shop band (bottom 64 px) and the roof.
+FACADE_LUMA = (0.36, 0.38)
+SHOP_BAND_LUMA_MIN = 0.30
+ROOF_LUMA = (0.40, 0.50)
 
 # Layout of the runtime textures in game.js (ensureOpenWorldTextures), in pixels.
 DASH = {"period": 240, "on": 120, "margin": 3, "width": 10}
 ZEBRA = {"period": 64, "on": 34}
+EDGE = {"margin": 1, "width": 6}
 
 
 class Report:
@@ -77,12 +85,34 @@ def seam_ratio(array, axis):
     return float(edge / max(inner, 1e-6))
 
 
+def seamless(array, axis):
+    """True when the wrap-around step looks like an ordinary step inside the tile.
+
+    Plain textures pass on the mean-step ratio. Patterned tiles whose lines start at pixel 0 (parking
+    stall lines, curb joints) have a large step at the wrap by design; they pass when that step is no
+    larger than the steps the same pattern makes inside the tile (top 0.5 % of column/row steps).
+    """
+    a = array.astype(np.float32)
+    steps = np.abs(np.diff(a, axis=axis)).mean(axis=0 if axis == 1 else 1)
+    edge = float(np.abs(a[:, 0] - a[:, -1]).mean() if axis == 1 else np.abs(a[0] - a[-1]).mean())
+    ratio = edge / max(float(steps.mean()), 1e-6)
+    structural = float(np.percentile(steps, 99.5))
+    return ratio < SEAM_RATIO_LIMIT or edge <= structural * 1.15, ratio
+
+
 def tile_preview(image, key):
+    """2x2 copies of the tile; large tiles are halved so preview/ stays small."""
     w, h = image.size
+    if image.mode == "RGBA":
+        backdrop = Image.new("RGBA", image.size, (118, 120, 124, 255))
+        backdrop.alpha_composite(image)
+        image = backdrop
     sheet = Image.new("RGB", (w * 2, h * 2))
     for i in range(2):
         for j in range(2):
             sheet.paste(image.convert("RGB"), (i * w, j * h))
+    if w * 2 > 1024:
+        sheet = sheet.resize((w, h), Image.LANCZOS)
     path = os.path.join(PREVIEW_DIR, f"tile-{key}-2x2.jpg")
     sheet.save(path, quality=88)
     return path
@@ -91,6 +121,9 @@ def tile_preview(image, key):
 def expected_marking_mask(key, width, height):
     ys, xs = np.mgrid[0:height, 0:width]
     vertical = key.endswith("-v")
+    if key.startswith("ow-edgeline"):
+        along, across = (ys, xs) if vertical else (xs, ys)
+        return (across >= EDGE["margin"]) & (across < EDGE["margin"] + EDGE["width"]), along
     if key.startswith("ow-dash"):
         along, across = (ys, xs) if vertical else (xs, ys)
         on = (along % DASH["period"]) < DASH["on"]
@@ -114,6 +147,14 @@ def check_marking(report, key, image):
         report.ok(f"{key}: painted area mean alpha {inside_mean:.2f}")
     else:
         report.fail(f"{key}: painted area too faint (mean alpha {inside_mean:.2f})")
+    if key.startswith("ow-edgeline"):
+        # A continuous line: almost every position along it has some paint, and it tiles.
+        axis = 1 if key.endswith("-v") else 0
+        covered = float((alpha.max(axis=axis) > 0).mean())
+        ratio = seam_ratio(alpha, 0 if key.endswith("-v") else 1)
+        (report.ok if covered > 0.95 else report.fail)(f"{key}: paint along {covered * 100:.1f}% of the length")
+        (report.ok if ratio < SEAM_RATIO_LIMIT else report.fail)(f"{key}: seamless along its length (edge/inner step ratio {ratio:.2f})")
+        return
     # Every dash / bar must be present, starting at pixel 0.
     period = DASH["period"] if key.startswith("ow-dash") else ZEBRA["period"]
     on = DASH["on"] if key.startswith("ow-dash") else ZEBRA["on"]
@@ -137,9 +178,9 @@ def check_marking(report, key, image):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--manifest", default=os.path.join(PREVIEW_DIR, "pilot-manifest.json"))
+    parser.add_argument("--manifest", default=os.path.join(PREVIEW_DIR, "build-manifest.json"))
     parser.add_argument("--root", default=DEFAULT_ROOT)
-    parser.add_argument("--out", default=os.path.join(PREVIEW_DIR, "pilot-verify.txt"))
+    parser.add_argument("--out", default=os.path.join(PREVIEW_DIR, "build-verify.txt"))
     args = parser.parse_args()
 
     with open(args.manifest, encoding="utf-8") as handle:
@@ -187,31 +228,71 @@ def main():
     for asset in manifest["assets"]:
         key, kind = asset["key"], asset["type"]
         if kind == "tile":
-            image = check_file(key, asset["file"], (asset["width"], asset["height"]), False, "ground", "JPEG")
+            transparent = bool(asset.get("transparent"))
+            image = check_file(key, asset["file"], (asset["width"], asset["height"]), transparent, "ground", "PNG" if transparent else "JPEG")
             if image is None:
                 continue
+            w, h = image.size
+            strip = min(w, h) < 64  # curbs: repeat along their length only
             rgb = np.asarray(image.convert("RGB")).astype(np.float32) / 255.0
-            mean = float(luma(rgb).mean())
-            if GROUND_LUMA[0] <= mean <= GROUND_LUMA[1]:
-                report.ok(f"{key}: mean sRGB luma {mean:.3f}")
-            else:
-                report.fail(f"{key}: mean sRGB luma {mean:.3f} outside {GROUND_LUMA}")
             gray = luma(rgb)
-            rx, ry = seam_ratio(gray, 1), seam_ratio(gray, 0)
-            if rx < SEAM_RATIO_LIMIT and ry < SEAM_RATIO_LIMIT:
-                report.ok(f"{key}: seamless (edge/inner step ratio x {rx:.2f}, y {ry:.2f})")
+            if transparent:
+                gray = np.asarray(image.getchannel("A")).astype(np.float32) / 255.0
+            elif not strip:
+                mean = float(gray.mean())
+                if GROUND_LUMA[0] <= mean <= GROUND_LUMA[1]:
+                    report.ok(f"{key}: mean sRGB luma {mean:.3f}")
+                else:
+                    report.fail(f"{key}: mean sRGB luma {mean:.3f} outside {GROUND_LUMA}")
+            axes = [1 if w > h else 0] if strip else [1, 0]
+            checks = {("x" if axis == 1 else "y"): seamless(gray, axis) for axis in axes}
+            text = ", ".join(f"{name} {ratio:.2f}{'' if ratio < SEAM_RATIO_LIMIT else ' (pattern edge)'}" for name, (_, ratio) in checks.items())
+            if all(ok for ok, _ in checks.values()):
+                report.ok(f"{key}: seamless (edge/inner step ratio {text})")
             else:
-                report.fail(f"{key}: visible seam (edge/inner step ratio x {rx:.2f}, y {ry:.2f})")
-            report.ok(f"{key}: 2x2 preview {os.path.relpath(tile_preview(image, key), REPO_ROOT)}")
+                report.fail(f"{key}: visible seam (edge/inner step ratio {text})")
+            if not strip:
+                report.ok(f"{key}: 2x2 preview {os.path.relpath(tile_preview(image, key), REPO_ROOT)}")
         elif kind == "marking":
             image = check_file(key, asset["file"], (asset["width"], asset["height"]), True, "ground", "PNG")
             if image is not None:
                 check_marking(report, key, image)
+        elif kind == "prop":
+            image = check_file(key, asset["file"], (asset["width"], asset["height"]), True, "ground", "PNG")
+            if image is None:
+                continue
+            alpha = np.asarray(image.getchannel("A"))
+            border = int(max(alpha[0].max(), alpha[-1].max(), alpha[:, 0].max(), alpha[:, -1].max()))
+            (report.ok if border <= PROP_BORDER_ALPHA_MAX else report.fail)(f"{key}: border alpha max {border}/255 (limit {PROP_BORDER_ALPHA_MAX})")
+            if asset.get("water"):
+                mask = check_file(key, asset["water"], (asset["width"], asset["height"]), True, "ground", "PNG")
+                if mask is not None:
+                    water = np.asarray(mask.getchannel("A")).astype(np.float32) / 255.0
+                    edge = float(max(water[0].max(), water[-1].max(), water[:, 0].max(), water[:, -1].max()))
+                    outside = float((water[alpha < 26] > 0.1).mean()) if (alpha < 26).any() else 0.0
+                    ok = water.max() > 0.5 and edge <= PROP_BORDER_ALPHA_MAX / 255.0 and outside < 0.001
+                    (report.ok if ok else report.fail)(
+                        f"{key}: water mask covers {float((water > 0.5).mean()) * 100:.1f}% of the sprite, inside the puddle, clear border")
+            ox, oy = asset.get("origin", [0.5, 0.5])
+            fw, fh = asset.get("footprint", [asset["width"], asset["height"]])
+            ok = 0.0 <= ox <= 1.0 and 0.0 <= oy <= 1.0 and 0 < fw <= asset["width"] and 0 < fh <= asset["height"]
+            (report.ok if ok else report.fail)(f"{key}: origin [{ox}, {oy}], footprint {fw}x{fh}")
         elif kind == "building":
             fw, fd = asset["footprint"]
             south_size = (fw, asset["floors"] * 64)
-            check_file(key, asset["roof"], (fw, fd), False, "buildings", "PNG")
-            check_file(key, asset["south"], south_size, False, "buildings", "PNG")
+            roof = check_file(key, asset["roof"], (fw, fd), False, "buildings", "PNG")
+            south = check_file(key, asset["south"], south_size, False, "buildings", "PNG")
+            if roof is not None and south is not None:
+                roof_luma = float(luma(np.asarray(roof.convert("RGB")).astype(np.float32) / 255.0).mean())
+                south_rgb = np.asarray(south.convert("RGB")).astype(np.float32) / 255.0
+                south_luma = float(luma(south_rgb).mean())
+                band_luma = float(luma(south_rgb[-64:]).mean())
+                (report.ok if FACADE_LUMA[0] <= south_luma <= FACADE_LUMA[1] else report.fail)(
+                    f"{key}: south facade mean sRGB luma {south_luma:.3f} (target {FACADE_LUMA[0]}-{FACADE_LUMA[1]})")
+                (report.ok if band_luma >= SHOP_BAND_LUMA_MIN else report.fail)(
+                    f"{key}: shop band (bottom 64 px) luma {band_luma:.3f} (min {SHOP_BAND_LUMA_MIN})")
+                (report.ok if ROOF_LUMA[0] <= roof_luma <= ROOF_LUMA[1] else report.fail)(
+                    f"{key}: roof mean sRGB luma {roof_luma:.3f} (target {ROOF_LUMA[0]}-{ROOF_LUMA[1]})")
             if asset.get("roofEmit"):
                 check_file(key, asset["roofEmit"], (fw, fd), True, "buildings", "PNG")
             if asset.get("southEmit"):

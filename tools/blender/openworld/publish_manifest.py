@@ -1,9 +1,10 @@
 """Publish approved assets to 画像/openworld/manifest.json, the file the game reads (WORLD_DESIGN.md 6.7).
 
-    python tools/blender/openworld/publish_manifest.py --exclude ow-bld-a01
+    python tools/blender/openworld/publish_manifest.py
+    python tools/blender/openworld/publish_manifest.py --exclude ow-bld-a01   # leave unapproved keys out
     python tools/blender/openworld/publish_manifest.py --only ow-asphalt-a,ow-sidewalk
 
-Standard library only. Reads the manifest written by build_all.py (default: preview/pilot-manifest.json),
+Standard library only. Reads the manifest written by build_all.py (default: preview/build-manifest.json),
 keeps the approved keys and adds "hash" to each asset: the first 12 hex digits of the SHA-256 of its
 files. The game requests every file as <file>?v=<hash>, so re-rendered images reach players even though
 画像/* is served with an immutable cache header (_headers). The manifest itself is requested with a
@@ -22,13 +23,14 @@ REPO_ROOT = os.path.normpath(os.path.join(HERE, "..", "..", ".."))
 DEFAULT_ROOT = os.path.join(REPO_ROOT, "画像", "openworld")
 HASH_LENGTH = 12
 BUILDING_FILE_FIELDS = ("roof", "roofEmit", "south", "southEmit")
+PROP_EXTRA_FIELDS = ("water",)  # optional companion images of a prop, hashed after its "file"
 
 
 def asset_files(asset):
     """Files of one manifest entry, relative to the asset root, in a fixed order."""
     if asset.get("type") == "building":
         return [asset[field] for field in BUILDING_FILE_FIELDS if asset.get(field)]
-    return [asset["file"]]
+    return [asset["file"]] + [asset[field] for field in PROP_EXTRA_FIELDS if asset.get(field)]
 
 
 def asset_hash(root, asset):
@@ -45,7 +47,7 @@ def split_keys(text):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source", default=os.path.join(HERE, "preview", "pilot-manifest.json"))
+    parser.add_argument("--source", default=os.path.join(HERE, "preview", "build-manifest.json"))
     parser.add_argument("--root", default=DEFAULT_ROOT)
     parser.add_argument("--out", default=os.path.join(DEFAULT_ROOT, "manifest.json"))
     parser.add_argument("--only", default="", help="publish only these keys (comma separated)")

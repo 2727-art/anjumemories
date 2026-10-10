@@ -17,10 +17,14 @@ MARKINGS = {
     # 34 px bar + 30 px gap (64 px period), 11 times. Bars run along the road; starts at the left/top.
     "ow-zebra-v": {"size": (704, 150), "file": "markings/ow-zebra-v.png", "kind": "zebra", "along": "y", "period": [64, 150], "seed": 23.0},
     "ow-zebra-h": {"size": (150, 704), "file": "markings/ow-zebra-h.png", "kind": "zebra", "along": "x", "period": [150, 64], "seed": 24.0},
+    # Road edge line (new): continuous, 6 px wide with 1 px margins, repeats every 2048 px.
+    "ow-edgeline-v": {"size": (8, 2048), "file": "markings/ow-edgeline-v.png", "kind": "edge", "along": "y", "period": [8, 2048], "seed": 25.0},
+    "ow-edgeline-h": {"size": (2048, 8), "file": "markings/ow-edgeline-h.png", "kind": "edge", "along": "x", "period": [2048, 8], "seed": 26.0},
 }
 
 DASH = {"period": 240, "on": 120, "margin": 3, "width": 10}
 ZEBRA = {"period": 64, "on": 34}
+EDGE = {"margin": 1, "width": 6}
 PAINT_ALPHA = 0.93
 PAINT_COLOR = (0.86, 0.86, 0.84)
 
@@ -39,6 +43,8 @@ def paint_mask(nb, spec, px, py):
         on = _between(nb, nb.math("MODULO", along, DASH["period"]), 0.0, DASH["on"])
         inside = _between(nb, across, DASH["margin"], DASH["margin"] + DASH["width"])
         return nb.mul(on, inside)
+    if spec["kind"] == "edge":
+        return _between(nb, across, EDGE["margin"], EDGE["margin"] + EDGE["width"])
     return _between(nb, nb.math("MODULO", across, ZEBRA["period"]), 0.0, ZEBRA["on"])
 
 
@@ -51,7 +57,7 @@ def marking_material(spec, width_m, height_m):
     mask = paint_mask(nb, spec, px, py)
 
     # Repeat period of the image in metres (only along the direction the texture tiles).
-    if spec["kind"] == "dash":
+    if spec["kind"] in ("dash", "edge"):
         period_x = width_m if spec["along"] == "x" else None
         period_y = height_m if spec["along"] == "y" else None
     else:  # crosswalk bars repeat across the road

@@ -49,12 +49,12 @@ TEXTURES = [
     {
         "id": "aerial_asphalt_01", "site": "polyhaven", "resolution": "2k",
         "maps": ["color", "normal", "roughness"],
-        "usedFor": ["ow-asphalt-a (base, one repeat per tile)"],
+        "usedFor": ["ow-asphalt-a (base, one repeat per tile)", "ow-asphalt-b (base, turned 90 degrees)", "ow-prop-crack-c (rim)"],
     },
     {
         "id": "asphalt_02", "site": "polyhaven", "resolution": "1k",
         "maps": ["color", "displacement"],
-        "usedFor": ["ow-asphalt-a (fine detail)", "ow-dash-*/ow-zebra-* (paint grain)"],
+        "usedFor": ["ow-asphalt-a / -b, ow-parking (fine detail)", "ow-dash-*, ow-zebra-*, ow-edgeline-* (paint grain)"],
     },
     {
         "id": "concrete_pavers", "site": "polyhaven", "resolution": "1k",
@@ -74,7 +74,7 @@ TEXTURES = [
     {
         "id": "concrete_moss", "site": "polyhaven", "resolution": "1k",
         "maps": ["color"],
-        "usedFor": ["ow-bld-a01 (moss on roof and wall base)", "ow-sidewalk (moss in joints)"],
+        "usedFor": ["ow-bld-a01 (moss on roof and wall base)", "ow-sidewalk (moss in joints)", "ow-plaza (moss along joints)"],
     },
     {
         "id": "rusted_shutter", "site": "polyhaven", "resolution": "1k",
@@ -95,6 +95,82 @@ TEXTURES = [
         "id": "Leaking008", "site": "ambientcg", "resolution": "1K-JPG",
         "maps": ["opacity"],
         "usedFor": ["ow-bld-a01 (splash grime at the wall base)"],
+    },
+    # 6.10 step 5: the remaining ground tiles, markings and props.
+    {
+        "id": "grass_ground", "site": "polyhaven", "resolution": "1k",
+        "maps": ["color", "normal"],
+        "usedFor": ["ow-park (grass)", "ow-plaza / ow-lot (weeds)"],
+    },
+    {
+        "id": "withered_grass", "site": "polyhaven", "resolution": "1k",
+        "maps": ["color"],
+        "usedFor": ["ow-park (dry grass)", "ow-lot / ow-parking (weeds)"],
+    },
+    {
+        "id": "dry_decay_leaves", "site": "polyhaven", "resolution": "1k",
+        "maps": ["color"],
+        "usedFor": ["ow-park (leaf litter)"],
+    },
+    {
+        "id": "brown_mud_leaves_01", "site": "polyhaven", "resolution": "1k",
+        "maps": ["color"],
+        "usedFor": ["ow-park (bare soil)", "ow-plaza (missing slabs)", "ow-lot (soil)", "ow-prop-crack-c (slopes)"],
+    },
+    {
+        "id": "concrete_floor_01", "site": "polyhaven", "resolution": "1k",
+        "maps": ["color", "normal"],
+        "usedFor": ["ow-plaza (stone slabs)"],
+    },
+    {
+        "id": "granular_concrete", "site": "polyhaven", "resolution": "1k",
+        "maps": ["color", "normal"],
+        "usedFor": ["ow-curb-h/-v", "ow-lot (old foundation slabs)", "ow-prop-drain (frame)", "ow-prop-debris-* (concrete chunks)"],
+    },
+    {
+        "id": "asphalt_04", "site": "polyhaven", "resolution": "1k",
+        "maps": ["color", "normal"],
+        "usedFor": ["ow-parking", "ow-asphalt-b"],
+    },
+    {
+        "id": "asphalt_07", "site": "polyhaven", "resolution": "1k",
+        "maps": ["color"],
+        "usedFor": ["ow-asphalt-b (repair patches)", "ow-prop-manhole (patch ring)"],
+    },
+    {
+        "id": "gravel_ground_01", "site": "polyhaven", "resolution": "1k",
+        "maps": ["color", "normal"],
+        "usedFor": ["ow-lot (gravel)"],
+    },
+    {
+        "id": "concrete_debris", "site": "polyhaven", "resolution": "1k",
+        "maps": ["color"],
+        "usedFor": ["ow-lot (rubble)", "ow-prop-debris-*", "ow-prop-crack-c (sinkhole)"],
+    },
+    {
+        "id": "gravel", "site": "polyhaven", "resolution": "1k",
+        "maps": ["color"],
+        "usedFor": ["ow-asphalt-b (pothole fill)", "ow-prop-crack-*"],
+    },
+    {
+        "id": "bark_brown_01", "site": "polyhaven", "resolution": "1k",
+        "maps": ["color"],
+        "usedFor": ["ow-prop-tree-* (branches)"],
+    },
+    {
+        "id": "rust_coarse_01", "site": "polyhaven", "resolution": "1k",
+        "maps": ["color", "normal", "roughness"],
+        "usedFor": ["ow-prop-car-c-* (burnt-out car)", "ow-prop-barricade-* (feet)", "ow-prop-debris-c / -d (steel, rebar)"],
+    },
+    {
+        "id": "LeafSet014", "site": "ambientcg", "resolution": "1K-JPG",
+        "maps": ["color", "opacity"],
+        "usedFor": ["ow-prop-tree-a (green canopy)", "ow-prop-puddle-* (floating leaves, hue-shifted to autumn)"],
+    },
+    {
+        "id": "LeafSet007", "site": "ambientcg", "resolution": "1K-JPG",
+        "maps": ["color", "opacity"],
+        "usedFor": ["ow-prop-tree-b / -c (autumn and withered leaves)"],
     },
 ]
 
@@ -139,7 +215,35 @@ def load_previous():
         return {}
 
 
+def cached_record(spec, previous):
+    """The previous record trimmed to the maps in spec, when every file is cached and checks out.
+
+    Lets the script run offline (and skip the site APIs) once everything is downloaded.
+    """
+    maps = previous.get("maps") or {}
+    if not previous or previous.get("resolution") != spec["resolution"] or any(role not in maps for role in spec["maps"]):
+        return None
+    for role in spec["maps"]:
+        item = maps[role]
+        path = os.path.join(REPO_ROOT, item["file"])
+        if not os.path.exists(path):
+            return None
+        algorithm = "md5" if "md5" in item else "sha256"
+        if digest(path, algorithm) != item.get(algorithm):
+            return None
+    record = dict(previous)
+    record["maps"] = {role: maps[role] for role in spec["maps"]}
+    record["downloadedAt"] = max(m["downloadedAt"] for m in record["maps"].values())
+    record["usedFor"] = spec["usedFor"]
+    for role in spec["maps"]:
+        print(f"  ok      {maps[role]['file']}")
+    return record
+
+
 def fetch_polyhaven(spec, previous):
+    cached = cached_record(spec, previous)
+    if cached:
+        return cached
     asset_id, res = spec["id"], spec["resolution"]
     info = http_json(f"https://api.polyhaven.com/info/{asset_id}")
     files = http_json(f"https://api.polyhaven.com/files/{asset_id}")
@@ -181,6 +285,9 @@ def fetch_polyhaven(spec, previous):
 
 
 def fetch_ambientcg(spec, previous):
+    cached = cached_record(spec, previous)
+    if cached:
+        return cached
     asset_id, attribute = spec["id"], spec["resolution"]
     data = http_json(f"https://ambientcg.com/api/v2/full_json?id={asset_id}&include=downloadData")
     asset = data["foundAssets"][0]

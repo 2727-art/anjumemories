@@ -148,6 +148,10 @@ def set_output(scene, fmt, rgba=False, quality=88):
         settings.file_format = "JPEG"
         settings.color_mode = "RGB"
         settings.quality = quality
+    elif fmt == "EXR":  # scene-linear floats, used for light calibration
+        settings.file_format = "OPEN_EXR"
+        settings.color_mode = "RGB"
+        settings.color_depth = "32"
     else:
         settings.file_format = "PNG"
         settings.color_mode = "RGBA" if rgba else "RGB"
@@ -172,6 +176,41 @@ def read_png(path):
     image.pixels.foreach_get(data)
     bpy.data.images.remove(image)
     return data.reshape(height, width, 4)[::-1]
+
+
+def write_png(path, rgba):
+    """Write an (h, w, 4) array (0-1 floats or uint8, row 0 = top) as an 8-bit RGBA PNG, stored as is."""
+    import struct
+    import zlib
+    data = rgba if rgba.dtype == np.uint8 else (np.clip(rgba, 0.0, 1.0) * 255.0 + 0.5).astype(np.uint8)
+    height, width = data.shape[:2]
+    raw = b"".join(b"\x00" + data[y].tobytes() for y in range(height))
+
+    def chunk(tag, body):
+        return struct.pack(">I", len(body)) + tag + body + struct.pack(">I", zlib.crc32(tag + body) & 0xFFFFFFFF)
+
+    ensure_dir(os.path.dirname(path))
+    with open(path, "wb") as handle:
+        handle.write(b"\x89PNG\r\n\x1a\n")
+        handle.write(chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)))
+        handle.write(chunk(b"IDAT", zlib.compress(raw, 9)))
+        handle.write(chunk(b"IEND", b""))
+    return path
+
+
+def read_linear(path):
+    """Return an (h, w, 3) float array of scene-linear values from an EXR, row 0 = top."""
+    image = bpy.data.images.load(path, check_existing=False)
+    width, height = image.size
+    data = np.empty(width * height * 4, dtype=np.float32)
+    image.pixels.foreach_get(data)
+    bpy.data.images.remove(image)
+    return data.reshape(height, width, 4)[::-1, :, :3]
+
+
+def linear_to_srgb(value):
+    value = np.clip(np.asarray(value, dtype=np.float64), 0.0, 1.0)
+    return np.where(value <= 0.0031308, value * 12.92, 1.055 * np.power(value, 1.0 / 2.4) - 0.055)
 
 
 def srgb_luma(rgb):
@@ -237,18 +276,24 @@ def setup_world(scene, strength=None):
     return world
 
 
-def add_sun(scene, strength=None):
-    light = bpy.data.lights.new("ow_sun", "SUN")
-    light.energy = LIGHT["sun_strength"] if strength is None else strength
-    light.angle = math.radians(LIGHT["sun_angle_deg"])
-    obj = bpy.data.objects.new("ow_sun", light)
+def add_directional_light(scene, name, strength, azimuth_deg, elevation_deg, angle_deg):
+    """Sun-type light arriving from azimuth (clockwise from north) / elevation, in degrees."""
+    light = bpy.data.lights.new(name, "SUN")
+    light.energy = strength
+    light.angle = math.radians(angle_deg)
+    obj = bpy.data.objects.new(name, light)
     scene.collection.objects.link(obj)
-    az = math.radians(LIGHT["sun_azimuth_deg"])
-    el = math.radians(LIGHT["sun_elevation_deg"])
-    to_sun = Vector((math.sin(az) * math.cos(el), math.cos(az) * math.cos(el), math.sin(el)))
+    az = math.radians(azimuth_deg)
+    el = math.radians(elevation_deg)
+    to_light = Vector((math.sin(az) * math.cos(el), math.cos(az) * math.cos(el), math.sin(el)))
     obj.rotation_mode = "QUATERNION"
-    obj.rotation_quaternion = to_sun.to_track_quat("Z", "Y")
+    obj.rotation_quaternion = to_light.to_track_quat("Z", "Y")
     return obj
+
+
+def add_sun(scene, strength=None):
+    return add_directional_light(scene, "ow_sun", LIGHT["sun_strength"] if strength is None else strength,
+                                 LIGHT["sun_azimuth_deg"], LIGHT["sun_elevation_deg"], LIGHT["sun_angle_deg"])
 
 
 def add_ortho_camera_top(scene, x0, y0, width_m, height_m, z=200.0):
@@ -613,6 +658,56 @@ class Nodes:
     def pvoronoi(self, position, period_x, period_y, scale, feature="F1", seed=0.0, randomness=1.0):
         vector, w, dims = self.periodic(position, period_x, period_y, offset=(seed * 13.1, seed * 7.7, seed * 3.3, seed * 5.9))
         return self.voronoi(vector, w, scale=scale, feature=feature, dims=dims, randomness=randomness)
+
+    # --- cells (regular grids whose random values repeat with the tile)
+    def floor(self, value):
+        return self.math("FLOOR", value)
+
+    def fract(self, value):
+        return self.math("FRACT", value)
+
+    def wrap(self, value, count):
+        """value mod count for integer-valued floats, always in [0, count)."""
+        return self.math("FLOORED_MODULO", value, float(count))
+
+    def white(self, vector, seed=0.0):
+        """Random value and colour for an (integer) cell vector, reproducible per seed."""
+        node = self.new("ShaderNodeTexWhiteNoise", noise_dimensions="4D")
+        self.set(node, "Vector", vector)
+        self.set(node, "W", seed)
+        return node.outputs["Value"], node.outputs["Color"]
+
+    def cells(self, coord_x, coord_y, size, count_x=None, count_y=None):
+        """Grid of `size` metres. Returns (cell id vector, local x, local y) with local in [0, size).
+
+        With counts, the ids wrap so their random values repeat every count cells (seamless tiles).
+        """
+        sx = self.math("DIVIDE", coord_x, size)
+        sy = self.math("DIVIDE", coord_y, size)
+        ix, iy = self.floor(sx), self.floor(sy)
+        lx = self.mul(self.sub(sx, ix), size)
+        ly = self.mul(self.sub(sy, iy), size)
+        if count_x:
+            ix = self.wrap(ix, count_x)
+        if count_y:
+            iy = self.wrap(iy, count_y)
+        return self.combine(ix, iy, 0.0), lx, ly
+
+    def inside(self, value, low, high):
+        """1 when low < value < high (sockets or numbers)."""
+        return self.mul(self.math("GREATER_THAN", value, low), self.math("LESS_THAN", value, high))
+
+    def rect(self, x, y, cx, cy, half_w, half_h):
+        """1 inside an axis-aligned rectangle centred at (cx, cy)."""
+        dx = self.math("ABSOLUTE", self.sub(x, cx))
+        dy = self.math("ABSOLUTE", self.sub(y, cy))
+        return self.mul(self.math("LESS_THAN", dx, half_w), self.math("LESS_THAN", dy, half_h))
+
+    def rect_edge_distance(self, x, y, cx, cy, half_w, half_h):
+        """Distance (metres) from inside a rectangle to its nearest edge (negative outside)."""
+        dx = self.sub(half_w, self.math("ABSOLUTE", self.sub(x, cx)))
+        dy = self.sub(half_h, self.math("ABSOLUTE", self.sub(y, cy)))
+        return self.math("MINIMUM", dx, dy)
 
     # --- shading
     def normal_map(self, color, strength=1.0):
