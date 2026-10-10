@@ -366,7 +366,53 @@ const SHIBUYA_STAGE1_COMPAT_DEFINITION = cloneTokyoStageDefinitionForLegacyId(
   LEGACY_SHIBUYA_STAGE_ID
 );
 
+// WORLD_DESIGN.md Phase 1: large finite city generated in chunks by game.js.
+// Only selected through ?debugOpenWorld=1 (or ?stage=openWorldCity); never part of the random pool.
+const OPEN_WORLD_CITY_STAGE_ID = "openWorldCity";
+const OPEN_WORLD_CITY_MAP_SIZE = 24000;
+const OPEN_WORLD_CITY_AREA_INSET = 1000;
+
+function createOpenWorldStageDefinition() {
+  const size = OPEN_WORLD_CITY_MAP_SIZE;
+  const inset = OPEN_WORLD_CITY_AREA_INSET;
+  const center = size * 0.5;
+  return {
+    id: OPEN_WORLD_CITY_STAGE_ID,
+    name: "Open World: Tokyo Sprawl",
+    areaLabel: "OPEN AREA TOKYO",
+    seed: OPEN_WORLD_CITY_STAGE_ID,
+    renderMode: "openWorld",
+    mapWidth: size,
+    mapHeight: size,
+    backgroundColor: "#11161a",
+    worldCenter: { x: center, y: center },
+    playerStart: { x: center, y: center },
+    // playBounds is the operation area; leaving it triggers the OUT OF AREA warning.
+    playBounds: {
+      x: inset,
+      y: inset,
+      width: size - inset * 2,
+      height: size - inset * 2,
+      wallThickness: 96,
+      movementInset: 0,
+      enemySpawnPadding: 220,
+      enemySpawnObstaclePadding: 52
+    },
+    openWorld: {
+      areaInset: inset,
+      edgeMargin: 160
+    },
+    collisionZonesBlockMovement: false,
+    collisionZones: [],
+    enemySpawnAreas: [],
+    debug: {
+      enabled: false
+    }
+  };
+}
+
 window.stageDefinitions = {
   tokyoRandomStages: TOKYO_RANDOM_STAGE_DEFINITIONS,
-  shibuyaStage1: SHIBUYA_STAGE1_COMPAT_DEFINITION
+  shibuyaStage1: SHIBUYA_STAGE1_COMPAT_DEFINITION,
+  [OPEN_WORLD_CITY_STAGE_ID]: createOpenWorldStageDefinition()
 };

@@ -1353,6 +1353,78 @@ const AC_CAMERA_RIG_CONFIG = Object.freeze({
   zoomApplyEpsilon: 0.0005,
   externalZoomTolerance: 0.000001
 });
+// Phase 1a open world (WORLD_DESIGN.md). Distances are world px, times are ms.
+const OPEN_WORLD_QUERY_PARAM = "debugOpenWorld";
+const OPEN_WORLD_STAGE_ID = "openWorldCity";
+const OPEN_WORLD_SEED_QUERY_PARAM = "debugOpenWorldSeed";
+const OPEN_WORLD_CONFIG = Object.freeze({
+  chunkSize: 2048,
+  loadRadiusChunks: 1,
+  unloadRadiusChunks: 2,
+  maxChunkBuildsPerFrame: 2,
+  roadPitch: 1700,
+  roadPitchJitter: 200,
+  roadWidths: Object.freeze([360, 420, 520]),
+  arterialEvery: 4,
+  arterialWidth: 680,
+  sidewalkWidth: 56,
+  edgeLineInset: 18,
+  edgeLineWidth: 6,
+  laneDashWidth: 10,
+  crosswalkDepth: 150,
+  crosswalkGap: 26,
+  noiseOverlayAlpha: 0.55,
+  noiseCellSize: 512,
+  noiseGridColumns: 6,
+  noiseGridRows: 4,
+  boundaryHazardWidth: 40,
+  outsideTintAlpha: 0.2,
+  depths: Object.freeze({
+    ground: -5.5,
+    detail: -5.4,
+    noise: -5.2,
+    boundary: -3.5
+  }),
+  colors: Object.freeze({
+    asphalt: 0x262b2f,
+    laneDash: 0xd6b45a,
+    edgeLine: 0xb8c1c6,
+    sidewalk: 0x434a4f,
+    curb: 0x5c656b,
+    plaza: 0x50575c,
+    parking: 0x2f3539,
+    park: 0x223428,
+    lot: 0x463f37,
+    tree: 0x1d4a2c,
+    crosswalk: 0xd7dde0,
+    outside: 0x8a1f24,
+    boundary: 0xff5a4f
+  }),
+  blockWeights: Object.freeze({ plaza: 35, parking: 30, park: 20, lot: 15 }),
+  outOfArea: Object.freeze({
+    graceMs: 10000,
+    tickMs: 1000,
+    baseDamageRatio: 0.05,
+    damageRatioStep: 0.025,
+    maxDamageRatio: 0.25
+  }),
+  gate: Object.freeze({
+    minDistance: 1800,
+    maxDistance: 2800,
+    areaMargin: 700,
+    attempts: 24
+  }),
+  enemyRecycle: Object.freeze({
+    intervalMs: 600,
+    distance: 2400,
+    viewMargin: 160,
+    maxPerTick: 8
+  }),
+  spawnForwardBiasChance: 0.55,
+  spawnForwardBiasMinSpeed: 200,
+  companionRecallDistance: 1500,
+  finalRaidFieldSize: 4096
+});
 const MOBILE_CONTROL_QUERY_PARAM = "mobileControls";
 const COMMS_UI_DEBUG_QUERY_PARAM = "debugComms";
 const COMMS_STORY_DEBUG_QUERY_PARAM = "debugCommsStory";
@@ -8196,6 +8268,15 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   selectCurrentStageDefinition() {
+    if (this.isOpenWorldRequested()) {
+      const openWorldStage = this.findStageDefinitionById(OPEN_WORLD_STAGE_ID);
+      if (openWorldStage) {
+        return openWorldStage;
+      }
+
+      console.warn(`Stage ${OPEN_WORLD_STAGE_ID} was requested by ?${OPEN_WORLD_QUERY_PARAM} but was not found.`);
+    }
+
     const requestedStageId = this.getRequestedStageId();
     if (requestedStageId) {
       const requestedStage = this.findStageDefinitionById(requestedStageId);
@@ -8220,6 +8301,40 @@ class SurvivalScene extends Phaser.Scene {
     }
 
     return this.currentStage || null;
+  }
+
+  isOpenWorldRequested() {
+    const search = typeof window === "undefined" ? "" : String(window.location?.search || "");
+    if (this.openWorldRequestCache && this.openWorldRequestCache.search === search) {
+      return this.openWorldRequestCache.requested;
+    }
+
+    const requested = this.isQueryFlagValueEnabled(this.getUrlStageParam(OPEN_WORLD_QUERY_PARAM));
+    this.openWorldRequestCache = { search, requested };
+    return requested;
+  }
+
+  isOpenWorldStage(stage = this.currentStage) {
+    return stage?.renderMode === "openWorld";
+  }
+
+  getOpenWorldMovementBounds(stage = this.currentStage, padding = 0) {
+    const world = this.getStageWorldBounds(stage);
+    const inset = Math.max(0, Number(stage?.openWorld?.edgeMargin) || 0) + Math.max(0, padding);
+    const left = world.left + inset;
+    const top = world.top + inset;
+    const width = Math.max(1, world.width - inset * 2);
+    const height = Math.max(1, world.height - inset * 2);
+    return {
+      left,
+      top,
+      right: left + width,
+      bottom: top + height,
+      width,
+      height,
+      centerX: left + width * 0.5,
+      centerY: top + height * 0.5
+    };
   }
 
   getStagePlayBounds(stage = this.currentStage, padding = 0) {
@@ -8253,6 +8368,11 @@ class SurvivalScene extends Phaser.Scene {
       if (finalRaidBounds) {
         return finalRaidBounds;
       }
+    }
+
+    // Open world: entities roam the whole map; the operation area is only a soft limit.
+    if (this.isOpenWorldStage?.(stage)) {
+      return this.getOpenWorldMovementBounds(stage, padding);
     }
 
     const source = stage?.playBounds || stage?.layout?.playBounds;
@@ -9842,16 +9962,16 @@ class SurvivalScene extends Phaser.Scene {
       return this.getFinalBossRaidArenaMetrics();
     }
     if (anchor.source === "worldBounds") {
-      return this.getStageWorldBounds(this.currentStage);
+      return this.getFinalBossRaidWorldBounds();
     }
     if (anchor.source === "playBounds") {
       return this.getStagePlayBounds(this.currentStage, 0)
         || this.getStageMovementBounds(this.currentStage, 0)
-        || this.getStageWorldBounds(this.currentStage);
+        || this.getFinalBossRaidWorldBounds();
     }
     return this.getStageMovementBounds(this.currentStage, 0)
       || this.getStagePlayBounds(this.currentStage, 0)
-      || this.getStageWorldBounds(this.currentStage);
+      || this.getFinalBossRaidWorldBounds();
   }
 
   getFinalRaidVisualDepth(key, fallback = 20) {
@@ -19804,7 +19924,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getFinalBossRaidArenaMetrics() {
-    const worldBounds = this.getStageWorldBounds(this.currentStage);
+    const worldBounds = this.getFinalBossRaidWorldBounds();
     const arenaConfig = FINAL_BOSS_RAID_CONFIG.arena || {};
     const sourceWidth = 1920;
     const sourceHeight = 1080;
@@ -19907,6 +20027,9 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getFinalBossRaidFieldBounds() {
+    if (typeof this.getFinalBossRaidWorldBounds === "function") {
+      return this.getFinalBossRaidWorldBounds();
+    }
     if (typeof this.getStageWorldBounds === "function") {
       return this.getStageWorldBounds(this.currentStage);
     }
@@ -20106,7 +20229,7 @@ class SurvivalScene extends Phaser.Scene {
     const isResolution = Boolean(activePhase?.resolution);
     const fieldConfig = FINAL_BOSS_RAID_CONFIG.field || {};
     const backgroundConfig = FINAL_BOSS_RAID_CONFIG.background || {};
-    const worldBounds = this.getStageWorldBounds(this.currentStage);
+    const worldBounds = this.getFinalBossRaidWorldBounds();
     const driftMs = Math.max(1000, Number(backgroundConfig.driftMs) || 8800);
     const driftPhase = ((this.time?.now || 0) % driftMs) / driftMs * Math.PI * 2;
     state.fieldBackground?.setPosition?.(
@@ -21551,6 +21674,8 @@ class SurvivalScene extends Phaser.Scene {
 
     this.syncPlayerVisuals?.();
     this.updatePlayerRobotBoostVisuals?.(0);
+    // Open world: the Depth10 DATA CACHE spawned at the old gate, possibly far outside the arena.
+    this.recallOpenWorldDataCachesToPlayer?.();
     if (this.finalBossRaidState?.debug) {
       console.log("[FINAL BOSS RAID] player start positioned", {
         reason,
@@ -28731,7 +28856,7 @@ class SurvivalScene extends Phaser.Scene {
     let focusY = this.playerHitbox.y * (1 - weight) + bossPosition.y * weight + focusOffsetY;
 
     const zoom = Math.max(0.1, Number(camera.zoom) || WORLD_CAMERA_ZOOM);
-    const bounds = this.getStageWorldBounds(this.currentStage);
+    const bounds = this.getFinalBossRaidWorldBounds();
     const halfWidth = GAME_WIDTH / (2 * zoom);
     const halfHeight = GAME_HEIGHT / (2 * zoom);
     if (bounds.width > halfWidth * 2) {
@@ -42369,6 +42494,7 @@ class SurvivalScene extends Phaser.Scene {
 
   createWorld() {
     this.currentStage = this.getCurrentStageDefinition();
+    this.openWorldState = null;
     const worldBounds = this.getStageWorldBounds(this.currentStage);
     this.physics.world.setBounds(0, 0, worldBounds.width, worldBounds.height);
     this.worldCamera = this.cameras.main;
@@ -42397,6 +42523,13 @@ class SurvivalScene extends Phaser.Scene {
     this.stageCollisionEditorEnabled = this.stageDebugEnabled && this.isStageCollisionEditorRequested();
     this.worldCamera.setBackgroundColor(this.currentStage.backgroundColor || "#58625d");
     this.createStageLayers();
+    if (this.isOpenWorldStage(this.currentStage)) {
+      // No play-bounds walls: the operation area is enforced by the OUT OF AREA warning,
+      // the map edge by physics world bounds. The collision editor only supports image stages.
+      this.stageCollisionEditorEnabled = false;
+      this.buildOpenWorld(this.currentStage);
+      return;
+    }
     this.prepareStageCollisionEditor(this.currentStage);
     this.buildStageBackdrop(this.currentStage);
     this.buildStageGround(this.currentStage);
@@ -42407,6 +42540,921 @@ class SurvivalScene extends Phaser.Scene {
     this.buildStageBoundaries(this.currentStage);
     this.buildStagePlayBoundsCollision(this.currentStage);
     this.buildStageDebugGuides(this.currentStage);
+  }
+
+  buildOpenWorld(stage) {
+    this.ensureOpenWorldTextures();
+    this.openWorldState = this.createOpenWorldState(stage);
+    this.createOpenWorldNoiseOverlay();
+    const start = stage?.playerStart || this.getStageWorldBounds(stage);
+    this.updateOpenWorldChunks({ x: start.x ?? start.centerX, y: start.y ?? start.centerY }, true);
+  }
+
+  createOpenWorldState(stage) {
+    const world = this.getStageWorldBounds(stage);
+    const chunkSize = OPEN_WORLD_CONFIG.chunkSize;
+    const seedParam = this.getUrlStageParam(OPEN_WORLD_SEED_QUERY_PARAM);
+    const seedSource = seedParam ? `seed:${seedParam}` : `${stage?.seed || OPEN_WORLD_STAGE_ID}:${Date.now()}:${Math.random()}`;
+    return {
+      seed: this.hashOpenWorldString(seedSource),
+      chunkSize,
+      chunksX: Math.ceil(world.width / chunkSize),
+      chunksY: Math.ceil(world.height / chunkSize),
+      chunks: new Map(),
+      noiseOverlay: null,
+      gateCenter: null,
+      nextEnemyRecycleAt: 0,
+      recycledEnemyCount: 0,
+      outOfArea: {
+        active: false,
+        outsideMs: 0,
+        ticks: 0,
+        hud: null
+      }
+    };
+  }
+
+  hashOpenWorldString(text) {
+    let hash = 2166136261;
+    const source = String(text || "");
+    for (let index = 0; index < source.length; index += 1) {
+      hash ^= source.charCodeAt(index);
+      hash = Math.imul(hash, 16777619) >>> 0;
+    }
+    return hash >>> 0;
+  }
+
+  // Deterministic [0, 1) value for integer coordinates under the run seed.
+  getOpenWorldHash(...parts) {
+    let hash = (this.openWorldState?.seed ?? 2166136261) >>> 0;
+    parts.forEach((part) => {
+      hash = Math.imul(hash ^ (Math.floor(Number(part) || 0) | 0), 2654435761) >>> 0;
+      hash ^= hash >>> 15;
+      hash = Math.imul(hash, 2246822507) >>> 0;
+      hash ^= hash >>> 13;
+    });
+    hash = Math.imul(hash ^ (hash >>> 16), 3266489909) >>> 0;
+    hash ^= hash >>> 16;
+    return (hash >>> 0) / 4294967296;
+  }
+
+  // Phaser 3.70 TileSprites allocate a canvas the size of the sprite, so large repeating
+  // surfaces are built from these small sheets with cropped Images instead (see addOpenWorldPattern).
+  ensureOpenWorldTextures() {
+    const make = (key, width, height, draw) => {
+      if (this.textures.exists(key)) {
+        return;
+      }
+      const graphics = this.make.graphics({ x: 0, y: 0, add: false });
+      draw(graphics, width, height);
+      graphics.generateTexture(key, width, height);
+      graphics.destroy();
+    };
+
+    make("ow-px", 4, 4, (g) => {
+      g.fillStyle(0xffffff, 1);
+      g.fillRect(0, 0, 4, 4);
+    });
+    make("ow-grit", 512, 512, (g, width, height) => {
+      const rng = new Phaser.Math.RandomDataGenerator(["ow-grit"]);
+      for (let index = 0; index < 4200; index += 1) {
+        const light = rng.frac() < 0.45;
+        g.fillStyle(light ? 0xd8e0e4 : 0x000000, rng.realInRange(0.05, 0.2));
+        const size = rng.between(1, 3);
+        g.fillRect(rng.between(0, width - 1), rng.between(0, height - 1), size, size);
+      }
+      for (let index = 0; index < 26; index += 1) {
+        g.lineStyle(rng.between(1, 2), 0x000000, rng.realInRange(0.12, 0.24));
+        let x = rng.between(24, width - 24);
+        let y = rng.between(24, height - 24);
+        g.beginPath();
+        g.moveTo(x, y);
+        for (let step = 0; step < 4; step += 1) {
+          x = Phaser.Math.Clamp(x + rng.between(-28, 28), 0, width - 1);
+          y = Phaser.Math.Clamp(y + rng.between(-28, 28), 0, height - 1);
+          g.lineTo(x, y);
+        }
+        g.strokePath();
+      }
+    });
+    // 1920 = 8 dash periods of 240 px (120 dash + 120 gap).
+    make("ow-dash-v", 16, 1920, (g, width, height) => {
+      g.fillStyle(0xffffff, 1);
+      for (let y = 0; y < height; y += 240) {
+        g.fillRect(3, y, 10, 120);
+      }
+    });
+    make("ow-dash-h", 1920, 16, (g, width) => {
+      g.fillStyle(0xffffff, 1);
+      for (let x = 0; x < width; x += 240) {
+        g.fillRect(x, 3, 120, 10);
+      }
+    });
+    // 704 = 11 bar periods of 64 px, wider than any road (arterial 680 minus edge insets).
+    make("ow-zebra-v", 704, OPEN_WORLD_CONFIG.crosswalkDepth, (g, width, height) => {
+      g.fillStyle(0xffffff, 1);
+      for (let x = 0; x < width; x += 64) {
+        g.fillRect(x, 0, 34, height);
+      }
+    });
+    make("ow-zebra-h", OPEN_WORLD_CONFIG.crosswalkDepth, 704, (g, width, height) => {
+      g.fillStyle(0xffffff, 1);
+      for (let y = 0; y < height; y += 64) {
+        g.fillRect(0, y, width, 34);
+      }
+    });
+    make("ow-tile", 512, 512, (g, width, height) => {
+      g.fillStyle(0xffffff, 0.16);
+      for (let offset = 126; offset < width; offset += 128) {
+        g.fillRect(offset, 0, 2, height);
+        g.fillRect(0, offset, width, 2);
+      }
+    });
+    make("ow-stalls", 480, 480, (g, width) => {
+      g.fillStyle(0xffffff, 0.5);
+      for (let x = 0; x < width; x += 120) {
+        g.fillRect(x, 0, 5, 190);
+        g.fillRect(x, 290, 5, 190);
+      }
+    });
+    make("ow-tree", 96, 96, (g) => {
+      g.fillStyle(0x000000, 0.28);
+      g.fillCircle(52, 54, 42);
+      g.fillStyle(0xffffff, 1);
+      g.fillCircle(48, 48, 42);
+      g.fillStyle(0x000000, 0.18);
+      g.fillCircle(56, 56, 30);
+      g.fillStyle(0xffffff, 0.35);
+      g.fillCircle(38, 36, 18);
+    });
+    const band = OPEN_WORLD_CONFIG.boundaryHazardWidth;
+    make("ow-hazard-h", 2048, band, (g, width, height) => {
+      g.fillStyle(0x15171a, 1);
+      g.fillRect(0, 0, width, height);
+      g.fillStyle(0xffb030, 1);
+      for (let x = -64; x < width + 64; x += 64) {
+        g.fillPoints([{ x, y: height }, { x: x + 32, y: height }, { x: x + 32 + height, y: 0 }, { x: x + height, y: 0 }], true);
+      }
+    });
+    make("ow-hazard-v", band, 2048, (g, width, height) => {
+      g.fillStyle(0x15171a, 1);
+      g.fillRect(0, 0, width, height);
+      g.fillStyle(0xffb030, 1);
+      for (let y = -64; y < height + 64; y += 64) {
+        g.fillPoints([{ x: 0, y }, { x: 0, y: y + 32 }, { x: width, y: y + 32 + width }, { x: width, y: y + width }], true);
+      }
+    });
+  }
+
+
+  createOpenWorldNoiseOverlay() {
+    const config = OPEN_WORLD_CONFIG;
+    const cell = config.noiseCellSize;
+    const images = [];
+    for (let index = 0; index < config.noiseGridColumns * config.noiseGridRows; index += 1) {
+      const image = this.add
+        .image(0, 0, "ow-grit")
+        .setOrigin(0, 0)
+        .setAlpha(config.noiseOverlayAlpha)
+        .setDepth(config.depths.noise);
+      this.stageGroundLayer?.add(image);
+      images.push(image);
+    }
+    this.openWorldState.noiseOverlay = { images, cell, originX: null, originY: null };
+  }
+
+
+  updateOpenWorldNoiseOverlay() {
+    const overlay = this.openWorldState?.noiseOverlay;
+    const view = this.worldCamera?.worldView;
+    if (!overlay?.images?.length || !view) {
+      return;
+    }
+    // The grit grid is snapped to world cells, so it only moves when the view crosses a cell.
+    const cell = overlay.cell;
+    const originX = Math.floor(view.left / cell) * cell - cell;
+    const originY = Math.floor(view.top / cell) * cell - cell;
+    if (originX === overlay.originX && originY === overlay.originY) {
+      return;
+    }
+    overlay.originX = originX;
+    overlay.originY = originY;
+    const columns = OPEN_WORLD_CONFIG.noiseGridColumns;
+    overlay.images.forEach((image, index) => {
+      image.setPosition(originX + (index % columns) * cell, originY + Math.floor(index / columns) * cell);
+    });
+  }
+
+
+  getOpenWorldFocusPoint() {
+    if (!this.playerHitbox?.active) {
+      return null;
+    }
+    const player = { x: this.playerHitbox.x, y: this.playerHitbox.y };
+    const view = this.worldCamera?.worldView;
+    // Ignore a worldView that has not caught up with the player yet (first frames, teleports).
+    if (!view || !(view.width > 0) || !(view.height > 0)
+      || Math.abs(view.centerX - player.x) > view.width || Math.abs(view.centerY - player.y) > view.height) {
+      return player;
+    }
+    return { x: view.centerX, y: view.centerY };
+  }
+
+  updateOpenWorldChunks(focus = this.getOpenWorldFocusPoint(), buildAll = false) {
+    const state = this.openWorldState;
+    if (!state || !focus) {
+      return;
+    }
+
+    const config = OPEN_WORLD_CONFIG;
+    const centerX = Phaser.Math.Clamp(Math.floor(focus.x / state.chunkSize), 0, state.chunksX - 1);
+    const centerY = Phaser.Math.Clamp(Math.floor(focus.y / state.chunkSize), 0, state.chunksY - 1);
+    const radius = config.loadRadiusChunks;
+    const now = this.time?.now || 0;
+    const wanted = [];
+    for (let cy = centerY - radius; cy <= centerY + radius; cy += 1) {
+      for (let cx = centerX - radius; cx <= centerX + radius; cx += 1) {
+        if (cx >= 0 && cy >= 0 && cx < state.chunksX && cy < state.chunksY) {
+          wanted.push({ cx, cy, key: `${cx},${cy}`, distance: Math.max(Math.abs(cx - centerX), Math.abs(cy - centerY)) });
+        }
+      }
+    }
+    wanted.sort((a, b) => a.distance - b.distance);
+
+    const wantedKeys = new Set(wanted.map((entry) => entry.key));
+    let built = 0;
+    wanted.forEach((entry) => {
+      const chunk = state.chunks.get(entry.key);
+      if (chunk) {
+        chunk.staleSince = 0;
+        return;
+      }
+      if (!buildAll && built >= config.maxChunkBuildsPerFrame) {
+        return;
+      }
+      state.chunks.set(entry.key, this.buildOpenWorldChunk(entry.cx, entry.cy));
+      built += 1;
+    });
+
+    state.chunks.forEach((chunk, key) => {
+      if (wantedKeys.has(key)) {
+        return;
+      }
+      const distance = Math.max(Math.abs(chunk.cx - centerX), Math.abs(chunk.cy - centerY));
+      if (distance > config.unloadRadiusChunks) {
+        this.destroyOpenWorldChunk(chunk);
+        state.chunks.delete(key);
+        return;
+      }
+      chunk.staleSince = chunk.staleSince || now;
+      if (now - chunk.staleSince > 2500) {
+        this.destroyOpenWorldChunk(chunk);
+        state.chunks.delete(key);
+      }
+    });
+  }
+
+  destroyOpenWorldChunk(chunk) {
+    (chunk?.objects || []).forEach((object) => object?.destroy?.());
+    if (chunk) {
+      chunk.objects = [];
+    }
+  }
+
+  getOpenWorldRoad(axis, index) {
+    const config = OPEN_WORLD_CONFIG;
+    const axisId = axis === "x" ? 1 : 2;
+    const every = Math.max(1, config.arterialEvery);
+    const arterial = ((index % every) + every) % every === 0;
+    const widths = config.roadWidths;
+    const width = arterial
+      ? config.arterialWidth
+      : widths[Math.min(widths.length - 1, Math.floor(this.getOpenWorldHash(axisId, index, 23) * widths.length))];
+    const jitter = (this.getOpenWorldHash(axisId, index, 11) * 2 - 1) * config.roadPitchJitter;
+    const center = index * config.roadPitch + config.roadPitch * 0.5 + jitter;
+    return { index, center, width, start: center - width * 0.5, end: center + width * 0.5, arterial };
+  }
+
+  getOpenWorldRoadsInRange(axis, min, max) {
+    const pitch = OPEN_WORLD_CONFIG.roadPitch;
+    const first = Math.floor(min / pitch) - 1;
+    const last = Math.ceil(max / pitch) + 1;
+    const roads = [];
+    for (let index = first; index <= last; index += 1) {
+      const road = this.getOpenWorldRoad(axis, index);
+      if (road.end > min && road.start < max) {
+        roads.push(road);
+      }
+    }
+    return roads;
+  }
+
+  clipOpenWorldRect(rect, clip) {
+    const left = Math.max(rect.left, clip.left);
+    const top = Math.max(rect.top, clip.top);
+    const right = Math.min(rect.right, clip.right);
+    const bottom = Math.min(rect.bottom, clip.bottom);
+    return right - left >= 1 && bottom - top >= 1 ? { left, top, right, bottom } : null;
+  }
+
+  addOpenWorldRect(objects, rect, clip, color, alpha = 1, depth = OPEN_WORLD_CONFIG.depths.ground) {
+    const piece = this.clipOpenWorldRect(rect, clip);
+    if (!piece) {
+      return null;
+    }
+    const image = this.add
+      .image(piece.left, piece.top, "ow-px")
+      .setOrigin(0, 0)
+      .setDisplaySize(piece.right - piece.left, piece.bottom - piece.top)
+      .setTint(color)
+      .setAlpha(alpha)
+      .setDepth(depth);
+    this.stageGroundLayer?.add(image);
+    objects.push(image);
+    return image;
+  }
+
+  // Pattern origin is (originX, originY) in world space so tiles stay continuous across chunks.
+  // Fills rect ∩ clip with a repeating sheet using cropped Images. The sheet grid is anchored at
+  // (originX, originY) in world space so the pattern stays continuous across chunks.
+  addOpenWorldPattern(objects, rect, clip, textureKey, options = {}) {
+    const piece = this.clipOpenWorldRect(rect, clip);
+    const frame = this.textures.getFrame(textureKey);
+    if (!piece || !frame) {
+      return;
+    }
+    const sheetWidth = frame.width;
+    const sheetHeight = frame.height;
+    const originX = options.originX ?? 0;
+    const originY = options.originY ?? 0;
+    const firstColumn = Math.floor((piece.left - originX) / sheetWidth);
+    const lastColumn = Math.floor((piece.right - 0.001 - originX) / sheetWidth);
+    const firstRow = Math.floor((piece.top - originY) / sheetHeight);
+    const lastRow = Math.floor((piece.bottom - 0.001 - originY) / sheetHeight);
+    for (let row = firstRow; row <= lastRow; row += 1) {
+      for (let column = firstColumn; column <= lastColumn; column += 1) {
+        const cellLeft = originX + column * sheetWidth;
+        const cellTop = originY + row * sheetHeight;
+        const visible = this.clipOpenWorldRect(
+          { left: cellLeft, top: cellTop, right: cellLeft + sheetWidth, bottom: cellTop + sheetHeight },
+          piece
+        );
+        if (!visible) {
+          continue;
+        }
+        const image = this.add
+          .image(cellLeft, cellTop, textureKey)
+          .setOrigin(0, 0)
+          .setCrop(visible.left - cellLeft, visible.top - cellTop, visible.right - visible.left, visible.bottom - visible.top)
+          .setAlpha(options.alpha ?? 1)
+          .setDepth(options.depth ?? OPEN_WORLD_CONFIG.depths.detail);
+        if (options.tint !== undefined) {
+          image.setTint(options.tint);
+        }
+        this.stageGroundLayer?.add(image);
+        objects.push(image);
+      }
+    }
+  }
+
+
+  buildOpenWorldChunk(cx, cy) {
+    const config = OPEN_WORLD_CONFIG;
+    const state = this.openWorldState;
+    const world = this.getStageWorldBounds(this.currentStage);
+    const clip = {
+      left: cx * state.chunkSize,
+      top: cy * state.chunkSize,
+      right: Math.min(world.right, (cx + 1) * state.chunkSize),
+      bottom: Math.min(world.bottom, (cy + 1) * state.chunkSize)
+    };
+    const objects = [];
+    const pad = config.roadPitch * 2;
+    const roadsX = this.getOpenWorldRoadsInRange("x", clip.left - pad, clip.right + pad);
+    const roadsY = this.getOpenWorldRoadsInRange("y", clip.top - pad, clip.bottom + pad);
+
+    this.addOpenWorldRect(objects, clip, clip, config.colors.asphalt);
+    for (let ix = 0; ix < roadsX.length - 1; ix += 1) {
+      for (let iy = 0; iy < roadsY.length - 1; iy += 1) {
+        const block = {
+          left: roadsX[ix].end,
+          right: roadsX[ix + 1].start,
+          top: roadsY[iy].end,
+          bottom: roadsY[iy + 1].start
+        };
+        if (this.clipOpenWorldRect(block, clip)) {
+          this.addOpenWorldBlock(objects, roadsX[ix].index, roadsY[iy].index, block, clip);
+        }
+      }
+    }
+    roadsX.forEach((road) => this.addOpenWorldRoadMarkings(objects, road, "x", roadsY, clip));
+    roadsY.forEach((road) => this.addOpenWorldRoadMarkings(objects, road, "y", roadsX, clip));
+    this.addOpenWorldBoundary(objects, clip);
+    return { cx, cy, objects, staleSince: 0 };
+  }
+
+  pickOpenWorldBlockType(ix, iy) {
+    const weights = OPEN_WORLD_CONFIG.blockWeights;
+    const entries = Object.entries(weights);
+    const total = entries.reduce((sum, [, weight]) => sum + weight, 0);
+    let roll = this.getOpenWorldHash(3, ix, iy) * total;
+    for (const [type, weight] of entries) {
+      roll -= weight;
+      if (roll < 0) {
+        return type;
+      }
+    }
+    return entries[0][0];
+  }
+
+  addOpenWorldBlock(objects, ix, iy, block, clip) {
+    const config = OPEN_WORLD_CONFIG;
+    const colors = config.colors;
+    const type = this.pickOpenWorldBlockType(ix, iy);
+    const sidewalk = config.sidewalkWidth;
+    const inner = {
+      left: block.left + sidewalk,
+      top: block.top + sidewalk,
+      right: block.right - sidewalk,
+      bottom: block.bottom - sidewalk
+    };
+    this.addOpenWorldRect(objects, block, clip, colors.curb);
+    this.addOpenWorldRect(objects, { left: block.left + 6, top: block.top + 6, right: block.right - 6, bottom: block.bottom - 6 }, clip, colors.sidewalk);
+    if (inner.right - inner.left < 32 || inner.bottom - inner.top < 32) {
+      return;
+    }
+
+    if (type === "plaza") {
+      this.addOpenWorldRect(objects, inner, clip, colors.plaza);
+      this.addOpenWorldPattern(objects, inner, clip, "ow-tile", { originX: inner.left, originY: inner.top });
+      return;
+    }
+    if (type === "parking") {
+      this.addOpenWorldRect(objects, inner, clip, colors.parking);
+      const lot = { left: inner.left + 40, top: inner.top + 40, right: inner.right - 40, bottom: inner.bottom - 40 };
+      this.addOpenWorldPattern(objects, lot, clip, "ow-stalls", { originX: lot.left, originY: lot.top, tint: colors.edgeLine });
+      return;
+    }
+    if (type === "park") {
+      this.addOpenWorldRect(objects, inner, clip, colors.park);
+      const area = (inner.right - inner.left) * (inner.bottom - inner.top);
+      const count = Math.min(28, Math.floor(area / 110000));
+      for (let index = 0; index < count; index += 1) {
+        const x = inner.left + 50 + this.getOpenWorldHash(4, ix, iy, index) * Math.max(1, inner.right - inner.left - 100);
+        const y = inner.top + 50 + this.getOpenWorldHash(5, ix, iy, index) * Math.max(1, inner.bottom - inner.top - 100);
+        if (x < clip.left || x >= clip.right || y < clip.top || y >= clip.bottom) {
+          continue;
+        }
+        const tree = this.add
+          .image(x, y, "ow-tree")
+          .setTint(colors.tree)
+          .setScale(0.8 + this.getOpenWorldHash(6, ix, iy, index) * 0.7)
+          .setDepth(config.depths.detail);
+        this.stageGroundLayer?.add(tree);
+        objects.push(tree);
+      }
+      return;
+    }
+
+    this.addOpenWorldRect(objects, inner, clip, colors.lot);
+    for (let index = 0; index < 3; index += 1) {
+      const width = 120 + this.getOpenWorldHash(7, ix, iy, index) * 260;
+      const height = 80 + this.getOpenWorldHash(8, ix, iy, index) * 200;
+      const x = inner.left + this.getOpenWorldHash(9, ix, iy, index) * Math.max(1, inner.right - inner.left - width);
+      const y = inner.top + this.getOpenWorldHash(10, ix, iy, index) * Math.max(1, inner.bottom - inner.top - height);
+      this.addOpenWorldRect(objects, { left: x, top: y, right: x + width, bottom: y + height }, clip, 0x000000, 0.18, config.depths.detail);
+    }
+  }
+
+  addOpenWorldRoadMarkings(objects, road, axis, crossRoads, clip) {
+    const config = OPEN_WORLD_CONFIG;
+    const colors = config.colors;
+    const vertical = axis === "x";
+    const crossDepth = config.crosswalkDepth;
+    const gap = config.crosswalkGap;
+    const inset = config.edgeLineInset;
+    const lineWidth = config.edgeLineWidth;
+    const along = (from, to) => (vertical
+      ? (left, right) => ({ left, right, top: from, bottom: to })
+      : (top, bottom) => ({ top, bottom, left: from, right: to }));
+
+    for (let index = 0; index < crossRoads.length - 1; index += 1) {
+      const segmentStart = crossRoads[index].end;
+      const segmentEnd = crossRoads[index + 1].start;
+      const markStart = segmentStart + gap + crossDepth + 36;
+      const markEnd = segmentEnd - gap - crossDepth - 36;
+      if (markEnd > markStart) {
+        const rect = along(markStart, markEnd);
+        this.addOpenWorldRect(objects, rect(road.start + inset, road.start + inset + lineWidth), clip, colors.edgeLine, 0.55, config.depths.detail);
+        this.addOpenWorldRect(objects, rect(road.end - inset - lineWidth, road.end - inset), clip, colors.edgeLine, 0.55, config.depths.detail);
+        const dashKey = vertical ? "ow-dash-v" : "ow-dash-h";
+        const dashLanes = road.arterial ? [road.center - road.width * 0.25, road.center + road.width * 0.25] : [road.center];
+        dashLanes.forEach((laneCenter) => {
+          this.addOpenWorldPattern(objects, rect(laneCenter - 8, laneCenter + 8), clip, dashKey, {
+            originX: vertical ? laneCenter - 8 : 0,
+            originY: vertical ? 0 : laneCenter - 8,
+            tint: road.arterial ? colors.edgeLine : colors.laneDash,
+            alpha: 0.75
+          });
+        });
+        if (road.arterial) {
+          this.addOpenWorldRect(objects, rect(road.center - 12, road.center - 4), clip, colors.laneDash, 0.8, config.depths.detail);
+          this.addOpenWorldRect(objects, rect(road.center + 4, road.center + 12), clip, colors.laneDash, 0.8, config.depths.detail);
+        }
+      }
+
+      const zebraKey = vertical ? "ow-zebra-v" : "ow-zebra-h";
+      [segmentStart + gap, segmentEnd - gap - crossDepth].forEach((from) => {
+        if (segmentEnd - segmentStart < crossDepth * 2 + gap * 2) {
+          return;
+        }
+        const rect = along(from, from + crossDepth)(road.start + inset, road.end - inset);
+        this.addOpenWorldPattern(objects, rect, clip, zebraKey, {
+          originX: vertical ? road.start + inset : from,
+          originY: vertical ? from : road.start + inset,
+          tint: colors.crosswalk,
+          alpha: 0.62
+        });
+      });
+    }
+  }
+
+  addOpenWorldBoundary(objects, clip) {
+    const config = OPEN_WORLD_CONFIG;
+    const colors = config.colors;
+    const area = this.getStagePlayBounds(this.currentStage);
+    const world = this.getStageWorldBounds(this.currentStage);
+    if (!area) {
+      return;
+    }
+
+    const depth = config.depths.boundary;
+    const outside = [
+      { left: world.left, top: world.top, right: world.right, bottom: area.top },
+      { left: world.left, top: area.bottom, right: world.right, bottom: world.bottom },
+      { left: world.left, top: area.top, right: area.left, bottom: area.bottom },
+      { left: area.right, top: area.top, right: world.right, bottom: area.bottom }
+    ];
+    outside.forEach((rect) => this.addOpenWorldRect(objects, rect, clip, colors.outside, config.outsideTintAlpha, depth));
+
+    const band = config.boundaryHazardWidth;
+    const edges = [
+      { left: area.left - band, top: area.top - band, right: area.right + band, bottom: area.top },
+      { left: area.left - band, top: area.bottom, right: area.right + band, bottom: area.bottom + band },
+      { left: area.left - band, top: area.top, right: area.left, bottom: area.bottom },
+      { left: area.right, top: area.top, right: area.right + band, bottom: area.bottom }
+    ];
+    edges.forEach((rect, index) => this.addOpenWorldPattern(objects, rect, clip, index < 2 ? "ow-hazard-h" : "ow-hazard-v", {
+      originX: index < 2 ? 0 : rect.left,
+      originY: index < 2 ? rect.top : 0,
+      alpha: 0.7,
+      depth
+    }));
+    const lines = [
+      { left: area.left, top: area.top - 3, right: area.right, bottom: area.top + 3 },
+      { left: area.left, top: area.bottom - 3, right: area.right, bottom: area.bottom + 3 },
+      { left: area.left - 3, top: area.top, right: area.left + 3, bottom: area.bottom },
+      { left: area.right - 3, top: area.top, right: area.right + 3, bottom: area.bottom }
+    ];
+    lines.forEach((rect) => this.addOpenWorldRect(objects, rect, clip, colors.boundary, 0.9, depth));
+  }
+
+  updateOpenWorld(delta, finalRaidActive = false) {
+    if (!this.isOpenWorldStage() || !this.openWorldState) {
+      return;
+    }
+
+    this.updateOpenWorldNoiseOverlay();
+    this.updateOpenWorldChunks();
+    if (finalRaidActive) {
+      this.setOpenWorldOutOfAreaHudVisible(false);
+      return;
+    }
+    this.updateOpenWorldOutOfArea(delta);
+    this.updateOpenWorldEnemyRecycle();
+  }
+
+  isPointOutsideOpenWorldArea(x, y) {
+    const area = this.getStagePlayBounds(this.currentStage);
+    return Boolean(area && (x < area.left || x > area.right || y < area.top || y > area.bottom));
+  }
+
+  updateOpenWorldOutOfArea(delta) {
+    const state = this.openWorldState.outOfArea;
+    const config = OPEN_WORLD_CONFIG.outOfArea;
+    if (!this.playerHitbox?.active || !this.isPointOutsideOpenWorldArea(this.playerHitbox.x, this.playerHitbox.y)) {
+      if (state.active) {
+        state.active = false;
+        state.outsideMs = 0;
+        state.ticks = 0;
+        this.setLastPickupNotice?.("OPERATION AREA RECOVERED");
+      }
+      this.setOpenWorldOutOfAreaHudVisible(false);
+      return;
+    }
+
+    if (!state.active) {
+      state.active = true;
+      state.outsideMs = 0;
+      state.ticks = 0;
+    }
+    // Accumulate gameplay time only, so overlays (level up, gate choice) do not burn the grace period.
+    state.outsideMs += Math.max(0, Number(delta) || 0);
+    const nextDamageAtMs = config.graceMs + state.ticks * config.tickMs;
+    if (state.outsideMs >= nextDamageAtMs) {
+      const ratio = Math.min(config.maxDamageRatio, config.baseDamageRatio + config.damageRatioStep * state.ticks);
+      state.ticks += 1;
+      this.applyOpenWorldOutOfAreaDamage(ratio);
+    }
+    this.updateOpenWorldOutOfAreaHud(state, config);
+  }
+
+  getOpenWorldOutOfAreaDamageRatio(ticks) {
+    const config = OPEN_WORLD_CONFIG.outOfArea;
+    return Math.min(config.maxDamageRatio, config.baseDamageRatio + config.damageRatioStep * Math.max(0, ticks));
+  }
+
+  applyOpenWorldOutOfAreaDamage(ratio) {
+    if (this.gameOver || this.levelUpActive || this.gateChoiceActive || this.extractionComplete || !this.stats) {
+      return;
+    }
+
+    // Area damage ignores i-frames and evasion on purpose, and grants none: it must not shield
+    // the player from enemies.
+    const amount = Math.max(1, Math.ceil((Number(this.stats.maxHp) || 100) * ratio));
+    this.stats.hp = Math.max(0, this.stats.hp - amount);
+    this.handleDepthDirectivePlayerDamage?.(amount);
+    if (this.damageFlash) {
+      this.tweens.add({
+        targets: this.damageFlash,
+        alpha: { from: 0.32, to: 0 },
+        duration: 260,
+        ease: "Quad.Out"
+      });
+    }
+    if (this.stats.hp <= 0) {
+      this.setOpenWorldOutOfAreaHudVisible(false);
+      this.triggerGameOver();
+    }
+  }
+
+  ensureOpenWorldOutOfAreaHud() {
+    const state = this.openWorldState?.outOfArea;
+    if (!state) {
+      return null;
+    }
+    if (state.hud?.container?.active) {
+      return state.hud;
+    }
+
+    const width = 560;
+    const height = 78;
+    const container = this.add.container(GAME_WIDTH / 2, 196).setScrollFactor(0).setDepth(640);
+    const panel = this.add.graphics();
+    panel.fillStyle(0x1a0507, 0.82);
+    panel.fillRect(-width / 2, -height / 2, width, height);
+    panel.lineStyle(2, 0xff5a4f, 0.9);
+    panel.strokeRect(-width / 2, -height / 2, width, height);
+    panel.fillStyle(0xff5a4f, 0.9);
+    panel.fillRect(-width / 2, -height / 2, 10, height);
+    panel.fillRect(width / 2 - 10, -height / 2, 10, height);
+    const title = this.add.text(0, -16, "WARNING: OUT OF OPERATION AREA", {
+      fontFamily: "Consolas, 'Courier New', monospace",
+      fontSize: "20px",
+      color: "#ff8a80",
+      fontStyle: "bold"
+    }).setOrigin(0.5);
+    const detail = this.add.text(0, 16, "", {
+      fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "15px",
+      color: "#ffe1dd"
+    }).setOrigin(0.5);
+    container.add([panel, title, detail]);
+    this.uiContainer?.add(container);
+    state.hud = { container, title, detail };
+    return state.hud;
+  }
+
+  updateOpenWorldOutOfAreaHud(state, config) {
+    const hud = this.ensureOpenWorldOutOfAreaHud();
+    if (!hud) {
+      return;
+    }
+    const remainingMs = Math.max(0, config.graceMs - state.outsideMs);
+    const detailText = state.ticks <= 0
+      ? `作戦領域外：領域内へ戻ってください　AP低下まで ${(remainingMs / 1000).toFixed(1)}s`
+      : `作戦領域外：AP低下中 -${Math.round(this.getOpenWorldOutOfAreaDamageRatio(state.ticks) * 100)}%/s　領域内へ戻ってください`;
+    hud.detail.setText(detailText);
+    const pulse = (Math.sin((this.time?.now || 0) / 140) + 1) * 0.5;
+    hud.container.setVisible(true).setAlpha(0.78 + pulse * 0.22);
+    hud.title.setColor(state.ticks > 0 && pulse > 0.5 ? "#ffffff" : "#ff8a80");
+  }
+
+  setOpenWorldOutOfAreaHudVisible(visible) {
+    const hud = this.openWorldState?.outOfArea?.hud;
+    if (hud?.container?.active) {
+      hud.container.setVisible(Boolean(visible));
+    }
+  }
+
+  // Companions follow at 460-930 px/s while a boosting machine reaches ~1100 px/s; once far
+  // off-screen on the open-world map they rejoin instead of trailing for seconds.
+  shouldRecallOpenWorldCompanion(distance) {
+    return this.isOpenWorldStage() && distance > OPEN_WORLD_CONFIG.companionRecallDistance;
+  }
+
+  canRecycleOpenWorldEnemy(enemy) {
+    return Boolean(
+      enemy?.active &&
+      enemy.body &&
+      !enemy.isDying &&
+      !enemy.isFinalBossRaidBoss &&
+      !enemy.isFinalBossRaidMinion &&
+      !enemy.isVoidHunterBoss &&
+      !enemy.isChargingBossAttack &&
+      !enemy.isBossDashing &&
+      !enemy.isChargingBeam &&
+      !enemy.isChargingDashAttack
+    );
+  }
+
+  // Enemies left far behind are moved back in front of the player (Vampire Survivors style),
+  // keeping their HP and state, so the wave cap and wave bosses never get stranded.
+  updateOpenWorldEnemyRecycle() {
+    const state = this.openWorldState;
+    const config = OPEN_WORLD_CONFIG.enemyRecycle;
+    const now = this.time?.now || 0;
+    if (now < state.nextEnemyRecycleAt || !this.enemies || !this.playerHitbox?.active) {
+      return;
+    }
+    state.nextEnemyRecycleAt = now + config.intervalMs;
+
+    const view = this.worldCamera?.worldView;
+    const margin = config.viewMargin;
+    const maxDistanceSq = config.distance * config.distance;
+    const playerX = this.playerHitbox.x;
+    const playerY = this.playerHitbox.y;
+    const candidates = [];
+    this.enemies.children.each((enemy) => {
+      if (candidates.length >= config.maxPerTick || !this.canRecycleOpenWorldEnemy(enemy)) {
+        return;
+      }
+      const dx = enemy.x - playerX;
+      const dy = enemy.y - playerY;
+      if (dx * dx + dy * dy < maxDistanceSq) {
+        return;
+      }
+      if (view && enemy.x > view.left - margin && enemy.x < view.right + margin && enemy.y > view.top - margin && enemy.y < view.bottom + margin) {
+        return;
+      }
+      candidates.push(enemy);
+    });
+
+    candidates.forEach((enemy) => {
+      const point = this.getEnemySpawnPoint(enemy.isElite || enemy.isBoss ? 150 : 120);
+      enemy.setPosition(point.x, point.y);
+      enemy.body.reset(point.x, point.y);
+      state.recycledEnemyCount += 1;
+    });
+  }
+
+  getOpenWorldForwardSpawnEdge() {
+    if (!this.isOpenWorldStage()) {
+      return null;
+    }
+    const rig = this.acCameraRigState;
+    const velocity = rig?.initialized
+      ? { x: rig.velocityX, y: rig.velocityY }
+      : { x: Number(this.playerHitbox?.body?.velocity?.x) || 0, y: Number(this.playerHitbox?.body?.velocity?.y) || 0 };
+    if (Math.hypot(velocity.x, velocity.y) < OPEN_WORLD_CONFIG.spawnForwardBiasMinSpeed) {
+      return null;
+    }
+    // Edge ids match getEnemySpawnPoint: 0 top, 1 right, 2 bottom, 3 left.
+    if (Math.abs(velocity.x) > Math.abs(velocity.y)) {
+      return velocity.x > 0 ? 1 : 3;
+    }
+    return velocity.y > 0 ? 2 : 0;
+  }
+
+  getOpenWorldGateCenter() {
+    const state = this.openWorldState;
+    if (state?.gateCenter) {
+      return { ...state.gateCenter };
+    }
+    const point = this.pickOpenWorldGateCenter();
+    if (state) {
+      state.gateCenter = point;
+    }
+    return { ...point };
+  }
+
+  clearOpenWorldGateCenter() {
+    if (this.openWorldState) {
+      this.openWorldState.gateCenter = null;
+    }
+  }
+
+  pickOpenWorldGateCenter() {
+    const config = OPEN_WORLD_CONFIG.gate;
+    const world = this.getStageWorldBounds(this.currentStage);
+    const area = this.getStagePlayBounds(this.currentStage, config.areaMargin) || world;
+    const originX = this.playerHitbox?.x ?? area.centerX;
+    const originY = this.playerHitbox?.y ?? area.centerY;
+    const rig = this.acCameraRigState;
+    const speed = rig?.initialized ? Math.hypot(rig.velocityX, rig.velocityY) : 0;
+    const heading = speed > 60 ? Math.atan2(rig.velocityY, rig.velocityX) : (this.playerAimAngle ?? Math.random() * Math.PI * 2);
+    for (let attempt = 0; attempt < config.attempts; attempt += 1) {
+      const spread = attempt < config.attempts / 2 ? Math.PI : Math.PI * 2;
+      const angle = heading + (Math.random() - 0.5) * spread;
+      const distance = Phaser.Math.Between(config.minDistance, config.maxDistance);
+      const x = originX + Math.cos(angle) * distance;
+      const y = originY + Math.sin(angle) * distance;
+      if (x >= area.left && x <= area.right && y >= area.top && y <= area.bottom) {
+        return { x: Math.round(x), y: Math.round(y) };
+      }
+    }
+
+    // Near a corner every ring point may fall outside; head toward the area centre instead.
+    const towardCenter = Math.atan2(area.centerY - originY, area.centerX - originX);
+    const clamped = this.clampPointToBounds(
+      originX + Math.cos(towardCenter) * config.minDistance,
+      originY + Math.sin(towardCenter) * config.minDistance,
+      area
+    );
+    return { x: Math.round(clamped.x), y: Math.round(clamped.y) };
+  }
+
+  formatGateLocationText(text) {
+    const source = String(text ?? "");
+    if (!this.isOpenWorldStage()) {
+      return source;
+    }
+    return source.replace(/中央の出現地点/g, "目標地点").replace(/中央/g, "目標地点");
+  }
+
+  getOpenWorldFinalRaidFieldBounds() {
+    const world = this.getStageWorldBounds(this.currentStage);
+    const size = Math.min(OPEN_WORLD_CONFIG.finalRaidFieldSize, world.width, world.height);
+    const left = world.centerX - size * 0.5;
+    const top = world.centerY - size * 0.5;
+    return {
+      left,
+      top,
+      right: left + size,
+      bottom: top + size,
+      width: size,
+      height: size,
+      centerX: world.centerX,
+      centerY: world.centerY
+    };
+  }
+
+  // Final Raid keeps the 4096 px field it was designed for, even on the open-world map.
+  getFinalBossRaidWorldBounds() {
+    return this.isOpenWorldStage?.()
+      ? this.getOpenWorldFinalRaidFieldBounds()
+      : this.getStageWorldBounds(this.currentStage);
+  }
+
+  recallOpenWorldDataCachesToPlayer() {
+    if (!this.isOpenWorldStage() || !this.rareItems) {
+      return;
+    }
+    const caches = [];
+    this.rareItems.children.each((item) => {
+      if (item?.active && this.isDataCacheDrop?.(item)) {
+        caches.push(item);
+      }
+    });
+    caches.forEach((item, index) => {
+      const point = this.getDataCacheSpawnPoint(index, caches.length);
+      item.baseX = point.x;
+      item.baseY = point.y;
+      item.setPosition(point.x, point.y);
+      item.body?.reset?.(point.x, point.y);
+    });
+  }
+
+  getOpenWorldDiagnostics() {
+    const state = this.openWorldState;
+    if (!this.isOpenWorldStage() || !state) {
+      return { active: false };
+    }
+    let objectCount = 0;
+    state.chunks.forEach((chunk) => {
+      objectCount += chunk.objects.length;
+    });
+    return {
+      active: true,
+      seed: state.seed,
+      chunkCount: state.chunks.size,
+      objectCount,
+      outOfArea: state.outOfArea.active,
+      outsideMs: state.outOfArea.outsideMs,
+      outOfAreaTicks: state.outOfArea.ticks,
+      gateCenter: state.gateCenter ? { ...state.gateCenter } : null,
+      recycledEnemyCount: state.recycledEnemyCount
+    };
   }
 
   createStageLayers() {
@@ -60502,21 +61550,21 @@ class SurvivalScene extends Phaser.Scene {
 
   getAcCameraRigMode() {
     const search = typeof window === "undefined" ? "" : String(window.location?.search || "");
-    if (this.acCameraRigModeCache && this.acCameraRigModeCache.search === search) {
-      return this.acCameraRigModeCache.mode;
+    if (!this.acCameraRigModeCache || this.acCameraRigModeCache.search !== search) {
+      const raw = String(this.getUrlStageParam(AC_CAMERA_RIG_CONFIG.queryParam) || "").trim().toLowerCase();
+      let explicitMode = raw ? AC_CAMERA_RIG_MODE.OFF : null;
+      if (this.isQueryFlagValueEnabled(raw) || raw === "full") {
+        explicitMode = AC_CAMERA_RIG_MODE.FULL;
+      } else if (raw === "lead") {
+        explicitMode = AC_CAMERA_RIG_MODE.LEAD;
+      } else if (raw === "zoom") {
+        explicitMode = AC_CAMERA_RIG_MODE.ZOOM;
+      }
+      this.acCameraRigModeCache = { search, explicitMode };
     }
-
-    const raw = String(this.getUrlStageParam(AC_CAMERA_RIG_CONFIG.queryParam) || "").trim().toLowerCase();
-    let mode = AC_CAMERA_RIG_MODE.OFF;
-    if (this.isQueryFlagValueEnabled(raw) || raw === "full") {
-      mode = AC_CAMERA_RIG_MODE.FULL;
-    } else if (raw === "lead") {
-      mode = AC_CAMERA_RIG_MODE.LEAD;
-    } else if (raw === "zoom") {
-      mode = AC_CAMERA_RIG_MODE.ZOOM;
-    }
-    this.acCameraRigModeCache = { search, mode };
-    return mode;
+    // The open-world map uses the rig by default; ?debugAcCamera=0 still turns it off.
+    return this.acCameraRigModeCache.explicitMode
+      ?? (this.isOpenWorldStage?.() ? AC_CAMERA_RIG_MODE.FULL : AC_CAMERA_RIG_MODE.OFF);
   }
 
   isAcCameraRigLeadEnabled(mode = this.getAcCameraRigMode()) {
@@ -60865,7 +61913,7 @@ class SurvivalScene extends Phaser.Scene {
     }
     return this.queueCommsMessage({
       speaker: "OPERATOR",
-      text,
+      text: this.formatGateLocationText(text),
       variant: phase === "approach" ? "system" : "warning",
       duration: phase === "final" ? 5600 : 6200,
       priority: 12,
@@ -60890,7 +61938,7 @@ class SurvivalScene extends Phaser.Scene {
         return null;
       }
       return {
-        text: `GATE出現まで ${this.formatTimeMs(remainingMs)}　中央へ移動\n${lossLine}`,
+        text: this.formatGateLocationText(`GATE出現まで ${this.formatTimeMs(remainingMs)}　中央へ移動\n${lossLine}`),
         color: "#fff0b0",
         accent: 0xf0c463,
         urgent: remainingMs <= GATE_URGENT_LEAD_MS
@@ -61106,7 +62154,7 @@ class SurvivalScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     const instructionText = this.add
-      .text(0, 182, "中央へ移動", {
+      .text(0, 182, this.formatGateLocationText("中央へ移動"), {
         fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
         fontSize: "16px",
         color: "#fff0b0",
@@ -61222,7 +62270,7 @@ class SurvivalScene extends Phaser.Scene {
       ?.setText(`GATE出現まで ${this.formatTimeMs(state.remainingMs)}`)
       .setColor(state.urgent ? "#fff1a8" : "#ecfaff");
     visual.instructionText
-      ?.setText(state.urgent ? "中央へ急行" : "中央へ移動")
+      ?.setText(this.formatGateLocationText(state.urgent ? "中央へ急行" : "中央へ移動"))
       .setColor(state.urgent ? "#fff1a8" : "#fff0b0");
 
     visual.particles?.forEach((particle, index) => {
@@ -61287,6 +62335,8 @@ class SurvivalScene extends Phaser.Scene {
     } else {
       this.gateState.warningShown = true;
     }
+    // Open world: fix the gate relative to where the player is when the signal starts.
+    this.clearOpenWorldGateCenter();
     this.gateWarningFlashUntil = this.time.now + 900;
     this.spawnGateSignalVisual();
     this.setLastPickupNotice("GATE SIGNAL DETECTED");
@@ -61297,6 +62347,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getStageGateCenter() {
+    if (this.isOpenWorldStage()) {
+      return this.getOpenWorldGateCenter();
+    }
+
     const playBounds = this.getStagePlayBounds(this.currentStage);
     if (playBounds) {
       return { x: playBounds.centerX, y: playBounds.centerY };
@@ -61351,7 +62405,7 @@ class SurvivalScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     const enterText = this.add
-      .text(0, 142, "▼ 中央へ進入 ▼", {
+      .text(0, 142, this.formatGateLocationText("▼ 中央へ進入 ▼"), {
         fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
         fontSize: "19px",
         color: "#ecfaff",
@@ -61563,7 +62617,7 @@ class SurvivalScene extends Phaser.Scene {
         : `${collapseFailureDepth ? "崩壊" : "変調"}まで ${this.formatTimeMs(remainingMs)}`)
       .setColor(danger ? "#ffb3a8" : "#9fe7ff");
     gate.enterText
-      ?.setText(unstable ? "▼ 中央へ進入 / 選択 ▼" : (danger ? "▼ 急いで中央へ進入 ▼" : "▼ 中央へ進入 ▼"))
+      ?.setText(this.formatGateLocationText(unstable ? "▼ 中央へ進入 / 選択 ▼" : (danger ? "▼ 急いで中央へ進入 ▼" : "▼ 中央へ進入 ▼")))
       .setColor(danger ? "#fff0b0" : "#ecfaff");
     const activeTint = unstable ? 0xff5b73 : (danger ? 0xffc857 : (gatePalette.primary || 0x5fdcff));
     gate.core?.setFillStyle(activeTint, unstable ? 0.22 : (danger ? 0.25 : 0.16));
@@ -61630,12 +62684,14 @@ class SurvivalScene extends Phaser.Scene {
       this.gateWarningFlashUntil = 0;
       this.gateInstabilityFlashUntil = 0;
       this.clearGateStabilizeProtocolState("destroyStageGate");
+      this.clearOpenWorldGateCenter();
     }
   }
 
   resetGateCycleForNextDepth() {
     this.stageDepthElapsedMs = 0;
     this.destroyStageGate();
+    this.clearOpenWorldGateCenter();
     this.gateState = {
       status: "closed",
       warningShown: false,
@@ -61675,13 +62731,13 @@ class SurvivalScene extends Phaser.Scene {
     const columns = rescue
       ? [
           { title: "+15 SEC", detail: "初回だけ\n崩壊を延期" },
-          { title: "中央の光柱", detail: "縦型ポータルへ\n今すぐ急行" },
+          { title: this.formatGateLocationText("中央の光柱"), detail: "縦型ポータルへ\n今すぐ急行" },
           { title: "一度限り", detail: "次回以降は\n救済なし" }
         ]
       : [
-          { title: "2:00 戦闘", detail: "30秒前から\n中央に信号表示" },
+          { title: "2:00 戦闘", detail: this.formatGateLocationText("30秒前から\n中央に信号表示") },
           { title: "GATE 開放", detail: "崩壊まで\n基本30秒" },
-          { title: "中央へ進入", detail: "継続または\n帰還を選択" }
+          { title: this.formatGateLocationText("中央へ進入"), detail: "継続または\n帰還を選択" }
         ];
 
     this.clearOverlayButtons();
@@ -61716,7 +62772,7 @@ class SurvivalScene extends Phaser.Scene {
       .setPosition(0, -172)
       .setText(rescue
         ? "初回救済が作動しました。カウントはこの画面を閉じるまで停止します。"
-        : "DEPTH 1〜5では、Gate開放後に中央へ入らないと作戦失敗になります。");
+        : this.formatGateLocationText("DEPTH 1〜5では、Gate開放後に中央へ入らないと作戦失敗になります。"));
 
     columns.forEach((column, index) => {
       const x = -232 + index * 232;
@@ -61870,7 +62926,7 @@ class SurvivalScene extends Phaser.Scene {
     this.showOverflowRewardText("初回救済 +15秒", center.x, center.y - 170, "#fff0b0");
     this.queueCommsMessage({
       speaker: "OPERATOR",
-      text: "緊急ホールドを起動。Gate崩壊を15秒延期しました。中央のポータルへ急いでください。この救済は一度限りです。",
+      text: this.formatGateLocationText("緊急ホールドを起動。Gate崩壊を15秒延期しました。中央のポータルへ急いでください。この救済は一度限りです。"),
       variant: "warning",
       duration: 6600,
       priority: 14,
@@ -64729,6 +65785,7 @@ class SurvivalScene extends Phaser.Scene {
     } else {
       this.updateAcCameraRig(delta);
     }
+    this.updateOpenWorld(delta, finalBossRaidActive);
     this.checkStageGateEntry();
     if (this.gateChoiceActive) {
       return;
@@ -70625,8 +71682,19 @@ class SurvivalScene extends Phaser.Scene {
       `cruiseMul:${formatNumber(diagnostics.normalCruiseMultiplier, 2)} walkSpeed:${formatNumber(diagnostics.walkSpeed, 1)} accel:${formatNumber(diagnostics.cruiseAcceleration, 0)} normalD10Robot:${diagnostics.isNormalDepth10Robot ? "Y" : "N"} raidHuman:${diagnostics.isFinalRaidHumanVisual ? "Y" : "N"}`,
       `fail:${diagnostics.lastQuickBoostFailReason} success:${diagnostics.lastQuickBoostSucceeded ? "Y" : "N"}`,
       `visuals objects:${diagnostics.visualObjectCount} after:${diagnostics.afterimageCount} trail:${diagnostics.trailActive ? "Y" : "N"} qbGlow:${diagnostics.quickBoostGlowActive ? "Y" : "N"} heatFx:${diagnostics.overheatVisualActive ? "Y" : "N"} tactical:${diagnostics.tacticalVisualCount} targetFire:${diagnostics.targetFireVisualCount} evade:${diagnostics.evadeWindowVisualCount}`,
-      this.formatAcCameraRigDebugHudLine()
+      this.formatAcCameraRigDebugHudLine(),
+      this.formatOpenWorldDebugHudLine()
     ].join("\n");
+  }
+
+  formatOpenWorldDebugHudLine() {
+    const world = this.getOpenWorldDiagnostics?.() || { active: false };
+    if (!world.active) {
+      return "openWorld:OFF";
+    }
+    const player = this.playerHitbox?.active ? `${Math.round(this.playerHitbox.x)},${Math.round(this.playerHitbox.y)}` : "-";
+    const gate = world.gateCenter ? `${world.gateCenter.x},${world.gateCenter.y}` : "-";
+    return `openWorld:ON chunks:${world.chunkCount} objs:${world.objectCount} pos:${player} area:${world.outOfArea ? `OUT ${(world.outsideMs / 1000).toFixed(1)}s x${world.outOfAreaTicks}` : "IN"} gate:${gate} recycled:${world.recycledEnemyCount}`;
   }
 
   formatAcCameraRigDebugHudLine() {
@@ -71012,7 +72080,7 @@ class SurvivalScene extends Phaser.Scene {
     const deltaX = desiredX - this.robotState.x;
     const deltaY = desiredY - this.robotState.y;
     const distance = Math.hypot(deltaX, deltaY);
-    const maxStep = 460 * (delta / 1000);
+    const maxStep = this.shouldRecallOpenWorldCompanion(distance) ? distance : 460 * (delta / 1000);
     const moveRatio = distance > 0 ? Math.min(1, maxStep / distance) : 1;
     const bob = Math.sin(this.robotState.bobTimer) * 5;
 
@@ -71091,7 +72159,7 @@ class SurvivalScene extends Phaser.Scene {
     const deltaY = desiredY - this.cleaningRobotState.y;
     const distance = Math.hypot(deltaX, deltaY);
     const speed = target ? config.moveSpeed : config.returnSpeed;
-    const maxStep = speed * (delta / 1000);
+    const maxStep = !target && this.shouldRecallOpenWorldCompanion(distance) ? distance : speed * (delta / 1000);
     const moveRatio = distance > 0 ? Math.min(1, maxStep / distance) : 1;
     const bob = Math.sin(this.cleaningRobotState.bobTimer) * 4;
 
@@ -75098,8 +76166,11 @@ class SurvivalScene extends Phaser.Scene {
       );
     };
 
+    const forwardEdge = this.getOpenWorldForwardSpawnEdge?.() ?? null;
     const makeCandidate = () => {
-      const edge = Phaser.Math.Between(0, 3);
+      const edge = forwardEdge !== null && Math.random() < OPEN_WORLD_CONFIG.spawnForwardBiasChance
+        ? forwardEdge
+        : Phaser.Math.Between(0, 3);
 
       if (edge === 0) {
         return {
@@ -75190,10 +76261,19 @@ class SurvivalScene extends Phaser.Scene {
       }
     }
 
+    // On the open-world map "anywhere in the spawn bounds" can be 20,000 px away; stay near the view.
+    const randomBounds = this.isOpenWorldStage?.()
+      ? {
+          left: Math.max(spawnBounds.left, centerX - halfWidth * 2),
+          top: Math.max(spawnBounds.top, centerY - halfHeight * 2),
+          right: Math.min(spawnBounds.right, centerX + halfWidth * 2),
+          bottom: Math.min(spawnBounds.bottom, centerY + halfHeight * 2)
+        }
+      : spawnBounds;
     for (let attempt = 0; attempt < ENEMY_SPAWN_POINT_ATTEMPTS; attempt += 1) {
       const point = {
-        x: Phaser.Math.Between(Math.round(spawnBounds.left), Math.round(spawnBounds.right)),
-        y: Phaser.Math.Between(Math.round(spawnBounds.top), Math.round(spawnBounds.bottom))
+        x: Phaser.Math.Between(Math.round(randomBounds.left), Math.round(randomBounds.right)),
+        y: Phaser.Math.Between(Math.round(randomBounds.top), Math.round(randomBounds.bottom))
       };
 
       if (this.isEnemySpawnPointClear(point, spawnBounds, obstaclePadding)) {
@@ -76302,10 +77382,20 @@ class SurvivalScene extends Phaser.Scene {
     const centerY = this.playerHitbox?.y || this.playerSprite?.y || this.robotState?.y || WORLD_HEIGHT / 2;
     const distance = Phaser.Math.Between(ROBOT_NAPALM_CONFIG.landingMinRadius, ROBOT_NAPALM_CONFIG.landingMaxRadius);
     const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+    const limits = this.getRobotNapalmLandingLimits();
     return {
-      x: Phaser.Math.Clamp(centerX + Math.cos(angle) * distance, 24, WORLD_WIDTH - 24),
-      y: Phaser.Math.Clamp(centerY + Math.sin(angle) * distance, 24, WORLD_HEIGHT - 24)
+      x: Phaser.Math.Clamp(centerX + Math.cos(angle) * distance, 24, limits.maxX),
+      y: Phaser.Math.Clamp(centerY + Math.sin(angle) * distance, 24, limits.maxY)
     };
+  }
+
+  getRobotNapalmLandingLimits() {
+    // WORLD_WIDTH/HEIGHT (6000) is larger than every Tokyo map, but far smaller than the open world.
+    if (this.isOpenWorldStage?.()) {
+      const world = this.getStageWorldBounds(this.currentStage);
+      return { maxX: world.right - 24, maxY: world.bottom - 24 };
+    }
+    return { maxX: WORLD_WIDTH - 24, maxY: WORLD_HEIGHT - 24 };
   }
 
   pickRobotNapalmClusterLandingPoint(level = this.getRobotEffectiveNapalmLevel()) {
@@ -76435,16 +77525,17 @@ class SurvivalScene extends Phaser.Scene {
 
   clampRobotNapalmLandingPoint(x, y) {
     const view = this.cameras?.main?.worldView;
+    const limits = this.getRobotNapalmLandingLimits();
     if (view) {
       const padding = 24;
       return {
-        x: Phaser.Math.Clamp(x, Math.max(24, view.x + padding), Math.min(WORLD_WIDTH - 24, view.right - padding)),
-        y: Phaser.Math.Clamp(y, Math.max(24, view.y + padding), Math.min(WORLD_HEIGHT - 24, view.bottom - padding))
+        x: Phaser.Math.Clamp(x, Math.max(24, view.x + padding), Math.min(limits.maxX, view.right - padding)),
+        y: Phaser.Math.Clamp(y, Math.max(24, view.y + padding), Math.min(limits.maxY, view.bottom - padding))
       };
     }
     return {
-      x: Phaser.Math.Clamp(x, 24, WORLD_WIDTH - 24),
-      y: Phaser.Math.Clamp(y, 24, WORLD_HEIGHT - 24)
+      x: Phaser.Math.Clamp(x, 24, limits.maxX),
+      y: Phaser.Math.Clamp(y, 24, limits.maxY)
     };
   }
 
@@ -85608,7 +86699,7 @@ class SurvivalScene extends Phaser.Scene {
     if (reason === "gateCollapse") {
       const lostCoins = this.normalizeCoinAmount(this.lastGameOverReason?.lostCoins);
       this.returnToOpeningShop(
-        `Gate崩壊：未確定GEEK ${lostCoins.toLocaleString()}消失／確定GEEK維持。次回は開放後、中央へ進入。`
+        this.formatGateLocationText(`Gate崩壊：未確定GEEK ${lostCoins.toLocaleString()}消失／確定GEEK維持。次回は開放後、中央へ進入。`)
       );
       return;
     }
@@ -85846,7 +86937,7 @@ class SurvivalScene extends Phaser.Scene {
     const reasonLine = isExtractionResult
       ? `EXTRACTED GEEK ${securedCoins.toLocaleString()} / BEST DEPTH ${this.getRecordBestDepth(currentRecord)}${lostCoins > 0 ? ` / LOST ${lostCoins.toLocaleString()}` : ""}\n${anjuMemoryText ? `${anjuMemoryText}\n` : ""}${lostArmsMessage ? `${lostArmsMessage}\n` : ""}`
       : (reason === "gateCollapse"
-        ? `制限時間内にGateへ進入できず、作戦失敗\n未確定GEEK ${lostCoins.toLocaleString()} 消失 / 確定GEEKは維持\n次回：Gate開放後、崩壊前に中央へ進入${gateCollapseLostArmsSuffix}\n`
+        ? this.formatGateLocationText(`制限時間内にGateへ進入できず、作戦失敗\n未確定GEEK ${lostCoins.toLocaleString()} 消失 / 確定GEEKは維持\n次回：Gate開放後、崩壊前に中央へ進入${gateCollapseLostArmsSuffix}\n`)
         : `${lostCoins > 0 ? `未確定GEEK LOST: ${lostCoins.toLocaleString()}\n` : ""}${lostArmsMessage ? `${lostArmsMessage}\n` : ""}`);
     this.overlayTitle.setText(isExtractionResult
       ? (reason === "emergencyExtract" ? "Emergency Extraction" : "Extraction Complete")
@@ -87298,7 +88389,7 @@ class SurvivalScene extends Phaser.Scene {
       gateText = `GATE出現まで ${this.formatTimeMs(remainingMs)}`;
       gateColor = warningActive ? "#f3c06b" : "#9ab7cc";
       if (warningActive) {
-        tensionText = `中央の出現地点へ移動 / SIGNAL ${Math.round(tensionState.ratio * 100)}%`;
+        tensionText = this.formatGateLocationText(`中央の出現地点へ移動 / SIGNAL ${Math.round(tensionState.ratio * 100)}%`);
         tensionColor = tensionState.urgent ? "#ffb3a8" : "#f3c06b";
       }
     } else {
@@ -87313,8 +88404,8 @@ class SurvivalScene extends Phaser.Scene {
         gateText = `${collapseFailureDepth ? "GATE崩壊まで" : "GATE変調まで"} ${this.formatTimeMs(remainingMs)}`;
         gateColor = warningActive ? "#ff7970" : "#9fe7ff";
         tensionText = collapseFailureDepth
-          ? (warningActive ? "未進入で作戦失敗 / 中央へ急行" : "中央へ進入 / 未進入で作戦失敗")
-          : (warningActive ? "未進入で不安定度上昇 / 中央へ急行" : "中央のGATEへ進入");
+          ? this.formatGateLocationText(warningActive ? "未進入で作戦失敗 / 中央へ急行" : "中央へ進入 / 未進入で作戦失敗")
+          : this.formatGateLocationText(warningActive ? "未進入で不安定度上昇 / 中央へ急行" : "中央のGATEへ進入");
         tensionColor = warningActive ? "#ffb3a8" : "#9fe7ff";
       }
     }
