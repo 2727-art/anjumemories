@@ -634,6 +634,7 @@ const AC_REACTOR_COOLING_SHOP_DEBUG_QUERY_PARAM = "debugAcReactorCoolingShop";
 const AC_REACTOR_COOLING_LEVEL_DEBUG_QUERY_PARAM = "debugAcReactorCoolingLevel";
 const AC_BOOST_SE_DEBUG_QUERY_PARAM = "debugAcBoostSe";
 const AC_BOOST_SE_RUNTIME_PAN_DEBUG_QUERY_PARAM = "debugAcBoostSeRuntimePan";
+const AC_CAMERA_RIG_QUERY_PARAM = "debugAcCamera";
 const AC_QUICK_BOOST_SE_LEGACY_KEY = "acQuickBoostSe";
 const AC_QUICK_BOOST_SE_LEGACY_PATH = "./音声/se/boostse.wav";
 const AC_QUICK_BOOST_SE_LEFT_KEY = "acQuickBoostSeLeft";
@@ -1323,6 +1324,34 @@ const AC_MOVEMENT_PRESETS = Object.freeze({
     weightShadowDepth: 15,
     weightShadowSmoothing: 0.22
   })
+});
+const AC_CAMERA_RIG_MODE = Object.freeze({
+  OFF: "OFF",
+  FULL: "FULL",
+  LEAD: "LEAD",
+  ZOOM: "ZOOM"
+});
+// Phase 0 camera rig (WORLD_DESIGN.md). Distances are world px, times are ms.
+const AC_CAMERA_RIG_CONFIG = Object.freeze({
+  queryParam: AC_CAMERA_RIG_QUERY_PARAM,
+  maxFrameGapMs: 250,
+  teleportDistance: 480,
+  velocitySmoothingMs: 160,
+  focusSmoothingMs: 110,
+  leadSeconds: 0.3,
+  leadMinSpeed: 40,
+  leadMaxX: 300,
+  leadMaxY: 170,
+  leadRiseSmoothingMs: 240,
+  leadFallSmoothingMs: 520,
+  externalOffsetTolerance: 0.5,
+  maxViewScale: 1.36,
+  zoomStartSpeed: 300,
+  zoomFullSpeed: 1000,
+  zoomOutSmoothingMs: 450,
+  zoomInSmoothingMs: 1200,
+  zoomApplyEpsilon: 0.0005,
+  externalZoomTolerance: 0.000001
 });
 const MOBILE_CONTROL_QUERY_PARAM = "mobileControls";
 const COMMS_UI_DEBUG_QUERY_PARAM = "debugComms";
@@ -60302,6 +60331,7 @@ class SurvivalScene extends Phaser.Scene {
     this.acMovementDebugStartStaminaApplied = false;
     if (!normal) this.rebuildStartingStats({ applyPlayerMech: true });
     this.resetAcMovementState("gameStart");
+    this.resetAcCameraRig("gameStart");
     this.applyAcMovementDebugStartStamina("gameStart");
     const pendingShopEpilogue = this.peekPendingShopEpilogueComms?.() || "";
     this.clearFinalRaidLegendRewardRuntimeState("gameStart");
@@ -60468,6 +60498,314 @@ class SurvivalScene extends Phaser.Scene {
       .setDepth(10000);
     this.uiContainer.add(this.uiObjects || []);
     this.updateUiContainerCameraCompensation(this.worldCamera.zoom || WORLD_CAMERA_ZOOM);
+  }
+
+  getAcCameraRigMode() {
+    const search = typeof window === "undefined" ? "" : String(window.location?.search || "");
+    if (this.acCameraRigModeCache && this.acCameraRigModeCache.search === search) {
+      return this.acCameraRigModeCache.mode;
+    }
+
+    const raw = String(this.getUrlStageParam(AC_CAMERA_RIG_CONFIG.queryParam) || "").trim().toLowerCase();
+    let mode = AC_CAMERA_RIG_MODE.OFF;
+    if (this.isQueryFlagValueEnabled(raw) || raw === "full") {
+      mode = AC_CAMERA_RIG_MODE.FULL;
+    } else if (raw === "lead") {
+      mode = AC_CAMERA_RIG_MODE.LEAD;
+    } else if (raw === "zoom") {
+      mode = AC_CAMERA_RIG_MODE.ZOOM;
+    }
+    this.acCameraRigModeCache = { search, mode };
+    return mode;
+  }
+
+  isAcCameraRigLeadEnabled(mode = this.getAcCameraRigMode()) {
+    return mode === AC_CAMERA_RIG_MODE.FULL || mode === AC_CAMERA_RIG_MODE.LEAD;
+  }
+
+  isAcCameraRigZoomEnabled(mode = this.getAcCameraRigMode()) {
+    return mode === AC_CAMERA_RIG_MODE.FULL || mode === AC_CAMERA_RIG_MODE.ZOOM;
+  }
+
+  isAcCameraRigActive() {
+    return (
+      this.getAcCameraRigMode() !== AC_CAMERA_RIG_MODE.OFF &&
+      Boolean(this.playerHitbox?.active && this.playerHitbox.body) &&
+      !this.isFinalBossRaidActive?.()
+    );
+  }
+
+  createAcCameraRigState() {
+    return {
+      initialized: false,
+      lastPlayerX: 0,
+      lastPlayerY: 0,
+      velocityX: 0,
+      velocityY: 0,
+      speed: 0,
+      leadX: 0,
+      leadY: 0,
+      focusX: 0,
+      focusY: 0,
+      appliedOffsetX: 0,
+      appliedOffsetY: 0,
+      followApplied: false,
+      savedLerpX: null,
+      savedLerpY: null,
+      viewScale: WORLD_VIEW_SCALE,
+      targetViewScale: WORLD_VIEW_SCALE,
+      lastAppliedZoom: null,
+      resyncCount: 0,
+      lastResyncReason: ""
+    };
+  }
+
+  ensureAcCameraRigState() {
+    if (!this.acCameraRigState || typeof this.acCameraRigState !== "object") {
+      this.acCameraRigState = this.createAcCameraRigState();
+    }
+    return this.acCameraRigState;
+  }
+
+  resetAcCameraRig(reason = "reset") {
+    const state = this.acCameraRigState;
+    if (!state) {
+      return;
+    }
+
+    this.acCameraRigState = this.createAcCameraRigState();
+    const camera = this.worldCamera || this.cameras?.main;
+    if (!camera || this.isFinalBossRaidActive?.()) {
+      return;
+    }
+    if (state.followApplied) {
+      camera.setFollowOffset?.(0, 0);
+      if (state.savedLerpX !== null) {
+        camera.setLerp?.(state.savedLerpX, state.savedLerpY ?? state.savedLerpX);
+      }
+    }
+    if (state.lastAppliedZoom !== null) {
+      this.setWorldCameraZoom(WORLD_CAMERA_ZOOM);
+    }
+    if (this.isAcMovementHudDebugEnabled?.()) {
+      console.info("[AC CAMERA] reset", { reason });
+    }
+  }
+
+  approachAcCameraRigValue(current, target, deltaMs, timeConstantMs) {
+    if (!(timeConstantMs > 0)) {
+      return target;
+    }
+    const alpha = 1 - Math.exp(-Math.max(0, deltaMs) / timeConstantMs);
+    return current + (target - current) * alpha;
+  }
+
+  resyncAcCameraRig(camera, state, reason) {
+    // Adopt wherever the camera currently looks (run start, Final Raid reset,
+    // teleports) instead of swinging back to the rig's stale focus.
+    const playerX = this.playerHitbox.x;
+    const playerY = this.playerHitbox.y;
+    const followOffset = camera.followOffset || { x: 0, y: 0 };
+    state.initialized = true;
+    state.lastPlayerX = playerX;
+    state.lastPlayerY = playerY;
+    state.velocityX = 0;
+    state.velocityY = 0;
+    state.speed = 0;
+    state.leadX = 0;
+    state.leadY = 0;
+    state.focusX = playerX - (Number(followOffset.x) || 0);
+    state.focusY = playerY - (Number(followOffset.y) || 0);
+    state.resyncCount += 1;
+    state.lastResyncReason = reason;
+  }
+
+  hasAcCameraRigFollowBeenOverridden(camera, state) {
+    if (!state.followApplied) {
+      return false;
+    }
+    const tolerance = AC_CAMERA_RIG_CONFIG.externalOffsetTolerance;
+    const followOffset = camera.followOffset || { x: 0, y: 0 };
+    return (
+      Math.abs((Number(camera.lerp?.x) || 0) - 1) > 0.000001 ||
+      Math.abs((Number(camera.lerp?.y) || 0) - 1) > 0.000001 ||
+      Math.abs((Number(followOffset.x) || 0) - state.appliedOffsetX) > tolerance ||
+      Math.abs((Number(followOffset.y) || 0) - state.appliedOffsetY) > tolerance
+    );
+  }
+
+  syncAcCameraRigZoomWithExternalChanges(camera, state) {
+    if (state.lastAppliedZoom === null) {
+      return;
+    }
+    const zoom = Number(camera.zoom) || WORLD_CAMERA_ZOOM;
+    if (Math.abs(zoom - state.lastAppliedZoom) > AC_CAMERA_RIG_CONFIG.externalZoomTolerance) {
+      state.viewScale = 1 / Math.max(0.1, zoom);
+      state.lastAppliedZoom = zoom;
+      state.resyncCount += 1;
+    }
+  }
+
+  updateAcCameraRigMotionEstimate(state, deltaMs) {
+    // Measure what the player actually did (walls, knockback included) rather than
+    // the commanded body velocity, so the rig behaves the same at any frame rate.
+    const playerX = this.playerHitbox.x;
+    const playerY = this.playerHitbox.y;
+    const seconds = deltaMs / 1000;
+    const measuredX = seconds > 0 ? (playerX - state.lastPlayerX) / seconds : 0;
+    const measuredY = seconds > 0 ? (playerY - state.lastPlayerY) / seconds : 0;
+    const smoothingMs = AC_CAMERA_RIG_CONFIG.velocitySmoothingMs;
+    state.velocityX = this.approachAcCameraRigValue(state.velocityX, measuredX, deltaMs, smoothingMs);
+    state.velocityY = this.approachAcCameraRigValue(state.velocityY, measuredY, deltaMs, smoothingMs);
+    state.speed = Math.hypot(state.velocityX, state.velocityY);
+    state.lastPlayerX = playerX;
+    state.lastPlayerY = playerY;
+  }
+
+  getAcCameraRigLeadTarget(state) {
+    const config = AC_CAMERA_RIG_CONFIG;
+    if (state.speed < config.leadMinSpeed) {
+      return { x: 0, y: 0 };
+    }
+
+    let x = state.velocityX * config.leadSeconds;
+    let y = state.velocityY * config.leadSeconds;
+    const ellipse = Math.hypot(x / config.leadMaxX, y / config.leadMaxY);
+    if (ellipse > 1) {
+      x /= ellipse;
+      y /= ellipse;
+    }
+    return { x, y };
+  }
+
+  updateAcCameraRigLead(camera, state, deltaMs) {
+    const config = AC_CAMERA_RIG_CONFIG;
+    const target = this.getAcCameraRigLeadTarget(state);
+    const growing = Math.hypot(target.x, target.y) > Math.hypot(state.leadX, state.leadY);
+    const leadSmoothingMs = growing ? config.leadRiseSmoothingMs : config.leadFallSmoothingMs;
+    state.leadX = this.approachAcCameraRigValue(state.leadX, target.x, deltaMs, leadSmoothingMs);
+    state.leadY = this.approachAcCameraRigValue(state.leadY, target.y, deltaMs, leadSmoothingMs);
+
+    // Carry the focus along with the smoothed velocity (no steady-state lag), then
+    // ease it toward player + lead. The velocity smoothing leaves a short kick on
+    // sudden boosts, where the machine briefly outruns the camera.
+    const seconds = deltaMs / 1000;
+    const playerX = this.playerHitbox.x;
+    const playerY = this.playerHitbox.y;
+    state.focusX += state.velocityX * seconds;
+    state.focusY += state.velocityY * seconds;
+    state.focusX = this.approachAcCameraRigValue(state.focusX, playerX + state.leadX, deltaMs, config.focusSmoothingMs);
+    state.focusY = this.approachAcCameraRigValue(state.focusY, playerY + state.leadY, deltaMs, config.focusSmoothingMs);
+
+    if (!state.followApplied || state.savedLerpX === null) {
+      state.savedLerpX = Number(camera.lerp?.x) || 0.12;
+      state.savedLerpY = Number(camera.lerp?.y) || state.savedLerpX;
+    }
+    // Phaser centres on (target - followOffset); lerp 1 hands smoothing to the rig.
+    state.appliedOffsetX = playerX - state.focusX;
+    state.appliedOffsetY = playerY - state.focusY;
+    camera.setLerp(1, 1);
+    camera.setFollowOffset(state.appliedOffsetX, state.appliedOffsetY);
+    state.followApplied = true;
+  }
+
+  updateAcCameraRigZoom(camera, state, deltaMs) {
+    const config = AC_CAMERA_RIG_CONFIG;
+    const range = Math.max(1, config.zoomFullSpeed - config.zoomStartSpeed);
+    const ratio = Phaser.Math.Clamp((state.speed - config.zoomStartSpeed) / range, 0, 1);
+    const eased = ratio * ratio * (3 - 2 * ratio);
+    const maxViewScale = Math.max(WORLD_VIEW_SCALE, config.maxViewScale);
+    state.targetViewScale = WORLD_VIEW_SCALE + (maxViewScale - WORLD_VIEW_SCALE) * eased;
+    const timeConstantMs = state.targetViewScale > state.viewScale ? config.zoomOutSmoothingMs : config.zoomInSmoothingMs;
+    state.viewScale = this.approachAcCameraRigValue(state.viewScale, state.targetViewScale, deltaMs, timeConstantMs);
+    const zoom = 1 / Math.max(0.1, state.viewScale);
+    if (state.lastAppliedZoom === null || Math.abs((Number(camera.zoom) || 0) - zoom) >= config.zoomApplyEpsilon) {
+      this.setWorldCameraZoom(zoom);
+    }
+    state.lastAppliedZoom = Number(camera.zoom) || zoom;
+  }
+
+  updateAcCameraRig(delta) {
+    if (!this.isAcCameraRigActive()) {
+      return;
+    }
+
+    const camera = this.worldCamera || this.cameras?.main;
+    if (!camera?.setFollowOffset || !camera.setLerp) {
+      return;
+    }
+
+    const config = AC_CAMERA_RIG_CONFIG;
+    const mode = this.getAcCameraRigMode();
+    const state = this.ensureAcCameraRigState();
+    const deltaMs = Math.max(0, Number(delta) || 0);
+    const jump = Math.hypot(this.playerHitbox.x - state.lastPlayerX, this.playerHitbox.y - state.lastPlayerY);
+    if (!state.initialized) {
+      this.resyncAcCameraRig(camera, state, "init");
+    } else if (this.hasAcCameraRigFollowBeenOverridden(camera, state)) {
+      this.resyncAcCameraRig(camera, state, "externalFollow");
+    } else if (deltaMs > config.maxFrameGapMs || jump > config.teleportDistance) {
+      this.resyncAcCameraRig(camera, state, deltaMs > config.maxFrameGapMs ? "frameGap" : "teleport");
+    } else {
+      this.updateAcCameraRigMotionEstimate(state, deltaMs);
+    }
+    this.syncAcCameraRigZoomWithExternalChanges(camera, state);
+
+    if (this.isAcCameraRigLeadEnabled(mode)) {
+      this.updateAcCameraRigLead(camera, state, deltaMs);
+    }
+    if (this.isAcCameraRigZoomEnabled(mode)) {
+      this.updateAcCameraRigZoom(camera, state, deltaMs);
+    }
+  }
+
+  getEnemySpawnViewFrame() {
+    const camera = this.cameras.main;
+    const frame = {
+      centerX: this.playerHitbox.x,
+      centerY: this.playerHitbox.y,
+      halfWidth: GAME_WIDTH * 0.5 / camera.zoom,
+      halfHeight: GAME_HEIGHT * 0.5 / camera.zoom
+    };
+    if (!this.isAcCameraRigActive()) {
+      return frame;
+    }
+
+    // With the rig the view is no longer centred on the player and can still be
+    // zooming out, so test against the real view and the zoom it is heading to.
+    const view = camera.worldView;
+    if (!view || !(view.width > 0) || !(view.height > 0)) {
+      return frame;
+    }
+    const targetViewScale = Math.max(WORLD_VIEW_SCALE, Number(this.acCameraRigState?.targetViewScale) || WORLD_VIEW_SCALE);
+    return {
+      centerX: view.centerX,
+      centerY: view.centerY,
+      halfWidth: Math.max(view.width * 0.5, GAME_WIDTH * 0.5 * targetViewScale),
+      halfHeight: Math.max(view.height * 0.5, GAME_HEIGHT * 0.5 * targetViewScale)
+    };
+  }
+
+  getAcCameraRigDiagnostics() {
+    const mode = this.getAcCameraRigMode();
+    const state = this.acCameraRigState || this.createAcCameraRigState();
+    const camera = this.worldCamera || this.cameras?.main;
+    return {
+      mode,
+      active: this.isAcCameraRigActive(),
+      speed: state.speed,
+      leadX: state.leadX,
+      leadY: state.leadY,
+      focusLagX: state.followApplied ? state.focusX - (state.lastPlayerX + state.leadX) : 0,
+      focusLagY: state.followApplied ? state.focusY - (state.lastPlayerY + state.leadY) : 0,
+      offsetX: state.appliedOffsetX,
+      offsetY: state.appliedOffsetY,
+      viewScale: state.viewScale,
+      targetViewScale: state.targetViewScale,
+      zoom: Number(camera?.zoom) || 0,
+      resyncCount: state.resyncCount,
+      lastResyncReason: state.lastResyncReason
+    };
   }
 
   createColliders() {
@@ -63022,6 +63360,7 @@ class SurvivalScene extends Phaser.Scene {
       anchorUnlockEligible: this.depthRelayAnchorProgressState?.anchorUnlockEligible === true
     });
     this.resetAcMovementState("depthTransition");
+    this.resetAcCameraRig("depthTransition");
     this.adoptUmbraGateSurvivors(umbraGateTicket);
     this.initializeEquipmentProductionDropState(this.stageDepth, "depthTransition");
     this.updateRunRankingDepthProgress(this.stageDepth);
@@ -64382,6 +64721,8 @@ class SurvivalScene extends Phaser.Scene {
     this.updateVoidHunterStationarySummon(delta, this.playerRobotMotion?.isMoving === true);
     if (finalBossRaidActive) {
       this.updateFinalBossRaidCamera();
+    } else {
+      this.updateAcCameraRig(delta);
     }
     this.checkStageGateEntry();
     if (this.gateChoiceActive) {
@@ -70278,8 +70619,18 @@ class SurvivalScene extends Phaser.Scene {
       `thruster:${diagnostics.thrusterState} heat:${formatNumber(diagnostics.heatLevel, 0)}% ${diagnostics.heatState}`,
       `cruiseMul:${formatNumber(diagnostics.normalCruiseMultiplier, 2)} walkSpeed:${formatNumber(diagnostics.walkSpeed, 1)} accel:${formatNumber(diagnostics.cruiseAcceleration, 0)} normalD10Robot:${diagnostics.isNormalDepth10Robot ? "Y" : "N"} raidHuman:${diagnostics.isFinalRaidHumanVisual ? "Y" : "N"}`,
       `fail:${diagnostics.lastQuickBoostFailReason} success:${diagnostics.lastQuickBoostSucceeded ? "Y" : "N"}`,
-      `visuals objects:${diagnostics.visualObjectCount} after:${diagnostics.afterimageCount} trail:${diagnostics.trailActive ? "Y" : "N"} qbGlow:${diagnostics.quickBoostGlowActive ? "Y" : "N"} heatFx:${diagnostics.overheatVisualActive ? "Y" : "N"} tactical:${diagnostics.tacticalVisualCount} targetFire:${diagnostics.targetFireVisualCount} evade:${diagnostics.evadeWindowVisualCount}`
+      `visuals objects:${diagnostics.visualObjectCount} after:${diagnostics.afterimageCount} trail:${diagnostics.trailActive ? "Y" : "N"} qbGlow:${diagnostics.quickBoostGlowActive ? "Y" : "N"} heatFx:${diagnostics.overheatVisualActive ? "Y" : "N"} tactical:${diagnostics.tacticalVisualCount} targetFire:${diagnostics.targetFireVisualCount} evade:${diagnostics.evadeWindowVisualCount}`,
+      this.formatAcCameraRigDebugHudLine()
     ].join("\n");
+  }
+
+  formatAcCameraRigDebugHudLine() {
+    const camera = this.getAcCameraRigDiagnostics();
+    if (camera.mode === AC_CAMERA_RIG_MODE.OFF) {
+      return "camera:OFF";
+    }
+    const formatNumber = (value, digits = 0) => Number(value || 0).toFixed(digits);
+    return `camera:${camera.mode} active:${camera.active ? "Y" : "N"} spd:${formatNumber(camera.speed)} lead:${formatNumber(camera.leadX)},${formatNumber(camera.leadY)} kick:${formatNumber(camera.focusLagX)},${formatNumber(camera.focusLagY)} off:${formatNumber(camera.offsetX)},${formatNumber(camera.offsetY)} view:x${formatNumber(camera.viewScale, 2)}>${formatNumber(camera.targetViewScale, 2)} zoom:${formatNumber(camera.zoom, 3)}`;
   }
 
   updateAcMovementDebugHud(time, delta) {
@@ -74719,10 +75070,11 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getEnemySpawnPoint(margin = 120) {
-    const halfWidth = GAME_WIDTH * 0.5 / this.cameras.main.zoom;
-    const halfHeight = GAME_HEIGHT * 0.5 / this.cameras.main.zoom;
-    const centerX = this.playerHitbox.x;
-    const centerY = this.playerHitbox.y;
+    const viewFrame = this.getEnemySpawnViewFrame();
+    const halfWidth = viewFrame.halfWidth;
+    const halfHeight = viewFrame.halfHeight;
+    const centerX = viewFrame.centerX;
+    const centerY = viewFrame.centerY;
     const worldBounds = this.getStageWorldBounds(this.currentStage);
     const spawnBounds = this.getEnemySpawnBounds(margin) || {
       left: 32,

@@ -827,6 +827,8 @@ OPTION では `BGM OUTPUT`、`SFX / VOICE OUTPUT`、`CONTROLLER INPUT` を ON / 
 - Tokyo 09: Civic Plaza
 - Tokyo 10: Urban Shrine Approach
 
+広域マップ / 2.5D 化は `WORLD_DESIGN.md` の Phase 計画に沿って段階的に進めています。Phase 0 のカメラ改善は debug 限定で、`?debugAcCamera=1` で進行方向の先読みと高速時のズームアウトを有効にします（`lead` / `zoom` で片方だけ）。query がない通常プレイのカメラは従来どおりです。
+
 ## Googleアカウント データ連携
 
 OPERATIONS HUB の `DATA LINK` タブから、任意でGoogleアカウントを連携できます。連携後は同じGoogleアカウントで開いたスマートフォンとPCブラウザーの間で、確定済みの進行データを共有できます。クラウドへの自動保存は、作戦終了後にOPERATIONS HUBへ帰還するときの変更分1回だけです。`今すぐ同期` から手動でも保存でき、ラン中やHUB内の個別操作ではlocalStorageだけを更新してFirestoreへ逐次書き込みません。未連携または通信失敗時も従来どおりlocalStorageで遊べます。
@@ -928,6 +930,7 @@ OPERATIONS HUB の GEEKSHOP / EQUIPMENT ANALYSIS から保存済み `securedBoxe
 - `vendor/phaser.min.js`: Phaser 3 本体
 - `firestore.rules`: Firestore セキュリティルール
 - `AGENTS.md`: Codex 作業時のリポジトリ内開発指示
+- `WORLD_DESIGN.md`: 広域マップ / 2.5D 化の設計と Phase 計画
 - `画像/`: キャラクター、敵、スキル、ステージ、CD ジャケットなどの画像素材
 - `音声/`: BGM、サポート音声、SE などの音声素材
 
