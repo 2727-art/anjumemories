@@ -421,6 +421,8 @@ query がない通常プレイでは、カメラ・ズーム・敵出現位置�
 4. `preview/pilot-mock.png` を作り、ユーザーに画風を確認してもらう。
 5. 合格したら、A〜C の残りと `manifest.json` を作る。建物は Phase 1b の仕様に合わせて種類を増やす。
 
+状況（2026-10-10）: 手順 1〜4 を実施し、画風の確認待ち。手順・使った Blender の版・パラメータは `tools/blender/openworld/README.md`、合成画像は `tools/blender/openworld/preview/pilot-mock.png`。パイロットの一覧は `preview/pilot-manifest.json` に置き、`画像/openworld/manifest.json` はまだ作っていない（ゲームが未承認の素材を読まないように）。
+
 ### 6.11 ゲーム側の組み込み（別 PR）
 
 - 広域マップ（`?debugOpenWorld=1`）でだけ `manifest.json` を読み込み、キーが一致する素材を差し替える。

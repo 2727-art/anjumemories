@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "scalePxPerMeter": 40.0,
+  "facadeVerticalScale": 0.5,
+  "blenderVersion": "5.2.2 LTS",
+  "set": "pilot",
+  "assets": [
+    {
+      "key": "ow-asphalt-a",
+      "type": "tile",
+      "file": "ground/ow-asphalt-a.jpg",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "key": "ow-bld-a01",
+      "type": "building",
+      "footprint": [
+        768,
+        1024
+      ],
+      "floors": 6,
+      "roof": "buildings/ow-bld-a01-roof.png",
+      "roofEmit": "buildings/ow-bld-a01-roof_emit.png",
+      "south": "buildings/ow-bld-a01-south.png",
+      "southEmit": "buildings/ow-bld-a01-south_emit.png",
+      "southSize": [
+        768,
+        384
+      ]
+    },
+    {
+      "key": "ow-dash-h",
+      "type": "marking",
+      "file": "markings/ow-dash-h.png",
+      "width": 1920,
+      "height": 16,
+      "period": [
+        240,
+        16
+      ]
+    },
+    {
+      "key": "ow-dash-v",
+      "type": "marking",
+      "file": "markings/ow-dash-v.png",
+      "width": 16,
+      "height": 1920,
+      "period": [
+        16,
+        240
+      ]
+    },
+    {
+      "key": "ow-sidewalk",
+      "type": "tile",
+      "file": "ground/ow-sidewalk.jpg",
+      "width": 512,
+      "height": 512
+    },
+    {
+      "key": "ow-zebra-h",
+      "type": "marking",
+      "file": "markings/ow-zebra-h.png",
+      "width": 150,
+      "height": 704,
+      "period": [
+        150,
+        64
+      ]
+    },
+    {
+      "key": "ow-zebra-v",
+      "type": "marking",
+      "file": "markings/ow-zebra-v.png",
+      "width": 704,
+      "height": 150,
+      "period": [
+        64,
+        150
+      ]
+    }
+  ]
+}

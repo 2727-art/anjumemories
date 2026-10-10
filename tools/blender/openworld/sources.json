@@ -1,0 +1,398 @@
+{
+  "version": 1,
+  "description": "CC0 textures used by tools/blender/openworld (WORLD_DESIGN.md 6.4). Re-fetch with fetch_textures.py.",
+  "cacheDir": "asset-src/openworld/cache",
+  "proceduralOnly": [
+    "window glass (shader only, no texture)",
+    "lane/crosswalk paint (shader only; grain from asphalt_02)"
+  ],
+  "aiRepaint": [],
+  "textures": [
+    {
+      "id": "aerial_asphalt_01",
+      "site": "Poly Haven",
+      "name": "Aerial Asphalt 01",
+      "url": "https://polyhaven.com/a/aerial_asphalt_01",
+      "license": "CC0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "authors": [
+        "Rob Tuytel"
+      ],
+      "realWorldSizeMeters": [
+        30.0,
+        30.0
+      ],
+      "downloadedAt": "2026-10-10T09:07:12Z",
+      "resolution": "2k",
+      "maps": {
+        "color": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/aerial_asphalt_01/aerial_asphalt_01_diff_2k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/aerial_asphalt_01/aerial_asphalt_01_diff_2k.jpg",
+          "bytes": 2802005,
+          "md5": "4cb311fc7638c0b1d5e9641ca9c6ea78",
+          "downloadedAt": "2026-10-10T09:07:12Z"
+        },
+        "normal": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/aerial_asphalt_01/aerial_asphalt_01_nor_gl_2k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/aerial_asphalt_01/aerial_asphalt_01_nor_gl_2k.jpg",
+          "bytes": 2751902,
+          "md5": "2b2d543f7c6567030f11a6070f586e05",
+          "downloadedAt": "2026-10-10T09:07:12Z"
+        },
+        "roughness": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/aerial_asphalt_01/aerial_asphalt_01_rough_2k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/aerial_asphalt_01/aerial_asphalt_01_rough_2k.jpg",
+          "bytes": 1392536,
+          "md5": "f46f34b5509cec4b7fccdff8dfe4dc59",
+          "downloadedAt": "2026-10-10T09:07:12Z"
+        }
+      },
+      "usedFor": [
+        "ow-asphalt-a (base, one repeat per tile)"
+      ]
+    },
+    {
+      "id": "asphalt_02",
+      "site": "Poly Haven",
+      "name": "Asphalt 02",
+      "url": "https://polyhaven.com/a/asphalt_02",
+      "license": "CC0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "authors": [
+        "Rob Tuytel"
+      ],
+      "realWorldSizeMeters": [
+        3.0,
+        3.0
+      ],
+      "downloadedAt": "2026-10-10T09:07:13Z",
+      "resolution": "1k",
+      "maps": {
+        "color": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_02/asphalt_02_diff_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/asphalt_02/asphalt_02_diff_1k.jpg",
+          "bytes": 731707,
+          "md5": "fa19772d4817754c3efab708c651f5a8",
+          "downloadedAt": "2026-10-10T09:07:12Z"
+        },
+        "displacement": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_02/asphalt_02_disp_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/asphalt_02/asphalt_02_disp_1k.jpg",
+          "bytes": 354943,
+          "md5": "2699b93c9eacfcf2e10582bccf849287",
+          "downloadedAt": "2026-10-10T09:07:13Z"
+        }
+      },
+      "usedFor": [
+        "ow-asphalt-a (fine detail)",
+        "ow-dash-*/ow-zebra-* (paint grain)"
+      ]
+    },
+    {
+      "id": "concrete_pavers",
+      "site": "Poly Haven",
+      "name": "Concrete Pavers",
+      "url": "https://polyhaven.com/a/concrete_pavers",
+      "license": "CC0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "authors": [
+        "Amal Kumar"
+      ],
+      "realWorldSizeMeters": [
+        1.92,
+        1.92
+      ],
+      "downloadedAt": "2026-10-10T09:07:15Z",
+      "resolution": "1k",
+      "maps": {
+        "color": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_pavers/concrete_pavers_diff_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/concrete_pavers/concrete_pavers_diff_1k.jpg",
+          "bytes": 757968,
+          "md5": "377ad5aeb4c4abd79ce32f92dc8ddccd",
+          "downloadedAt": "2026-10-10T09:07:13Z"
+        },
+        "normal": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_pavers/concrete_pavers_nor_gl_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/concrete_pavers/concrete_pavers_nor_gl_1k.jpg",
+          "bytes": 918300,
+          "md5": "9288d26d449427bc468a13203a67ff73",
+          "downloadedAt": "2026-10-10T09:07:13Z"
+        },
+        "displacement": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_pavers/concrete_pavers_disp_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/concrete_pavers/concrete_pavers_disp_1k.jpg",
+          "bytes": 407797,
+          "md5": "5f624810d2fcd8c51e890f8137a718cf",
+          "downloadedAt": "2026-10-10T09:07:14Z"
+        },
+        "ao": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_pavers/concrete_pavers_ao_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/concrete_pavers/concrete_pavers_ao_1k.jpg",
+          "bytes": 744539,
+          "md5": "f9f59b6988a1636c89a6da95b31f2e2c",
+          "downloadedAt": "2026-10-10T09:07:15Z"
+        }
+      },
+      "usedFor": [
+        "ow-sidewalk"
+      ]
+    },
+    {
+      "id": "concrete_layers_02",
+      "site": "Poly Haven",
+      "name": "Concrete Layers 02",
+      "url": "https://polyhaven.com/a/concrete_layers_02",
+      "license": "CC0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "authors": [
+        "Rob Tuytel"
+      ],
+      "realWorldSizeMeters": [
+        2.0,
+        2.0
+      ],
+      "downloadedAt": "2026-10-10T09:07:16Z",
+      "resolution": "1k",
+      "maps": {
+        "color": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_layers_02/concrete_layers_02_diff_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/concrete_layers_02/concrete_layers_02_diff_1k.jpg",
+          "bytes": 598800,
+          "md5": "d308cd7bb23bcf1208d37d4ba670c2e6",
+          "downloadedAt": "2026-10-10T09:07:15Z"
+        },
+        "normal": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_layers_02/concrete_layers_02_nor_gl_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/concrete_layers_02/concrete_layers_02_nor_gl_1k.jpg",
+          "bytes": 734532,
+          "md5": "7706ee74f02099fda216a1815cf037eb",
+          "downloadedAt": "2026-10-10T09:07:15Z"
+        },
+        "roughness": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_layers_02/concrete_layers_02_rough_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/concrete_layers_02/concrete_layers_02_rough_1k.jpg",
+          "bytes": 445997,
+          "md5": "73c4b3f5628ed29bf6c813f7978e185a",
+          "downloadedAt": "2026-10-10T09:07:16Z"
+        }
+      },
+      "usedFor": [
+        "ow-bld-a01 (walls, parapet, penthouse)"
+      ]
+    },
+    {
+      "id": "dirty_concrete",
+      "site": "Poly Haven",
+      "name": "Dirty Concrete",
+      "url": "https://polyhaven.com/a/dirty_concrete",
+      "license": "CC0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "authors": [
+        "Rob Tuytel"
+      ],
+      "realWorldSizeMeters": [
+        3.0,
+        3.0
+      ],
+      "downloadedAt": "2026-10-10T09:07:17Z",
+      "resolution": "1k",
+      "maps": {
+        "color": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/dirty_concrete/dirty_concrete_diff_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/dirty_concrete/dirty_concrete_diff_1k.jpg",
+          "bytes": 666452,
+          "md5": "c6a8dc8bd2aa5f81e7038561f7e602a8",
+          "downloadedAt": "2026-10-10T09:07:17Z"
+        },
+        "normal": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/dirty_concrete/dirty_concrete_nor_gl_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/dirty_concrete/dirty_concrete_nor_gl_1k.jpg",
+          "bytes": 350169,
+          "md5": "bf8286fc94f90dbc117efafe5bb381c0",
+          "downloadedAt": "2026-10-10T09:07:17Z"
+        },
+        "roughness": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/dirty_concrete/dirty_concrete_rough_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/dirty_concrete/dirty_concrete_rough_1k.jpg",
+          "bytes": 276785,
+          "md5": "8a2d15060edb6eee11f454670dd6d228",
+          "downloadedAt": "2026-10-10T09:07:17Z"
+        }
+      },
+      "usedFor": [
+        "ow-bld-a01 (roof slab)"
+      ]
+    },
+    {
+      "id": "concrete_moss",
+      "site": "Poly Haven",
+      "name": "Concrete Moss",
+      "url": "https://polyhaven.com/a/concrete_moss",
+      "license": "CC0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "authors": [
+        "Rob Tuytel"
+      ],
+      "realWorldSizeMeters": [
+        3.0,
+        3.0
+      ],
+      "downloadedAt": "2026-10-10T09:07:17Z",
+      "resolution": "1k",
+      "maps": {
+        "color": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_moss/concrete_moss_diff_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/concrete_moss/concrete_moss_diff_1k.jpg",
+          "bytes": 697265,
+          "md5": "7a867685b1d14b65020884573ae43dc4",
+          "downloadedAt": "2026-10-10T09:07:17Z"
+        }
+      },
+      "usedFor": [
+        "ow-bld-a01 (moss on roof and wall base)",
+        "ow-sidewalk (moss in joints)"
+      ]
+    },
+    {
+      "id": "rusted_shutter",
+      "site": "Poly Haven",
+      "name": "Rusted Shutter",
+      "url": "https://polyhaven.com/a/rusted_shutter",
+      "license": "CC0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "authors": [
+        "Dimitrios Savva"
+      ],
+      "realWorldSizeMeters": [
+        1.8,
+        1.8
+      ],
+      "downloadedAt": "2026-10-10T09:07:17Z",
+      "resolution": "1k",
+      "maps": {
+        "color": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rusted_shutter/rusted_shutter_diff_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/rusted_shutter/rusted_shutter_diff_1k.jpg",
+          "bytes": 981770,
+          "md5": "17ff95fc323959984f0f3445bc195bf2",
+          "downloadedAt": "2026-10-10T09:07:17Z"
+        },
+        "normal": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rusted_shutter/rusted_shutter_nor_gl_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/rusted_shutter/rusted_shutter_nor_gl_1k.jpg",
+          "bytes": 1105736,
+          "md5": "d4b719b771b0cdb8d9d8e02cf6b2e674",
+          "downloadedAt": "2026-10-10T09:07:17Z"
+        },
+        "roughness": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rusted_shutter/rusted_shutter_rough_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/rusted_shutter/rusted_shutter_rough_1k.jpg",
+          "bytes": 571546,
+          "md5": "260da4ff67577f1ac50a91503262a714",
+          "downloadedAt": "2026-10-10T09:07:17Z"
+        }
+      },
+      "usedFor": [
+        "ow-bld-a01 (shop shutters)"
+      ]
+    },
+    {
+      "id": "rusty_metal_02",
+      "site": "Poly Haven",
+      "name": "Rusty Metal 02",
+      "url": "https://polyhaven.com/a/rusty_metal_02",
+      "license": "CC0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "authors": [
+        "Rob Tuytel"
+      ],
+      "realWorldSizeMeters": [
+        1.0,
+        1.0
+      ],
+      "downloadedAt": "2026-10-10T09:07:18Z",
+      "resolution": "1k",
+      "maps": {
+        "color": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rusty_metal_02/rusty_metal_02_diff_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/rusty_metal_02/rusty_metal_02_diff_1k.jpg",
+          "bytes": 564932,
+          "md5": "476bff9959bc727bd4b83c0a9ac4aeaa",
+          "downloadedAt": "2026-10-10T09:07:18Z"
+        },
+        "normal": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rusty_metal_02/rusty_metal_02_nor_gl_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/rusty_metal_02/rusty_metal_02_nor_gl_1k.jpg",
+          "bytes": 403156,
+          "md5": "8d6dc7e26f2708ec59e2a739711c612b",
+          "downloadedAt": "2026-10-10T09:07:18Z"
+        },
+        "roughness": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rusty_metal_02/rusty_metal_02_rough_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/rusty_metal_02/rusty_metal_02_rough_1k.jpg",
+          "bytes": 135023,
+          "md5": "75551ad404e29489f9b75876da95a13a",
+          "downloadedAt": "2026-10-10T09:07:18Z"
+        }
+      },
+      "usedFor": [
+        "ow-bld-a01 (outdoor AC units, tank stand, pipes)"
+      ]
+    },
+    {
+      "id": "Leaking003",
+      "site": "ambientCG",
+      "name": "Leaking 003",
+      "url": "https://ambientcg.com/view?id=Leaking003",
+      "license": "CC0",
+      "licenseUrl": "https://docs.ambientcg.com/license/",
+      "authors": [
+        "ambientCG (Lennart Demes)"
+      ],
+      "realWorldSizeMeters": null,
+      "downloadedAt": "2026-10-10T09:07:21Z",
+      "resolution": "1K-JPG",
+      "maps": {
+        "opacity": {
+          "url": "https://ambientcg.com/get?file=Leaking003_1K-JPG.zip",
+          "zipMember": "Leaking003_1K-JPG_Opacity.jpg",
+          "file": "asset-src/openworld/cache/ambientcg/Leaking003/Leaking003_1K-JPG_Opacity.jpg",
+          "bytes": 299001,
+          "sha256": "83f44b7175e063b7ee135db4fa7323f80f6d735781d9b37e1246b9ebaaaa6ed7",
+          "downloadedAt": "2026-10-10T09:07:21Z"
+        }
+      },
+      "usedFor": [
+        "ow-bld-a01 (rain streaks under windows)"
+      ]
+    },
+    {
+      "id": "Leaking008",
+      "site": "ambientCG",
+      "name": "Leaking 008",
+      "url": "https://ambientcg.com/view?id=Leaking008",
+      "license": "CC0",
+      "licenseUrl": "https://docs.ambientcg.com/license/",
+      "authors": [
+        "ambientCG (Lennart Demes)"
+      ],
+      "realWorldSizeMeters": null,
+      "downloadedAt": "2026-10-10T09:07:23Z",
+      "resolution": "1K-JPG",
+      "maps": {
+        "opacity": {
+          "url": "https://ambientcg.com/get?file=Leaking008_1K-JPG.zip",
+          "zipMember": "Leaking008_1K-JPG_Opacity.jpg",
+          "file": "asset-src/openworld/cache/ambientcg/Leaking008/Leaking008_1K-JPG_Opacity.jpg",
+          "bytes": 103493,
+          "sha256": "23cc8f0b465f67f02fa00414909451b1b548875be30a193b964a657d49a79c0e",
+          "downloadedAt": "2026-10-10T09:07:23Z"
+        }
+      },
+      "usedFor": [
+        "ow-bld-a01 (splash grime at the wall base)"
+      ]
+    }
+  ]
+}
