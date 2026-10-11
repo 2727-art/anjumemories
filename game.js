@@ -1433,9 +1433,30 @@ const OPEN_WORLD_CONFIG = Object.freeze({
     intervalMs: 1000,
     valueIds: Object.freeze(["bronze", "silver", "gold"])
   }),
-  // Mech height (WORLD_DESIGN.md 10): while boosting the sprite is drawn up to `height` px higher, half that
-  // in the glide after a boost; the shadow stays on the ground, scaled and faded toward these at full height.
-  boostHeight: Object.freeze({ height: 24, glideRatio: 0.5, riseMs: 120, fallMs: 260, shadowScale: 0.78, shadowAlpha: 0.7 })
+  // Vertical boost (WORLD_DESIGN.md 10, 11): while a boost runs (the boost input held, or a quick boost) the
+  // mech rises toward `height` px (riseMs smoothing) and falls under `gravity` px/s^2 once it ends, slowly
+  // at first, so releases of up to ~0.25 s between taps keep it in the air. At `clearHeight` or more it passes over low
+  // obstacles. The shadow stays on the ground, scaled and faded toward these at full height. No extra EN:
+  // the boost itself pays.
+  boostHeight: Object.freeze({ height: 44, clearHeight: 16, riseMs: 110, gravity: 500, shadowScale: 0.7, shadowAlpha: 0.6 })
+});
+// Low obstacles (WORLD_DESIGN.md 11): props with a static body that stops the player on the ground; the
+// vertical boost passes over them. Enemies and shots go through them. Footprints in px (rect [w, h] or
+// a circle radius for the rubble heaps); glass shards (debris-b) and the fallen sign (debris-c) lie flat.
+const OPEN_WORLD_OBSTACLE_CONFIG = Object.freeze({
+  bodies: Object.freeze({
+    "ow-prop-car-a-h": Object.freeze([172, 68]),
+    "ow-prop-car-a-v": Object.freeze([68, 172]),
+    "ow-prop-car-b-h": Object.freeze([136, 60]),
+    "ow-prop-car-b-v": Object.freeze([60, 136]),
+    "ow-prop-car-c-h": Object.freeze([172, 68]),
+    "ow-prop-car-c-v": Object.freeze([68, 172]),
+    "ow-prop-barricade-h": Object.freeze([148, 32]),
+    "ow-prop-barricade-v": Object.freeze([32, 148]),
+    "ow-prop-debris-a": Object.freeze({ radius: 34 }),
+    "ow-prop-debris-d": Object.freeze({ radius: 94 })
+  }),
+  startClearance: 240 // no low obstacle this close to the player start
 });
 // WORLD_DESIGN.md 6.11: Blender assets listed in 画像/openworld/manifest.json replace the runtime textures
 // of the open world. They load with the sortie only in the open world; anything missing keeps the runtime drawing.
@@ -43690,7 +43711,13 @@ class SurvivalScene extends Phaser.Scene {
     if (x < clip.left || x >= clip.right || y < clip.top || y >= clip.bottom) {
       return null;
     }
-    const textureKey = this.resolveOpenWorldTextureKey(key, null);
+    // Low obstacles exist with or without their image (a drawn one stands in), so collisions do not
+    // depend on the assets; none is placed where the player starts.
+    const obstacle = OPEN_WORLD_OBSTACLE_CONFIG.bodies[key];
+    if (obstacle && this.isNearOpenWorldPlayerStart(x, y, OPEN_WORLD_OBSTACLE_CONFIG.startClearance)) {
+      return null;
+    }
+    const textureKey = this.resolveOpenWorldTextureKey(key, null) || (obstacle ? this.ensureOpenWorldObstacleFallbackTexture(key, obstacle) : null);
     if (!textureKey) {
       return null;
     }
@@ -43701,6 +43728,9 @@ class SurvivalScene extends Phaser.Scene {
       .setDepth(options.depth ?? OPEN_WORLD_PROP_CONFIG.depths.standing);
     this.stageGroundLayer?.add(image);
     objects.push(image);
+    if (obstacle) {
+      objects.push(this.addOpenWorldLowObstacleBody(x, y, obstacle));
+    }
     const waterKey = options.reflections ? this.resolveOpenWorldTextureKey(`${key}_water`, null) : null;
     const light = this.openWorldState?.light;
     if (waterKey && light?.glowLayer) {
@@ -43715,6 +43745,75 @@ class SurvivalScene extends Phaser.Scene {
       options.reflections.push({ image: reflection, x, y, corners });
     }
     return image;
+  }
+
+  isNearOpenWorldPlayerStart(x, y, distance) {
+    const start = this.currentStage?.playerStart || this.getStageWorldBounds(this.currentStage);
+    return Math.hypot(x - (start.x ?? start.centerX), y - (start.y ?? start.centerY)) < distance;
+  }
+
+  // Static body of a low obstacle in openWorldLowObstacleBodies (a rectangle, or a circle for rubble).
+  addOpenWorldLowObstacleBody(x, y, shape) {
+    const size = Array.isArray(shape) ? shape : [shape.radius * 2, shape.radius * 2];
+    const zone = this.add.zone(x, y, size[0], size[1]);
+    this.physics.add.existing(zone, true);
+    if (!Array.isArray(shape)) {
+      zone.body.setCircle(shape.radius);
+    }
+    this.openWorldLowObstacleBodies?.add(zone);
+    return zone;
+  }
+
+  // Drawn stand-in for a low obstacle whose image is missing (AGENTS.md: assets are never required).
+  ensureOpenWorldObstacleFallbackTexture(key, shape) {
+    const textureKey = `ow-obstacle-fallback-${key}`;
+    if (this.textures.exists(textureKey)) {
+      return textureKey;
+    }
+    const pad = 8;
+    const size = Array.isArray(shape) ? shape : [shape.radius * 2, shape.radius * 2];
+    const width = size[0] + pad * 2;
+    const height = size[1] + pad * 2;
+    const graphics = this.make.graphics({ x: 0, y: 0, add: false });
+    if (!Array.isArray(shape)) {
+      // Rubble: a heap of grey blocks.
+      const r = shape.radius;
+      graphics.fillStyle(0x000000, 0.28).fillCircle(pad + r + 4, pad + r + 6, r * 0.92);
+      for (let index = 0; index < 9; index += 1) {
+        const angle = index * 2.4;
+        const distance = index === 0 ? 0 : r * (0.35 + (index % 3) * 0.18);
+        graphics.fillStyle(index % 2 ? 0x6b7074 : 0x585d61, 1)
+          .fillCircle(pad + r + Math.cos(angle) * distance, pad + r + Math.sin(angle) * distance, r * (index === 0 ? 0.55 : 0.32));
+      }
+    } else if (key.includes("barricade")) {
+      const horizontal = size[0] >= size[1];
+      graphics.fillStyle(0x000000, 0.28).fillRect(pad + 4, pad + 6, size[0], size[1]);
+      graphics.fillStyle(0x1d1e20, 1).fillRect(pad, pad, size[0], size[1]);
+      graphics.fillStyle(0xd8b23a, 1);
+      const length = horizontal ? size[0] : size[1];
+      for (let along = 0; along < length; along += 24) {
+        const stripe = Math.min(12, length - along);
+        if (horizontal) {
+          graphics.fillRect(pad + along, pad, stripe, size[1]);
+        } else {
+          graphics.fillRect(pad, pad + along, size[0], stripe);
+        }
+      }
+    } else {
+      // Car: body, then the windscreen and rear window across its length.
+      const horizontal = size[0] >= size[1];
+      graphics.fillStyle(0x000000, 0.28).fillRoundedRect(pad + 4, pad + 6, size[0], size[1], 12);
+      graphics.fillStyle(0x5d6368, 1).fillRoundedRect(pad, pad, size[0], size[1], 12);
+      graphics.fillStyle(0x23282d, 1);
+      if (horizontal) {
+        graphics.fillRect(pad + size[0] * 0.3, pad + 6, size[0] * 0.4, size[1] - 12);
+      } else {
+        graphics.fillRect(pad + 6, pad + size[1] * 0.3, size[0] - 12, size[1] * 0.4);
+      }
+    }
+    graphics.generateTexture(textureKey, width, height);
+    graphics.destroy();
+    return textureKey;
   }
 
   // Props on one road: per segment between two crossings, decided by the run seed.
@@ -43755,13 +43854,13 @@ class SurvivalScene extends Phaser.Scene {
           }
           if (roll(75) < chance.sinkhole && to - from > 700) {
             // A road subsidence with barricades across the road on both sides.
+            // Each piece belongs to the chunk that contains it, so the barricades do not depend on the crack.
             const center = along(76);
             const across = road.center;
-            if (add("ow-prop-crack-c", center, across, { depth: depths.decal })) {
-              const barricade = vertical ? "ow-prop-barricade-h" : "ow-prop-barricade-v";
-              add(barricade, center - 280, across, { depth: depths.standing });
-              add(barricade, center + 280, across, { depth: depths.standing });
-            }
+            const barricade = vertical ? "ow-prop-barricade-h" : "ow-prop-barricade-v";
+            add("ow-prop-crack-c", center, across, { depth: depths.decal });
+            add(barricade, center - 280, across, { depth: depths.standing });
+            add(barricade, center + 280, across, { depth: depths.standing });
           }
           if (roll(77) < chance.car) {
             // Abandoned at the kerb, facing along the road.
@@ -45207,6 +45306,8 @@ class SurvivalScene extends Phaser.Scene {
       recoveredDropGeek: state.recoveredDrops.unsecuredGeek,
       buildingCollision: state.buildingCollisionEnabled,
       fadedRoofCount: state.fadedRoofCount ?? 0,
+      lowObstacleCount: this.openWorldLowObstacleBodies?.getLength?.() ?? 0,
+      boostHeight: Math.round(Number(this.playerRobotMotion?.boostHeight) || 0),
       drawnNeonPools: state.light?.drawnNeon ?? 0,
       outOfArea: state.outOfArea.active,
       outsideMs: state.outOfArea.outsideMs,
@@ -45227,6 +45328,7 @@ class SurvivalScene extends Phaser.Scene {
     this.stageBoundaryLayer = this.add.layer().setDepth(8.7);
     this.stageDebugLayer = this.add.layer().setDepth(8.95);
     this.stageObstacleBodies = this.physics.add.staticGroup();
+    this.openWorldLowObstacleBodies = this.physics.add.staticGroup();
     this.stageDecalInstances = [];
     this.stageObstacleInstances = [];
     this.stageBoundaryInstances = [];
@@ -47389,8 +47491,10 @@ class SurvivalScene extends Phaser.Scene {
     this.setPlayerRobotPose(motion.directionKey, isMoving, boostPoseActive);
   }
 
-  // Open world only: the mech rises while boosting (quick, continuous or variable boost) and settles in
-  // the glide after it (OPEN_WORLD_CONFIG.boostHeight). Elsewhere the height stays 0.
+  // Open world only: the vertical boost. The mech rises while a boost runs (continuous boost while the
+  // input is held, a quick or variable quick boost, or the legacy dash) and falls once it ends
+  // (OPEN_WORLD_CONFIG.boostHeight). A mech that comes down over a low obstacle stays at clearHeight,
+  // standing on it, until it is clear. Elsewhere the height stays 0.
   updateOpenWorldBoostHeight(motion, delta) {
     const config = OPEN_WORLD_CONFIG.boostHeight;
     let target = 0;
@@ -47399,19 +47503,65 @@ class SurvivalScene extends Phaser.Scene {
       const now = this.time?.now || 0;
       if (this.isDashing || now < (Number(state?.quickBoostUntil) || 0) || state?.continuousBoost?.active || state?.variableQuickBoost?.active) {
         target = config.height;
-      } else if (now < (Number(state?.postBoostGlideUntil) || 0)) {
-        target = config.height * config.glideRatio;
       }
     }
     const current = Number(motion.boostHeight) || 0;
     if (current === target) {
+      motion.boostFallSpeed = 0;
       return;
     }
-    const smoothMs = target > current ? config.riseMs : config.fallMs;
-    motion.boostHeight = current + (target - current) * (1 - Math.exp(-Math.max(0, Number(delta) || 0) / smoothMs));
-    if (Math.abs(target - motion.boostHeight) < 0.1) {
-      motion.boostHeight = target;
+    const dt = Math.max(0, Number(delta) || 0);
+    let next;
+    if (target > 0) {
+      next = current + (target - current) * (1 - Math.exp(-dt / config.riseMs));
+      if (Math.abs(target - next) < 0.1) {
+        next = target;
+      }
+      motion.boostFallSpeed = 0;
+    } else {
+      motion.boostFallSpeed = (Number(motion.boostFallSpeed) || 0) + (config.gravity * dt) / 1000;
+      next = Math.max(0, current - (motion.boostFallSpeed * dt) / 1000);
+      if (next === 0) {
+        motion.boostFallSpeed = 0;
+      }
     }
+    if (next < config.clearHeight && current >= config.clearHeight && target === 0 && this.isPlayerOverOpenWorldLowObstacle()) {
+      next = config.clearHeight;
+      motion.boostFallSpeed = 0;
+    }
+    motion.boostHeight = next;
+  }
+
+  // Whether the mech is high enough to pass over low obstacles.
+  isOpenWorldAirborne(motion = this.playerRobotMotion) {
+    return (Number(motion?.boostHeight) || 0) >= OPEN_WORLD_CONFIG.boostHeight.clearHeight;
+  }
+
+  // Whether the player's hitbox overlaps a low obstacle (where it must not land).
+  isPlayerOverOpenWorldLowObstacle() {
+    const player = this.playerHitbox;
+    const group = this.openWorldLowObstacleBodies;
+    if (!player?.active || !group?.children) {
+      return false;
+    }
+    const radius = PLAYER_HITBOX_RADIUS;
+    return group.getChildren().some((zone) => {
+      const body = zone?.body;
+      if (!body) {
+        return false;
+      }
+      if (body.isCircle) {
+        return Math.hypot(body.center.x - player.x, body.center.y - player.y) < body.halfWidth + radius;
+      }
+      const nearestX = Phaser.Math.Clamp(player.x, body.left, body.right);
+      const nearestY = Phaser.Math.Clamp(player.y, body.top, body.bottom);
+      return Math.hypot(nearestX - player.x, nearestY - player.y) < radius;
+    });
+  }
+
+  // Collider process callback: low obstacles stop the player on the ground only, and not in Final Raid.
+  shouldOpenWorldLowObstacleBlock() {
+    return this.openWorldState?.buildingCollisionEnabled !== false && !this.isOpenWorldAirborne();
   }
 
   // Sprite lift and shadow scale / alpha factors for the current mech height.
@@ -63676,6 +63826,9 @@ class SurvivalScene extends Phaser.Scene {
       this.physics.add.collider(this.enemies, this.stageObstacleBodies);
       this.physics.add.collider(this.enemyProjectiles, this.stageObstacleBodies, this.handleEnemyProjectileObstacleHit, null, this);
     }
+    if (this.openWorldLowObstacleBodies) {
+      this.physics.add.collider(this.playerHitbox, this.openWorldLowObstacleBodies, null, this.shouldOpenWorldLowObstacleBlock, this);
+    }
   }
 
   isGateCollapseFailureDepth(depth = this.stageDepth) {
@@ -73491,7 +73644,7 @@ class SurvivalScene extends Phaser.Scene {
     }
     const player = this.playerHitbox?.active ? `${Math.round(this.playerHitbox.x)},${Math.round(this.playerHitbox.y)}` : "-";
     const gate = world.gateCenter ? `${world.gateCenter.x},${world.gateCenter.y}` : "-";
-    return `openWorld:ON chunks:${world.chunkCount} objs:${world.objectCount} pos:${player} area:${world.outOfArea ? `OUT ${(world.outsideMs / 1000).toFixed(1)}s x${world.outOfAreaTicks}` : "IN"} gate:${gate} recycled:${world.recycledEnemyCount} assets:${world.assetKeys.length} light:${world.lighting ? `${world.drawnLampPools}/${world.lampCount}` : "OFF"} props:${world.propCount} refl:${world.reflectionCount} bld:${world.buildingCount}${world.buildingCollision ? "" : "(off)"} fade:${world.fadedRoofCount} neon:${world.drawnNeonPools} far:${world.recoveredDropCount}`;
+    return `openWorld:ON chunks:${world.chunkCount} objs:${world.objectCount} pos:${player} area:${world.outOfArea ? `OUT ${(world.outsideMs / 1000).toFixed(1)}s x${world.outOfAreaTicks}` : "IN"} gate:${gate} recycled:${world.recycledEnemyCount} assets:${world.assetKeys.length} light:${world.lighting ? `${world.drawnLampPools}/${world.lampCount}` : "OFF"} props:${world.propCount} refl:${world.reflectionCount} bld:${world.buildingCount}${world.buildingCollision ? "" : "(off)"} fade:${world.fadedRoofCount} low:${world.lowObstacleCount} z:${world.boostHeight} neon:${world.drawnNeonPools} far:${world.recoveredDropCount}`;
   }
 
   formatAcCameraRigDebugHudLine() {
