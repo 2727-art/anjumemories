@@ -201,7 +201,7 @@ test("Unlock is S1 only, S8 has no candidate, and old S1 entrance still has no g
   for (const id of [SPIKE, NOVA]) {
     const choice = scene.buildSkillChoice(id), model = scene.buildLevelUpCardModel(choice, 0);
     assert.equal(choice.actionType, "unlock"); assert.equal(choice.currentStage, null); assert.equal(choice.nextStage, api.skills[id].verificationStage1);
-    assert.equal(model.typeLabel, "NEW SKILL"); assert.equal(model.stageProgress, "●○○○○○○○");
+    assert.equal(model.typeLabel, "新スキル"); assert.equal(model.stageProgress, "●○○○○○○○");
   }
   selectStage(scene, api, MOON, 8);
   assert.equal(scene.buildSkillChoice(MOON), null); assert.equal(scene.getUmbraMoonlightEffectiveStats().stage, 8);

@@ -247,8 +247,8 @@ test("standard, REGALIA and earlier trace-only drive preserve their legacy candi
     const { scene } = fixture(options);
     assert.equal(scene.getUmbraVerificationPassiveWeapons(), null);
     const reactor = passive(scene, "overchargeBolt"), fire = passive(scene, "rapidSigil");
-    assert.equal(scene.buildLevelUpCardModel(reactor, 0).description, "雷撃ダメージ +1");
-    assert.equal(scene.buildLevelUpCardModel(fire, 0).description, "放電間隔短縮");
+    assert.match(scene.buildLevelUpCardModel(reactor, 0).description, /自動雷撃[\s\S]*威力 \+1/);
+    assert.match(scene.buildLevelUpCardModel(fire, 0).description, /自動雷撃[\s\S]*間隔 [\d.]+ → [\d.]+秒/);
     reactor.onSelect(); fire.onSelect(); assert.equal(scene.stats.bulletDamage, 2); assert.equal(scene.stats.fireInterval, 470);
     scene.stats.fireInterval = 160.1; assert.ok(passive(scene, "rapidSigil"));
   }
