@@ -1033,7 +1033,7 @@ AC MOVEMENT DEBUG HUD（`?debugAcMovementHud=1`）の `openWorld:` の行に、�
 
 - `?debugOpenWorld=0`（従来の東京ステージで遊ぶ・比べるとき）
 - 当たり判定エディタ・ステージ表示の debug（`?debug=stage` など。東京ステージ用の道具のため）
-- UMBRA の検証ページ（`umbra-integration.html`、`?umbraPreview=1`）。これまで東京ステージで検証してきたため、そのままにした
+- UMBRA の検証ページ（`umbra-integration.html`、`?umbraPreview=1`）。これまで東京ステージで検証してきたため、そのままにした。`umbra-integration.html` は、`&debugOpenWorld=1` を付けたときだけ広域マップで試せる（2026-10-11 追加。ローカル専用のまま、RAM だけで動く）
 
 そのほかは変えていない。広域マップの挙動（カメラリグ、作戦領域、敵の出現、Gate、建物、低い障害物、遠方回収、Final Raid の 4096 px フィールドなど）は、これまで `?debugOpenWorld=1` で確認してきたものと同じ。
 

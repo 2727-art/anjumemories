@@ -32,10 +32,11 @@
   const originalUrl = new URL(window.location.href);
   const fixtureValues = originalUrl.searchParams.getAll("fixture");
   const fixtureId = fixtureValues.length === 0 ? "baseline" : fixtureValues[0];
-  // These two optional switches only control the existing mobile presentation.
+  // mobileGate/mobileControls only control the existing mobile presentation, and
+  // debugOpenWorld=1 runs the test on the open-world map instead of a Tokyo stage.
   // Debug progression, startDepth and opening-skip queries are never forwarded.
   const trialQueryKeys = ["moonReach", "moonGlide", "novaField"];
-  const allowedQueryKeys = ["fixture", "mobileGate", "mobileControls", ...trialQueryKeys];
+  const allowedQueryKeys = ["fixture", "mobileGate", "mobileControls", "debugOpenWorld", ...trialQueryKeys];
   const validQuery = [...originalUrl.searchParams.keys()].every(key => allowedQueryKeys.includes(key)
     && (trialQueryKeys.includes(key) || originalUrl.searchParams.getAll(key).length === 1)
     && (key === "fixture" || trialQueryKeys.includes(key) || ["0", "1"].includes(originalUrl.searchParams.get(key))));
@@ -56,6 +57,8 @@
   const novaFieldMode = fixture.mechId === "umbraSeraph" && fieldValues.length === 1 && ["1", "lane"].includes(fieldValues[0]) ? fieldValues[0] : "0";
   const novaField = novaFieldMode !== "0";
   const novaFieldShape = novaFieldMode === "lane" ? { novaFieldShape: "lane" } : {};
+  // Map choice only; game.js reads the same query when it selects the stage.
+  const openWorld = originalUrl.searchParams.get("debugOpenWorld") === "1";
   const environmentId = `${VERSION}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
   const scenes = new WeakSet();
   const records = [];
@@ -179,6 +182,7 @@
         destination.searchParams.set("moonReach", moonReach);
         destination.searchParams.set("moonGlide", moonGlide ? "1" : "0");
         destination.searchParams.set("novaField", novaFieldMode);
+        if (openWorld) destination.searchParams.set("debugOpenWorld", "1");
         window.location.assign(destination.href);
       });
     }
@@ -209,7 +213,7 @@
       });
     }
     const reachLabel = node("umbra-integration-reach-label");
-    if (reachLabel) reachLabel.textContent = `MOON ${moonReach === "extended" ? "extended ×2.0・比較案" : moonReach === "wide" ? "wide ×1.5・比較案" : "current"} / 解除後 ${moonGlide ? "250ms" : "OFF"} / NOVA保護 ${novaFieldMode === "lane" ? "辻斬り・前方の保護帯・2秒" : novaField ? "180px・3秒" : "OFF"} / BRAKE tuned`;
+    if (reachLabel) reachLabel.textContent = `MOON ${moonReach === "extended" ? "extended ×2.0・比較案" : moonReach === "wide" ? "wide ×1.5・比較案" : "current"} / 解除後 ${moonGlide ? "250ms" : "OFF"} / NOVA保護 ${novaFieldMode === "lane" ? "辻斬り・前方の保護帯・2秒" : novaField ? "180px・3秒" : "OFF"} / BRAKE tuned${openWorld ? " / MAP 広域" : ""}`;
     const startButton = node("umbra-integration-start");
     if (startButton) startButton.disabled = closing || closed || !bridge || starting || started;
   }

@@ -28,6 +28,8 @@ http://127.0.0.1:4173/
 
 変更範囲・追加保存キー・検証は [通常プレイ接続レポート](docs/umbra-production-report.md) を参照してください。同レポートの未deployは実装完了時点の記録です。公開対象と事前検証は [公開記録](docs/umbra-release-report.md) に分離しました。Google schema2対応のFirestore Rulesをゲーム本体より先に反映しています。公開先は [Cloudflare](https://miragelabyrinth.anjugames.workers.dev/) と [GitHub Pages](https://2727-art.github.io/anjumemories/) です。
 
+購入せずに武装つきのUMBRAを試すときは、ローカル専用の検証ページで `http://127.0.0.1:4173/umbra-integration.html?fixture=baseline&moonReach=extended&moonGlide=1&novaField=lane&debugOpenWorld=1` を開いてSTARTを押します。`moonReach`・`moonGlide`・`novaField` の3つで公開版と同じ性能、`debugOpenWorld=1` で広域マップになります（省略時は東京ステージ）。進行はRAMだけで、実保存・認証・通信は使いません。fixtureを切り替えても `debugOpenWorld=1` は引き継ぎます。
+
 以下は過去の段階実装時の検証入口と比較経緯です。当時の「未公開」「未実装」「未採用」はそのPhaseの状態を示します。現在の通常接続については上記と最新レポートを優先してください。隔離入口は引き続き実保存・通信を使いません。
 
 ### KGK-02 UMBRA SERAPH — Phase 7B 未公開通常Scene・合成RAM試験（当時の記録）
@@ -831,7 +833,7 @@ OPTION では `BGM OUTPUT`、`SFX / VOICE OUTPUT`、`CONTROLLER INPUT` を ON / 
 
 通常プレイでは、24,000px 四方の自動生成の街 `openWorldCity`（広域マップ）に出撃します。
 
-`?debugOpenWorld=0` を付けると、従来どおり `stageDefinitions.js` の `tokyoRandomStages` から 10 種類の東京ステージがランダムに選ばれます。当たり判定エディタ（`?debug=stage`）、`?stage=<ステージ ID>` での指定、UMBRA の検証ページ（`umbra-integration.html`、`?umbraPreview=1`）も東京ステージを使います。指定ステージが見つからない場合は既定（広域マップ）へフォールバックします。旧 `shibuyaStage1` ID は互換用に残し、軽量な `Tokyo 01: Scramble Crossing` 定義を使用します。
+`?debugOpenWorld=0` を付けると、従来どおり `stageDefinitions.js` の `tokyoRandomStages` から 10 種類の東京ステージがランダムに選ばれます。当たり判定エディタ（`?debug=stage`）、`?stage=<ステージ ID>` での指定、UMBRA の検証ページ（`umbra-integration.html`、`?umbraPreview=1`）も東京ステージを使います（`umbra-integration.html` は `&debugOpenWorld=1` を付けると広域マップ）。指定ステージが見つからない場合は既定（広域マップ）へフォールバックします。旧 `shibuyaStage1` ID は互換用に残し、軽量な `Tokyo 01: Scramble Crossing` 定義を使用します。
 
 東京ランダムステージ:
 
