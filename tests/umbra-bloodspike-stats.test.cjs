@@ -242,8 +242,14 @@ test("one weapon's rounded zero delta does not hide the other weapon's effective
   assert.equal(passive(scene, "overchargeBolt"), undefined, "a clamped raw value has no immediate Reactor gain");
 });
 
-test("standard, REGALIA and earlier trace-only drive preserve their legacy candidate effects", () => {
-  for (const options of [{ mechId: "defaultBear" }, { mechId: "regaliaBastion" }, { phase4: false, weapons: [] }]) {
+test("REGALIA, without an Orbit Core slot or a LOST ARM, is not offered the lightning passives", () => {
+  const { scene } = fixture({ mechId: "regaliaBastion" });
+  assert.equal(scene.getUmbraVerificationPassiveWeapons(), null);
+  assert.equal(passive(scene, "overchargeBolt"), undefined); assert.equal(passive(scene, "rapidSigil"), undefined);
+});
+
+test("standard and earlier trace-only drive preserve their legacy candidate effects", () => {
+  for (const options of [{ mechId: "defaultBear" }, { phase4: false, weapons: [] }]) {
     const { scene } = fixture(options);
     assert.equal(scene.getUmbraVerificationPassiveWeapons(), null);
     const reactor = passive(scene, "overchargeBolt"), fire = passive(scene, "rapidSigil");
