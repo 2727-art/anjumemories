@@ -1543,20 +1543,22 @@ const OPEN_WORLD_PROP_CONFIG = Object.freeze({
 // with facades is Phase 2). The layout comes from the run seed and these types, not from the loaded images,
 // so collisions are the same with or without the assets; a missing roof image falls back to a drawn roof.
 const OPEN_WORLD_BUILDING_CONFIG = Object.freeze({
-  // Footprints in px (1 m = 40 px); `key` is the manifest entry with the roof / emit images.
+  // Footprints in px (1 m = 40 px); `key` is the manifest entry with the roof / emit images. `weight`
+  // (default 1) scales how often a type is picked among those that fit: d01 fills a block on its own, so
+  // crowdWeight alone kept it near 7% of the buildings; at 4 it is about 20%, on a par with b01 and e01.
   types: Object.freeze([
     Object.freeze({ key: "ow-bld-a01", width: 768, height: 1024 }), // 6 floors, zakkyo building
     Object.freeze({ key: "ow-bld-b01", width: 768, height: 768 }), // 5 floors, zakkyo building
     Object.freeze({ key: "ow-bld-c01", width: 512, height: 640 }), // 3 floors, shop with a home above
-    Object.freeze({ key: "ow-bld-d01", width: 1024, height: 768 }), // 8 floors, offices and shops
+    Object.freeze({ key: "ow-bld-d01", width: 1024, height: 768, weight: 4 }), // 8 floors, offices and shops
     Object.freeze({ key: "ow-bld-e01", width: 512, height: 1024 }) // 12 floors, slim hotel
   ]),
   gap: 64, // between two buildings of one block
   maxPerBlock: 3,
   nextChance: 1, // chance to try one more building after each one, room permitting
   // When some type that fits would still leave room for another building after it, the types that would
-  // not weigh this much (the others 1), so more blocks hold two buildings: about 36% of the building
-  // blocks instead of 16% with a uniform pick. A type is not repeated next to itself when another fits.
+  // not weigh this much more (the others 1), so more blocks hold two buildings: about 27% of the building
+  // blocks. A type is not repeated next to itself when another fits.
   crowdWeight: 0.3,
   shadeMin: 0.9, // per-building roof tint for variety (grey level)
   startClearance: 480, // no building this close to the player start
@@ -44034,7 +44036,7 @@ class SurvivalScene extends Phaser.Scene {
     const narrowest = Math.min(...config.types.filter((type) => type.height <= innerHeight).map((type) => type.width));
     const leavesRoom = (type) => slotsLeft > 0 && room - type.width - config.gap >= narrowest;
     const crowded = !fits.some(leavesRoom);
-    const weights = fits.map((type) => (crowded || leavesRoom(type) ? 1 : config.crowdWeight));
+    const weights = fits.map((type) => (type.weight ?? 1) * (crowded || leavesRoom(type) ? 1 : config.crowdWeight));
     let value = roll * weights.reduce((sum, weight) => sum + weight, 0);
     for (let index = 0; index < fits.length; index += 1) {
       value -= weights[index];
