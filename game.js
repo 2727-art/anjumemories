@@ -533,33 +533,40 @@ const DASH_STAMINA_REGEN_DELAY_MS = 320;
 const DASH_MIN_START_STAMINA = 8;
 const DASH_HUD_CONFIG = {
   x: 44,
-  y: 126,
+  y: 150,
   width: 18,
-  height: 382,
+  height: 340,
   radius: 45,
-  compact: { x: 44, y: 126, width: 18, height: 382 },
-  detail: { x: 44, y: 126, width: 18, height: 382 }
+  // Starts below the status panel (COMPACT_HUD_LAYOUT.status), whose bottom is at y 114.
+  compact: { x: 44, y: 150, width: 18, height: 340 },
+  detail: { x: 44, y: 150, width: 18, height: 340 }
 };
 const STANDARD_HUD_MODES = Object.freeze({
   COMPACT: "compact",
   DETAIL: "detail"
 });
+// The in-play HUD: glass panels with a cut corner (status top left, run clock and gate in the middle,
+// GEEK and kills top right), the notice band under the clock, and skill cards along the bottom.
 const COMPACT_HUD_LAYOUT = Object.freeze({
   graphicsDepth: 203,
   textDepth: 204,
-  ap: { x: 142, y: 18, barX: 144, barY: 82, barWidth: 212, barHeight: 8, labelY: 64 },
-  xp: { x: 144, y: 106, width: 190, height: 4, labelY: 94 },
-  timer: { x: GAME_WIDTH / 2, y: 14 },
-  gate: { x: GAME_WIDTH / 2, y: 58 },
-  right: { x: GAME_WIDTH - 28, y: 18, width: 248 },
+  cut: 14,
+  status: { x: 16, y: 14, width: 336, height: 100 },
+  ap: { x: 30, y: 19, labelGap: 12, barX: 30, barY: 68, barWidth: 308, barHeight: 10, segments: 10 },
+  xp: { badgeX: 30, badgeY: 86, x: 78, y: 92, width: 196, height: 6, valueX: 338 },
+  center: { x: GAME_WIDTH / 2 - 170, y: 10, width: 340, height: 66, inset: 14, barY: 62, barHeight: 4 },
+  timer: { x: GAME_WIDTH / 2, y: 15 },
+  right: { x: GAME_WIDTH - 266, y: 14, width: 250, height: 66, iconSize: 26 },
   boost: { labelOffsetY: -26, valueOffsetY: 394 },
-  objective: { x: GAME_WIDTH / 2, y: 96, width: 760 },
-  chips: { x: 324, y: GAME_HEIGHT - 42, width: 112, height: 22, gap: 8 },
+  objective: { x: GAME_WIDTH / 2, y: 84, width: 500, criticalWidth: 540, minHeight: 30, padY: 7 },
+  chips: { x: 344, y: GAME_HEIGHT - 74, width: 112, height: 58, gap: 8, iconSize: 42, pips: 8 },
   toggle: { x: GAME_WIDTH - 128, y: GAME_HEIGHT - 44, width: 112, height: 30 }
 });
 const COMPACT_RADAR_CONFIG = Object.freeze({
   label: "TACTICAL RADAR",
   panel: { x: 74, y: GAME_HEIGHT - 212, width: 176, height: 178 },
+  // With touch controls the left thumb rests bottom left, so the radar sits under the GEEK panel.
+  mobilePanel: { x: GAME_WIDTH - 192, y: 88, width: 176, height: 178 },
   centerOffset: { x: 88, y: 96 },
   radius: 68,
   range: 1250,
@@ -579,15 +586,12 @@ const DETAIL_HUD_LAYOUT = Object.freeze({
     run: { x: GAME_WIDTH - 332, y: 88, width: 304, height: 86, title: "RUN SYSTEMS" },
     robot: { x: GAME_WIDTH - 332, y: 184, width: 304, height: 94, title: "ROBOT SYSTEMS" },
     loot: { x: GAME_WIDTH - 332, y: 288, width: 304, height: 90, title: "LOOT / REWARD" },
-    build: { x: 322, y: GAME_HEIGHT - 98, width: 590, height: 52, title: "BUILD DIAGNOSTICS" }
+    // Above the skill cards (COMPACT_HUD_LAYOUT.chips).
+    build: { x: 344, y: GAME_HEIGHT - 134, width: 592, height: 52, title: "BUILD DIAGNOSTICS" }
   },
   textInsetX: 12,
   titleY: 7,
-  bodyY: 23,
-  radarLegend: {
-    x: COMPACT_RADAR_CONFIG.panel.x + 14,
-    y: COMPACT_RADAR_CONFIG.panel.y + COMPACT_RADAR_CONFIG.panel.height - 22
-  }
+  bodyY: 23
 });
 const OBJECTIVE_MARKER_CONFIG = Object.freeze({
   maxTargets: 3,
@@ -1669,8 +1673,10 @@ const MOBILE_GATE_SKIP_QUERY_PARAM = "skipMobileGateOnce";
 const MOBILE_FULLSCREEN_REQUESTED_SESSION_KEY = "lastmemoVansabaFullscreenRequested";
 const MOBILE_USER_AGENT_PATTERN = /Android|iPhone|iPad|iPod|Windows Phone/i;
 const MOBILE_TOUCH_LEFT_BOUNDARY = GAME_WIDTH * 0.58;
-const MOBILE_JOYSTICK_DEFAULT_X = 150;
-const MOBILE_JOYSTICK_DEFAULT_Y = 370;
+// The stick appears where the left thumb lands; while idle only a faint hint is drawn here (bottom left).
+const MOBILE_JOYSTICK_DEFAULT_X = 170;
+const MOBILE_JOYSTICK_DEFAULT_Y = 560;
+const MOBILE_JOYSTICK_HINT = Object.freeze({ radius: 46, alpha: 0.6, label: "左側どこでも操作" });
 const MOBILE_JOYSTICK_RADIUS = 76;
 const MOBILE_JOYSTICK_KNOB_RADIUS = 30;
 const MOBILE_CONTROL_MIN_MARGIN = 88;
@@ -1681,6 +1687,9 @@ const MOBILE_FINAL_RAID_DASH_BUTTON_Y = GAME_HEIGHT - MOBILE_DASH_BUTTON_RADIUS 
 const MOBILE_DASH_FLOAT_MIN_X = GAME_WIDTH * 0.6;
 const MOBILE_DASH_FLOAT_MIN_Y = 126;
 const MOBILE_DASH_FLOAT_TOGGLE_GAP = 24;
+// BOOST button: a jet-nozzle icon on a glass disc, ringed by the boost EN gauge (82% of the circle, the gap
+// at the bottom). The ring takes the EN gauge colours (getDashEnergyPresentation).
+const MOBILE_BOOST_BUTTON = Object.freeze({ discRadius: 52, ringRadius: 62, ringWidth: 5, ringSpan: 0.82, ticks: 10 });
 const SHOP_LOADING_MIN_VISIBLE_MS = 650;
 const SHOP_LOADING_GEEK_STEP_MS = 110;
 const SHOP_LOADING_GEEK_COMPLETE_MS = 320;
@@ -21108,7 +21117,7 @@ class SurvivalScene extends Phaser.Scene {
     const fieldCenterX = fieldSlot.x + fieldSlot.width / 2;
     const robotIconY = robotSlot.y + Math.round(robotSlot.height * 0.55);
     const fieldIconY = fieldSlot.y + Math.round(fieldSlot.height * 0.55);
-    elements.dashText = this.createFinalRaidHudText(container, action.dashX, action.dashY - 8, "DASH", {
+    elements.dashText = this.createFinalRaidHudText(container, action.dashX, action.dashY - 8, "BOOST", {
       fontSize: "15px",
       color: FINAL_RAID_HUD_STYLE.text,
       fontStyle: "bold",
@@ -49029,27 +49038,36 @@ class SurvivalScene extends Phaser.Scene {
     const joystickKnob = this.add
       .circle(MOBILE_JOYSTICK_DEFAULT_X, MOBILE_JOYSTICK_DEFAULT_Y, MOBILE_JOYSTICK_KNOB_RADIUS, 0x9fe7ff, 0.58)
       .setStrokeStyle(2, 0xecfaff, 0.62);
-    const dashBase = this.add
-      .circle(MOBILE_DASH_BUTTON_X, MOBILE_DASH_BUTTON_Y, MOBILE_DASH_BUTTON_RADIUS, 0x101b2a, 0.64)
-      .setStrokeStyle(3, 0xf0c463, 0.52);
-    const dashIcon = this.add
-      .image(MOBILE_DASH_BUTTON_X, MOBILE_DASH_BUTTON_Y - 8, "hud-icon-dash")
-      .setDisplaySize(54, 54)
-      .setAlpha(0.92);
-    const dashLabel = this.add.text(MOBILE_DASH_BUTTON_X, MOBILE_DASH_BUTTON_Y + 38, "DASH", {
+    [joystickBase, joystickInner, joystickKnob].forEach((part) => part.setVisible(false));
+    const joystickHint = this.add.graphics();
+    this.drawMobileJoystickHint(joystickHint);
+    const joystickHintText = this.add.text(MOBILE_JOYSTICK_DEFAULT_X, MOBILE_JOYSTICK_DEFAULT_Y + MOBILE_JOYSTICK_HINT.radius + 12, MOBILE_JOYSTICK_HINT.label, {
       fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
+      fontSize: "11px",
+      color: "#b8ecff",
+      fontStyle: "bold",
+      align: "center"
+    }).setOrigin(0.5, 0).setAlpha(MOBILE_JOYSTICK_HINT.alpha);
+    const boostGraphics = this.add.graphics();
+    const dashIcon = this.add
+      .image(MOBILE_DASH_BUTTON_X, MOBILE_DASH_BUTTON_Y - 14, this.ensureMobileBoostIconTexture())
+      .setDisplaySize(40, 40);
+    const dashLabel = this.add.text(MOBILE_DASH_BUTTON_X, MOBILE_DASH_BUTTON_Y + 30, "BOOST", {
+      fontFamily: "Consolas, 'Courier New', monospace",
       fontSize: "13px",
-      color: "#f7d98a",
+      color: "#c8ffff",
       fontStyle: "bold",
       align: "center"
     }).setOrigin(0.5);
 
-    container.add([joystickBase, joystickInner, joystickKnob, dashBase, dashIcon, dashLabel]);
+    container.add([joystickHint, joystickHintText, joystickBase, joystickInner, joystickKnob, boostGraphics, dashIcon, dashLabel]);
     this.mobileControlVisuals = {
       joystickBase,
       joystickInner,
       joystickKnob,
-      dashBase,
+      joystickHint,
+      joystickHintText,
+      boostGraphics,
       dashIcon,
       dashLabel
     };
@@ -49103,9 +49121,117 @@ class SurvivalScene extends Phaser.Scene {
 
   layoutMobileControlVisuals() {
     const dash = this.getMobileDashButtonPosition();
-    this.mobileControlVisuals?.dashBase?.setPosition(dash.x, dash.y);
-    this.mobileControlVisuals?.dashIcon?.setPosition(dash.x, dash.y - 8);
-    this.mobileControlVisuals?.dashLabel?.setPosition(dash.x, dash.y + 38);
+    this.mobileControlVisuals?.dashIcon?.setPosition(dash.x, dash.y - 14);
+    this.mobileControlVisuals?.dashLabel?.setPosition(dash.x, dash.y + 30);
+  }
+
+  // Dashed ring where the left thumb usually rests (MOBILE_JOYSTICK_DEFAULT_*), shown while the stick is idle.
+  drawMobileJoystickHint(graphics) {
+    const radius = MOBILE_JOYSTICK_HINT.radius;
+    const dashes = 18;
+    graphics.clear();
+    graphics.fillStyle(0x06111c, 0.22);
+    graphics.fillCircle(MOBILE_JOYSTICK_DEFAULT_X, MOBILE_JOYSTICK_DEFAULT_Y, radius);
+    graphics.lineStyle(2, 0x6fcfff, 0.55);
+    for (let index = 0; index < dashes; index += 1) {
+      const start = (index / dashes) * Math.PI * 2;
+      graphics.beginPath();
+      graphics.arc(MOBILE_JOYSTICK_DEFAULT_X, MOBILE_JOYSTICK_DEFAULT_Y, radius, start, start + (Math.PI * 2) / dashes * 0.55, false);
+      graphics.strokePath();
+    }
+    graphics.setAlpha(MOBILE_JOYSTICK_HINT.alpha);
+  }
+
+  // The hint is left out during Final Raid, whose HUD fills the bottom-left corner.
+  setMobileJoystickActiveVisual(active) {
+    const visuals = this.mobileControlVisuals;
+    const hint = !active && !this.isFinalBossRaidActive?.();
+    [visuals?.joystickBase, visuals?.joystickInner, visuals?.joystickKnob].forEach((part) => part?.setVisible(active));
+    visuals?.joystickHint?.setVisible(hint);
+    visuals?.joystickHintText?.setVisible(hint);
+  }
+
+  // Jet nozzle (drawn once): the flame under it is drawn live by updateMobileBoostButton.
+  ensureMobileBoostIconTexture() {
+    const key = "hud-icon-boost";
+    if (this.textures.exists(key)) {
+      return key;
+    }
+    const graphics = this.make.graphics({ x: 0, y: 0, add: false });
+    graphics.fillStyle(0x56636f, 1).fillRoundedRect(17, 6, 30, 9, 2);
+    graphics.lineStyle(2, 0x9ffcff, 1).strokeRoundedRect(17, 6, 30, 9, 2);
+    const nozzle = [{ x: 21, y: 15 }, { x: 43, y: 15 }, { x: 48, y: 44 }, { x: 16, y: 44 }];
+    graphics.fillStyle(0x3a4652, 1).fillPoints(nozzle, true);
+    graphics.lineStyle(2, 0x9ffcff, 1).strokePoints(nozzle, true);
+    graphics.lineStyle(1, 0x9ffcff, 0.5).lineBetween(19, 29, 45, 29);
+    graphics.generateTexture(key, 64, 64);
+    graphics.destroy();
+    return key;
+  }
+
+  // Glass disc, EN ring (gauge colours), live flame (longer while boosting) and two "rise" chevrons.
+  updateMobileBoostButton() {
+    const visuals = this.mobileControlVisuals;
+    const graphics = visuals?.boostGraphics;
+    if (!graphics || !this.mobileControlsContainer?.visible || !this.stats) {
+      return;
+    }
+    const config = MOBILE_BOOST_BUTTON;
+    const { x, y } = this.getMobileDashButtonPosition();
+    const maxStamina = Math.max(1, this.stats.maxStamina || 1);
+    const ratio = Phaser.Math.Clamp((this.stats.stamina ?? maxStamina) / maxStamina, 0, 1);
+    const presentation = this.getDashEnergyPresentation(ratio);
+    const boosting = presentation.label === "BOOST" && (this.isDashing || this.mobileDashHeld);
+    const color = presentation.fill;
+    const start = Math.PI / 2 + Math.PI * (1 - config.ringSpan);
+    const span = Math.PI * 2 * config.ringSpan;
+
+    graphics.clear();
+    graphics.lineStyle(14, color, boosting ? 0.26 : 0.1);
+    graphics.beginPath();
+    graphics.arc(x, y, config.ringRadius, start, start + span, false);
+    graphics.strokePath();
+    graphics.lineStyle(config.ringWidth + 3, 0x000000, 0.55);
+    graphics.beginPath();
+    graphics.arc(x, y, config.ringRadius, start, start + span, false);
+    graphics.strokePath();
+    if (ratio > 0.005) {
+      graphics.lineStyle(config.ringWidth, color, presentation.alpha);
+      graphics.beginPath();
+      graphics.arc(x, y, config.ringRadius, start, start + span * ratio, false);
+      graphics.strokePath();
+    }
+    graphics.lineStyle(1.5, 0x65e6ff, 0.45);
+    for (let index = 0; index <= config.ticks; index += 1) {
+      const angle = start + (span * index) / config.ticks;
+      graphics.lineBetween(
+        x + Math.cos(angle) * (config.ringRadius + 4), y + Math.sin(angle) * (config.ringRadius + 4),
+        x + Math.cos(angle) * (config.ringRadius + 8), y + Math.sin(angle) * (config.ringRadius + 8)
+      );
+    }
+    graphics.fillStyle(boosting ? 0x10283a : 0x0a1622, boosting ? 0.9 : 0.8);
+    graphics.fillCircle(x, y, config.discRadius);
+    graphics.lineStyle(2, 0x65e6ff, boosting ? 0.92 : 0.55);
+    graphics.strokeCircle(x, y, config.discRadius);
+    const flame = boosting ? 24 : 9;
+    const flameTop = y - 2;
+    graphics.fillStyle(0x7a5cff, 0.5);
+    graphics.fillTriangle(x - 9, flameTop, x + 9, flameTop, x, flameTop + flame + 6);
+    graphics.fillStyle(0x9ffcff, 0.9);
+    graphics.fillTriangle(x - 7, flameTop, x + 7, flameTop, x, flameTop + flame);
+    graphics.fillStyle(0xffffff, 0.95);
+    graphics.fillTriangle(x - 3, flameTop, x + 3, flameTop, x, flameTop + flame * 0.6);
+    graphics.lineStyle(2, color, 0.9);
+    [-1, 1].forEach((side) => {
+      const cx = x + side * 28;
+      graphics.beginPath();
+      graphics.moveTo(cx - 5, y - 12);
+      graphics.lineTo(cx, y - 17);
+      graphics.lineTo(cx + 5, y - 12);
+      graphics.strokePath();
+    });
+    visuals.dashIcon?.setAlpha(boosting ? 1 : 0.92);
+    visuals.dashLabel?.setColor(presentation.text);
   }
 
   canUseMobileGameplayControls() {
@@ -49130,7 +49256,10 @@ class SurvivalScene extends Phaser.Scene {
     this.mobileControlsContainer.setVisible(visible);
     if (!visible) {
       this.releaseMobileControlPointers();
+      return;
     }
+    this.setMobileJoystickActiveVisual(this.mobileControlPointerIds?.move != null);
+    this.updateMobileBoostButton();
   }
 
   getMobilePointerId(pointer) {
@@ -49168,6 +49297,7 @@ class SurvivalScene extends Phaser.Scene {
   setMobileJoystickCenter(point) {
     const center = this.clampMobileJoystickCenter(point);
     this.mobileJoystickCenter = center;
+    this.setMobileJoystickActiveVisual(true);
     this.mobileControlVisuals?.joystickBase?.setPosition(center.x, center.y);
     this.mobileControlVisuals?.joystickInner?.setPosition(center.x, center.y);
     this.mobileControlVisuals?.joystickKnob?.setPosition(center.x, center.y);
@@ -49203,15 +49333,11 @@ class SurvivalScene extends Phaser.Scene {
     this.mobileControlVisuals?.joystickKnob
       ?.setPosition(MOBILE_JOYSTICK_DEFAULT_X, MOBILE_JOYSTICK_DEFAULT_Y)
       .setAlpha(0.62);
+    this.setMobileJoystickActiveVisual(false);
   }
 
   updateMobileDashVisual() {
-    const active = Boolean(this.mobileDashHeld);
-    this.mobileControlVisuals?.dashBase
-      ?.setFillStyle(active ? 0x5d3f10 : 0x101b2a, active ? 0.78 : 0.64)
-      .setStrokeStyle(3, active ? 0xffe68e : 0xf0c463, active ? 0.92 : 0.52);
-    this.mobileControlVisuals?.dashIcon?.setAlpha(active ? 1 : 0.92);
-    this.mobileControlVisuals?.dashLabel?.setColor(active ? "#fff1a8" : "#f7d98a");
+    this.updateMobileBoostButton();
   }
 
   releaseMobileControlPointers() {
@@ -54941,107 +55067,103 @@ class SurvivalScene extends Phaser.Scene {
       this.add.graphics().setScrollFactor(0).setDepth(layout.graphicsDepth)
     );
     const fontFamily = "Consolas, 'Courier New', monospace";
-    const apText = this.createHudText(layout.ap.x, layout.ap.y, "100", {
+    const text = (x, y, value, style = {}) => this.createHudText(x, y, value, {
       fontFamily,
-      fontSize: "48px",
-      color: "#72ff9a",
       fontStyle: "bold",
-      depth: layout.textDepth
-    }).setOrigin(0, 0);
-    const apLabelText = this.createHudText(layout.ap.x + 4, layout.ap.labelY, "AP", {
-      fontFamily,
-      fontSize: "12px",
-      color: "#72ff9a",
-      fontStyle: "bold",
-      depth: layout.textDepth
+      depth: layout.textDepth,
+      ...style
     });
-    const levelXpText = this.createHudText(layout.ap.x + 4, layout.xp.labelY, "LV 1 / XP 0%", {
-      fontFamily,
-      fontSize: "11px",
-      color: "#b8ffd2",
-      fontStyle: "bold",
-      depth: layout.textDepth
-    });
-    const timerText = this.createHudText(layout.timer.x, layout.timer.y, "00:00", {
-      fontFamily,
-      fontSize: "30px",
-      color: "#eafff1",
-      fontStyle: "bold",
-      align: "center",
-      depth: layout.textDepth
-    }).setOrigin(0.5, 0);
-    const depthText = this.createHudText(layout.timer.x - 116, layout.timer.y + 42, "DEPTH 1", {
-      fontFamily,
-      fontSize: "15px",
-      color: "#8dffb0",
-      fontStyle: "bold",
-      align: "right",
-      depth: layout.textDepth
+    const { status, center, right, xp } = layout;
+
+    // Status (top left): AP, its bar, then the level badge and the XP bar.
+    const apText = text(layout.ap.x, layout.ap.y, "100", { fontSize: "40px", color: "#72ff9a" }).setOrigin(0, 0);
+    const apCaptionText = text(0, status.y + 11, "ARMOR POINTS", { fontSize: "10px", color: "#8ff5ff" });
+    const apLabelText = text(0, status.y + 26, "/ 100", { fontSize: "13px", color: "#9fe8b6" });
+    const levelText = text(xp.badgeX + 6, xp.badgeY + 1, "LV 1", { fontSize: "11px", color: "#02121a" });
+    const levelXpText = text(xp.valueX, xp.badgeY + 1, "XP 0%", { fontSize: "11px", color: "#b8e4ff", align: "right" }).setOrigin(1, 0);
+
+    // Run clock (top centre): depth on the left, time in the middle, the gate countdown on the right.
+    const timerText = text(layout.timer.x, layout.timer.y, "00:00", { fontSize: "30px", color: "#eafff1", align: "center" }).setOrigin(0.5, 0);
+    const depthCaptionText = text(center.x + center.inset, center.y + 10, "DEPTH", { fontSize: "10px", color: "#6fae86" });
+    const depthText = text(center.x + center.inset, center.y + 23, "1", { fontSize: "16px", color: "#8dffb0" });
+    const gateCaptionText = text(center.x + center.width - center.inset, center.y + 10, "GATE まで", {
+      fontSize: "10px",
+      color: "#7fa6bf",
+      align: "right"
     }).setOrigin(1, 0);
-    const gateText = this.createHudText(layout.gate.x + 116, layout.gate.y, "GATE --:--", {
-      fontFamily,
-      fontSize: "15px",
-      color: "#9ab7cc",
-      fontStyle: "bold",
-      align: "left",
-      depth: layout.textDepth
-    });
-    const geekText = this.createHudText(layout.right.x, layout.right.y, "未確定GEEK 0", {
-      fontFamily,
-      fontSize: "17px",
-      color: "#f0c463",
-      fontStyle: "bold",
-      align: "right",
-      depth: layout.textDepth
+    const gateText = text(center.x + center.width - center.inset, center.y + 23, "--:--", {
+      fontSize: "16px",
+      color: "#b8e4ff",
+      align: "right"
     }).setOrigin(1, 0);
-    const killsText = this.createHudText(layout.right.x, layout.right.y + 28, "KILLS 0", {
-      fontFamily,
+
+    // Rewards (top right): unsecured GEEK with the coin, kills under it.
+    const coinIcon = this.registerUiObject(
+      this.add
+        .image(right.x + 12 + right.iconSize / 2, right.y + 10 + right.iconSize / 2, this.getGeekIconTextureKey())
+        .setScrollFactor(0)
+        .setDepth(layout.textDepth)
+    );
+    this.setHudIconToFit(coinIcon, coinIcon.texture.key, right.iconSize);
+    const geekCaptionText = text(right.x + 46, right.y + 9, "未確定 GEEK", { fontSize: "10px", color: "#c9a85a" });
+    const geekText = text(right.x + right.width - 14, right.y + 5, "0", { fontSize: "22px", color: "#f0c463", align: "right" }).setOrigin(1, 0);
+    const killsCaptionText = text(right.x + 12, right.y + 45, "KILLS", { fontSize: "12px", color: "#b8ffd2" });
+    const killsText = text(right.x + right.width - 14, right.y + 45, "0", { fontSize: "12px", color: "#b8ffd2", align: "right" }).setOrigin(1, 0);
+
+    const objectiveText = text(layout.objective.x, layout.objective.y + layout.objective.padY, "", {
       fontSize: "13px",
       color: "#b8ffd2",
-      fontStyle: "bold",
-      align: "right",
-      depth: layout.textDepth
-    }).setOrigin(1, 0);
-    const objectiveText = this.createHudText(layout.objective.x, layout.objective.y, "", {
-      fontFamily,
-      fontSize: "13px",
-      color: "#b8ffd2",
-      fontStyle: "bold",
       align: "center",
       depth: layout.textDepth + 1,
-      wordWrap: { width: layout.objective.width }
+      wordWrap: { width: layout.objective.width - 24, useAdvancedWrap: true }
     }).setOrigin(0.5, 0).setVisible(false);
+
+    // Skill cards: icon, name, stage and its pips. `text` keeps the short "ORB S1" form for the chip model.
+    const chips = layout.chips;
     const skillChips = [];
     for (let index = 0; index < 5; index += 1) {
-      const chipX = layout.chips.x + index * (layout.chips.width + layout.chips.gap);
-      const text = this.createHudText(chipX + layout.chips.width / 2, layout.chips.y + 4, "", {
-        fontFamily,
-        fontSize: "11px",
+      const x = chips.x + index * (chips.width + chips.gap);
+      const y = chips.y;
+      const icon = this.registerUiObject(
+        this.add
+          .image(x + 6 + chips.iconSize / 2, y + 7 + chips.iconSize / 2, "hud-icon-basic-skill")
+          .setScrollFactor(0)
+          .setDepth(layout.textDepth)
+          .setVisible(false)
+      );
+      const nameText = text(x + 54, y + 6, "", { fontSize: "10px", color: "#c8ffff", depth: layout.textDepth + 1 });
+      const stageText = text(x + chips.width - 8, y + 21, "", {
+        fontSize: "16px",
         color: "#9ffcff",
-        fontStyle: "bold",
-        align: "center",
+        align: "right",
         depth: layout.textDepth + 1
-      }).setOrigin(0.5, 0);
-      skillChips.push({ text, x: chipX, y: layout.chips.y });
+      }).setOrigin(1, 0);
+      const tagText = text(x + chips.width - 34, y + 25, "", {
+        fontSize: "9px",
+        color: "#1a1300",
+        depth: layout.textDepth + 2
+      }).setOrigin(1, 0).setVisible(false);
+      skillChips.push({ x, y, icon, nameText, stageText, tagText, text: nameText });
     }
-    const radarPanel = COMPACT_RADAR_CONFIG.panel;
-    const radarLabelText = this.createHudText(radarPanel.x + 12, radarPanel.y + 8, COMPACT_RADAR_CONFIG.label, {
-      fontFamily,
-      fontSize: "10px",
-      color: "#8ff5ff",
-      fontStyle: "bold",
-      depth: layout.textDepth
-    });
+    const radar = this.getCompactRadarLayout();
+    const radarLabelText = text(radar.x + 12, radar.y + 8, COMPACT_RADAR_CONFIG.label, { fontSize: "10px", color: "#8ff5ff" });
 
     this.hudCompact = {
       graphics,
       apText,
+      apCaptionText,
       apLabelText,
+      levelText,
       levelXpText,
       timerText,
+      depthCaptionText,
       depthText,
+      gateCaptionText,
       gateText,
+      coinIcon,
+      geekCaptionText,
       geekText,
+      killsCaptionText,
       killsText,
       objectiveText,
       skillChips,
@@ -55091,7 +55213,8 @@ class SurvivalScene extends Phaser.Scene {
     const robotText = createPanelBody(panels.robot, { fontSize: "10px" });
     const lootText = createPanelBody(panels.loot, { fontSize: "10px" });
     const buildText = createPanelBody(panels.build, { fontSize: "10px", lineSpacing: 1 });
-    const radarLegendText = this.createHudText(layout.radarLegend.x, layout.radarLegend.y, "", {
+    const radarForLegend = this.getCompactRadarLayout();
+    const radarLegendText = this.createHudText(radarForLegend.x + 14, radarForLegend.y + radarForLegend.height - 22, "", {
       fontFamily,
       fontSize: "9px",
       color: "#9ffcff",
@@ -55121,14 +55244,16 @@ class SurvivalScene extends Phaser.Scene {
     if (!this.mobileControlsEnabled) {
       return base;
     }
+    // Left of the radar and the BOOST button, below the notice band.
     const rightPanel = {
       x: GAME_WIDTH - 488,
       width: 284
     };
+    const belowBand = 40;
     return {
-      run: { ...base.run, ...rightPanel },
-      robot: { ...base.robot, ...rightPanel },
-      loot: { ...base.loot, ...rightPanel },
+      run: { ...base.run, ...rightPanel, y: base.run.y + belowBand },
+      robot: { ...base.robot, ...rightPanel, y: base.robot.y + belowBand },
+      loot: { ...base.loot, ...rightPanel, y: base.loot.y + belowBand },
       build: { ...base.build }
     };
   }
@@ -55454,7 +55579,7 @@ class SurvivalScene extends Phaser.Scene {
       return { label: "OVERHEAT", fill: 0xff5e24, text: "#ffb391", alpha: 0.96 };
     }
     if (this.isDashing || this.mobileDashHeld) {
-      return { label: "DASH", fill: 0xa8f8ff, text: "#e9ffff", alpha: 1 };
+      return { label: "BOOST", fill: 0xa8f8ff, text: "#e9ffff", alpha: 1 };
     }
     if (ratio <= 0.18 || state === AC_ENERGY_WARNING_STATE.CRITICAL || state === AC_ENERGY_WARNING_STATE.WARNING) {
       return { label: "LOW EN", fill: 0xff7468, text: "#ffb3a8", alpha: 0.96 };
@@ -55465,6 +55590,8 @@ class SurvivalScene extends Phaser.Scene {
     return { label: "BOOST EN", fill: 0x64ff92, text: "#b8ffd2", alpha: 0.9 };
   }
 
+  // One model per skill card: the player's skill slots, then the two LOST ARMS. `text` is the short form
+  // ("ORB S1", "TND --") kept for checks of the chip row; the card shows `name` and `stage` apart.
   getCompactHudSkillChipModels() {
     const skillLabels = {
       [DEFAULT_SKILL_ID]: "ORB",
@@ -55473,16 +55600,33 @@ class SurvivalScene extends Phaser.Scene {
       rabbitThunderSkill: "RBT",
       umbraMoonlight: "MOON", umbraBloodSpike: "SPIKE", umbraPhantomNova: "NOVA"
     };
+    const cardNames = {
+      [DEFAULT_SKILL_ID]: "ORB",
+      [REGALIA_BASTION_CANNON_SKILL_ID]: "REGALIA",
+      tornadoSkill: "TORNADO",
+      rabbitThunderSkill: "THUNDER"
+    };
     const skillModels = this.getPlayerSkillSlotIds().map((skillId) => {
       const state = this.playerSkills?.[skillId];
+      const definition = SKILL_DEFINITIONS[skillId];
       const stage = Math.max(0, Math.floor(Number(state?.currentStage?.stage) || 0));
+      const maxStage = Math.max(1, definition?.stages?.length || 8);
       const mutationLine = state ? this.getSkillMutationHudLine(skillId) : "";
       const label = skillLabels[skillId] || this.getRunArchiveSkillShortLabel(skillId).slice(0, 3);
       const umbraOverlimit = this.isUmbraNormalPresentationContext?.() && state ? this.getRunEquipmentSkillOverlimitHudPresentation?.(skillId)?.label : "";
+      const overlimit = umbraOverlimit ? umbraOverlimit.replace("OVL ", "") : "";
       return {
-        text: state ? `${label} S${stage}${mutationLine ? "*" : ""}${umbraOverlimit ? ` ${umbraOverlimit.replace("OVL ", "")}` : ""}` : `${label} --`,
+        text: state ? `${label} S${stage}${mutationLine ? "*" : ""}${overlimit ? ` ${overlimit}` : ""}` : `${label} --`,
+        name: cardNames[skillId] || label,
+        stage: state ? `S${stage}` : "--",
+        tag: overlimit || (mutationLine ? "MUT" : ""),
+        iconKey: definition ? this.getSkillHudIconKey(definition) : null,
+        pips: stage,
+        maxPips: maxStage,
+        owned: Boolean(state),
         color: state ? (mutationLine ? "#ffd98e" : "#9ffcff") : "#6f8b96",
         stroke: state ? 0x65e6ff : 0x42606a,
+        pipColor: mutationLine ? 0xffd98e : 0x65e6ff,
         alpha: state ? 0.78 : 0.42
       };
     });
@@ -55492,10 +55636,22 @@ class SurvivalScene extends Phaser.Scene {
       const pending = this.isLostArmPending(armId);
       const label = definition?.hudLabel || (armId === "abyssRail" ? "ABYSS" : "GRAV");
       const active = runtimeLevel > 0;
+      const jammed = active && this.isLostArmsJammed?.();
+      const evolution = active ? this.getLostArmsEvolutionDefinition?.(armId) : null;
+      const tint = definition?.tint || 0xc06bff;
       return {
         text: active ? `${label} L${runtimeLevel}${pending ? "*" : ""}` : `${label} --`,
-        color: active ? (pending ? "#ffd98e" : "#c8ffff") : "#6f8b96",
-        stroke: active ? (definition?.tint || 0x9ffcff) : 0x42606a,
+        name: label,
+        stage: active ? (runtimeLevel >= LOST_ARMS_MAX_LEVEL ? "MAX" : `L${runtimeLevel}`) : "--",
+        tag: jammed ? "JAM" : (evolution ? "EVO" : (pending ? "仮" : "")),
+        iconKey: definition?.iconTextureKey || null,
+        pips: runtimeLevel,
+        maxPips: LOST_ARMS_MAX_LEVEL,
+        owned: active,
+        arm: true,
+        color: active ? (jammed ? "#7f9ba8" : (pending ? "#ffd98e" : "#e6c8ff")) : "#6f8b96",
+        stroke: active ? (jammed ? 0x59666f : (pending ? 0xf0c463 : tint)) : 0x42606a,
+        pipColor: jammed ? 0x7f9ba8 : (pending ? 0xf0c463 : tint),
         alpha: active ? 0.82 : 0.42
       };
     });
@@ -55522,9 +55678,6 @@ class SurvivalScene extends Phaser.Scene {
         lines.push(`BOSS ETA ${this.formatTimeMs(bossEtaMs)}`);
       }
     }
-    if (this.gateState?.status && this.gateState.status !== "closed") {
-      lines.push(this.hudGateText?.text || "GATE ACTIVE");
-    }
     const directive = this.getActiveDepthDirective?.();
     if (directive) {
       lines.push(`DIR ${this.getDepthDirectiveHudTitle(directive)} ${this.getDepthDirectiveProgressText(directive)}`);
@@ -55536,6 +55689,23 @@ class SurvivalScene extends Phaser.Scene {
       lines.push(`CONTRACT ${this.getAnomalyContractHudTitle(contract)}`);
     }
     return lines.filter(Boolean).slice(0, 2).join(" / ");
+  }
+
+  // Glass panel with the bottom-right corner cut (cutLeft cuts the bottom-left one instead).
+  fillCompactHudPanel(graphics, rect, accent = 0x65e6ff, options = {}) {
+    const cut = options.cut ?? COMPACT_HUD_LAYOUT.cut;
+    const { x, y, width: w, height: h } = rect;
+    const points = options.cutLeft
+      ? [{ x, y }, { x: x + w, y }, { x: x + w, y: y + h }, { x: x + cut, y: y + h }, { x, y: y + h - cut }]
+      : (options.cutBoth
+        ? [{ x, y }, { x: x + w, y }, { x: x + w, y: y + h - cut }, { x: x + w - cut, y: y + h }, { x: x + cut, y: y + h }, { x, y: y + h - cut }]
+        : [{ x, y }, { x: x + w, y }, { x: x + w, y: y + h - cut }, { x: x + w - cut, y: y + h }, { x, y: y + h }]);
+    graphics.fillStyle(options.fill ?? 0x040b10, options.fillAlpha ?? 0.8);
+    graphics.fillPoints(points, true);
+    graphics.lineStyle(1, accent, options.strokeAlpha ?? 0.46);
+    graphics.strokePoints(points, true);
+    graphics.fillStyle(accent, options.strokeAlpha ?? 0.46);
+    graphics.fillRect(x + 8, y - 1, Math.min(48, w * 0.25), 2);
   }
 
   drawCompactHudGraphics(context = {}) {
@@ -55551,62 +55721,134 @@ class SurvivalScene extends Phaser.Scene {
     const xpRatio = Phaser.Math.Clamp(Number(context.xpRatio) || 0, 0, 1);
     const hpColor = hpRatio <= 0.25 ? 0xff7468 : 0x64ff92;
 
-    graphics.lineStyle(1, 0x64ff92, 0.28);
-    graphics.beginPath();
-    graphics.moveTo(layout.ap.barX, layout.ap.barY + layout.ap.barHeight + 5);
-    graphics.lineTo(layout.ap.barX + layout.ap.barWidth, layout.ap.barY + layout.ap.barHeight + 5);
-    graphics.strokePath();
-    graphics.fillStyle(0x03100a, 0.78);
-    graphics.fillRect(layout.ap.barX, layout.ap.barY, layout.ap.barWidth, layout.ap.barHeight);
+    // Status panel: AP bar in segments, level badge, XP bar.
+    this.fillCompactHudPanel(graphics, layout.status);
+    const ap = layout.ap;
+    graphics.fillStyle(0x03100a, 0.9);
+    graphics.fillRect(ap.barX, ap.barY, ap.barWidth, ap.barHeight);
     graphics.fillStyle(hpColor, 0.94);
-    graphics.fillRect(layout.ap.barX, layout.ap.barY, Math.max(0, layout.ap.barWidth * hpRatio), layout.ap.barHeight);
-    graphics.fillStyle(0x061524, 0.76);
-    graphics.fillRect(layout.xp.x, layout.xp.y, layout.xp.width, layout.xp.height);
-    graphics.fillStyle(0x45a9ff, 0.86);
-    graphics.fillRect(layout.xp.x, layout.xp.y, Math.max(0, layout.xp.width * xpRatio), layout.xp.height);
+    graphics.fillRect(ap.barX, ap.barY, Math.max(0, ap.barWidth * hpRatio), ap.barHeight);
+    graphics.fillStyle(0x000000, 0.55);
+    for (let index = 1; index < ap.segments; index += 1) {
+      graphics.fillRect(ap.barX + Math.round((ap.barWidth * index) / ap.segments) - 1, ap.barY, 2, ap.barHeight);
+    }
+    graphics.lineStyle(1, hpColor, 0.4);
+    graphics.strokeRect(ap.barX - 0.5, ap.barY - 0.5, ap.barWidth + 1, ap.barHeight + 1);
+    const xp = layout.xp;
+    const badgeWidth = Math.max(40, (hud.levelText?.width || 30) + 12);
+    graphics.fillStyle(0x65e6ff, 0.95);
+    graphics.fillRect(xp.badgeX, xp.badgeY, badgeWidth, 16);
+    const xpX = xp.badgeX + badgeWidth + 8;
+    const xpWidth = Math.max(40, xp.valueX - (hud.levelXpText?.width || 50) - 10 - xpX);
+    graphics.fillStyle(0x061524, 0.9);
+    graphics.fillRect(xpX, xp.y, xpWidth, xp.height);
+    graphics.fillStyle(0x45a9ff, 0.92);
+    graphics.fillRect(xpX, xp.y, Math.max(0, xpWidth * xpRatio), xp.height);
+    graphics.lineStyle(1, 0x45a9ff, 0.45);
+    graphics.strokeRect(xpX - 0.5, xp.y - 0.5, xpWidth + 1, xp.height + 1);
 
-    graphics.lineStyle(1, 0x64ff92, 0.32);
-    graphics.beginPath();
-    graphics.moveTo(layout.timer.x - 118, layout.timer.y + 35);
-    graphics.lineTo(layout.timer.x - 28, layout.timer.y + 35);
-    graphics.moveTo(layout.timer.x + 28, layout.timer.y + 35);
-    graphics.lineTo(layout.timer.x + 118, layout.timer.y + 35);
-    graphics.strokePath();
+    // Run clock panel and its gate bar.
+    const center = layout.center;
+    const gate = context.gate || {};
+    this.fillCompactHudPanel(graphics, center, 0x65e6ff, { cutBoth: true, cut: 12 });
+    const barX = center.x + center.inset;
+    const barWidth = center.width - center.inset * 2;
+    graphics.fillStyle(0x061524, 0.9);
+    graphics.fillRect(barX, center.y + center.barY, barWidth, center.barHeight);
+    graphics.fillStyle(gate.barColor ?? 0x6fd0ff, 0.95);
+    graphics.fillRect(barX, center.y + center.barY, Math.max(0, barWidth * Phaser.Math.Clamp(Number(gate.ratio) || 0, 0, 1)), center.barHeight);
 
-    graphics.lineStyle(1, 0x64ff92, 0.34);
-    graphics.beginPath();
-    graphics.moveTo(layout.right.x - layout.right.width, layout.right.y + 2);
-    graphics.lineTo(layout.right.x, layout.right.y + 2);
-    graphics.lineTo(layout.right.x, layout.right.y + 56);
-    graphics.strokePath();
+    // Rewards panel.
+    const right = layout.right;
+    this.fillCompactHudPanel(graphics, right, 0x65e6ff, { cutLeft: true });
+    graphics.lineStyle(1, 0x65e6ff, 0.18);
+    graphics.lineBetween(right.x + 12, right.y + 41, right.x + right.width - 14, right.y + 41);
 
+    // Notice band under the clock, as tall as its text.
     if (context.objectiveVisible) {
       const critical = context.objectiveCritical;
-      const panelHeight = critical ? 72 : 36;
-      const panelY = layout.objective.y - 8;
+      const objective = layout.objective;
+      const width = critical ? objective.criticalWidth : objective.width;
+      const height = Math.max(objective.minHeight, Math.ceil((hud.objectiveText?.height || 16) + objective.padY * 2));
       const accent = critical?.accent || 0x64ff92;
-      graphics.fillStyle(critical?.urgent ? 0x251017 : 0x02070a, critical ? 0.82 : 0.56);
-      graphics.fillRect(layout.objective.x - layout.objective.width / 2, panelY, layout.objective.width, panelHeight);
-      graphics.lineStyle(critical ? 2 : 1, accent, critical ? 0.72 : 0.42);
-      graphics.strokeRect(layout.objective.x - layout.objective.width / 2, panelY, layout.objective.width, panelHeight);
+      const rect = { x: objective.x - width / 2, y: objective.y, width, height };
+      this.fillCompactHudPanel(graphics, rect, accent, {
+        cutBoth: true,
+        cut: 10,
+        fill: critical?.urgent ? 0x251017 : 0x040b10,
+        fillAlpha: critical ? 0.86 : 0.72,
+        strokeAlpha: critical ? 0.78 : 0.5
+      });
       if (critical) {
         graphics.fillStyle(accent, critical.urgent ? 0.92 : 0.7);
-        graphics.fillRect(layout.objective.x - layout.objective.width / 2, panelY, 6, panelHeight);
-        graphics.fillRect(layout.objective.x + layout.objective.width / 2 - 6, panelY, 6, panelHeight);
+        graphics.fillRect(rect.x, rect.y, 5, height - 10);
+        graphics.fillRect(rect.x + width - 5, rect.y, 5, height - 10);
       }
     }
 
-    const chipModels = context.chipModels || [];
-    chipModels.forEach((model, index) => {
+    // Skill cards: panel, then the stage pips.
+    const chips = layout.chips;
+    (context.chipModels || []).forEach((model, index) => {
       const chip = hud.skillChips[index];
       if (!chip) {
         return;
       }
-      graphics.fillStyle(0x02070a, model.alpha ?? 0.64);
-      graphics.fillRect(chip.x, chip.y, layout.chips.width, layout.chips.height);
-      graphics.lineStyle(1, model.stroke || 0x65e6ff, model.alpha ?? 0.5);
-      graphics.strokeRect(chip.x + 0.5, chip.y + 0.5, layout.chips.width - 1, layout.chips.height - 1);
+      this.fillCompactHudPanel(graphics, { x: chip.x, y: chip.y, width: chips.width, height: chips.height }, model.stroke || 0x65e6ff, {
+        cutBoth: true,
+        cut: 10,
+        fillAlpha: model.owned ? 0.8 : 0.6,
+        strokeAlpha: model.owned ? 0.62 : 0.34
+      });
+      const pips = Math.max(1, model.maxPips || chips.pips);
+      const pipGap = 2;
+      const pipWidth = Math.max(3, Math.floor((chips.width - 62 - pipGap * (pips - 1)) / pips));
+      for (let pip = 0; pip < pips; pip += 1) {
+        const on = pip < (model.pips || 0);
+        graphics.fillStyle(on ? (model.pipColor ?? 0x65e6ff) : 0x65e6ff, on ? 0.95 : 0.2);
+        graphics.fillRect(chip.x + 54 + pip * (pipWidth + pipGap), chip.y + chips.height - 17, pipWidth, 8);
+      }
+      if (model.tag) {
+        const tag = chip.tagText;
+        graphics.fillStyle(model.tag === "JAM" ? 0x7f9ba8 : (model.tag === "EVO" ? 0xff73f6 : 0xffd98e), 0.95);
+        graphics.fillRect(tag.x - tag.width - 3, tag.y - 1, tag.width + 6, tag.height + 2);
+      }
     });
+  }
+
+  // Gate countdown for the run clock panel: caption, time, colour and a bar (filling up while the gate is
+  // closed, draining while it is open).
+  getCompactHudGateModel() {
+    const status = this.gateState?.status || "closed";
+    if (status === "closed") {
+      const remainingMs = Math.max(0, GATE_INTERVAL_MS - (this.stageDepthElapsedMs || 0));
+      const warning = remainingMs <= GATE_WARNING_LEAD_MS;
+      return {
+        caption: "GATE まで",
+        value: this.formatTimeMs(remainingMs),
+        color: warning ? "#f3c06b" : "#b8e4ff",
+        barColor: warning ? 0xf0c463 : 0x6fd0ff,
+        ratio: 1 - remainingMs / GATE_INTERVAL_MS
+      };
+    }
+    const stableMs = Math.max(1, this.getCurrentGateStableDurationMs());
+    const remainingMs = Math.max(0, stableMs - (this.gateState?.activeElapsedMs || 0));
+    const warning = remainingMs <= 10000;
+    if (status === "unstable") {
+      return {
+        caption: "不安定 GATE",
+        value: this.formatTimeMs(remainingMs),
+        color: warning ? "#ff6f91" : "#ff9de1",
+        barColor: warning ? 0xff4f7a : 0xff8bd6,
+        ratio: remainingMs / stableMs
+      };
+    }
+    return {
+      caption: this.isGateCollapseFailureDepth() ? "GATE 崩壊まで" : "GATE 変調まで",
+      value: this.formatTimeMs(remainingMs),
+      color: warning ? "#ff7970" : "#9fe7ff",
+      barColor: warning ? 0xff6f5e : 0x9fe7ff,
+      ratio: remainingMs / stableMs
+    };
   }
 
   updateCompactHud(context = {}) {
@@ -55620,6 +55862,7 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
+    const layout = COMPACT_HUD_LAYOUT;
     const stats = this.stats || {};
     const maxHp = Math.max(1, Math.floor(Number(stats.maxHp) || 1));
     const hp = Phaser.Math.Clamp(Math.ceil(Number(stats.hp) || 0), 0, maxHp);
@@ -55627,41 +55870,63 @@ class SurvivalScene extends Phaser.Scene {
     const levelCapped = this.isPlayerLevelCapped?.() === true;
     const nextLevelXp = Math.max(1, Math.floor(Number(stats.nextLevelXp) || 1));
     const xpRatio = levelCapped ? 1 : Phaser.Math.Clamp((Number(stats.xp) || 0) / nextLevelXp, 0, 1);
-    const xpLabel = levelCapped ? "MAX / OD" : `XP ${Math.floor(xpRatio * 100)}%`;
     const chipModels = this.getCompactHudSkillChipModels();
     const gateCritical = this.getGateCriticalHudModel();
     const objectiveText = gateCritical?.text || this.getCompactHudObjectiveText(context);
-    const gateColor = this.hudGateText?.style?.color || "#9ab7cc";
+    const gate = this.getCompactHudGateModel();
 
     hud.apText
       .setText(String(hp).padStart(3, "0"))
       .setColor(hpRatio <= 0.25 ? "#ffb3a8" : "#72ff9a");
-    hud.apLabelText.setText(`AP / ${maxHp}`);
-    hud.levelXpText.setText(`LV ${stats.level || 1} / ${xpLabel}`);
+    const apLabelX = hud.apText.x + hud.apText.width + layout.ap.labelGap;
+    hud.apCaptionText?.setX(apLabelX);
+    hud.apLabelText.setX(apLabelX).setText(`/ ${maxHp}`);
+    hud.levelText?.setText(`LV ${stats.level || 1}`);
+    hud.levelXpText.setText(levelCapped ? "MAX / OD" : `XP ${Math.floor(xpRatio * 100)}%`);
     hud.timerText.setText(context.timeLabel || this.formatTimeMs(this.survivalTime || 0));
-    hud.depthText.setText(`DEPTH ${this.stageDepth || 1}`);
-    hud.gateText
-      .setText(this.hudGateText?.text || "GATE --:--")
-      .setColor(gateColor);
-    hud.geekText.setText(`未確定GEEK ${this.normalizeCoinAmount(this.runUnsecuredCoins).toLocaleString()}`);
-    hud.killsText.setText(`KILLS ${Math.max(0, Math.floor(Number(this.runStats?.kills) || 0)).toLocaleString()}`);
+    hud.depthText.setText(String(this.stageDepth || 1));
+    hud.gateCaptionText?.setText(gate.caption).setColor(gate.color);
+    hud.gateText.setText(gate.value).setColor(gate.color);
+    if (hud.coinIcon && hud.coinIcon.texture?.key !== this.getGeekIconTextureKey()) {
+      this.setHudIconToFit(hud.coinIcon, this.getGeekIconTextureKey(), layout.right.iconSize);
+    }
+    hud.geekText.setText(this.normalizeCoinAmount(this.runUnsecuredCoins).toLocaleString());
+    hud.killsText.setText(Math.max(0, Math.floor(Number(this.runStats?.kills) || 0)).toLocaleString());
+    const objectiveWidth = gateCritical ? layout.objective.criticalWidth : layout.objective.width;
     hud.objectiveText
       .setVisible(Boolean(objectiveText))
       .setText(objectiveText)
-      .setFontSize(gateCritical ? "22px" : "13px")
+      .setFontSize(gateCritical ? "18px" : "13px")
       .setColor(gateCritical?.color || "#b8ffd2")
-      .setLineSpacing(gateCritical ? 4 : 0);
+      .setLineSpacing(gateCritical ? 3 : 0)
+      .setWordWrapWidth(objectiveWidth - 24, true);
     hud.radarLabelText?.setVisible(!this.isCompactRadarSuppressed?.());
     chipModels.forEach((model, index) => {
       const chip = hud.skillChips[index];
-      chip?.text
-        ?.setText(model.text)
-        .setColor(model.color);
+      if (!chip) {
+        return;
+      }
+      chip.nameText.setText(model.name).setColor(model.owned ? "#c8ffff" : "#6f8b96");
+      chip.stageText.setText(model.stage).setColor(model.color);
+      chip.tagText.setVisible(Boolean(model.tag)).setText(model.tag || "");
+      chip.model = model;
+      const hasIcon = Boolean(model.iconKey) && this.textures.exists(model.iconKey);
+      chip.icon.setVisible(hasIcon);
+      if (hasIcon) {
+        if (chip.iconKey !== model.iconKey) {
+          this.setHudIconToFit(chip.icon, model.iconKey, layout.chips.iconSize);
+          chip.iconKey = model.iconKey;
+        }
+        chip.icon
+          .setAlpha(model.owned ? 0.96 : 0.32)
+          .setTint(model.owned ? 0xffffff : 0x6f8b96);
+      }
     });
     this.drawCompactHudGraphics({
       hpRatio,
       xpRatio,
       chipModels,
+      gate,
       objectiveVisible: Boolean(objectiveText),
       objectiveCritical: gateCritical
     });
@@ -56834,7 +57099,7 @@ class SurvivalScene extends Phaser.Scene {
 
   getCompactRadarLayout() {
     const config = COMPACT_RADAR_CONFIG;
-    const panel = config.panel;
+    const panel = this.mobileControlsEnabled ? config.mobilePanel : config.panel;
     return {
       x: panel.x,
       y: panel.y,
@@ -58237,9 +58502,9 @@ class SurvivalScene extends Phaser.Scene {
 
     const rows = [
       ["Left Stick / D-Pad", "MOVE / SELECT"],
-      ["A / Cross", "DECIDE / DASH"],
+      ["A / Cross", "DECIDE / BOOST"],
       ["B / Circle", "BACK"],
-      ["RB / R1 / RT / R2", "DASH"],
+      ["RB / R1 / RT / R2", "BOOST"],
       ["Start / Menu", "DECIDE"]
     ];
     rows.forEach(([input, action], index) => {

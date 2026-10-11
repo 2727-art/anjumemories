@@ -137,7 +137,7 @@ async function runCase(name, query, mechId, takeHudScreenshot, options = {}) {
         ownedSkillIds: Object.keys(scene.playerSkills),
         skills: scene.getOrderedSkillStates().map(skill => ({ id: skill.id, stage: skill.currentStage?.stage, behavior: skill.definition?.behavior })),
         hud: scene.hudSkillSlots.map(slot => ({ label: slot.label.text, icon: slot.icon.texture.key, visible: slot.icon.visible, alpha: slot.icon.alpha })),
-        compactHud: scene.hudCompact.skillChips.map(chip => ({ text: chip.text.text, visible: chip.text.visible })),
+        compactHud: scene.hudCompact.skillChips.map(chip => ({ text: chip.model?.text ?? chip.text.text, visible: chip.text.visible })),
         hudTitle: scene.hudObjectiveText?.text,
         levelUpActive: scene.levelUpActive,
         openingBoostActive: scene.isOpeningBoostDraftActive(),
