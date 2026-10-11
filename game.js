@@ -3511,7 +3511,20 @@ const HIT_FEEL_CONFIG = Object.freeze({
     crit: Object.freeze({ fontSize: 40, color: "#ffe94d", stroke: "#a3160c", strokeThickness: 6, pop: 1.7, suffix: "!" })
   },
   crit: { baseChance: 0.03, damageMultiplier: 1.5, maxChance: 0.5 },
-  sfx: { hitMinIntervalMs: 50, critMinIntervalMs: 30, killMinIntervalMs: 52, maxVoices: 10, volume: 1, comboPitchStep: 0.022, comboPitchMax: 1.6 },
+  sfx: {
+    hitMinIntervalMs: 50,
+    critMinIntervalMs: 30,
+    killMinIntervalMs: 52,
+    maxVoices: 10,
+    volume: 0.9,
+    reverbSeconds: 0.7,
+    reverbWet: 0.22,
+    // [frequency ratio, amplitude, length] of the struck-metal partials.
+    metalPartials: Object.freeze([[1, 1, 1], [2.76, 0.55, 0.7], [5.4, 0.32, 0.45], [8.93, 0.18, 0.3]]),
+    // Kill chime steps in semitones (minor pentatonic): two octaves up by the 11th kill in a combo.
+    comboScale: Object.freeze([0, 3, 5, 7, 10, 12, 15, 17, 19, 22, 24]),
+    comboChimeHz: 520
+  },
   killBurst: { shards: 6, eliteShards: 10, spreadRad: 0.75, distance: [42, 96], lifeMs: [220, 330], maxActive: 140, depth: 20 },
   xpPop: { distance: [14, 30], durationMs: 230, scaleFrom: 0.3 },
   // Drawn under the enemy so it never sits behind the damage numbers, which rise from the head.
@@ -81139,6 +81152,8 @@ class SurvivalScene extends Phaser.Scene {
       activeVoices: 0,
       noiseBuffer: null,
       noiseContext: null,
+      driveCurves: null,
+      audioGraph: null,
       hitStopUntil: 0,
       hpBars: new Map(),
       combo: { count: 0, expiresAtMs: 0, best: 0, lastMilestone: 0 },
@@ -81158,6 +81173,7 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
     this.endHitFeelHitStop(reason);
+    this.releaseHitFeelAudioGraph();
     state.hpBars.forEach((bar) => {
       if (bar?.scene) {
         bar.destroy();
@@ -81451,28 +81467,96 @@ class SurvivalScene extends Phaser.Scene {
     return destination ? { context, destination } : null;
   }
 
+  // Local xorshift noise: Math.random's sequence must not depend on whether audio happens to be running.
+  fillHitFeelNoise(data, seed, decayPower = 0) {
+    let value = seed >>> 0;
+    const length = data.length;
+    for (let index = 0; index < length; index += 1) {
+      value ^= value << 13;
+      value ^= value >>> 17;
+      value ^= value << 5;
+      const sample = ((value >>> 0) / 4294967296) * 2 - 1;
+      data[index] = decayPower > 0 ? sample * Math.pow(1 - index / length, decayPower) : sample;
+    }
+  }
+
   getHitFeelNoiseBuffer(context) {
     const state = this.hitFeelState;
     if (state.noiseBuffer && state.noiseContext === context) {
       return state.noiseBuffer;
     }
-    const length = Math.floor(context.sampleRate * 0.3);
-    const buffer = context.createBuffer(1, length, context.sampleRate);
-    const data = buffer.getChannelData(0);
-    // A local xorshift keeps Math.random's sequence independent of whether audio happens to be running.
-    let seed = 0x9e3779b9;
-    for (let index = 0; index < length; index += 1) {
-      seed ^= seed << 13;
-      seed ^= seed >>> 17;
-      seed ^= seed << 5;
-      data[index] = ((seed >>> 0) / 4294967296) * 2 - 1;
-    }
+    const buffer = context.createBuffer(1, Math.floor(context.sampleRate * 0.6), context.sampleRate);
+    this.fillHitFeelNoise(buffer.getChannelData(0), 0x9e3779b9);
     state.noiseBuffer = buffer;
     state.noiseContext = context;
     return buffer;
   }
 
-  // Short synthesized hit / kill sounds, so no audio files are needed.
+  getHitFeelDriveCurve(amount) {
+    const state = this.hitFeelState;
+    if (!state.driveCurves) {
+      state.driveCurves = new Map();
+    }
+    if (!state.driveCurves.has(amount)) {
+      const size = 2048;
+      const curve = new Float32Array(size);
+      for (let index = 0; index < size; index += 1) {
+        const x = (index / (size - 1)) * 2 - 1;
+        curve[index] = ((1 + amount) * x) / (1 + amount * Math.abs(x));
+      }
+      state.driveCurves.set(amount, curve);
+    }
+    return state.driveCurves.get(amount);
+  }
+
+  // Shared mixer for the synthesized hits: a dry bus and a short reverb, through a limiter into Phaser's master node.
+  getHitFeelAudioGraph(context, destination) {
+    const state = this.hitFeelState;
+    if (state.audioGraph?.context === context && state.audioGraph.destination === destination) {
+      return state.audioGraph;
+    }
+    this.releaseHitFeelAudioGraph();
+    const config = HIT_FEEL_CONFIG.sfx;
+    const limiter = context.createDynamicsCompressor();
+    limiter.threshold.value = -14;
+    limiter.ratio.value = 4;
+    limiter.attack.value = 0.002;
+    limiter.release.value = 0.12;
+    const output = context.createGain();
+    output.gain.value = config.volume;
+    output.connect(limiter);
+    limiter.connect(destination);
+    const dry = context.createGain();
+    dry.connect(output);
+    const impulse = context.createBuffer(2, Math.floor(context.sampleRate * config.reverbSeconds), context.sampleRate);
+    this.fillHitFeelNoise(impulse.getChannelData(0), 0x2545f491, 3.2);
+    this.fillHitFeelNoise(impulse.getChannelData(1), 0x6c078965, 3.2);
+    const reverb = context.createConvolver();
+    reverb.buffer = impulse;
+    reverb.connect(output);
+    const wet = context.createGain();
+    wet.gain.value = config.reverbWet;
+    wet.connect(reverb);
+    state.audioGraph = { context, destination, dry, wet, reverb, output, limiter };
+    return state.audioGraph;
+  }
+
+  releaseHitFeelAudioGraph() {
+    const graph = this.hitFeelState?.audioGraph;
+    if (!graph) {
+      return;
+    }
+    this.hitFeelState.audioGraph = null;
+    [graph.limiter, graph.output, graph.reverb, graph.wet, graph.dry].forEach((node) => {
+      try {
+        node.disconnect();
+      } catch (error) {
+        // Already disconnected.
+      }
+    });
+  }
+
+  // "Armor impact" set, synthesized so no audio files are needed: a low thump, struck-metal partials and saturation.
   playHitFeelSfx(kind, options = {}) {
     const state = this.getHitFeelState();
     const audio = state ? this.getHitFeelAudio() : null;
@@ -81499,10 +81583,9 @@ class SurvivalScene extends Phaser.Scene {
 
     try {
       const { context, destination } = audio;
-      const start = context.currentTime + 0.002;
-      const output = context.createGain();
-      output.gain.value = config.volume;
-      output.connect(destination);
+      const graph = this.getHitFeelAudioGraph(context, destination);
+      const start = context.currentTime + 0.003;
+      const nodes = [];
       let lastSource = null;
       let lastEnd = 0;
       const track = (source, end) => {
@@ -81511,12 +81594,29 @@ class SurvivalScene extends Phaser.Scene {
           lastSource = source;
         }
       };
+      const voice = (drive = 0, wet = 1) => {
+        const bus = context.createGain();
+        let head = bus;
+        if (drive > 0) {
+          head = context.createWaveShaper();
+          head.curve = this.getHitFeelDriveCurve(drive);
+          head.oversample = "2x";
+          bus.connect(head);
+        }
+        head.connect(graph.dry);
+        const send = context.createGain();
+        send.gain.value = wet;
+        head.connect(send);
+        send.connect(graph.wet);
+        nodes.push(bus, head, send);
+        return bus;
+      };
       const envelope = (gain, at, peak, duration) => {
         gain.gain.setValueAtTime(0.0001, at);
-        gain.gain.exponentialRampToValueAtTime(peak, at + Math.min(0.006, duration * 0.2));
+        gain.gain.exponentialRampToValueAtTime(peak, at + Math.min(0.004, duration * 0.3));
         gain.gain.exponentialRampToValueAtTime(0.0001, at + duration);
       };
-      const tone = (type, fromHz, toHz, duration, peak, delay = 0) => {
+      const tone = (bus, type, fromHz, toHz, duration, peak, delay = 0) => {
         const at = start + delay;
         const oscillator = context.createOscillator();
         const gain = context.createGain();
@@ -81525,58 +81625,79 @@ class SurvivalScene extends Phaser.Scene {
         oscillator.frequency.exponentialRampToValueAtTime(Math.max(20, toHz), at + duration);
         envelope(gain, at, peak, duration);
         oscillator.connect(gain);
-        gain.connect(output);
+        gain.connect(bus);
         oscillator.start(at);
-        oscillator.stop(at + duration + 0.02);
+        oscillator.stop(at + duration + 0.03);
         track(oscillator, at + duration);
       };
-      const noise = (filterType, fromHz, toHz, duration, peak, delay = 0) => {
+      const noise = (bus, filterType, fromHz, toHz, q, duration, peak, delay = 0) => {
         const at = start + delay;
         const source = context.createBufferSource();
         const filter = context.createBiquadFilter();
         const gain = context.createGain();
         source.buffer = this.getHitFeelNoiseBuffer(context);
         filter.type = filterType;
-        filter.Q.value = filterType === "bandpass" ? 1.1 : 0.7;
+        filter.Q.value = q;
         filter.frequency.setValueAtTime(fromHz, at);
-        filter.frequency.exponentialRampToValueAtTime(Math.max(40, toHz), at + duration);
+        filter.frequency.exponentialRampToValueAtTime(Math.max(30, toHz), at + duration);
         envelope(gain, at, peak, duration);
         source.connect(filter);
         filter.connect(gain);
-        gain.connect(output);
+        gain.connect(bus);
         source.start(at);
-        source.stop(at + duration + 0.02);
+        source.stop(at + duration + 0.03);
         track(source, at + duration);
+      };
+      // Inharmonic partials read as struck metal rather than a musical note.
+      const metal = (bus, hz, duration, peak, delay = 0) => {
+        config.metalPartials.forEach(([ratio, amplitude, length]) => {
+          tone(bus, "sine", hz * ratio, hz * ratio * 0.995, duration * length, peak * amplitude, delay);
+        });
+      };
+      const hitLayers = () => {
+        const body = voice(4, 0.5);
+        tone(body, "sine", 150, 55, 0.07, 0.22);
+        noise(body, "lowpass", 2600, 600, 0.8, 0.045, 0.12);
+        metal(voice(0, 0.8), 1650, 0.1, 0.03);
       };
 
       if (kind === "hit") {
-        noise("bandpass", 2600, 1500, 0.04, 0.1);
-        tone("triangle", 380, 170, 0.05, 0.06);
+        hitLayers();
       } else if (kind === "crit") {
-        noise("bandpass", 3200, 1800, 0.05, 0.12);
-        tone("triangle", 420, 190, 0.05, 0.07);
-        tone("square", 1400, 1900, 0.06, 0.03, 0.004);
-        tone("sine", 2100, 2100, 0.13, 0.05, 0.018);
+        hitLayers();
+        const ring = voice(0, 1.2);
+        metal(ring, 2350, 0.26, 0.085, 0.004);
+        tone(ring, "sine", 1800, 2700, 0.09, 0.03, 0.01);
+        noise(voice(0, 1), "highpass", 6000, 4000, 0.7, 0.03, 0.05);
       } else if (kind === "kill") {
-        const pitch = Math.min(config.comboPitchMax, 1 + Math.max(0, Number(options.combo) || 0) * config.comboPitchStep);
-        noise("lowpass", 2600 * pitch, 450, 0.09, 0.11);
-        tone("triangle", 240 * pitch, 105 * pitch, 0.11, 0.09);
-        tone("sine", 720 * pitch, 980 * pitch, 0.06, 0.035, 0.012);
+        const body = voice(8, 0.6);
+        noise(body, "lowpass", 3200, 240, 0.9, 0.15, 0.2);
+        tone(body, "sine", 115, 38, 0.17, 0.26);
+        const debris = voice(0, 1);
+        metal(debris, 1080, 0.13, 0.035, 0.02);
+        metal(debris, 1390, 0.11, 0.028, 0.055);
+        // Combo chime: one step up a minor pentatonic scale per kill, so a streak is audible as a rising line.
+        const scale = config.comboScale;
+        const step = scale[Phaser.Math.Clamp(Math.floor(Number(options.combo) || 1) - 1, 0, scale.length - 1)];
+        const chimeHz = config.comboChimeHz * Math.pow(2, step / 12);
+        tone(voice(0, 1.4), "triangle", chimeHz, chimeHz, 0.13, 0.065, 0.012);
       } else if (kind === "bigKill") {
-        tone("sine", 125, 42, 0.34, 0.24);
-        noise("lowpass", 1700, 180, 0.26, 0.16);
-        tone("triangle", 540, 250, 0.1, 0.06);
+        const body = voice(6, 1.2);
+        tone(body, "sine", 95, 30, 0.55, 0.36);
+        noise(body, "lowpass", 1900, 110, 0.8, 0.5, 0.26);
+        metal(voice(0, 1.5), 690, 0.45, 0.06, 0.01);
       } else if (kind === "milestone") {
-        [660, 880, 1320].forEach((hz, index) => tone("triangle", hz, hz * 1.01, 0.13, 0.05, index * 0.055));
+        const bells = voice(0, 1.5);
+        [880, 1320, 1760].forEach((hz, index) => metal(bells, hz, 0.3, 0.05, index * 0.065));
+        tone(voice(3, 1), "sine", 110, 70, 0.25, 0.15);
       } else {
-        output.disconnect();
         return false;
       }
 
       state.activeVoices += 1;
       lastSource.onended = () => {
         state.activeVoices = Math.max(0, state.activeVoices - 1);
-        output.disconnect();
+        nodes.forEach((node) => node.disconnect());
       };
       return true;
     } catch (error) {
