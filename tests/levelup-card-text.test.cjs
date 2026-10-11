@@ -137,10 +137,79 @@ test("passive cards show their level, a 10-step track and now → next values", 
   assert.equal(scene.buildLevelUpCardModel(passive(scene, "overchargeBolt"), 0).description, "Orbit Core の自動雷撃\n威力 +1");
 });
 
-test("the lightning passives say when Orbit Core is missing", () => {
-  const { scene } = fixture({ mechId: "regaliaBastion", orbitCore: false });
+test("the lightning passives say when Orbit Core is not owned", () => {
+  const { scene } = fixture({ orbitCore: false });
   assert.equal(scene.buildLevelUpCardModel(passive(scene, "overchargeBolt"), 0).description, "自動雷撃の威力 +1\nOrbit Core 所持時のみ有効");
   assert.match(scene.buildLevelUpCardModel(passive(scene, "rapidSigil"), 0).description, /^自動雷撃の間隔 [\d.]+ → [\d.]+秒\nOrbit Core 所持時のみ有効$/);
+});
+
+const passiveIds = (scene, options = { openingBoost: false }) => plain(scene.getPassiveUpgradeChoices(options).map(choice => choice.id));
+const ownLostArm = (scene, armId = "abyssRail") => {
+  scene.lostArmsState = { permanentLevels: { [armId]: 1 }, pendingLevels: {}, runtimeLevels: {} };
+};
+
+test("a mech without an Orbit Core slot is not offered the lightning passives", () => {
+  const { scene } = fixture({ mechId: "regaliaBastion", orbitCore: false });
+  assert.equal(scene.isOrbitCoreOutOfReachForPassives(), true);
+  for (const openingBoost of [false, true]) {
+    const ids = passiveIds(scene, { openingBoost });
+    assert.ok(!ids.includes("overchargeBolt") && !ids.includes("rapidSigil"), `openingBoost=${openingBoost}: ${ids}`);
+    assert.ok(["swiftStep", "staminaCore", "vitalBloom"].every(id => ids.includes(id)), "the other passives stay");
+  }
+
+  // The default mech has an Orbit Core slot and keeps both cards.
+  const standard = fixture().scene;
+  assert.equal(standard.isOrbitCoreOutOfReachForPassives(), false);
+  assert.ok(["overchargeBolt", "rapidSigil"].every(id => passiveIds(standard).includes(id)));
+});
+
+test("without an Orbit Core slot, Fire Control Link is offered for the LOST ARMS cooldowns", () => {
+  const { scene } = fixture({ mechId: "regaliaBastion", orbitCore: false });
+  ownLostArm(scene, "gravitySeed");
+  assert.deepEqual(passiveIds(scene).filter(id => id === "overchargeBolt" || id === "rapidSigil"), ["rapidSigil"]);
+
+  const fire = passive(scene, "rapidSigil");
+  assert.deepEqual(plain(fire.lostArmsCooldown), { beforePercent: 100, afterPercent: 91.6, reductionPercent: 8.4 });
+  const card = scene.buildLevelUpCardModel(fire, 0);
+  assert.equal(card.description, "LOST ARMS の再発動待ち\n基本の 100% → 91.6%");
+  assert.equal(card.chips[0].label, "LOST ARMS 待ち -8.4%");
+
+  // The card matches the cooldown the LOST ARMS actually use after the pick.
+  assert.equal(scene.getLostArmCooldownMs(6500), 6500);
+  fire.onSelect();
+  assert.equal(scene.stats.fireInterval, 470);
+  assert.equal(scene.getLostArmCooldownMs(6500), 5952); // 6500 × 91.57%
+  assert.equal(scene.passiveLevels.rapidSigil, 1);
+  assert.equal(scene.buildLevelUpCardModel(passive(scene, "rapidSigil"), 0).description, "LOST ARMS の再発動待ち\n基本の 91.6% → 83.1%");
+
+  // At the fire interval floor, or above 610ms where the next level would not reach 540ms, the
+  // LOST ARMS cooldown does not change, so the card is not offered.
+  scene.stats.fireInterval = 160;
+  assert.equal(passive(scene, "rapidSigil"), undefined);
+  scene.stats.fireInterval = 610;
+  assert.equal(passive(scene, "rapidSigil"), undefined);
+  scene.stats.fireInterval = 609;
+  assert.ok(passive(scene, "rapidSigil"));
+});
+
+test("XP overflows to OVERDRIVE once only ineffective lightning passives would remain", () => {
+  const maxOtherPassives = (scene) => {
+    scene.getAvailableSkillChoices = () => [];
+    for (const id of ["swiftStep", "staminaCore", "vitalBloom"]) scene.passiveLevels[id] = scene.getPassiveMaxLevel(id);
+  };
+  const regalia = fixture({ mechId: "regaliaBastion", orbitCore: false }).scene;
+  maxOtherPassives(regalia);
+  assert.deepEqual(passiveIds(regalia), []);
+  assert.equal(regalia.isXpProgressionCapped(), true);
+  ownLostArm(regalia);
+  assert.equal(regalia.isXpProgressionCapped(), false, "Fire Control Link still shortens the LOST ARMS cooldowns");
+
+  const standard = fixture().scene;
+  maxOtherPassives(standard);
+  assert.equal(standard.isXpProgressionCapped(), false, "the default mech still raises Orbit Core's lightning");
+  standard.passiveLevels.overchargeBolt = standard.getPassiveMaxLevel("overchargeBolt");
+  standard.passiveLevels.rapidSigil = standard.getPassiveMaxLevel("rapidSigil");
+  assert.equal(standard.isXpProgressionCapped(), true);
 });
 
 test("a comms message on screen goes back to the front of the queue while a selection overlay is open", () => {

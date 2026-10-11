@@ -326,7 +326,7 @@ XP を獲得してレベルアップすると、3 択カード UI が表示さ�
 - カードの見出しは日本語です。未所持スキルは `新スキル`、所持済みスキルは `スキル強化`、新しい効果が付く段階は `新効果つき強化`、Stage8 への強化は `最終段階`、パッシブは `機体強化` と表示されます。スキル名は英語のままです。
 - スキルの段階は `段階 2 → 3`（新スキルは `段階 1 で取得`、最後は `段階 7 → 8（最終）`）と ●●●○○○○○ で表示されます。
 - 強化カードの説明文は、その強化で変わる主な数値を 2 つまで「今 → 次」で示します（例: `威力 1 → 2` / `攻撃間隔 0.46 → 0.38秒`）。新スキルのカードは役割の説明と開始時の値を表示します。下の数値チップは差分（`威力 +1`、`攻撃間隔 -0.08秒`）のままです。時間は秒で表示します。
-- パッシブのカードは `Lv 0 → 1（最大 10）` と 10 段の ● で今の Lv を示し、説明文も「今 → 次」で表示します（例: `最大AP 100 → 120` / `AP も 20 回復`）。Reactor Overcharge と Fire Control Link は Orbit Core の自動雷撃だけを強化するため、Orbit Core を持たない機体では「Orbit Core 所持時のみ有効」と表示します。
+- パッシブのカードは `Lv 0 → 1（最大 10）` と 10 段の ● で今の Lv を示し、説明文も「今 → 次」で表示します（例: `最大AP 100 → 120` / `AP も 20 回復`）。Reactor Overcharge と Fire Control Link は Orbit Core の自動雷撃を強化するため、Orbit Core をまだ持っていないときは「Orbit Core 所持時のみ有効」と表示します。Orbit Core の枠がない REGALIA BASTION には Reactor Overcharge を出さず、Fire Control Link は LOST ARMS を持っているときだけ `LOST ARMS の再発動待ち` / `基本の 100% → 91.6%` の形で出します。
 - レベルアップなどの選択カードを開いている間は、表示中の通信メッセージをいったん隠し、閉じたあとで最初から表示し直します。
 - 上限到達済み、または選んでも効果が出ない候補は表示されません。
 - パッシブはラン内 Lv.10 が上限です。
@@ -628,8 +628,8 @@ Quick Boost SE は Quick Boost / 継続ブーストの開始成功時だけ鳴�
 
 パッシブ:
 
-- Reactor Overcharge: 電撃ダメージを増やします。
-- Fire Control Link: 攻撃間隔を短縮します。
+- Reactor Overcharge: Orbit Core の自動雷撃の威力を増やします（OVERDRIVE の CHAIN VOLTAGE もこの値を基準にします）。REGALIA BASTION には出ません。
+- Fire Control Link: Orbit Core の自動雷撃の間隔と、LOST ARMS の再発動待ちを短縮します。REGALIA BASTION には LOST ARMS 所持時だけ出ます。
 - Booster Tuning: 推進出力を上げます。
 - Energy Capacitor: 最大ブーストENとブーストEN回復余地を増やします。
 - AP Reinforce: 最大APと現在APを増やします。

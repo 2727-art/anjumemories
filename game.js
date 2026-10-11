@@ -32285,10 +32285,15 @@ class SurvivalScene extends Phaser.Scene {
 
   getLostArmCooldownMs(baseCooldownMs) {
     const baseCooldown = Math.max(120, Number(baseCooldownMs) || 1000);
+    return Math.max(200, Math.round(baseCooldown * (1 - this.getLostArmCooldownReduction())));
+  }
+
+  // Share of a LOST ARMS cooldown removed by a fire interval below 540ms (Fire Control Link).
+  getLostArmCooldownReduction(fireInterval = this.stats?.fireInterval) {
     const baseFireInterval = 540;
-    const currentFireInterval = Math.max(LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS, Number(this.stats?.fireInterval) || baseFireInterval);
+    const currentFireInterval = Math.max(LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS, Number(fireInterval) || baseFireInterval);
     const cooldownReduction = Phaser.Math.Clamp(1 - currentFireInterval / baseFireInterval, 0, 0.74);
-    return Math.max(200, Math.round(baseCooldown * (1 - cooldownReduction * 0.65)));
+    return cooldownReduction * 0.65;
   }
 
   applyAbyssRailResonanceDamageModifiers(enemy, damage) {
@@ -88495,6 +88500,10 @@ class SurvivalScene extends Phaser.Scene {
     const boosterTuningGain = this.getBoosterTuningSpeedGain();
     const energyCapacitorGain = 25;
     const verificationWeapons = this.getUmbraVerificationPassiveWeapons?.() ?? null;
+    // Without an Orbit Core slot (REGALIA) Reactor is not offered (CHAIN VOLTAGE then stays at its
+    // base damage) and Fire Control only reaches LOST ARMS cooldowns. The isolated UMBRA drive
+    // does not install the helper and keeps its legacy cards.
+    const orbitCoreOutOfReach = !verificationWeapons && this.isOrbitCoreOutOfReachForPassives?.(options) === true;
     const formatDamage = (value) => Number(value.toFixed(2));
     const reactorWeapons = (verificationWeapons || []).flatMap(weapon => weapon.id === UMBRA_PHANTOM_NOVA_SKILL_ID
       ? [
@@ -88609,12 +88618,16 @@ class SurvivalScene extends Phaser.Scene {
         novaDeployedIntervalReductionMs: intervalChanges.find(change => change.novaMode === "deployed")?.reductionMs || 0,
         verificationIntervalReductionMs: intervalChanges.reduce((sum, change) => sum + change.reductionMs, 0)
       } : {};
+      const lostArmsCooldown = orbitCoreOutOfReach ? this.getFireControlLostArmsCooldownChange(nextFireInterval) : null;
       choices.splice(1, 0, {
         id: "rapidSigil",
         type: "passive",
         title: "Fire Control Link",
         nextFireIntervalMs: nextFireInterval,
         description: `放電間隔 -${effectiveReduction}ms`,
+        ...(lostArmsCooldown
+          ? { lostArmsCooldown, description: `LOST ARMS 再発動待ち -${lostArmsCooldown.reductionPercent}%` }
+          : {}),
         ...verificationFireDisplay,
         onSelect: () => {
           this.stats.fireInterval = Math.max(LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS, this.stats.fireInterval - 70);
@@ -88631,7 +88644,36 @@ class SurvivalScene extends Phaser.Scene {
       .filter((choice) => choice.id !== "swiftStep" || boosterTuningGain > 0)
       .filter((choice) => !verificationWeapons || choice.id !== "overchargeBolt" || reactorChanges.length > 0)
       .filter((choice) => !verificationWeapons || choice.id !== "rapidSigil" || choice.verificationIntervalReductionMs > 0)
+      .filter((choice) => !orbitCoreOutOfReach || choice.id !== "overchargeBolt")
+      .filter((choice) => !orbitCoreOutOfReach || choice.id !== "rapidSigil" || choice.lostArmsCooldown)
       .map((choice) => this.buildPassiveUpgradeChoice(choice)).filter(Boolean);
+  }
+
+  // Reactor Overcharge and Fire Control Link feed Orbit Core's auto lightning (fireAtClosestEnemy).
+  // A mech whose skill slots have no Orbit Core can never use that. UMBRA is excluded: its own
+  // weapons read both stats (getUmbraVerificationPassiveWeapons).
+  isOrbitCoreOutOfReachForPassives(options = {}) {
+    const mechId = this.getSkillSelectionPlayerMechId(options);
+    return mechId !== UMBRA_SERAPH_MECH_ID && !this.getPlayerSkillSlotIds(mechId).includes(DEFAULT_SKILL_ID);
+  }
+
+  // Fire Control Link also shortens LOST ARMS cooldowns (getLostArmCooldownMs). Returns the share
+  // of the base cooldown left now and after the next level, or null when no LOST ARM is owned or
+  // the cooldown would not change.
+  getFireControlLostArmsCooldownChange(nextFireInterval) {
+    if (!LOST_ARMS_IDS.some((armId) => this.getLostArmRuntimeLevel(armId) > 0)) {
+      return null;
+    }
+    const currentReduction = this.getLostArmCooldownReduction();
+    const nextReduction = this.getLostArmCooldownReduction(nextFireInterval);
+    if (nextReduction <= currentReduction) {
+      return null;
+    }
+    const percent = (value) => Number((value * 100).toFixed(1));
+    const beforePercent = percent(1 - currentReduction);
+    const afterPercent = percent(1 - nextReduction);
+    // The chip is the difference of the two shown values, so the card adds up.
+    return { beforePercent, afterPercent, reductionPercent: Number((beforePercent - afterPercent).toFixed(1)) };
   }
 
   createEvasiveFirmwarePassiveChoice(options = {}) {
@@ -89476,7 +89518,8 @@ class SurvivalScene extends Phaser.Scene {
 
     const seconds = (ms) => this.formatLevelUpSeconds(ms);
     const whole = (value) => Math.round(Number(value) || 0);
-    // Both lightning passives only reach Orbit Core's auto lightning; say so when it is missing.
+    // Both lightning passives raise Orbit Core's auto lightning; say so when it is not owned.
+    // Mechs without an Orbit Core slot are not offered them for it (getPassiveUpgradeChoices).
     const lightning = (change) => (this.playerSkills?.[DEFAULT_SKILL_ID]
       ? `Orbit Core の自動雷撃\n${change}`
       : `自動雷撃の${change}\nOrbit Core 所持時のみ有効`);
@@ -89484,6 +89527,14 @@ class SurvivalScene extends Phaser.Scene {
       case "overchargeBolt":
         return { description: lightning("威力 +1"), chip: "雷撃の威力 +1" };
       case "rapidSigil": {
+        // Offered without an Orbit Core slot only for the LOST ARMS cooldowns.
+        if (option.lostArmsCooldown) {
+          const { beforePercent, afterPercent, reductionPercent } = option.lostArmsCooldown;
+          return {
+            description: `LOST ARMS の再発動待ち\n基本の ${beforePercent}% → ${afterPercent}%`,
+            chip: `LOST ARMS 待ち -${reductionPercent}%`
+          };
+        }
         if (!Number.isFinite(option.nextFireIntervalMs)) {
           return null;
         }

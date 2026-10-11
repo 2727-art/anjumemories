@@ -214,8 +214,14 @@ test("Reactor card reports actual global-scaled gain, while only bulletDamage ch
   assert.equal(passive(scene, "overchargeBolt"), undefined);
 });
 
-test("released mechs and attack-off drive preserve original passive effects and descriptions", () => {
-  for (const options of [{ mechId: "defaultBear" }, { mechId: "regaliaBastion" }, { enabled: false }]) {
+test("REGALIA, without an Orbit Core slot or a LOST ARM, is not offered the lightning passives", () => {
+  const { scene } = fixture({ mechId: "regaliaBastion" });
+  assert.equal(passive(scene, "overchargeBolt"), undefined);
+  assert.equal(passive(scene, "rapidSigil"), undefined);
+});
+
+test("the default mech and attack-off drive preserve original passive effects and descriptions", () => {
+  for (const options of [{ mechId: "defaultBear" }, { enabled: false }]) {
     const { scene } = fixture(options);
     const reactor = passive(scene, "overchargeBolt"), fire = passive(scene, "rapidSigil");
     assert.equal(scene.buildLevelUpCardModel(reactor, 0).description, scene.getStandardPassiveCardText(reactor).description);
