@@ -4907,6 +4907,8 @@ if (!isUmbraPhase1PreviewRequested() && !isUmbraIntegrationRequested()) {
 }
 const LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS = 160;
 const LEVEL_UP_PASSIVE_MAX_LEVEL = 10;
+// How many changed stats a skill card's summary names (one per line).
+const LEVEL_UP_SUMMARY_MAX_STATS = 2;
 const PLAYER_LEVEL_CAP = 99;
 const PLAYER_DEEP_LEVEL_START = 25;
 const PLAYER_DEEP_LEVEL_UNLOCK_DEPTH = 6;
@@ -5298,16 +5300,16 @@ const LEVEL_UP_SKILL_UI_META = {
 const LEVEL_UP_PASSIVE_UI_META = {
   overchargeBolt: {
     displayName: "Reactor Overcharge",
-    description: "雷撃ダメージ +1",
-    chipLabel: "雷撃 +1",
+    description: "Orbit Core の自動雷撃の威力 +1",
+    chipLabel: "雷撃の威力 +1",
     themeColor: 0xffd86b,
     accentColor: "#ffd86b",
     iconTone: "DMG"
   },
   rapidSigil: {
     displayName: "Fire Control Link",
-    description: "放電間隔短縮",
-    chipLabel: "間隔短縮",
+    description: "Orbit Core の自動雷撃の間隔を短縮",
+    chipLabel: "雷撃の間隔 短縮",
     themeColor: 0x79d8ff,
     accentColor: "#79d8ff",
     iconTone: "FCS"
@@ -5322,15 +5324,15 @@ const LEVEL_UP_PASSIVE_UI_META = {
   },
   staminaCore: {
     displayName: "Energy Capacitor",
-    description: "ブーストEN拡張",
-    chipLabel: "BOOST EN +25",
+    description: "最大ブーストEN +25",
+    chipLabel: "ブーストEN +25",
     themeColor: 0xa8c4ff,
     accentColor: "#a8c4ff",
     iconTone: "EN"
   },
   vitalBloom: {
     displayName: "AP Reinforce",
-    description: "アーマーポイント補強",
+    description: "最大AP（アーマーポイント）を増やす",
     chipLabel: "AP +20",
     themeColor: 0xff8fc4,
     accentColor: "#ff8fc4",
@@ -5339,7 +5341,7 @@ const LEVEL_UP_PASSIVE_UI_META = {
   evasiveFirmware: {
     displayName: "EVASIVE FIRMWARE",
     description: "ブースト開始時の瞬間回避時間を延長",
-    chipLabel: "EVADE FW",
+    chipLabel: "瞬間回避",
     themeColor: 0x91faff,
     accentColor: "#91faff",
     iconTone: "EVADE"
@@ -5347,22 +5349,22 @@ const LEVEL_UP_PASSIVE_UI_META = {
 };
 const LEVEL_UP_CARD_TYPE_META = {
   newSkill: {
-    label: "NEW SKILL",
+    label: "新スキル",
     color: 0x75e6ff,
     textColor: "#dffbff"
   },
   skillUpgrade: {
-    label: "SKILL UPGRADE",
+    label: "スキル強化",
     color: 0x6fcfff,
     textColor: "#dff5ff"
   },
   rareUpgrade: {
-    label: "RARE UPGRADE",
+    label: "新効果つき強化",
     color: 0xc596ff,
     textColor: "#f2e6ff"
   },
   finalStage: {
-    label: "FINAL STAGE",
+    label: "最終段階",
     color: 0xffd76b,
     textColor: "#fff3c8"
   },
@@ -5392,7 +5394,7 @@ const LEVEL_UP_CARD_TYPE_META = {
     textColor: "#fff3c8"
   },
   passiveChip: {
-    label: "PASSIVE CHIP",
+    label: "機体強化",
     color: 0x8eb4ff,
     textColor: "#e6eeff"
   },
@@ -39621,10 +39623,11 @@ class SurvivalScene extends Phaser.Scene {
     return OVERFLOW_REWARD_CONFIG.overdrive.fireIntervalMultiplier * modMultiplier;
   }
 
-  getCurrentPlayerFireInterval() {
+  // baseIntervalMs lets the level-up card preview the interval after Fire Control Link.
+  getCurrentPlayerFireInterval(baseIntervalMs = this.stats?.fireInterval) {
     const baseInterval = Math.max(
       LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS,
-      Number(this.stats?.fireInterval) || LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS
+      Number(baseIntervalMs) || LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS
     );
     return Math.max(
       LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS,
@@ -40405,6 +40408,22 @@ class SurvivalScene extends Phaser.Scene {
       }) || false;
     }
     return false;
+  }
+
+  // A comms message already on screen would sit on top of the selection cards. Put it back at
+  // the front of the queue; the update loop shows it again in full once the overlay has closed
+  // (canDisplayCommsMessage holds it while the overlay is open). Epilogue and state-changing
+  // messages keep playing as before.
+  suspendCommsMessageForOverlay(reason = "overlay") {
+    const state = this.commsState;
+    const message = state?.activeMessage;
+    if (!state?.container?.active || !message || message.source === "epilogue" || message.epilogueSequenceId
+      || message.commsStateTransition) {
+      return false;
+    }
+    state.queue.unshift(message);
+    this.hideCurrentCommsMessage(`${reason}:suspend`, { immediate: true, showNext: false });
+    return true;
   }
 
   bringCommsUiToTop() {
@@ -88474,6 +88493,7 @@ class SurvivalScene extends Phaser.Scene {
   getPassiveUpgradeChoices(options = {}) {
     const apReinforceGain = this.getApReinforceHpGain();
     const boosterTuningGain = this.getBoosterTuningSpeedGain();
+    const energyCapacitorGain = 25;
     const verificationWeapons = this.getUmbraVerificationPassiveWeapons?.() ?? null;
     const formatDamage = (value) => Number(value.toFixed(2));
     const reactorWeapons = (verificationWeapons || []).flatMap(weapon => weapon.id === UMBRA_PHANTOM_NOVA_SKILL_ID
@@ -88516,6 +88536,7 @@ class SurvivalScene extends Phaser.Scene {
         id: "swiftStep",
         type: "passive",
         title: "Booster Tuning",
+        speedGain: boosterTuningGain,
         description: `推進出力 +${boosterTuningGain}`,
         cardDescription: `推進出力 +${boosterTuningGain}`,
         chipLabel: `推進 +${boosterTuningGain}`,
@@ -88527,10 +88548,11 @@ class SurvivalScene extends Phaser.Scene {
         id: "staminaCore",
         type: "passive",
         title: "Energy Capacitor",
-        description: "最大ブーストEN +25、ブーストENも25回復",
+        staminaGain: energyCapacitorGain,
+        description: `最大ブーストEN +${energyCapacitorGain}、ブーストENも${energyCapacitorGain}回復`,
         onSelect: () => {
-          this.stats.maxStamina += 25;
-          this.stats.stamina = Math.min(this.stats.maxStamina, this.stats.stamina + 25);
+          this.stats.maxStamina += energyCapacitorGain;
+          this.stats.stamina = Math.min(this.stats.maxStamina, this.stats.stamina + energyCapacitorGain);
           this.updateDashStaminaGauge();
         }
       },
@@ -88538,6 +88560,7 @@ class SurvivalScene extends Phaser.Scene {
         id: "vitalBloom",
         type: "passive",
         title: "AP Reinforce",
+        apGain: apReinforceGain,
         description: `最大AP +${apReinforceGain}、APも${apReinforceGain}回復`,
         cardDescription: `最大AP +${apReinforceGain}、APも${apReinforceGain}回復`,
         chipLabel: `AP +${apReinforceGain}`,
@@ -88590,6 +88613,7 @@ class SurvivalScene extends Phaser.Scene {
         id: "rapidSigil",
         type: "passive",
         title: "Fire Control Link",
+        nextFireIntervalMs: nextFireInterval,
         description: `放電間隔 -${effectiveReduction}ms`,
         ...verificationFireDisplay,
         onSelect: () => {
@@ -88634,6 +88658,8 @@ class SurvivalScene extends Phaser.Scene {
       id: EVASIVE_FIRMWARE_PASSIVE_ID,
       type: "passive",
       title: "EVASIVE FIRMWARE",
+      evadeBeforeMs: currentBreakdown.durationMs,
+      evadeAfterMs: nextBreakdown.durationMs,
       description: `Quick Boost Evade Window ${Math.round(currentBreakdown.durationMs)}ms -> ${Math.round(nextBreakdown.durationMs)}ms`,
       cardDescription: `ブースト開始時の瞬間回避時間 ${Math.round(currentBreakdown.durationMs)}ms -> ${Math.round(nextBreakdown.durationMs)}ms`,
       chipLabel: `EVADE +${Math.round(deltaMs)}ms`,
@@ -89397,9 +89423,13 @@ class SurvivalScene extends Phaser.Scene {
         typeTextColor: typeMeta.textColor,
         title: meta.displayName,
         stageLabel: option.actionType === "unlock"
-          ? `Unlock Stage ${nextStageNumber}`
-          : (nextStageNumber >= maxStage ? "FINAL STAGE" : `Stage ${currentStageNumber} → ${nextStageNumber}`),
-        description: growthCard ? growthCard.description : meta.description,
+          ? `段階 ${nextStageNumber} で取得`
+          : `段階 ${currentStageNumber} → ${nextStageNumber}${nextStageNumber >= maxStage ? "（最終）" : ""}`,
+        // A new skill explains its role; an upgrade names what changes, so the card does not
+        // repeat the same sentence at every stage.
+        description: growthCard
+          ? growthCard.description
+          : (this.formatSkillUpgradeSummary(option.currentStage, option.nextStage, option.skillId) || meta.description),
         stageProgress: this.formatStageProgress(nextStageNumber, maxStage),
         chips,
         newEffects,
@@ -89414,6 +89444,8 @@ class SurvivalScene extends Phaser.Scene {
     const passiveId = option?.id || "passiveChip";
     const meta = this.getPassiveUiMeta(passiveId);
     const typeMeta = LEVEL_UP_CARD_TYPE_META.passiveChip;
+    const passiveText = this.getStandardPassiveCardText(option);
+    const hasLevels = Number.isFinite(option?.currentLevel) && Number.isFinite(option?.nextLevel) && Number.isFinite(option?.maxLevel);
     return {
       option,
       index,
@@ -89423,16 +89455,75 @@ class SurvivalScene extends Phaser.Scene {
       typeColor: typeMeta.color,
       typeTextColor: typeMeta.textColor,
       title: meta.displayName || option.title,
-      stageLabel: "Rank +1",
-      description: option.cardDescription || meta.description || option.description,
-      stageProgress: "",
-      chips: [{ label: option.chipLabel || meta.chipLabel || option.description || "Rank +1", priority: 100 }],
+      stageLabel: hasLevels ? `Lv ${option.currentLevel} → ${option.nextLevel}（最大 ${option.maxLevel}）` : "Lv +1",
+      description: passiveText?.description || option.cardDescription || meta.description || option.description,
+      stageProgress: hasLevels ? this.formatStageProgress(option.nextLevel, option.maxLevel) : "",
+      chips: [{ label: passiveText?.chip || option.chipLabel || meta.chipLabel || option.description || "Lv +1", priority: 100 }],
       newEffects: [],
       themeColor: meta.themeColor,
       glowColor: meta.themeColor,
       accentColor: meta.accentColor,
       iconTone: meta.iconTone
     };
+  }
+
+  // "Now → next" text for the passive cards of the standard mechs. UMBRA builds its own
+  // passive card text for its dedicated weapons, so this returns null there.
+  getStandardPassiveCardText(option) {
+    if (option?.type !== "passive" || this.getUmbraVerificationPassiveWeapons?.()) {
+      return null;
+    }
+
+    const seconds = (ms) => this.formatLevelUpSeconds(ms);
+    const whole = (value) => Math.round(Number(value) || 0);
+    // Both lightning passives only reach Orbit Core's auto lightning; say so when it is missing.
+    const lightning = (change) => (this.playerSkills?.[DEFAULT_SKILL_ID]
+      ? `Orbit Core の自動雷撃\n${change}`
+      : `自動雷撃の${change}\nOrbit Core 所持時のみ有効`);
+    switch (option.id) {
+      case "overchargeBolt":
+        return { description: lightning("威力 +1"), chip: "雷撃の威力 +1" };
+      case "rapidSigil": {
+        if (!Number.isFinite(option.nextFireIntervalMs)) {
+          return null;
+        }
+        const before = this.getCurrentPlayerFireInterval();
+        const after = this.getCurrentPlayerFireInterval(option.nextFireIntervalMs);
+        return {
+          description: lightning(`間隔 ${seconds(before)} → ${seconds(after)}秒`),
+          chip: `雷撃の間隔 -${seconds(before - after)}秒`
+        };
+      }
+      case "swiftStep": {
+        const gain = whole(option.speedGain);
+        const speed = whole(this.stats?.moveSpeed);
+        return gain > 0 ? { description: `推進出力 ${speed} → ${speed + gain}`, chip: `推進 +${gain}` } : null;
+      }
+      case "staminaCore": {
+        const gain = whole(option.staminaGain);
+        const maxStamina = whole(this.stats?.maxStamina);
+        return gain > 0
+          ? { description: `最大ブーストEN ${maxStamina} → ${maxStamina + gain}\nEN も ${gain} 回復`, chip: `ブーストEN +${gain}` }
+          : null;
+      }
+      case "vitalBloom": {
+        const gain = whole(option.apGain);
+        const maxHp = whole(this.stats?.maxHp);
+        return gain > 0
+          ? { description: `最大AP ${maxHp} → ${maxHp + gain}\nAP も ${gain} 回復`, chip: `AP +${gain}` }
+          : null;
+      }
+      case EVASIVE_FIRMWARE_PASSIVE_ID:
+        if (!Number.isFinite(option.evadeBeforeMs) || !Number.isFinite(option.evadeAfterMs)) {
+          return null;
+        }
+        return {
+          description: `ブースト開始時の瞬間回避 ${seconds(option.evadeBeforeMs)} → ${seconds(option.evadeAfterMs)}秒`,
+          chip: `瞬間回避 +${seconds(option.evadeAfterMs - option.evadeBeforeMs)}秒`
+        };
+      default:
+        return null;
+    }
   }
 
   buildLostArmsEvolutionCardModel(option, index) {
@@ -89744,29 +89835,54 @@ class SurvivalScene extends Phaser.Scene {
     return effects;
   }
 
-  formatStatDiffChips(beforeStage, afterStage, skillId) {
-    if (!afterStage) {
-      return [];
-    }
-
-    const specs = [
-      { key: "damage", label: "DMG", priority: 120, unlock: true },
-      { key: "contactTickMs", label: "HIT", priority: 115, unlock: true, ms: true },
-      { key: "targetCount", label: "TARGET", priority: 109, unlock: skillId === REGALIA_BASTION_CANNON_SKILL_ID },
+  getSkillStatDisplaySpecs(skillId) {
+    // Card labels are plain Japanese; times are shown in seconds (ms: true marks the source unit).
+    return [
+      { key: "damage", label: "威力", priority: 120, unlock: true },
+      { key: "contactTickMs", label: "攻撃間隔", priority: 115, unlock: true, ms: true },
+      { key: "targetCount", label: "弾数", priority: 109, unlock: skillId === REGALIA_BASTION_CANNON_SKILL_ID },
       { key: "autoAttackShots", label: "雷撃本数", priority: 108 },
       { key: "orbitCount", label: "球数", priority: 106 },
-      { key: "moveSpeed", label: "SPD", priority: 104, unlock: skillId === "tornadoSkill" },
-      { key: "dashDistance", label: "距離", priority: 104, unlock: skillId === "rabbitThunderSkill" },
+      { key: "moveSpeed", label: "速度", priority: 104, unlock: skillId === "tornadoSkill" },
+      { key: "dashDistance", label: "突進距離", priority: 104, unlock: skillId === "rabbitThunderSkill" },
       { key: "cooldownMs", label: "再発動", priority: 102, unlock: skillId === REGALIA_BASTION_CANNON_SKILL_ID, ms: true },
       { key: "hitRadius", label: "範囲", priority: 100, unlock: true },
-      { key: "orbitRadius", label: "半径", priority: 98 },
-      { key: "displayScale", label: "SIZE", priority: 94, decimal: true },
+      { key: "orbitRadius", label: "周回半径", priority: 98 },
+      { key: "displayScale", label: "大きさ", priority: 94, decimal: true, chipOnly: true },
       { key: "dashDurationMs", label: "突進時間", priority: 92, ms: true },
       { key: "impactRadius", label: "衝撃範囲", priority: 88, unlock: skillId === REGALIA_BASTION_CANNON_SKILL_ID },
       { key: "suctionRadius", label: "吸引範囲", priority: 86 },
       { key: "suctionForce", label: "吸引力", priority: 84 }
     ];
+  }
 
+  // The card body names the two most important stats that change, as "now → next", one per
+  // line (createLevelUpCard joins the lines on narrow cards). The chips keep the per-stat difference.
+  formatSkillUpgradeSummary(beforeStage, afterStage, skillId) {
+    if (!beforeStage || !afterStage) {
+      return "";
+    }
+
+    return this.getSkillStatDisplaySpecs(skillId)
+      .filter((spec) => !spec.chipOnly
+        && typeof beforeStage[spec.key] === "number"
+        && typeof afterStage[spec.key] === "number"
+        && beforeStage[spec.key] !== afterStage[spec.key])
+      .sort((left, right) => right.priority - left.priority)
+      .slice(0, LEVEL_UP_SUMMARY_MAX_STATS)
+      .map((spec) => {
+        const value = (stageValue) => (spec.ms ? this.formatLevelUpSeconds(stageValue) : this.formatStatValue(stageValue, spec));
+        return `${spec.label} ${value(beforeStage[spec.key])} → ${value(afterStage[spec.key])}${spec.ms ? "秒" : ""}`;
+      })
+      .join("\n");
+  }
+
+  formatStatDiffChips(beforeStage, afterStage, skillId) {
+    if (!afterStage) {
+      return [];
+    }
+
+    const specs = this.getSkillStatDisplaySpecs(skillId);
     const isUnlock = !beforeStage;
     const chips = [];
     specs.forEach((spec) => {
@@ -89803,7 +89919,7 @@ class SurvivalScene extends Phaser.Scene {
 
   formatStatValue(value, spec = {}) {
     if (spec.ms) {
-      return `${Math.round(value)}ms`;
+      return `${this.formatLevelUpSeconds(value)}秒`;
     }
     if (spec.decimal) {
       return value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
@@ -89815,14 +89931,17 @@ class SurvivalScene extends Phaser.Scene {
     const sign = delta > 0 ? "+" : "-";
     const amount = Math.abs(delta);
     if (spec.ms) {
-      return amount >= 1000
-        ? `${sign}${(amount / 1000).toFixed(1).replace(/\.0$/, "")}s`
-        : `${sign}${Math.round(amount)}ms`;
+      return `${sign}${this.formatLevelUpSeconds(amount)}秒`;
     }
     if (spec.decimal) {
       return `${sign}${amount.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}`;
     }
     return `${sign}${Number.isInteger(amount) ? amount : amount.toFixed(1).replace(/\.0$/, "")}`;
+  }
+
+  // Milliseconds as seconds with up to three decimals: 380 -> "0.38", 8 -> "0.008", 1900 -> "1.9".
+  formatLevelUpSeconds(ms) {
+    return String(Number((Math.max(0, Number(ms) || 0) / 1000).toFixed(3)));
   }
 
   formatScalePercentDelta(beforeValue, afterValue) {
@@ -90347,6 +90466,7 @@ class SurvivalScene extends Phaser.Scene {
       for (const option of options || []) if (option?.skillId) this.requestUmbraSkillPresentationAssets(option.skillId);
     }
     this.clearOverlayButtons();
+    this.suspendCommsMessageForOverlay("levelUp");
     this.levelUpSelectionMode = selectionMode;
     this.levelUpOpeningBoostActive = Boolean(context.openingBoost);
     const models = (options || []).map((option, index) => {
@@ -90781,9 +90901,10 @@ class SurvivalScene extends Phaser.Scene {
       fontSize: compact ? "22px" : "25px",
       color: "#f4fbff",
       fontStyle: "bold",
-      align: compact ? "left" : "center",
-      wordWrap: { width: contentWidth }
+      align: compact ? "left" : "center"
     }).setOrigin(textOriginX, 0.5);
+    // Keep long names such as "Regalia Bastion Cannon" on one line above the stage label.
+    this.fitLevelUpChipText(title, contentWidth, compact ? 16 : 18);
     const stage = this.add.text(titleX, compact ? -22 : 4, model.stageLabel, {
       fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
       fontSize: compact ? "14px" : "16px",
@@ -90791,7 +90912,9 @@ class SurvivalScene extends Phaser.Scene {
       fontStyle: "bold",
       align: compact ? "left" : "center"
     }).setOrigin(textOriginX, 0.5);
-    const description = this.add.text(titleX, compact ? 2 : 58, model.description, {
+    // Narrow cards have room for one line between the stage label and the progress dots.
+    const descriptionText = compact ? String(model.description || "").replace(/\n+/g, " ／ ") : model.description;
+    const description = this.add.text(titleX, compact ? 2 : 58, descriptionText, {
       fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
       fontSize: compact ? "13px" : "14px",
       color: "#b9d8e8",
@@ -90820,7 +90943,7 @@ class SurvivalScene extends Phaser.Scene {
       const effectPanel = this.add.rectangle(effectX, effectY, effectWidth, effectHeight, model.typeColor, 0.18)
         .setOrigin(compact ? 0 : 0, 0)
         .setStrokeStyle(1, model.typeColor, 0.78);
-      const effectText = this.add.text(effectX + 12, effectY + (compact ? 5 : 7), `NEW EFFECT: ${model.newEffects[0]}`, {
+      const effectText = this.add.text(effectX + 12, effectY + (compact ? 5 : 7), `新効果：${model.newEffects[0]}`, {
         fontFamily: "Segoe UI, Yu Gothic UI, sans-serif",
         fontSize: compact ? "11px" : "13px",
         color: model.typeTextColor,

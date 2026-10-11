@@ -83,8 +83,9 @@ test("all fixture rebuilds apply AP once and share the HUB starting calculation"
 
 test("AP Reinforce card, chip, maximum and partial current AP use one effective gain", () => {
   const { scene, api, bridge } = createHarness();
-  scene.getPassiveUiMeta = bridge.sourcePrototype.getPassiveUiMeta;
-  scene.buildLevelUpCardModel = bridge.sourcePrototype.buildLevelUpCardModel;
+  for (const name of ["getPassiveUiMeta", "buildLevelUpCardModel", "getStandardPassiveCardText", "formatLevelUpSeconds", "formatStageProgress"]) {
+    scene[name] = bridge.sourcePrototype[name];
+  }
   for (const mechId of ["defaultBear", "regaliaBastion", "umbraSeraph"]) {
     api.resetFixture(scene, "baseline", mechId);
     const gain = mechId === "umbraSeraph" ? 8 : 20;
@@ -93,7 +94,8 @@ test("AP Reinforce card, chip, maximum and partial current AP use one effective 
     const choice = scene.getPassiveUpgradeChoices({ openingBoost: false }).find((entry) => entry.id === "vitalBloom");
     const card = scene.buildLevelUpCardModel(choice, 0);
     assert.match(choice.description, new RegExp(`最大AP \\+${gain}、APも${gain}回復`));
-    assert.equal(card.description, `最大AP +${gain}、APも${gain}回復`);
+    // The card shows the same effective gain as "now → next".
+    assert.equal(card.description, `最大AP ${before.maxHp} → ${before.maxHp + gain}\nAP も ${gain} 回復`);
     assert.equal(card.chips[0].label, `AP +${gain}`);
     const healed = [];
     scene.spawnPlayerHealNumber = (amount) => healed.push(amount);

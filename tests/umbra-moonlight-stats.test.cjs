@@ -218,10 +218,11 @@ test("released mechs and attack-off drive preserve original passive effects and 
   for (const options of [{ mechId: "defaultBear" }, { mechId: "regaliaBastion" }, { enabled: false }]) {
     const { scene } = fixture(options);
     const reactor = passive(scene, "overchargeBolt"), fire = passive(scene, "rapidSigil");
-    assert.equal(scene.buildLevelUpCardModel(reactor, 0).description, "雷撃ダメージ +1");
-    assert.equal(scene.buildLevelUpCardModel(reactor, 0).chips[0].label, "雷撃 +1");
-    assert.equal(scene.buildLevelUpCardModel(fire, 0).description, "放電間隔短縮");
-    assert.equal(scene.buildLevelUpCardModel(fire, 0).chips[0].label, "間隔短縮");
+    assert.equal(scene.buildLevelUpCardModel(reactor, 0).description, scene.getStandardPassiveCardText(reactor).description);
+    assert.match(scene.buildLevelUpCardModel(reactor, 0).description, /自動雷撃[\s\S]*威力 \+1/);
+    assert.equal(scene.buildLevelUpCardModel(reactor, 0).chips[0].label, "雷撃の威力 +1");
+    assert.match(scene.buildLevelUpCardModel(fire, 0).description, /自動雷撃[\s\S]*間隔 [\d.]+ → [\d.]+秒/);
+    assert.match(scene.buildLevelUpCardModel(fire, 0).chips[0].label, /^雷撃の間隔 -[\d.]+秒$/);
     reactor.onSelect(); fire.onSelect();
     assert.equal(scene.stats.bulletDamage, 2);
     assert.equal(scene.stats.fireInterval, 470);
