@@ -3489,6 +3489,63 @@ const VOID_HUNTER_CONFIG = {
   defeatSupportUnlock: true
 };
 const DAMAGE_TEXT_FONT_SIZE_MULTIPLIER = 2;
+// ?hitFeel=0 restores the old hit presentation for side-by-side comparison. Critical hits stay on either way.
+const HIT_FEEL_QUERY_PARAM = "hitFeel";
+const HIT_FEEL_CONFIG = Object.freeze({
+  // Per-enemy spacing keeps enemies under constant fire (bosses in a tornado) from strobing white.
+  flash: { durationMs: 50, color: 0xffffff, minIntervalMs: 80, bossMinIntervalMs: 200 },
+  spark: { perEnemyIntervalMs: 70, maxActive: 90, lifeMs: 150, depth: 21 },
+  damageNumber: {
+    mergeWindowMs: 160,
+    mergeMaxMs: 640,
+    holdMs: 200,
+    riseMs: 430,
+    rise: 26,
+    popMs: 90,
+    // Tier by damage / enemy max HP. A killing blow uses at least the "heavy" tier.
+    tiers: Object.freeze([
+      Object.freeze({ id: "light", minRatio: 0, fontSize: 22, color: "#f2ead6", stroke: "#3a2412", strokeThickness: 3, pop: 1.2 }),
+      Object.freeze({ id: "solid", minRatio: 0.12, fontSize: 28, color: "#fff0bb", stroke: "#4c2110", strokeThickness: 4, pop: 1.3 }),
+      Object.freeze({ id: "heavy", minRatio: 0.35, fontSize: 34, color: "#ffc35a", stroke: "#5a1e08", strokeThickness: 5, pop: 1.4 })
+    ]),
+    crit: Object.freeze({ fontSize: 40, color: "#ffe94d", stroke: "#a3160c", strokeThickness: 6, pop: 1.7, suffix: "!" })
+  },
+  crit: { baseChance: 0.03, damageMultiplier: 1.5, maxChance: 0.5 },
+  sfx: {
+    hitMinIntervalMs: 50,
+    critMinIntervalMs: 30,
+    killMinIntervalMs: 52,
+    maxVoices: 10,
+    volume: 0.9,
+    reverbSeconds: 0.7,
+    reverbWet: 0.22,
+    // [frequency ratio, amplitude, length] of the struck-metal partials.
+    metalPartials: Object.freeze([[1, 1, 1], [2.76, 0.55, 0.7], [5.4, 0.32, 0.45], [8.93, 0.18, 0.3]]),
+    // Kill chime steps in semitones (minor pentatonic): two octaves up by the 11th kill in a combo.
+    comboScale: Object.freeze([0, 3, 5, 7, 10, 12, 15, 17, 19, 22, 24]),
+    comboChimeHz: 520
+  },
+  killBurst: { shards: 6, eliteShards: 10, spreadRad: 0.75, distance: [42, 96], lifeMs: [220, 330], maxActive: 140, depth: 20 },
+  xpPop: { distance: [14, 30], durationMs: 230, scaleFrom: 0.3 },
+  // Drawn under the enemy so it never sits behind the damage numbers, which rise from the head.
+  hpBar: { depth: 22, height: 5, bossHeight: 7, minWidth: 46, maxWidth: 132, widthRatio: 0.8, footRatio: 0.44, gap: 4, lagPerSecond: 0.9 },
+  hitStop: { eliteMs: 60, bossMs: 100, physicsTimeScale: 8 },
+  shake: {
+    elite: Object.freeze({ durationMs: 110, intensity: 0.0016 }),
+    boss: Object.freeze({ durationMs: 230, intensity: 0.0034 })
+  },
+  combo: {
+    windowMs: 2600,
+    minShow: 3,
+    milestones: Object.freeze([10, 25, 50]),
+    // After the last milestone, flash every this many kills.
+    milestoneRepeat: 50,
+    milestoneFlashMs: 800,
+    x: 82,
+    y: 150,
+    depth: 204
+  }
+});
 const CD_SHOP_SLOT_COUNT = 10;
 const CD_PURCHASE_PRICE = 100000;
 const FINAL_BOSS_CD_ID = "finalBossLiberator";
@@ -8701,6 +8758,7 @@ class SurvivalScene extends Phaser.Scene {
       }
     };
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.clearDepthRelayStartSelectionOverlay("sceneShutdown"));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.resetHitFeelState("sceneShutdown"));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.clearDepthRelayStartSelectionOverlay("sceneDestroy"));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => runShutdownCleanup(() => this.resetAnomalyContractState("sceneShutdown")));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.resetAnomalyContractState("sceneDestroy"));
@@ -8879,6 +8937,7 @@ class SurvivalScene extends Phaser.Scene {
       this.textures.exists("skill-hit-glow") &&
       this.textures.exists("skill-hit-ring") &&
       this.textures.exists("skill-hit-spark") &&
+      this.textures.exists("hit-feel-streak") &&
       this.textures.exists("wind-streak") &&
       this.textures.exists("hud-icon-basic-skill") &&
       this.textures.exists("hud-icon-tornado-skill") &&
@@ -9068,6 +9127,15 @@ class SurvivalScene extends Phaser.Scene {
     graphics.strokeLineShape(new Phaser.Geom.Line(14, 14, 50, 50));
     graphics.strokeLineShape(new Phaser.Geom.Line(50, 14, 14, 50));
     graphics.generateTexture("skill-hit-spark", 64, 64);
+    graphics.clear();
+
+    // Tapered streak pointing along +x, used by hit sparks and kill shards.
+    graphics.fillStyle(0xffffff, 0.38);
+    graphics.fillTriangle(0, 5, 30, 1, 30, 9);
+    graphics.fillStyle(0xffffff, 1);
+    graphics.fillTriangle(8, 5, 34, 2.5, 34, 7.5);
+    graphics.fillCircle(33, 5, 3);
+    graphics.generateTexture("hit-feel-streak", 38, 10);
     graphics.clear();
 
     graphics.fillStyle(0xa8ffe0, 0.14);
@@ -9434,6 +9502,7 @@ class SurvivalScene extends Phaser.Scene {
     this.stageCollisionZoneInstances = [];
     this.stageCollisionEditorHudText = null;
     this.stageCollisionEditorMessageText = null;
+    this.hitFeelState = this.createHitFeelState();
     this.runStats = {
       kills: 0,
       eliteKills: 0,
@@ -15718,6 +15787,7 @@ class SurvivalScene extends Phaser.Scene {
       playerSkillDamageIncreaseRate: 0,
       playerSkillDamageMultiplier: 1,
       maxStaminaFlat: 0,
+      critChanceRate: 0,
       slotRefinementLevels: {
         head: 0,
         clothes: 0,
@@ -16452,6 +16522,7 @@ class SurvivalScene extends Phaser.Scene {
       playerSkillDamageMultiplier: this.runEquipmentBonuses.playerSkillDamageMultiplier,
       maxHpFlat: this.runEquipmentBonuses.maxHpFlat,
       maxStaminaFlat: this.runEquipmentBonuses.maxStaminaFlat,
+      critChanceRate: this.runEquipmentBonuses.critChanceRate,
       slotRefinementLevels: { ...this.runEquipmentBonuses.slotRefinementLevels },
       totalRefinementLevel: this.runEquipmentBonuses.totalRefinementLevel,
       damageTakenMultiplier: this.runEquipmentBonuses.damageTakenMultiplier,
@@ -18414,6 +18485,16 @@ class SurvivalScene extends Phaser.Scene {
       const reductionRate = Math.max(0, Number(bonuses?.damageTakenReductionRate) || 0);
       if (reductionRate > 0) {
         return `${baseLabel} / DMG -${(reductionRate * 100).toFixed(0)}%`;
+      }
+    }
+    if (info.slot === "accessory") {
+      const equipmentSystem = this.getEquipmentSystem();
+      const bonuses = equipmentState && equipmentSystem?.getEquipmentBonusesFromState
+        ? equipmentSystem.getEquipmentBonusesFromState(equipmentState)
+        : equipmentSystem?.getEquipmentBonusForItem?.(this.normalizeEquipmentItem(item));
+      const critRate = Math.max(0, Number(bonuses?.critChanceRate) || 0);
+      if (critRate > 0) {
+        return `${baseLabel} / CRIT +${(critRate * 100).toFixed(1)}%`;
       }
     }
     return baseLabel;
@@ -32686,7 +32767,8 @@ class SurvivalScene extends Phaser.Scene {
         sourceY: startY,
         force: isCrossRail ? 130 : 190,
         recoverMs: 95,
-        damageAlreadyScaled: true
+        damageAlreadyScaled: true,
+        canCrit: true
       });
       this.tryApplyExecutionRailBurst(enemy, hpBefore, maxHp, roundedDamage, startX, startY);
     });
@@ -33067,7 +33149,8 @@ class SurvivalScene extends Phaser.Scene {
             sourceY: field.y,
             force: field.level >= LOST_ARMS_MAX_LEVEL ? 260 : 190,
             recoverMs: 120,
-            damageAlreadyScaled: true
+            damageAlreadyScaled: true,
+            canCrit: true
           });
         }
       });
@@ -54985,6 +55068,8 @@ class SurvivalScene extends Phaser.Scene {
     this.standardHudSuppressed = false;
     this.applyStandardHudModeVisibility({ force: true });
     this.setFinalBossRaidStandardHudSuppressed(this.isFinalBossRaidActive?.() === true);
+    // Kept out of standardHudObjects: the combo hides itself in Final Raid and under overlays.
+    this.createHitFeelComboHud();
   }
 
   isStandardHudCompact() {
@@ -67858,6 +67943,7 @@ class SurvivalScene extends Phaser.Scene {
       this.updateGamepadOverlayNavigation();
       return;
     }
+    this.updateHitFeelFrame(delta);
 
     if (this.gateGuidanceOverlayActive) {
       this.updateGateVisuals(0);
@@ -75019,7 +75105,8 @@ class SurvivalScene extends Phaser.Scene {
         sourceX: x,
         sourceY: y,
         force: Math.round(130 + forceRatio * 130),
-        recoverMs: 110
+        recoverMs: 110,
+        canCrit: true
       });
       hitCount += 1;
     });
@@ -75301,7 +75388,8 @@ class SurvivalScene extends Phaser.Scene {
         sourceX: x,
         sourceY: y,
         force: stageData.impactForce || 240,
-        recoverMs: 135
+        recoverMs: 135,
+        canCrit: true
       });
       this.applySkillMutationOnHit(skillId, enemy, { x, y, skillId, skillStage: stageData.stage }, mutatedDamage);
     });
@@ -76704,7 +76792,10 @@ class SurvivalScene extends Phaser.Scene {
       if (isFrozen || isSleeping || isTimeStopped || isStunned) {
         const pulse = (Math.sin(now / (isFrozen ? 95 : (isTimeStopped ? 70 : (isStunned ? 82 : 130))) + enemy.visualPulseOffset) + 1) * 0.5;
         enemy.supportStatusTintActive = true;
-        enemy.setTint(isFrozen ? 0xa9efff : (isTimeStopped ? 0xffef8a : (isStunned ? 0xe9ffff : 0xc8ff82)));
+        // Let the white hit flash finish before the status colour comes back.
+        if (now >= (enemy.hitFlashUntil || 0)) {
+          enemy.setTint(isFrozen ? 0xa9efff : (isTimeStopped ? 0xffef8a : (isStunned ? 0xe9ffff : 0xc8ff82)));
+        }
         enemy.alpha = Math.min(
           enemy.alpha,
           isFrozen ? 0.76 + pulse * 0.14 : (isTimeStopped ? 0.72 + pulse * 0.16 : (isStunned ? 0.74 + pulse * 0.18 : 0.7 + pulse * 0.18))
@@ -76822,7 +76913,7 @@ class SurvivalScene extends Phaser.Scene {
       }
 
       const valueScale = Math.min(1.65, 1 + Math.log2(Math.max(1, Number(orb.value) || 1)) * 0.055);
-      orb.setScale(valueScale * (0.94 + pulse * 0.14));
+      orb.setScale(valueScale * (0.94 + pulse * 0.14) * this.getHitFeelXpOrbPopScale(orb));
     });
   }
 
@@ -78793,7 +78884,8 @@ class SurvivalScene extends Phaser.Scene {
         sourceX: this.playerHitbox.x,
         sourceY: this.playerHitbox.y - 18,
         force: 150 + shotIndex * 12,
-        recoverMs: 100
+        recoverMs: 100,
+        canCrit: true
       });
       this.applySkillMutationOnHit("basicSkill", target, {
         x: this.playerHitbox.x,
@@ -79948,7 +80040,8 @@ class SurvivalScene extends Phaser.Scene {
         sourceX: x,
         sourceY: y,
         force: isLargeExplosion ? 410 : 190,
-        recoverMs: isLargeExplosion ? 170 : 105
+        recoverMs: isLargeExplosion ? 170 : 105,
+        canCrit: true
       });
       if (wasAlive && hpBefore > enemy.hp) {
         if (grantMissileXp) {
@@ -80677,7 +80770,9 @@ class SurvivalScene extends Phaser.Scene {
       sourceX: hitbox.x,
       sourceY: hitbox.y,
       force: 120 + (hitbox.skillStage || 1) * 14,
-      recoverMs: 80
+      recoverMs: 80,
+      hitEffectSpawned: true,
+      canCrit: true
     });
     this.applySkillMutationOnHit(hitbox.skillId, enemy, hitbox, mutatedDamage);
   }
@@ -80979,8 +81074,8 @@ class SurvivalScene extends Phaser.Scene {
       text.setResolution(2);
     }
 
-    const layer = options.layer || this.combatTextLayer || this.supportEffectsLayer || this.skillEffectsLayer;
-    layer?.add(text);
+    // Combat text stays on the scene display list (same depth as combatTextLayer) rather than in a Layer:
+    // a Phaser 3.70 Layer destroys its children twice on scene shutdown, which throws for Text and stops the restart.
     this.floatingCombatTextCount = (this.floatingCombatTextCount || 0) + 1;
     let floatingTextReleased = false;
     const releaseFloatingText = () => {
@@ -80989,7 +81084,6 @@ class SurvivalScene extends Phaser.Scene {
       }
       floatingTextReleased = true;
       this.floatingCombatTextCount = Math.max(0, (this.floatingCombatTextCount || 0) - 1);
-      layer?.remove?.(text, false);
       if (text.active) {
         text.destroy();
       }
@@ -81043,6 +81137,944 @@ class SurvivalScene extends Phaser.Scene {
     });
   }
 
+  isHitFeelQueryEnabled() {
+    const raw = String(this.getUrlStageParam(HIT_FEEL_QUERY_PARAM) ?? "").trim().toLowerCase();
+    return !["0", "false", "off", "no"].includes(raw);
+  }
+
+  createHitFeelState() {
+    return {
+      enabled: this.isHitFeelQueryEnabled(),
+      activeSparks: 0,
+      activeBurstObjects: 0,
+      lastHitSfxAt: -Infinity,
+      lastKillSfxAt: -Infinity,
+      activeVoices: 0,
+      noiseBuffer: null,
+      noiseContext: null,
+      driveCurves: null,
+      audioGraph: null,
+      hitStopUntil: 0,
+      hpBars: new Map(),
+      combo: { count: 0, expiresAtMs: 0, best: 0, lastMilestone: 0 },
+      comboHud: null
+    };
+  }
+
+  // Null when the run has no hit-feel state (headless helpers) or ?hitFeel=0 asked for the old presentation.
+  getHitFeelState() {
+    const state = this.hitFeelState;
+    return state?.enabled ? state : null;
+  }
+
+  resetHitFeelState(reason = "reset") {
+    const state = this.hitFeelState;
+    if (!state) {
+      return;
+    }
+    this.endHitFeelHitStop(reason);
+    this.releaseHitFeelAudioGraph();
+    state.hpBars.forEach((bar) => {
+      if (bar?.scene) {
+        bar.destroy();
+      }
+    });
+    state.hpBars.clear();
+    state.combo = { count: 0, expiresAtMs: 0, best: 0, lastMilestone: 0 };
+    state.comboHud = null;
+    state.activeSparks = 0;
+    state.activeBurstObjects = 0;
+  }
+
+  getPlayerCritChance() {
+    const config = HIT_FEEL_CONFIG.crit;
+    const equipmentRate = this.shouldSuppressRunEquipmentOffenseBonuses?.()
+      ? 0
+      : Math.max(0, Number(this.runEquipmentBonuses?.critChanceRate) || 0);
+    return Phaser.Math.Clamp(config.baseChance + equipmentRate, 0, config.maxChance);
+  }
+
+  // Only hits that opt in with impact.canCrit roll; damage-over-time, support attacks and UMBRA weapons never crit.
+  rollPlayerCriticalHit(impact) {
+    if (impact?.canCrit !== true) {
+      return false;
+    }
+    return Math.random() < this.getPlayerCritChance();
+  }
+
+  getHitFeelHitAngle(enemy, impact) {
+    const sourceX = impact?.sourceX ?? this.playerHitbox?.x;
+    const sourceY = impact?.sourceY ?? this.playerHitbox?.y;
+    if (!Number.isFinite(sourceX) || !Number.isFinite(sourceY)
+      || Phaser.Math.Distance.Between(sourceX, sourceY, enemy.x, enemy.y) < 2) {
+      return Number.isFinite(enemy.hitFeelLastHitAngle)
+        ? enemy.hitFeelLastHitAngle
+        : Phaser.Math.FloatBetween(-Math.PI, Math.PI);
+    }
+    return Phaser.Math.Angle.Between(sourceX, sourceY, enemy.x, enemy.y);
+  }
+
+  presentHitFeelEnemyHit(enemy, damage, flashTint, impact, isCrit) {
+    const angle = this.getHitFeelHitAngle(enemy, impact);
+    enemy.hitFeelLastHitAngle = angle;
+    const killed = enemy.hp <= 0;
+    this.spawnHitFeelDamageNumber(enemy, damage, { crit: isCrit, killed });
+    if (isCrit || !impact?.hitEffectSpawned) {
+      this.spawnHitFeelSpark(enemy, angle, flashTint, isCrit);
+    }
+    if (!killed) {
+      this.updateHitFeelEnemyHpBar(enemy, (enemy.hp + damage) / Math.max(1, Number(enemy.maxHp) || 1));
+    }
+    this.playHitFeelSfx(isCrit ? "crit" : "hit");
+  }
+
+  flashHitFeelEnemy(enemy) {
+    const config = HIT_FEEL_CONFIG.flash;
+    const now = this.time.now;
+    const minIntervalMs = enemy.isBoss || this.isNemesisBoss?.(enemy) || this.isVoidHunterBoss?.(enemy)
+      ? config.bossMinIntervalMs
+      : config.minIntervalMs;
+    if (now - (enemy.hitFeelFlashAt ?? -Infinity) < minIntervalMs) {
+      return;
+    }
+    enemy.hitFeelFlashAt = now;
+    enemy.hitFlashUntil = now + config.durationMs;
+    if (typeof enemy.setTintFill === "function") {
+      enemy.setTintFill(config.color);
+    } else {
+      enemy.setTint(config.color);
+    }
+    this.time.delayedCall(config.durationMs, () => {
+      // A later hit owns the flash until its own timer runs out.
+      if (!enemy.active || enemy.isDying || this.time.now + 1 < (enemy.hitFlashUntil || 0)) {
+        return;
+      }
+      enemy.clearTint();
+      enemy.setTint(enemy.baseTint);
+    });
+  }
+
+  spawnHitFeelSpark(enemy, angle, tint, isCrit) {
+    const state = this.getHitFeelState();
+    const config = HIT_FEEL_CONFIG.spark;
+    const now = this.time.now;
+    if (!state || !this.add || state.activeSparks >= config.maxActive) {
+      return;
+    }
+    if (!isCrit && now - (enemy.hitFeelSparkAt ?? -Infinity) < config.perEnemyIntervalMs) {
+      return;
+    }
+    enemy.hitFeelSparkAt = now;
+
+    const size = Math.max(12, Math.min(enemy.displayWidth || 40, enemy.displayHeight || 40) * 0.34);
+    // Sparks leave the near side of the enemy and fly on in the hit direction.
+    const originX = enemy.x - Math.cos(angle) * size * 0.45;
+    const originY = enemy.y - Math.sin(angle) * size * 0.45;
+    const color = isCrit ? 0xffe94d : (Number.isFinite(tint) ? tint : 0xffffff);
+    const count = isCrit ? 5 : 3;
+    const objects = [];
+    for (let index = 0; index < count; index += 1) {
+      const sparkAngle = angle + Phaser.Math.FloatBetween(-0.62, 0.62);
+      const distance = Phaser.Math.Between(18, 34) * (isCrit ? 1.5 : 1);
+      const streak = this.add
+        .image(originX, originY, "hit-feel-streak")
+        .setDepth(config.depth)
+        .setRotation(sparkAngle)
+        .setScale(Phaser.Math.FloatBetween(0.7, 1.1) * (isCrit ? 1.35 : 1), isCrit ? 1.25 : 1)
+        .setTint(index === 0 ? 0xffffff : color)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      objects.push(streak);
+      this.tweens.add({
+        targets: streak,
+        x: originX + Math.cos(sparkAngle) * distance,
+        y: originY + Math.sin(sparkAngle) * distance,
+        scaleX: streak.scaleX * 0.35,
+        alpha: { value: 0, ease: "Quad.In" },
+        duration: config.lifeMs + Phaser.Math.Between(0, 50),
+        ease: "Quad.Out",
+        onComplete: () => this.releaseHitFeelEffectObject(streak, "activeSparks")
+      });
+    }
+    if (isCrit) {
+      const ring = this.add
+        .image(enemy.x, enemy.y, "skill-hit-ring")
+        .setDepth(config.depth)
+        .setScale(0.32)
+        .setTint(0xffe94d)
+        .setAlpha(0.95)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      objects.push(ring);
+      this.tweens.add({
+        targets: ring,
+        scaleX: 1.15,
+        scaleY: 1.15,
+        alpha: 0,
+        duration: 200,
+        ease: "Cubic.Out",
+        onComplete: () => this.releaseHitFeelEffectObject(ring, "activeSparks")
+      });
+    }
+    state.activeSparks += objects.length;
+    this.skillEffectsLayer?.add(objects);
+  }
+
+  releaseHitFeelEffectObject(object, counterKey) {
+    const state = this.hitFeelState;
+    if (state && counterKey) {
+      state[counterKey] = Math.max(0, (state[counterKey] || 0) - 1);
+    }
+    if (object?.scene) {
+      object.destroy();
+    }
+  }
+
+  getHitFeelDamageNumberStyle(enemy, amount, crit, killed) {
+    const config = HIT_FEEL_CONFIG.damageNumber;
+    if (crit) {
+      return config.crit;
+    }
+    const ratio = amount / Math.max(1, Number(enemy.maxHp) || amount || 1);
+    let tierIndex = 0;
+    config.tiers.forEach((tier, index) => {
+      if (ratio >= tier.minRatio) {
+        tierIndex = index;
+      }
+    });
+    if (killed) {
+      tierIndex = Math.max(tierIndex, config.tiers.length - 1);
+    }
+    return config.tiers[tierIndex];
+  }
+
+  // Hits on the same enemy inside the merge window add into one number, which pops again.
+  spawnHitFeelDamageNumber(enemy, damageAmount, options = {}) {
+    const amount = Math.abs(Number(damageAmount) || 0);
+    if (!enemy || !Number.isFinite(amount) || amount <= 0 || !this.add) {
+      return null;
+    }
+    const config = HIT_FEEL_CONFIG.damageNumber;
+    const now = this.time.now;
+    const enemyHeight = Math.max(enemy.displayHeight || enemy.body?.height || 42, 24);
+    const anchorX = enemy.x;
+    const anchorY = enemy.y - enemyHeight * 0.58 - 8;
+    let entry = enemy.hitFeelDamageEntry;
+    if (entry && !entry.released && entry.text.active
+      && now - entry.lastAt <= config.mergeWindowMs && now - entry.startAt <= config.mergeMaxMs) {
+      entry.total += amount;
+      entry.crit = entry.crit || options.crit === true;
+      entry.killed = entry.killed || options.killed === true;
+      entry.lastAt = now;
+      this.applyHitFeelDamageNumberStyle(entry, enemy);
+      this.playHitFeelDamageNumberTweens(entry, anchorX + entry.jitterX, anchorY + entry.jitterY);
+      return entry.text;
+    }
+
+    if ((this.floatingCombatTextCount || 0) >= 48) {
+      return null;
+    }
+    const text = this.add
+      .text(anchorX, anchorY, "", {
+        fontFamily: "Segoe UI, Yu Gothic UI, Arial, sans-serif",
+        fontSize: "28px",
+        color: "#fff0bb",
+        fontStyle: "bold",
+        stroke: "#4c2110",
+        strokeThickness: 4
+      })
+      .setOrigin(0.5)
+      .setDepth(30);
+    if (typeof text.setResolution === "function") {
+      text.setResolution(2);
+    }
+    // Not added to combatTextLayer; see spawnFloatingCombatText.
+    this.floatingCombatTextCount = (this.floatingCombatTextCount || 0) + 1;
+    entry = {
+      text,
+      total: amount,
+      crit: options.crit === true,
+      killed: options.killed === true,
+      startAt: now,
+      lastAt: now,
+      jitterX: Phaser.Math.Between(-10, 10),
+      jitterY: Phaser.Math.Between(-5, 5),
+      popTween: null,
+      riseTween: null,
+      released: false
+    };
+    entry.release = () => {
+      if (entry.released) {
+        return;
+      }
+      entry.released = true;
+      this.floatingCombatTextCount = Math.max(0, (this.floatingCombatTextCount || 0) - 1);
+      if (text.active) {
+        text.destroy();
+      }
+      if (enemy.hitFeelDamageEntry === entry) {
+        enemy.hitFeelDamageEntry = null;
+      }
+    };
+    enemy.hitFeelDamageEntry = entry;
+    this.applyHitFeelDamageNumberStyle(entry, enemy);
+    this.playHitFeelDamageNumberTweens(entry, anchorX + entry.jitterX, anchorY + entry.jitterY);
+    return text;
+  }
+
+  applyHitFeelDamageNumberStyle(entry, enemy) {
+    const style = this.getHitFeelDamageNumberStyle(enemy, entry.total, entry.crit, entry.killed);
+    entry.pop = style.pop;
+    entry.text
+      .setText(`${this.formatFloatingCombatNumber(entry.total)}${style.suffix || ""}`)
+      .setFontSize(style.fontSize)
+      .setColor(style.color)
+      .setStroke(style.stroke, style.strokeThickness);
+  }
+
+  playHitFeelDamageNumberTweens(entry, x, y) {
+    const config = HIT_FEEL_CONFIG.damageNumber;
+    entry.popTween?.stop();
+    entry.riseTween?.stop();
+    entry.text.setPosition(x, y).setAlpha(1).setScale(entry.pop || 1.3);
+    entry.popTween = this.tweens.add({
+      targets: entry.text,
+      scaleX: 1,
+      scaleY: 1,
+      duration: config.popMs,
+      ease: "Back.Out"
+    });
+    entry.riseTween = this.tweens.add({
+      targets: entry.text,
+      y: y - config.rise,
+      alpha: 0,
+      delay: config.holdMs,
+      duration: config.riseMs,
+      ease: "Quad.In",
+      onComplete: entry.release
+    });
+  }
+
+  getHitFeelAudio() {
+    if (!this.isSfxEnabled?.()) {
+      return null;
+    }
+    const manager = this.sound;
+    const context = manager?.context;
+    if (!context || typeof context.createOscillator !== "function" || context.state !== "running") {
+      return null;
+    }
+    // Phaser's master node keeps the synthesized hits under the global mute and volume.
+    const destination = manager.destination || manager.masterMuteNode || context.destination;
+    return destination ? { context, destination } : null;
+  }
+
+  // Local xorshift noise: Math.random's sequence must not depend on whether audio happens to be running.
+  fillHitFeelNoise(data, seed, decayPower = 0) {
+    let value = seed >>> 0;
+    const length = data.length;
+    for (let index = 0; index < length; index += 1) {
+      value ^= value << 13;
+      value ^= value >>> 17;
+      value ^= value << 5;
+      const sample = ((value >>> 0) / 4294967296) * 2 - 1;
+      data[index] = decayPower > 0 ? sample * Math.pow(1 - index / length, decayPower) : sample;
+    }
+  }
+
+  getHitFeelNoiseBuffer(context) {
+    const state = this.hitFeelState;
+    if (state.noiseBuffer && state.noiseContext === context) {
+      return state.noiseBuffer;
+    }
+    const buffer = context.createBuffer(1, Math.floor(context.sampleRate * 0.6), context.sampleRate);
+    this.fillHitFeelNoise(buffer.getChannelData(0), 0x9e3779b9);
+    state.noiseBuffer = buffer;
+    state.noiseContext = context;
+    return buffer;
+  }
+
+  getHitFeelDriveCurve(amount) {
+    const state = this.hitFeelState;
+    if (!state.driveCurves) {
+      state.driveCurves = new Map();
+    }
+    if (!state.driveCurves.has(amount)) {
+      const size = 2048;
+      const curve = new Float32Array(size);
+      for (let index = 0; index < size; index += 1) {
+        const x = (index / (size - 1)) * 2 - 1;
+        curve[index] = ((1 + amount) * x) / (1 + amount * Math.abs(x));
+      }
+      state.driveCurves.set(amount, curve);
+    }
+    return state.driveCurves.get(amount);
+  }
+
+  // Shared mixer for the synthesized hits: a dry bus and a short reverb, through a limiter into Phaser's master node.
+  getHitFeelAudioGraph(context, destination) {
+    const state = this.hitFeelState;
+    if (state.audioGraph?.context === context && state.audioGraph.destination === destination) {
+      return state.audioGraph;
+    }
+    this.releaseHitFeelAudioGraph();
+    const config = HIT_FEEL_CONFIG.sfx;
+    const limiter = context.createDynamicsCompressor();
+    limiter.threshold.value = -14;
+    limiter.ratio.value = 4;
+    limiter.attack.value = 0.002;
+    limiter.release.value = 0.12;
+    const output = context.createGain();
+    output.gain.value = config.volume;
+    output.connect(limiter);
+    limiter.connect(destination);
+    const dry = context.createGain();
+    dry.connect(output);
+    const impulse = context.createBuffer(2, Math.floor(context.sampleRate * config.reverbSeconds), context.sampleRate);
+    this.fillHitFeelNoise(impulse.getChannelData(0), 0x2545f491, 3.2);
+    this.fillHitFeelNoise(impulse.getChannelData(1), 0x6c078965, 3.2);
+    const reverb = context.createConvolver();
+    reverb.buffer = impulse;
+    reverb.connect(output);
+    const wet = context.createGain();
+    wet.gain.value = config.reverbWet;
+    wet.connect(reverb);
+    state.audioGraph = { context, destination, dry, wet, reverb, output, limiter };
+    return state.audioGraph;
+  }
+
+  releaseHitFeelAudioGraph() {
+    const graph = this.hitFeelState?.audioGraph;
+    if (!graph) {
+      return;
+    }
+    this.hitFeelState.audioGraph = null;
+    [graph.limiter, graph.output, graph.reverb, graph.wet, graph.dry].forEach((node) => {
+      try {
+        node.disconnect();
+      } catch (error) {
+        // Already disconnected.
+      }
+    });
+  }
+
+  // "Armor impact" set, synthesized so no audio files are needed: a low thump, struck-metal partials and saturation.
+  playHitFeelSfx(kind, options = {}) {
+    const state = this.getHitFeelState();
+    const audio = state ? this.getHitFeelAudio() : null;
+    if (!audio) {
+      return false;
+    }
+    const config = HIT_FEEL_CONFIG.sfx;
+    const now = this.time.now;
+    if (kind === "hit" || kind === "crit") {
+      const minIntervalMs = kind === "crit" ? config.critMinIntervalMs : config.hitMinIntervalMs;
+      if (now - state.lastHitSfxAt < minIntervalMs) {
+        return false;
+      }
+      state.lastHitSfxAt = now;
+    } else if (kind === "kill") {
+      if (now - state.lastKillSfxAt < config.killMinIntervalMs) {
+        return false;
+      }
+      state.lastKillSfxAt = now;
+    }
+    if (state.activeVoices >= config.maxVoices) {
+      return false;
+    }
+
+    try {
+      const { context, destination } = audio;
+      const graph = this.getHitFeelAudioGraph(context, destination);
+      const start = context.currentTime + 0.003;
+      const nodes = [];
+      let lastSource = null;
+      let lastEnd = 0;
+      const track = (source, end) => {
+        if (end >= lastEnd) {
+          lastEnd = end;
+          lastSource = source;
+        }
+      };
+      const voice = (drive = 0, wet = 1) => {
+        const bus = context.createGain();
+        let head = bus;
+        if (drive > 0) {
+          head = context.createWaveShaper();
+          head.curve = this.getHitFeelDriveCurve(drive);
+          head.oversample = "2x";
+          bus.connect(head);
+        }
+        head.connect(graph.dry);
+        const send = context.createGain();
+        send.gain.value = wet;
+        head.connect(send);
+        send.connect(graph.wet);
+        nodes.push(bus, head, send);
+        return bus;
+      };
+      const envelope = (gain, at, peak, duration) => {
+        gain.gain.setValueAtTime(0.0001, at);
+        gain.gain.exponentialRampToValueAtTime(peak, at + Math.min(0.004, duration * 0.3));
+        gain.gain.exponentialRampToValueAtTime(0.0001, at + duration);
+      };
+      const tone = (bus, type, fromHz, toHz, duration, peak, delay = 0) => {
+        const at = start + delay;
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.type = type;
+        oscillator.frequency.setValueAtTime(fromHz, at);
+        oscillator.frequency.exponentialRampToValueAtTime(Math.max(20, toHz), at + duration);
+        envelope(gain, at, peak, duration);
+        oscillator.connect(gain);
+        gain.connect(bus);
+        oscillator.start(at);
+        oscillator.stop(at + duration + 0.03);
+        track(oscillator, at + duration);
+      };
+      const noise = (bus, filterType, fromHz, toHz, q, duration, peak, delay = 0) => {
+        const at = start + delay;
+        const source = context.createBufferSource();
+        const filter = context.createBiquadFilter();
+        const gain = context.createGain();
+        source.buffer = this.getHitFeelNoiseBuffer(context);
+        filter.type = filterType;
+        filter.Q.value = q;
+        filter.frequency.setValueAtTime(fromHz, at);
+        filter.frequency.exponentialRampToValueAtTime(Math.max(30, toHz), at + duration);
+        envelope(gain, at, peak, duration);
+        source.connect(filter);
+        filter.connect(gain);
+        gain.connect(bus);
+        source.start(at);
+        source.stop(at + duration + 0.03);
+        track(source, at + duration);
+      };
+      // Inharmonic partials read as struck metal rather than a musical note.
+      const metal = (bus, hz, duration, peak, delay = 0) => {
+        config.metalPartials.forEach(([ratio, amplitude, length]) => {
+          tone(bus, "sine", hz * ratio, hz * ratio * 0.995, duration * length, peak * amplitude, delay);
+        });
+      };
+      const hitLayers = () => {
+        const body = voice(4, 0.5);
+        tone(body, "sine", 150, 55, 0.07, 0.22);
+        noise(body, "lowpass", 2600, 600, 0.8, 0.045, 0.12);
+        metal(voice(0, 0.8), 1650, 0.1, 0.03);
+      };
+
+      if (kind === "hit") {
+        hitLayers();
+      } else if (kind === "crit") {
+        hitLayers();
+        const ring = voice(0, 1.2);
+        metal(ring, 2350, 0.26, 0.085, 0.004);
+        tone(ring, "sine", 1800, 2700, 0.09, 0.03, 0.01);
+        noise(voice(0, 1), "highpass", 6000, 4000, 0.7, 0.03, 0.05);
+      } else if (kind === "kill") {
+        const body = voice(8, 0.6);
+        noise(body, "lowpass", 3200, 240, 0.9, 0.15, 0.2);
+        tone(body, "sine", 115, 38, 0.17, 0.26);
+        const debris = voice(0, 1);
+        metal(debris, 1080, 0.13, 0.035, 0.02);
+        metal(debris, 1390, 0.11, 0.028, 0.055);
+        // Combo chime: one step up a minor pentatonic scale per kill, so a streak is audible as a rising line.
+        const scale = config.comboScale;
+        const step = scale[Phaser.Math.Clamp(Math.floor(Number(options.combo) || 1) - 1, 0, scale.length - 1)];
+        const chimeHz = config.comboChimeHz * Math.pow(2, step / 12);
+        tone(voice(0, 1.4), "triangle", chimeHz, chimeHz, 0.13, 0.065, 0.012);
+      } else if (kind === "bigKill") {
+        const body = voice(6, 1.2);
+        tone(body, "sine", 95, 30, 0.55, 0.36);
+        noise(body, "lowpass", 1900, 110, 0.8, 0.5, 0.26);
+        metal(voice(0, 1.5), 690, 0.45, 0.06, 0.01);
+      } else if (kind === "milestone") {
+        const bells = voice(0, 1.5);
+        [880, 1320, 1760].forEach((hz, index) => metal(bells, hz, 0.3, 0.05, index * 0.065));
+        tone(voice(3, 1), "sine", 110, 70, 0.25, 0.15);
+      } else {
+        return false;
+      }
+
+      state.activeVoices += 1;
+      lastSource.onended = () => {
+        state.activeVoices = Math.max(0, state.activeVoices - 1);
+        nodes.forEach((node) => node.disconnect());
+      };
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  isHitFeelHpBarTarget(enemy) {
+    return Boolean(
+      (enemy?.isElite || enemy?.isBoss)
+      && !enemy.isFinalBossRaidBoss
+      && !enemy.isFinalBossRaidMinion
+      // NEMESIS and the VOID HUNTER already have the boss bar at the top of the screen.
+      && !this.isNemesisBoss?.(enemy)
+      && !this.isVoidHunterBoss?.(enemy)
+    );
+  }
+
+  updateHitFeelEnemyHpBar(enemy, ratioBefore) {
+    const state = this.getHitFeelState();
+    if (!state || !this.add || !this.isHitFeelHpBarTarget(enemy)) {
+      return;
+    }
+    let bar = state.hpBars.get(enemy);
+    if (!bar) {
+      bar = this.add.graphics().setDepth(HIT_FEEL_CONFIG.hpBar.depth);
+      bar.hitFeelLag = Phaser.Math.Clamp(Number(ratioBefore) || 1, 0, 1);
+      bar.hitFeelDrawnKey = "";
+      state.hpBars.set(enemy, bar);
+      enemy.once?.("destroy", () => this.releaseHitFeelHpBar(enemy));
+    }
+    this.positionHitFeelHpBar(bar, enemy);
+    this.drawHitFeelHpBar(bar, enemy);
+  }
+
+  releaseHitFeelHpBar(enemy) {
+    const state = this.hitFeelState;
+    const bar = state?.hpBars.get(enemy);
+    if (!bar) {
+      return;
+    }
+    state.hpBars.delete(enemy);
+    if (bar.scene) {
+      bar.destroy();
+    }
+  }
+
+  positionHitFeelHpBar(bar, enemy) {
+    const config = HIT_FEEL_CONFIG.hpBar;
+    const height = Math.max(enemy.displayHeight || enemy.body?.height || 42, 24);
+    bar.setPosition(enemy.x, enemy.y + height * config.footRatio + config.gap);
+  }
+
+  drawHitFeelHpBar(bar, enemy) {
+    const config = HIT_FEEL_CONFIG.hpBar;
+    const ratio = Phaser.Math.Clamp((Number(enemy.hp) || 0) / Math.max(1, Number(enemy.maxHp) || 1), 0, 1);
+    bar.hitFeelLag = Math.max(ratio, bar.hitFeelLag ?? ratio);
+    const key = `${ratio.toFixed(3)}|${bar.hitFeelLag.toFixed(3)}`;
+    if (key === bar.hitFeelDrawnKey) {
+      return;
+    }
+    bar.hitFeelDrawnKey = key;
+    const isBoss = enemy.isBoss === true;
+    const width = Phaser.Math.Clamp((enemy.displayWidth || 60) * config.widthRatio, config.minWidth, config.maxWidth);
+    const height = isBoss ? config.bossHeight : config.height;
+    const left = -width / 2;
+    const top = -height / 2;
+    bar.clear();
+    bar.fillStyle(0x03070c, 0.86);
+    bar.fillRect(left - 2, top - 2, width + 4, height + 4);
+    bar.fillStyle(0xffffff, 0.72);
+    bar.fillRect(left, top, width * bar.hitFeelLag, height);
+    bar.fillStyle(isBoss ? 0xff4f7a : 0xffc94a, 1);
+    bar.fillRect(left, top, width * ratio, height);
+    bar.lineStyle(1, isBoss ? 0xffb3c6 : 0xfff0b0, 0.7);
+    bar.strokeRect(left - 2, top - 2, width + 4, height + 4);
+  }
+
+  updateHitFeelHpBars(delta) {
+    const state = this.hitFeelState;
+    if (!state?.hpBars.size) {
+      return;
+    }
+    const lagStep = HIT_FEEL_CONFIG.hpBar.lagPerSecond * Math.max(0, Number(delta) || 0) / 1000;
+    state.hpBars.forEach((bar, enemy) => {
+      if (!enemy?.active || enemy.isDying || !bar?.scene) {
+        this.releaseHitFeelHpBar(enemy);
+        return;
+      }
+      const ratio = Phaser.Math.Clamp((Number(enemy.hp) || 0) / Math.max(1, Number(enemy.maxHp) || 1), 0, 1);
+      bar.hitFeelLag = Math.max(ratio, (bar.hitFeelLag ?? ratio) - lagStep);
+      this.positionHitFeelHpBar(bar, enemy);
+      this.drawHitFeelHpBar(bar, enemy);
+    });
+  }
+
+  // Elite and boss kills only: physics slows to a near stop for a few frames.
+  startHitFeelHitStop(durationMs) {
+    const state = this.getHitFeelState();
+    const world = this.physics?.world;
+    if (!state || !world || !(durationMs > 0)) {
+      return;
+    }
+    state.hitStopUntil = Math.max(state.hitStopUntil || 0, this.time.now + durationMs);
+    world.timeScale = HIT_FEEL_CONFIG.hitStop.physicsTimeScale;
+  }
+
+  endHitFeelHitStop() {
+    const state = this.hitFeelState;
+    if (!state?.hitStopUntil) {
+      return;
+    }
+    state.hitStopUntil = 0;
+    const world = this.physics?.world;
+    if (!world) {
+      return;
+    }
+    world.timeScale = 1;
+    // Drop the time banked during the stop so bodies do not jump forward to catch up.
+    if (typeof world._elapsed === "number") {
+      world._elapsed = Math.min(world._elapsed, world._frameTimeMS || 1000 / 60);
+    }
+  }
+
+  spawnHitFeelKillBurst(enemy, angle, weight) {
+    const state = this.getHitFeelState();
+    const config = HIT_FEEL_CONFIG.killBurst;
+    const count = weight ? config.eliteShards : config.shards;
+    if (!state || !this.add || state.activeBurstObjects + count + 1 > config.maxActive) {
+      return;
+    }
+    const big = Boolean(weight);
+    const accent = weight === "boss" ? 0xff9df4 : (weight === "elite" ? 0xffd667 : 0xffcfa8);
+    const objects = [];
+    for (let index = 0; index < count; index += 1) {
+      // Most shards follow the hit; a few scatter wider.
+      const spread = index < Math.ceil(count * 0.7) ? config.spreadRad : config.spreadRad * 2.4;
+      const shardAngle = angle + Phaser.Math.FloatBetween(-spread, spread);
+      const distance = Phaser.Math.Between(config.distance[0], config.distance[1]) * (big ? 1.45 : 1);
+      const shard = this.add
+        .image(enemy.x, enemy.y, "hit-feel-streak")
+        .setDepth(config.depth)
+        .setRotation(shardAngle)
+        .setScale(Phaser.Math.FloatBetween(0.9, 1.5) * (big ? 1.4 : 1), big ? 1.6 : 1.15)
+        .setTint(index % 3 === 0 ? 0xffffff : accent)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      objects.push(shard);
+      this.tweens.add({
+        targets: shard,
+        x: enemy.x + Math.cos(shardAngle) * distance,
+        y: enemy.y + Math.sin(shardAngle) * distance,
+        scaleX: shard.scaleX * 0.25,
+        alpha: { value: 0, ease: "Quad.In" },
+        duration: Phaser.Math.Between(config.lifeMs[0], config.lifeMs[1]),
+        ease: "Cubic.Out",
+        onComplete: () => this.releaseHitFeelEffectObject(shard, "activeBurstObjects")
+      });
+    }
+    const flash = this.add
+      .image(enemy.x, enemy.y, "skill-hit-glow")
+      .setDepth(config.depth)
+      .setScale(big ? 0.8 : 0.5)
+      .setTint(0xffffff)
+      .setAlpha(0.9)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    objects.push(flash);
+    this.tweens.add({
+      targets: flash,
+      scaleX: big ? 2.4 : 1.4,
+      scaleY: big ? 2.4 : 1.4,
+      alpha: 0,
+      duration: big ? 220 : 130,
+      ease: "Quad.Out",
+      onComplete: () => this.releaseHitFeelEffectObject(flash, "activeBurstObjects")
+    });
+    state.activeBurstObjects += objects.length;
+    this.skillEffectsLayer?.add(objects);
+  }
+
+  popHitFeelXpOrb(orb, angle) {
+    if (!orb?.active || !this.getHitFeelState()) {
+      return;
+    }
+    const config = HIT_FEEL_CONFIG.xpPop;
+    const popAngle = angle + Phaser.Math.FloatBetween(-0.9, 0.9);
+    const distance = Phaser.Math.Between(config.distance[0], config.distance[1]);
+    const target = this.getSafeDropPoint(orb.x + Math.cos(popAngle) * distance, orb.y + Math.sin(popAngle) * distance, 18);
+    orb.hitFeelPopUntil = this.time.now + config.durationMs;
+    orb.setScale(config.scaleFrom);
+    const tween = this.tweens.add({
+      targets: orb,
+      x: target.x,
+      y: target.y,
+      duration: config.durationMs,
+      ease: "Quad.Out",
+      onUpdate: () => {
+        if (!orb.active) {
+          tween.stop();
+        }
+      }
+    });
+  }
+
+  getHitFeelXpOrbPopScale(orb) {
+    const until = orb.hitFeelPopUntil || 0;
+    if (!until) {
+      return 1;
+    }
+    const remaining = until - this.time.now;
+    if (remaining <= 0) {
+      orb.hitFeelPopUntil = 0;
+      return 1;
+    }
+    const config = HIT_FEEL_CONFIG.xpPop;
+    const progress = Phaser.Math.Clamp(1 - remaining / config.durationMs, 0, 1);
+    return config.scaleFrom + (1 - config.scaleFrom) * Phaser.Math.Easing.Back.Out(progress);
+  }
+
+  isHitFeelComboMilestone(count) {
+    const config = HIT_FEEL_CONFIG.combo;
+    if (config.milestones.includes(count)) {
+      return true;
+    }
+    const last = config.milestones[config.milestones.length - 1];
+    return count > last && (count - last) % config.milestoneRepeat === 0;
+  }
+
+  // Display only: the combo gives no reward.
+  registerHitFeelComboKill() {
+    const state = this.getHitFeelState();
+    if (!state) {
+      return 0;
+    }
+    const combo = state.combo;
+    const clock = Number(this.survivalTime) || 0;
+    if (combo.count > 0 && clock > combo.expiresAtMs) {
+      combo.count = 0;
+    }
+    combo.count += 1;
+    combo.expiresAtMs = clock + HIT_FEEL_CONFIG.combo.windowMs;
+    combo.best = Math.max(combo.best, combo.count);
+    const milestone = this.isHitFeelComboMilestone(combo.count);
+    if (milestone) {
+      combo.lastMilestone = combo.count;
+      this.playHitFeelSfx("milestone");
+    }
+    this.pulseHitFeelComboHud(milestone);
+    return combo.count;
+  }
+
+  createHitFeelComboHud() {
+    const state = this.getHitFeelState();
+    if (!state || state.comboHud) {
+      return;
+    }
+    const config = HIT_FEEL_CONFIG.combo;
+    const timerGraphics = this.registerUiObject(
+      this.add.graphics().setScrollFactor(0).setDepth(config.depth - 1).setVisible(false)
+    );
+    const countText = this.registerUiObject(
+      this.add
+        .text(config.x, config.y, "", {
+          fontFamily: "Consolas, 'Courier New', monospace",
+          fontSize: "30px",
+          fontStyle: "bold",
+          color: "#eafcff",
+          stroke: "#06223a",
+          strokeThickness: 5
+        })
+        .setOrigin(0, 0.5)
+        .setScrollFactor(0)
+        .setDepth(config.depth)
+        .setVisible(false)
+    );
+    state.comboHud = { timerGraphics, countText, shownCount: -1, flashUntil: 0, pulseTween: null };
+  }
+
+  pulseHitFeelComboHud(milestone) {
+    const hud = this.hitFeelState?.comboHud;
+    if (!hud?.countText?.scene || !this.tweens) {
+      return;
+    }
+    if (milestone) {
+      hud.flashUntil = this.time.now + HIT_FEEL_CONFIG.combo.milestoneFlashMs;
+    }
+    hud.pulseTween?.stop();
+    hud.countText.setScale(milestone ? 1.6 : 1.18);
+    hud.pulseTween = this.tweens.add({
+      targets: hud.countText,
+      scaleX: 1,
+      scaleY: 1,
+      duration: milestone ? 260 : 120,
+      ease: "Back.Out"
+    });
+  }
+
+  updateHitFeelComboHud() {
+    const state = this.getHitFeelState();
+    const hud = state?.comboHud;
+    if (!hud?.countText?.scene) {
+      return;
+    }
+    const config = HIT_FEEL_CONFIG.combo;
+    const combo = state.combo;
+    const clock = Number(this.survivalTime) || 0;
+    if (combo.count > 0 && clock > combo.expiresAtMs) {
+      combo.count = 0;
+    }
+    const allowed = !this.gameOver && !this.shopActive && !this.levelUpActive && !this.gateChoiceActive
+      && !this.extractionComplete && !this.standardHudSuppressed && !this.isFinalBossRaidActive?.()
+      && this.overlayContainer?.visible !== true;
+    const visible = allowed && combo.count >= config.minShow;
+    hud.countText.setVisible(visible);
+    hud.timerGraphics.setVisible(visible);
+    if (!visible) {
+      return;
+    }
+    const flashing = this.time.now < hud.flashUntil;
+    if (hud.shownCount !== combo.count || hud.shownFlash !== flashing) {
+      hud.shownCount = combo.count;
+      hud.shownFlash = flashing;
+      hud.countText
+        .setText(`×${combo.count} KILL`)
+        .setColor(flashing ? "#ffe94d" : "#eafcff")
+        .setStroke(flashing ? "#6a2a00" : "#06223a", 5);
+    }
+    const remaining = Phaser.Math.Clamp((combo.expiresAtMs - clock) / config.windowMs, 0, 1);
+    const width = Math.max(120, hud.countText.width);
+    const barY = config.y + 21;
+    hud.countText.setAlpha(0.45 + 0.55 * Math.min(1, remaining * 3));
+    hud.timerGraphics.clear();
+    hud.timerGraphics.fillStyle(0x03070c, 0.7);
+    hud.timerGraphics.fillRect(config.x, barY, width, 4);
+    hud.timerGraphics.fillStyle(flashing ? 0xffe94d : 0x4de7ff, 0.95);
+    hud.timerGraphics.fillRect(config.x, barY, width * remaining, 4);
+  }
+
+  // Runs every frame before the gameplay early-outs, so a hit stop always ends on time.
+  updateHitFeelFrame(delta) {
+    const state = this.hitFeelState;
+    if (!state) {
+      return;
+    }
+    if (state.hitStopUntil && this.time.now >= state.hitStopUntil) {
+      this.endHitFeelHitStop();
+    }
+    if (!state.enabled) {
+      return;
+    }
+    this.updateHitFeelHpBars(delta);
+    this.updateHitFeelComboHud();
+  }
+
+  presentHitFeelEnemyKill(enemy, options = {}) {
+    const state = this.getHitFeelState();
+    if (!state) {
+      return;
+    }
+    const weight = options.isBossClass ? "boss" : (enemy.isElite ? "elite" : null);
+    const angle = Number.isFinite(enemy.hitFeelLastHitAngle)
+      ? enemy.hitFeelLastHitAngle
+      : Phaser.Math.FloatBetween(-Math.PI, Math.PI);
+    const combo = options.countsForCombo ? this.registerHitFeelComboKill() : state.combo.count;
+    this.spawnHitFeelKillBurst(enemy, angle, weight);
+    this.popHitFeelXpOrb(options.xpOrb, angle);
+    this.releaseHitFeelHpBar(enemy);
+    if (weight) {
+      const config = HIT_FEEL_CONFIG;
+      this.startHitFeelHitStop(weight === "boss" ? config.hitStop.bossMs : config.hitStop.eliteMs);
+      const shake = config.shake[weight];
+      this.cameras?.main?.shake?.(shake.durationMs, shake.intensity);
+      this.playHitFeelSfx("bigKill");
+    } else {
+      this.playHitFeelSfx("kill", { combo });
+    }
+  }
+
   applyDamageToEnemy(enemy, damage, flashTint = 0xffdede, impact = null) {
     if (!enemy.active || enemy.isDying) {
       return;
@@ -81072,17 +82104,30 @@ class SurvivalScene extends Phaser.Scene {
     if (impact?.supportDamage || impact?.supportFinisher) {
       finalDamage = this.applySupportLinkCombatMultiplier(finalDamage);
     }
+    const isCrit = this.rollPlayerCriticalHit(impact);
+    if (isCrit) {
+      finalDamage *= HIT_FEEL_CONFIG.crit.damageMultiplier;
+    }
     enemy.hp -= finalDamage;
-    this.spawnEnemyDamageNumber(enemy, finalDamage);
+    const hitFeel = this.getHitFeelState();
+    if (hitFeel) {
+      this.presentHitFeelEnemyHit(enemy, finalDamage, flashTint, impact, isCrit);
+    } else {
+      this.spawnEnemyDamageNumber(enemy, finalDamage);
+    }
     this.applyEnemyImpact(enemy, impact);
     this.playEnemyHitReaction(enemy);
-    enemy.setTint(flashTint);
-    this.time.delayedCall(60, () => {
-      if (enemy.active && !enemy.isDying) {
-        enemy.clearTint();
-        enemy.setTint(enemy.baseTint);
-      }
-    });
+    if (hitFeel) {
+      this.flashHitFeelEnemy(enemy);
+    } else {
+      enemy.setTint(flashTint);
+      this.time.delayedCall(60, () => {
+        if (enemy.active && !enemy.isDying) {
+          enemy.clearTint();
+          enemy.setTint(enemy.baseTint);
+        }
+      });
+    }
 
     if (enemy.hp <= 0) {
       this.killEnemy(enemy);
@@ -81209,6 +82254,7 @@ class SurvivalScene extends Phaser.Scene {
     const isVoidHunter = this.isVoidHunterBoss(enemy);
     const suppressRaidMinionRewards = enemy.isFinalBossRaidMinion === true;
     const suppressVoidHunterRewards = isVoidHunter;
+    let killXpOrb = null;
     if (!suppressRaidMinionRewards && !suppressVoidHunterRewards) {
       this.runStats.kills += 1;
       if (enemy.isElite) {
@@ -81219,9 +82265,14 @@ class SurvivalScene extends Phaser.Scene {
         this.advanceWaveAfterBossKill(enemy);
       }
       this.handleDepthDirectiveEnemyKilled(enemy);
-      this.spawnXpOrb(enemy.x, enemy.y, enemy.xpValue);
+      killXpOrb = this.spawnXpOrb(enemy.x, enemy.y, enemy.xpValue);
     }
     this.spawnEnemyDefeatEffect(enemy.x, enemy.y);
+    this.presentHitFeelEnemyKill(enemy, {
+      isBossClass: enemy.isBoss === true || isNemesis || isVoidHunter,
+      countsForCombo: !suppressRaidMinionRewards,
+      xpOrb: killXpOrb
+    });
     const guaranteedDropsSpawned = suppressRaidMinionRewards || enemy.suppressGuaranteedDrops ? true : this.spawnGuaranteedEnemyDrops(enemy);
     if (!suppressRaidMinionRewards && !suppressVoidHunterRewards) {
       if (!guaranteedDropsSpawned) {
@@ -81288,6 +82339,7 @@ class SurvivalScene extends Phaser.Scene {
     this.prepareDropObject(orb, "xp", "xpOrbs");
     this.xpOrbs.add(orb);
     this.enforceDropLimits("spawnXpOrb");
+    return orb.active ? orb : null;
   }
 
   spawnXpTrailEffect(orb) {
