@@ -1465,7 +1465,11 @@ const OPEN_WORLD_ASSET_CONFIG = Object.freeze({
       "ow-prop-tree-a", "ow-prop-tree-b", "ow-prop-tree-c", "ow-prop-lamp"
     ].map((key) => [key, "prop"])),
     // Buildings: roof, roof_emit and south_emit (for the neon spill); the south facade itself is Phase 2.
-    "ow-bld-a01": "building"
+    "ow-bld-a01": "building",
+    "ow-bld-b01": "building",
+    "ow-bld-c01": "building",
+    "ow-bld-d01": "building",
+    "ow-bld-e01": "building"
   }),
   // Companion images loaded with an entry (same size): the open-water mask of a puddle, for reflections.
   companionFields: Object.freeze({ prop: Object.freeze(["water"]) }),
@@ -1532,11 +1536,19 @@ const OPEN_WORLD_PROP_CONFIG = Object.freeze({
 const OPEN_WORLD_BUILDING_CONFIG = Object.freeze({
   // Footprints in px (1 m = 40 px); `key` is the manifest entry with the roof / emit images.
   types: Object.freeze([
-    Object.freeze({ key: "ow-bld-a01", width: 768, height: 1024 })
+    Object.freeze({ key: "ow-bld-a01", width: 768, height: 1024 }), // 6 floors, zakkyo building
+    Object.freeze({ key: "ow-bld-b01", width: 768, height: 768 }), // 5 floors, zakkyo building
+    Object.freeze({ key: "ow-bld-c01", width: 512, height: 640 }), // 3 floors, shop with a home above
+    Object.freeze({ key: "ow-bld-d01", width: 1024, height: 768 }), // 8 floors, offices and shops
+    Object.freeze({ key: "ow-bld-e01", width: 512, height: 1024 }) // 12 floors, slim hotel
   ]),
   gap: 64, // between two buildings of one block
   maxPerBlock: 3,
-  nextChance: 0.7, // chance to try one more building after each one, room permitting
+  nextChance: 1, // chance to try one more building after each one, room permitting
+  // When some type that fits would still leave room for another building after it, the types that would
+  // not weigh this much (the others 1), so more blocks hold two buildings: about 36% of the building
+  // blocks instead of 16% with a uniform pick. A type is not repeated next to itself when another fits.
+  crowdWeight: 0.3,
   shadeMin: 0.9, // per-building roof tint for variety (grey level)
   startClearance: 480, // no building this close to the player start
   gateClearance: 260, // gate centres keep this far from walls
@@ -43995,6 +44007,32 @@ class SurvivalScene extends Phaser.Scene {
     return buildings;
   }
 
+  // One of the types that fit `room` x `innerHeight`, by `roll` in [0, 1): see crowdWeight. `previous` is
+  // the type placed just before in the row (null for the first), `slotsLeft` how many more may follow.
+  pickOpenWorldBuildingType(room, innerHeight, previous, slotsLeft, roll) {
+    const config = OPEN_WORLD_BUILDING_CONFIG;
+    let fits = config.types.filter((type) => type.width <= room && type.height <= innerHeight);
+    const others = fits.filter((type) => type !== previous);
+    if (others.length) {
+      fits = others;
+    }
+    if (!fits.length) {
+      return null;
+    }
+    const narrowest = Math.min(...config.types.filter((type) => type.height <= innerHeight).map((type) => type.width));
+    const leavesRoom = (type) => slotsLeft > 0 && room - type.width - config.gap >= narrowest;
+    const crowded = !fits.some(leavesRoom);
+    const weights = fits.map((type) => (crowded || leavesRoom(type) ? 1 : config.crowdWeight));
+    let value = roll * weights.reduce((sum, weight) => sum + weight, 0);
+    for (let index = 0; index < fits.length; index += 1) {
+      value -= weights[index];
+      if (value < 0) {
+        return fits[index];
+      }
+    }
+    return fits[fits.length - 1];
+  }
+
   // Types that fit the block interior, placed west to east while there is room (any mix of types),
   // against the south edge so the shop fronts face the street; the row is shifted by a seeded amount.
   layoutOpenWorldBlockBuildings(ix, iy) {
@@ -44008,11 +44046,15 @@ class SurvivalScene extends Phaser.Scene {
     let used = 0;
     while (row.length < config.maxPerBlock) {
       const room = innerWidth - used - (row.length ? config.gap : 0);
-      const fits = config.types.filter((type) => type.width <= room && type.height <= innerHeight);
-      if (!fits.length || (row.length && this.getOpenWorldHash(65, ix, iy, row.length) >= config.nextChance)) {
+      if (row.length && this.getOpenWorldHash(65, ix, iy, row.length) >= config.nextChance) {
         break;
       }
-      const type = fits[Math.min(fits.length - 1, Math.floor(this.getOpenWorldHash(61, ix, iy, row.length) * fits.length))];
+      const previous = row.length ? row[row.length - 1].type : null;
+      const type = this.pickOpenWorldBuildingType(room, innerHeight, previous, config.maxPerBlock - row.length - 1,
+        this.getOpenWorldHash(61, ix, iy, row.length));
+      if (!type) {
+        break;
+      }
       row.push({ type, offset: used + (row.length ? config.gap : 0) });
       used = row[row.length - 1].offset + type.width;
     }

@@ -54,7 +54,8 @@ TEXTURES = [
     {
         "id": "asphalt_02", "site": "polyhaven", "resolution": "1k",
         "maps": ["color", "displacement"],
-        "usedFor": ["ow-asphalt-a / -b, ow-parking (fine detail)", "ow-dash-*, ow-zebra-*, ow-edgeline-* (paint grain)"],
+        "usedFor": ["ow-asphalt-a / -b, ow-parking (fine detail)", "ow-dash-*, ow-zebra-*, ow-edgeline-* (paint grain)",
+                    "ow-bld-c01 (asphalt sheet under the flaking roof paint)"],
     },
     {
         "id": "concrete_pavers", "site": "polyhaven", "resolution": "1k",
@@ -69,32 +70,32 @@ TEXTURES = [
     {
         "id": "dirty_concrete", "site": "polyhaven", "resolution": "1k",
         "maps": ["color", "normal", "roughness"],
-        "usedFor": ["ow-bld-a01 (roof slab)"],
+        "usedFor": ["ow-bld-a01 (roof slab)", "ow-bld-b01..e01 (stair-house roofs, tone of the roof coatings)"],
     },
     {
         "id": "concrete_moss", "site": "polyhaven", "resolution": "1k",
         "maps": ["color"],
-        "usedFor": ["ow-bld-a01 (moss on roof and wall base)", "ow-sidewalk (moss in joints)", "ow-plaza (moss along joints)"],
+        "usedFor": ["ow-bld-a01..e01 (moss on roofs and wall bases)", "ow-sidewalk (moss in joints)", "ow-plaza (moss along joints)"],
     },
     {
         "id": "rusted_shutter", "site": "polyhaven", "resolution": "1k",
         "maps": ["color", "normal", "roughness"],
-        "usedFor": ["ow-bld-a01 (shop shutters)"],
+        "usedFor": ["ow-bld-a01..e01 (shop shutters)"],
     },
     {
         "id": "rusty_metal_02", "site": "polyhaven", "resolution": "1k",
         "maps": ["color", "normal", "roughness"],
-        "usedFor": ["ow-bld-a01 (outdoor AC units, tank stand, pipes)"],
+        "usedFor": ["ow-bld-a01..e01 (outdoor AC units, steel frames, pipes)", "ow-bld-c01 (rain shutters)"],
     },
     {
         "id": "Leaking003", "site": "ambientcg", "resolution": "1K-JPG",
         "maps": ["opacity"],
-        "usedFor": ["ow-bld-a01 (rain streaks under windows)"],
+        "usedFor": ["ow-bld-a01..e01 (rain streaks under windows)"],
     },
     {
         "id": "Leaking008", "site": "ambientcg", "resolution": "1K-JPG",
         "maps": ["opacity"],
-        "usedFor": ["ow-bld-a01 (splash grime at the wall base)"],
+        "usedFor": ["ow-bld-a01..e01 (splash grime at the wall base)"],
     },
     # 6.10 step 5: the remaining ground tiles, markings and props.
     {
@@ -105,7 +106,7 @@ TEXTURES = [
     {
         "id": "withered_grass", "site": "polyhaven", "resolution": "1k",
         "maps": ["color"],
-        "usedFor": ["ow-park (dry grass)", "ow-lot / ow-parking (weeds)"],
+        "usedFor": ["ow-park (dry grass)", "ow-lot / ow-parking (weeds)", "ow-bld-c01 (weeds in the roof planters)"],
     },
     {
         "id": "dry_decay_leaves", "site": "polyhaven", "resolution": "1k",
@@ -115,7 +116,7 @@ TEXTURES = [
     {
         "id": "brown_mud_leaves_01", "site": "polyhaven", "resolution": "1k",
         "maps": ["color"],
-        "usedFor": ["ow-park (bare soil)", "ow-plaza (missing slabs)", "ow-lot (soil)", "ow-prop-crack-c (slopes)"],
+        "usedFor": ["ow-park (bare soil)", "ow-plaza (missing slabs)", "ow-lot (soil)", "ow-prop-crack-c (slopes)", "ow-bld-c01 (planter soil)"],
     },
     {
         "id": "concrete_floor_01", "site": "polyhaven", "resolution": "1k",
@@ -155,7 +156,7 @@ TEXTURES = [
     {
         "id": "bark_brown_01", "site": "polyhaven", "resolution": "1k",
         "maps": ["color"],
-        "usedFor": ["ow-prop-tree-* (branches)"],
+        "usedFor": ["ow-prop-tree-* (branches)", "ow-bld-c01 (dead tree in a pot)"],
     },
     {
         "id": "rust_coarse_01", "site": "polyhaven", "resolution": "1k",
@@ -165,12 +166,58 @@ TEXTURES = [
     {
         "id": "LeafSet014", "site": "ambientcg", "resolution": "1K-JPG",
         "maps": ["color", "opacity"],
-        "usedFor": ["ow-prop-tree-a (green canopy)", "ow-prop-puddle-* (floating leaves, hue-shifted to autumn)"],
+        "usedFor": ["ow-prop-tree-a (green canopy)", "ow-prop-puddle-* (floating leaves, hue-shifted to autumn)", "ow-bld-c01 (weeds)"],
     },
     {
         "id": "LeafSet007", "site": "ambientcg", "resolution": "1K-JPG",
         "maps": ["color", "opacity"],
-        "usedFor": ["ow-prop-tree-b / -c (autumn and withered leaves)"],
+        "usedFor": ["ow-prop-tree-b / -c (autumn and withered leaves)", "ow-bld-c01 (dry weeds, dead tree)"],
+    },
+    # WORLD_DESIGN.md 8 "建物の種類を増やすとき": ow-bld-b01 / c01 / d01 / e01.
+    {
+        "id": "painted_concrete", "site": "polyhaven", "resolution": "1k",
+        "maps": ["color", "normal", "roughness"],
+        "usedFor": ["ow-bld-b01 (green waterproof coating on the roof, peeling)"],
+    },
+    {
+        "id": "square_tiled_wall", "site": "polyhaven", "resolution": "1k",
+        "maps": ["color", "normal", "roughness"],
+        "usedFor": ["ow-bld-b01 (tiled walls)"],
+    },
+    {
+        "id": "white_plaster_rough_01", "site": "polyhaven", "resolution": "1k",
+        "maps": ["color", "normal", "roughness"],
+        "usedFor": ["ow-bld-c01 (mortar walls)"],
+    },
+    {
+        "id": "weathered_planks", "site": "polyhaven", "resolution": "1k",
+        "maps": ["color", "normal", "roughness"],
+        "usedFor": ["ow-bld-c01 (rooftop deck)"],
+    },
+    {
+        "id": "box_profile_metal_sheet", "site": "polyhaven", "resolution": "1k",
+        "maps": ["color", "normal", "roughness"],
+        "usedFor": ["ow-bld-c01 (shed roof)"],
+    },
+    {
+        "id": "corrugated_iron", "site": "polyhaven", "resolution": "1k",
+        "maps": ["color", "normal", "roughness"],
+        "usedFor": ["ow-bld-c01 (stair-house roof)"],
+    },
+    {
+        "id": "rectangular_facade_tiles", "site": "polyhaven", "resolution": "1k",
+        "maps": ["color", "normal", "roughness"],
+        "usedFor": ["ow-bld-d01 (tiled spandrels)"],
+    },
+    {
+        "id": "rectangular_facade_tiles_02", "site": "polyhaven", "resolution": "1k",
+        "maps": ["color", "normal", "roughness"],
+        "usedFor": ["ow-bld-e01 (tiled walls)"],
+    },
+    {
+        "id": "metal_grate_rusty", "site": "polyhaven", "resolution": "1k",
+        "maps": ["color", "normal", "roughness"],
+        "usedFor": ["ow-bld-b01 / d01 (checker-plate walkways, the plant-yard deck)"],
     },
 ]
 

@@ -1,5 +1,5 @@
 manifest: tools\blender\openworld\preview\build-manifest.json  (Blender 5.2.2 LTS)
-  ok    42 unique keys
+  ok    46 unique keys
   ok    ow-asphalt-a: ground/ow-asphalt-a.jpg 1024x1024
   ok    ow-asphalt-a: mean sRGB luma 0.368
   ok    ow-asphalt-a: seamless (edge/inner step ratio x 1.19, y 1.14)
@@ -15,6 +15,34 @@ manifest: tools\blender\openworld\preview\build-manifest.json  (Blender 5.2.2 LT
   ok    ow-bld-a01: roof mean sRGB luma 0.446 (target 0.4-0.5)
   ok    ow-bld-a01: buildings/ow-bld-a01-roof_emit.png 768x1024
   ok    ow-bld-a01: buildings/ow-bld-a01-south_emit.png 768x384
+  ok    ow-bld-b01: buildings/ow-bld-b01-roof.png 768x768
+  ok    ow-bld-b01: buildings/ow-bld-b01-south.png 768x320
+  ok    ow-bld-b01: south facade mean sRGB luma 0.371 (target 0.36-0.38)
+  ok    ow-bld-b01: shop band (bottom 64 px) luma 0.312 (min 0.3)
+  ok    ow-bld-b01: roof mean sRGB luma 0.447 (target 0.4-0.5)
+  ok    ow-bld-b01: buildings/ow-bld-b01-roof_emit.png 768x768
+  ok    ow-bld-b01: buildings/ow-bld-b01-south_emit.png 768x320
+  ok    ow-bld-c01: buildings/ow-bld-c01-roof.png 512x640
+  ok    ow-bld-c01: buildings/ow-bld-c01-south.png 512x192
+  ok    ow-bld-c01: south facade mean sRGB luma 0.370 (target 0.36-0.38)
+  ok    ow-bld-c01: shop band (bottom 64 px) luma 0.367 (min 0.3)
+  ok    ow-bld-c01: roof mean sRGB luma 0.453 (target 0.4-0.5)
+  ok    ow-bld-c01: buildings/ow-bld-c01-roof_emit.png 512x640
+  ok    ow-bld-c01: buildings/ow-bld-c01-south_emit.png 512x192
+  ok    ow-bld-d01: buildings/ow-bld-d01-roof.png 1024x768
+  ok    ow-bld-d01: buildings/ow-bld-d01-south.png 1024x512
+  ok    ow-bld-d01: south facade mean sRGB luma 0.370 (target 0.36-0.38)
+  ok    ow-bld-d01: shop band (bottom 64 px) luma 0.391 (min 0.3)
+  ok    ow-bld-d01: roof mean sRGB luma 0.453 (target 0.4-0.5)
+  ok    ow-bld-d01: buildings/ow-bld-d01-roof_emit.png 1024x768
+  ok    ow-bld-d01: buildings/ow-bld-d01-south_emit.png 1024x512
+  ok    ow-bld-e01: buildings/ow-bld-e01-roof.png 512x1024
+  ok    ow-bld-e01: buildings/ow-bld-e01-south.png 512x768
+  ok    ow-bld-e01: south facade mean sRGB luma 0.371 (target 0.36-0.38)
+  ok    ow-bld-e01: shop band (bottom 64 px) luma 0.387 (min 0.3)
+  ok    ow-bld-e01: roof mean sRGB luma 0.452 (target 0.4-0.5)
+  ok    ow-bld-e01: buildings/ow-bld-e01-roof_emit.png 512x1024
+  ok    ow-bld-e01: buildings/ow-bld-e01-south_emit.png 512x768
   ok    ow-curb-h: ground/ow-curb-h.jpg 1024x16
   ok    ow-curb-h: seamless (edge/inner step ratio x 2.77 (pattern edge))
   ok    ow-curb-v: ground/ow-curb-v.jpg 16x1024
@@ -161,6 +189,22 @@ files:
   buildings/ow-bld-a01-south.png               768x384      361.9 KB
   buildings/ow-bld-a01-roof_emit.png           768x1024      82.6 KB
   buildings/ow-bld-a01-south_emit.png          768x384       84.6 KB
+  buildings/ow-bld-b01-roof.png                768x768      912.5 KB
+  buildings/ow-bld-b01-south.png               768x320      324.1 KB
+  buildings/ow-bld-b01-roof_emit.png           768x768       65.0 KB
+  buildings/ow-bld-b01-south_emit.png          768x320       78.5 KB
+  buildings/ow-bld-c01-roof.png                512x640      369.2 KB
+  buildings/ow-bld-c01-south.png               512x192      132.6 KB
+  buildings/ow-bld-c01-roof_emit.png           512x640       34.9 KB
+  buildings/ow-bld-c01-south_emit.png          512x192       29.6 KB
+  buildings/ow-bld-d01-roof.png               1024x768      806.6 KB
+  buildings/ow-bld-d01-south.png              1024x512      588.4 KB
+  buildings/ow-bld-d01-roof_emit.png          1024x768       80.4 KB
+  buildings/ow-bld-d01-south_emit.png         1024x512      141.4 KB
+  buildings/ow-bld-e01-roof.png                512x1024     513.4 KB
+  buildings/ow-bld-e01-south.png               512x768      527.2 KB
+  buildings/ow-bld-e01-roof_emit.png           512x1024      58.0 KB
+  buildings/ow-bld-e01-south_emit.png          512x768       92.7 KB
   ground/ow-curb-h.jpg                        1024x16         3.5 KB
   ground/ow-curb-v.jpg                          16x1024       3.4 KB
   markings/ow-dash-h.png                      1920x16        18.8 KB
@@ -205,7 +249,7 @@ files:
   markings/ow-zebra-v.png                      704x150      105.2 KB
 
   ok    ground total 3.24 MB (budget 15 MB)
-  ok    buildings total 1.48 MB (budget 20 MB)
-  ok    GPU memory estimate 40.2 MB (budget 96 MB)
+  ok    buildings total 6.12 MB (budget 20 MB)
+  ok    GPU memory estimate 66.9 MB (budget 96 MB)
 
 RESULT: OK

@@ -46,6 +46,122 @@
       "hash": "63fea1ddd3e6"
     },
     {
+      "key": "ow-bld-b01",
+      "type": "building",
+      "footprint": [
+        768,
+        768
+      ],
+      "floors": 5,
+      "roof": "buildings/ow-bld-b01-roof.png",
+      "roofEmit": "buildings/ow-bld-b01-roof_emit.png",
+      "south": "buildings/ow-bld-b01-south.png",
+      "southEmit": "buildings/ow-bld-b01-south_emit.png",
+      "southSize": [
+        768,
+        320
+      ],
+      "facadeFill": {
+        "strength": 0.819,
+        "southLumaBefore": 0.313,
+        "southLuma": 0.37,
+        "shopBandLumaBefore": 0.253,
+        "shopBandLuma": 0.311
+      },
+      "roofGain": {
+        "gain": 1.699,
+        "previewLuma": 0.448
+      },
+      "hash": "13ca2c98d884"
+    },
+    {
+      "key": "ow-bld-c01",
+      "type": "building",
+      "footprint": [
+        512,
+        640
+      ],
+      "floors": 3,
+      "roof": "buildings/ow-bld-c01-roof.png",
+      "roofEmit": "buildings/ow-bld-c01-roof_emit.png",
+      "south": "buildings/ow-bld-c01-south.png",
+      "southEmit": "buildings/ow-bld-c01-south_emit.png",
+      "southSize": [
+        512,
+        192
+      ],
+      "facadeFill": {
+        "strength": 1.076,
+        "southLumaBefore": 0.293,
+        "southLuma": 0.37,
+        "shopBandLumaBefore": 0.278,
+        "shopBandLuma": 0.366
+      },
+      "roofGain": {
+        "gain": 0.541,
+        "previewLuma": 0.454
+      },
+      "hash": "deef3b9c02ce"
+    },
+    {
+      "key": "ow-bld-d01",
+      "type": "building",
+      "footprint": [
+        1024,
+        768
+      ],
+      "floors": 8,
+      "roof": "buildings/ow-bld-d01-roof.png",
+      "roofEmit": "buildings/ow-bld-d01-roof_emit.png",
+      "south": "buildings/ow-bld-d01-south.png",
+      "southEmit": "buildings/ow-bld-d01-south_emit.png",
+      "southSize": [
+        1024,
+        512
+      ],
+      "facadeFill": {
+        "strength": 1.901,
+        "southLumaBefore": 0.282,
+        "southLuma": 0.37,
+        "shopBandLumaBefore": 0.273,
+        "shopBandLuma": 0.391
+      },
+      "roofGain": {
+        "gain": 0.39,
+        "previewLuma": 0.455
+      },
+      "hash": "a95049438dae"
+    },
+    {
+      "key": "ow-bld-e01",
+      "type": "building",
+      "footprint": [
+        512,
+        1024
+      ],
+      "floors": 12,
+      "roof": "buildings/ow-bld-e01-roof.png",
+      "roofEmit": "buildings/ow-bld-e01-roof_emit.png",
+      "south": "buildings/ow-bld-e01-south.png",
+      "southEmit": "buildings/ow-bld-e01-south_emit.png",
+      "southSize": [
+        512,
+        768
+      ],
+      "facadeFill": {
+        "strength": 1.238,
+        "southLumaBefore": 0.302,
+        "southLuma": 0.37,
+        "shopBandLumaBefore": 0.297,
+        "shopBandLuma": 0.386
+      },
+      "roofGain": {
+        "gain": 0.391,
+        "previewLuma": 0.453
+      },
+      "hash": "fcb759ac18ec"
+    },
+    {
       "key": "ow-curb-h",
       "type": "tile",
       "file": "ground/ow-curb-h.jpg",
