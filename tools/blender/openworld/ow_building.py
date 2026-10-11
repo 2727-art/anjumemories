@@ -1,4 +1,5 @@
-"""Buildings (WORLD_DESIGN.md 6.6 D). Pilot: one L-size mixed-use building, ow-bld-a01.
+"""Buildings (WORLD_DESIGN.md 6.6 D). Pilot: one L-size mixed-use building, ow-bld-a01. The other types
+(ow-bld-b01..e01) are in ow_building_types.py, which builds on this Builder and render_building().
 
 Per building this renders:
 - <key>-roof.png / -roof_emit.png: top-down ortho over the footprint (1 px = 1 game px).
@@ -64,13 +65,17 @@ COLORS = {
 # Materials
 
 
-def wall_material(name, tint, sill0, floor_h, ivy=True):
+def wall_material(name, tint, sill0, floor_h, ivy=True, tex_id="concrete_layers_02", tex_size=2.0, saturation=0.45,
+                  ivy_x=2.4, ground_floor_m=None):
+    """Weathered wall: `tex_id` (concrete_layers_02 is 2 m) with grime, rain streaks under the sills,
+    splash at the base and, optionally, ivy climbing from x = `ivy_x`."""
+    ground_floor_m = GROUND_FLOOR_M if ground_floor_m is None else ground_floor_m
     material, nb = ow.new_material(name)
     uv = nb.uv()
     pos = nb.position()
     x, _, z = nb.separate(pos)
-    tex_vec = nb.vscale(uv, 1.0 / 2.0)  # concrete_layers_02 is 2 m
-    color = nb.mix(1.0, nb.hsv(nb.tex("concrete_layers_02", "color", tex_vec), saturation=0.45), tint, blend="MULTIPLY")
+    tex_vec = nb.vscale(uv, 1.0 / tex_size)
+    color = nb.mix(1.0, nb.hsv(nb.tex(tex_id, "color", tex_vec), saturation=saturation), tint, blend="MULTIPLY")
 
     grime = nb.noise(pos, scale=0.22, detail=5.0, roughness=0.6).outputs["Fac"]
     color = nb.mix(nb.map_range(grime, 0.62, 0.32, 0.0, 0.55, smooth=True), color, (0.45, 0.43, 0.40), blend="MULTIPLY")
@@ -83,7 +88,7 @@ def wall_material(name, tint, sill0, floor_h, ivy=True):
     nb.set(jitter, "W", row)
     u = nb.add(nb.math("DIVIDE", x, BAY_M * 1.25), nb.mul(_output_value(jitter), 7.3))
     leak = nb.luma(nb.image(ow.tex_file("Leaking003", "opacity"), nb.combine(u, v, 0.0), non_color=True).outputs["Color"])
-    leak = nb.mul(leak, nb.math("GREATER_THAN", z, GROUND_FLOOR_M - 0.3))
+    leak = nb.mul(leak, nb.math("GREATER_THAN", z, ground_floor_m - 0.3))
     color = nb.mix(nb.mul(leak, 0.85), color, (0.20, 0.18, 0.16), blend="MULTIPLY")
 
     # Splash grime and damp at the wall base.
@@ -92,12 +97,12 @@ def wall_material(name, tint, sill0, floor_h, ivy=True):
     splash = nb.mul(splash, nb.math("LESS_THAN", z, 2.4))
     color = nb.mix(nb.mul(splash, 0.8), color, (0.30, 0.30, 0.24), blend="MULTIPLY")
 
-    rough = nb.tex("concrete_layers_02", "roughness", tex_vec)
-    normal = nb.normal_map(nb.tex("concrete_layers_02", "normal", tex_vec), 0.8)
+    rough = nb.tex(tex_id, "roughness", tex_vec)
+    normal = nb.normal_map(nb.tex(tex_id, "normal", tex_vec), 0.8)
 
     if ivy:
         # Ivy climbing from the west end of the shop front.
-        reach = nb.add(nb.sub(10.5, nb.mul(nb.math("ABSOLUTE", nb.sub(x, 2.4)), 1.7)),
+        reach = nb.add(nb.sub(10.5, nb.mul(nb.math("ABSOLUTE", nb.sub(x, ivy_x)), 1.7)),
                        nb.mul(nb.sub(nb.noise(nb.combine(nb.mul(x, 0.9), 0.0, 0.0), scale=1.0, detail=2.0).outputs["Fac"], 0.5), 5.0))
         height_ok = nb.map_range(z, reach, nb.sub(reach, 1.6), 0.0, 1.0)
         leaves = nb.voronoi(pos, scale=16.0, feature="F1")
@@ -350,6 +355,7 @@ class Builder:
         self.W = fw * ow.M_PER_PX
         self.D = fd * ow.M_PER_PX
         self.floors = spec["floors"]
+        self.ground_floor_m = GROUND_FLOOR_M
         self.H = self.floors * ow.FLOOR_HEIGHT_M  # facade image height (k = 0.5 -> floors x 64 px)
         self.roof_z = self.H - PARAPET_M
         upper = (self.roof_z - GROUND_FLOOR_M) / (self.floors - 1)
@@ -751,6 +757,14 @@ def build(key, out_root, samples_scale=1.0):
     builder.wall_units()
     builder.roof()
     builder.ground()
+    return render_building(scene, key, spec, builder, out_root, samples_scale)
+
+
+def render_building(scene, key, spec, builder, out_root, samples_scale=1.0, roof_gains=None, roof_target=None):
+    """Render the four images of a built scene and return its manifest entry.
+
+    `roof_gains` (Value nodes scaling the roof surface albedo) are tuned so the roof image's mean sRGB
+    luma hits `roof_target`; the light rig itself never changes (6.5)."""
     ow.setup_world(scene)
     ow.add_sun(scene)
     samples = max(16, int(256 * samples_scale))
@@ -775,18 +789,42 @@ def build(key, out_root, samples_scale=1.0):
     fill.hide_render = True
     ow.setup_render(scene, fw, fd, samples=samples)
     ow.add_ortho_camera_top(scene, 0.0, 0.0, builder.W, builder.D)
+    roof_stats = None
+    if roof_gains:
+        roof_stats = calibrate_roof(scene, roof_gains, roof_target, key)
     files["roof"] = f"buildings/{key}-roof.png"
     files["roofEmit"] = f"buildings/{key}-roof_emit.png"
     ow.render_still(scene, os.path.join(out_root, files["roof"]), "PNG")
     builder.emit.render(scene, os.path.join(out_root, files["roofEmit"]))
 
-    return [{
+    entry = {
         "key": key, "type": "building", "footprint": [fw, fd], "floors": spec["floors"],
         "roof": files["roof"], "roofEmit": files["roofEmit"],
         "south": files["south"], "southEmit": files["southEmit"],
         "southSize": [fw, facade_h_px],
         "facadeFill": fill_stats,
-    }]
+    }
+    if roof_stats:
+        entry["roofGain"] = roof_stats
+    return [entry]
+
+
+def calibrate_roof(scene, gains, target, key):
+    """Scale the roof surface albedo (every node in `gains` together) until the roof frame's mean sRGB
+    luma is `target`. Quick low-resolution renders; the light rig is untouched."""
+    gain = gains[0].outputs[0].default_value
+    measured = None
+    for attempt in range(6):
+        measured = ow.measure_mean_luma(scene, preview_px=256, samples=32)
+        if abs(measured - target) < 0.004 or attempt == 5:
+            break  # `measured` is always the luma at the final gain
+        ratio = float(ow.srgb_to_linear(target) / max(1e-4, ow.srgb_to_linear(measured)))
+        gain = float(min(4.0, max(0.05, gain * ratio)))
+        for node in gains:
+            node.outputs[0].default_value = gain
+    stats = {"gain": round(gain, 3), "previewLuma": round(measured, 3)}
+    print(f"[roof gain] {key}: {stats}")
+    return stats
 
 
 def exclude_upper_rooms_from_fill(scene, builder, fill):
@@ -804,7 +842,7 @@ def exclude_upper_rooms_from_fill(scene, builder, fill):
         if obj.data.materials[0].name not in interior:
             continue
         lowest = min(v.co.z for v in obj.data.vertices)
-        if obj.name == "room_back" or lowest >= GROUND_FLOOR_M - 0.25:
+        if obj.name == "room_back" or lowest >= builder.ground_floor_m - 0.25:
             collection.objects.link(obj)
     fill.light_linking.receiver_collection = collection
     for item in collection.collection_objects:

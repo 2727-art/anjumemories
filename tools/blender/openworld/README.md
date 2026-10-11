@@ -1,7 +1,7 @@
 # Open World Asset Pipeline (Blender)
 
 `WORLD_DESIGN.md` 6 章「素材パイプライン仕様」の実装です。広域マップ（`?debugOpenWorld=1`）の街の素材を、CC0 テクスチャと Blender で描き出します。
-パイロット（6.10 手順 1〜4）と手順 5（A〜C の残り、建物の南面の描き直し）は、どちらも承認済みです（2026-10-10）。`画像/openworld/manifest.json` には 42 点すべてを `publish_manifest.py` で載せています。ゲームが使うのは建物を除く 41 点で、建物は Phase 1b で置きます（WORLD_DESIGN.md 6.10、7 章）。
+パイロット（6.10 手順 1〜4）と手順 5（A〜C の残り、建物の南面の描き直し）は、どちらも承認済みです（2026-10-10）。建物は 2026-10-11 に 4 種類（`ow-bld-b01`〜`e01`）を足して 5 種類になりました（WORLD_DESIGN.md 8 章「建物の種類を増やすとき」）。`画像/openworld/manifest.json` には 46 点すべてを `publish_manifest.py` で載せていて、ゲームはすべて使います（建物は Phase 1b から、WORLD_DESIGN.md 7・8 章）。
 
 ## 使った環境
 
@@ -21,7 +21,7 @@
 python tools/blender/openworld/fetch_textures.py
 python tools/blender/openworld/fetch_textures.py --verify   # 取得済みファイルの照合だけ
 
-# 2. 素材を描き出す（--set all は 42 点で約 1 分。--set pilot はパイロットの 7 点、
+# 2. 素材を描き出す（--set all は 46 点で約 2 分。--set pilot はパイロットの 7 点、--set buildings は建物 5 種、
 #    --only ow-bld-a01,ow-park のように一部だけも可）。一覧は preview/build-manifest.json に書く
 & "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" --background --factory-startup `
     --python tools/blender/openworld/build_all.py -- --set all --out 画像/openworld
@@ -35,9 +35,11 @@ python -m http.server 4173 --bind 127.0.0.1
 node tools/blender/openworld/capture_game.cjs
 
 # 5. 画風の確認用合成画像を作る（パイロットは preview/pilot-mock.png、
-#    手順 5 は preview/step5-mock-night.jpg / -neutral.jpg / step5-assets.jpg）
+#    手順 5 は preview/step5-mock-night.jpg / -neutral.jpg / step5-assets.jpg、
+#    建物の種類は preview/buildings-roofs.jpg / buildings-block-night.jpg / -neutral.jpg）
 python tools/blender/openworld/make_pilot_mock.py
 python tools/blender/openworld/make_step5_preview.py
+python tools/blender/openworld/make_buildings_preview.py
 
 # 6. 承認済みの素材を 画像/openworld/manifest.json に書き出し（hash 付き）、検証する
 #    （承認前の素材があるときは --exclude <key> で外す）
@@ -57,17 +59,19 @@ python tools/blender/openworld/verify_assets.py --manifest 画像/openworld/mani
 | --- | --- |
 | `fetch_textures.py` | Poly Haven / ambientCG から CC0 テクスチャを取得し、`sources.json` を書く。取得済み（チェックサム一致）のものは再取得しない。API に届かないときも、取得済みのファイルが前回の記録と一致すれば、その記録をそのまま使う |
 | `sources.json` | 取得した素材の出典・ライセンス・URL・取得日時・解像度・使ったマップ・チェックサム |
-| `build_all.py` | Blender の入口。素材を描き出し、描き出した一覧を `preview/build-manifest.json` に書く（`--set all` / `pilot`、`--only`） |
+| `build_all.py` | Blender の入口。素材を描き出し、描き出した一覧を `preview/build-manifest.json` に書く（`--set all` / `pilot` / `buildings`、`--only`） |
 | `ow_common.py` | 共通：縮尺（1 m = 40 px）、カメラ、光、色管理、メッシュ、シェーダーの組み立て、継ぎ目なしノイズ、発光レイヤー、EXR の読み込み、PNG の書き出し |
 | `ow_ground.py` | 地面タイル（`ow-asphalt-a` / `-b`、`ow-sidewalk`、`ow-plaza`、`ow-parking`、`ow-park`、`ow-lot`）、縁石（`ow-curb-h` / `-v`）、汚れ（`ow-grit`） |
 | `ow_markings.py` | 路面標示（`ow-dash-v` / `-h`、`ow-zebra-v` / `-h`、`ow-edgeline-v` / `-h`） |
 | `ow_props.py` | 小物 25 種（6.6 C）。水たまりの水面マスク |
-| `ow_building.py` | 建物（`ow-bld-a01`：roof / south / 各 emit）。南面の補助光の調整 |
+| `ow_building.py` | 建物（`ow-bld-a01`：roof / south / 各 emit）。南面の補助光の調整、4 枚の描き出し（`render_building`）、屋上の明るさ合わせ（`calibrate_roof`） |
+| `ow_building_types.py` | 建物 b01〜e01。大きさ・階数・外壁・窓・1 階の店と看板・屋上の設備と防水を種類ごとに書く（`TYPES`、`facade_<style>`、`roof_<style>`） |
 | `verify_assets.py` | 6.9 の検証（manifest に `hash` があればその一致も） |
 | `publish_manifest.py` | 承認済みの素材を `画像/openworld/manifest.json` に書き出し、`hash` を付ける（標準ライブラリだけ） |
 | `capture_game.cjs` | 現在のゲーム画面（広域マップ 1a、東京ステージ）を 1280x720 で撮る |
 | `make_pilot_mock.py` | パイロットの画風の確認用合成画像 |
 | `make_step5_preview.py` | 手順 5 の確認用画像。新しいタイル・縁石・小物と描き直した建物を、ゲームの夜の光の式（環境光・光だまり・水たまりの照り返し）で並べる |
+| `make_buildings_preview.py` | 建物の種類の確認用画像。5 種類の屋上・夜の屋上・南面・south_emit・通りの光（ゲームの `getOpenWorldBuildingNeon` と同じ計算）を並べたものと、ゲームの配置と夜の光で組んだ 4 街区 |
 | `preview/` | 合成画像、2x2 の並べ画像、撮影した現在の画面、`build-manifest.json` と検証結果 |
 
 ## パイロットの素材
@@ -114,6 +118,22 @@ python tools/blender/openworld/verify_assets.py --manifest 画像/openworld/mani
 - 北西の主光は南面に当たらないため、南面だけを照らす補助光を足した（`ow_building.FACADE_FILL`：方位 180°、高さ 20°、角度 45°）。
 - 補助光はライトリンクで、窓ガラスと 2 階以上の室内・床には当てない（窓が灰色に浮かないように）。屋上を描くときは消す。
 - 強さは、補助光なしと強さ 1 の描画を EXR で読み、南面の平均輝度が 0.37 になるよう二分法で決める（結果 1.005）。結果は南面 0.370、店舗帯 0.310、屋上 0.446。値は build-manifest の `facadeFill` に残る。
+
+## 建物の種類（ow_building_types.py）
+
+| キー | 敷地 / 階数 | 外壁と 1 階 | 屋上 |
+| --- | --- | --- | --- |
+| `ow-bld-b01` | 768×768 / 5 | タイル（square_tiled_wall）。ラーメン屋、上の階の入口、半分開いたシャッターのスナック、縦の看板（BAR・スナック・居酒屋・麻雀） | 剥がれた緑の防水塗装（painted_concrete）。南西の L 字の看板の鉄骨と通路、塔屋と機械室、横置きのステンレス水槽、室外機の架台、ケース・ドラム缶・ブルーシート、パラボラ |
+| `ow-bld-c01` | 512×640 / 3 | モルタル（white_plaster_rough_01）。酒・たばこ屋（赤い看板、たばこの看板、自販機 2 台）、住宅の玄関、雨戸 | 銀色の塗装が剥げたアスファルトシート。ウッドデッキ（weathered_planks）、雑草の生えたプランター、倒れたパーゴラと電球、鉢植えの枯れ木、物干しと洗濯物、赤い屋根の物置（box_profile_metal_sheet）、波板屋根の階段室、青い水槽、パラボラ |
+| `ow-bld-d01` | 1024×768 / 8 | タイル（rectangular_facade_tiles）の横長の窓。ゲームセンター（クレーンゲーム）、オフィスの入口、ドラッグストア、2 階の「カラオケ」の文字 | 薄い灰色の防水シート（2 m 幅、継ぎ目、補修）。冷却塔 2 基、柵の中の室外機（縞鋼板の床）、ダクト、割れたり欠けたりした太陽光パネル 4 列、手すり |
+| `ow-bld-e01` | 512×1024 / 12 | タイル（rectangular_facade_tiles_02）。ひさしのあるホテルの入口、バー、縦の「HOTEL」の看板（T だけ消えている） | 濃い灰色の防水塗装に緊急用ヘリポートの「H」と周りの灯、ゴンドラのレールと黄色い台車、機械室と FRP 水槽、鉄塔と赤い航空障害灯、吹き流し、土のうと担架 |
+
+作り方の要点:
+
+- 光は a01 と同じです。南面の補助光の強さは棟ごとに求めます（6.5）。
+- 屋上の平均輝度は 0.45 にそろえます。防水の材質に明るさの係数（Value ノード `roof_gain`）を入れ、屋上を低い解像度で描いて測りながら、係数を合わせます（`ow_building.calibrate_roof`）。光は変えません。係数は build-manifest の `roofGain` に残ります。
+- 南面の south_emit から、ゲームは通りの光を作ります（WORLD_DESIGN.md 8 章）。細いネオン文字だけでは光る面積が足りないので、文字の後ろの板を同じ色で弱く光らせます（`fascia_sign(..., halo=...)`）。照明の付いた店内は弱めにして、看板の色に寄せます。
+- 最上階の部屋の仕切りの上端は、屋上スラブの下に収めます（同じ高さだと屋上の面に出てしまうため）。
 
 ### `ow-bld-a01` の内容
 

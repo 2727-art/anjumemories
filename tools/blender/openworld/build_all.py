@@ -6,7 +6,7 @@ Run with Blender (background mode):
 
 Options after "--":
     --out DIR        output root (default: 画像/openworld)
-    --set pilot|all  asset set to build: the 6.10 pilot, or every asset of 6.6 A-D (default: all)
+    --set pilot|all|buildings  asset set: the 6.10 pilot, every asset of 6.6 A-D (default), or the buildings only
     --only K1,K2     build only these keys of the set (e.g. ow-asphalt-a,ow-bld-a01)
     --quick          low sample counts for layout checks (do not ship these images)
 
@@ -29,6 +29,7 @@ import bpy  # noqa: E402
 import ow_building  # noqa: E402
 import ow_common as ow  # noqa: E402
 import ow_ground  # noqa: E402
+import ow_building_types  # noqa: E402
 import ow_markings  # noqa: E402
 import ow_props  # noqa: E402
 
@@ -45,8 +46,10 @@ PILOT_KEYS = [
 ALL_KEYS = PILOT_KEYS[:-1] + [
     "ow-park", "ow-plaza", "ow-parking", "ow-lot", "ow-asphalt-b",
     "ow-curb-h", "ow-curb-v", "ow-edgeline-v", "ow-edgeline-h", "ow-grit",
-] + ow_props.keys() + ["ow-bld-a01"]
-SETS = {"pilot": PILOT_KEYS, "all": ALL_KEYS}
+] + ow_props.keys() + ["ow-bld-a01"] + ow_building_types.keys()
+# Buildings only (WORLD_DESIGN.md 8 "建物の種類を増やすとき").
+BUILDING_KEYS = ["ow-bld-a01"] + ow_building_types.keys()
+SETS = {"pilot": PILOT_KEYS, "all": ALL_KEYS, "buildings": BUILDING_KEYS}
 
 
 def builder_for(key):
@@ -56,6 +59,8 @@ def builder_for(key):
         return ow_markings.build
     if key in ow_building.BUILDINGS:
         return ow_building.build
+    if key in ow_building_types.TYPES:
+        return ow_building_types.build
     if key in ow_props.keys():
         return ow_props.build
     raise KeyError(key)

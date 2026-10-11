@@ -30,6 +30,15 @@ CC0 のためクレジット表記は義務ではありませんが、制作者�
 | [Rust Coarse 01](https://polyhaven.com/a/rust_coarse_01) | Poly Haven | Dimitrios Savva, Rico Cilliers | CC0 | 焼けた放置車両、バリケードの脚、鉄筋 |
 | [Leaf Set 014](https://ambientcg.com/view?id=LeafSet014) | ambientCG | ambientCG | CC0 | 街路樹の葉（緑） |
 | [Leaf Set 007](https://ambientcg.com/view?id=LeafSet007) | ambientCG | ambientCG | CC0 | 街路樹の葉（黄葉・枯れ葉） |
+| [Painted Concrete](https://polyhaven.com/a/painted_concrete) | Poly Haven | Dario Barresi, Dimitrios Savva | CC0 | 建物 b01 の屋上の緑の防水塗装 |
+| [Square Tiled Wall](https://polyhaven.com/a/square_tiled_wall) | Poly Haven | Charlotte Baglioni | CC0 | 建物 b01 のタイルの外壁 |
+| [White Plaster Rough 01](https://polyhaven.com/a/white_plaster_rough_01) | Poly Haven | Rob Tuytel | CC0 | 建物 c01 のモルタルの外壁 |
+| [Weathered Planks](https://polyhaven.com/a/weathered_planks) | Poly Haven | Dario Barresi, Dimitrios Savva | CC0 | 建物 c01 の屋上のウッドデッキ |
+| [Box Profile Metal Sheet](https://polyhaven.com/a/box_profile_metal_sheet) | Poly Haven | Amal Kumar | CC0 | 建物 c01 の物置の屋根 |
+| [Corrugated Iron](https://polyhaven.com/a/corrugated_iron) | Poly Haven | Jenelle van Heerden, Dimitrios Savva | CC0 | 建物 c01 の階段室の屋根 |
+| [Rectangular Facade Tiles](https://polyhaven.com/a/rectangular_facade_tiles) | Poly Haven | Charlotte Baglioni | CC0 | 建物 d01 のタイルの外壁 |
+| [Rectangular Facade Tiles 02](https://polyhaven.com/a/rectangular_facade_tiles_02) | Poly Haven | Charlotte Baglioni | CC0 | 建物 e01 のタイルの外壁 |
+| [Metal Grate Rusty](https://polyhaven.com/a/metal_grate_rusty) | Poly Haven | Rob Tuytel, Dimitrios Savva | CC0 | 建物 b01・d01 の縞鋼板の通路と架台 |
 
 - Poly Haven: https://polyhaven.com/license
 - ambientCG: https://docs.ambientcg.com/license/

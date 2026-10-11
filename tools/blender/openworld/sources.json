@@ -87,7 +87,8 @@
       },
       "usedFor": [
         "ow-asphalt-a / -b, ow-parking (fine detail)",
-        "ow-dash-*, ow-zebra-*, ow-edgeline-* (paint grain)"
+        "ow-dash-*, ow-zebra-*, ow-edgeline-* (paint grain)",
+        "ow-bld-c01 (asphalt sheet under the flaking roof paint)"
       ]
     },
     {
@@ -223,7 +224,8 @@
         }
       },
       "usedFor": [
-        "ow-bld-a01 (roof slab)"
+        "ow-bld-a01 (roof slab)",
+        "ow-bld-b01..e01 (stair-house roofs, tone of the roof coatings)"
       ]
     },
     {
@@ -252,7 +254,7 @@
         }
       },
       "usedFor": [
-        "ow-bld-a01 (moss on roof and wall base)",
+        "ow-bld-a01..e01 (moss on roofs and wall bases)",
         "ow-sidewalk (moss in joints)",
         "ow-plaza (moss along joints)"
       ]
@@ -297,7 +299,7 @@
         }
       },
       "usedFor": [
-        "ow-bld-a01 (shop shutters)"
+        "ow-bld-a01..e01 (shop shutters)"
       ]
     },
     {
@@ -340,7 +342,8 @@
         }
       },
       "usedFor": [
-        "ow-bld-a01 (outdoor AC units, tank stand, pipes)"
+        "ow-bld-a01..e01 (outdoor AC units, steel frames, pipes)",
+        "ow-bld-c01 (rain shutters)"
       ]
     },
     {
@@ -367,7 +370,7 @@
         }
       },
       "usedFor": [
-        "ow-bld-a01 (rain streaks under windows)"
+        "ow-bld-a01..e01 (rain streaks under windows)"
       ]
     },
     {
@@ -394,7 +397,7 @@
         }
       },
       "usedFor": [
-        "ow-bld-a01 (splash grime at the wall base)"
+        "ow-bld-a01..e01 (splash grime at the wall base)"
       ]
     },
     {
@@ -461,7 +464,8 @@
       },
       "usedFor": [
         "ow-park (dry grass)",
-        "ow-lot / ow-parking (weeds)"
+        "ow-lot / ow-parking (weeds)",
+        "ow-bld-c01 (weeds in the roof planters)"
       ]
     },
     {
@@ -522,7 +526,8 @@
         "ow-park (bare soil)",
         "ow-plaza (missing slabs)",
         "ow-lot (soil)",
-        "ow-prop-crack-c (slopes)"
+        "ow-prop-crack-c (slopes)",
+        "ow-bld-c01 (planter soil)"
       ]
     },
     {
@@ -792,7 +797,8 @@
         }
       },
       "usedFor": [
-        "ow-prop-tree-* (branches)"
+        "ow-prop-tree-* (branches)",
+        "ow-bld-c01 (dead tree in a pot)"
       ]
     },
     {
@@ -874,7 +880,8 @@
       },
       "usedFor": [
         "ow-prop-tree-a (green canopy)",
-        "ow-prop-puddle-* (floating leaves, hue-shifted to autumn)"
+        "ow-prop-puddle-* (floating leaves, hue-shifted to autumn)",
+        "ow-bld-c01 (weeds)"
       ]
     },
     {
@@ -909,7 +916,399 @@
         }
       },
       "usedFor": [
-        "ow-prop-tree-b / -c (autumn and withered leaves)"
+        "ow-prop-tree-b / -c (autumn and withered leaves)",
+        "ow-bld-c01 (dry weeds, dead tree)"
+      ]
+    },
+    {
+      "id": "painted_concrete",
+      "site": "Poly Haven",
+      "name": "Painted Concrete",
+      "url": "https://polyhaven.com/a/painted_concrete",
+      "license": "CC0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "authors": [
+        "Dario Barresi",
+        "Dimitrios Savva"
+      ],
+      "realWorldSizeMeters": [
+        2.0,
+        2.0
+      ],
+      "downloadedAt": "2026-10-11T00:36:21Z",
+      "resolution": "1k",
+      "maps": {
+        "color": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/painted_concrete/painted_concrete_diff_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/painted_concrete/painted_concrete_diff_1k.jpg",
+          "bytes": 995059,
+          "md5": "57cc093c9a4226186da0149c2d759055",
+          "downloadedAt": "2026-10-11T00:36:21Z"
+        },
+        "normal": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/painted_concrete/painted_concrete_nor_gl_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/painted_concrete/painted_concrete_nor_gl_1k.jpg",
+          "bytes": 553139,
+          "md5": "a77bcb5b3b8bbfca4da665361a5dd97f",
+          "downloadedAt": "2026-10-11T00:36:21Z"
+        },
+        "roughness": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/painted_concrete/painted_concrete_rough_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/painted_concrete/painted_concrete_rough_1k.jpg",
+          "bytes": 420750,
+          "md5": "81b672f45842b6fa64d4f2e11830a9e8",
+          "downloadedAt": "2026-10-11T00:36:21Z"
+        }
+      },
+      "usedFor": [
+        "ow-bld-b01 (green waterproof coating on the roof, peeling)"
+      ]
+    },
+    {
+      "id": "square_tiled_wall",
+      "site": "Poly Haven",
+      "name": "Square Tiled Wall",
+      "url": "https://polyhaven.com/a/square_tiled_wall",
+      "license": "CC0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "authors": [
+        "Charlotte Baglioni"
+      ],
+      "realWorldSizeMeters": [
+        2.0,
+        2.0
+      ],
+      "downloadedAt": "2026-10-11T00:36:24Z",
+      "resolution": "1k",
+      "maps": {
+        "color": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/square_tiled_wall/square_tiled_wall_diff_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/square_tiled_wall/square_tiled_wall_diff_1k.jpg",
+          "bytes": 612989,
+          "md5": "1d196c2efa8dea656e4381765932b39f",
+          "downloadedAt": "2026-10-11T00:36:22Z"
+        },
+        "normal": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/square_tiled_wall/square_tiled_wall_nor_gl_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/square_tiled_wall/square_tiled_wall_nor_gl_1k.jpg",
+          "bytes": 945490,
+          "md5": "1adf3e8eb04b8eca67a3e9334abce28d",
+          "downloadedAt": "2026-10-11T00:36:23Z"
+        },
+        "roughness": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/square_tiled_wall/square_tiled_wall_rough_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/square_tiled_wall/square_tiled_wall_rough_1k.jpg",
+          "bytes": 447814,
+          "md5": "2ddc506bef33853b0ca6e288ec0c858f",
+          "downloadedAt": "2026-10-11T00:36:24Z"
+        }
+      },
+      "usedFor": [
+        "ow-bld-b01 (tiled walls)"
+      ]
+    },
+    {
+      "id": "white_plaster_rough_01",
+      "site": "Poly Haven",
+      "name": "White Plaster Rough 01",
+      "url": "https://polyhaven.com/a/white_plaster_rough_01",
+      "license": "CC0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "authors": [
+        "Rob Tuytel"
+      ],
+      "realWorldSizeMeters": [
+        1.0,
+        1.0
+      ],
+      "downloadedAt": "2026-10-11T00:36:25Z",
+      "resolution": "1k",
+      "maps": {
+        "color": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_plaster_rough_01/white_plaster_rough_01_diff_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/white_plaster_rough_01/white_plaster_rough_01_diff_1k.jpg",
+          "bytes": 628421,
+          "md5": "c0964b0628920619f0364f19f2d9973d",
+          "downloadedAt": "2026-10-11T00:36:25Z"
+        },
+        "normal": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_plaster_rough_01/white_plaster_rough_01_nor_gl_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/white_plaster_rough_01/white_plaster_rough_01_nor_gl_1k.jpg",
+          "bytes": 384190,
+          "md5": "a45f7354cab5014e5167e63ddbf9c571",
+          "downloadedAt": "2026-10-11T00:36:25Z"
+        },
+        "roughness": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_plaster_rough_01/white_plaster_rough_01_rough_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/white_plaster_rough_01/white_plaster_rough_01_rough_1k.jpg",
+          "bytes": 594450,
+          "md5": "6a4f00696f958e42ad7bf3b1d48794d5",
+          "downloadedAt": "2026-10-11T00:36:25Z"
+        }
+      },
+      "usedFor": [
+        "ow-bld-c01 (mortar walls)"
+      ]
+    },
+    {
+      "id": "weathered_planks",
+      "site": "Poly Haven",
+      "name": "Weathered Planks",
+      "url": "https://polyhaven.com/a/weathered_planks",
+      "license": "CC0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "authors": [
+        "Dario Barresi",
+        "Dimitrios Savva"
+      ],
+      "realWorldSizeMeters": [
+        2.0,
+        2.0
+      ],
+      "downloadedAt": "2026-10-11T00:36:25Z",
+      "resolution": "1k",
+      "maps": {
+        "color": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/weathered_planks/weathered_planks_diff_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/weathered_planks/weathered_planks_diff_1k.jpg",
+          "bytes": 599581,
+          "md5": "5d7c9e7088bfa54490ba03ba15b660d8",
+          "downloadedAt": "2026-10-11T00:36:25Z"
+        },
+        "normal": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/weathered_planks/weathered_planks_nor_gl_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/weathered_planks/weathered_planks_nor_gl_1k.jpg",
+          "bytes": 681552,
+          "md5": "119541f6b143f21f0a6e9774e9208905",
+          "downloadedAt": "2026-10-11T00:36:25Z"
+        },
+        "roughness": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/weathered_planks/weathered_planks_rough_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/weathered_planks/weathered_planks_rough_1k.jpg",
+          "bytes": 218802,
+          "md5": "4ca50b076e1fc58f6862a5b039a7d5c9",
+          "downloadedAt": "2026-10-11T00:36:25Z"
+        }
+      },
+      "usedFor": [
+        "ow-bld-c01 (rooftop deck)"
+      ]
+    },
+    {
+      "id": "box_profile_metal_sheet",
+      "site": "Poly Haven",
+      "name": "Box Profile Metal Sheet",
+      "url": "https://polyhaven.com/a/box_profile_metal_sheet",
+      "license": "CC0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "authors": [
+        "Amal Kumar"
+      ],
+      "realWorldSizeMeters": [
+        2.0,
+        2.0
+      ],
+      "downloadedAt": "2026-10-11T00:36:26Z",
+      "resolution": "1k",
+      "maps": {
+        "color": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/box_profile_metal_sheet/box_profile_metal_sheet_diff_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/box_profile_metal_sheet/box_profile_metal_sheet_diff_1k.jpg",
+          "bytes": 346711,
+          "md5": "478efb2f3594434ac12eeaad9096cf67",
+          "downloadedAt": "2026-10-11T00:36:25Z"
+        },
+        "normal": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/box_profile_metal_sheet/box_profile_metal_sheet_nor_gl_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/box_profile_metal_sheet/box_profile_metal_sheet_nor_gl_1k.jpg",
+          "bytes": 550993,
+          "md5": "ac870b33c1f09ae1b95b550a07a30f10",
+          "downloadedAt": "2026-10-11T00:36:25Z"
+        },
+        "roughness": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/box_profile_metal_sheet/box_profile_metal_sheet_rough_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/box_profile_metal_sheet/box_profile_metal_sheet_rough_1k.jpg",
+          "bytes": 598232,
+          "md5": "2d7f6e3c74c72c472915b3b60cc800cd",
+          "downloadedAt": "2026-10-11T00:36:26Z"
+        }
+      },
+      "usedFor": [
+        "ow-bld-c01 (shed roof)"
+      ]
+    },
+    {
+      "id": "corrugated_iron",
+      "site": "Poly Haven",
+      "name": "Corrugated Iron",
+      "url": "https://polyhaven.com/a/corrugated_iron",
+      "license": "CC0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "authors": [
+        "Dimitrios Savva",
+        "Jenelle van Heerden"
+      ],
+      "realWorldSizeMeters": [
+        1.12,
+        1.12
+      ],
+      "downloadedAt": "2026-10-11T00:36:26Z",
+      "resolution": "1k",
+      "maps": {
+        "color": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/corrugated_iron/corrugated_iron_diff_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/corrugated_iron/corrugated_iron_diff_1k.jpg",
+          "bytes": 719557,
+          "md5": "fabb629c5ad6f427e6862bb4043564bd",
+          "downloadedAt": "2026-10-11T00:36:26Z"
+        },
+        "normal": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/corrugated_iron/corrugated_iron_nor_gl_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/corrugated_iron/corrugated_iron_nor_gl_1k.jpg",
+          "bytes": 755185,
+          "md5": "02249d61a2b1839552938f35a20d075a",
+          "downloadedAt": "2026-10-11T00:36:26Z"
+        },
+        "roughness": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/corrugated_iron/corrugated_iron_rough_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/corrugated_iron/corrugated_iron_rough_1k.jpg",
+          "bytes": 455677,
+          "md5": "7c14b728587586e74be45a67cfe44160",
+          "downloadedAt": "2026-10-11T00:36:26Z"
+        }
+      },
+      "usedFor": [
+        "ow-bld-c01 (stair-house roof)"
+      ]
+    },
+    {
+      "id": "rectangular_facade_tiles",
+      "site": "Poly Haven",
+      "name": "Rectangular Facade Tiles",
+      "url": "https://polyhaven.com/a/rectangular_facade_tiles",
+      "license": "CC0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "authors": [
+        "Charlotte Baglioni"
+      ],
+      "realWorldSizeMeters": [
+        2.0,
+        2.0
+      ],
+      "downloadedAt": "2026-10-11T00:36:26Z",
+      "resolution": "1k",
+      "maps": {
+        "color": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rectangular_facade_tiles/rectangular_facade_tiles_diff_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/rectangular_facade_tiles/rectangular_facade_tiles_diff_1k.jpg",
+          "bytes": 528739,
+          "md5": "9a4d89351d69057e43ccbed08db9ec01",
+          "downloadedAt": "2026-10-11T00:36:26Z"
+        },
+        "normal": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rectangular_facade_tiles/rectangular_facade_tiles_nor_gl_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/rectangular_facade_tiles/rectangular_facade_tiles_nor_gl_1k.jpg",
+          "bytes": 819898,
+          "md5": "623a0d084940750c1e48ddee95ad54b8",
+          "downloadedAt": "2026-10-11T00:36:26Z"
+        },
+        "roughness": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rectangular_facade_tiles/rectangular_facade_tiles_rough_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/rectangular_facade_tiles/rectangular_facade_tiles_rough_1k.jpg",
+          "bytes": 248134,
+          "md5": "c7498f7900353fbdb65468e0ea270499",
+          "downloadedAt": "2026-10-11T00:36:26Z"
+        }
+      },
+      "usedFor": [
+        "ow-bld-d01 (tiled spandrels)"
+      ]
+    },
+    {
+      "id": "rectangular_facade_tiles_02",
+      "site": "Poly Haven",
+      "name": "Rectangular Facade Tiles 02",
+      "url": "https://polyhaven.com/a/rectangular_facade_tiles_02",
+      "license": "CC0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "authors": [
+        "Charlotte Baglioni"
+      ],
+      "realWorldSizeMeters": [
+        2.105,
+        2.105
+      ],
+      "downloadedAt": "2026-10-11T00:36:28Z",
+      "resolution": "1k",
+      "maps": {
+        "color": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rectangular_facade_tiles_02/rectangular_facade_tiles_02_diff_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/rectangular_facade_tiles_02/rectangular_facade_tiles_02_diff_1k.jpg",
+          "bytes": 700098,
+          "md5": "08259e4a5a4b0d0ce997a2288082c483",
+          "downloadedAt": "2026-10-11T00:36:27Z"
+        },
+        "normal": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rectangular_facade_tiles_02/rectangular_facade_tiles_02_nor_gl_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/rectangular_facade_tiles_02/rectangular_facade_tiles_02_nor_gl_1k.jpg",
+          "bytes": 724249,
+          "md5": "18d231d0d092557457148e7d142121ae",
+          "downloadedAt": "2026-10-11T00:36:27Z"
+        },
+        "roughness": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rectangular_facade_tiles_02/rectangular_facade_tiles_02_rough_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/rectangular_facade_tiles_02/rectangular_facade_tiles_02_rough_1k.jpg",
+          "bytes": 754648,
+          "md5": "82e69d3065ac10f5115c2c573eedfa40",
+          "downloadedAt": "2026-10-11T00:36:28Z"
+        }
+      },
+      "usedFor": [
+        "ow-bld-e01 (tiled walls)"
+      ]
+    },
+    {
+      "id": "metal_grate_rusty",
+      "site": "Poly Haven",
+      "name": "Metal Grate Rusty",
+      "url": "https://polyhaven.com/a/metal_grate_rusty",
+      "license": "CC0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "authors": [
+        "Dimitrios Savva",
+        "Rob Tuytel"
+      ],
+      "realWorldSizeMeters": [
+        0.5,
+        0.5
+      ],
+      "downloadedAt": "2026-10-11T00:36:28Z",
+      "resolution": "1k",
+      "maps": {
+        "color": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/metal_grate_rusty/metal_grate_rusty_diff_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/metal_grate_rusty/metal_grate_rusty_diff_1k.jpg",
+          "bytes": 929481,
+          "md5": "96ca939eb6dd637959ee64d1a03bb2ab",
+          "downloadedAt": "2026-10-11T00:36:28Z"
+        },
+        "normal": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/metal_grate_rusty/metal_grate_rusty_nor_gl_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/metal_grate_rusty/metal_grate_rusty_nor_gl_1k.jpg",
+          "bytes": 878053,
+          "md5": "54183a92d9fa896d15042a7b30ba5e7f",
+          "downloadedAt": "2026-10-11T00:36:28Z"
+        },
+        "roughness": {
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/metal_grate_rusty/metal_grate_rusty_rough_1k.jpg",
+          "file": "asset-src/openworld/cache/polyhaven/metal_grate_rusty/metal_grate_rusty_rough_1k.jpg",
+          "bytes": 847824,
+          "md5": "5e0e02466a962b25f5b40de7297442d9",
+          "downloadedAt": "2026-10-11T00:36:28Z"
+        }
+      },
+      "usedFor": [
+        "ow-bld-b01 / d01 (checker-plate walkways, the plant-yard deck)"
       ]
     }
   ]
