@@ -1432,7 +1432,10 @@ const OPEN_WORLD_CONFIG = Object.freeze({
     delayMs: 20000,
     intervalMs: 1000,
     valueIds: Object.freeze(["bronze", "silver", "gold"])
-  })
+  }),
+  // Mech height (WORLD_DESIGN.md 10): while boosting the sprite is drawn up to `height` px higher, half that
+  // in the glide after a boost; the shadow stays on the ground, scaled and faded toward these at full height.
+  boostHeight: Object.freeze({ height: 24, glideRatio: 0.5, riseMs: 120, fallMs: 260, shadowScale: 0.78, shadowAlpha: 0.7 })
 });
 // WORLD_DESIGN.md 6.11: Blender assets listed in 画像/openworld/manifest.json replace the runtime textures
 // of the open world. They load with the sortie only in the open world; anything missing keeps the runtime drawing.
@@ -1539,20 +1542,24 @@ const OPEN_WORLD_PROP_CONFIG = Object.freeze({
   maxTrees: 12,
   cornerTrashChance: 0.2
 });
-// Phase 1b buildings (WORLD_DESIGN.md 8): solid blocks of the city, seen from straight above (the 3/4 view
-// with facades is Phase 2). The layout comes from the run seed and these types, not from the loaded images,
-// so collisions are the same with or without the assets; a missing roof image falls back to a drawn roof.
+// Buildings (WORLD_DESIGN.md 8, 10): solid blocks of the city in a 3/4 view. The footprint is the wall body;
+// the south facade stands on its south edge and the roof is drawn raised by the facade height (Phase 2).
+// The layout comes from the run seed and these types, not from the loaded images, so collisions are the
+// same with or without the assets; a missing roof or facade image falls back to a drawn one.
 const OPEN_WORLD_BUILDING_CONFIG = Object.freeze({
   // Footprints in px (1 m = 40 px); `key` is the manifest entry with the roof / emit images. `weight`
   // (default 1) scales how often a type is picked among those that fit: d01 fills a block on its own, so
   // crowdWeight alone kept it near 7% of the buildings; at 4 it is about 20%, on a par with b01 and e01.
   types: Object.freeze([
-    Object.freeze({ key: "ow-bld-a01", width: 768, height: 1024 }), // 6 floors, zakkyo building
-    Object.freeze({ key: "ow-bld-b01", width: 768, height: 768 }), // 5 floors, zakkyo building
-    Object.freeze({ key: "ow-bld-c01", width: 512, height: 640 }), // 3 floors, shop with a home above
-    Object.freeze({ key: "ow-bld-d01", width: 1024, height: 768, weight: 4 }), // 8 floors, offices and shops
-    Object.freeze({ key: "ow-bld-e01", width: 512, height: 1024 }) // 12 floors, slim hotel
+    Object.freeze({ key: "ow-bld-a01", width: 768, height: 1024, floors: 6 }), // zakkyo building
+    Object.freeze({ key: "ow-bld-b01", width: 768, height: 768, floors: 5 }), // zakkyo building
+    Object.freeze({ key: "ow-bld-c01", width: 512, height: 640, floors: 3 }), // shop with a home above
+    Object.freeze({ key: "ow-bld-d01", width: 1024, height: 768, floors: 8, weight: 4 }), // offices and shops
+    Object.freeze({ key: "ow-bld-e01", width: 512, height: 1024, floors: 12 }) // slim hotel
   ]),
+  // Facade height on screen per floor: the south images are drawn at 64 px a floor (3.2 m at k = 0.5,
+  // WORLD_DESIGN.md 6.5), the pilot mock's 3/4 assembly. Lower it to raise the roofs less.
+  floorHeight: 64,
   gap: 64, // between two buildings of one block
   maxPerBlock: 3,
   nextChance: 1, // chance to try one more building after each one, room permitting
@@ -1562,13 +1569,23 @@ const OPEN_WORLD_BUILDING_CONFIG = Object.freeze({
   crowdWeight: 0.3,
   shadeMin: 0.9, // per-building roof tint for variety (grey level)
   startClearance: 480, // no building this close to the player start
-  gateClearance: 260, // gate centres keep this far from walls
-  depths: Object.freeze({ shadow: -5.38, roof: -5.08 }),
+  gateClearance: 260, // gate centres keep this far from walls and from under the raised roofs
+  // shadow / body / facade are in stageGroundLayer, under the light map. Roofs are above the characters
+  // (enemies 17-18, player 20, player effects up to 24.8; support bursts 25-28 and combat text 30 stay
+  // above), each at roof + its south edge x roofDepthPerPx, so a building further south covers one behind.
+  depths: Object.freeze({ shadow: -5.38, body: -5.1, facade: -5.08, roof: 24.9, roofDepthPerPx: 1e-6 }),
+  // Toward the south-east, away from the assets' north-west key light; longer for taller buildings.
   shadow: Object.freeze([
-    Object.freeze({ offsetX: 26, offsetY: 34, alpha: 0.34 }),
-    Object.freeze({ offsetX: 54, offsetY: 72, alpha: 0.16 })
+    Object.freeze({ offsetX: 18, offsetY: 24, perFloor: 3, alpha: 0.34 }),
+    Object.freeze({ offsetX: 38, offsetY: 50, perFloor: 6, alpha: 0.16 })
   ]),
+  bodyColor: 0x15181c, // the footprint behind the facade, seen through a faded roof
   roofAmbient: 0x98a0b9, // roofs get the pilot mock's roof ambient (0.8 x night) and no street lamps
+  // Facades get 0.7 x night (the pilot mock) and the street lamps on their lower floors: the light map
+  // paints this colour over them with alpha 1 at the top fading to 0 at the street (1 - t^2).
+  facadeAmbient: 0x8f97ae,
+  // A roof that overlaps the player's sprite (the player is behind the building) fades to this alpha.
+  roofFade: Object.freeze({ alpha: 0.3, spriteInset: 0.25, smoothMs: 90 }),
   // Shop signs and lit windows of the south facade (south_emit) spill coloured light onto the street.
   neon: Object.freeze({
     columnWidth: 96,
@@ -42822,8 +42839,8 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   // Images of one manifest entry as [textureName, file, width, height]: the entry's image, then its
-  // companions (a puddle's water mask) as `<key>_<field>`; for a building, `<key>-roof`, `<key>-roof_emit`
-  // and `<key>-south_emit`. An entry with an invalid main image yields nothing.
+  // companions (a puddle's water mask) as `<key>_<field>`; for a building, `<key>-roof`, `<key>-roof_emit`,
+  // `<key>-south` and `<key>-south_emit`. An entry with an invalid main image yields nothing.
   getOpenWorldManifestFiles(asset) {
     const config = OPEN_WORLD_ASSET_CONFIG;
     const isSize = (value) => Number.isInteger(value) && value > 0 && value <= config.maxTextureSize;
@@ -42838,9 +42855,11 @@ class SurvivalScene extends Phaser.Scene {
       if (isFile(asset.roofEmit, "png")) {
         files.push([`${asset.key}-roof_emit`, asset.roofEmit, width, height]);
       }
-      if (isFile(asset.southEmit, "png") && isSize(southWidth) && isSize(southHeight)) {
-        files.push([`${asset.key}-south_emit`, asset.southEmit, southWidth, southHeight]);
-      }
+      [["south", asset.south], ["south_emit", asset.southEmit]].forEach(([suffix, file]) => {
+        if (isFile(file, "png") && isSize(southWidth) && isSize(southHeight)) {
+          files.push([`${asset.key}-${suffix}`, file, southWidth, southHeight]);
+        }
+      });
       return files;
     }
     if (!isFile(asset.file) || !isSize(asset.width) || !isSize(asset.height)) {
@@ -43112,6 +43131,8 @@ class SurvivalScene extends Phaser.Scene {
     // Lamp pool: (1 - d^2)^2, the falloff of the pilot mock.
     make("ow-light-pool", config.poolTextureSize, config.poolTextureSize, (nx, ny) => [1, Math.max(0, 1 - (nx * nx + ny * ny)) ** 2]);
     make("ow-light-glow", 64, 64, (nx, ny) => [1, Math.max(0, 1 - Math.hypot(nx, ny)) ** 2.2]);
+    // Facade cover: alpha 1 - t^2 from the top (t = 0) to the street (t = 1); see facadeAmbient.
+    make("ow-light-facade", 4, 64, (nx, ny) => [1, 1 - ((ny + 1) / 2) ** 2]);
     // Opaque multiplier: the mock's linear vignette 1 - k * clamp(sqrt(0.6 nx^2 + 0.9 ny^2) - 0.35), in sRGB.
     make("ow-light-vignette", 128, 72, (nx, ny) => [
       (1 - config.vignetteStrength * Phaser.Math.Clamp(Math.sqrt(nx * nx * 0.6 + ny * ny * 0.9) - 0.35, 0, 1)) ** (1 / 2.2),
@@ -43295,17 +43316,18 @@ class SurvivalScene extends Phaser.Scene {
       });
       neonDrawn += 1;
     }));
-    // Roofs stand above the street lamps: they keep the roof ambient only (drawn over the pools).
-    state.buildings.forEach(({ building }) => {
-      if (building.right < left || building.left > left + width || building.bottom < top || building.top > top + height) {
+    // Facades: the street lamps reach only their lower floors. Roofs are drawn above the light map and
+    // lit by their tint (updateOpenWorldBuildingVisuals).
+    state.buildings.forEach(({ facadeRect: rect }) => {
+      if (!rect || rect.bottom <= rect.top || rect.right < left || rect.left > left + width || rect.bottom < top || rect.top > top + height) {
         return;
       }
-      texture.stamp("ow-px", undefined, (building.left - left) * scaleX, (building.top - top) * scaleY, {
+      texture.stamp("ow-light-facade", undefined, (rect.left - left) * scaleX, (rect.top - top) * scaleY, {
         originX: 0,
         originY: 0,
-        scaleX: ((building.right - building.left) * scaleX) / 4,
-        scaleY: ((building.bottom - building.top) * scaleY) / 4,
-        tint: OPEN_WORLD_BUILDING_CONFIG.roofAmbient,
+        scaleX: ((rect.right - rect.left) * scaleX) / 4,
+        scaleY: ((rect.bottom - rect.top) * scaleY) / 64,
+        tint: OPEN_WORLD_BUILDING_CONFIG.facadeAmbient,
         skipBatch: true
       });
     });
@@ -44124,9 +44146,28 @@ class SurvivalScene extends Phaser.Scene {
         && y >= building.top - padding && y <= building.bottom + padding);
   }
 
-  // Nearest point (on rings of growing radius) that keeps `clearance` from every building.
-  findOpenWorldClearPoint(x, y, clearance) {
-    if (!this.isPointNearOpenWorldBuilding(x, y, clearance)) {
+  // Whether the point is within `padding` of a raised roof as drawn (it would be hidden under it).
+  isPointUnderOpenWorldRoof(x, y, padding = 0) {
+    if (!this.openWorldState) {
+      return false;
+    }
+    if (!this.openWorldMaxFacadeHeight) {
+      this.openWorldMaxFacadeHeight = Math.max(...OPEN_WORLD_BUILDING_CONFIG.types.map((type) => this.getOpenWorldFacadeHeight(type)));
+    }
+    const reach = this.openWorldMaxFacadeHeight;
+    return this.getOpenWorldBuildingsInRect({ left: x - padding, top: y - padding, right: x + padding, bottom: y + padding + reach })
+      .some((building) => {
+        const rect = this.getOpenWorldRoofRect(building);
+        return x >= rect.left - padding && x <= rect.right + padding && y >= rect.top - padding && y <= rect.bottom + padding;
+      });
+  }
+
+  // Nearest point (on rings of growing radius) that keeps `clearance` from every building, and from
+  // under the raised roofs when `avoidRoofs` (points the player must see: the gate, DATA CACHE).
+  findOpenWorldClearPoint(x, y, clearance, avoidRoofs = false) {
+    const blocked = (px, py) => this.isPointNearOpenWorldBuilding(px, py, clearance)
+      || (avoidRoofs && this.isPointUnderOpenWorldRoof(px, py, clearance));
+    if (!blocked(x, y)) {
       return { x, y };
     }
     for (let radius = 120; radius <= 1440; radius += 120) {
@@ -44134,7 +44175,7 @@ class SurvivalScene extends Phaser.Scene {
       for (let step = 0; step < steps; step += 1) {
         const angle = (Math.PI * 2 * step) / steps;
         const point = { x: Math.round(x + Math.cos(angle) * radius), y: Math.round(y + Math.sin(angle) * radius) };
-        if (!this.isPointNearOpenWorldBuilding(point.x, point.y, clearance)) {
+        if (!blocked(point.x, point.y)) {
           return point;
         }
       }
@@ -44165,8 +44206,20 @@ class SurvivalScene extends Phaser.Scene {
     }
   }
 
-  // Shadow on the ground (toward the south-east, away from the assets' north-west key light), the roof,
-  // its lights (additive, above the light map), a static body in stageObstacleBodies and the neon spill.
+  // Screen height of a building's south facade, which is also how far its roof is drawn raised.
+  getOpenWorldFacadeHeight(type) {
+    return Math.round((Number(type?.floors) || 0) * OPEN_WORLD_BUILDING_CONFIG.floorHeight);
+  }
+
+  // Where the roof is drawn: the footprint raised by the facade height (the 3/4 view).
+  getOpenWorldRoofRect(building) {
+    const rise = this.getOpenWorldFacadeHeight(building.type);
+    return { left: building.left, right: building.right, top: building.top - rise, bottom: building.bottom - rise };
+  }
+
+  // On the ground (stageGroundLayer, under the light map): the shadow, a dark body for the footprint behind
+  // the facade, the south facade standing on the south edge and its lit windows (additive). Above the
+  // characters: the raised roof and its lights. Plus a static body in stageObstacleBodies and the neon spill.
   createOpenWorldBuildingRecord(building) {
     const config = OPEN_WORLD_BUILDING_CONFIG;
     const state = this.openWorldState;
@@ -44174,32 +44227,77 @@ class SurvivalScene extends Phaser.Scene {
     const objects = [];
     const width = building.right - building.left;
     const height = building.bottom - building.top;
+    const rise = this.getOpenWorldFacadeHeight(building.type);
+    const addGround = (object) => {
+      this.stageGroundLayer?.add(object);
+      objects.push(object);
+      return object;
+    };
     config.shadow.forEach((shadow) => {
-      const image = this.add
-        .image(building.left + shadow.offsetX, building.top + shadow.offsetY, "ow-px")
+      const floors = Number(building.type.floors) || 0;
+      addGround(this.add
+        .image(building.left + shadow.offsetX + shadow.perFloor * floors, building.top + shadow.offsetY + shadow.perFloor * floors, "ow-px")
         .setOrigin(0, 0)
         .setDisplaySize(width, height)
         .setTint(0x000000)
         .setAlpha(shadow.alpha)
-        .setDepth(config.depths.shadow);
-      this.stageGroundLayer?.add(image);
-      objects.push(image);
+        .setDepth(config.depths.shadow));
     });
+    if (height > rise) {
+      addGround(this.add
+        .image(building.left, building.top, "ow-px")
+        .setOrigin(0, 0)
+        .setDisplaySize(width, height - rise)
+        .setTint(config.bodyColor)
+        .setDepth(config.depths.body));
+    }
     const grey = Math.round(255 * building.shade);
-    const roofKey = this.resolveOpenWorldTextureKey(`${building.type.key}-roof`, null) || this.ensureOpenWorldFallbackRoofTexture(building.type);
-    const roof = this.add
-      .image(building.left, building.top, roofKey)
-      .setOrigin(0, 0)
-      .setDisplaySize(width, height)
-      .setTint((grey << 16) | (grey << 8) | grey)
-      .setDepth(config.depths.roof);
-    this.stageGroundLayer?.add(roof);
-    objects.push(roof);
-    const emitKey = light ? this.resolveOpenWorldTextureKey(`${building.type.key}-roof_emit`, null) : null;
-    if (emitKey) {
-      const emit = this.add.image(building.left, building.top, emitKey).setOrigin(0, 0).setBlendMode(Phaser.BlendModes.ADD);
+    const greyTint = (grey << 16) | (grey << 8) | grey;
+    const facadeKey = this.resolveOpenWorldTextureKey(`${building.type.key}-south`, null) || this.ensureOpenWorldFallbackFacadeTexture(building.type);
+    const facade = rise > 0
+      ? addGround(this.add
+        .image(building.left, building.bottom - rise, facadeKey)
+        .setOrigin(0, 0)
+        .setDisplaySize(width, rise)
+        .setTint(greyTint)
+        .setDepth(config.depths.facade))
+      : null;
+    const facadeEmitKey = light && facade ? this.resolveOpenWorldTextureKey(`${building.type.key}-south_emit`, null) : null;
+    if (facadeEmitKey) {
+      const emit = this.add
+        .image(building.left, building.bottom - rise, facadeEmitKey)
+        .setOrigin(0, 0)
+        .setDisplaySize(width, rise)
+        .setBlendMode(Phaser.BlendModes.ADD);
       light.glowLayer.add(emit);
       objects.push(emit);
+    }
+    const roofDepth = config.depths.roof + building.bottom * config.depths.roofDepthPerPx;
+    // With the light map, updateOpenWorldBuildingVisuals adds the vignette from the next frame on.
+    const roofTint = light
+      ? [16, 8, 0].reduce((value, shift) => value | (Math.round(((config.roofAmbient >> shift) & 0xff) * building.shade) << shift), 0)
+      : greyTint;
+    const roofKey = this.resolveOpenWorldTextureKey(`${building.type.key}-roof`, null) || this.ensureOpenWorldFallbackRoofTexture(building.type);
+    const roof = this.add
+      .image(building.left, building.top - rise, roofKey)
+      .setOrigin(0, 0)
+      .setDisplaySize(width, height)
+      .setTint(roofTint)
+      .setDepth(roofDepth)
+      .setVisible(!state.roofsHidden);
+    objects.push(roof);
+    const roofEmitKey = light ? this.resolveOpenWorldTextureKey(`${building.type.key}-roof_emit`, null) : null;
+    const roofEmit = roofEmitKey
+      ? this.add
+        .image(building.left, building.top - rise, roofEmitKey)
+        .setOrigin(0, 0)
+        .setDisplaySize(width, height)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(roofDepth + config.depths.roofDepthPerPx * 0.5)
+        .setVisible(!state.roofsHidden)
+      : null;
+    if (roofEmit) {
+      objects.push(roofEmit);
     }
     const wall = this.add.rectangle(building.left + width / 2, building.top + height / 2, width, height, 0xff7373, 0).setVisible(false);
     this.physics.add.existing(wall, true);
@@ -44215,7 +44313,93 @@ class SurvivalScene extends Phaser.Scene {
         alpha: neon.alpha
       }))
       : [];
-    return { id: building.id, building, refs: 0, objects, wall, lights };
+    return {
+      id: building.id,
+      building,
+      refs: 0,
+      objects,
+      wall,
+      lights,
+      roof,
+      roofEmit,
+      roofRect: this.getOpenWorldRoofRect(building),
+      facadeRect: { left: building.left, right: building.right, top: building.bottom - rise, bottom: building.bottom },
+      roofAlpha: 1
+    };
+  }
+
+  // Raised roofs, every frame: hidden while the Final Raid field covers the city (they are drawn above the
+  // characters); faded while they overlap the player's sprite (the player is behind the building); and,
+  // with the light map, lit the way it lights the ground beside them: the roof ambient x the vignette,
+  // set at each corner (the light map is under the roofs).
+  updateOpenWorldBuildingVisuals(delta, hidden = false) {
+    const state = this.openWorldState;
+    if (!state) {
+      return;
+    }
+    const config = OPEN_WORLD_BUILDING_CONFIG;
+    const fade = config.roofFade;
+    if (state.roofsHidden !== hidden) {
+      state.roofsHidden = hidden;
+      state.buildings.forEach((record) => {
+        record.roof?.setVisible(!hidden);
+        record.roofEmit?.setVisible(!hidden);
+      });
+    }
+    if (hidden) {
+      state.fadedRoofCount = 0;
+      return;
+    }
+    const sprite = this.playerSprite;
+    let spriteRect = null;
+    if (sprite && sprite.active !== false && sprite.visible !== false && this.playerHitbox?.active) {
+      const halfWidth = sprite.displayWidth * (0.5 - fade.spriteInset);
+      const halfHeight = sprite.displayHeight * (0.5 - fade.spriteInset);
+      spriteRect = { left: sprite.x - halfWidth, right: sprite.x + halfWidth, top: sprite.y - halfHeight, bottom: sprite.y + halfHeight };
+    }
+    const blend = 1 - Math.exp(-Math.max(0, Number(delta) || 0) / fade.smoothMs);
+    const view = this.worldCamera?.worldView;
+    const lit = Boolean(state.light?.visible) && view?.width > 0 && view?.height > 0;
+    const strength = OPEN_WORLD_LIGHT_CONFIG.vignetteStrength;
+    const vignette = (x, y) => {
+      const nx = Phaser.Math.Clamp(((x - view.centerX) / view.width) * 2, -1, 1);
+      const ny = Phaser.Math.Clamp(((y - view.centerY) / view.height) * 2, -1, 1);
+      return (1 - strength * Phaser.Math.Clamp(Math.sqrt(nx * nx * 0.6 + ny * ny * 0.9) - 0.35, 0, 1)) ** (1 / 2.2);
+    };
+    let faded = 0;
+    state.buildings.forEach((record) => {
+      const rect = record.roofRect;
+      if (!record.roof || !rect) {
+        return;
+      }
+      const behind = Boolean(spriteRect) && spriteRect.right > rect.left && spriteRect.left < rect.right
+        && spriteRect.bottom > rect.top && spriteRect.top < rect.bottom;
+      const target = behind ? fade.alpha : 1;
+      if (record.roofAlpha !== target) {
+        record.roofAlpha += (target - record.roofAlpha) * blend;
+        if (Math.abs(target - record.roofAlpha) < 0.01) {
+          record.roofAlpha = target;
+        }
+        record.roof.setAlpha(record.roofAlpha);
+        record.roofEmit?.setAlpha(record.roofAlpha);
+      }
+      if (record.roofAlpha < 1) {
+        faded += 1;
+      }
+      if (!lit || rect.right < view.left || rect.left > view.right || rect.bottom < view.top || rect.top > view.bottom) {
+        return;
+      }
+      const ambient = config.roofAmbient;
+      const shade = record.building.shade;
+      const tint = (x, y) => {
+        const level = shade * vignette(x, y);
+        return (Math.round(((ambient >> 16) & 0xff) * level) << 16)
+          | (Math.round(((ambient >> 8) & 0xff) * level) << 8)
+          | Math.round((ambient & 0xff) * level);
+      };
+      record.roof.setTint(tint(rect.left, rect.top), tint(rect.right, rect.top), tint(rect.left, rect.bottom), tint(rect.right, rect.bottom));
+    });
+    state.fadedRoofCount = faded;
   }
 
   // Building walls do not exist inside the Final Raid field, which covers the city.
@@ -44251,6 +44435,41 @@ class SurvivalScene extends Phaser.Scene {
       }
     }
     graphics.fillStyle(0x000000, 0.18).fillRect(Math.round(width * 0.15), Math.round(height * 0.55), Math.round(width * 0.6), Math.round(height * 0.3));
+    graphics.generateTexture(key, width, height);
+    graphics.destroy();
+    return key;
+  }
+
+  // Drawn south facade for a building type whose facade image is missing: a shop floor with shutters and
+  // window rows above, at the size the facade is drawn (floors x floorHeight).
+  ensureOpenWorldFallbackFacadeTexture(type) {
+    const width = type.width;
+    const height = this.getOpenWorldFacadeHeight(type);
+    const key = `ow-bld-facade-fallback-${width}x${height}`;
+    if (this.textures.exists(key) || height <= 0) {
+      return key;
+    }
+    const floor = OPEN_WORLD_BUILDING_CONFIG.floorHeight;
+    const graphics = this.make.graphics({ x: 0, y: 0, add: false });
+    graphics.fillStyle(0x50575c, 1).fillRect(0, 0, width, height);
+    const floors = Math.max(1, Math.round(height / floor));
+    for (let index = 0; index < floors; index += 1) {
+      const top = Math.round(index * (height / floors));
+      const bottom = Math.round((index + 1) * (height / floors));
+      graphics.fillStyle(0x62696e, 1).fillRect(0, top, width, 3);
+      if (index === floors - 1) {
+        graphics.fillStyle(0x3b4044, 1).fillRect(8, top + 10, width - 16, bottom - top - 10);
+        graphics.fillStyle(0x4a5055, 1);
+        for (let y = top + 16; y < bottom - 2; y += 8) {
+          graphics.fillRect(8, y, width - 16, 2);
+        }
+        continue;
+      }
+      graphics.fillStyle(0x262b30, 1);
+      for (let x = 24; x + 44 <= width - 16; x += 96) {
+        graphics.fillRect(x, top + Math.round((bottom - top) * 0.3), 44, Math.round((bottom - top) * 0.45));
+      }
+    }
     graphics.generateTexture(key, width, height);
     graphics.destroy();
     return key;
@@ -44571,6 +44790,7 @@ class SurvivalScene extends Phaser.Scene {
     this.updateOpenWorldChunks();
     // The Final Raid field covers the city; its light map would only cost fill rate, its walls would block the arena.
     this.updateOpenWorldLighting(finalRaidActive);
+    this.updateOpenWorldBuildingVisuals(delta, finalRaidActive);
     this.setOpenWorldBuildingCollision(!finalRaidActive);
     if (finalRaidActive) {
       this.setOpenWorldOutOfAreaHudVisible(false);
@@ -44880,7 +45100,8 @@ class SurvivalScene extends Phaser.Scene {
       const x = originX + Math.cos(angle) * distance;
       const y = originY + Math.sin(angle) * distance;
       if (x >= area.left && x <= area.right && y >= area.top && y <= area.bottom
-        && !this.isPointNearOpenWorldBuilding(x, y, OPEN_WORLD_BUILDING_CONFIG.gateClearance)) {
+        && !this.isPointNearOpenWorldBuilding(x, y, OPEN_WORLD_BUILDING_CONFIG.gateClearance)
+        && !this.isPointUnderOpenWorldRoof(x, y, OPEN_WORLD_BUILDING_CONFIG.gateClearance)) {
         return { x: Math.round(x), y: Math.round(y) };
       }
     }
@@ -44892,7 +45113,7 @@ class SurvivalScene extends Phaser.Scene {
       originY + Math.sin(towardCenter) * config.minDistance,
       area
     );
-    return this.findOpenWorldClearPoint(Math.round(clamped.x), Math.round(clamped.y), OPEN_WORLD_BUILDING_CONFIG.gateClearance);
+    return this.findOpenWorldClearPoint(Math.round(clamped.x), Math.round(clamped.y), OPEN_WORLD_BUILDING_CONFIG.gateClearance, true);
   }
 
   formatGateLocationText(text) {
@@ -44985,6 +45206,7 @@ class SurvivalScene extends Phaser.Scene {
       recoveredDropXp: state.recoveredDrops.xp,
       recoveredDropGeek: state.recoveredDrops.unsecuredGeek,
       buildingCollision: state.buildingCollisionEnabled,
+      fadedRoofCount: state.fadedRoofCount ?? 0,
       drawnNeonPools: state.light?.drawnNeon ?? 0,
       outOfArea: state.outOfArea.active,
       outsideMs: state.outOfArea.outsideMs,
@@ -47160,10 +47382,44 @@ class SurvivalScene extends Phaser.Scene {
     motion.tiltAngle = Phaser.Math.Linear(motion.tiltAngle || 0, targetTilt, 0.22);
     motion.lift = Phaser.Math.Linear(motion.lift || 0, targetLift, 0.18);
     motion.shadowScale = Phaser.Math.Linear(motion.shadowScale || 1, targetShadowScale, 0.16);
+    this.updateOpenWorldBoostHeight(motion, delta);
     this.updateRegaliaBastionLandingFxTrigger(motion, isMoving, isDashing, boostPoseActive, direction);
     this.updateRegaliaBastionMovementSe(motion, isMoving, isDashing, boostPoseActive);
 
     this.setPlayerRobotPose(motion.directionKey, isMoving, boostPoseActive);
+  }
+
+  // Open world only: the mech rises while boosting (quick, continuous or variable boost) and settles in
+  // the glide after it (OPEN_WORLD_CONFIG.boostHeight). Elsewhere the height stays 0.
+  updateOpenWorldBoostHeight(motion, delta) {
+    const config = OPEN_WORLD_CONFIG.boostHeight;
+    let target = 0;
+    if (this.isOpenWorldStage() && !this.isDepth10HumanPlayerVisualActive()) {
+      const state = this.acMovementState;
+      const now = this.time?.now || 0;
+      if (this.isDashing || now < (Number(state?.quickBoostUntil) || 0) || state?.continuousBoost?.active || state?.variableQuickBoost?.active) {
+        target = config.height;
+      } else if (now < (Number(state?.postBoostGlideUntil) || 0)) {
+        target = config.height * config.glideRatio;
+      }
+    }
+    const current = Number(motion.boostHeight) || 0;
+    if (current === target) {
+      return;
+    }
+    const smoothMs = target > current ? config.riseMs : config.fallMs;
+    motion.boostHeight = current + (target - current) * (1 - Math.exp(-Math.max(0, Number(delta) || 0) / smoothMs));
+    if (Math.abs(target - motion.boostHeight) < 0.1) {
+      motion.boostHeight = target;
+    }
+  }
+
+  // Sprite lift and shadow scale / alpha factors for the current mech height.
+  getOpenWorldBoostShadowFactors(motion = this.playerRobotMotion) {
+    const config = OPEN_WORLD_CONFIG.boostHeight;
+    const lift = Math.max(0, Number(motion?.boostHeight) || 0);
+    const ratio = Math.min(1, lift / config.height);
+    return { lift, scale: 1 - (1 - config.shadowScale) * ratio, alpha: 1 - (1 - config.shadowAlpha) * ratio };
   }
 
   updatePlayerRobotBoostVisuals(delta = 0) {
@@ -52426,13 +52682,14 @@ class SurvivalScene extends Phaser.Scene {
     visuals.weightShadowIntensity = intensity;
     visuals.weightShadowActive = intensity > 0.02;
     const landingImpact = this.getRegaliaBastionLandingImpactVisualState(this.playerRobotMotion || {});
+    const height = this.getOpenWorldBoostShadowFactors();
 
     this.playerShadow
       .setScale?.(
-        visuals.weightShadowScaleX * landingImpact.shadowScaleX,
-        visuals.weightShadowScaleY * landingImpact.shadowScaleY
+        visuals.weightShadowScaleX * landingImpact.shadowScaleX * height.scale,
+        visuals.weightShadowScaleY * landingImpact.shadowScaleY * height.scale
       )
-      .setAlpha?.(Phaser.Math.Clamp(targetAlpha + landingImpact.shadowAlphaAdd, 0, 0.52))
+      .setAlpha?.(Phaser.Math.Clamp(targetAlpha + landingImpact.shadowAlphaAdd, 0, 0.52) * height.alpha)
       .setRotation?.(visuals.weightShadowRotation)
       .setDepth?.(Number(tuning.weightShadowDepth) || 15);
   }
@@ -73234,7 +73491,7 @@ class SurvivalScene extends Phaser.Scene {
     }
     const player = this.playerHitbox?.active ? `${Math.round(this.playerHitbox.x)},${Math.round(this.playerHitbox.y)}` : "-";
     const gate = world.gateCenter ? `${world.gateCenter.x},${world.gateCenter.y}` : "-";
-    return `openWorld:ON chunks:${world.chunkCount} objs:${world.objectCount} pos:${player} area:${world.outOfArea ? `OUT ${(world.outsideMs / 1000).toFixed(1)}s x${world.outOfAreaTicks}` : "IN"} gate:${gate} recycled:${world.recycledEnemyCount} assets:${world.assetKeys.length} light:${world.lighting ? `${world.drawnLampPools}/${world.lampCount}` : "OFF"} props:${world.propCount} refl:${world.reflectionCount} bld:${world.buildingCount}${world.buildingCollision ? "" : "(off)"} neon:${world.drawnNeonPools} far:${world.recoveredDropCount}`;
+    return `openWorld:ON chunks:${world.chunkCount} objs:${world.objectCount} pos:${player} area:${world.outOfArea ? `OUT ${(world.outsideMs / 1000).toFixed(1)}s x${world.outOfAreaTicks}` : "IN"} gate:${gate} recycled:${world.recycledEnemyCount} assets:${world.assetKeys.length} light:${world.lighting ? `${world.drawnLampPools}/${world.lampCount}` : "OFF"} props:${world.propCount} refl:${world.reflectionCount} bld:${world.buildingCount}${world.buildingCollision ? "" : "(off)"} fade:${world.fadedRoofCount} neon:${world.drawnNeonPools} far:${world.recoveredDropCount}`;
   }
 
   formatAcCameraRigDebugHudLine() {
@@ -73594,16 +73851,17 @@ class SurvivalScene extends Phaser.Scene {
     const acLeanOffsetX = Number(motion.acLeanOffsetX) || 0;
     const acLeanOffsetY = Number(motion.acLeanOffsetY) || 0;
     const landingImpact = this.getRegaliaBastionLandingImpactVisualState(motion);
+    const height = this.getOpenWorldBoostShadowFactors(motion);
     this.playerSprite
       .setPosition(
         this.playerHitbox.x + acLeanOffsetX,
-        this.playerHitbox.y + PLAYER_SPRITE_OFFSET_Y + hover + (motion.lift || 0) + acLeanOffsetY + landingImpact.offsetY
+        this.playerHitbox.y + PLAYER_SPRITE_OFFSET_Y + hover + (motion.lift || 0) + acLeanOffsetY + landingImpact.offsetY - height.lift
       )
       .setAngle((motion.tiltAngle || 0) + acVisualLeanAngle);
     this.playerShadow
       ?.setPosition(this.playerHitbox.x, this.playerHitbox.y + PLAYER_SHADOW_OFFSET_Y)
-      .setScale((motion.shadowScale || 1) * landingImpact.shadowScaleX, landingImpact.shadowScaleY)
-      .setAlpha(Phaser.Math.Clamp((moving ? 0.22 : 0.28) + landingImpact.shadowAlphaAdd, 0, 0.48));
+      .setScale((motion.shadowScale || 1) * landingImpact.shadowScaleX * height.scale, landingImpact.shadowScaleY * height.scale)
+      .setAlpha(Phaser.Math.Clamp((moving ? 0.22 : 0.28) + landingImpact.shadowAlphaAdd, 0, 0.48) * height.alpha);
   }
 
   updateRobotCompanion(delta) {
@@ -77013,7 +77271,10 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   spawnDataCacheDrop(x, y, payload) {
-    const dropPoint = this.getSafeDropPoint(x, y, DATA_CACHE_ITEM_DEFINITION.pickupRadius || 28);
+    let dropPoint = this.getSafeDropPoint(x, y, DATA_CACHE_ITEM_DEFINITION.pickupRadius || 28);
+    if (this.isOpenWorldStage() && this.isPointUnderOpenWorldRoof(dropPoint.x, dropPoint.y, DATA_CACHE_ITEM_DEFINITION.pickupRadius || 28)) {
+      dropPoint = this.findOpenWorldClearPoint(dropPoint.x, dropPoint.y, DATA_CACHE_ITEM_DEFINITION.pickupRadius || 28, true);
+    }
     const definition = DATA_CACHE_ITEM_DEFINITION;
     const textureKey = this.textures.exists(definition.textureKey) ? definition.textureKey : "rare-token";
     const item = this.physics.add.image(dropPoint.x, dropPoint.y, textureKey).setDepth(13);
