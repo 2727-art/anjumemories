@@ -593,6 +593,23 @@ Quick Boost SE は Quick Boost / 継続ブーストの開始成功時だけ鳴�
 
 ボスは各 Wave 開始から 15 秒後に出現します。撃破すると次の Wave へ進み、次のボスも 15 秒後に出現します。ボス攻撃は出現後すぐに予兆付きで始まり、亀裂、ビーム、扇状弾、三連弾、ランダム爆撃、雷ダッシュの 6 種類が Wave ごとにローテーションします。敵 HP は全体的に底上げされ、Depth 6 以降は追加の耐久スケールが乗ります。ボスと NEMESIS は通常敵より強い耐久補正を持つため、2 分間を逃げ切って帰還するか、立ち回りを組み立てて撃破報酬を狙うかの判断が重要になります。
 
+### 打撃演出とクリティカル
+
+敵に当てた手応えを出すため、`applyDamageToEnemy()` を通るすべての攻撃に次の演出を付けています（`HIT_FEEL_CONFIG`）。演出だけで、ダメージ・報酬・難度は変えません。
+
+- 被弾した敵を 0.05 秒だけ真っ白に光らせます（凍結などの状態色はフラッシュ後に戻ります）。当たり続けても点滅しっぱなしにならないよう、敵ごとに 80ms（Boss / NEMESIS / VOID HUNTER は 200ms）に 1 回までです。
+- 当たった向きへ火花が飛びます。火花は敵ごとに 70ms に 1 回まで、同時 90 個までに抑えます。
+- ダメージ数字は敵の最大 HP に対する割合で 3 段階の大きさと色になり、とどめの一撃は最も大きく表示します。出た瞬間に少し膨らみ、同じ敵への 0.16 秒以内の連続ヒットは 1 つの数字に合算して再び膨らみます。
+- 撃破時は当たった向きへ破片が飛び、XP オーブがはじけ出ます。
+- Elite と通常 Wave Boss は、ダメージを受けると足元に HP バー（白い減少跡つき）を出します。NEMESIS と VOID HUNTER は従来どおり画面上部のボスバーです。
+- Elite / Boss / NEMESIS / VOID HUNTER を倒したときだけ、0.06〜0.1 秒の短いヒットストップ（物理を一瞬ほぼ停止）と画面の揺れを入れます。通常の敵では止めません。
+- 左上（BOOST EN バーの右）に `×N KILL` のコンボと残り時間バーを出します。2.6 秒以内に次を倒すと継続し、10 / 25 / 50（以後 50 ごと）で金色に光ります。表示だけで報酬はありません。Final Raid 中、レベルアップなどの画面中は隠れます。
+- ヒット音・撃破音は音声ファイルを使わず Web Audio で短く合成します。OPTIONS の SFX が OFF なら鳴らず、ヒット音は 50ms、撃破音は 52ms に 1 回までに間引きます。撃破音はコンボが続くほど高くなり、Elite / Boss 撃破とコンボの節目は専用音です。
+
+クリティカルは基本 3% で、ダメージ 1.5 倍です。数字は黄色で大きく `!` 付きになり、音と輪の演出が変わります。対象は 3 攻撃スキル（ORB の雷撃・TORNADO・THUNDER の接触とダッシュ衝撃、REGALIA の砲撃）、ロボットのミサイル爆発、LOST ARMS の主攻撃（ABYSS RAIL の射線、GRAVITY SEED の崩壊）です。継続ダメージ（ナパーム、残留場、重力場の毎秒ダメージ）、Mutation などの追加発動、サポート攻撃、UMBRA の武装、Final Raid の疑似ダメージはクリティカルしません。装備 CORE（内部 slot `accessory`）でクリティカル率が上がります（下記 EQUIPMENT ANALYSIS）。率の上限は 50% です。
+
+`?hitFeel=0` を付けると比較用に従来の見た目（色付きの点滅、固定の数字、演出・コンボ・HP バー・合成音なし）へ戻ります。クリティカルはどちらでも有効です。
+
 ## スキル
 
 攻撃スキル:
@@ -763,14 +780,14 @@ GEEKSHOP / EQUIPMENT ANALYSIS:
 - `+16`へ進むには、その部位のbestがLEGENDで、同部位の `LEGEND RESONANCE` が1以上必要です。一度解放すれば、その後にbest装備が更新されても `+20` 上限を維持します。
 - Deep Extractionで得た Equipment Cache も `EQUIPMENT ANALYSIS` で解析し、保存済みCacheの `slot` / `rarity` / `rank` を再抽選せず装備として確定します。解析済み装備は `bestBySlot` へ反映され、LEGENDは解析成功時に初めて発見扱いになります。SSR+ / LEGEND の5部位成立は `SET RESONANCE` と次ランの Combat Link 条件になります。
 - 解析前後の GEEK と Equipment 状態は保存ジャーナルを使って一組として確定します。保存成功後だけ解析結果パネルを表示し、保存失敗時は両方をロールバックして `ANALYSIS ABORTED / SAVE ERROR` を表示します。保存途中でページが閉じられた場合も、次回起動時に完了済みかを検証し、未完了なら解析前へ復旧します。
-- CURRENT LOADOUT には各部位のbest装備、精錬値、精錬後の合計効果を表示します。SENSOR は攻撃間隔短縮、FRAME は最大APと被ダメージ軽減、BOOSTER はブーストEN回復、ARMAMENT は3攻撃スキルの実ダメージ、CORE は最大ブーストENです。解析結果パネルは更新時に基礎装備の効果差分、重複時に `UNCHANGED` と返還GEEK / SALVAGE POINTを表示します。
+- CURRENT LOADOUT には各部位のbest装備、精錬値、精錬後の合計効果を表示します。SENSOR は攻撃間隔短縮、FRAME は最大APと被ダメージ軽減、BOOSTER はブーストEN回復、ARMAMENT は3攻撃スキルの実ダメージ、CORE は最大ブーストENとクリティカル率です（効果欄に `CRIT +x%` を併記）。解析結果パネルは更新時に基礎装備の効果差分、重複時に `UNCHANGED` と返還GEEK / SALVAGE POINTを表示します。
 - 出撃開始時に保存済み `bestBySlot` と部位別精錬値から `runEquipmentLoadoutSnapshot` と `runEquipmentBonuses` を作成します。このスナップショットはラン中固定で、NEXT STAGE、FORCE BREAKTHROUGH、Depth遷移、レベルアップ、Gate、overlay、pause、ショップ保存値変更では再取得しません。次の出撃から最新の保存装備と精錬値が反映されます。
-- 基礎装備ボーナスは品質スコア `rarityIndex * 5 + rank` を使います。SENSOR は攻撃間隔 -0.25% x score、FRAME は最大AP +3 x score、BOOSTER はブーストEN回復 +0.8% x score、ARMAMENT は `basicSkill` / `tornadoSkill` / `rabbitThunderSkill` とそれらのMutation派生ダメージ +1.2% x score、CORE は最大ブーストEN +1 x score です。LEGEND Rank5 では SENSOR x0.9375、FRAME +75、BOOSTER x1.20、ARMAMENT x1.30、CORE +25 になります。
-- 精錬は基礎装備ボーナスへ加算され、1Lvごとに SENSOR 攻撃間隔 -0.15%、FRAME 最大AP +8、BOOSTER ブーストEN回復 +0.5%、ARMAMENT対象スキルダメージ +0.6%、CORE最大ブーストEN +2です。FRAMEは精錬 `+5 / +10 / +15 / +20` でプレイヤーの通常被ダメージを `2% / 4% / 7% / 10%` 軽減します。軽減は `applyDamageToPlayer()` の受け付け時に適用し、Robot Barrierより前の被ダメージ量を減らします。
+- 基礎装備ボーナスは品質スコア `rarityIndex * 5 + rank` を使います。SENSOR は攻撃間隔 -0.25% x score、FRAME は最大AP +3 x score、BOOSTER はブーストEN回復 +0.8% x score、ARMAMENT は `basicSkill` / `tornadoSkill` / `rabbitThunderSkill` とそれらのMutation派生ダメージ +1.2% x score、CORE は最大ブーストEN +1 x score とクリティカル率 +0.4% x score です。LEGEND Rank5 では SENSOR x0.9375、FRAME +75、BOOSTER x1.20、ARMAMENT x1.30、CORE +25 / クリティカル率 +10% になります。
+- 精錬は基礎装備ボーナスへ加算され、1Lvごとに SENSOR 攻撃間隔 -0.15%、FRAME 最大AP +8、BOOSTER ブーストEN回復 +0.5%、ARMAMENT対象スキルダメージ +0.6%、CORE最大ブーストEN +2 とクリティカル率 +0.25% です（CORE LEGEND Rank5 +20 で基本 3% と合わせて 18%）。FRAMEは精錬 `+5 / +10 / +15 / +20` でプレイヤーの通常被ダメージを `2% / 4% / 7% / 10%` 軽減します。軽減は `applyDamageToPlayer()` の受け付け時に適用し、Robot Barrierより前の被ダメージ量を減らします。
 - COMBAT LINK は出撃開始時の装備snapshotだけを参照するラン内効果です。対象3スキルが Stage8 に到達し、Final Mutation を選択済みの場合、通常 Level Up 候補として `EQUIPMENT OVERLIMIT` が出現します。Stage8 Final Mutation を正式に選択した直後にも、Combat Link 条件を満たす場合はそのスキル専用の `FINAL COMBAT LINK` OVERLIMIT bonus が出ることがあります。Depth6以降で Deep Level が実際に上がったときも、同じ条件を満たす未取得 OVERLIMIT があれば追加の `DEEP COMBAT LINK` 選択機会が出ます。OVERLIMIT I は対象スキルの実ダメージ x1.10、OVERLIMIT II は x1.20 で、Stage9 / Stage10 ではなく Stage8 のまま、Stage表記や保存schemaは増やさず、そのラン中だけ有効です。Opening Boost、Final Raid、Support、Robot、LOST ARMS、環境ダメージ、Final Raid疑似ダメージ、XP、GEEK、ANJU、Equipment報酬には影響しません。
 - OVERLIMIT 取得済みの対象スキルは戦闘HUDのスキル枠に `OVL-I` / `OVL-II` を表示します。Final Raid 中は COMBAT LINK の攻撃効果を抑制するため、このHUD表示も出ません。RUN ARCHIVE にはローカル閲覧用として Combat Link 段階と各対象スキルの OVERLIMIT 段階を記録しますが、ランキング、Firebase、Deep Result へは送信しません。OVERLIMIT はラン内効果で、次のランへ持ち越しません。
 - FRAME と CORE は開始ステータス再構築時に一度だけ加算します。BOOSTER はダッシュ回復遅延や消費量を変えず、ブーストEN回復量の最終倍率だけを変えます。SENSOR は3攻撃スキルの通常攻撃間隔 / 再発動間隔だけへ掛かり、演出ディレイ、持続時間、内部Mutationクールダウン、Support、Robot、LOST ARMS、CHAIN、敵行動には掛かりません。ARMAMENT は3攻撃スキル由来の実ダメージだけへ掛かり、Support、Robot、Recovery、LOST ARMS、CHAIN、環境ダメージ、敵攻撃、Final Raidの疑似ダメージ、支援ランキング、ボスHPタイムラインには掛かりません。
-- Depth10 初回 Final Raid 中はボスフィールドの時刻演出とランキングを守るため、SENSOR と ARMAMENT の有効倍率だけを 1 に抑制します。FRAME、BOOSTER、CORE は Final Raid 中も有効です。Final Raid 討伐後の通常 Depth10 ではこの抑制は発生しません。
+- Depth10 初回 Final Raid 中はボスフィールドの時刻演出とランキングを守るため、SENSOR と ARMAMENT の有効倍率と CORE のクリティカル率加算を抑制します（基本 3% は残ります）。FRAME、BOOSTER、CORE の最大ブーストENは Final Raid 中も有効です。Final Raid 討伐後の通常 Depth10 ではこの抑制は発生しません。
 - 本番装備箱は通常 Wave Boss 45%、通常 Elite 15%、NEMESIS 100%、Gold Slime 35%、Silver Slime 25% で抽選します。通常敵、Final Raid ボス/Add/巨大兵器、元素騎士イベント対象、Directive Slime、VOID HUNTER、報酬抑制対象からは落ちません。
 - 本番装備箱は1 Depth につき最大1個だけ出現します。Final Raid 初回確定報酬はこの上限に含めません。
 - Depth1 で Equipment 進行が完全に空の場合、最初の通常 Wave Boss だけ本番ドロップ抽選を100%にします。中身のレアリティ、Rank、部位はDepth1用テーブルで通常どおり決まります。

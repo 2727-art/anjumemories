@@ -45,7 +45,8 @@
     clothes: Object.freeze({ maxHpFlatPerScore: 3 }),
     shoes: Object.freeze({ staminaRegenIncreaseRatePerScore: 0.008 }),
     weapon: Object.freeze({ playerSkillDamageIncreaseRatePerScore: 0.012 }),
-    accessory: Object.freeze({ maxStaminaFlatPerScore: 1 })
+    // Crit chance: +0.4% per quality score (+10% at LEGEND rank 5) on top of the 3% base in game.js.
+    accessory: Object.freeze({ maxStaminaFlatPerScore: 1, critChanceRatePerScore: 0.004 })
   });
   const EQUIPMENT_REFINEMENT_MAX_LEVEL = 20;
   const EQUIPMENT_REFINEMENT_DEEP_START_LEVEL = 16;
@@ -54,7 +55,7 @@
     clothes: Object.freeze({ maxHpFlatPerLevel: 8 }),
     shoes: Object.freeze({ staminaRegenIncreaseRatePerLevel: 0.005 }),
     weapon: Object.freeze({ playerSkillDamageIncreaseRatePerLevel: 0.006 }),
-    accessory: Object.freeze({ maxStaminaFlatPerLevel: 2 })
+    accessory: Object.freeze({ maxStaminaFlatPerLevel: 2, critChanceRatePerLevel: 0.0025 })
   });
   const EQUIPMENT_FRAME_REFINEMENT_DAMAGE_REDUCTION_TIERS = Object.freeze([
     Object.freeze({ minLevel: 20, reductionRate: 0.10 }),
@@ -856,6 +857,7 @@
       playerSkillDamageIncreaseRate: 0,
       playerSkillDamageMultiplier: 1,
       maxStaminaFlat: 0,
+      critChanceRate: 0,
       slotRefinementLevels: createDefaultRefinementBySlot(),
       totalRefinementLevel: 0,
       damageTakenReductionRate: 0,
@@ -880,6 +882,7 @@
     cloned.playerSkillDamageIncreaseRate = roundBonusRate(source.playerSkillDamageIncreaseRate ?? cloned.playerSkillDamageIncreaseRate);
     cloned.playerSkillDamageMultiplier = roundBonusRate(source.playerSkillDamageMultiplier ?? cloned.playerSkillDamageMultiplier);
     cloned.maxStaminaFlat = Math.max(0, normalizeInteger(source.maxStaminaFlat, cloned.maxStaminaFlat));
+    cloned.critChanceRate = Math.max(0, roundBonusRate(source.critChanceRate ?? cloned.critChanceRate));
     cloned.slotRefinementLevels = normalizeRefinementBySlot(source.slotRefinementLevels);
     cloned.totalRefinementLevel = Math.max(0, normalizeInteger(source.totalRefinementLevel, cloned.totalRefinementLevel));
     cloned.damageTakenReductionRate = roundBonusRate(source.damageTakenReductionRate ?? cloned.damageTakenReductionRate);
@@ -920,6 +923,7 @@
       totals.playerSkillDamageMultiplier = roundBonusRate(1 + totals.playerSkillDamageIncreaseRate);
     } else if (normalizedItem.slot === "accessory") {
       totals.maxStaminaFlat = score * EQUIPMENT_BONUS_CONFIG.accessory.maxStaminaFlatPerScore;
+      totals.critChanceRate = roundBonusRate(score * EQUIPMENT_BONUS_CONFIG.accessory.critChanceRatePerScore);
     }
     return totals;
   }
@@ -959,6 +963,9 @@
         totals.playerSkillDamageMultiplier = roundBonusRate(1 + totals.playerSkillDamageIncreaseRate);
       } else if (slot === "accessory") {
         totals.maxStaminaFlat += level * EQUIPMENT_REFINEMENT_CONFIG.accessory.maxStaminaFlatPerLevel;
+        totals.critChanceRate = roundBonusRate(
+          totals.critChanceRate + level * EQUIPMENT_REFINEMENT_CONFIG.accessory.critChanceRatePerLevel
+        );
       }
     });
     return totals;
