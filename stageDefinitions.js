@@ -366,8 +366,8 @@ const SHIBUYA_STAGE1_COMPAT_DEFINITION = cloneTokyoStageDefinitionForLegacyId(
   LEGACY_SHIBUYA_STAGE_ID
 );
 
-// WORLD_DESIGN.md Phase 1: large finite city generated in chunks by game.js.
-// Only selected through ?debugOpenWorld=1 (or ?stage=openWorldCity); never part of the random pool.
+// WORLD_DESIGN.md Phase 1: large finite city generated in chunks by game.js. The normal-play stage since
+// Phase 4 (game.js isOpenWorldNormalPlay; ?debugOpenWorld=0 for the Tokyo stages); never part of the random pool.
 const OPEN_WORLD_CITY_STAGE_ID = "openWorldCity";
 const OPEN_WORLD_CITY_MAP_SIZE = 24000;
 const OPEN_WORLD_CITY_AREA_INSET = 1000;

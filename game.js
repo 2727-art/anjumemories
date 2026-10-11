@@ -8552,7 +8552,14 @@ class SurvivalScene extends Phaser.Scene {
         return requestedStage;
       }
 
-      console.warn(`Stage ${requestedStageId} was requested but was not found. Falling back to random Tokyo stage.`);
+      console.warn(`Stage ${requestedStageId} was requested but was not found. Falling back to the default stage.`);
+    }
+
+    if (this.isOpenWorldNormalPlay()) {
+      const openWorldStage = this.findStageDefinitionById(OPEN_WORLD_STAGE_ID);
+      if (openWorldStage) {
+        return openWorldStage;
+      }
     }
 
     const randomStages = this.getTokyoRandomStages();
@@ -8580,6 +8587,15 @@ class SurvivalScene extends Phaser.Scene {
     const requested = this.isQueryFlagValueEnabled(this.getUrlStageParam(OPEN_WORLD_QUERY_PARAM));
     this.openWorldRequestCache = { search, requested };
     return requested;
+  }
+
+  // The open world is the normal-play map (WORLD_DESIGN.md Phase 4). ?debugOpenWorld=0 goes back to the random
+  // Tokyo stages, which the stage collision editor (?debug=stage) and the UMBRA verification pages keep using.
+  isOpenWorldNormalPlay() {
+    return !this.isQueryFlagValueDisabled(this.getUrlStageParam(OPEN_WORLD_QUERY_PARAM))
+      && !this.isStageDebugRequested()
+      && !isUmbraIntegrationRequested()
+      && !isUmbraPhase1PreviewRequested();
   }
 
   isOpenWorldStage(stage = this.currentStage) {
