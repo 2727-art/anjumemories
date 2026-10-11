@@ -1033,7 +1033,7 @@ AC MOVEMENT DEBUG HUD（`?debugAcMovementHud=1`）の `openWorld:` の行に、�
 
 - `?debugOpenWorld=0`（従来の東京ステージで遊ぶ・比べるとき）
 - 当たり判定エディタ・ステージ表示の debug（`?debug=stage` など。東京ステージ用の道具のため）
-- UMBRA の検証ページ（`umbra-integration.html`、`?umbraPreview=1`）。これまで東京ステージで検証してきたため、そのままにした
+- UMBRA の検証ページ（`umbra-integration.html`、`?umbraPreview=1`）。これまで東京ステージで検証してきたため、そのままにした。`umbra-integration.html` は、`&debugOpenWorld=1` を付けたときだけ広域マップで試せる（2026-10-11 追加。ローカル専用のまま、RAM だけで動く）
 
 そのほかは変えていない。広域マップの挙動（カメラリグ、作戦領域、敵の出現、Gate、建物、低い障害物、遠方回収、Final Raid の 4096 px フィールドなど）は、これまで `?debugOpenWorld=1` で確認してきたものと同じ。
 
@@ -1053,8 +1053,12 @@ AC MOVEMENT DEBUG HUD（`?debugAcMovementHud=1`）の `openWorld:` の行に、�
 - 購入済みの UMBRA（武装あり）での通常出撃は、ヘッドレスでは購入状態を作れず確認していない。
 - 出撃時の読み込みに、広域マップの素材（`画像/openworld/`、約 9.6 MB）が加わる。2 回目以降はキャッシュから読む。
 
-### 実機で見てほしい点
+### 実機確認（2026-10-11）
 
-- 通常の URL で、広域マップに出撃するか。出撃までの読み込み時間。
+通常の URL で出撃し、Depth10（Final Raid）のクリアから帰還まで通しで遊んで、不具合はなかった。
+
+次の点は、この実機確認では個別に見ていない。
+
 - 購入済みの UMBRA で出撃して、武装が今までどおり使えるか。
-- Depth を進めたとき、Final Raid（Depth10）、ショップへの帰還、もう一度の出撃。
+- 出撃までの読み込み時間（初回・2 回目以降）。
+- 帰還後、ショップからもう一度出撃したとき。
