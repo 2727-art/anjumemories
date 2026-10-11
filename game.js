@@ -1423,7 +1423,16 @@ const OPEN_WORLD_CONFIG = Object.freeze({
   spawnForwardBiasChance: 0.55,
   spawnForwardBiasMinSpeed: 200,
   companionRecallDistance: 1500,
-  finalRaidFieldSize: 4096
+  finalRaidFieldSize: 4096,
+  // Far-drop recovery (WORLD_DESIGN.md 9): XP and Bronze / Silver / Gold left this far from the player for
+  // this much gameplay time leave the map; their rewards join the next Depth transition's DATA CACHE
+  // compression with the drops still on the ground (same 25%), so the economy does not change.
+  dropRecovery: Object.freeze({
+    distance: 3000,
+    delayMs: 20000,
+    intervalMs: 1000,
+    valueIds: Object.freeze(["bronze", "silver", "gold"])
+  })
 });
 // WORLD_DESIGN.md 6.11: Blender assets listed in 画像/openworld/manifest.json replace the runtime textures
 // of the open world. They load with the sortie only in the open world; anything missing keeps the runtime drawing.
@@ -42716,6 +42725,9 @@ class SurvivalScene extends Phaser.Scene {
       gateCenter: null,
       nextEnemyRecycleAt: 0,
       recycledEnemyCount: 0,
+      dropRecoveryElapsedMs: 0,
+      // Rewards of recovered drops since the last Depth transition (never saved).
+      recoveredDrops: { xp: 0, unsecuredGeek: 0, sourceCount: 0, count: 0 },
       outOfArea: {
         active: false,
         outsideMs: 0,
@@ -44522,6 +44534,68 @@ class SurvivalScene extends Phaser.Scene {
     }
     this.updateOpenWorldOutOfArea(delta);
     this.updateOpenWorldEnemyRecycle();
+    this.updateOpenWorldDropRecovery(delta);
+  }
+
+  isOpenWorldRecoverableDrop(drop) {
+    if (!this.isDropActive(drop) || (drop.forcePullUntil || 0) > (this.time?.now || 0)) {
+      return false;
+    }
+    const category = this.getDropCategory(drop);
+    return category === "xp"
+      || (category === "value" && OPEN_WORLD_CONFIG.dropRecovery.valueIds.includes(drop.itemDefinition?.id));
+  }
+
+  // Drops left far behind would only hold the drop cap and per-frame work until the Depth transition
+  // compresses them. They leave the map early instead and their rewards wait for that compression.
+  updateOpenWorldDropRecovery(delta) {
+    const state = this.openWorldState;
+    const config = OPEN_WORLD_CONFIG.dropRecovery;
+    state.dropRecoveryElapsedMs += Math.max(0, Number(delta) || 0);
+    if (state.dropRecoveryElapsedMs < config.intervalMs || !this.playerHitbox?.active) {
+      return;
+    }
+    const elapsed = state.dropRecoveryElapsedMs;
+    state.dropRecoveryElapsedMs = 0;
+    const playerX = this.playerHitbox.x;
+    const playerY = this.playerHitbox.y;
+    const distanceSq = config.distance * config.distance;
+    const recovered = state.recoveredDrops;
+    this.getActiveDropObjects().forEach((drop) => {
+      if (!this.isOpenWorldRecoverableDrop(drop)) {
+        return;
+      }
+      const dx = drop.x - playerX;
+      const dy = drop.y - playerY;
+      if (dx * dx + dy * dy < distanceSq) {
+        drop.openWorldFarMs = 0;
+        return;
+      }
+      drop.openWorldFarMs = (drop.openWorldFarMs || 0) + elapsed;
+      if (drop.openWorldFarMs < config.delayMs) {
+        return;
+      }
+      const reward = this.getDropRewardEstimate(drop);
+      recovered.xp += reward.xp;
+      recovered.unsecuredGeek = this.normalizeCoinAmount(recovered.unsecuredGeek + reward.unsecuredGeek);
+      recovered.sourceCount += this.getMergedDropSourceCount(drop);
+      recovered.count += 1;
+      this.removeDropSafely(drop);
+    });
+  }
+
+  // Raw rewards recovered since the last Depth transition, emptied (null off the open-world map).
+  takeOpenWorldRecoveredDropReward() {
+    const recovered = this.openWorldState?.recoveredDrops;
+    if (!recovered || (recovered.xp <= 0 && recovered.unsecuredGeek <= 0)) {
+      return null;
+    }
+    const taken = { xp: recovered.xp, unsecuredGeek: recovered.unsecuredGeek, sourceCount: recovered.sourceCount };
+    recovered.xp = 0;
+    recovered.unsecuredGeek = 0;
+    recovered.sourceCount = 0;
+    recovered.count = 0;
+    return taken;
   }
 
   isPointOutsideOpenWorldArea(x, y) {
@@ -44863,6 +44937,9 @@ class SurvivalScene extends Phaser.Scene {
       reflectionCount,
       drawnLampPools: state.light?.drawnPools ?? 0,
       buildingCount: state.buildings.size,
+      recoveredDropCount: state.recoveredDrops.count,
+      recoveredDropXp: state.recoveredDrops.xp,
+      recoveredDropGeek: state.recoveredDrops.unsecuredGeek,
       buildingCollision: state.buildingCollisionEnabled,
       drawnNeonPools: state.light?.drawnNeon ?? 0,
       outOfArea: state.outOfArea.active,
@@ -73113,7 +73190,7 @@ class SurvivalScene extends Phaser.Scene {
     }
     const player = this.playerHitbox?.active ? `${Math.round(this.playerHitbox.x)},${Math.round(this.playerHitbox.y)}` : "-";
     const gate = world.gateCenter ? `${world.gateCenter.x},${world.gateCenter.y}` : "-";
-    return `openWorld:ON chunks:${world.chunkCount} objs:${world.objectCount} pos:${player} area:${world.outOfArea ? `OUT ${(world.outsideMs / 1000).toFixed(1)}s x${world.outOfAreaTicks}` : "IN"} gate:${gate} recycled:${world.recycledEnemyCount} assets:${world.assetKeys.length} light:${world.lighting ? `${world.drawnLampPools}/${world.lampCount}` : "OFF"} props:${world.propCount} refl:${world.reflectionCount} bld:${world.buildingCount}${world.buildingCollision ? "" : "(off)"} neon:${world.drawnNeonPools}`;
+    return `openWorld:ON chunks:${world.chunkCount} objs:${world.objectCount} pos:${player} area:${world.outOfArea ? `OUT ${(world.outsideMs / 1000).toFixed(1)}s x${world.outOfAreaTicks}` : "IN"} gate:${gate} recycled:${world.recycledEnemyCount} assets:${world.assetKeys.length} light:${world.lighting ? `${world.drawnLampPools}/${world.lampCount}` : "OFF"} props:${world.propCount} refl:${world.reflectionCount} bld:${world.buildingCount}${world.buildingCollision ? "" : "(off)"} neon:${world.drawnNeonPools} far:${world.recoveredDropCount}`;
   }
 
   formatAcCameraRigDebugHudLine() {
@@ -76415,10 +76492,11 @@ class SurvivalScene extends Phaser.Scene {
     return { xp: 0, unsecuredGeek: 0 };
   }
 
-  compressDropsToDataCachePayload(drops) {
-    let rawXp = 0;
-    let rawUnsecuredGeek = 0;
-    let sourceCount = 0;
+  // `extraRaw` adds rewards already taken off the map (open-world far-drop recovery) before the rates apply.
+  compressDropsToDataCachePayload(drops, extraRaw = null) {
+    let rawXp = Math.max(0, Math.floor(Number(extraRaw?.xp) || 0));
+    let rawUnsecuredGeek = this.normalizeCoinAmount(extraRaw?.unsecuredGeek);
+    let sourceCount = Math.max(0, Math.floor(Number(extraRaw?.sourceCount) || 0));
 
     (drops || []).forEach((drop) => {
       const reward = this.getDropRewardEstimate(drop);
@@ -76477,7 +76555,7 @@ class SurvivalScene extends Phaser.Scene {
   cleanupDropsOnDepthTransition() {
     const drops = this.collectActiveDropsForCleanup();
     const equipmentGroundCount = drops.filter((drop) => this.getDropCategory(drop) === "equipmentBox").length;
-    const payload = this.compressDropsToDataCachePayload(drops);
+    const payload = this.compressDropsToDataCachePayload(drops, this.takeOpenWorldRecoveredDropReward?.());
     drops.forEach((drop) => this.removeDropSafely(drop));
     if (equipmentGroundCount > 0) {
       this.logEquipmentRunDebug("depthTransitionGroundDiscard", { count: equipmentGroundCount, depth: this.stageDepth || 1 });

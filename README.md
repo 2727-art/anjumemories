@@ -835,6 +835,8 @@ Phase 1a の広域マップも debug 限定です。`?debugOpenWorld=1` で 24,0
 
 Phase 1b で、広域マップの街区に建物を置きました。建物は真上から見た屋上で描き、敷地がそのまま壁になります（自機・敵・敵の弾が通れません。自機の弾は通り抜けます）。敵は建物の角を回り込んで近づき、敵の出現位置・Gate・DATA CACHE などは建物を避けます。店の看板の色が店先の通りに映り、屋上の明かりも光ります。Final Raid の間は建物の当たり判定を切ります。詳細は `WORLD_DESIGN.md` の 8 章です。
 
+広域マップでは、自機から 3,000px 以上離れたまま 20 秒（プレイ中の時間）たった XP と Bronze / Silver / Gold を地図から消し、その XP と未確定 GEEK を「回収待ち」として持っておきます。回収待ちは次の Depth 移行で、地面に残ったドロップと一緒に今までどおり DATA CACHE へ圧縮します（25%）。報酬の量は今までと変わらず、DATA CACHE・Robot・Support・回復・Magnet・LOST ARMS・装備箱は対象外です。詳細は `WORLD_DESIGN.md` の 9 章です。
+
 ## Googleアカウント データ連携
 
 OPERATIONS HUB の `DATA LINK` タブから、任意でGoogleアカウントを連携できます。連携後は同じGoogleアカウントで開いたスマートフォンとPCブラウザーの間で、確定済みの進行データを共有できます。クラウドへの自動保存は、作戦終了後にOPERATIONS HUBへ帰還するときの変更分1回だけです。`今すぐ同期` から手動でも保存でき、ラン中やHUB内の個別操作ではlocalStorageだけを更新してFirestoreへ逐次書き込みません。未連携または通信失敗時も従来どおりlocalStorageで遊べます。
