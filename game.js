@@ -1400,7 +1400,7 @@ const OPEN_WORLD_CONFIG = Object.freeze({
     outside: 0x8a1f24,
     boundary: 0xff5a4f
   }),
-  blockWeights: Object.freeze({ plaza: 35, parking: 30, park: 20, lot: 15 }),
+  blockWeights: Object.freeze({ building: 70, plaza: 10, parking: 9, park: 7, lot: 4 }),
   outOfArea: Object.freeze({
     graceMs: 10000,
     tickMs: 1000,
@@ -1463,7 +1463,9 @@ const OPEN_WORLD_ASSET_CONFIG = Object.freeze({
       "ow-prop-trash", "ow-prop-barricade-h", "ow-prop-barricade-v",
       "ow-prop-car-a-h", "ow-prop-car-a-v", "ow-prop-car-b-h", "ow-prop-car-b-v", "ow-prop-car-c-h", "ow-prop-car-c-v",
       "ow-prop-tree-a", "ow-prop-tree-b", "ow-prop-tree-c", "ow-prop-lamp"
-    ].map((key) => [key, "prop"]))
+    ].map((key) => [key, "prop"])),
+    // Buildings: roof, roof_emit and south_emit (for the neon spill); the south facade itself is Phase 2.
+    "ow-bld-a01": "building"
   }),
   // Companion images loaded with an entry (same size): the open-water mask of a puddle, for reflections.
   companionFields: Object.freeze({ prop: Object.freeze(["water"]) }),
@@ -1523,6 +1525,43 @@ const OPEN_WORLD_PROP_CONFIG = Object.freeze({
   treeArea: 240000, // park area per tree
   maxTrees: 12,
   cornerTrashChance: 0.2
+});
+// Phase 1b buildings (WORLD_DESIGN.md 8): solid blocks of the city, seen from straight above (the 3/4 view
+// with facades is Phase 2). The layout comes from the run seed and these types, not from the loaded images,
+// so collisions are the same with or without the assets; a missing roof image falls back to a drawn roof.
+const OPEN_WORLD_BUILDING_CONFIG = Object.freeze({
+  // Footprints in px (1 m = 40 px); `key` is the manifest entry with the roof / emit images.
+  types: Object.freeze([
+    Object.freeze({ key: "ow-bld-a01", width: 768, height: 1024 })
+  ]),
+  gap: 64, // between two buildings of one block
+  maxPerBlock: 3,
+  nextChance: 0.7, // chance to try one more building after each one, room permitting
+  shadeMin: 0.9, // per-building roof tint for variety (grey level)
+  startClearance: 480, // no building this close to the player start
+  gateClearance: 260, // gate centres keep this far from walls
+  depths: Object.freeze({ shadow: -5.38, roof: -5.08 }),
+  shadow: Object.freeze([
+    Object.freeze({ offsetX: 26, offsetY: 34, alpha: 0.34 }),
+    Object.freeze({ offsetX: 54, offsetY: 72, alpha: 0.16 })
+  ]),
+  roofAmbient: 0x98a0b9, // roofs get the pilot mock's roof ambient (0.8 x night) and no street lamps
+  // Shop signs and lit windows of the south facade (south_emit) spill coloured light onto the street.
+  neon: Object.freeze({
+    columnWidth: 96,
+    rows: 8,
+    minLevel: 0.025,
+    offsetY: 70, // pool centre below the south wall
+    radiusMin: 130,
+    radiusMax: 260,
+    levelForMaxRadius: 0.2,
+    alphaGain: 3.2,
+    maxAlpha: 0.85,
+    saturation: 1.8 // the hue comes mostly from the coloured signs, pushed away from grey
+  }),
+  // Enemies head for the corner of the first building between them and the player.
+  steer: Object.freeze({ recheckMs: 280, recheckJitterMs: 120, clearance: 18, reachDistance: 26 }),
+  blockCacheLimit: 600
 });
 const MOBILE_CONTROL_QUERY_PARAM = "mobileControls";
 const COMMS_UI_DEBUG_QUERY_PARAM = "debugComms";
@@ -42668,6 +42707,10 @@ class SurvivalScene extends Phaser.Scene {
       chunksX: Math.ceil(world.width / chunkSize),
       chunksY: Math.ceil(world.height / chunkSize),
       chunks: new Map(),
+      // Buildings shared by the chunks they overlap (refcounted), and the per-block layout cache.
+      buildings: new Map(),
+      blockBuildings: new Map(),
+      buildingCollisionEnabled: true,
       noiseOverlay: null,
       light: null,
       gateCenter: null,
@@ -42747,12 +42790,43 @@ class SurvivalScene extends Phaser.Scene {
     if (!manifest || manifest.version !== 1 || !Array.isArray(manifest.assets)) {
       return [];
     }
-    const isSize = (value) => Number.isInteger(value) && value > 0 && value <= config.maxTextureSize;
     return manifest.assets.filter((asset) => (
-      Boolean(asset) && config.usedKeys[asset.key] === asset.type
-      && typeof asset.file === "string" && /^[\w-]+(\/[\w-]+)*\.(jpg|png)$/.test(asset.file)
-      && isSize(asset.width) && isSize(asset.height)
+      Boolean(asset) && config.usedKeys[asset.key] === asset.type && this.getOpenWorldManifestFiles(asset).length > 0
     ));
+  }
+
+  // Images of one manifest entry as [textureName, file, width, height]: the entry's image, then its
+  // companions (a puddle's water mask) as `<key>_<field>`; for a building, `<key>-roof`, `<key>-roof_emit`
+  // and `<key>-south_emit`. An entry with an invalid main image yields nothing.
+  getOpenWorldManifestFiles(asset) {
+    const config = OPEN_WORLD_ASSET_CONFIG;
+    const isSize = (value) => Number.isInteger(value) && value > 0 && value <= config.maxTextureSize;
+    const isFile = (file, extensions = "jpg|png") => typeof file === "string" && new RegExp(`^[\\w-]+(\\/[\\w-]+)*\\.(${extensions})$`).test(file);
+    if (asset.type === "building") {
+      const [width, height] = Array.isArray(asset.footprint) ? asset.footprint : [];
+      const [southWidth, southHeight] = Array.isArray(asset.southSize) ? asset.southSize : [width, (Number(asset.floors) || 0) * 64];
+      if (!isSize(width) || !isSize(height) || !isFile(asset.roof, "png")) {
+        return [];
+      }
+      const files = [[`${asset.key}-roof`, asset.roof, width, height]];
+      if (isFile(asset.roofEmit, "png")) {
+        files.push([`${asset.key}-roof_emit`, asset.roofEmit, width, height]);
+      }
+      if (isFile(asset.southEmit, "png") && isSize(southWidth) && isSize(southHeight)) {
+        files.push([`${asset.key}-south_emit`, asset.southEmit, southWidth, southHeight]);
+      }
+      return files;
+    }
+    if (!isFile(asset.file) || !isSize(asset.width) || !isSize(asset.height)) {
+      return [];
+    }
+    const files = [[asset.key, asset.file, asset.width, asset.height]];
+    (config.companionFields[asset.type] || []).forEach((field) => {
+      if (isFile(asset[field], "png")) {
+        files.push([`${asset.key}_${field}`, asset[field], asset.width, asset.height]);
+      }
+    });
+    return files;
   }
 
   getOpenWorldAssetTextureKey(key) {
@@ -42764,19 +42838,12 @@ class SurvivalScene extends Phaser.Scene {
     let queued = 0;
     this.getOpenWorldManifestEntries(manifest).forEach((asset) => {
       const version = /^[0-9a-f]{6,64}$/.test(String(asset.hash || "")) ? asset.hash : STATIC_ASSET_VERSION;
-      // The entry's image, then its companions (a puddle's water mask) as `<key>_<field>`.
-      const files = [[asset.key, asset.file]];
-      (config.companionFields[asset.type] || []).forEach((field) => {
-        if (typeof asset[field] === "string" && /^[\w-]+(\/[\w-]+)*\.png$/.test(asset[field])) {
-          files.push([`${asset.key}_${field}`, asset[field]]);
-        }
-      });
-      files.forEach(([key, file]) => {
+      this.getOpenWorldManifestFiles(asset).forEach(([key, file, width, height]) => {
         const textureKey = this.getOpenWorldAssetTextureKey(key);
         if (this.textures.exists(textureKey) || this.isAssetLoadQueued("image", textureKey)) {
           return;
         }
-        this.load.once(`filecomplete-image-${textureKey}`, () => this.validateOpenWorldAssetTexture(textureKey, { ...asset, key, file }));
+        this.load.once(`filecomplete-image-${textureKey}`, () => this.validateOpenWorldAssetTexture(textureKey, { key, file, width, height }));
         this.markAssetLoadQueued("image", textureKey);
         this.load.image(textureKey, `${config.root}${file}?v=${version}`);
         queued += 1;
@@ -42829,8 +42896,9 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getOpenWorldLoadedAssetKeys() {
-    return Object.keys(OPEN_WORLD_ASSET_CONFIG.usedKeys)
-      .filter((key) => this.textures.exists(this.getOpenWorldAssetTextureKey(key)));
+    const usedKeys = OPEN_WORLD_ASSET_CONFIG.usedKeys;
+    return Object.keys(usedKeys)
+      .filter((key) => this.textures.exists(this.getOpenWorldAssetTextureKey(usedKeys[key] === "building" ? `${key}-roof` : key)));
   }
 
   // Mean colour of a texture, drawn under textured surfaces so that sub-pixel gaps between the
@@ -43184,6 +43252,37 @@ class SurvivalScene extends Phaser.Scene {
       });
       drawn += 1;
     }));
+    // Shop signs and windows of each building spill their colour onto the street in front.
+    let neonDrawn = 0;
+    state.buildings.forEach((record) => record.lights.forEach((neon) => {
+      if (neon.x + neon.radius < left || neon.x - neon.radius > left + width
+        || neon.y + neon.radius < top || neon.y - neon.radius > top + height) {
+        return;
+      }
+      texture.stamp("ow-light-pool", undefined, (neon.x - left) * scaleX, (neon.y - top) * scaleY, {
+        scaleX: (neon.radius * 2 * scaleX) / poolSize,
+        scaleY: (neon.radius * 2 * scaleY) / poolSize,
+        tint: neon.color,
+        alpha: neon.alpha,
+        blendMode: Phaser.BlendModes.ADD,
+        skipBatch: true
+      });
+      neonDrawn += 1;
+    }));
+    // Roofs stand above the street lamps: they keep the roof ambient only (drawn over the pools).
+    state.buildings.forEach(({ building }) => {
+      if (building.right < left || building.left > left + width || building.bottom < top || building.top > top + height) {
+        return;
+      }
+      texture.stamp("ow-px", undefined, (building.left - left) * scaleX, (building.top - top) * scaleY, {
+        originX: 0,
+        originY: 0,
+        scaleX: ((building.right - building.left) * scaleX) / 4,
+        scaleY: ((building.bottom - building.top) * scaleY) / 4,
+        tint: OPEN_WORLD_BUILDING_CONFIG.roofAmbient,
+        skipBatch: true
+      });
+    });
     texture.endDraw();
     texture.stamp("ow-light-vignette", undefined, (view.centerX - left) * scaleX, (view.centerY - top) * scaleY, {
       scaleX: (view.width * scaleX) / 128,
@@ -43191,6 +43290,7 @@ class SurvivalScene extends Phaser.Scene {
       blendMode: Phaser.BlendModes.MULTIPLY
     });
     light.drawnPools = drawn;
+    light.drawnNeon = neonDrawn;
     this.updateOpenWorldReflections(now);
   }
 
@@ -43346,10 +43446,12 @@ class SurvivalScene extends Phaser.Scene {
 
   destroyOpenWorldChunk(chunk) {
     (chunk?.objects || []).forEach((object) => object?.destroy?.());
+    (chunk?.buildingIds || []).forEach((id) => this.releaseOpenWorldBuilding(id));
     if (chunk) {
       chunk.objects = [];
       chunk.lamps = [];
       chunk.reflections = [];
+      chunk.buildingIds = [];
     }
   }
 
@@ -43467,6 +43569,7 @@ class SurvivalScene extends Phaser.Scene {
     const roadsY = this.getOpenWorldRoadsInRange("y", clip.top - pad, clip.bottom + pad);
 
     const reflections = [];
+    const buildingIds = [];
     // Roads that touch this chunk (with room for lamp heads and props); the full lists still give the crossings.
     const near = (axis) => (road) => (axis === "x"
       ? road.end + 120 > clip.left && road.start - 120 < clip.right
@@ -43485,6 +43588,12 @@ class SurvivalScene extends Phaser.Scene {
         };
         if (this.clipOpenWorldRect(block, clip)) {
           this.addOpenWorldBlock(objects, roadsX[ix].index, roadsY[iy].index, block, clip, reflections);
+          this.getOpenWorldBlockBuildings(roadsX[ix].index, roadsY[iy].index).forEach((building) => {
+            if (this.clipOpenWorldRect(building, clip)) {
+              this.acquireOpenWorldBuilding(building);
+              buildingIds.push(building.id);
+            }
+          });
         }
       }
     }
@@ -43493,7 +43602,7 @@ class SurvivalScene extends Phaser.Scene {
     this.addOpenWorldRoadProps(objects, nearX, nearY, roadsX, roadsY, clip, reflections);
     const lamps = this.addOpenWorldStreetLamps(objects, roadsX, roadsY, clip, nearX, nearY);
     this.addOpenWorldBoundary(objects, clip);
-    return { cx, cy, objects, lamps, reflections, staleSince: 0 };
+    return { cx, cy, objects, lamps, reflections, buildingIds, staleSince: 0 };
   }
 
   // Road segments (between two crossings) paved with ow-asphalt-b instead of -a, picked per segment.
@@ -43661,7 +43770,11 @@ class SurvivalScene extends Phaser.Scene {
   addOpenWorldBlock(objects, ix, iy, block, clip, reflections = []) {
     const config = OPEN_WORLD_CONFIG;
     const colors = config.colors;
-    const type = this.pickOpenWorldBlockType(ix, iy);
+    const blockType = this.pickOpenWorldBlockType(ix, iy);
+    // Building blocks are paved round their buildings (or left as a back lot); the buildings themselves
+    // are shared records drawn once (acquireOpenWorldBuilding).
+    const buildings = blockType === "building" ? this.getOpenWorldBlockBuildings(ix, iy) : [];
+    const type = blockType === "building" ? (this.getOpenWorldHash(63, ix, iy) < 0.7 ? "plaza" : "lot") : blockType;
     const sidewalk = config.sidewalkWidth;
     const inner = {
       left: block.left + sidewalk,
@@ -43743,7 +43856,7 @@ class SurvivalScene extends Phaser.Scene {
         this.addOpenWorldRect(objects, { left: x, top: y, right: x + width, bottom: y + height }, clip, 0x000000, 0.18, config.depths.detail);
       }
     }
-    this.addOpenWorldBlockProps(objects, type, ix, iy, block, inner, clip, reflections);
+    this.addOpenWorldBlockProps(objects, type, ix, iy, block, inner, clip, reflections, buildings);
   }
 
   // Loaded curb strips and their mirrored copies, or null to keep the flat curb band.
@@ -43774,7 +43887,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   // Props inside a block and on its sidewalk corners, decided by the run seed.
-  addOpenWorldBlockProps(objects, type, ix, iy, block, inner, clip, reflections) {
+  addOpenWorldBlockProps(objects, type, ix, iy, block, inner, clip, reflections, buildings = []) {
     const config = OPEN_WORLD_PROP_CONFIG;
     const depths = config.depths;
     const roll = (salt, n = 0) => this.getOpenWorldHash(salt, ix, iy, n);
@@ -43785,7 +43898,10 @@ class SurvivalScene extends Phaser.Scene {
       inner.left + margin + roll(salt) * Math.max(1, width - margin * 2),
       inner.top + margin + roll(salt + 1) * Math.max(1, height - margin * 2)
     ];
-    const add = (key, [x, y], options = {}) => this.addOpenWorldProp(objects, key, x, y, clip, options);
+    // Nothing is placed on (or right against) a building of this block.
+    const add = (key, [x, y], options = {}) => (buildings.some((b) => x > b.left - 90 && x < b.right + 90 && y > b.top - 90 && y < b.bottom + 90)
+      ? null
+      : this.addOpenWorldProp(objects, key, x, y, clip, options));
 
     // Rubbish bags on some sidewalk corners.
     [[block.left + 30, block.top + 30], [block.right - 30, block.top + 30], [block.left + 30, block.bottom - 30], [block.right - 30, block.bottom - 30]]
@@ -43849,6 +43965,436 @@ class SurvivalScene extends Phaser.Scene {
     if (roll(116) < 0.25) {
       add("ow-prop-puddle-c", inside(117, 240), { depth: depths.decal, reflections });
     }
+  }
+
+  getOpenWorldBlockRect(ix, iy) {
+    return {
+      left: this.getOpenWorldRoad("x", ix).end,
+      right: this.getOpenWorldRoad("x", ix + 1).start,
+      top: this.getOpenWorldRoad("y", iy).end,
+      bottom: this.getOpenWorldRoad("y", iy + 1).start
+    };
+  }
+
+  // Buildings of one block (the same on every call, cached). The block index is the index of the road on
+  // its west / north side, as in buildOpenWorldChunk.
+  getOpenWorldBlockBuildings(ix, iy) {
+    const state = this.openWorldState;
+    if (!state) {
+      return [];
+    }
+    const cacheKey = `${ix},${iy}`;
+    let buildings = state.blockBuildings.get(cacheKey);
+    if (!buildings) {
+      if (state.blockBuildings.size >= OPEN_WORLD_BUILDING_CONFIG.blockCacheLimit) {
+        state.blockBuildings.clear();
+      }
+      buildings = this.pickOpenWorldBlockType(ix, iy) === "building" ? this.layoutOpenWorldBlockBuildings(ix, iy) : [];
+      state.blockBuildings.set(cacheKey, buildings);
+    }
+    return buildings;
+  }
+
+  // Types that fit the block interior, placed west to east while there is room (any mix of types),
+  // against the south edge so the shop fronts face the street; the row is shifted by a seeded amount.
+  layoutOpenWorldBlockBuildings(ix, iy) {
+    const config = OPEN_WORLD_BUILDING_CONFIG;
+    const sidewalk = OPEN_WORLD_CONFIG.sidewalkWidth;
+    const block = this.getOpenWorldBlockRect(ix, iy);
+    const inner = { left: block.left + sidewalk, top: block.top + sidewalk, right: block.right - sidewalk, bottom: block.bottom - sidewalk };
+    const innerWidth = inner.right - inner.left;
+    const innerHeight = inner.bottom - inner.top;
+    const row = [];
+    let used = 0;
+    while (row.length < config.maxPerBlock) {
+      const room = innerWidth - used - (row.length ? config.gap : 0);
+      const fits = config.types.filter((type) => type.width <= room && type.height <= innerHeight);
+      if (!fits.length || (row.length && this.getOpenWorldHash(65, ix, iy, row.length) >= config.nextChance)) {
+        break;
+      }
+      const type = fits[Math.min(fits.length - 1, Math.floor(this.getOpenWorldHash(61, ix, iy, row.length) * fits.length))];
+      row.push({ type, offset: used + (row.length ? config.gap : 0) });
+      used = row[row.length - 1].offset + type.width;
+    }
+    const firstLeft = Math.round(inner.left + this.getOpenWorldHash(62, ix, iy) * (innerWidth - used));
+    const start = this.currentStage?.playerStart || this.getStageWorldBounds(this.currentStage);
+    const startX = start.x ?? start.centerX;
+    const startY = start.y ?? start.centerY;
+    const clearance = config.startClearance;
+    const buildings = [];
+    row.forEach(({ type, offset }, index) => {
+      const left = firstLeft + offset;
+      const building = {
+        id: `${ix},${iy},${index}`,
+        type,
+        left,
+        right: left + type.width,
+        top: Math.round(inner.bottom) - type.height,
+        bottom: Math.round(inner.bottom),
+        shade: config.shadeMin + this.getOpenWorldHash(64, ix, iy, index) * (1 - config.shadeMin)
+      };
+      if (!(startX > building.left - clearance && startX < building.right + clearance
+        && startY > building.top - clearance && startY < building.bottom + clearance)) {
+        buildings.push(building);
+      }
+    });
+    return buildings;
+  }
+
+  // Block-level index: the buildings of every block that overlaps the rectangle, loaded or not.
+  getOpenWorldBuildingsInRect(rect) {
+    const pitch = OPEN_WORLD_CONFIG.roadPitch;
+    const buildings = [];
+    const lastX = Math.ceil(rect.right / pitch);
+    const lastY = Math.ceil(rect.bottom / pitch);
+    for (let ix = Math.floor(rect.left / pitch) - 1; ix <= lastX; ix += 1) {
+      for (let iy = Math.floor(rect.top / pitch) - 1; iy <= lastY; iy += 1) {
+        this.getOpenWorldBlockBuildings(ix, iy).forEach((building) => {
+          if (building.right > rect.left && building.left < rect.right && building.bottom > rect.top && building.top < rect.bottom) {
+            buildings.push(building);
+          }
+        });
+      }
+    }
+    return buildings;
+  }
+
+  isPointNearOpenWorldBuilding(x, y, padding = 0) {
+    if (!this.openWorldState) {
+      return false;
+    }
+    return this.getOpenWorldBuildingsInRect({ left: x - padding, top: y - padding, right: x + padding, bottom: y + padding })
+      .some((building) => x >= building.left - padding && x <= building.right + padding
+        && y >= building.top - padding && y <= building.bottom + padding);
+  }
+
+  // Nearest point (on rings of growing radius) that keeps `clearance` from every building.
+  findOpenWorldClearPoint(x, y, clearance) {
+    if (!this.isPointNearOpenWorldBuilding(x, y, clearance)) {
+      return { x, y };
+    }
+    for (let radius = 120; radius <= 1440; radius += 120) {
+      const steps = Math.max(12, Math.round(radius / 60));
+      for (let step = 0; step < steps; step += 1) {
+        const angle = (Math.PI * 2 * step) / steps;
+        const point = { x: Math.round(x + Math.cos(angle) * radius), y: Math.round(y + Math.sin(angle) * radius) };
+        if (!this.isPointNearOpenWorldBuilding(point.x, point.y, clearance)) {
+          return point;
+        }
+      }
+    }
+    return { x, y };
+  }
+
+  acquireOpenWorldBuilding(building) {
+    const state = this.openWorldState;
+    let record = state.buildings.get(building.id);
+    if (!record) {
+      record = this.createOpenWorldBuildingRecord(building);
+      state.buildings.set(building.id, record);
+    }
+    record.refs += 1;
+  }
+
+  releaseOpenWorldBuilding(id) {
+    const state = this.openWorldState;
+    const record = state?.buildings.get(id);
+    if (!record) {
+      return;
+    }
+    record.refs -= 1;
+    if (record.refs <= 0) {
+      record.objects.forEach((object) => object?.destroy?.());
+      state.buildings.delete(id);
+    }
+  }
+
+  // Shadow on the ground (toward the south-east, away from the assets' north-west key light), the roof,
+  // its lights (additive, above the light map), a static body in stageObstacleBodies and the neon spill.
+  createOpenWorldBuildingRecord(building) {
+    const config = OPEN_WORLD_BUILDING_CONFIG;
+    const state = this.openWorldState;
+    const light = state.light;
+    const objects = [];
+    const width = building.right - building.left;
+    const height = building.bottom - building.top;
+    config.shadow.forEach((shadow) => {
+      const image = this.add
+        .image(building.left + shadow.offsetX, building.top + shadow.offsetY, "ow-px")
+        .setOrigin(0, 0)
+        .setDisplaySize(width, height)
+        .setTint(0x000000)
+        .setAlpha(shadow.alpha)
+        .setDepth(config.depths.shadow);
+      this.stageGroundLayer?.add(image);
+      objects.push(image);
+    });
+    const grey = Math.round(255 * building.shade);
+    const roofKey = this.resolveOpenWorldTextureKey(`${building.type.key}-roof`, null) || this.ensureOpenWorldFallbackRoofTexture(building.type);
+    const roof = this.add
+      .image(building.left, building.top, roofKey)
+      .setOrigin(0, 0)
+      .setDisplaySize(width, height)
+      .setTint((grey << 16) | (grey << 8) | grey)
+      .setDepth(config.depths.roof);
+    this.stageGroundLayer?.add(roof);
+    objects.push(roof);
+    const emitKey = light ? this.resolveOpenWorldTextureKey(`${building.type.key}-roof_emit`, null) : null;
+    if (emitKey) {
+      const emit = this.add.image(building.left, building.top, emitKey).setOrigin(0, 0).setBlendMode(Phaser.BlendModes.ADD);
+      light.glowLayer.add(emit);
+      objects.push(emit);
+    }
+    const wall = this.add.rectangle(building.left + width / 2, building.top + height / 2, width, height, 0xff7373, 0).setVisible(false);
+    this.physics.add.existing(wall, true);
+    wall.body.enable = state.buildingCollisionEnabled;
+    this.stageObstacleBodies?.add(wall);
+    objects.push(wall);
+    const lights = light
+      ? this.getOpenWorldBuildingNeon(building.type).map((neon) => ({
+        x: building.left + neon.x,
+        y: building.bottom + config.neon.offsetY,
+        radius: neon.radius,
+        color: neon.color,
+        alpha: neon.alpha
+      }))
+      : [];
+    return { id: building.id, building, refs: 0, objects, wall, lights };
+  }
+
+  // Building walls do not exist inside the Final Raid field, which covers the city.
+  setOpenWorldBuildingCollision(enabled) {
+    const state = this.openWorldState;
+    if (!state || state.buildingCollisionEnabled === enabled) {
+      return;
+    }
+    state.buildingCollisionEnabled = enabled;
+    state.buildings.forEach((record) => {
+      if (record.wall?.body) {
+        record.wall.body.enable = enabled;
+      }
+    });
+  }
+
+  // Drawn roof for a building type whose roof image is missing (AGENTS.md: assets are never required).
+  ensureOpenWorldFallbackRoofTexture(type) {
+    const key = `ow-bld-fallback-${type.width}x${type.height}`;
+    if (this.textures.exists(key)) {
+      return key;
+    }
+    const width = type.width;
+    const height = type.height;
+    const graphics = this.make.graphics({ x: 0, y: 0, add: false });
+    graphics.fillStyle(0x4d5357, 1).fillRect(0, 0, width, height);
+    graphics.lineStyle(16, 0x6a7176, 1).strokeRect(8, 8, width - 16, height - 16);
+    graphics.fillStyle(0x3d4246, 1).fillRect(Math.round(width * 0.1), Math.round(height * 0.08), Math.round(width * 0.28), Math.round(height * 0.16));
+    graphics.fillStyle(0x5f666a, 1);
+    for (let row = 0; row < 3; row += 1) {
+      for (let column = 0; column < 4; column += 1) {
+        graphics.fillRect(Math.round(width * (0.48 + column * 0.11)), Math.round(height * (0.12 + row * 0.08)), 48, 36);
+      }
+    }
+    graphics.fillStyle(0x000000, 0.18).fillRect(Math.round(width * 0.15), Math.round(height * 0.55), Math.round(width * 0.6), Math.round(height * 0.3));
+    graphics.generateTexture(key, width, height);
+    graphics.destroy();
+    return key;
+  }
+
+  // Coloured light of the south facade's signs and windows, one pool per column of the south_emit image,
+  // weighted toward the lower floors (the shop signs are nearest the street). The brightness is the mean
+  // emitted light; the hue favours saturated pixels so that lit windows do not wash out the signs.
+  getOpenWorldBuildingNeon(type) {
+    const textureKey = this.resolveOpenWorldTextureKey(`${type.key}-south_emit`, null);
+    if (!textureKey) {
+      return [];
+    }
+    if (!this.openWorldNeonCache) {
+      this.openWorldNeonCache = new Map();
+    }
+    if (this.openWorldNeonCache.has(textureKey)) {
+      return this.openWorldNeonCache.get(textureKey);
+    }
+    const config = OPEN_WORLD_BUILDING_CONFIG.neon;
+    const lights = [];
+    try {
+      const source = this.textures.get(textureKey).getSourceImage();
+      const columns = Math.max(1, Math.round(type.width / config.columnWidth));
+      const rows = config.rows;
+      const cell = 4;
+      const canvas = document.createElement("canvas");
+      canvas.width = columns * cell;
+      canvas.height = rows * cell;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = "high";
+      context.drawImage(source, 0, 0, canvas.width, canvas.height);
+      const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      for (let column = 0; column < columns; column += 1) {
+        const sum = [0, 0, 0];
+        const hue = [0, 0, 0];
+        let weights = 0;
+        let hueWeights = 0;
+        for (let y = 0; y < rows * cell; y += 1) {
+          const weight = 0.25 + 0.75 * ((y + 0.5) / (rows * cell)) ** 2;
+          for (let x = column * cell; x < (column + 1) * cell; x += 1) {
+            const offset = (y * canvas.width + x) * 4;
+            const alpha = data[offset + 3] / 255;
+            const rgb = [data[offset] / 255, data[offset + 1] / 255, data[offset + 2] / 255];
+            const max = Math.max(...rgb);
+            const saturation = max > 0 ? (max - Math.min(...rgb)) / max : 0;
+            const hueWeight = alpha * weight * (0.15 + saturation);
+            rgb.forEach((value, index) => {
+              sum[index] += value * alpha * weight;
+              hue[index] += value * hueWeight;
+            });
+            weights += weight;
+            hueWeights += hueWeight;
+          }
+        }
+        const level = Math.max(...sum) / weights;
+        if (level < config.minLevel || hueWeights <= 0) {
+          continue;
+        }
+        const mean = hue.map((value) => value / hueWeights);
+        const grey = (mean[0] + mean[1] + mean[2]) / 3;
+        const vivid = mean.map((value) => Math.max(0, grey + (value - grey) * config.saturation));
+        const peak = Math.max(...vivid) || 1;
+        const channel = (value) => Math.round((value / peak) * 255);
+        lights.push({
+          x: ((column + 0.5) * type.width) / columns,
+          radius: config.radiusMin + (config.radiusMax - config.radiusMin) * Math.min(1, level / config.levelForMaxRadius),
+          color: (channel(vivid[0]) << 16) | (channel(vivid[1]) << 8) | channel(vivid[2]),
+          alpha: Math.min(config.maxAlpha, level * config.alphaGain)
+        });
+      }
+    } catch (error) {
+      lights.length = 0;
+    }
+    this.openWorldNeonCache.set(textureKey, lights);
+    return lights;
+  }
+
+  // Movement angle for an enemy on the open-world map: straight at the player, or toward the corner of the
+  // first building in the way (expanded by the enemy's clearance) that gives the shorter path round it.
+  getOpenWorldEnemyMoveAngle(enemy, angleToPlayer) {
+    if (!this.openWorldState || !this.openWorldState.buildingCollisionEnabled || !enemy.body || !this.playerHitbox?.active) {
+      return angleToPlayer;
+    }
+    const config = OPEN_WORLD_BUILDING_CONFIG.steer;
+    const now = this.time?.now || 0;
+    const x = enemy.body.center.x;
+    const y = enemy.body.center.y;
+    if (now >= (enemy.owSteerAt || 0)) {
+      enemy.owSteerAt = now + config.recheckMs + Math.random() * config.recheckJitterMs;
+      enemy.owWaypoint = this.findOpenWorldEnemyWaypoint(enemy, x, y);
+    }
+    const waypoint = enemy.owWaypoint;
+    if (!waypoint) {
+      return angleToPlayer;
+    }
+    if (Math.hypot(waypoint.x - x, waypoint.y - y) <= config.reachDistance) {
+      // Round the corner, then look again from there.
+      enemy.owWaypoint = null;
+      enemy.owSteerAt = 0;
+      return angleToPlayer;
+    }
+    return Math.atan2(waypoint.y - y, waypoint.x - x);
+  }
+
+  // Shortest way past the first building between the enemy and the player: a path over the corners of
+  // the building expanded by the enemy's clearance (corners link along the walls). Returns the first
+  // corner not yet reached, or null when the way is clear.
+  findOpenWorldEnemyWaypoint(enemy, x, y) {
+    const config = OPEN_WORLD_BUILDING_CONFIG.steer;
+    const targetX = this.playerHitbox.x;
+    const targetY = this.playerHitbox.y;
+    const half = Math.max(enemy.body.halfWidth || 0, enemy.body.halfHeight || 0);
+    const clearance = half + config.clearance;
+    const expand = (rect, amount) => ({ left: rect.left - amount, top: rect.top - amount, right: rect.right + amount, bottom: rect.bottom + amount });
+    const candidates = this.getOpenWorldBuildingsInRect(expand({
+      left: Math.min(x, targetX), top: Math.min(y, targetY), right: Math.max(x, targetX), bottom: Math.max(y, targetY)
+    }, clearance));
+    let hit = null;
+    let hitT = Infinity;
+    candidates.forEach((building) => {
+      const t = this.getSegmentRectEntry(x, y, targetX, targetY, expand(building, clearance - 2));
+      if (t !== null && t < hitT) {
+        hit = building;
+        hitT = t;
+      }
+    });
+    if (!hit) {
+      return null;
+    }
+    const around = expand(hit, clearance);
+    // The walls as a centre meets them, with some slack: a body pressed against a wall stays outside.
+    const solid = expand(hit, Math.max(0, half - 8));
+    const corners = [
+      { x: around.left, y: around.top }, { x: around.right, y: around.top },
+      { x: around.right, y: around.bottom }, { x: around.left, y: around.bottom }
+    ];
+    // Nodes: 0..3 corners (clockwise, neighbours linked along the walls), 4 enemy, 5 player.
+    const nodes = [...corners, { x, y }, { x: targetX, y: targetY }];
+    const sees = (a, b) => this.getSegmentRectEntry(a.x, a.y, b.x, b.y, solid) === null;
+    const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+    const cost = [Infinity, Infinity, Infinity, Infinity, 0, Infinity];
+    const previous = [-1, -1, -1, -1, -1, -1];
+    const done = new Set();
+    while (done.size < nodes.length) {
+      let current = -1;
+      cost.forEach((value, index) => {
+        if (!done.has(index) && value < Infinity && (current < 0 || value < cost[current])) {
+          current = index;
+        }
+      });
+      if (current < 0 || current === 5) {
+        break;
+      }
+      done.add(current);
+      const links = current < 4 ? [(current + 1) % 4, (current + 3) % 4, 5] : [0, 1, 2, 3];
+      links.forEach((next) => {
+        const adjacent = current < 4 && next < 4;
+        if (done.has(next) || !(adjacent || sees(nodes[current], nodes[next]))) {
+          return;
+        }
+        const value = cost[current] + distance(nodes[current], nodes[next]);
+        if (value < cost[next]) {
+          cost[next] = value;
+          previous[next] = current;
+        }
+      });
+    }
+    if (previous[5] < 0) {
+      return null;
+    }
+    const path = [];
+    for (let node = previous[5]; node >= 0 && node !== 4; node = previous[node]) {
+      path.unshift(nodes[node]);
+    }
+    return path.find((corner) => distance(corner, nodes[4]) > config.reachDistance) || null;
+  }
+
+  // Where the segment (x0, y0) -> (x1, y1) enters the rectangle, as a fraction of its length, or null.
+  getSegmentRectEntry(x0, y0, x1, y1, rect) {
+    let enter = 0;
+    let leave = 1;
+    const axes = [[x0, x1 - x0, rect.left, rect.right], [y0, y1 - y0, rect.top, rect.bottom]];
+    for (const [origin, delta, min, max] of axes) {
+      if (Math.abs(delta) < 1e-6) {
+        if (origin <= min || origin >= max) {
+          return null;
+        }
+        continue;
+      }
+      const a = (min - origin) / delta;
+      const b = (max - origin) / delta;
+      enter = Math.max(enter, Math.min(a, b));
+      leave = Math.min(leave, Math.max(a, b));
+      if (enter >= leave) {
+        return null;
+      }
+    }
+    return enter;
   }
 
   addOpenWorldRoadMarkings(objects, road, axis, crossRoads, clip) {
@@ -43967,8 +44513,9 @@ class SurvivalScene extends Phaser.Scene {
 
     this.updateOpenWorldNoiseOverlay();
     this.updateOpenWorldChunks();
-    // The Final Raid field covers the city; its light map would only cost fill rate.
+    // The Final Raid field covers the city; its light map would only cost fill rate, its walls would block the arena.
     this.updateOpenWorldLighting(finalRaidActive);
+    this.setOpenWorldBuildingCollision(!finalRaidActive);
     if (finalRaidActive) {
       this.setOpenWorldOutOfAreaHudVisible(false);
       return;
@@ -44157,6 +44704,8 @@ class SurvivalScene extends Phaser.Scene {
       const point = this.getEnemySpawnPoint(enemy.isElite || enemy.isBoss ? 150 : 120);
       enemy.setPosition(point.x, point.y);
       enemy.body.reset(point.x, point.y);
+      enemy.owWaypoint = null;
+      enemy.owSteerAt = 0;
       state.recycledEnemyCount += 1;
     });
   }
@@ -44212,7 +44761,8 @@ class SurvivalScene extends Phaser.Scene {
       const distance = Phaser.Math.Between(config.minDistance, config.maxDistance);
       const x = originX + Math.cos(angle) * distance;
       const y = originY + Math.sin(angle) * distance;
-      if (x >= area.left && x <= area.right && y >= area.top && y <= area.bottom) {
+      if (x >= area.left && x <= area.right && y >= area.top && y <= area.bottom
+        && !this.isPointNearOpenWorldBuilding(x, y, OPEN_WORLD_BUILDING_CONFIG.gateClearance)) {
         return { x: Math.round(x), y: Math.round(y) };
       }
     }
@@ -44224,7 +44774,7 @@ class SurvivalScene extends Phaser.Scene {
       originY + Math.sin(towardCenter) * config.minDistance,
       area
     );
-    return { x: Math.round(clamped.x), y: Math.round(clamped.y) };
+    return this.findOpenWorldClearPoint(Math.round(clamped.x), Math.round(clamped.y), OPEN_WORLD_BUILDING_CONFIG.gateClearance);
   }
 
   formatGateLocationText(text) {
@@ -44312,6 +44862,9 @@ class SurvivalScene extends Phaser.Scene {
       propCount,
       reflectionCount,
       drawnLampPools: state.light?.drawnPools ?? 0,
+      buildingCount: state.buildings.size,
+      buildingCollision: state.buildingCollisionEnabled,
+      drawnNeonPools: state.light?.drawnNeon ?? 0,
       outOfArea: state.outOfArea.active,
       outsideMs: state.outOfArea.outsideMs,
       outOfAreaTicks: state.outOfArea.ticks,
@@ -45593,6 +46146,9 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   isPointNearStageObstacle(stage, x, y, padding = 0) {
+    if (this.isOpenWorldStage(stage)) {
+      return this.isPointNearOpenWorldBuilding(x, y, padding);
+    }
     return this.getStageCollisionBoxes(stage).some((box) => {
       return x >= box.left - padding && x <= box.right + padding && y >= box.top - padding && y <= box.bottom + padding;
     });
@@ -72557,7 +73113,7 @@ class SurvivalScene extends Phaser.Scene {
     }
     const player = this.playerHitbox?.active ? `${Math.round(this.playerHitbox.x)},${Math.round(this.playerHitbox.y)}` : "-";
     const gate = world.gateCenter ? `${world.gateCenter.x},${world.gateCenter.y}` : "-";
-    return `openWorld:ON chunks:${world.chunkCount} objs:${world.objectCount} pos:${player} area:${world.outOfArea ? `OUT ${(world.outsideMs / 1000).toFixed(1)}s x${world.outOfAreaTicks}` : "IN"} gate:${gate} recycled:${world.recycledEnemyCount} assets:${world.assetKeys.length} light:${world.lighting ? `${world.drawnLampPools}/${world.lampCount}` : "OFF"} props:${world.propCount} refl:${world.reflectionCount}`;
+    return `openWorld:ON chunks:${world.chunkCount} objs:${world.objectCount} pos:${player} area:${world.outOfArea ? `OUT ${(world.outsideMs / 1000).toFixed(1)}s x${world.outOfAreaTicks}` : "IN"} gate:${gate} recycled:${world.recycledEnemyCount} assets:${world.assetKeys.length} light:${world.lighting ? `${world.drawnLampPools}/${world.lampCount}` : "OFF"} props:${world.propCount} refl:${world.reflectionCount} bld:${world.buildingCount}${world.buildingCollision ? "" : "(off)"} neon:${world.drawnNeonPools}`;
   }
 
   formatAcCameraRigDebugHudLine() {
@@ -74275,22 +74831,25 @@ class SurvivalScene extends Phaser.Scene {
         this.playerHitbox.x,
         this.playerHitbox.y
       );
+      // On the open-world map a building in the way turns the approach toward its nearer corner.
+      // With a clear line this is angleToPlayer, so every behaviour below is unchanged.
+      const approachAngle = this.openWorldState ? this.getOpenWorldEnemyMoveAngle(enemy, angleToPlayer) : angleToPlayer;
 
       switch (enemy.aiBehavior) {
         case "dash":
-          this.updateDashEnemy(enemy, angleToPlayer);
+          this.updateDashEnemy(enemy, approachAngle);
           break;
         case "ranged":
-          this.updateRangedEnemy(enemy, angleToPlayer, distanceToPlayer);
+          this.updateRangedEnemy(enemy, approachAngle, distanceToPlayer);
           break;
         case "bossSpecial":
-          this.updateBossSpecialEnemy(enemy, angleToPlayer, distanceToPlayer);
+          this.updateBossSpecialEnemy(enemy, approachAngle, distanceToPlayer);
           break;
         case "voidHunter":
-          this.updateVoidHunterBossEnemy(enemy, angleToPlayer, distanceToPlayer, delta);
+          this.updateVoidHunterBossEnemy(enemy, approachAngle, distanceToPlayer, delta);
           break;
         default:
-          this.physics.velocityFromRotation(angleToPlayer, enemy.moveSpeed, enemy.body.velocity);
+          this.physics.velocityFromRotation(approachAngle, enemy.moveSpeed, enemy.body.velocity);
           break;
       }
 
