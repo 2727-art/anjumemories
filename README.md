@@ -171,8 +171,8 @@ Cloudflare 配信では `_headers` で HTML を `max-age=0, must-revalidate`、J
 ## 操作方法
 
 - 移動: `WASD` / 矢印キー / 左仮想スティック
-- DASH: `Shift` / `Space` / 右 DASH ボタン
-- コントローラー: Left Stick / D-Pad で移動・選択、A / Cross / Start で決定、A / Cross / RB / R1 / RT / R2 で DASH、B / Circle で戻る
+- ブースト: `Shift` / `Space` / 右 BOOST ボタン（旧 DASH）
+- コントローラー: Left Stick / D-Pad で移動・選択、A / Cross / Start で決定、A / Cross / RB / R1 / RT / R2 でブースト、B / Circle で戻る
 - 通常戦闘HUD切替: `H` / 右下 `DETAIL HUD` ボタン
 - レベルアップ選択: クリック / タップ / `1` `2` `3`、Opening Boost +1 使用時のみ `4`
 - Gate 選択: クリック / タップ / `1` `2`
@@ -180,9 +180,9 @@ Cloudflare 配信では `_headers` で HTML を `max-age=0, must-revalidate`、J
 - ランキング入力: 名前入力後 `Enter`
 - ゲームオーバー後: `R` または `Enter` でショップへ戻る
 
-通常ステージHUDでは、Gate / Boss / NEMESIS / VOID HUNTER の画面端方向マーカーが出ます。左下はプレイヤー中心の `TACTICAL RADAR` になり、重要対象と近距離敵密度だけを絞って表示します。detail HUD でも従来の全体マップ型ミニマップには戻さず、compact HUD の基本配置に RUN / ROBOT / LOOT / BUILD の薄い詳細パネルとレーダー凡例を追加します。Depth10 Final Raid 中は専用HUDを使うため、この通常ステージ用マーカーとレーダーは表示されません。
+通常ステージHUDは、左上に AP・LV・XP、上の中央に経過時間・Depth・Gate までの時間（進み具合のバー付き）、その下にお知らせの帯（BOSS ETA など）、右上に未確定 GEEK と KILLS、下にスキルカード（アイコン・段階・最大 8 の目盛り。LOST ARMS は紫、仮強化は「仮」、未所持は暗く表示）を、それぞれ黒いガラスのパネルで表示します。Gate / Boss / NEMESIS / VOID HUNTER の画面端方向マーカーが出ます。左下（スマホ操作では右上）はプレイヤー中心の `TACTICAL RADAR` になり、重要対象と近距離敵密度だけを絞って表示します。detail HUD でも従来の全体マップ型ミニマップには戻さず、compact HUD の基本配置に RUN / ROBOT / LOOT / BUILD の薄い詳細パネルとレーダー凡例を追加します。Depth10 Final Raid 中は専用HUDを使うため、この通常ステージ用マーカーとレーダーは表示されません。
 
-通常 Depth の移動は `acV3 AC Movement` が標準です。入力方向へ即座に張り付く歩行ではなく、加速、慣性、減速を持つブースター滑走として動きます。DASH は `AC Quick Boost` / 継続ブーストとして機能し、押している間は BOOST EN を消費します。BOOST EN が 0 になると `FULL_OVERHEAT` になり、BOOST EN が全回復するまでブーストできません。高速滑走中に進行方向と逆向きへ入力すると Air Brake が発動します。
+通常 Depth の移動は `acV3 AC Movement` が標準です。入力方向へ即座に張り付く歩行ではなく、加速、慣性、減速を持つブースター滑走として動きます。ブースト入力（旧 DASH）は `AC Quick Boost` / 継続ブーストとして機能し、押している間は BOOST EN を消費します。BOOST EN が 0 になると `FULL_OVERHEAT` になり、BOOST EN が全回復するまでブーストできません。高速滑走中に進行方向と逆向きへ入力すると Air Brake が発動します。
 
 操作キャラは通常 Depth では 8 方向のクマ型ロボット画像へ向きを切り替え、通常移動と POST_BOOST_GLIDE では歩行/滑走フレーム、Quick Boost / 継続ブースト中だけ強いブースター画像と青白い推進FXを使います。REGALIA BASTION は停止時に機体が軽く沈み込み、足元の粉塵リングと影の押し広げで重量級の着地感を疑似的に演出し、通常移動開始 / 停止 / Target Fire 連射 / REGALIA Cannon に専用SEを使います。通常移動開始SEは停止またはブースト状態へ切り替わった時点で停止します。Quick Boost / 継続ブーストの開始成功時は、プレイヤーの画面内X位置に応じて左 / 中央 / 右の3種類のステレオSEを鳴らします。target-facing により敵方向を向きながら移動でき、Target Fire は現在ターゲットを示す visual-only の連射FXとして表示されます。Target Fire は敵HP、ダメージ、projectile、collider、overlap には影響しません。通常 Depth10 と Depth10 Relay もロボット表示で、Depth10 Final Raid 中だけ専用のプレイヤー表示と専用移動へ切り替わります。当たり判定は従来のプレイヤー hitbox のままです。
 
@@ -192,7 +192,7 @@ Cloudflare 配信では `_headers` で HTML を `max-age=0, must-revalidate`、J
 
 スマートフォンのショップ帰還ではページリロードを避け、同じページ内で OPERATIONS HUB（従来のOpening Shop）へ戻ることで横向きフルスクリーンを維持します。ブラウザ制限などで帰還処理中またはショップ上でフルスクリーンが解除された場合は、横向きフルスクリーン復帰ゲートを表示し、タップ操作で再度フルスクリーンと画面回転をリクエストします。端末側の制限でページ再読み込みへフォールバックした場合も、以前に横向きフルスクリーンを選んでいれば開始ゲートをスキップせず再表示します。
 
-モバイル操作は左側の仮想スティックと、通常 Depth では右半分のタッチ開始位置に出るフローティング DASH ボタンです。ショップ、開始前強化、Gate 選択、ランキング入力もタップ操作に対応しています。
+モバイル操作は、画面左側のどこに触れてもその位置に出る仮想スティック（触れていない間は左下に薄い目印だけを表示）と、通常 Depth では右半分のタッチ開始位置に出るフローティング BOOST ボタンです。BOOST ボタンの外側の輪が残りの BOOST EN で、少なくなると黄、残りわずかで赤になり、ブースト中は光ります。ショップ、開始前強化、Gate 選択、ランキング入力もタップ操作に対応しています。
 
 クエリパラメータ:
 
