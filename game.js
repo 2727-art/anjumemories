@@ -81,6 +81,28 @@ const REGALIA_BASTION_CANNON_CONFIG = Object.freeze({
   impactDelayDistanceDivisor: 11,
   damageFalloffMultipliers: [1, 0.35, 0.15]
 });
+// REGALIA's own skills (docs/regalia-kit-design.md). Until R4 they replace REGALIA's shared skills
+// only with ?debugRegaliaKit=1; normal play keeps PLAYER_MECH_SKILL_SLOT_IDS.
+const REGALIA_AEGIS_WALL_SKILL_ID = "regaliaAegisWall";
+const REGALIA_KIT_DEBUG_QUERY_PARAM = "debugRegaliaKit";
+const REGALIA_KIT_DEBUG_SLOT_IDS = Object.freeze([REGALIA_BASTION_CANNON_SKILL_ID, REGALIA_AEGIS_WALL_SKILL_ID, "rabbitThunderSkill"]);
+const REGALIA_AEGIS_WALL_CONFIG = Object.freeze({
+  minCooldownMs: 1000,
+  plantDelayMs: 170,          // drop time before the plant impact lands
+  pressureFactor: 0.4,        // durability lost per second = pressing enemy's contact damage x this
+  knockbackForce: 200,
+  knockbackRecoverMs: 120,
+  bodyRadius: 16,             // one shield = three static circles along the ring's tangent (~84 px wide)
+  bodySpacing: 26,
+  sinkMs: 220,
+  shatterMs: 260,
+  shieldDepthNorth: 18.4,     // enemies draw at 18: north shields in front of them, south shields behind
+  shieldDepthSouth: 17.6,
+  groundDepth: 16.25,
+  territoryColor: 0x9fd2ff,
+  shield: { key: "regalia-aegis-shield-r1", path: "./画像/skills/regalia_aegis_wall/shield_r1.png", pivotX: 128, pivotY: 269, scale: 0.5 },
+  crack: { key: "regalia-aegis-crack-r1", path: "./画像/skills/regalia_aegis_wall/crack_r1.png", scale: 0.5 }
+});
 const DEFAULT_PLAYER_MECH_ID = "defaultBear";
 const REGALIA_BASTION_MECH_ID = "regaliaBastion";
 const UMBRA_SERAPH_MECH_ID = "umbraSeraph";
@@ -5295,6 +5317,14 @@ const LEVEL_UP_SKILL_UI_META = {
     glowColor: 0x91faff,
     accentColor: "#f0c463",
     iconTone: "CANNON"
+  },
+  [REGALIA_AEGIS_WALL_SKILL_ID]: {
+    displayName: "Aegis Wall",
+    description: "盾を突き立てて機体を囲み、内側をテリトリーにする",
+    themeColor: 0xf0c574,
+    glowColor: 0x9fd2ff,
+    accentColor: "#f0c574",
+    iconTone: "SHIELD"
   }
 };
 const LEVEL_UP_PASSIVE_UI_META = {
@@ -8959,6 +8989,7 @@ class SurvivalScene extends Phaser.Scene {
       this.textures.exists("wind-streak") &&
       this.textures.exists("hud-icon-basic-skill") &&
       this.textures.exists("hud-icon-tornado-skill") &&
+      this.textures.exists("hud-icon-regalia-aegis") &&
       this.textures.exists("lost-arm-abyss-icon") &&
       this.textures.exists("lost-arm-gravity-icon") &&
       this.textures.exists("lost-arm-abyss-core") &&
@@ -9231,6 +9262,27 @@ class SurvivalScene extends Phaser.Scene {
     graphics.fillStyle(0x6affba, 0.34);
     graphics.fillCircle(24, 24, 8);
     graphics.generateTexture("hud-icon-tornado-skill", 48, 48);
+    graphics.clear();
+
+    // REGALIA Aegis Wall: a gold-rimmed heater shield with the navy panel and cyan seam.
+    graphics.fillStyle(0x111620, 0.94);
+    graphics.fillCircle(24, 24, 22);
+    graphics.lineStyle(3, 0xf0c574, 0.9);
+    graphics.strokeCircle(24, 24, 19);
+    const aegisIconShield = (scale) => [[24, 38], [17, 33], [13, 27], [12, 21], [12, 12], [18, 10], [24, 9], [30, 10], [36, 12], [36, 21], [35, 27], [31, 33]]
+      .map(([x, y]) => ({ x: 24 + (x - 24) * scale, y: 23 + (y - 23) * scale }));
+    graphics.fillStyle(0xf0c574, 1);
+    graphics.fillPoints(aegisIconShield(1), true);
+    graphics.fillStyle(0xece4d6, 1);
+    graphics.fillPoints(aegisIconShield(0.8), true);
+    graphics.fillStyle(0x1b2250, 1);
+    graphics.fillPoints(aegisIconShield(0.52), true);
+    graphics.lineStyle(1.5, 0x9fd2ff, 0.95);
+    graphics.strokePoints(aegisIconShield(0.56), true);
+    graphics.fillStyle(0xf0c574, 1);
+    graphics.fillRect(23, 17, 2, 10);
+    graphics.fillRect(20, 20, 8, 2);
+    graphics.generateTexture("hud-icon-regalia-aegis", 48, 48);
     graphics.clear();
 
     graphics.fillStyle(0x071521, 0.96);
@@ -14576,7 +14628,14 @@ class SurvivalScene extends Phaser.Scene {
   getPlayerSkillSlotIds(options = {}) {
     const selectionOptions = typeof options === "string" ? { mechId: options } : options;
     const mechId = this.getSkillSelectionPlayerMechId(selectionOptions);
+    if (mechId === REGALIA_BASTION_MECH_ID && this.isRegaliaKitDebugEnabled()) {
+      return [...REGALIA_KIT_DEBUG_SLOT_IDS];
+    }
     return [...(PLAYER_MECH_SKILL_SLOT_IDS[mechId] || PLAYER_MECH_SKILL_SLOT_IDS[DEFAULT_PLAYER_MECH_ID])];
+  }
+
+  isRegaliaKitDebugEnabled() {
+    return this.isQueryFlagValueEnabled(this.getUrlStageParam?.(REGALIA_KIT_DEBUG_QUERY_PARAM));
   }
 
   getActivePlayerMechIdForRuntime() {
@@ -20058,6 +20117,7 @@ class SurvivalScene extends Phaser.Scene {
     this.destroyGateSignalVisual();
     this.destroyStageGate();
     this.clearActiveLostArmEffects();
+    this.clearRegaliaAegisWall("finalBossRaidStart");
     this.clearNonFinalBossRaidEnemies("finalBossRaidStart");
     const supportSchedule = this.buildFinalBossRaidSupportSchedule(timing.timeScale, timing);
     const startElapsedMs = this.getFinalBossRaidDebugStartElapsedMs(timing);
@@ -42822,6 +42882,7 @@ class SurvivalScene extends Phaser.Scene {
       pulseTimer: 0,
       dashCycleTimer: 0,
       regaliaCannonCooldownMs: 0,
+      regaliaAegisCooldownMs: 0,
       orbitals: []
     };
   }
@@ -48594,6 +48655,7 @@ class SurvivalScene extends Phaser.Scene {
       (skillState.orbitals || []).forEach((orbital) => this.destroySkillOrbital(orbital));
       skillState.orbitals = [];
     });
+    this.clearRegaliaAegisWall("skillsRebuilt");
   }
 
   rebuildPlayerSkillsForRun(reason = "runStart") {
@@ -48606,6 +48668,10 @@ class SurvivalScene extends Phaser.Scene {
     const mechId = this.getRunPlayerMechId();
     this.playerSkills = this.buildInitialSkillStates({ reason, mechId });
     this.initializeSkillMutationState({ mechId });
+    // Only a sortie that can use Aegis Wall fetches its images (design 11.3), early enough for the first ring.
+    if (this.getPlayerSkillSlotIds({ mechId }).includes(REGALIA_AEGIS_WALL_SKILL_ID)) {
+      this.loadRegaliaAegisAssets();
+    }
     this.logRegaliaBastionCannonDebug("skills-rebuilt", {
       reason,
       mechId,
@@ -48619,7 +48685,7 @@ class SurvivalScene extends Phaser.Scene {
 
   isSkillRuntimeBehaviorImplemented(definition) {
     return definition?.previewOnly !== true
-      && ["orbit", "screenHoming", "directionalDash", "regaliaBastionCannon"].includes(definition?.behavior || "orbit");
+      && ["orbit", "screenHoming", "directionalDash", "regaliaBastionCannon", "regaliaAegisWall"].includes(definition?.behavior || "orbit");
   }
 
   applySkillStage(skillState, resetMotion = false) {
@@ -48643,6 +48709,17 @@ class SurvivalScene extends Phaser.Scene {
       skillState.currentStage = stageData;
       skillState.regaliaCannonCooldownMs = Math.min(
         Math.max(0, skillState.regaliaCannonCooldownMs || 0),
+        Math.max(0, stageData.cooldownMs || 0)
+      );
+      skillState.orbitals.forEach((orbital) => this.destroySkillOrbital(orbital));
+      skillState.orbitals = [];
+      return;
+    }
+    if (skillState.definition.behavior === "regaliaAegisWall") {
+      // Planted shields keep the stage they were planted with; the next deployment uses the new one.
+      skillState.currentStage = stageData;
+      skillState.regaliaAegisCooldownMs = Math.min(
+        Math.max(0, skillState.regaliaAegisCooldownMs || 0),
         Math.max(0, stageData.cooldownMs || 0)
       );
       skillState.orbitals.forEach((orbital) => this.destroySkillOrbital(orbital));
@@ -55524,6 +55601,7 @@ class SurvivalScene extends Phaser.Scene {
     const skillLabels = {
       [DEFAULT_SKILL_ID]: "ORB",
       [REGALIA_BASTION_CANNON_SKILL_ID]: "REG",
+      [REGALIA_AEGIS_WALL_SKILL_ID]: "AGS",
       tornadoSkill: "TND",
       rabbitThunderSkill: "RBT"
     };
@@ -55721,6 +55799,7 @@ class SurvivalScene extends Phaser.Scene {
     const skillLabels = {
       [DEFAULT_SKILL_ID]: "ORB",
       [REGALIA_BASTION_CANNON_SKILL_ID]: "REG",
+      [REGALIA_AEGIS_WALL_SKILL_ID]: "AGS",
       tornadoSkill: "TND",
       rabbitThunderSkill: "RBT",
       umbraMoonlight: "MOON", umbraBloodSpike: "SPIKE", umbraPhantomNova: "NOVA"
@@ -55728,6 +55807,7 @@ class SurvivalScene extends Phaser.Scene {
     const cardNames = {
       [DEFAULT_SKILL_ID]: "ORB",
       [REGALIA_BASTION_CANNON_SKILL_ID]: "REGALIA",
+      [REGALIA_AEGIS_WALL_SKILL_ID]: "AEGIS",
       tornadoSkill: "TORNADO",
       rabbitThunderSkill: "THUNDER"
     };
@@ -66742,6 +66822,7 @@ class SurvivalScene extends Phaser.Scene {
     this.clearActiveDepthDirective("depthTransition", { silent: true });
     this.cleanupNemesisBoss("depthTransition");
     this.cleanupVoidHunterBoss("depthTransition");
+    this.clearRegaliaAegisWall("depthTransition");
     this.stageDepth = targetDepth;
     this.runDepthProgressState = this.updateRunDepthProgressForEnteredDepth(
       this.runDepthProgressState,
@@ -66931,6 +67012,7 @@ class SurvivalScene extends Phaser.Scene {
     this.destroyStageGate();
     this.hideOverlay();
     this.clearActiveLostArmEffects();
+    this.clearRegaliaAegisWall(emergency ? "emergencyExtract" : "extract");
     this.physics.world.pause();
     const securedText = `${this.umbraRamResultUncertain ? "RAM結果未確認 / " : ""}${result.secured.toLocaleString()} GEEK SECURED`;
     const lostText = result.lost > 0 ? ` / LOST ${result.lost.toLocaleString()}` : "";
@@ -74777,6 +74859,10 @@ class SurvivalScene extends Phaser.Scene {
         this.updateRegaliaBastionCannonSkill(skillState, stageData, delta);
         return;
       }
+      if (skillState.definition.behavior === "regaliaAegisWall") {
+        this.updateRegaliaAegisWallSkill(skillState, stageData, delta);
+        return;
+      }
 
       skillState.orbitAngle = Phaser.Math.Angle.Wrap(
         skillState.orbitAngle + (stageData.rotationSpeed || Math.max(0.8, stageData.spinSpeed * 0.32)) * (delta / 1000)
@@ -75158,6 +75244,562 @@ class SurvivalScene extends Phaser.Scene {
       });
     }
     return hitCount;
+  }
+
+  // --- REGALIA Aegis Wall (docs/regalia-kit-design.md 4) ------------------------------------------
+  // A ring of shields planted around the mech; the inside is REGALIA's territory. Each shield is
+  // three static circles in its own static group, so enemies push against it while the player,
+  // the stage obstacles and UMBRA's line checks are unaffected. Bosses walk through and break it.
+
+  getRegaliaAegisWallState() {
+    if (!this.regaliaAegisWallState) {
+      this.regaliaAegisWallState = { shields: [], territory: null, nextShieldId: 1, lastFacing: -Math.PI / 2 };
+    }
+    return this.regaliaAegisWallState;
+  }
+
+  ensureRegaliaAegisPhysics() {
+    if (this.regaliaAegisBodies && this.regaliaAegisCollider) {
+      return this.regaliaAegisBodies;
+    }
+    if (!this.physics?.add || !this.enemies) {
+      return null;
+    }
+    this.regaliaAegisBodies = this.physics.add.staticGroup();
+    this.regaliaAegisCollider = this.physics.add.collider(
+      this.enemies,
+      this.regaliaAegisBodies,
+      this.handleRegaliaAegisContact,
+      this.shouldRegaliaAegisBlockEnemy,
+      this
+    );
+    // The scene destroys the bodies, colliders and tweens on shutdown; drop the references with them.
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.regaliaAegisWallState = null;
+      this.regaliaAegisBodies = null;
+      this.regaliaAegisCollider = null;
+      this.regaliaAegisFxObjects = null;
+    });
+    return this.regaliaAegisBodies;
+  }
+
+  updateRegaliaAegisWallSkill(skillState, stageData, delta) {
+    if (
+      delta <= 0 ||
+      this.gameOver ||
+      this.shopActive ||
+      this.levelUpActive ||
+      this.gateChoiceActive ||
+      this.extractionComplete ||
+      this.isFinalBossRaidActive?.()
+    ) {
+      return;
+    }
+    this.updateRegaliaAegisShields(delta);
+    if (!this.playerHitbox?.active || !this.enemies?.children) {
+      return;
+    }
+    skillState.regaliaAegisCooldownMs = Math.max(0, (skillState.regaliaAegisCooldownMs || 0) - delta);
+    if (skillState.regaliaAegisCooldownMs > 0) {
+      return;
+    }
+    const deployed = this.deployRegaliaAegisWall(skillState, stageData);
+    skillState.regaliaAegisCooldownMs = deployed ? this.getRegaliaAegisWallCooldownMs(skillState, stageData) : 250;
+  }
+
+  getRegaliaAegisWallCooldownMs(skillState, stageData) {
+    return Math.max(
+      REGALIA_AEGIS_WALL_CONFIG.minCooldownMs,
+      Math.round(
+        (Number(stageData?.cooldownMs) || 7000) *
+        this.getSkillMutationCooldownMultiplier(skillState?.id || REGALIA_AEGIS_WALL_SKILL_ID, { source: "skillCooldown" }) *
+        this.getRunEquipmentAttackIntervalMultiplier(skillState?.id || REGALIA_AEGIS_WALL_SKILL_ID)
+      )
+    );
+  }
+
+  // The first shield faces where the mech is aiming (target-facing), else the nearest enemy, else
+  // the previous direction.
+  getRegaliaAegisWallFacing(center) {
+    const state = this.getRegaliaAegisWallState();
+    const motionAngle = Number(this.playerRobotMotion?.angle);
+    if (Number.isFinite(motionAngle)) {
+      return motionAngle;
+    }
+    const [nearest] = this.findClosestEnemiesFrom?.(center.x, center.y, 1) || [];
+    if (nearest) {
+      return Math.atan2(nearest.y - center.y, nearest.x - center.x);
+    }
+    return state.lastFacing;
+  }
+
+  // Ground points of the shields: evenly around the territory circle, the first towards `facing`.
+  getRegaliaAegisWallLayout(stageData, center, facing) {
+    const count = Math.max(1, Math.floor(Number(stageData?.shieldCount) || 1));
+    const radius = Math.max(1, Number(stageData?.territoryRadius) || 200);
+    return Array.from({ length: count }, (_, index) => {
+      const angle = facing + (Math.PI * 2 * index) / count;
+      return { angle, x: center.x + Math.cos(angle) * radius, y: center.y + Math.sin(angle) * radius };
+    });
+  }
+
+  // Shield durability follows the mech's max AP (design 4.3).
+  getRegaliaAegisShieldDurability(stageData) {
+    const maxHp = Math.max(1, Number(this.stats?.maxHp) || 100);
+    return Math.max(1, Math.round(maxHp * Math.max(0, Number(stageData?.durabilityRatio) || 0)));
+  }
+
+  deployRegaliaAegisWall(skillState, stageData) {
+    if (!this.playerHitbox?.active || !this.ensureRegaliaAegisPhysics()) {
+      return false;
+    }
+    const state = this.getRegaliaAegisWallState();
+    this.retireRegaliaAegisShields();
+    this.loadRegaliaAegisAssets();
+    const center = { x: this.playerHitbox.x, y: this.playerHitbox.y };
+    const facing = this.getRegaliaAegisWallFacing(center);
+    state.lastFacing = facing;
+    state.territory = this.createRegaliaAegisTerritoryVisual(center, Number(stageData?.territoryRadius) || 200);
+    const durability = this.getRegaliaAegisShieldDurability(stageData);
+    state.shields = this.getRegaliaAegisWallLayout(stageData, center, facing)
+      .map((spot) => this.createRegaliaAegisShield(skillState, stageData, spot, center, durability));
+    return state.shields.length > 0;
+  }
+
+  createRegaliaAegisShield(skillState, stageData, spot, center, durability) {
+    const config = REGALIA_AEGIS_WALL_CONFIG;
+    const state = this.getRegaliaAegisWallState();
+    const shield = {
+      id: state.nextShieldId,
+      skillId: skillState?.id || REGALIA_AEGIS_WALL_SKILL_ID,
+      stage: stageData,
+      x: spot.x,
+      y: spot.y,
+      angle: spot.angle,
+      centerX: center.x,
+      centerY: center.y,
+      durability,
+      maxDurability: durability,
+      lifetimeMs: Math.max(1, Number(stageData?.lifetimeMs) || 5000),
+      plantDelayMs: config.plantDelayMs,
+      planted: false,
+      pendingErosion: 0,
+      wearLevel: 0,
+      broken: false,
+      bodies: [],
+      sprite: null,
+      crack: null
+    };
+    state.nextShieldId += 1;
+    const tangentX = -Math.sin(spot.angle);
+    const tangentY = Math.cos(spot.angle);
+    for (const offset of [-config.bodySpacing, 0, config.bodySpacing]) {
+      const zone = this.add.zone(spot.x + tangentX * offset, spot.y + tangentY * offset, config.bodyRadius * 2, config.bodyRadius * 2);
+      this.regaliaAegisBodies.add(zone);
+      zone.body.setCircle(config.bodyRadius);
+      zone.body.updateFromGameObject();
+      zone.regaliaAegisShield = shield;
+      shield.bodies.push(zone);
+    }
+    this.createRegaliaAegisShieldVisual(shield);
+    return shield;
+  }
+
+  // Arcade process callback: returning false skips the separation. Bosses walk through and break
+  // the shield (design 4.3); it is removed in updateRegaliaAegisShields, outside the physics step.
+  shouldRegaliaAegisBlockEnemy(enemy, zone) {
+    const shield = zone?.regaliaAegisShield;
+    if (!shield || shield.broken || !enemy?.active || enemy.isDying) {
+      return false;
+    }
+    if (enemy.isFinalBossRaidBoss || enemy.isFinalBossRaidMinion || enemy.isFinalBossRaidGiantWeapon) {
+      return false;
+    }
+    if (enemy.isBoss) {
+      shield.broken = true;
+      return false;
+    }
+    return true;
+  }
+
+  // Each frame an enemy pushes a shield, the shield loses that enemy's contact damage x
+  // pressureFactor per second. From S6 the shield also hurts the enemies pushing it (thorns).
+  handleRegaliaAegisContact(enemy, zone) {
+    const shield = zone?.regaliaAegisShield;
+    if (!shield || shield.broken || !enemy?.active || enemy.isDying) {
+      return;
+    }
+    const now = Number(this.time?.now) || 0;
+    // A shield is three circles; count an enemy once per frame per shield.
+    if (enemy.regaliaAegisPressedAt === now && enemy.regaliaAegisPressedShieldId === shield.id) {
+      return;
+    }
+    enemy.regaliaAegisPressedAt = now;
+    enemy.regaliaAegisPressedShieldId = shield.id;
+    const frameSeconds = Math.max(0, Number(this.game?.loop?.delta) || 16.7) / 1000;
+    const contact = Math.max(0, Number(this.getEnemyOutgoingDamage(enemy, enemy.contactDamage)) || 0);
+    shield.pendingErosion += contact * REGALIA_AEGIS_WALL_CONFIG.pressureFactor * frameSeconds;
+    const thorn = Math.max(0, Number(shield.stage?.thornDamage) || 0);
+    if (thorn > 0 && shield.planted && now >= (enemy.regaliaAegisThornReadyAt || 0)) {
+      enemy.regaliaAegisThornReadyAt = now + Math.max(100, Number(shield.stage?.thornIntervalMs) || 500);
+      this.applyRegaliaAegisDamage(enemy, shield, thorn, { source: "regaliaAegisThorn", force: 60 });
+    }
+  }
+
+  applyRegaliaAegisDamage(enemy, shield, baseDamage, options = {}) {
+    if (!this.isFinalBossRaidEnemyTargetable(enemy) || enemy.isFinalBossRaidBoss || enemy.isFinalBossRaidMinion) {
+      return false;
+    }
+    const skillId = shield?.skillId || REGALIA_AEGIS_WALL_SKILL_ID;
+    const mutatedDamage = this.getMutatedSkillDamage(skillId, Math.max(1, Number(baseDamage) || 1), {
+      source: options.source || "regaliaAegisPlant",
+      enemy
+    });
+    const damage = Math.max(1, Math.round(this.applyRunEquipmentPlayerSkillDamageBonus(skillId, mutatedDamage)));
+    // Knockback pushes away from the territory centre, i.e. out of the territory.
+    this.applyDamageToEnemy(enemy, damage, shield?.stage?.damageTint || 0xfff1c8, {
+      sourceX: shield.centerX,
+      sourceY: shield.centerY,
+      force: options.force ?? REGALIA_AEGIS_WALL_CONFIG.knockbackForce,
+      recoverMs: REGALIA_AEGIS_WALL_CONFIG.knockbackRecoverMs,
+      canCrit: true
+    });
+    return true;
+  }
+
+  applyRegaliaAegisPlantImpact(shield) {
+    if (!this.enemies?.children || this.isFinalBossRaidActive?.()) {
+      return 0;
+    }
+    const radius = Math.max(1, Number(shield.stage?.impactRadius) || 44);
+    const damage = Math.max(1, Number(shield.stage?.damage) || 1);
+    let hits = 0;
+    this.enemies.children.each((enemy) => {
+      if (!enemy?.active || enemy.isDying || Phaser.Math.Distance.Between(shield.x, shield.y, enemy.x, enemy.y) > radius) {
+        return;
+      }
+      if (this.applyRegaliaAegisDamage(enemy, shield, damage, { source: "regaliaAegisPlant" })) {
+        hits += 1;
+      }
+    });
+    return hits;
+  }
+
+  updateRegaliaAegisShields(delta) {
+    const state = this.regaliaAegisWallState;
+    if (!state?.shields?.length) {
+      return;
+    }
+    for (const shield of state.shields.slice()) {
+      if (!shield.planted) {
+        shield.plantDelayMs -= delta;
+        if (shield.plantDelayMs <= 0) {
+          shield.planted = true;
+          this.applyRegaliaAegisPlantImpact(shield);
+          this.spawnRegaliaAegisPlantFx(shield);
+        }
+      }
+      shield.durability -= shield.pendingErosion;
+      shield.pendingErosion = 0;
+      shield.lifetimeMs -= delta;
+      if (shield.broken || shield.durability <= 0) {
+        this.removeRegaliaAegisShield(shield, "shatter");
+      } else if (shield.lifetimeMs <= 0) {
+        this.removeRegaliaAegisShield(shield, "sink");
+      } else {
+        this.updateRegaliaAegisShieldWear(shield);
+      }
+    }
+    if (!state.shields.length) {
+      this.fadeRegaliaAegisTerritory();
+    }
+  }
+
+  removeRegaliaAegisShield(shield, mode = "sink") {
+    const state = this.regaliaAegisWallState;
+    if (state?.shields) {
+      state.shields = state.shields.filter((entry) => entry !== shield);
+    }
+    shield.broken = true;
+    shield.bodies.forEach((zone) => {
+      zone.regaliaAegisShield = null;
+      if (this.regaliaAegisBodies?.contains?.(zone)) {
+        this.regaliaAegisBodies.remove(zone, true, true);
+      } else {
+        zone.destroy?.();
+      }
+    });
+    shield.bodies = [];
+    this.retireRegaliaAegisShieldVisual(shield, mode);
+  }
+
+  // A new deployment replaces the previous ring (design 4.1: one ring at a time).
+  retireRegaliaAegisShields() {
+    const state = this.regaliaAegisWallState;
+    (state?.shields || []).slice().forEach((shield) => this.removeRegaliaAegisShield(shield, "sink"));
+    this.fadeRegaliaAegisTerritory();
+  }
+
+  // Removes everything at once: run end, depth transition, shop return, skill rebuild.
+  clearRegaliaAegisWall(reason = "clear") {
+    const state = this.regaliaAegisWallState;
+    (state?.shields || []).slice().forEach((shield) => this.removeRegaliaAegisShield(shield, "immediate"));
+    if (state) {
+      state.shields = [];
+      state.territory = null;
+    }
+    if (this.regaliaAegisFxObjects) {
+      Array.from(this.regaliaAegisFxObjects).forEach((object) => {
+        this.tweens?.killTweensOf?.(object);
+        object?.destroy?.();
+      });
+      this.regaliaAegisFxObjects.clear();
+    }
+    return reason;
+  }
+
+  trackRegaliaAegisObject(object) {
+    if (!object) {
+      return object;
+    }
+    if (!this.regaliaAegisFxObjects) {
+      this.regaliaAegisFxObjects = new Set();
+    }
+    this.regaliaAegisFxObjects.add(object);
+    object.once?.("destroy", () => this.regaliaAegisFxObjects?.delete?.(object));
+    return object;
+  }
+
+  destroyRegaliaAegisObject(object) {
+    if (!object) {
+      return;
+    }
+    this.tweens?.killTweensOf?.(object);
+    this.regaliaAegisFxObjects?.delete?.(object);
+    object.destroy?.();
+  }
+
+  // The R1 shield and crack images load on demand for REGALIA only (design 11.3); until they
+  // arrive, or if they are missing, the shields are drawn with Graphics.
+  loadRegaliaAegisAssets() {
+    if (!this.load || !this.textures) {
+      return;
+    }
+    const failed = this.regaliaAegisAssetFailures || (this.regaliaAegisAssetFailures = new Set());
+    for (const asset of [REGALIA_AEGIS_WALL_CONFIG.shield, REGALIA_AEGIS_WALL_CONFIG.crack]) {
+      if (!this.textures.exists(asset.key) && !failed.has(asset.key)) {
+        this.loadImageAssetOnDemand(asset.key, asset.path, null, () => failed.add(asset.key));
+      }
+    }
+  }
+
+  createRegaliaAegisTerritoryVisual(center, radius) {
+    if (!this.add) {
+      return null;
+    }
+    const color = REGALIA_AEGIS_WALL_CONFIG.territoryColor;
+    const ring = this.trackRegaliaAegisObject(this.add.graphics()
+      .setPosition(center.x, center.y)
+      .setDepth(REGALIA_AEGIS_WALL_CONFIG.groundDepth - 0.02)
+      .setAlpha(0));
+    ring.lineStyle(9, color, 0.14);
+    ring.strokeCircle(0, 0, radius);
+    ring.lineStyle(2, color, 0.5);
+    ring.strokeCircle(0, 0, radius);
+    this.tweens.add({ targets: ring, alpha: 1, duration: 220, ease: "Quad.easeOut" });
+    return ring;
+  }
+
+  fadeRegaliaAegisTerritory() {
+    const state = this.regaliaAegisWallState;
+    const ring = state?.territory;
+    if (!ring) {
+      return;
+    }
+    state.territory = null;
+    this.tweens.killTweensOf(ring);
+    this.tweens.add({
+      targets: ring,
+      alpha: 0,
+      duration: REGALIA_AEGIS_WALL_CONFIG.sinkMs,
+      onComplete: () => this.destroyRegaliaAegisObject(ring)
+    });
+  }
+
+  createRegaliaAegisShieldVisual(shield) {
+    if (!this.add) {
+      return;
+    }
+    const config = REGALIA_AEGIS_WALL_CONFIG;
+    const north = shield.y < shield.centerY;
+    const depth = north ? config.shieldDepthNorth : config.shieldDepthSouth;
+    if (this.textures?.exists?.(config.crack.key)) {
+      shield.crack = this.add.image(shield.x, shield.y, config.crack.key).setScale(config.crack.scale);
+    } else {
+      shield.crack = this.add.graphics().setPosition(shield.x, shield.y);
+      this.drawRegaliaAegisFallbackCrack(shield.crack, shield.id);
+    }
+    this.trackRegaliaAegisObject(shield.crack.setDepth(config.groundDepth).setAlpha(0));
+    if (this.textures?.exists?.(config.shield.key)) {
+      const frame = this.textures.getFrame(config.shield.key);
+      shield.sprite = this.add.image(shield.x, shield.y, config.shield.key)
+        .setOrigin(config.shield.pivotX / Math.max(1, frame.width), config.shield.pivotY / Math.max(1, frame.height))
+        .setScale(config.shield.scale);
+    } else {
+      shield.sprite = this.add.graphics().setPosition(shield.x, shield.y);
+      this.drawRegaliaAegisFallbackShield(shield.sprite);
+    }
+    this.trackRegaliaAegisObject(shield.sprite.setDepth(depth).setAlpha(0));
+    shield.sprite.y = shield.y - 70;
+    this.tweens.add({
+      targets: shield.sprite,
+      y: shield.y,
+      alpha: 1,
+      duration: config.plantDelayMs,
+      ease: "Quad.easeIn"
+    });
+  }
+
+  spawnRegaliaAegisPlantFx(shield) {
+    if (!this.add || !shield.sprite?.active) {
+      return;
+    }
+    if (shield.crack?.active) {
+      this.tweens.add({ targets: shield.crack, alpha: 0.92, duration: 120, ease: "Quad.easeOut" });
+    }
+    const dust = this.trackRegaliaAegisObject(this.add.graphics()
+      .setPosition(shield.x, shield.y)
+      .setDepth(REGALIA_AEGIS_WALL_CONFIG.groundDepth + 0.01));
+    dust.lineStyle(3, 0xd0c0a5, 0.55);
+    dust.strokeEllipse(0, 0, 46, 18);
+    dust.lineStyle(2, REGALIA_AEGIS_WALL_CONFIG.territoryColor, 0.45);
+    dust.strokeEllipse(0, 0, 30, 12);
+    this.tweens.add({
+      targets: dust,
+      scaleX: 2.6,
+      scaleY: 2.2,
+      alpha: 0,
+      duration: 320,
+      ease: "Cubic.easeOut",
+      onComplete: () => this.destroyRegaliaAegisObject(dust)
+    });
+  }
+
+  // Shows wear: tinted below half durability, darker below a quarter (Graphics shields dim).
+  updateRegaliaAegisShieldWear(shield) {
+    const ratio = shield.maxDurability > 0 ? shield.durability / shield.maxDurability : 1;
+    const level = ratio <= 0.25 ? 2 : ratio <= 0.5 ? 1 : 0;
+    if (level === shield.wearLevel || !shield.sprite?.active) {
+      return;
+    }
+    shield.wearLevel = level;
+    if (typeof shield.sprite.setTint === "function") {
+      if (level === 0) {
+        shield.sprite.clearTint();
+      } else {
+        shield.sprite.setTint(level === 2 ? 0xff9f8a : 0xffd6c8);
+      }
+    } else {
+      shield.sprite.setAlpha(level === 2 ? 0.7 : 0.85);
+    }
+  }
+
+  retireRegaliaAegisShieldVisual(shield, mode) {
+    const sprite = shield.sprite?.active ? shield.sprite : null;
+    const crack = shield.crack?.active ? shield.crack : null;
+    shield.sprite = null;
+    shield.crack = null;
+    [sprite, crack].forEach((part) => part && this.tweens?.killTweensOf?.(part));
+    if (mode === "immediate" || !this.tweens) {
+      [sprite, crack].forEach((part) => part && this.destroyRegaliaAegisObject(part));
+      return;
+    }
+    const config = REGALIA_AEGIS_WALL_CONFIG;
+    if (crack) {
+      this.tweens.add({ targets: crack, alpha: 0, duration: config.sinkMs, onComplete: () => this.destroyRegaliaAegisObject(crack) });
+    }
+    if (!sprite) {
+      return;
+    }
+    if (mode === "shatter") {
+      this.spawnRegaliaAegisShards(sprite.x, sprite.y);
+      this.tweens.add({
+        targets: sprite,
+        scaleX: (sprite.scaleX || 1) * 1.18,
+        scaleY: (sprite.scaleY || 1) * 1.18,
+        alpha: 0,
+        duration: config.shatterMs,
+        ease: "Quad.easeOut",
+        onComplete: () => this.destroyRegaliaAegisObject(sprite)
+      });
+      return;
+    }
+    this.tweens.add({
+      targets: sprite,
+      y: sprite.y + 14,
+      alpha: 0,
+      duration: config.sinkMs,
+      ease: "Quad.easeIn",
+      onComplete: () => this.destroyRegaliaAegisObject(sprite)
+    });
+  }
+
+  spawnRegaliaAegisShards(x, y) {
+    if (!this.add) {
+      return;
+    }
+    for (let index = 0; index < 6; index += 1) {
+      const angle = -Math.PI / 2 + (index - 2.5) * 0.45;
+      const shard = this.trackRegaliaAegisObject(this.add.graphics()
+        .setPosition(x, y - 40)
+        .setDepth(REGALIA_AEGIS_WALL_CONFIG.shieldDepthNorth + 0.05));
+      shard.fillStyle(index % 2 ? 0xece4d6 : 0xe0b462, 0.95);
+      shard.fillTriangle(-5, 3, 6, 2, 0, -7);
+      this.tweens.add({
+        targets: shard,
+        x: x + Math.cos(angle) * 46,
+        y: y - 40 + Math.sin(angle) * 34 + 30,
+        angle: (index % 2 ? 1 : -1) * 160,
+        alpha: 0,
+        duration: REGALIA_AEGIS_WALL_CONFIG.shatterMs + 120,
+        ease: "Cubic.easeOut",
+        onComplete: () => this.destroyRegaliaAegisObject(shard)
+      });
+    }
+  }
+
+  // Fallback heater shield (tip at 0,0; about 84 x 110 px), same palette as the R1 render.
+  drawRegaliaAegisFallbackShield(graphics) {
+    const outline = [[0, 0], [-24, -18], [-38, -40], [-42, -62], [-42, -100], [-22, -106], [0, -109], [22, -106], [42, -100], [42, -62], [38, -40], [24, -18]];
+    const shape = (scale, cy = -58) => outline.map(([x, y]) => ({ x: x * scale, y: cy + (y - cy) * scale }));
+    graphics.fillStyle(0xe0b462, 1);
+    graphics.fillPoints(shape(1), true);
+    graphics.fillStyle(0xece4d6, 1);
+    graphics.fillPoints(shape(0.86), true);
+    graphics.lineStyle(2, 0x9fd2ff, 0.95);
+    graphics.strokePoints(shape(0.58), true);
+    graphics.fillStyle(0x1b2250, 1);
+    graphics.fillPoints(shape(0.54), true);
+    graphics.fillStyle(0xe0b462, 1);
+    graphics.fillRect(-3, -72, 6, 28);
+    graphics.fillRect(-11, -62, 22, 6);
+    graphics.fillStyle(0xe8f8ff, 1);
+    graphics.fillCircle(0, -59, 2.5);
+    graphics.fillStyle(0xe0b462, 1);
+    graphics.fillTriangle(-5, -108, 5, -108, 0, -126);
+    graphics.fillTriangle(-26, -104, -19, -105, -23, -116);
+    graphics.fillTriangle(19, -105, 26, -104, 23, -116);
+  }
+
+  drawRegaliaAegisFallbackCrack(graphics, seed = 1) {
+    graphics.fillStyle(0x2a2530, 0.45);
+    graphics.fillEllipse(0, 0, 54, 26);
+    graphics.lineStyle(2, 0x151018, 0.85);
+    for (let index = 0; index < 6; index += 1) {
+      const angle = (Math.PI * 2 * index) / 6 + seed * 0.7;
+      const length = 26 + ((seed * 7 + index * 5) % 12);
+      graphics.lineBetween(0, 0, Math.cos(angle) * length, Math.sin(angle) * length * 0.5);
+    }
   }
 
   isRegaliaBastionCannonDebugEnabled() {
@@ -89053,6 +89695,9 @@ class SurvivalScene extends Phaser.Scene {
     if (definition.behavior === "regaliaBastionCannon") {
       return `王装閃砲を解放 / DMG ${stageData.damage} / CD ${stageData.cooldownMs}ms / TARGET ${stageData.targetCount || 1}`;
     }
+    if (definition.behavior === "regaliaAegisWall") {
+      return `王盾陣を解放 / 盾 ${stageData.shieldCount} / テリトリー ${stageData.territoryRadius} / DMG ${stageData.damage}`;
+    }
 
     return `周回球を強化 / ${this.buildSkillStatsSummary(stageData, definition)}`;
   }
@@ -89067,7 +89712,17 @@ class SurvivalScene extends Phaser.Scene {
       changes.push(`HIT ${currentStage.contactTickMs}->${nextStage.contactTickMs}ms`);
     }
 
-    if (definition.behavior === "regaliaBastionCannon") {
+    if (definition.behavior === "regaliaAegisWall") {
+      if (currentStage.shieldCount !== nextStage.shieldCount) {
+        changes.push(`盾 ${currentStage.shieldCount}->${nextStage.shieldCount}`);
+      }
+      if (currentStage.territoryRadius !== nextStage.territoryRadius) {
+        changes.push(`テリトリー ${currentStage.territoryRadius}->${nextStage.territoryRadius}`);
+      }
+      if ((currentStage.thornDamage || 0) !== (nextStage.thornDamage || 0)) {
+        changes.push((currentStage.thornDamage || 0) === 0 ? "棘 ON" : `棘 ${currentStage.thornDamage}->${nextStage.thornDamage}`);
+      }
+    } else if (definition.behavior === "regaliaBastionCannon") {
       if ((currentStage.targetCount || 1) !== (nextStage.targetCount || 1)) {
         changes.push(`TARGET ${currentStage.targetCount || 1}->${nextStage.targetCount || 1}`);
       }
@@ -89876,6 +90531,9 @@ class SurvivalScene extends Phaser.Scene {
     if (skillId === "rabbitThunderSkill" && (beforeStage.impactRepeatCount || 1) < 2 && (afterStage.impactRepeatCount || 1) >= 2) {
       effects.push("2連続の着地雷衝撃");
     }
+    if ((beforeStage.thornDamage || 0) <= 0 && (afterStage.thornDamage || 0) > 0) {
+      effects.push("棘盾：盾を押す敵に継続ダメージ");
+    }
     if ((beforeStage.orbitRadiusPulseAmount || 0) <= 0 && (afterStage.orbitRadiusPulseAmount || 0) > 0) {
       effects.push("可変オービット");
     }
@@ -89888,10 +90546,15 @@ class SurvivalScene extends Phaser.Scene {
 
   getSkillStatDisplaySpecs(skillId) {
     // Card labels are plain Japanese; times are shown in seconds (ms: true marks the source unit).
+    const aegis = skillId === REGALIA_AEGIS_WALL_SKILL_ID;
     return [
       { key: "damage", label: "威力", priority: 120, unlock: true },
       { key: "contactTickMs", label: "攻撃間隔", priority: 115, unlock: true, ms: true },
+      { key: "shieldCount", label: "盾の数", priority: 112, unlock: aegis },
+      { key: "territoryRadius", label: "テリトリー", priority: 110, unlock: aegis },
       { key: "targetCount", label: "弾数", priority: 109, unlock: skillId === REGALIA_BASTION_CANNON_SKILL_ID },
+      { key: "durabilityRatio", label: "盾の耐久", priority: 107, unlock: aegis, percent: true },
+      { key: "lifetimeMs", label: "持続", priority: 103, ms: true },
       { key: "autoAttackShots", label: "雷撃本数", priority: 108 },
       { key: "orbitCount", label: "球数", priority: 106 },
       { key: "moveSpeed", label: "速度", priority: 104, unlock: skillId === "tornadoSkill" },
@@ -89902,6 +90565,7 @@ class SurvivalScene extends Phaser.Scene {
       { key: "displayScale", label: "大きさ", priority: 94, decimal: true, chipOnly: true },
       { key: "dashDurationMs", label: "突進時間", priority: 92, ms: true },
       { key: "impactRadius", label: "衝撃範囲", priority: 88, unlock: skillId === REGALIA_BASTION_CANNON_SKILL_ID },
+      { key: "thornDamage", label: "棘", priority: 87 },
       { key: "suctionRadius", label: "吸引範囲", priority: 86 },
       { key: "suctionForce", label: "吸引力", priority: 84 }
     ];
@@ -89972,6 +90636,9 @@ class SurvivalScene extends Phaser.Scene {
     if (spec.ms) {
       return `${this.formatLevelUpSeconds(value)}秒`;
     }
+    if (spec.percent) {
+      return `${Math.round(value * 100)}%`;
+    }
     if (spec.decimal) {
       return value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
     }
@@ -89983,6 +90650,9 @@ class SurvivalScene extends Phaser.Scene {
     const amount = Math.abs(delta);
     if (spec.ms) {
       return `${sign}${this.formatLevelUpSeconds(amount)}秒`;
+    }
+    if (spec.percent) {
+      return `${sign}${Math.round(amount * 100)}%`;
     }
     if (spec.decimal) {
       return `${sign}${amount.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}`;
@@ -90101,6 +90771,7 @@ class SurvivalScene extends Phaser.Scene {
     this.destroyStageGate(true);
     this.hideOverlay();
     this.clearActiveLostArmEffects();
+    this.clearRegaliaAegisWall("gameOver");
     this.cleanupGensoKnightsEvent(this.gensoKnightsEvent, true);
     this.stopSupportAttackBgmOverride(null, false, true);
     if (!this.clearEndlessVoidBgmOverride(reason)) {
@@ -90271,6 +90942,7 @@ class SurvivalScene extends Phaser.Scene {
     this.resetDepthDirectiveState("returnToOpeningShop");
     this.resetTriadMatrixRunState("returnToOpeningShop");
     this.resetSkillMutationState("returnToOpeningShop");
+    this.clearRegaliaAegisWall("returnToOpeningShop");
     this.resetNemesisBossState("returnToOpeningShop");
     this.resetVoidHunterState("returnToOpeningShop");
     this.resetFinalBossRaidState("returnToOpeningShop");
@@ -91793,6 +92465,9 @@ class SurvivalScene extends Phaser.Scene {
     }
     if (definition?.behavior === "regaliaBastionCannon") {
       return `DMG ${stageData.damage} / CD ${stageData.cooldownMs}ms / TARGET ${stageData.targetCount || 1} / IMPACT ${stageData.impactRadius || 0}${effectsLabel}`;
+    }
+    if (definition?.behavior === "regaliaAegisWall") {
+      return `DMG ${stageData.damage} / 盾 ${stageData.shieldCount} / テリトリー ${stageData.territoryRadius} / 持続 ${stageData.lifetimeMs}ms`;
     }
 
     return `DMG ${stageData.damage} / HIT ${stageData.contactTickMs}ms / ORB ${stageData.orbitCount} / BOLT ${stageData.autoAttackShots || 1}${effectsLabel}`;
