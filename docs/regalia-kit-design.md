@@ -1,6 +1,6 @@
 # REGALIA BASTION 専用スキル再設計（Aegis Wall／Counter Pulse）設計案
 
-2026-10-11 作成、2026-10-12 更新（テリトリー型の盾）。**製品コードは未変更です。** 14章の #1〜#11 はすべて推奨どおり承認済みです。数値はすべて仮値で、実装段階の試走で調整します。
+2026-10-11 作成、2026-10-12 更新（テリトリー型の盾）、2026-10-13 更新（壁の形、R4 で通常プレイへ切り替え）。14章の #1〜#11 はすべて推奨どおり承認済みです。実装した内容は 12.1〜12.4 にまとめています。数値は仮値で、R5 の試走で調整します。
 
 ## 0. 記録の区分
 
@@ -343,7 +343,7 @@ Counter Pulse の威力 4 → 5
 | R1 | Blender で画風試作（盾・ひび・反撃波1コマ・アイコン2つ）→ 画風の承認。2026-10-11 に試作を作成し、2026-10-12 に承認（`tools/blender/regalia_kit/`） | なし |
 | R2 | Aegis Wall の実装（S1〜S8、Graphics 代替、テスト）。`?debugRegaliaKit=1` のときだけ REGALIA の枠を新構成にする。2026-10-12 に実装（下記） | なし |
 | R3 | Counter Pulse の実装（S1〜S8、盾連動、テスト）。2026-10-13 に実装（下記） | なし |
-| R4 | 統合：パッシブ、Mutation／TRIAD、装備、RUN ARCHIVE 互換、HUD、README／AGENTS.md の更新 → 通常プレイの REGALIA を新構成に切り替え | あり |
+| R4 | 統合：パッシブ、Mutation／TRIAD、装備、RUN ARCHIVE 互換、HUD、README／AGENTS.md の更新 → 通常プレイの REGALIA を新構成に切り替え。2026-10-13 に実装（下記） | あり |
 | R5 | 素材の本番一式、実機での人間確認、数値調整 | あり |
 
 AGENTS.md §3.1 は既存スキル ID の維持を求めています。今回は ID を変えず、REGALIA の枠だけを変えます。R4 では AGENTS.md の該当説明（REGALIA の枠）も更新します。
@@ -419,6 +419,45 @@ AGENTS.md §3.1 は既存スキル ID の維持を求めています。今回は
     - 方向ごとの画像
     - 敵の数による削れ
   - 実ブラウザの確認は、北向きと南東向きの S8 も撮る。
+
+### 12.4 R4 の実装内容（2026-10-13）
+
+Depth20 での確認で壁の形が狙いどおりと確認されたため、通常プレイへ切り替えた。
+
+- **パッシブ**（6章）：
+  - Reactor は全ダメージに `bulletDamage − 1` を足す。Fire Control は再設置間隔と自動間隔を短縮する（下限は 60%／55%）。
+  - 候補は、2 つのスキルのどちらかを所持し、数値が実際に変わるときだけ出す。カードはスキルごとに「今 → 次」で示す。
+- **Mutation／TRIAD**（7章）：
+  - `skillMutationDefinitions.skills` に 7.2 の名前を登録した。
+  - 枠を切り替えたので、Mutation と TRIAD の対象は自動で [キャノン, Aegis Wall, Counter Pulse] になる。
+  - 威力倍率と再発動倍率は R2・R3 で配線済み。Stage4／Stage8 で選択画面が開く（その間は一時停止）。
+- **装備**（8章）：
+  - COMBAT LINK の対象は、機体の枠から求める（`getRunEquipmentCombatLinkSkillIds`）。REGALIA は Aegis Wall／Counter Pulse、初期機体は従来の 3 つ。
+  - OVERLIMIT のラン内状態のキーも機体ごとにした。初期機体と UMBRA の状態の形は従来と同じ。
+  - 命中ごとの判定（`isEquipmentCombatLinkSkillId`）は、機体を引かずに済む全機体の一覧（`EQUIPMENT_COMBAT_LINK_ALL_SKILL_IDS`）を使う。ほかの機体のスキルは所持しないので、結果は同じ。
+  - UMBRA の検証用シーンは関数を名前で借りるため、新しい関数がない場合は従来の 3 つに戻る。
+- **RUN ARCHIVE**（9章）：
+  - `RUN_ARCHIVE_VERSION` を 3 に上げた。新しい記録には、出撃時のスキル枠 `skillSlotIds` を保存する。
+  - 保存された枠は、既知の枠の組み合わせ（各機体の現在の枠と REGALIA の旧枠）と一致するときだけ使う。
+  - 枠のない古い記録は、REGALIA で専用スキルの Lv がなければ旧枠（REGALIA／TORNADO／RABBIT）で表示する。
+  - 短縮名は記録の書き方（REGALIA／TORNADO／RABBIT）に合わせて AEGIS／PULSE にした。HUD は 10章のとおり AGS／PLS。
+- **HUD・カード**（10章）：
+  - Blender のアイコン 2 種を 128 px で `画像/skills/<スキル>/icon_r1.png` に入れた（`tools/blender/regalia_kit/make_r4_icons.py`）。他の画像と一緒に、REGALIA の出撃時だけ読み込む。
+  - 読み込み後は、レベルアップカード、Mutation カード、HUD がこのアイコンを使う（`getSkillIconTextureKey`）。それまでは生成アイコン。
+  - カードの説明は 1 行に収まらなかったため、既存スキルと同じ 20 字前後に縮めた。
+  - 新効果の文言（城壁の袖・盾連動・二重波）も帯に収まる長さにした。
+  - 新効果の帯があるカードは、数値チップを 1 段にした（2 段目がカードの下枠を越えていたため。全スキル共通）。
+- **debug 指定**：`?debugRegaliaKit=1` と、それによる枠の切り替えを削除した。
+- **テスト**：
+  - `tests/regalia-kit-integration.test.cjs` を追加した。Mutation の名前と対象、SENSOR／ARMAMENT／OVERLIMIT、RUN ARCHIVE v3 と旧記録の表示を確かめる。
+  - REGALIA の旧枠を前提にしていた既存テストを新しい枠に合わせた。
+    - `umbra-registry`、`umbra-phase2b-candidates`、`umbra-production-records` は新しい枠を確かめる。
+    - `umbra-core-stats` は、REGALIA のキャノンだけを旧版と比べ、新スキル 2 つは同じ汎用チェックにかける。
+    - `umbra-equipment-legacy` の A61 比較は初期機体だけにした。
+  - 実ブラウザの確認（`tests/regalia-aegis-browser.cjs`）を debug 指定なしにした。次も確かめる。
+    - 初期機体は REGALIA の画像を読み込まないこと
+    - アイコンが HUD とカードに出ること
+    - Mutation の選択
 
 ## 13. テストと検証
 

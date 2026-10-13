@@ -103,6 +103,14 @@ Depth6 以降関連の確認では、必要に応じて query parameter 付き�
 - `tornadoSkill`: 未所持から Unlock 可能。Stage 1〜8。
 - `rabbitThunderSkill`: 未所持から Unlock 可能。Stage 1〜8。
 
+機体ごとのスキル枠は `PLAYER_MECH_SKILL_SLOT_IDS` で決まります。上の 3 つは初期機体の枠です。ALM-01 REGALIA BASTION の枠は次の 3 つです（2026-10-13 の R4 で、2 枠目と 3 枠目を Tornado／Rabbit から専用スキルへ切り替えました。設計は `docs/regalia-kit-design.md`）。
+
+- `regaliaBastionCannon`: REGALIA の初期解放。Stage 1〜8。
+- `regaliaAegisWall`: REGALIA 専用。未所持から Unlock 可能。Stage 1〜8。
+- `regaliaCounterPulse`: REGALIA 専用。未所持から Unlock 可能。Stage 1〜8。
+
+REGALIA の枠を変える場合は、Mutation／TRIAD の対象、装備 COMBAT LINK の対象、RUN ARCHIVE の `skillSlotIds` と旧記録の表示もあわせて確認してください。
+
 表示名を変更する場合は、内部 ID ではなく UI 用メタデータで対応してください。
 
 ### 3.2 パッシブ
