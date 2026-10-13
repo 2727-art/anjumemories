@@ -1,6 +1,10 @@
 # REGALIA Kit Asset Pipeline (Blender)
 
-`docs/regalia-kit-design.md` 11・12 章の素材を Blender で描き出します。**R1（画風試作）は 2026-10-12 に承認済み**です。盾・ひび・反撃波の 3 点（`preview/r1-*-final.png`）は、R2・R3 で `画像/skills/regalia_aegis_wall/shield_r1.png`・`crack_r1.png` と `画像/skills/regalia_counter_pulse/pulse_r1.png` としてゲームに入れました（`?debugRegaliaKit=1` のときだけ使います）。アイコン 2 種はまだ入れていません（R4）。
+`docs/regalia-kit-design.md` 11・12 章の素材を Blender で描き出します。**R1（画風試作）は 2026-10-12 に承認済み**です。ゲームに入れた素材は次のとおりで、どれも `?debugRegaliaKit=1` のときだけ使います。
+
+- ひびと反撃波：R2・R3 で `画像/skills/regalia_aegis_wall/crack_r1.png` と `画像/skills/regalia_counter_pulse/pulse_r1.png` として入れた。
+- 盾：2026-10-13 に Aegis Wall を「機体の前方に築く壁」に変えたため、8 方向の画像（`画像/skills/regalia_aegis_wall/shield_r2_<方向>.png`）に置き換えた（R2b）。
+- アイコン 2 種：まだ入れていない（R4）。
 
 共通の設定は `tools/blender/openworld/ow_common.py` をそのまま使います（色管理 Standard、北西の主光、Cycles と GPU）。R1 は確認しやすいよう 2 倍の解像度（1 m = 80 px、ゲームは 1 m = 40 px）で描きます。
 
@@ -28,6 +32,11 @@ node tools/blender/regalia_kit/capture_regalia.cjs
 
 # 3. 光のにじみを焼き込み、ゲーム画面への合成と比較画像を作る
 python tools/blender/regalia_kit/make_r1_mock.py
+
+# 4. R2b：盾を 8 方向に描き出し（裏面つき）、にじみと輪郭を焼き込んで 画像/ に書き出す（約 30 秒）
+& "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" --background --factory-startup `
+    --python tools/blender/regalia_kit/build_r1.py -- --out tools/blender/regalia_kit/preview --only shield-dirs
+python tools/blender/regalia_kit/make_r2_wall.py
 ```
 
 撮影は新しいブラウザのプロファイルで行い、保存データには触れません。REGALIA は既存の debug 指定（`debugPlayerMech` / `debugPlayerMechUnlock`）で選びます。
@@ -36,9 +45,10 @@ python tools/blender/regalia_kit/make_r1_mock.py
 
 | ファイル | 内容 |
 | --- | --- |
-| `build_r1.py` | Blender の入口。盾、地面のひび、反撃波 1 コマ、アイコン 2 種を描き、それぞれ光る部分だけの `_emit.png` も描く。乱数の種は固定 |
+| `build_r1.py` | Blender の入口。盾、地面のひび、反撃波 1 コマ、アイコン 2 種、8 方向の盾（`--only shield-dirs`。裏面の紺の板・金の補強・鋼の杭つき）を描き、それぞれ光る部分だけの `_emit.png` も描く。乱数の種は固定。名前は R1 のまま |
 | `capture_regalia.cjs` | REGALIA で広域マップに出撃した 1280x720 の画面と、同じ一時停止中の画面から機体だけを消した画面を撮る（差分が機体のマスクになる） |
 | `make_r1_mock.py` | にじみ（`_emit` をぼかして加算）と 1 px 相当の暗い輪郭を焼き込んだ `*-final.png`、ゲーム画面への合成 2 枚（テリトリー S1 と S8）、既存の絵との比較画像を書く |
+| `make_r2_wall.py` | 8 方向の盾ににじみと輪郭を焼き込み、`画像/skills/regalia_aegis_wall/shield_r2_<方向>.png` に書き出す。方位どおりに並べた確認用の `preview/r2-shield-dirs.jpg` も書く |
 | `preview/` | 描き出した画像、撮影した画面、合成と比較の画像、`r1-assets.json`（寸法と基準点） |
 
 ## R1 の素材

@@ -177,6 +177,7 @@ def materials():
         "gold": principled("rk_gold", PALETTE["gold"], roughness=0.3, metallic=1.0, wear=0.12),
         "navy": principled("rk_navy", PALETTE["navy"], roughness=0.42, metallic=0.25),
         "stone": principled("rk_stone", PALETTE["stone"], roughness=0.9),
+        "steel": principled("rk_steel", "#3a3644", roughness=0.35, metallic=0.85, wear=0.08),
         "crack": principled("rk_crack", PALETTE["crack"], roughness=0.95),
         # Standard view transform clips at 1.0, so coloured glows stay near strength 1 and the
         # bloom comes from the emit pass in make_r1_mock.py.
@@ -344,13 +345,50 @@ def curved_layer(name, loops, y_front, thickness, material, curve=True, bevel=0.
     return obj
 
 
-def build_shield(mats, origin=(0.0, 0.0, 0.0), rotation_z=0.0, scale=1.0, ground=0.2, name="aegis"):
+def box_between(name, start, end, width, material):
+    """A square beam from start to end (local coordinates)."""
+    start, end = Vector(start), Vector(end)
+    length = (end - start).length
+    bm = bmesh.new()
+    bmesh.ops.create_cube(bm, size=1.0)
+    for v in bm.verts:
+        v.co = Vector((v.co.x * width, v.co.y * width, (v.co.z + 0.5) * length))
+    rotation = (end - start).to_track_quat("Z", "Y").to_matrix().to_4x4()
+    bmesh.ops.transform(bm, matrix=Matrix.Translation(start) @ rotation, verts=bm.verts[:])
+    return new_object(name, bm, [material], bevel=0.008)
+
+
+def build_shield_back(mats, name, ground_z):
+    """Back of the shield for the north and side views of the wall (R2b): a navy back plate,
+    a gold cross of braces and a steel kickstand driven into the ground behind it."""
+    objects = []
+    back = SHIELD["thickness"]
+    objects.append(curved_layer(f"{name}_backplate", [heater_outline(0.14)], back + 0.02, 0.02, mats["navy"], bevel=0.006))
+    rect = lambda x0, z0, x1, z1: [(x0, z0), (x1, z0), (x1, z1), (x0, z1)]  # noqa: E731
+    for key, outline in (("strut", rect(-0.08, 0.35, 0.08, 2.4)), ("brace_low", rect(-0.66, 0.92, 0.66, 1.04)),
+                         ("brace_high", rect(-0.82, 1.92, 0.82, 2.04))):
+        objects.append(curved_layer(f"{name}_{key}", [outline], back + 0.08, 0.06, mats["gold"], bevel=0.006))
+    top = (0.0, back + 0.1 - bulge(0.0), 1.55)
+    foot = (0.0, back + 0.95, ground_z - 0.12)
+    objects.append(box_between(f"{name}_kickstand", top, foot, 0.1, mats["steel"]))
+    bm = bmesh.new()
+    bmesh.ops.create_cube(bm, size=1.0)
+    for v in bm.verts:
+        v.co = Vector((v.co.x * 0.32, v.co.y * 0.26, v.co.z * 0.05)) + Vector((foot[0], foot[1] - 0.05, ground_z + 0.02))
+    objects.append(new_object(f"{name}_foot", bm, [mats["gold"]], bevel=0.01))
+    return objects
+
+
+def build_shield(mats, origin=(0.0, 0.0, 0.0), rotation_z=0.0, scale=1.0, ground=0.2, name="aegis", back=False):
     """One Aegis Wall shield whose pointed tip is buried `ground` m below z = 0 at origin.
     Layers from back to front: gold base (the rim), ivory field, gold inlay line, glowing seam,
-    navy panel, gold cross with a gem. Every layer follows the same curvature."""
+    navy panel, gold cross with a gem. Every layer follows the same curvature. back=True adds the
+    back plate, braces and kickstand seen when the wall faces away from the camera."""
     objects = []
     tip_z = SHIELD["shoulder"] - TIP_SLOPE * SHIELD["half"]
     lift = -ground - tip_z
+    if back:
+        objects.extend(build_shield_back(mats, name, -lift))
     layers = [
         ("base", [heater_outline(0.0)], 0.0, SHIELD["thickness"], mats["gold"], 0.02),
         ("field", [heater_outline(0.12)], -0.03, 0.03, mats["ivory"], 0.012),
@@ -491,6 +529,32 @@ def asset_shield(out_dir):
     render_pair(scene, out_dir, "r1-shield")
     return {"size": [width, height], "pivot": pixel_of(scene, (0.0, 0.0, 0.0)),
             "camera": "ortho, looking north, 20 deg down", "px_per_m": PX_PER_M}
+
+
+# R2b: the wall faces one of 8 directions. Screen angle (y down, 0 = east, 90 = south) per name.
+SHIELD_DIRECTIONS = (("e", 0), ("se", 45), ("s", 90), ("sw", 135), ("w", 180), ("nw", 225), ("n", 270), ("ne", 315))
+
+
+def asset_shield_dirs(out_dir):
+    """The shield facing each of the 8 directions, with its back. Same camera and lights as the
+    R1 shield, so the world light stays in the north-west for every direction (no mirroring)."""
+    width, height = 256, 320
+    result = {}
+    for name, degrees in SHIELD_DIRECTIONS:
+        scene = setup_scene(width, height)
+        setup_world(scene)
+        add_sprite_lights(scene)
+        mats = materials()
+        screen = math.radians(degrees)
+        # the front normal starts at -Y (south); turn it to the world direction (cos a, -sin a)
+        yaw = math.atan2(-math.sin(screen), math.cos(screen)) + math.pi / 2.0
+        build_shield(mats, rotation_z=yaw, back=True, name=f"aegis_{name}")
+        add_rubble(mats, random.Random(11), 10, 0.15, 0.75, (0.05, 0.11), "rk_base_rubble")
+        ow.plane_xy("rk_ground", -3.0, -3.0, 3.0, 3.0, 0.0, holdout())
+        ortho_camera(scene, (0.0, 0.0, 1.45), width / PX_PER_M, 20.0)
+        render_pair(scene, out_dir, f"r2-shield-{name}")
+        result[name] = {"size": [width, height], "pivot": pixel_of(scene, (0.0, 0.0, 0.0)), "screen_angle_deg": degrees}
+    return result
 
 
 def asset_crack(out_dir):
@@ -655,6 +719,7 @@ def main():
         "pulse": asset_pulse,
         "icon-aegis": asset_icon_aegis,
         "icon-pulse": asset_icon_pulse,
+        "shield-dirs": asset_shield_dirs,
     }
     manifest_path = os.path.join(out_dir, "r1-assets.json")
     manifest = {}

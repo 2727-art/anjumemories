@@ -90,20 +90,27 @@ const REGALIA_KIT_DEBUG_SLOT_IDS = Object.freeze([REGALIA_BASTION_CANNON_SKILL_I
 const REGALIA_AEGIS_WALL_CONFIG = Object.freeze({
   minCooldownMs: 1000,
   plantDelayMs: 170,          // drop time before the plant impact lands
-  pressureFactor: 0.4,        // durability lost per second = pressing enemy's contact damage x this
+  // Durability lost per second for each enemy pushing a shield, whatever the depth (design 4.3):
+  // deep-depth contact damage would otherwise break the wall in a second.
+  erosionPerEnemy: 8,
+  eliteErosionMultiplier: 2,
   knockbackForce: 200,
   knockbackRecoverMs: 120,
-  bodyRadius: 16,             // one shield = three static circles along the ring's tangent (~84 px wide)
-  bodySpacing: 26,
+  shieldPitch: 76,            // shields 84 px wide overlap a little, so the wall has no gaps
+  bodyRadius: 16,             // one shield = three static circles along the wall line
+  bodySpacing: 25,
+  stripInset: 26,             // the territory strip runs this far inside the wall
   sinkMs: 220,
   shatterMs: 260,
   shieldDepthNorth: 18.4,     // enemies draw at 18: north shields in front of them, south shields behind
   shieldDepthSouth: 17.6,
   groundDepth: 16.25,
   territoryColor: 0x9fd2ff,
-  shield: { key: "regalia-aegis-shield-r1", path: "./画像/skills/regalia_aegis_wall/shield_r1.png", pivotX: 128, pivotY: 269, scale: 0.5 },
+  // One image per facing direction (screen angle: e, se, s, sw, w, nw, n, ne), same ground pivot.
+  shield: { keyPrefix: "regalia-aegis-shield-r2-", pathPrefix: "./画像/skills/regalia_aegis_wall/shield_r2_", pivotX: 128, pivotY: 269, scale: 0.5 },
   crack: { key: "regalia-aegis-crack-r1", path: "./画像/skills/regalia_aegis_wall/crack_r1.png", scale: 0.5 }
 });
+const REGALIA_AEGIS_DIRECTION_NAMES = Object.freeze(["e", "se", "s", "sw", "w", "nw", "n", "ne"]);
 const REGALIA_COUNTER_PULSE_CONFIG = Object.freeze({
   minIntervalMs: 600,
   counterMinGapMs: 300,       // a counter right after another one is skipped (hits already grant 900 ms of i-frames)
@@ -5331,7 +5338,7 @@ const LEVEL_UP_SKILL_UI_META = {
   },
   [REGALIA_AEGIS_WALL_SKILL_ID]: {
     displayName: "Aegis Wall",
-    description: "盾を突き立てて機体を囲み、内側をテリトリーにする",
+    description: "機体が向いている方向に盾の壁を築き、内側をテリトリーにする",
     themeColor: 0xf0c574,
     glowColor: 0x9fd2ff,
     accentColor: "#f0c574",
@@ -75396,14 +75403,39 @@ class SurvivalScene extends Phaser.Scene {
     return state.lastFacing;
   }
 
-  // Ground points of the shields: evenly around the territory circle, the first towards `facing`.
+  // Ground points of the shields (design 4.1): the facing snaps to the 8 directions of the mech
+  // sprites, then shieldCount shields stand side by side on a straight line wallDistance ahead.
+  // With wingCount, both ends bend back 45 degrees towards the mech. Each spot carries the
+  // direction its shield faces (outwards), which picks the image and lays its bodies along the line.
   getRegaliaAegisWallLayout(stageData, center, facing) {
+    const step = Math.PI / 4;
+    const direction = ((Math.round((Number(facing) || 0) / step) % 8) + 8) % 8;
+    const angle = direction * step;
+    const pitch = REGALIA_AEGIS_WALL_CONFIG.shieldPitch;
     const count = Math.max(1, Math.floor(Number(stageData?.shieldCount) || 1));
-    const radius = Math.max(1, Number(stageData?.territoryRadius) || 200);
-    return Array.from({ length: count }, (_, index) => {
-      const angle = facing + (Math.PI * 2 * index) / count;
-      return { angle, x: center.x + Math.cos(angle) * radius, y: center.y + Math.sin(angle) * radius };
-    });
+    const wings = Math.max(0, Math.floor(Number(stageData?.wingCount) || 0));
+    const distance = Math.max(1, Number(stageData?.wallDistance) || 200);
+    const normal = { x: Math.cos(angle), y: Math.sin(angle) };
+    const tangent = { x: -normal.y, y: normal.x };
+    const middle = { x: center.x + normal.x * distance, y: center.y + normal.y * distance };
+    const spots = [];
+    for (let index = 0; index < count; index += 1) {
+      const offset = (index - (count - 1) / 2) * pitch;
+      spots.push({ x: middle.x + tangent.x * offset, y: middle.y + tangent.y * offset, angle, direction });
+    }
+    for (const side of [1, -1]) {
+      const end = (count - 1) / 2 * pitch * side;
+      const along = { x: (tangent.x * side - normal.x) * Math.SQRT1_2, y: (tangent.y * side - normal.y) * Math.SQRT1_2 };
+      for (let index = 1; index <= wings; index += 1) {
+        spots.push({
+          x: middle.x + tangent.x * end + along.x * pitch * index,
+          y: middle.y + tangent.y * end + along.y * pitch * index,
+          angle: angle + step * side,
+          direction: (direction + side + 8) % 8
+        });
+      }
+    }
+    return spots;
   }
 
   // Shield durability follows the mech's max AP (design 4.3).
@@ -75422,10 +75454,10 @@ class SurvivalScene extends Phaser.Scene {
     const center = { x: this.playerHitbox.x, y: this.playerHitbox.y };
     const facing = this.getRegaliaAegisWallFacing(center);
     state.lastFacing = facing;
-    state.territory = this.createRegaliaAegisTerritoryVisual(center, Number(stageData?.territoryRadius) || 200);
     const durability = this.getRegaliaAegisShieldDurability(stageData);
     state.shields = this.getRegaliaAegisWallLayout(stageData, center, facing)
       .map((spot) => this.createRegaliaAegisShield(skillState, stageData, spot, center, durability));
+    state.territory = this.createRegaliaAegisTerritoryVisual(state.shields);
     return state.shields.length > 0;
   }
 
@@ -75439,6 +75471,7 @@ class SurvivalScene extends Phaser.Scene {
       x: spot.x,
       y: spot.y,
       angle: spot.angle,
+      direction: spot.direction ?? 2,
       centerX: center.x,
       centerY: center.y,
       durability,
@@ -75485,8 +75518,8 @@ class SurvivalScene extends Phaser.Scene {
     return true;
   }
 
-  // Each frame an enemy pushes a shield, the shield loses that enemy's contact damage x
-  // pressureFactor per second. From S6 the shield also hurts the enemies pushing it (thorns).
+  // Each enemy pushing a shield wears it down by erosionPerEnemy per second (elites twice that),
+  // the same at every depth. From S6 the shield also hurts the enemies pushing it (thorns).
   handleRegaliaAegisContact(enemy, zone) {
     const shield = zone?.regaliaAegisShield;
     if (!shield || shield.broken || !enemy?.active || enemy.isDying) {
@@ -75500,8 +75533,8 @@ class SurvivalScene extends Phaser.Scene {
     enemy.regaliaAegisPressedAt = now;
     enemy.regaliaAegisPressedShieldId = shield.id;
     const frameSeconds = Math.max(0, Number(this.game?.loop?.delta) || 16.7) / 1000;
-    const contact = Math.max(0, Number(this.getEnemyOutgoingDamage(enemy, enemy.contactDamage)) || 0);
-    shield.pendingErosion += contact * REGALIA_AEGIS_WALL_CONFIG.pressureFactor * frameSeconds;
+    const config = REGALIA_AEGIS_WALL_CONFIG;
+    shield.pendingErosion += config.erosionPerEnemy * (enemy.isElite ? config.eliteErosionMultiplier : 1) * frameSeconds;
     const thorn = Math.max(0, Number(shield.stage?.thornDamage) || 0);
     if (thorn > 0 && shield.planted && now >= (enemy.regaliaAegisThornReadyAt || 0)) {
       enemy.regaliaAegisThornReadyAt = now + Math.max(100, Number(shield.stage?.thornIntervalMs) || 500);
@@ -75652,28 +75685,37 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
     const failed = this.regaliaKitAssetFailures || (this.regaliaKitAssetFailures = new Set());
-    for (const asset of [REGALIA_AEGIS_WALL_CONFIG.shield, REGALIA_AEGIS_WALL_CONFIG.crack]) {
+    const { shield, crack } = REGALIA_AEGIS_WALL_CONFIG;
+    const assets = REGALIA_AEGIS_DIRECTION_NAMES.map((name) => ({ key: `${shield.keyPrefix}${name}`, path: `${shield.pathPrefix}${name}.png` }));
+    for (const asset of [...assets, crack]) {
       if (!this.textures.exists(asset.key) && !failed.has(asset.key)) {
         this.loadImageAssetOnDemand(asset.key, asset.path, null, () => failed.add(asset.key));
       }
     }
   }
 
-  createRegaliaAegisTerritoryVisual(center, radius) {
-    if (!this.add) {
+  // A faint strip on the ground just inside the wall marks the territory (design 4.1, #11).
+  createRegaliaAegisTerritoryVisual(shields) {
+    if (!this.add || !shields?.length) {
       return null;
     }
-    const color = REGALIA_AEGIS_WALL_CONFIG.territoryColor;
-    const ring = this.trackRegaliaAegisObject(this.add.graphics()
-      .setPosition(center.x, center.y)
-      .setDepth(REGALIA_AEGIS_WALL_CONFIG.groundDepth - 0.02)
+    const config = REGALIA_AEGIS_WALL_CONFIG;
+    const strip = this.trackRegaliaAegisObject(this.add.graphics()
+      .setDepth(config.groundDepth - 0.02)
       .setAlpha(0));
-    ring.lineStyle(9, color, 0.14);
-    ring.strokeCircle(0, 0, radius);
-    ring.lineStyle(2, color, 0.5);
-    ring.strokeCircle(0, 0, radius);
-    this.tweens.add({ targets: ring, alpha: 1, duration: 220, ease: "Quad.easeOut" });
-    return ring;
+    for (const [width, alpha] of [[16, 0.12], [3, 0.5]]) {
+      strip.lineStyle(width, config.territoryColor, alpha);
+      for (const shield of shields) {
+        const inX = shield.x - Math.cos(shield.angle) * config.stripInset;
+        const inY = shield.y - Math.sin(shield.angle) * config.stripInset;
+        const half = config.shieldPitch / 2 + 1;
+        const tx = -Math.sin(shield.angle) * half;
+        const ty = Math.cos(shield.angle) * half;
+        strip.lineBetween(inX - tx, inY - ty, inX + tx, inY + ty);
+      }
+    }
+    this.tweens.add({ targets: strip, alpha: 1, duration: 220, ease: "Quad.easeOut" });
+    return strip;
   }
 
   fadeRegaliaAegisTerritory() {
@@ -75706,13 +75748,16 @@ class SurvivalScene extends Phaser.Scene {
       this.drawRegaliaAegisFallbackCrack(shield.crack, shield.id);
     }
     this.trackRegaliaAegisObject(shield.crack.setDepth(config.groundDepth).setAlpha(0));
-    if (this.textures?.exists?.(config.shield.key)) {
-      const frame = this.textures.getFrame(config.shield.key);
-      shield.sprite = this.add.image(shield.x, shield.y, config.shield.key)
+    const shieldKey = `${config.shield.keyPrefix}${REGALIA_AEGIS_DIRECTION_NAMES[shield.direction] || "s"}`;
+    if (this.textures?.exists?.(shieldKey)) {
+      const frame = this.textures.getFrame(shieldKey);
+      shield.sprite = this.add.image(shield.x, shield.y, shieldKey)
         .setOrigin(config.shield.pivotX / Math.max(1, frame.width), config.shield.pivotY / Math.max(1, frame.height))
         .setScale(config.shield.scale);
     } else {
-      shield.sprite = this.add.graphics().setPosition(shield.x, shield.y);
+      // The fallback is drawn face-on; narrow it for shields seen from the side.
+      shield.sprite = this.add.graphics().setPosition(shield.x, shield.y)
+        .setScale(Math.max(0.3, Math.abs(Math.sin(shield.angle))), 1);
       this.drawRegaliaAegisFallbackShield(shield.sprite);
     }
     this.trackRegaliaAegisObject(shield.sprite.setDepth(depth).setAlpha(0));
@@ -89997,7 +90042,7 @@ class SurvivalScene extends Phaser.Scene {
       return `王装閃砲を解放 / DMG ${stageData.damage} / CD ${stageData.cooldownMs}ms / TARGET ${stageData.targetCount || 1}`;
     }
     if (definition.behavior === "regaliaAegisWall") {
-      return `王盾陣を解放 / 盾 ${stageData.shieldCount} / テリトリー ${stageData.territoryRadius} / DMG ${stageData.damage}`;
+      return `王盾陣を解放 / 盾 ${stageData.shieldCount} / 距離 ${stageData.wallDistance} / DMG ${stageData.damage}`;
     }
     if (definition.behavior === "regaliaCounterPulse") {
       return `反撃衝波を解放 / DMG ${stageData.damage} / 範囲 ${stageData.pulseRadius} / 自動 ${stageData.autoIntervalMs}ms`;
@@ -90030,8 +90075,8 @@ class SurvivalScene extends Phaser.Scene {
       if (currentStage.shieldCount !== nextStage.shieldCount) {
         changes.push(`盾 ${currentStage.shieldCount}->${nextStage.shieldCount}`);
       }
-      if (currentStage.territoryRadius !== nextStage.territoryRadius) {
-        changes.push(`テリトリー ${currentStage.territoryRadius}->${nextStage.territoryRadius}`);
+      if ((currentStage.wingCount || 0) !== (nextStage.wingCount || 0)) {
+        changes.push((currentStage.wingCount || 0) === 0 ? "袖 ON" : `袖 ${currentStage.wingCount}->${nextStage.wingCount}`);
       }
       if ((currentStage.thornDamage || 0) !== (nextStage.thornDamage || 0)) {
         changes.push((currentStage.thornDamage || 0) === 0 ? "棘 ON" : `棘 ${currentStage.thornDamage}->${nextStage.thornDamage}`);
@@ -90848,6 +90893,9 @@ class SurvivalScene extends Phaser.Scene {
     if ((beforeStage.thornDamage || 0) <= 0 && (afterStage.thornDamage || 0) > 0) {
       effects.push("棘盾：盾を押す敵に継続ダメージ");
     }
+    if ((beforeStage.wingCount || 0) <= 0 && (afterStage.wingCount || 0) > 0) {
+      effects.push("城壁の袖：壁の両端が後ろへ折れて側面を守る");
+    }
     if ((beforeStage.shieldBreakRadiusRatio || 0) <= 0 && (afterStage.shieldBreakRadiusRatio || 0) > 0) {
       effects.push("盾連動：盾が砕けた場所からも反撃波");
     }
@@ -90873,12 +90921,11 @@ class SurvivalScene extends Phaser.Scene {
       { key: "contactTickMs", label: "攻撃間隔", priority: 115, unlock: true, ms: true },
       { key: "shieldCount", label: "盾の数", priority: 112, unlock: aegis },
       { key: "pulseRadius", label: "範囲", priority: 111, unlock: pulse },
-      { key: "territoryRadius", label: "テリトリー", priority: 110, unlock: aegis },
       { key: "autoIntervalMs", label: "自動間隔", priority: 108, unlock: pulse, ms: true },
       { key: "counterMultiplier", label: "反撃倍率", priority: 105, unlock: pulse, multiplier: true },
       { key: "targetCount", label: "弾数", priority: 109, unlock: skillId === REGALIA_BASTION_CANNON_SKILL_ID },
       { key: "durabilityRatio", label: "盾の耐久", priority: 107, unlock: aegis, percent: true },
-      { key: "lifetimeMs", label: "持続", priority: 103, ms: true },
+      { key: "lifetimeMs", label: "持続", priority: 103, unlock: aegis, ms: true },
       { key: "autoAttackShots", label: "雷撃本数", priority: 108 },
       { key: "orbitCount", label: "球数", priority: 106 },
       { key: "moveSpeed", label: "速度", priority: 104, unlock: skillId === "tornadoSkill" },
@@ -92798,7 +92845,7 @@ class SurvivalScene extends Phaser.Scene {
       return `DMG ${stageData.damage} / CD ${stageData.cooldownMs}ms / TARGET ${stageData.targetCount || 1} / IMPACT ${stageData.impactRadius || 0}${effectsLabel}`;
     }
     if (definition?.behavior === "regaliaAegisWall") {
-      return `DMG ${stageData.damage} / 盾 ${stageData.shieldCount} / テリトリー ${stageData.territoryRadius} / 持続 ${stageData.lifetimeMs}ms`;
+      return `DMG ${stageData.damage} / 盾 ${stageData.shieldCount} / 袖 ${stageData.wingCount || 0} / 持続 ${stageData.lifetimeMs}ms`;
     }
     if (definition?.behavior === "regaliaCounterPulse") {
       return `DMG ${stageData.damage} / 範囲 ${stageData.pulseRadius} / 自動 ${stageData.autoIntervalMs}ms / 反撃 x${stageData.counterMultiplier}`;

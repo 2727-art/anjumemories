@@ -49,5 +49,95 @@
     ],
     "camera": "top-down",
     "px_per_m": 80.0
+  },
+  "shield-dirs": {
+    "e": {
+      "size": [
+        256,
+        320
+      ],
+      "pivot": [
+        128.0,
+        269.0
+      ],
+      "screen_angle_deg": 0
+    },
+    "se": {
+      "size": [
+        256,
+        320
+      ],
+      "pivot": [
+        128.0,
+        269.0
+      ],
+      "screen_angle_deg": 45
+    },
+    "s": {
+      "size": [
+        256,
+        320
+      ],
+      "pivot": [
+        128.0,
+        269.0
+      ],
+      "screen_angle_deg": 90
+    },
+    "sw": {
+      "size": [
+        256,
+        320
+      ],
+      "pivot": [
+        128.0,
+        269.0
+      ],
+      "screen_angle_deg": 135
+    },
+    "w": {
+      "size": [
+        256,
+        320
+      ],
+      "pivot": [
+        128.0,
+        269.0
+      ],
+      "screen_angle_deg": 180
+    },
+    "nw": {
+      "size": [
+        256,
+        320
+      ],
+      "pivot": [
+        128.0,
+        269.0
+      ],
+      "screen_angle_deg": 225
+    },
+    "n": {
+      "size": [
+        256,
+        320
+      ],
+      "pivot": [
+        128.0,
+        269.0
+      ],
+      "screen_angle_deg": 270
+    },
+    "ne": {
+      "size": [
+        256,
+        320
+      ],
+      "pivot": [
+        128.0,
+        269.0
+      ],
+      "screen_angle_deg": 315
+    }
   }
 }

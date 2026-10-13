@@ -41,7 +41,10 @@ function sceneState(page) {
     const state = scene.regaliaAegisWallState;
     const center = scene.playerHitbox;
     const shields = state?.shields || [];
-    const radius = shields[0] ? Math.hypot(shields[0].x - shields[0].centerX, shields[0].y - shields[0].centerY) : 0;
+    // distance from the mech to the middle of the front line (the wall faces one direction)
+    const front = shields.filter((shield) => shield.direction === shields[0]?.direction);
+    const middle = front[Math.floor((front.length - 1) / 2)];
+    const wallDistance = middle ? Math.hypot(middle.x - middle.centerX, middle.y - middle.centerY) : 0;
     const enemies = scene.enemies.getChildren().filter((enemy) => enemy.active && !enemy.isDying);
     return {
       slots: scene.getPlayerSkillSlotIds(),
@@ -51,13 +54,11 @@ function sceneState(page) {
       bodies: scene.regaliaAegisBodies?.getChildren?.().length || 0,
       territory: Boolean(state?.territory?.active),
       shieldVisual: shields[0]?.sprite?.type || "",
-      radius: Math.round(radius),
+      wallDistance: Math.round(wallDistance),
+      directions: [...new Set(shields.map((shield) => shield.direction))].sort(),
       durability: shields.map((shield) => Math.round(shield.durability * 10) / 10),
       maxDurability: shields[0]?.maxDurability || 0,
-      enemiesNearRing: shields.length ? enemies.filter((enemy) => {
-        const distance = Math.hypot(enemy.x - shields[0].centerX, enemy.y - shields[0].centerY);
-        return Math.abs(distance - radius) < 60;
-      }).length : 0,
+      enemiesAtWall: shields.length ? enemies.filter((enemy) => shields.some((shield) => Math.hypot(enemy.x - shield.x, enemy.y - shield.y) < 70)).length : 0,
       enemies: enemies.length,
       hudChips: scene.getCompactHudSkillChipModels?.().map((chip) => chip.text) || [],
       player: center ? { x: Math.round(center.x), y: Math.round(center.y) } : null
@@ -119,11 +120,12 @@ async function main() {
     const s1 = await sceneState(page);
     report.steps.push({ step: "S1 deployed", ...s1 });
     assert.equal(s1.aegisStage, 1);
-    assert.equal(s1.shields, 4);
-    assert.equal(s1.bodies, 12);
-    assert.equal(s1.radius, 200);
+    assert.equal(s1.shields, 5);
+    assert.equal(s1.bodies, 15);
+    assert.equal(s1.wallDistance, 190);
+    assert.equal(s1.directions.length, 1, "one straight wall");
     assert.equal(s1.territory, true);
-    assert.equal(s1.shieldVisual, "Image", "the R1 shield image is ready for the first ring");
+    assert.equal(s1.shieldVisual, "Image", "the shield images are ready for the first wall");
     report.requests = requests.filter((url) => /regalia_(aegis_wall|counter_pulse)/.test(url));
     await snapshot(page, "s1-deployed.png");
 
@@ -132,30 +134,45 @@ async function main() {
     report.steps.push({ step: "S1 after 4 s", ...s1Later });
     await snapshot(page, "s1-after-4s.png");
 
-    await page.waitForTimeout(2000); // lifetime 5 s, cooldown 7 s: the ring has sunk
+    await page.waitForTimeout(2000); // lifetime 5 s, cooldown 7 s: the wall has sunk
     const s1Gone = await sceneState(page);
     report.steps.push({ step: "S1 after 6 s", ...s1Gone });
     assert.equal(s1Gone.shields, 0);
     assert.equal(s1Gone.bodies, 0);
 
+    // S8 facing north (the shields show their backs), then south-east; the facing is pinned here
+    // because the mech keeps turning towards its target.
+    const deployFacing = (angle) => page.evaluate((facing) => {
+      const scene = window.__SURVIVAL_GAME__.scene.getScene("survival-scene");
+      scene.getRegaliaAegisWallFacing = () => facing;
+      scene.playerSkills.regaliaAegisWall.regaliaAegisCooldownMs = 0;
+    }, angle);
     await page.evaluate(() => {
       const scene = window.__SURVIVAL_GAME__.scene.getScene("survival-scene");
       for (let index = 0; index < 7; index += 1) scene.upgradeSkill("regaliaAegisWall");
-      scene.playerSkills.regaliaAegisWall.regaliaAegisCooldownMs = 0;
     });
+    await deployFacing(-Math.PI / 2);
     await page.waitForTimeout(1500);
     const s8 = await sceneState(page);
-    report.steps.push({ step: "S8 deployed", ...s8 });
+    report.steps.push({ step: "S8 deployed facing north", ...s8 });
     assert.equal(s8.aegisStage, 8);
-    assert.equal(s8.shields, 10);
-    assert.equal(s8.bodies, 30);
-    assert.equal(s8.radius, 300);
-    await snapshot(page, "s8-deployed.png");
+    assert.equal(s8.shields, 15, "11 in front + 2 wings of 2");
+    assert.equal(s8.bodies, 45);
+    assert.equal(s8.wallDistance, 225);
+    assert.deepEqual(s8.directions, [5, 6, 7], "north wall with north-west and north-east wings");
+    await snapshot(page, "s8-north.png");
 
     await page.waitForTimeout(3500);
     const s8Later = await sceneState(page);
-    report.steps.push({ step: "S8 after 5 s", ...s8Later });
-    await snapshot(page, "s8-after-5s.png");
+    report.steps.push({ step: "S8 north after 5 s", ...s8Later });
+    await snapshot(page, "s8-north-after-5s.png");
+
+    await deployFacing(Math.PI / 4);
+    await page.waitForTimeout(1500);
+    const s8se = await sceneState(page);
+    report.steps.push({ step: "S8 deployed facing south-east", ...s8se });
+    assert.deepEqual(s8se.directions, [0, 1, 2], "south-east wall with east and south wings");
+    await snapshot(page, "s8-southeast.png");
 
     // Counter Pulse (R3): owned at S8, then a hit through the real damage path fires a counter wave.
     const pulse = await page.evaluate(() => {

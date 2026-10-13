@@ -63,10 +63,12 @@
     };
   };
 
-  // Aegis Wall (docs/regalia-kit-design.md 4.4, provisional values). No textureKey on the stages:
-  // the shield images load on demand for REGALIA only, so the sortie preload stays unchanged.
+  // Aegis Wall (docs/regalia-kit-design.md 4.4, provisional values): a straight wall of shields
+  // in front of the mech; at S8 both ends bend back (wingCount shields each). No textureKey on the
+  // stages: the shield images load on demand for REGALIA only, so the sortie preload is unchanged.
   const buildRegaliaAegisWallStage = (stage, options) => ({
     stage,
+    wingCount: 0,
     thornDamage: 0,
     thornIntervalMs: 500,
     damageTint: 0xfff1c8,
@@ -640,16 +642,16 @@
       behavior: "regaliaAegisWall",
       startsUnlocked: false,
       exclusiveToMechId: "regaliaBastion",
-      description: "盾を地面に突き立てて機体を囲み、内側をテリトリーにする",
+      description: "機体が向いている方向に盾の壁を築き、内側をテリトリーにする",
       stages: [
-        buildRegaliaAegisWallStage(1, { shieldCount: 4, territoryRadius: 200, damage: 8, impactRadius: 44, durabilityRatio: 0.3, lifetimeMs: 5000, cooldownMs: 7000 }),
-        buildRegaliaAegisWallStage(2, { shieldCount: 4, territoryRadius: 210, damage: 10, impactRadius: 46, durabilityRatio: 0.35, lifetimeMs: 5200, cooldownMs: 6800 }),
-        buildRegaliaAegisWallStage(3, { shieldCount: 5, territoryRadius: 220, damage: 12, impactRadius: 48, durabilityRatio: 0.4, lifetimeMs: 5400, cooldownMs: 6600 }),
-        buildRegaliaAegisWallStage(4, { shieldCount: 5, territoryRadius: 235, damage: 15, impactRadius: 50, durabilityRatio: 0.45, lifetimeMs: 5600, cooldownMs: 6400 }),
-        buildRegaliaAegisWallStage(5, { shieldCount: 6, territoryRadius: 250, damage: 18, impactRadius: 52, durabilityRatio: 0.5, lifetimeMs: 5800, cooldownMs: 6200 }),
-        buildRegaliaAegisWallStage(6, { shieldCount: 7, territoryRadius: 265, damage: 22, impactRadius: 56, durabilityRatio: 0.6, lifetimeMs: 6000, cooldownMs: 6000, thornDamage: 3 }),
-        buildRegaliaAegisWallStage(7, { shieldCount: 8, territoryRadius: 280, damage: 26, impactRadius: 60, durabilityRatio: 0.7, lifetimeMs: 6200, cooldownMs: 5800, thornDamage: 4 }),
-        buildRegaliaAegisWallStage(8, { shieldCount: 10, territoryRadius: 300, damage: 32, impactRadius: 66, durabilityRatio: 0.8, lifetimeMs: 6500, cooldownMs: 5500, thornDamage: 6 })
+        buildRegaliaAegisWallStage(1, { shieldCount: 5, wallDistance: 190, damage: 8, impactRadius: 44, durabilityRatio: 0.3, lifetimeMs: 5000, cooldownMs: 7000 }),
+        buildRegaliaAegisWallStage(2, { shieldCount: 5, wallDistance: 195, damage: 10, impactRadius: 46, durabilityRatio: 0.35, lifetimeMs: 5200, cooldownMs: 6800 }),
+        buildRegaliaAegisWallStage(3, { shieldCount: 6, wallDistance: 200, damage: 12, impactRadius: 48, durabilityRatio: 0.4, lifetimeMs: 5400, cooldownMs: 6600 }),
+        buildRegaliaAegisWallStage(4, { shieldCount: 7, wallDistance: 205, damage: 15, impactRadius: 50, durabilityRatio: 0.45, lifetimeMs: 5600, cooldownMs: 6400 }),
+        buildRegaliaAegisWallStage(5, { shieldCount: 8, wallDistance: 210, damage: 18, impactRadius: 52, durabilityRatio: 0.5, lifetimeMs: 5800, cooldownMs: 6200 }),
+        buildRegaliaAegisWallStage(6, { shieldCount: 9, wallDistance: 215, damage: 22, impactRadius: 56, durabilityRatio: 0.6, lifetimeMs: 6000, cooldownMs: 6000, thornDamage: 3 }),
+        buildRegaliaAegisWallStage(7, { shieldCount: 10, wallDistance: 220, damage: 26, impactRadius: 60, durabilityRatio: 0.7, lifetimeMs: 6200, cooldownMs: 5800, thornDamage: 4 }),
+        buildRegaliaAegisWallStage(8, { shieldCount: 11, wallDistance: 225, wingCount: 2, damage: 32, impactRadius: 66, durabilityRatio: 0.8, lifetimeMs: 6500, cooldownMs: 5500, thornDamage: 6 })
       ]
     },
     // Takes REGALIA's third slot only with ?debugRegaliaKit=1 until R4 (docs/regalia-kit-design.md 12).
