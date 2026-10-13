@@ -111,6 +111,14 @@ const REGALIA_AEGIS_WALL_CONFIG = Object.freeze({
   crack: { key: "regalia-aegis-crack-r1", path: "./画像/skills/regalia_aegis_wall/crack_r1.png", scale: 0.5 }
 });
 const REGALIA_AEGIS_DIRECTION_NAMES = Object.freeze(["e", "se", "s", "sw", "w", "nw", "n", "ne"]);
+// Passives on REGALIA's own skills (docs/regalia-kit-design.md 6.1). Reactor Overcharge adds
+// (bulletDamage - 1) to every hit, as for UMBRA's weapons; Fire Control Link shortens the
+// intervals linearly from the base fire interval to its floor, down to these shares of the stage value.
+const REGALIA_KIT_PASSIVE_CONFIG = Object.freeze({
+  fireIntervalBaseMs: 540,
+  aegisIntervalFloorRatio: 0.6,
+  pulseIntervalFloorRatio: 0.55
+});
 const REGALIA_COUNTER_PULSE_CONFIG = Object.freeze({
   minIntervalMs: 600,
   counterMinGapMs: 300,       // a counter right after another one is skipped (hits already grant 900 ms of i-frames)
@@ -75377,11 +75385,11 @@ class SurvivalScene extends Phaser.Scene {
     skillState.regaliaAegisCooldownMs = deployed ? this.getRegaliaAegisWallCooldownMs(skillState, stageData) : 250;
   }
 
-  getRegaliaAegisWallCooldownMs(skillState, stageData) {
+  getRegaliaAegisWallCooldownMs(skillState, stageData, fireInterval = this.stats?.fireInterval) {
     return Math.max(
       REGALIA_AEGIS_WALL_CONFIG.minCooldownMs,
       Math.round(
-        (Number(stageData?.cooldownMs) || 7000) *
+        this.getRegaliaKitFireControlIntervalMs(Number(stageData?.cooldownMs) || 7000, REGALIA_KIT_PASSIVE_CONFIG.aegisIntervalFloorRatio, fireInterval) *
         this.getSkillMutationCooldownMultiplier(skillState?.id || REGALIA_AEGIS_WALL_SKILL_ID, { source: "skillCooldown" }) *
         this.getRunEquipmentAttackIntervalMultiplier(skillState?.id || REGALIA_AEGIS_WALL_SKILL_ID)
       )
@@ -75538,7 +75546,7 @@ class SurvivalScene extends Phaser.Scene {
     const thorn = Math.max(0, Number(shield.stage?.thornDamage) || 0);
     if (thorn > 0 && shield.planted && now >= (enemy.regaliaAegisThornReadyAt || 0)) {
       enemy.regaliaAegisThornReadyAt = now + Math.max(100, Number(shield.stage?.thornIntervalMs) || 500);
-      this.applyRegaliaAegisDamage(enemy, shield, thorn, { source: "regaliaAegisThorn", force: 60 });
+      this.applyRegaliaAegisDamage(enemy, shield, thorn + this.getRegaliaKitReactorBonus(), { source: "regaliaAegisThorn", force: 60 });
     }
   }
 
@@ -75568,7 +75576,7 @@ class SurvivalScene extends Phaser.Scene {
       return 0;
     }
     const radius = Math.max(1, Number(shield.stage?.impactRadius) || 44);
-    const damage = Math.max(1, Number(shield.stage?.damage) || 1);
+    const damage = Math.max(1, Number(shield.stage?.damage) || 1) + this.getRegaliaKitReactorBonus();
     let hits = 0;
     this.enemies.children.each((enemy) => {
       if (!enemy?.active || enemy.isDying || Phaser.Math.Distance.Between(shield.x, shield.y, enemy.x, enemy.y) > radius) {
@@ -75947,12 +75955,12 @@ class SurvivalScene extends Phaser.Scene {
     return this.regaliaCounterPulseState;
   }
 
-  getRegaliaCounterPulseIntervalMs(skillState, stageData) {
+  getRegaliaCounterPulseIntervalMs(skillState, stageData, fireInterval = this.stats?.fireInterval) {
     const skillId = skillState?.id || REGALIA_COUNTER_PULSE_SKILL_ID;
     return Math.max(
       REGALIA_COUNTER_PULSE_CONFIG.minIntervalMs,
       Math.round(
-        (Number(stageData?.autoIntervalMs) || 3200) *
+        this.getRegaliaKitFireControlIntervalMs(Number(stageData?.autoIntervalMs) || 3200, REGALIA_KIT_PASSIVE_CONFIG.pulseIntervalFloorRatio, fireInterval) *
         this.getSkillMutationCooldownMultiplier(skillId, { source: "skillCooldown" }) *
         this.getRunEquipmentAttackIntervalMultiplier(skillId)
       )
@@ -76006,7 +76014,7 @@ class SurvivalScene extends Phaser.Scene {
   // Damage and radius of one wave: a counter wave multiplies the damage by counterMultiplier, a
   // shield-break wave uses shieldBreakRadiusRatio of the radius.
   getRegaliaCounterPulseWave(stageData, kind = "auto") {
-    const baseDamage = Math.max(1, Number(stageData?.damage) || 1);
+    const baseDamage = Math.max(1, Number(stageData?.damage) || 1) + this.getRegaliaKitReactorBonus();
     const baseRadius = Math.max(1, Number(stageData?.pulseRadius) || 120);
     return {
       damage: kind === "counter" ? baseDamage * Math.max(1, Number(stageData?.counterMultiplier) || 1) : baseDamage,
@@ -89488,10 +89496,12 @@ class SurvivalScene extends Phaser.Scene {
     const boosterTuningGain = this.getBoosterTuningSpeedGain();
     const energyCapacitorGain = 25;
     const verificationWeapons = this.getUmbraVerificationPassiveWeapons?.() ?? null;
-    // Without an Orbit Core slot (REGALIA) Reactor is not offered (CHAIN VOLTAGE then stays at its
-    // base damage) and Fire Control only reaches LOST ARMS cooldowns. The isolated UMBRA drive
-    // does not install the helper and keeps its legacy cards.
+    // Without an Orbit Core slot (REGALIA) both lightning passives are offered only for what reads
+    // them there: REGALIA's own skills once owned, and Fire Control's LOST ARMS cooldowns. The
+    // isolated UMBRA drive does not install the helper and keeps its legacy cards.
     const orbitCoreOutOfReach = !verificationWeapons && this.isOrbitCoreOutOfReachForPassives?.(options) === true;
+    // REGALIA's own skills read both passives once owned (design 6.2).
+    const regaliaKitSkillIds = orbitCoreOutOfReach ? (this.getOwnedRegaliaKitSkillIds?.() || []) : [];
     const formatDamage = (value) => Number(value.toFixed(2));
     const reactorWeapons = (verificationWeapons || []).flatMap(weapon => weapon.id === UMBRA_PHANTOM_NOVA_SKILL_ID
       ? [
@@ -89522,7 +89532,8 @@ class SurvivalScene extends Phaser.Scene {
         id: "overchargeBolt",
         type: "passive",
         title: "Reactor Overcharge",
-        description: "電撃ダメージ +1",
+        description: regaliaKitSkillIds.length ? "REGALIA 専用スキルの威力 +1" : "電撃ダメージ +1",
+        ...(regaliaKitSkillIds.length ? { regaliaKitReactor: this.getRegaliaKitReactorChanges(regaliaKitSkillIds) } : {}),
         ...verificationReactorDisplay,
         ...(equipmentReactorDisplay || {}),
         onSelect: () => {
@@ -89607,6 +89618,7 @@ class SurvivalScene extends Phaser.Scene {
         verificationIntervalReductionMs: intervalChanges.reduce((sum, change) => sum + change.reductionMs, 0)
       } : {};
       const lostArmsCooldown = orbitCoreOutOfReach ? this.getFireControlLostArmsCooldownChange(nextFireInterval) : null;
+      const regaliaKitFireControl = regaliaKitSkillIds.length ? this.getRegaliaKitFireControlChanges(regaliaKitSkillIds, nextFireInterval) : [];
       choices.splice(1, 0, {
         id: "rapidSigil",
         type: "passive",
@@ -89615,6 +89627,9 @@ class SurvivalScene extends Phaser.Scene {
         description: `放電間隔 -${effectiveReduction}ms`,
         ...(lostArmsCooldown
           ? { lostArmsCooldown, description: `LOST ARMS 再発動待ち -${lostArmsCooldown.reductionPercent}%` }
+          : {}),
+        ...(regaliaKitFireControl.length
+          ? { regaliaKitFireControl, description: "REGALIA 専用スキルの間隔短縮" }
           : {}),
         ...verificationFireDisplay,
         onSelect: () => {
@@ -89632,8 +89647,8 @@ class SurvivalScene extends Phaser.Scene {
       .filter((choice) => choice.id !== "swiftStep" || boosterTuningGain > 0)
       .filter((choice) => !verificationWeapons || choice.id !== "overchargeBolt" || reactorChanges.length > 0)
       .filter((choice) => !verificationWeapons || choice.id !== "rapidSigil" || choice.verificationIntervalReductionMs > 0)
-      .filter((choice) => !orbitCoreOutOfReach || choice.id !== "overchargeBolt")
-      .filter((choice) => !orbitCoreOutOfReach || choice.id !== "rapidSigil" || choice.lostArmsCooldown)
+      .filter((choice) => !orbitCoreOutOfReach || choice.id !== "overchargeBolt" || choice.regaliaKitReactor?.length)
+      .filter((choice) => !orbitCoreOutOfReach || choice.id !== "rapidSigil" || choice.lostArmsCooldown || choice.regaliaKitFireControl?.length)
       .map((choice) => this.buildPassiveUpgradeChoice(choice)).filter(Boolean);
   }
 
@@ -89662,6 +89677,52 @@ class SurvivalScene extends Phaser.Scene {
     const afterPercent = percent(1 - nextReduction);
     // The chip is the difference of the two shown values, so the card adds up.
     return { beforePercent, afterPercent, reductionPercent: Number((beforePercent - afterPercent).toFixed(1)) };
+  }
+
+  getOwnedRegaliaKitSkillIds() {
+    return [REGALIA_AEGIS_WALL_SKILL_ID, REGALIA_COUNTER_PULSE_SKILL_ID].filter((skillId) => this.playerSkills?.[skillId]?.currentStage);
+  }
+
+  // Reactor Overcharge levels: +1 to every hit of REGALIA's own skills per level (bulletDamage starts at 1).
+  getRegaliaKitReactorBonus(bulletDamage = this.stats?.bulletDamage) {
+    const value = Number(bulletDamage);
+    return Math.max(0, (Number.isFinite(value) ? value : 1) - 1);
+  }
+
+  // Fire Control Link: the stage interval shortened in proportion to how far the fire interval
+  // has come down from its base (540 ms) to its floor, down to floorRatio of the stage value.
+  getRegaliaKitFireControlIntervalMs(stageMs, floorRatio, fireInterval = this.stats?.fireInterval) {
+    const { fireIntervalBaseMs } = REGALIA_KIT_PASSIVE_CONFIG;
+    const value = Number(fireInterval);
+    const current = Number.isFinite(value) ? value : fireIntervalBaseMs;
+    const progress = Phaser.Math.Clamp((fireIntervalBaseMs - current) / (fireIntervalBaseMs - LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS), 0, 1);
+    return Math.max(0, Number(stageMs) || 0) * (1 - (1 - floorRatio) * progress);
+  }
+
+  // Card lines for Reactor Overcharge: the base damage of each owned skill, now and after the pick.
+  getRegaliaKitReactorChanges(skillIds) {
+    const bonus = this.getRegaliaKitReactorBonus();
+    return skillIds.map((skillId) => {
+      const before = Math.max(1, Number(this.playerSkills[skillId].currentStage.damage) || 1) + bonus;
+      return { skillId, before, after: before + 1 };
+    });
+  }
+
+  // Card lines for Fire Control Link: each owned skill's interval now and after the pick, when it shortens.
+  getRegaliaKitFireControlChanges(skillIds, nextFireInterval) {
+    const changes = [];
+    for (const skillId of skillIds) {
+      const state = this.playerSkills[skillId];
+      const interval = skillId === REGALIA_AEGIS_WALL_SKILL_ID
+        ? (fireInterval) => this.getRegaliaAegisWallCooldownMs(state, state.currentStage, fireInterval)
+        : (fireInterval) => this.getRegaliaCounterPulseIntervalMs(state, state.currentStage, fireInterval);
+      const beforeMs = interval(this.stats?.fireInterval);
+      const afterMs = interval(nextFireInterval);
+      if (afterMs < beforeMs) {
+        changes.push({ skillId, beforeMs, afterMs });
+      }
+    }
+    return changes;
   }
 
   createEvasiveFirmwarePassiveChoice(options = {}) {
@@ -90537,10 +90598,32 @@ class SurvivalScene extends Phaser.Scene {
     const lightning = (change) => (this.playerSkills?.[DEFAULT_SKILL_ID]
       ? `Orbit Core の自動雷撃\n${change}`
       : `自動雷撃の${change}\nOrbit Core 所持時のみ有効`);
+    const kitName = (skillId) => LEVEL_UP_SKILL_UI_META[skillId]?.displayName || skillId;
+    const kitInterval = (skillId) => (skillId === REGALIA_AEGIS_WALL_SKILL_ID ? "再設置" : "自動間隔");
     switch (option.id) {
       case "overchargeBolt":
+        // REGALIA: one line per owned skill of its own.
+        if (option.regaliaKitReactor?.length) {
+          return {
+            description: option.regaliaKitReactor.map((change) => `${kitName(change.skillId)} の威力 ${change.before} → ${change.after}`).join("\n"),
+            chip: "威力 +1"
+          };
+        }
         return { description: lightning("威力 +1"), chip: "雷撃の威力 +1" };
       case "rapidSigil": {
+        // REGALIA: one line per owned skill of its own, then LOST ARMS if there is room (two lines).
+        if (option.regaliaKitFireControl?.length) {
+          const lines = option.regaliaKitFireControl.map((change) =>
+            `${kitName(change.skillId)} の${kitInterval(change.skillId)} ${seconds(change.beforeMs)} → ${seconds(change.afterMs)}秒`);
+          if (option.lostArmsCooldown && lines.length < 2) {
+            lines.push(`LOST ARMS の再発動待ち 基本の ${option.lostArmsCooldown.beforePercent}% → ${option.lostArmsCooldown.afterPercent}%`);
+          }
+          const [first] = option.regaliaKitFireControl;
+          return {
+            description: lines.join("\n"),
+            chip: `${kitInterval(first.skillId)} -${seconds(first.beforeMs - first.afterMs)}秒`
+          };
+        }
         // Offered without an Orbit Core slot only for the LOST ARMS cooldowns.
         if (option.lostArmsCooldown) {
           const { beforePercent, afterPercent, reductionPercent } = option.lostArmsCooldown;
