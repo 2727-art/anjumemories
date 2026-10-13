@@ -128,7 +128,7 @@ test("cleanup drops pending echoes and wave visuals", () => {
 });
 
 test("the level-up cards name range, interval and counter multiplier", () => {
-  const { scene, api } = fixture({ debug: true });
+  const { scene, api } = fixture();
   const definition = api.skills[PULSE];
   const card = (from, to) => scene.buildLevelUpCardModel({
     type: "skill", skillId: PULSE, definition, actionType: from ? "upgrade" : "unlock",
@@ -136,11 +136,11 @@ test("the level-up cards name range, interval and counter multiplier", () => {
   }, 0);
   const unlock = card(0, 1);
   assert.equal(unlock.title, "Counter Pulse");
-  assert.equal(unlock.description, "一定間隔で衝撃波を放ち、攻撃を受けると即座に強い反撃波を返す");
+  assert.equal(unlock.description, "衝撃波を放ち、被弾すると反撃波を返す");
   assert.deepEqual(plain(unlock.chips.map(chip => chip.label)), ["威力 4", "範囲 120", "自動間隔 3.2秒", "反撃倍率 ×1.5"]);
   assert.ok(card(2, 3).chips.some(chip => chip.label === "反撃倍率 +0.1"));
   const s5 = card(4, 5);
   assert.equal(s5.description, "威力 9 → 11\n範囲 146 → 156");
-  assert.deepEqual(plain(s5.newEffects), ["盾連動：盾が砕けた場所からも反撃波"]);
-  assert.deepEqual(plain(card(7, 8).newEffects), ["二重波：0.15秒後に威力50%でもう1回"]);
+  assert.deepEqual(plain(s5.newEffects), ["盾連動：砕けた盾からも反撃波"]);
+  assert.deepEqual(plain(card(7, 8).newEffects), ["二重波：直後に威力50%の追撃波"]);
 });

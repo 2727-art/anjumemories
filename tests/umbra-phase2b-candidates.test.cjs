@@ -12,7 +12,7 @@ const plain = value => JSON.parse(JSON.stringify(value));
 const passiveIds = ["overchargeBolt", "rapidSigil", "swiftStep", "staminaCore", "vitalBloom", "evasiveFirmware"];
 const slots = {
   defaultBear: ["basicSkill", "tornadoSkill", "rabbitThunderSkill"],
-  regaliaBastion: ["regaliaBastionCannon", "tornadoSkill", "rabbitThunderSkill"]
+  regaliaBastion: ["regaliaBastionCannon", "regaliaAegisWall", "regaliaCounterPulse"]
 };
 
 // Historical evidence: .tmp_umbra_phase2a/baseline/game.js:78505 selected

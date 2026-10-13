@@ -1,5 +1,5 @@
 "use strict";
-// REGALIA Aegis Wall (docs/regalia-kit-design.md 4): stage table, the ?debugRegaliaKit=1 slot swap,
+// REGALIA Aegis Wall (docs/regalia-kit-design.md 4): stage table, REGALIA's slots,
 // the wall layout (8 directions, straight line, no gaps, S8 wings), the image per direction,
 // durability worn by the number of pushing enemies, bosses breaking shields, thorns, the plant
 // impact, lifetime, pausing, redeploy/cleanup, and the level-up card text.
@@ -23,18 +23,18 @@ test("the stage table follows the approved wall values", () => {
   for (const s of definition.stages) assert.equal(s.textureKey, undefined, "no sortie preload for the shield images");
 });
 
-test("Aegis Wall and Counter Pulse take REGALIA's slots only with ?debugRegaliaKit=1", () => {
-  const normal = fixture().scene;
-  assert.deepEqual(plain(normal.getPlayerSkillSlotIds("regaliaBastion")), ["regaliaBastionCannon", "tornadoSkill", "rabbitThunderSkill"]);
-  assert.equal(normal.isSkillAvailableForPlayerMech(AEGIS, "regaliaBastion"), false);
-
-  const debug = fixture({ debug: true }).scene;
-  assert.deepEqual(plain(debug.getPlayerSkillSlotIds("regaliaBastion")), ["regaliaBastionCannon", AEGIS, "regaliaCounterPulse"]);
-  assert.equal(debug.isSkillAvailableForPlayerMech("rabbitThunderSkill", "regaliaBastion"), false);
-  assert.equal(debug.isSkillAvailableForPlayerMech(AEGIS, "regaliaBastion"), true);
-  assert.equal(debug.isSkillAvailableForPlayerMech("tornadoSkill", "regaliaBastion"), false);
-  assert.deepEqual(plain(debug.getPlayerSkillSlotIds("defaultBear")), ["basicSkill", "tornadoSkill", "rabbitThunderSkill"]);
-  assert.equal(debug.isSkillAvailableForPlayerMech(AEGIS, "defaultBear"), false);
+test("Aegis Wall and Counter Pulse take REGALIA's second and third slots; the default mech keeps its own", () => {
+  const scene = fixture().scene;
+  assert.deepEqual(plain(scene.getPlayerSkillSlotIds("regaliaBastion")), ["regaliaBastionCannon", AEGIS, "regaliaCounterPulse"]);
+  assert.equal(scene.isSkillAvailableForPlayerMech(AEGIS, "regaliaBastion"), true);
+  assert.equal(scene.isSkillAvailableForPlayerMech("regaliaCounterPulse", "regaliaBastion"), true);
+  assert.equal(scene.isSkillAvailableForPlayerMech("tornadoSkill", "regaliaBastion"), false);
+  assert.equal(scene.isSkillAvailableForPlayerMech("rabbitThunderSkill", "regaliaBastion"), false);
+  assert.deepEqual(plain(scene.getPlayerSkillSlotIds("defaultBear")), ["basicSkill", "tornadoSkill", "rabbitThunderSkill"]);
+  assert.equal(scene.isSkillAvailableForPlayerMech(AEGIS, "defaultBear"), false);
+  // The old debug query no longer changes anything.
+  scene.getUrlStageParam = (key) => (key === "debugRegaliaKit" ? "1" : "");
+  assert.deepEqual(plain(scene.getPlayerSkillSlotIds("defaultBear")), ["basicSkill", "tornadoSkill", "rabbitThunderSkill"]);
 });
 
 test("the wall stands on a straight line ahead, its facing snapped to the 8 directions", () => {
@@ -55,7 +55,7 @@ test("the wall stands on a straight line ahead, its facing snapped to the 8 dire
 });
 
 test("the wall has no gap enemies can pass, and S8 bends both ends back towards the mech", () => {
-  const { scene, api } = fixture({ debug: true });
+  const { scene, api } = fixture();
   const { bodyRadius } = api.config;
   scene.deployRegaliaAegisWall(skillState(scene, api, 7), stage(api, 7));
   const circles = scene.regaliaAegisWallState.shields.flatMap(shield => shield.bodies.map(zone => [zone.x, zone.y]))
@@ -75,7 +75,7 @@ test("the wall has no gap enemies can pass, and S8 bends both ends back towards 
 });
 
 test("each shield uses the image for its direction; the strip marks the inside of the wall", () => {
-  const { scene, api, calls } = fixture({ debug: true });
+  const { scene, api, calls } = fixture();
   scene.textures = { exists: () => true, getFrame: () => ({ width: 256, height: 320 }) };
   scene.playerRobotMotion.angle = -Math.PI / 2; // facing north: the shields show their backs
   scene.deployRegaliaAegisWall(skillState(scene, api, 8), stage(api, 8));
@@ -86,7 +86,7 @@ test("each shield uses the image for its direction; the strip marks the inside o
 });
 
 test("a deployment plants three static circles per shield and replaces the previous wall", () => {
-  const { scene, api, calls, group } = fixture({ debug: true });
+  const { scene, api, calls, group } = fixture();
   const state = skillState(scene, api, 1);
   assert.equal(scene.deployRegaliaAegisWall(state, stage(api, 1)), true);
   assert.equal(scene.regaliaAegisWallState.shields.length, 5);
@@ -94,6 +94,7 @@ test("a deployment plants three static circles per shield and replaces the previ
   for (const zone of group.children) assert.equal(zone.body.radius, api.config.bodyRadius);
   assert.deepEqual(calls.loads.sort(), [
     api.config.crack.key,
+    api.config.icon.key,
     ...["e", "n", "ne", "nw", "s", "se", "sw", "w"].map(name => `regalia-aegis-shield-r2-${name}`)
   ].sort(), "images load on demand, one per direction");
 
@@ -195,7 +196,7 @@ test("shields sink at the end of their lifetime and nothing advances while pause
 });
 
 test("the level-up cards name the shield count, durability, lifetime and the S8 wings", () => {
-  const { scene, api } = fixture({ debug: true });
+  const { scene, api } = fixture();
   const definition = api.skills[AEGIS];
   const card = (from, to) => scene.buildLevelUpCardModel({
     type: "skill", skillId: AEGIS, definition, actionType: from ? "upgrade" : "unlock",
@@ -203,7 +204,7 @@ test("the level-up cards name the shield count, durability, lifetime and the S8 
   }, 0);
   const unlock = card(0, 1);
   assert.equal(unlock.title, "Aegis Wall");
-  assert.equal(unlock.description, "機体が向いている方向に盾の壁を築き、内側をテリトリーにする");
+  assert.equal(unlock.description, "向いた方向に盾の壁を築き、敵の侵入を防ぐ");
   assert.deepEqual(plain(unlock.chips.map(chip => chip.label)), ["威力 8", "盾の数 5", "盾の耐久 30%", "持続 5秒"]);
 
   const s6 = card(5, 6);
@@ -211,5 +212,5 @@ test("the level-up cards name the shield count, durability, lifetime and the S8 
   assert.deepEqual(plain(s6.newEffects), ["棘盾：盾を押す敵に継続ダメージ"]);
   // A card with a new effect keeps four chips; the thorns are named by the new-effect line.
   assert.deepEqual(plain(s6.chips.map(chip => chip.label)), ["威力 +4", "盾の数 +1", "盾の耐久 +10%", "持続 +0.2秒"]);
-  assert.deepEqual(plain(card(7, 8).newEffects), ["城壁の袖：壁の両端が後ろへ折れて側面を守る"]);
+  assert.deepEqual(plain(card(7, 8).newEffects), ["城壁の袖：壁の両端が折れて側面を守る"]);
 });

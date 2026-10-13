@@ -630,7 +630,7 @@
         })
       ]
     },
-    // Takes REGALIA's second slot only with ?debugRegaliaKit=1 until R4 (docs/regalia-kit-design.md 12).
+    // REGALIA's second slot (docs/regalia-kit-design.md 4).
     regaliaAegisWall: {
       id: "regaliaAegisWall",
       name: "Aegis Wall",
@@ -642,7 +642,7 @@
       behavior: "regaliaAegisWall",
       startsUnlocked: false,
       exclusiveToMechId: "regaliaBastion",
-      description: "機体が向いている方向に盾の壁を築き、内側をテリトリーにする",
+      description: "向いた方向に盾の壁を築き、敵の侵入を防ぐ",
       stages: [
         buildRegaliaAegisWallStage(1, { shieldCount: 5, wallDistance: 190, damage: 8, impactRadius: 44, durabilityRatio: 0.3, lifetimeMs: 5000, cooldownMs: 7000 }),
         buildRegaliaAegisWallStage(2, { shieldCount: 5, wallDistance: 195, damage: 10, impactRadius: 46, durabilityRatio: 0.35, lifetimeMs: 5200, cooldownMs: 6800 }),
@@ -654,7 +654,7 @@
         buildRegaliaAegisWallStage(8, { shieldCount: 11, wallDistance: 225, wingCount: 2, damage: 32, impactRadius: 66, durabilityRatio: 0.8, lifetimeMs: 6500, cooldownMs: 5500, thornDamage: 6 })
       ]
     },
-    // Takes REGALIA's third slot only with ?debugRegaliaKit=1 until R4 (docs/regalia-kit-design.md 12).
+    // REGALIA's third slot (docs/regalia-kit-design.md 5).
     regaliaCounterPulse: {
       id: "regaliaCounterPulse",
       name: "Counter Pulse",
@@ -666,7 +666,7 @@
       behavior: "regaliaCounterPulse",
       startsUnlocked: false,
       exclusiveToMechId: "regaliaBastion",
-      description: "一定間隔で衝撃波を放ち、攻撃を受けると即座に強い反撃波を返す",
+      description: "衝撃波を放ち、被弾すると反撃波を返す",
       stages: [
         buildRegaliaCounterPulseStage(1, { autoIntervalMs: 3200, pulseRadius: 120, damage: 4, counterMultiplier: 1.5, knockback: 160 }),
         buildRegaliaCounterPulseStage(2, { autoIntervalMs: 3000, pulseRadius: 128, damage: 5, counterMultiplier: 1.5, knockback: 170 }),
@@ -930,6 +930,46 @@
           reactor_execution: "OVERDRIVE LANCE",
           reactor_prism: "SYNC BATTERY",
           reactor_singularity: "ROYAL FORTRESS"
+        }
+      },
+      regaliaAegisWall: {
+        stage4Title: "AEGIS MUTATION CORE",
+        stage8Title: "AEGIS FINAL MUTATION",
+        coreLabels: {
+          assault: "SPIKE WALL CORE",
+          control: "HOLD LINE CORE",
+          reactor: "RAPID RAMPART CORE"
+        },
+        finalForms: {
+          assault_execution: "KINGSLAYER RAMPART",
+          assault_prism: "SHARD BULWARK",
+          assault_singularity: "CITADEL QUAKE",
+          control_execution: "IRON VERDICT",
+          control_prism: "MIRROR PHALANX",
+          control_singularity: "GRAVITY BASTION",
+          reactor_execution: "LANCE WALL",
+          reactor_prism: "RELAY AEGIS",
+          reactor_singularity: "ROYAL DOMINION"
+        }
+      },
+      regaliaCounterPulse: {
+        stage4Title: "PULSE MUTATION CORE",
+        stage8Title: "PULSE FINAL MUTATION",
+        coreLabels: {
+          assault: "RETRIBUTION CORE",
+          control: "REPULSE CORE",
+          reactor: "CAPACITOR CORE"
+        },
+        finalForms: {
+          assault_execution: "JUDGMENT WAVE",
+          assault_prism: "SPLINTER NOVA",
+          assault_singularity: "WRATH EPICENTER",
+          control_execution: "SENTENCE PULSE",
+          control_prism: "ECHO REPULSE",
+          control_singularity: "STILL DOMAIN",
+          reactor_execution: "OVERLOAD RETORT",
+          reactor_prism: "RELAY SURGE",
+          reactor_singularity: "CROWN DYNAMO"
         }
       }
     }

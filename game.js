@@ -81,12 +81,13 @@ const REGALIA_BASTION_CANNON_CONFIG = Object.freeze({
   impactDelayDistanceDivisor: 11,
   damageFalloffMultipliers: [1, 0.35, 0.15]
 });
-// REGALIA's own skills (docs/regalia-kit-design.md). Until R4 they replace REGALIA's shared skills
-// only with ?debugRegaliaKit=1; normal play keeps PLAYER_MECH_SKILL_SLOT_IDS.
+// REGALIA's own skills (docs/regalia-kit-design.md). Since R4 they take REGALIA's second and third
+// slots in place of the skills it shared with the default mech.
 const REGALIA_AEGIS_WALL_SKILL_ID = "regaliaAegisWall";
 const REGALIA_COUNTER_PULSE_SKILL_ID = "regaliaCounterPulse";
-const REGALIA_KIT_DEBUG_QUERY_PARAM = "debugRegaliaKit";
-const REGALIA_KIT_DEBUG_SLOT_IDS = Object.freeze([REGALIA_BASTION_CANNON_SKILL_ID, REGALIA_AEGIS_WALL_SKILL_ID, REGALIA_COUNTER_PULSE_SKILL_ID]);
+const REGALIA_KIT_SKILL_IDS = Object.freeze([REGALIA_AEGIS_WALL_SKILL_ID, REGALIA_COUNTER_PULSE_SKILL_ID]);
+// REGALIA's slots before its own skills. RUN ARCHIVE v2 and older records are shown with them.
+const REGALIA_LEGACY_SKILL_SLOT_IDS = Object.freeze([REGALIA_BASTION_CANNON_SKILL_ID, "tornadoSkill", "rabbitThunderSkill"]);
 const REGALIA_AEGIS_WALL_CONFIG = Object.freeze({
   minCooldownMs: 1000,
   plantDelayMs: 170,          // drop time before the plant impact lands
@@ -108,7 +109,8 @@ const REGALIA_AEGIS_WALL_CONFIG = Object.freeze({
   territoryColor: 0x9fd2ff,
   // One image per facing direction (screen angle: e, se, s, sw, w, nw, n, ne), same ground pivot.
   shield: { keyPrefix: "regalia-aegis-shield-r2-", pathPrefix: "./画像/skills/regalia_aegis_wall/shield_r2_", pivotX: 128, pivotY: 269, scale: 0.5 },
-  crack: { key: "regalia-aegis-crack-r1", path: "./画像/skills/regalia_aegis_wall/crack_r1.png", scale: 0.5 }
+  crack: { key: "regalia-aegis-crack-r1", path: "./画像/skills/regalia_aegis_wall/crack_r1.png", scale: 0.5 },
+  icon: { key: "regalia-aegis-icon-r1", path: "./画像/skills/regalia_aegis_wall/icon_r1.png" }
 });
 const REGALIA_AEGIS_DIRECTION_NAMES = Object.freeze(["e", "se", "s", "sw", "w", "nw", "n", "ne"]);
 // Passives on REGALIA's own skills (docs/regalia-kit-design.md 6.1). Reactor Overcharge adds
@@ -127,7 +129,14 @@ const REGALIA_COUNTER_PULSE_CONFIG = Object.freeze({
   ringColor: 0x8fa0f0,
   ringCoreColor: 0xe8f8ff,
   // R1 frame: emission on black, ring radius 200 px in the image; drawn additively.
-  ring: { key: "regalia-counter-pulse-r1", path: "./画像/skills/regalia_counter_pulse/pulse_r1.png", ringRadiusPx: 200 }
+  ring: { key: "regalia-counter-pulse-r1", path: "./画像/skills/regalia_counter_pulse/pulse_r1.png", ringRadiusPx: 200 },
+  icon: { key: "regalia-counter-pulse-icon-r1", path: "./画像/skills/regalia_counter_pulse/icon_r1.png" }
+});
+// The Blender icons of REGALIA's own skills. They load with the sortie's other kit images; until
+// then, or if they are missing, the cards and the HUD use the generated hud-icon-regalia-* icons.
+const REGALIA_KIT_ICON_TEXTURE_KEYS = Object.freeze({
+  [REGALIA_AEGIS_WALL_SKILL_ID]: REGALIA_AEGIS_WALL_CONFIG.icon.key,
+  [REGALIA_COUNTER_PULSE_SKILL_ID]: REGALIA_COUNTER_PULSE_CONFIG.icon.key
 });
 const DEFAULT_PLAYER_MECH_ID = "defaultBear";
 const REGALIA_BASTION_MECH_ID = "regaliaBastion";
@@ -390,7 +399,7 @@ const SKILL_MUTATION_DEFINITIONS = window.skillMutationDefinitions || { cores: {
 // Combat slots include preview metadata; Mutation/Archive allowlists remain release-only.
 const PLAYER_MECH_SKILL_SLOT_IDS = Object.freeze({
   [DEFAULT_PLAYER_MECH_ID]: Object.freeze([DEFAULT_SKILL_ID, "tornadoSkill", "rabbitThunderSkill"]),
-  [REGALIA_BASTION_MECH_ID]: Object.freeze([REGALIA_BASTION_CANNON_SKILL_ID, "tornadoSkill", "rabbitThunderSkill"]),
+  [REGALIA_BASTION_MECH_ID]: Object.freeze([REGALIA_BASTION_CANNON_SKILL_ID, ...REGALIA_KIT_SKILL_IDS]),
   [UMBRA_SERAPH_MECH_ID]: Object.freeze([UMBRA_MOONLIGHT_SKILL_ID, UMBRA_BLOOD_SPIKE_SKILL_ID, UMBRA_PHANTOM_NOVA_SKILL_ID])
 });
 const DEFAULT_PLAYER_MECH_SKILL_MUTATION_SKILL_IDS = PLAYER_MECH_SKILL_SLOT_IDS[DEFAULT_PLAYER_MECH_ID];
@@ -1873,7 +1882,9 @@ const EXTRACTION_MESSAGE_SESSION_KEY = "lastmemoVansabaExtractionMessage";
 const DEEP_EXTRACTION_RESULT_DEBUG_QUERY_PARAM = "debugDeepResult";
 const RUN_ARCHIVE_STORAGE_KEY = "lastmemoVansabaRunArchive";
 const RUN_ARCHIVE_DEBUG_QUERY_PARAM = "debugRunArchive";
-const RUN_ARCHIVE_VERSION = 2;
+// v3: REGALIA's own skills and skillSlotIds. An older tab leaves v3 records alone instead of
+// writing them back without the new keys.
+const RUN_ARCHIVE_VERSION = 3;
 const RUN_ARCHIVE_MAX_ENTRIES = 20;
 const RUN_ARCHIVE_ENTRIES_PER_PAGE = 7;
 const RUN_ARCHIVE_UNKNOWN_SUBMITTED_AT = "1970-01-01T00:00:00.000Z";
@@ -2424,6 +2435,11 @@ const EQUIPMENT_COMBAT_LINK_TIER_CONFIG = Object.freeze({
   legendFive: Object.freeze({ combatLinkLevel: 2, overlimitCap: 2 })
 });
 const EQUIPMENT_COMBAT_LINK_SKILL_IDS = Object.freeze(["basicSkill", "tornadoSkill", "rabbitThunderSkill"]);
+// REGALIA's own skills take its Combat Link; the cannon stays outside (docs/regalia-kit-design.md 8).
+const REGALIA_EQUIPMENT_COMBAT_LINK_SKILL_IDS = REGALIA_KIT_SKILL_IDS;
+// Every non-UMBRA skill that can carry OVERLIMIT. A sortie owns only its own mech's share, so the
+// per-hit checks use this list and need no mech lookup.
+const EQUIPMENT_COMBAT_LINK_ALL_SKILL_IDS = Object.freeze([...EQUIPMENT_COMBAT_LINK_SKILL_IDS, ...REGALIA_EQUIPMENT_COMBAT_LINK_SKILL_IDS]);
 const EQUIPMENT_OVERLIMIT_DAMAGE_MULTIPLIERS = Object.freeze([1.00, 1.10, 1.20]);
 const EQUIPMENT_RUN_DEBUG_QUERY_PARAM = "debugEquipmentRun";
 const EQUIPMENT_DROP_DEBUG_QUERY_PARAM = "debugEquipmentDrop";
@@ -5346,7 +5362,7 @@ const LEVEL_UP_SKILL_UI_META = {
   },
   [REGALIA_AEGIS_WALL_SKILL_ID]: {
     displayName: "Aegis Wall",
-    description: "機体が向いている方向に盾の壁を築き、内側をテリトリーにする",
+    description: "向いた方向に盾の壁を築き、敵の侵入を防ぐ",
     themeColor: 0xf0c574,
     glowColor: 0x9fd2ff,
     accentColor: "#f0c574",
@@ -5354,7 +5370,7 @@ const LEVEL_UP_SKILL_UI_META = {
   },
   [REGALIA_COUNTER_PULSE_SKILL_ID]: {
     displayName: "Counter Pulse",
-    description: "一定間隔で衝撃波を放ち、攻撃を受けると即座に強い反撃波を返す",
+    description: "衝撃波を放ち、被弾すると反撃波を返す",
     themeColor: 0x8fa0f0,
     glowColor: 0xe8f8ff,
     accentColor: "#9fb2ff",
@@ -14682,14 +14698,7 @@ class SurvivalScene extends Phaser.Scene {
   getPlayerSkillSlotIds(options = {}) {
     const selectionOptions = typeof options === "string" ? { mechId: options } : options;
     const mechId = this.getSkillSelectionPlayerMechId(selectionOptions);
-    if (mechId === REGALIA_BASTION_MECH_ID && this.isRegaliaKitDebugEnabled()) {
-      return [...REGALIA_KIT_DEBUG_SLOT_IDS];
-    }
     return [...(PLAYER_MECH_SKILL_SLOT_IDS[mechId] || PLAYER_MECH_SKILL_SLOT_IDS[DEFAULT_PLAYER_MECH_ID])];
-  }
-
-  isRegaliaKitDebugEnabled() {
-    return this.isQueryFlagValueEnabled(this.getUrlStageParam?.(REGALIA_KIT_DEBUG_QUERY_PARAM));
   }
 
   getActivePlayerMechIdForRuntime() {
@@ -15989,7 +15998,8 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   createDefaultRunEquipmentOverlimitLevels() {
-    return EQUIPMENT_COMBAT_LINK_SKILL_IDS.reduce((levels, skillId) => {
+    // The UMBRA drive scene borrows these methods without the per-mech helper; it keeps the default three.
+    return (this.getRunEquipmentCombatLinkSkillIds?.() || EQUIPMENT_COMBAT_LINK_SKILL_IDS).reduce((levels, skillId) => {
       levels[skillId] = 0;
       return levels;
     }, {});
@@ -16026,7 +16036,7 @@ class SurvivalScene extends Phaser.Scene {
       EQUIPMENT_OVERLIMIT_DAMAGE_MULTIPLIERS.length - 1,
       Number.isInteger(overlimitCap) && Number.isSafeInteger(overlimitCap) ? overlimitCap : 0
     ));
-    return EQUIPMENT_COMBAT_LINK_SKILL_IDS.reduce((levels, skillId) => {
+    return (this.getRunEquipmentCombatLinkSkillIds?.() || EQUIPMENT_COMBAT_LINK_SKILL_IDS).reduce((levels, skillId) => {
       const rawLevel = source[skillId];
       levels[skillId] = Number.isInteger(rawLevel) && Number.isSafeInteger(rawLevel)
         ? Math.max(0, Math.min(cap, rawLevel))
@@ -16201,7 +16211,7 @@ class SurvivalScene extends Phaser.Scene {
 
   isEquipmentCombatLinkSkillId(skillId) {
     if (this.isUmbraEquipmentScope?.()) return UMBRA_TRIAD_COMBAT_SKILL_IDS.includes(String(skillId || ""));
-    return EQUIPMENT_COMBAT_LINK_SKILL_IDS.includes(String(skillId || ""));
+    return EQUIPMENT_COMBAT_LINK_ALL_SKILL_IDS.includes(String(skillId || ""));
   }
 
   getRunEquipmentSkillOverlimitCap(skillId, options = {}) {
@@ -33990,6 +34000,11 @@ class SurvivalScene extends Phaser.Scene {
         levels[id] = Math.max(0, Math.min(8, Math.floor(Number(skills[id]) || 0)));
         return levels;
       }, {}),
+      skillSlotIds: this.normalizeRunArchiveSkillSlotIds(
+        entry.skillSlotIds,
+        MUTATION_ATLAS_PLAYER_MECH_IDS.includes(entry.mechId) ? entry.mechId : inferredMechId,
+        skills
+      ),
       skillMutations: this.normalizeRunArchiveSkillMutations(skillMutations),
       triadBuild: this.normalizeRunArchiveTriadBuild(entry.triadBuild),
       passives: {
@@ -34153,6 +34168,7 @@ class SurvivalScene extends Phaser.Scene {
       regaliaBastionCannon: getSkillLevel(REGALIA_BASTION_CANNON_SKILL_ID),
       tornadoSkill: getSkillLevel("tornadoSkill"),
       rabbitThunderSkill: getSkillLevel("rabbitThunderSkill"),
+      ...Object.fromEntries(REGALIA_KIT_SKILL_IDS.map(id => [id, getSkillLevel(id)])),
       ...Object.fromEntries(UMBRA_TRIAD_COMBAT_SKILL_IDS.map(id => [id, getSkillLevel(id)]))
     };
   }
@@ -34335,6 +34351,9 @@ class SurvivalScene extends Phaser.Scene {
       stageId: stage.id || "",
       stageName: stage.name || stage.areaLabel || "",
       skills: this.getRunArchiveSkillLevels(),
+      skillSlotIds: this.isUmbraProductionRunContext?.()
+        ? PLAYER_MECH_SKILL_SLOT_IDS[UMBRA_SERAPH_MECH_ID]
+        : this.getPlayerSkillSlotIds({ mechId: this.getRunPlayerMechId() }),
       skillMutations: this.getRunArchiveSkillMutationSnapshot(),
       equipmentCombatLink: this.createRunArchiveEquipmentCombatLinkSnapshot(this.runEquipmentCombatLinkState),
       triadBuild: this.getTriadRunArchiveBuildSnapshot(outcomeOptions.context || {}),
@@ -57055,11 +57074,17 @@ class SurvivalScene extends Phaser.Scene {
     icon.setScale(maxSize / longestSide);
   }
 
+  // A skill's icon: its drawn image once loaded, else the definition's (generated) HUD icon.
+  getSkillIconTextureKey(definition) {
+    const drawnKey = REGALIA_KIT_ICON_TEXTURE_KEYS[definition?.id];
+    return drawnKey && this.textures?.exists?.(drawnKey) ? drawnKey : (definition?.hudIconTextureKey || null);
+  }
+
   getSkillHudIconKey(definition) {
     const umbraAsset = this.isUmbraNormalPresentationContext?.() ? window.umbraPreviewAssets?.effects?.[definition?.id] : null;
     if (umbraAsset) return umbraAsset.key;
     if (definition?.hudIconTextureKey) {
-      return definition.hudIconTextureKey;
+      return this.getSkillIconTextureKey(definition);
     }
 
     if (definition?.behavior === "directionalDash") {
@@ -61042,13 +61067,29 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getRunArchiveSkillSlotIds(entry = null) {
-    if (MUTATION_ATLAS_PLAYER_MECH_IDS.includes(entry?.mechId)) return PLAYER_MECH_SKILL_SLOT_IDS[entry.mechId];
     const skills = entry?.skills || {};
     const mutations = entry?.skillMutations || {};
-    if ((skills[REGALIA_BASTION_CANNON_SKILL_ID] || 0) > 0 || mutations[REGALIA_BASTION_CANNON_SKILL_ID]?.core) {
-      return PLAYER_MECH_SKILL_MUTATION_SKILL_IDS[REGALIA_BASTION_MECH_ID];
+    const mechId = MUTATION_ATLAS_PLAYER_MECH_IDS.includes(entry?.mechId)
+      ? entry.mechId
+      : (((skills[REGALIA_BASTION_CANNON_SKILL_ID] || 0) > 0 || mutations[REGALIA_BASTION_CANNON_SKILL_ID]?.core)
+        ? REGALIA_BASTION_MECH_ID : DEFAULT_PLAYER_MECH_ID);
+    return this.normalizeRunArchiveSkillSlotIds(entry?.skillSlotIds, mechId, skills);
+  }
+
+  // The slots a record was played with. A stored list counts only when it is a known slot set; a
+  // record without one (v2 and older) is REGALIA's old set unless it has levels in REGALIA's own skills.
+  normalizeRunArchiveSkillSlotIds(value, mechId, skills = {}) {
+    const knownSlotSets = [...Object.values(PLAYER_MECH_SKILL_SLOT_IDS), REGALIA_LEGACY_SKILL_SLOT_IDS];
+    const stored = Array.isArray(value)
+      ? knownSlotSets.find((slots) => slots.length === value.length && slots.every((skillId, index) => skillId === value[index]))
+      : null;
+    if (stored) {
+      return [...stored];
     }
-    return PLAYER_MECH_SKILL_MUTATION_SKILL_IDS[DEFAULT_PLAYER_MECH_ID];
+    if (mechId === REGALIA_BASTION_MECH_ID && !REGALIA_KIT_SKILL_IDS.some((skillId) => Number(skills?.[skillId]) > 0)) {
+      return [...REGALIA_LEGACY_SKILL_SLOT_IDS];
+    }
+    return [...(PLAYER_MECH_SKILL_SLOT_IDS[mechId] || PLAYER_MECH_SKILL_SLOT_IDS[DEFAULT_PLAYER_MECH_ID])];
   }
 
   getRunArchiveSkillShortLabel(skillId) {
@@ -61058,6 +61099,8 @@ class SurvivalScene extends Phaser.Scene {
     if (skillId === REGALIA_BASTION_CANNON_SKILL_ID) {
       return "REGALIA";
     }
+    if (skillId === REGALIA_AEGIS_WALL_SKILL_ID) return "AEGIS";
+    if (skillId === REGALIA_COUNTER_PULSE_SKILL_ID) return "PULSE";
     if (skillId === DEFAULT_SKILL_ID) {
       return "BASIC";
     }
@@ -69342,7 +69385,17 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getEquipmentCombatLinkTargetSkillIds() {
-    return this.isUmbraEquipmentScope?.() ? UMBRA_TRIAD_COMBAT_SKILL_IDS : EQUIPMENT_COMBAT_LINK_SKILL_IDS;
+    return this.isUmbraEquipmentScope?.()
+      ? UMBRA_TRIAD_COMBAT_SKILL_IDS
+      : (this.getRunEquipmentCombatLinkSkillIds?.() || EQUIPMENT_COMBAT_LINK_SKILL_IDS);
+  }
+
+  // The OVERLIMIT targets of this sortie and the keys of its run state: the mech's own slots that
+  // carry a Combat Link. REGALIA has Aegis Wall / Counter Pulse; the other mechs keep the default three.
+  getRunEquipmentCombatLinkSkillIds() {
+    const slotIds = this.getPlayerSkillSlotIds();
+    const skillIds = EQUIPMENT_COMBAT_LINK_ALL_SKILL_IDS.filter((skillId) => slotIds.includes(skillId));
+    return skillIds.length ? skillIds : EQUIPMENT_COMBAT_LINK_SKILL_IDS;
   }
 
   initializeUmbraEquipmentRun(ramEquipment) {
@@ -75686,16 +75739,16 @@ class SurvivalScene extends Phaser.Scene {
     object.destroy?.();
   }
 
-  // The R1 shield and crack images load on demand for REGALIA only (design 11.3); until they
+  // The shield, crack and icon images load on demand for REGALIA only (design 11.3); until they
   // arrive, or if they are missing, the shields are drawn with Graphics.
   loadRegaliaAegisAssets() {
     if (!this.load || !this.textures) {
       return;
     }
     const failed = this.regaliaKitAssetFailures || (this.regaliaKitAssetFailures = new Set());
-    const { shield, crack } = REGALIA_AEGIS_WALL_CONFIG;
+    const { shield, crack, icon } = REGALIA_AEGIS_WALL_CONFIG;
     const assets = REGALIA_AEGIS_DIRECTION_NAMES.map((name) => ({ key: `${shield.keyPrefix}${name}`, path: `${shield.pathPrefix}${name}.png` }));
-    for (const asset of [...assets, crack]) {
+    for (const asset of [...assets, crack, icon]) {
       if (!this.textures.exists(asset.key) && !failed.has(asset.key)) {
         this.loadImageAssetOnDemand(asset.key, asset.path, null, () => failed.add(asset.key));
       }
@@ -76103,16 +76156,18 @@ class SurvivalScene extends Phaser.Scene {
     return reason;
   }
 
-  // The R1 pulse frame loads only for a sortie that can use Counter Pulse (design 11.3); without
-  // it the wave is drawn with Graphics.
+  // The pulse frame and the icon load only for a sortie that can use Counter Pulse (design 11.3);
+  // without the frame the wave is drawn with Graphics.
   loadRegaliaCounterPulseAssets() {
     if (!this.load || !this.textures) {
       return;
     }
-    const asset = REGALIA_COUNTER_PULSE_CONFIG.ring;
+    const { ring, icon } = REGALIA_COUNTER_PULSE_CONFIG;
     const failed = this.regaliaKitAssetFailures || (this.regaliaKitAssetFailures = new Set());
-    if (!this.textures.exists(asset.key) && !failed.has(asset.key)) {
-      this.loadImageAssetOnDemand(asset.key, asset.path, null, () => failed.add(asset.key));
+    for (const asset of [ring, icon]) {
+      if (!this.textures.exists(asset.key) && !failed.has(asset.key)) {
+        this.loadImageAssetOnDemand(asset.key, asset.path, null, () => failed.add(asset.key));
+      }
     }
   }
 
@@ -89680,7 +89735,7 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getOwnedRegaliaKitSkillIds() {
-    return [REGALIA_AEGIS_WALL_SKILL_ID, REGALIA_COUNTER_PULSE_SKILL_ID].filter((skillId) => this.playerSkills?.[skillId]?.currentStage);
+    return REGALIA_KIT_SKILL_IDS.filter((skillId) => this.playerSkills?.[skillId]?.currentStage);
   }
 
   // Reactor Overcharge levels: +1 to every hit of REGALIA's own skills per level (bulletDamage starts at 1).
@@ -90514,7 +90569,7 @@ class SurvivalScene extends Phaser.Scene {
         glowColor: meta.glowColor || typeMeta.color,
         accentColor: "#f0c463",
         iconTone: "OVL",
-        iconTextureKey: option.definition?.hudIconTextureKey || option.definition?.stages?.[0]?.textureKey || null
+        iconTextureKey: this.getSkillIconTextureKey(option.definition) || option.definition?.stages?.[0]?.textureKey || null
       };
     }
 
@@ -90554,7 +90609,7 @@ class SurvivalScene extends Phaser.Scene {
         glowColor: meta.glowColor,
         accentColor: meta.accentColor,
         iconTone: meta.iconTone,
-        iconTextureKey: option.nextStage?.textureKey || option.definition?.hudIconTextureKey || null
+        iconTextureKey: option.nextStage?.textureKey || this.getSkillIconTextureKey(option.definition)
       };
     }
 
@@ -90778,7 +90833,7 @@ class SurvivalScene extends Phaser.Scene {
         stageLabel: `${definition.name} / Stage4 / ${data.coreId.toUpperCase()}`,
         description: data.description, stageProgress: "●●●●○○○○", chips: data.chips, newEffects: [data.coreId.toUpperCase()],
         themeColor: option.themeColor, glowColor: option.themeColor, accentColor: option.accentColor,
-        iconTone: data.coreId.toUpperCase(), iconTextureKey: definition.hudIconTextureKey || definition.stages[0]?.textureKey || null };
+        iconTone: data.coreId.toUpperCase(), iconTextureKey: this.getSkillIconTextureKey(definition) || definition.stages[0]?.textureKey || null };
     }
     if (option.umbraFinalCard && this.isUmbraFinalSkillEligible?.(option.skillId)) {
       const data = option.umbraFinalCard, definition = SKILL_DEFINITIONS[option.skillId];
@@ -90787,7 +90842,7 @@ class SurvivalScene extends Phaser.Scene {
         stageLabel: `${definition.name} / Stage8 / ${data.coreId.toUpperCase()} + ${data.finalId.toUpperCase()}`,
         description: data.description, stageProgress: "●●●●●●●●", chips: data.chips, newEffects: [data.finalId.toUpperCase()],
         themeColor: option.themeColor, glowColor: option.themeColor, accentColor: option.accentColor,
-        iconTone: data.finalId.toUpperCase(), iconTextureKey: definition.hudIconTextureKey || definition.stages[0]?.textureKey || null };
+        iconTone: data.finalId.toUpperCase(), iconTextureKey: this.getSkillIconTextureKey(definition) || definition.stages[0]?.textureKey || null };
     }
     const typeMeta = LEVEL_UP_CARD_TYPE_META.skillMutation;
     const phase = option.phase === "stage8" ? "stage8" : "stage4";
@@ -90830,7 +90885,7 @@ class SurvivalScene extends Phaser.Scene {
       glowColor: coreStyle.secondaryTint || typeMeta.color,
       accentColor: coreStyle.textColor || this.colorToCss(coreStyle.primaryTint || typeMeta.color),
       iconTone: mutation.shortLabel || "MUT",
-      iconTextureKey: skillDefinition.hudIconTextureKey || skillDefinition.stages?.[0]?.textureKey || null
+      iconTextureKey: this.getSkillIconTextureKey(skillDefinition) || skillDefinition.stages?.[0]?.textureKey || null
     };
   }
 
@@ -90977,13 +91032,13 @@ class SurvivalScene extends Phaser.Scene {
       effects.push("棘盾：盾を押す敵に継続ダメージ");
     }
     if ((beforeStage.wingCount || 0) <= 0 && (afterStage.wingCount || 0) > 0) {
-      effects.push("城壁の袖：壁の両端が後ろへ折れて側面を守る");
+      effects.push("城壁の袖：壁の両端が折れて側面を守る");
     }
     if ((beforeStage.shieldBreakRadiusRatio || 0) <= 0 && (afterStage.shieldBreakRadiusRatio || 0) > 0) {
-      effects.push("盾連動：盾が砕けた場所からも反撃波");
+      effects.push("盾連動：砕けた盾からも反撃波");
     }
     if ((beforeStage.echoDamageRatio || 0) <= 0 && (afterStage.echoDamageRatio || 0) > 0) {
-      effects.push("二重波：0.15秒後に威力50%でもう1回");
+      effects.push("二重波：直後に威力50%の追撃波");
     }
     if ((beforeStage.orbitRadiusPulseAmount || 0) <= 0 && (afterStage.orbitRadiusPulseAmount || 0) > 0) {
       effects.push("可変オービット");
@@ -92148,7 +92203,8 @@ class SurvivalScene extends Phaser.Scene {
       compact ? contentWidth : width - 48,
       {
         maxChips: compact ? 3 : 6,
-        maxRows: compact ? 1 : 0,
+        // Under the new-effect strip a second row would cross the card's bottom edge.
+        maxRows: compact || model.newEffects.length > 0 ? 1 : 0,
         fontSize: compact ? "10px" : "12px",
         minFontSize: compact ? 8 : 10,
         chipHeight: compact ? 20 : 23,

@@ -11,10 +11,10 @@ const gameSource = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const skillSource = fs.readFileSync(path.join(root, "skillDefinitions.js"), "utf8");
 const expectedSlots = {
   defaultBear: ["basicSkill", "tornadoSkill", "rabbitThunderSkill"],
-  regaliaBastion: ["regaliaBastionCannon", "tornadoSkill", "rabbitThunderSkill"],
+  regaliaBastion: ["regaliaBastionCannon", "regaliaAegisWall", "regaliaCounterPulse"],
   umbraSeraph: ["umbraMoonlight", "umbraBloodSpike", "umbraPhantomNova"]
 };
-const releasedSkillIds = ["basicSkill", "regaliaBastionCannon", "tornadoSkill", "rabbitThunderSkill"];
+const releasedSkillIds = ["basicSkill", "regaliaBastionCannon", "tornadoSkill", "rabbitThunderSkill", "regaliaAegisWall", "regaliaCounterPulse"];
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
 function createFixture() {

@@ -1,13 +1,14 @@
 "use strict";
-// Browser check for REGALIA's own skills, Aegis Wall (R2) and Counter Pulse (R3)
+// Browser check for REGALIA's own skills, Aegis Wall and Counter Pulse, in normal play since R4
 // (docs/regalia-kit-design.md 12-13).
 //
 //   python -m http.server 4173 --bind 127.0.0.1        (another terminal, repository root)
 //   node tests/regalia-aegis-browser.cjs
 //
 // Fresh browser profile; requests to other origins are blocked, so no save data, auth or ranking
-// traffic is touched. REGALIA and the new skill are selected with debug flags only. XP gain is
-// switched off inside the page so level-up cards do not cover the screenshots.
+// traffic is touched. The mech is selected and unlocked with debug flags only. XP gain is
+// switched off inside the page so level-up cards do not cover the screenshots; one level-up is
+// opened on purpose to photograph the cards with the skill icons.
 // Uses playwright-core and a local Chrome (OW_CHROME / REGALIA_TEST_URL override).
 // Writes screenshots and report.json to .tmp_regalia_kit/ (git-ignored).
 
@@ -19,12 +20,14 @@ const { chromium } = require("playwright-core");
 const BASE_URL = process.env.REGALIA_TEST_URL || "http://127.0.0.1:4173/";
 const CHROME = process.env.OW_CHROME || "C:/Program Files/Google/Chrome/Application/chrome.exe";
 const OUT_DIR = path.join(__dirname, "..", ".tmp_regalia_kit");
-const NORMAL_QUERY = [
+const queryFor = (mechId) => [
   "mobileGate=0", "mobileControls=0", "debugSkipOpeningBoost=1",
   "debugOpenWorld=1", "debugOpenWorldSeed=pilot",
-  "debugPlayerMech=regaliaBastion", "debugPlayerMechUnlock=1"
+  `debugPlayerMech=${mechId}`, "debugPlayerMechUnlock=1"
 ].join("&");
-const QUERY = `${NORMAL_QUERY}&debugRegaliaKit=1`;
+const BEAR_QUERY = queryFor("defaultBear");
+const QUERY = queryFor("regaliaBastion");
+const ICON_KEYS = { regaliaAegisWall: "regalia-aegis-icon-r1", regaliaCounterPulse: "regalia-counter-pulse-icon-r1" };
 const SORTIE_BUTTON = { x: 1015, y: 660 };
 
 async function snapshot(page, file) {
@@ -33,6 +36,31 @@ async function snapshot(page, file) {
     window.__SURVIVAL_GAME__.renderer.snapshot((image) => resolve(image.src));
   }));
   fs.writeFileSync(path.join(OUT_DIR, file), Buffer.from(src.split(",")[1], "base64"));
+}
+
+// Since R4 the kit skills are Mutation targets: reaching Stage4 / Stage8 opens the Core / Final
+// selection, which pauses the run. Takes the first card until no selection is open and returns
+// what was offered.
+async function resolveMutationSelections(page, shotName = "") {
+  const picked = [];
+  for (let round = 0; round < 6; round += 1) {
+    const mode = await page.evaluate(() => {
+      const scene = window.__SURVIVAL_GAME__.scene.getScene("survival-scene");
+      return scene.levelUpActive ? scene.levelUpSelectionMode : null;
+    });
+    if (!mode) break;
+    await page.waitForFunction(() => window.__SURVIVAL_GAME__.scene.getScene("survival-scene").levelUpInputEnabled, null, { timeout: 5000 });
+    if (shotName && round === 0) await snapshot(page, shotName);
+    picked.push(await page.evaluate(() => {
+      const scene = window.__SURVIVAL_GAME__.scene.getScene("survival-scene");
+      const titles = scene.levelUpCardRecords.map((record) => record.model.option.title);
+      const option = scene.levelUpCardRecords[0].model.option;
+      scene.selectLevelUpCard(0);
+      return { mode: scene.levelUpSelectionMode, skillId: option.skillId, phase: option.phase || "", titles };
+    }));
+    await page.waitForTimeout(700);
+  }
+  return picked;
 }
 
 function sceneState(page) {
@@ -61,6 +89,7 @@ function sceneState(page) {
       enemiesAtWall: shields.length ? enemies.filter((enemy) => shields.some((shield) => Math.hypot(enemy.x - shield.x, enemy.y - shield.y) < 70)).length : 0,
       enemies: enemies.length,
       hudChips: scene.getCompactHudSkillChipModels?.().map((chip) => chip.text) || [],
+      hudIcons: scene.getCompactHudSkillChipModels?.().map((chip) => chip.iconKey) || [],
       player: center ? { x: Math.round(center.x), y: Math.round(center.y) } : null
     };
   });
@@ -69,6 +98,9 @@ function sceneState(page) {
 async function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
   const report = { url: `${BASE_URL}?${QUERY}`, steps: [], pageErrors: [], consoleErrors: [], blockedExternal: [], requests: [] };
+  const startedAt = Date.now();
+  const step = (entry) => report.steps.push({ seconds: Math.round((Date.now() - startedAt) / 1000), ...entry });
+  let openContext = null;
   const browser = await chromium.launch({ headless: true, executablePath: CHROME, args: ["--disable-background-networking", "--autoplay-policy=no-user-gesture-required"] });
   const startRun = async (query) => {
     const context = await browser.newContext({ viewport: { width: 1400, height: 800 }, deviceScaleFactor: 1, serviceWorkers: "block" });
@@ -80,6 +112,7 @@ async function main() {
       }
       return route.continue();
     });
+    openContext = context;
     const page = await context.newPage();
     const requests = [];
     page.on("request", (request) => requests.push(decodeURIComponent(request.url())));
@@ -100,25 +133,54 @@ async function main() {
     return { context, page, requests };
   };
   try {
-    // Normal play: no debug flag, REGALIA keeps its slots and never fetches the shield images.
-    const normal = await startRun(NORMAL_QUERY);
-    await normal.page.waitForTimeout(1500);
-    const normalState = await sceneState(normal.page);
-    report.steps.push({ step: "normal REGALIA run", slots: normalState.slots, hudChips: normalState.hudChips });
-    assert.deepEqual(normalState.slots, ["regaliaBastionCannon", "tornadoSkill", "rabbitThunderSkill"]);
-    assert.equal(normal.requests.some((url) => /regalia_(aegis_wall|counter_pulse)/.test(url)), false, "no REGALIA kit images in normal play");
-    await normal.context.close();
+    // The default mech keeps its slots and never fetches REGALIA's images.
+    const bear = await startRun(BEAR_QUERY);
+    await bear.page.waitForTimeout(1500);
+    const bearState = await sceneState(bear.page);
+    step({ step: "default mech run", slots: bearState.slots, hudChips: bearState.hudChips });
+    assert.deepEqual(bearState.slots, ["basicSkill", "tornadoSkill", "rabbitThunderSkill"]);
+    assert.equal(bear.requests.some((url) => /regalia_(aegis_wall|counter_pulse)/.test(url)), false, "no REGALIA kit images for the default mech");
+    await bear.context.close();
 
+    // REGALIA without any kit flag: its own skills are in the slots and their images load.
     const { context, page, requests } = await startRun(QUERY);
+    await page.waitForFunction((keys) => {
+      const scene = window.__SURVIVAL_GAME__.scene.getScene("survival-scene");
+      return Object.values(keys).every((key) => scene.textures.exists(key));
+    }, ICON_KEYS, { timeout: 15000 });
     const start = await sceneState(page);
-    report.steps.push({ step: "run started", ...start });
+    step({ step: "run started", ...start });
     assert.deepEqual(start.slots, ["regaliaBastionCannon", "regaliaAegisWall", "regaliaCounterPulse"]);
     assert.ok(start.hudChips.includes("AGS --"), `HUD chips: ${start.hudChips}`);
+    assert.ok(start.hudIcons.includes(ICON_KEYS.regaliaAegisWall), `HUD icons: ${start.hudIcons}`);
+    assert.ok(start.hudIcons.includes(ICON_KEYS.regaliaCounterPulse), `HUD icons: ${start.hudIcons}`);
 
-    await page.evaluate(() => window.__SURVIVAL_GAME__.scene.getScene("survival-scene").unlockSkill("regaliaAegisWall"));
+    // One level-up: the cards carry the Blender icons; take Aegis Wall when it is offered.
+    const cards = await page.evaluate(() => {
+      const scene = window.__SURVIVAL_GAME__.scene.getScene("survival-scene");
+      scene.pendingLevelUps = 1;
+      scene.showLevelUpChoices();
+      return scene.levelUpCardRecords.map((record) => ({
+        id: record.model.option.skillId || record.model.option.id,
+        icon: record.model.iconTextureKey || null
+      }));
+    });
+    step({ step: "level-up cards", cards });
+    for (const card of cards) {
+      if (ICON_KEYS[card.id]) assert.equal(card.icon, ICON_KEYS[card.id], `card icon of ${card.id}`);
+    }
+    await page.waitForFunction(() => window.__SURVIVAL_GAME__.scene.getScene("survival-scene").levelUpInputEnabled, null, { timeout: 5000 });
+    await snapshot(page, "levelup-cards.png");
+    const aegisIndex = cards.findIndex((card) => card.id === "regaliaAegisWall");
+    await page.evaluate((index) => window.__SURVIVAL_GAME__.scene.getScene("survival-scene").selectLevelUpCard(index), Math.max(0, aegisIndex));
+    await page.waitForFunction(() => !window.__SURVIVAL_GAME__.scene.getScene("survival-scene").levelUpActive, null, { timeout: 5000 });
+    await page.evaluate(() => {
+      const scene = window.__SURVIVAL_GAME__.scene.getScene("survival-scene");
+      if (!scene.playerSkills.regaliaAegisWall) scene.unlockSkill("regaliaAegisWall");
+    });
     await page.waitForTimeout(600);
     const s1 = await sceneState(page);
-    report.steps.push({ step: "S1 deployed", ...s1 });
+    step({ step: "S1 deployed", ...s1 });
     assert.equal(s1.aegisStage, 1);
     assert.equal(s1.shields, 5);
     assert.equal(s1.bodies, 15);
@@ -131,12 +193,12 @@ async function main() {
 
     await page.waitForTimeout(3500);
     const s1Later = await sceneState(page);
-    report.steps.push({ step: "S1 after 4 s", ...s1Later });
+    step({ step: "S1 after 4 s", ...s1Later });
     await snapshot(page, "s1-after-4s.png");
 
     await page.waitForTimeout(2000); // lifetime 5 s, cooldown 7 s: the wall has sunk
     const s1Gone = await sceneState(page);
-    report.steps.push({ step: "S1 after 6 s", ...s1Gone });
+    step({ step: "S1 after 6 s", ...s1Gone });
     assert.equal(s1Gone.shields, 0);
     assert.equal(s1Gone.bodies, 0);
 
@@ -151,10 +213,15 @@ async function main() {
       const scene = window.__SURVIVAL_GAME__.scene.getScene("survival-scene");
       for (let index = 0; index < 7; index += 1) scene.upgradeSkill("regaliaAegisWall");
     });
+    const aegisMutations = await resolveMutationSelections(page, "aegis-mutation-core.png");
+    step({ step: "Aegis Wall Mutation selections", aegisMutations });
+    assert.deepEqual(aegisMutations.map((pick) => pick.phase), ["stage4", "stage8"]);
+    assert.deepEqual(aegisMutations[0].titles, ["SPIKE WALL CORE", "HOLD LINE CORE", "RAPID RAMPART CORE"]);
+    assert.ok(aegisMutations[1].titles.includes("KINGSLAYER RAMPART"), `Final titles: ${aegisMutations[1].titles}`);
     await deployFacing(-Math.PI / 2);
     await page.waitForTimeout(1500);
     const s8 = await sceneState(page);
-    report.steps.push({ step: "S8 deployed facing north", ...s8 });
+    step({ step: "S8 deployed facing north", ...s8 });
     assert.equal(s8.aegisStage, 8);
     assert.equal(s8.shields, 15, "11 in front + 2 wings of 2");
     assert.equal(s8.bodies, 45);
@@ -164,21 +231,28 @@ async function main() {
 
     await page.waitForTimeout(3500);
     const s8Later = await sceneState(page);
-    report.steps.push({ step: "S8 north after 5 s", ...s8Later });
+    step({ step: "S8 north after 5 s", ...s8Later });
     await snapshot(page, "s8-north-after-5s.png");
 
     await deployFacing(Math.PI / 4);
     await page.waitForTimeout(1500);
     const s8se = await sceneState(page);
-    report.steps.push({ step: "S8 deployed facing south-east", ...s8se });
+    step({ step: "S8 deployed facing south-east", ...s8se });
     assert.deepEqual(s8se.directions, [0, 1, 2], "south-east wall with east and south wings");
     await snapshot(page, "s8-southeast.png");
 
     // Counter Pulse (R3): owned at S8, then a hit through the real damage path fires a counter wave.
-    const pulse = await page.evaluate(() => {
+    await page.evaluate(() => {
       const scene = window.__SURVIVAL_GAME__.scene.getScene("survival-scene");
       scene.unlockSkill("regaliaCounterPulse");
       for (let index = 0; index < 7; index += 1) scene.upgradeSkill("regaliaCounterPulse");
+    });
+    const pulseMutations = await resolveMutationSelections(page);
+    step({ step: "Counter Pulse Mutation selections", pulseMutations });
+    assert.deepEqual(pulseMutations.map((pick) => pick.phase), ["stage4", "stage8"]);
+    assert.deepEqual(pulseMutations[0].titles, ["RETRIBUTION CORE", "REPULSE CORE", "CAPACITOR CORE"]);
+    const pulse = await page.evaluate(() => {
+      const scene = window.__SURVIVAL_GAME__.scene.getScene("survival-scene");
       const state = scene.playerSkills.regaliaCounterPulse;
       scene.invincibleUntil = 0;
       const before = scene.stats.hp;
@@ -189,21 +263,24 @@ async function main() {
         hpLost: before - scene.stats.hp,
         counterFired: (state?.regaliaPulseCounterReadyAt || 0) > scene.time.now,
         timerMs: Math.round(state?.regaliaPulseTimerMs || 0),
+        intervalMs: scene.getRegaliaCounterPulseIntervalMs(state, state.currentStage),
         echoes: scene.regaliaCounterPulseState?.echoes?.length || 0,
         rings: scene.regaliaPulseFxObjects?.size || 0,
         ringImage: scene.textures.exists("regalia-counter-pulse-r1"),
         hudChips: scene.getCompactHudSkillChipModels().map((chip) => chip.text)
       };
     });
-    report.steps.push({ step: "Counter Pulse S8 hit", ...pulse });
+    step({ step: "Counter Pulse S8 hit", ...pulse });
     assert.equal(pulse.stage, 8);
     assert.equal(pulse.accepted, true);
     assert.equal(pulse.counterFired, true);
-    assert.equal(pulse.timerMs, 1800, "the counter restarts the automatic timer");
+    // 1800 ms at S8, shortened by the Mutation picked above.
+    assert.equal(pulse.timerMs, pulse.intervalMs, "the counter restarts the automatic timer");
+    assert.ok(pulse.intervalMs <= 1800);
     assert.equal(pulse.echoes, 1, "S8 queues the half-damage echo");
     assert.ok(pulse.rings >= 1);
     assert.equal(pulse.ringImage, true, "the R1 pulse image is loaded for this sortie");
-    assert.ok(pulse.hudChips.includes("PLS S8"), `HUD chips: ${pulse.hudChips}`);
+    assert.ok(pulse.hudChips.some((chip) => /^PLS S8\*?$/.test(chip)), `HUD chips: ${pulse.hudChips}`); // * = Final Mutation
     await page.waitForTimeout(90);
     await snapshot(page, "s8-counter-wave.png");
     await page.waitForTimeout(2500);
@@ -211,7 +288,7 @@ async function main() {
       const scene = window.__SURVIVAL_GAME__.scene.getScene("survival-scene");
       return { echoes: scene.regaliaCounterPulseState?.echoes?.length || 0, kills: scene.killCount ?? null };
     });
-    report.steps.push({ step: "Counter Pulse after 2.5 s", ...afterWaves });
+    step({ step: "Counter Pulse after 2.5 s", ...afterWaves });
     assert.equal(afterWaves.echoes <= 1, true);
 
     // On PC the shop return reloads the page, so the run-end cleanup is checked on game over.
@@ -227,7 +304,7 @@ async function main() {
         rings: scene.regaliaPulseFxObjects?.size || 0
       };
     });
-    report.steps.push({ step: "after game over", ...afterGameOver });
+    step({ step: "after game over", ...afterGameOver });
     assert.deepEqual(afterGameOver, { shields: 0, bodies: 0, fx: 0, echoes: 0, rings: 0 });
     assert.deepEqual(report.pageErrors, []);
     report.result = "pass";
@@ -238,7 +315,9 @@ async function main() {
     throw error;
   } finally {
     fs.writeFileSync(path.join(OUT_DIR, "report.json"), JSON.stringify(report, null, 2));
-    await browser.close();
+    const settle = (promise) => Promise.race([promise.catch(() => {}), new Promise((resolve) => setTimeout(resolve, 10000))]);
+    await settle(openContext?.close() || Promise.resolve());
+    await settle(browser.close());
   }
 }
 

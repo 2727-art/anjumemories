@@ -25,7 +25,7 @@ function fakeDisplayObject(extra = {}) {
   return proxy;
 }
 
-function fixture({ debug = false, mechId = "regaliaBastion" } = {}) {
+function fixture({ mechId = "regaliaBastion" } = {}) {
   const forbidden = () => assert.fail("Storage and network must not be accessed");
   const window = { location: { search: "" }, fetch: forbidden };
   Object.defineProperties(window, {
@@ -54,7 +54,7 @@ function fixture({ debug = false, mechId = "regaliaBastion" } = {}) {
   const api = context.api;
   const scene = Object.create(api.Scene.prototype);
   const calls = { damage: [], loads: [], visuals: [] };
-  scene.getUrlStageParam = (key) => (debug && key === "debugRegaliaKit" ? "1" : "");
+  scene.getUrlStageParam = () => "";
   scene.getDebugPlayerMechIdOverride = () => null;
   scene.getSelectedPlayerMechId = () => mechId;
   scene.shopState = scene.normalizeShopState({ playerMechs: { ownedIds: ["defaultBear", mechId], selectedId: mechId } });
