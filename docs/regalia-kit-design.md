@@ -333,7 +333,7 @@ Counter Pulse の威力 4 → 5
 |---|---|---|
 | R1 | Blender で画風試作（盾・ひび・反撃波1コマ・アイコン2つ）→ 画風の承認。2026-10-11 に試作を作成し、2026-10-12 に承認（`tools/blender/regalia_kit/`） | なし |
 | R2 | Aegis Wall の実装（S1〜S8、Graphics 代替、テスト）。`?debugRegaliaKit=1` のときだけ REGALIA の枠を新構成にする。2026-10-12 に実装（下記） | なし |
-| R3 | Counter Pulse の実装（S1〜S8、盾連動、テスト） | なし |
+| R3 | Counter Pulse の実装（S1〜S8、盾連動、テスト）。2026-10-13 に実装（下記） | なし |
 | R4 | 統合：パッシブ、Mutation／TRIAD、装備、RUN ARCHIVE 互換、HUD、README／AGENTS.md の更新 → 通常プレイの REGALIA を新構成に切り替え | あり |
 | R5 | 素材の本番一式、実機での人間確認、数値調整 | あり |
 
@@ -363,6 +363,28 @@ AGENTS.md §3.1 は既存スキル ID の維持を求めています。今回は
 - **テスト**：
   - `tests/regalia-aegis-wall.test.cjs`（10 件）
   - `tests/regalia-aegis-browser.cjs`（実ブラウザ。通常の REGALIA で枠と読み込みが変わらないことも確認する）
+
+### 12.2 R3 の実装内容（2026-10-13）
+
+- **debug 指定**：`?debugRegaliaKit=1` のときの REGALIA の枠を `[regaliaBastionCannon, regaliaAegisWall, regaliaCounterPulse]` にした。debug 指定なしでは何も変わらない。
+- **Counter Pulse**：5章のとおり実装した。
+  - 自動の衝撃波は、自動間隔ごとに機体を中心に出す。
+  - 反撃は `applyDamageToPlayer` で被弾が成立した直後（無敵 900ms を付けた直後。ロボットバリアで全部吸収された被弾も含む）に出し、自動のタイマーを最初からやり直す。反撃どうしの間は最短 0.3 秒。
+  - 押し返しは機体（または盾）から外向き。
+  - S5 からは、Aegis Wall の盾が砕けたとき（削れ切ったとき、ボスに割られたとき）に、その場所から半径 0.7 倍の衝撃波を出す。持続切れで沈むときは出さない。
+  - S8 の二重波は、機体を中心にした衝撃波（自動・反撃）だけに付き、0.15 秒後にその波の威力 50%・押し返し 60% で出る。盾が砕けたときの波と二重波自身には付かない。
+  - レベルアップ、Gate 選択、帰還、Final Raid の間は出さない。
+- **後片付け**：Aegis Wall と同じ場面（Depth 移行、ゲームオーバー、帰還、ショップ復帰、Final Raid 開始、スキルの作り直し）で、予約中の二重波と演出を消す（`clearRegaliaKitEffects`）。
+- **見た目**：
+  - R1 の反撃波の画像（`画像/skills/regalia_counter_pulse/pulse_r1.png`）を加算で重ね、0.35 倍から広げて消す。
+  - 読み込むのは Counter Pulse を使える出撃のときだけ。画像がないときは Graphics の輪。
+  - HUD アイコンは Graphics で生成した紋章と輪。
+- **カード**：
+  - 取得時のチップは「威力・範囲・自動間隔・反撃倍率」。
+  - S5 の新効果は「盾連動」、S8 は「二重波」。
+- **テスト**：
+  - `tests/regalia-counter-pulse.test.cjs`（8 件）。Aegis Wall のテストと共通の土台は `tests/regalia-kit-fixture.cjs`。
+  - 実ブラウザの `tests/regalia-aegis-browser.cjs` に、被弾から反撃が出るまでの確認を加えた。
 
 ## 13. テストと検証
 

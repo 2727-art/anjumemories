@@ -1,6 +1,6 @@
 # REGALIA Kit Asset Pipeline (Blender)
 
-`docs/regalia-kit-design.md` 11・12 章の素材を Blender で描き出します。**R1（画風試作）は 2026-10-12 に承認済み**です。ここで描いた画像はまだゲームに組み込んでいません（`画像/` には置いていません）。
+`docs/regalia-kit-design.md` 11・12 章の素材を Blender で描き出します。**R1（画風試作）は 2026-10-12 に承認済み**です。盾・ひび・反撃波の 3 点（`preview/r1-*-final.png`）は、R2・R3 で `画像/skills/regalia_aegis_wall/shield_r1.png`・`crack_r1.png` と `画像/skills/regalia_counter_pulse/pulse_r1.png` としてゲームに入れました（`?debugRegaliaKit=1` のときだけ使います）。アイコン 2 種はまだ入れていません（R4）。
 
 共通の設定は `tools/blender/openworld/ow_common.py` をそのまま使います（色管理 Standard、北西の主光、Cycles と GPU）。R1 は確認しやすいよう 2 倍の解像度（1 m = 80 px、ゲームは 1 m = 40 px）で描きます。
 

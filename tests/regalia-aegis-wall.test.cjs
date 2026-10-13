@@ -2,110 +2,13 @@
 // REGALIA Aegis Wall (docs/regalia-kit-design.md 4, R2): stage table, the ?debugRegaliaKit=1 slot
 // swap, the territory ring layout, shield durability and erosion, bosses breaking shields, thorns,
 // the plant impact, lifetime, pausing, redeploy/cleanup, and the level-up card text.
-const fs = require("node:fs");
-const path = require("node:path");
-const vm = require("node:vm");
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const root = path.resolve(__dirname, "..");
-const source = fs.readFileSync(path.join(root, "game.js"), "utf8");
-const plain = value => JSON.parse(JSON.stringify(value));
+const { fixture, plain, enemy, skillStateAt } = require("./regalia-kit-fixture.cjs");
 const AEGIS = "regaliaAegisWall";
 
-// Any Phaser display object: every method returns the object itself.
-function fakeDisplayObject(extra = {}) {
-  const target = { active: true, alpha: 1, scaleX: 1, scaleY: 1, x: 0, y: 0, ...extra };
-  target.destroy = () => { target.active = false; };
-  target.once = () => target;
-  const proxy = new Proxy(target, {
-    get(object, key) {
-      if (key in object) return object[key];
-      if (key === "then") return undefined;
-      return () => proxy;
-    }
-  });
-  return proxy;
-}
-
-function fixture({ debug = false, mechId = "regaliaBastion" } = {}) {
-  const forbidden = () => assert.fail("Storage and network must not be accessed");
-  const window = { location: { search: "" }, fetch: forbidden };
-  Object.defineProperties(window, {
-    localStorage: { get: forbidden }, sessionStorage: { get: forbidden }, firebase: { get: forbidden }
-  });
-  const context = vm.createContext({
-    window, console, URLSearchParams, fetch: forbidden, XMLHttpRequest: forbidden, WebSocket: forbidden,
-    Phaser: {
-      Scene: class {},
-      Scenes: { Events: { SHUTDOWN: "shutdown" } },
-      Math: {
-        Clamp: (n, min, max) => Math.max(min, Math.min(max, n)),
-        Distance: { Between: (x1, y1, x2, y2) => Math.hypot(x2 - x1, y2 - y1) }
-      },
-      Utils: { Array: { Shuffle: values => values } }
-    }
-  });
-  vm.runInContext(fs.readFileSync(path.join(root, "skillDefinitions.js"), "utf8"), context);
-  const declarationsEnd = source.indexOf("function isCommsStoryDebugResetRequested()");
-  const laterDeclarationsStart = source.indexOf("const LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS");
-  const classEnd = source.indexOf("\nconst config =", source.indexOf("class SurvivalScene extends"));
-  vm.runInContext(source.slice(0, declarationsEnd) + "\n" + source.slice(laterDeclarationsStart, classEnd) +
-    "\nthis.api = { Scene: SurvivalScene, skills: SKILL_DEFINITIONS, config: REGALIA_AEGIS_WALL_CONFIG };", context);
-  const api = context.api;
-  const scene = Object.create(api.Scene.prototype);
-  const calls = { damage: [], loads: [] };
-  scene.getUrlStageParam = (key) => (debug && key === "debugRegaliaKit" ? "1" : "");
-  scene.getDebugPlayerMechIdOverride = () => null;
-  scene.getSelectedPlayerMechId = () => mechId;
-  scene.shopState = scene.normalizeShopState({ playerMechs: { ownedIds: ["defaultBear", mechId], selectedId: mechId } });
-  scene.runPlayerMechSnapshotActive = false;
-  scene.stats = { maxHp: 200 };
-  scene.time = { now: 0 };
-  scene.game = { loop: { delta: 1000 } };
-  scene.enemyList = [];
-  scene.enemies = { children: { each: (fn) => scene.enemyList.slice().forEach(fn) } };
-  scene.playerHitbox = { active: true, x: 1000, y: 1000 };
-  scene.playerRobotMotion = { angle: 0 };
-  scene.events = { once() {} };
-  scene.tweens = { add(config) { config.onComplete?.(); return {}; }, killTweensOf() {} };
-  scene.textures = { exists: () => false };
-  scene.load = {};
-  scene.loadImageAssetOnDemand = (key) => { calls.loads.push(key); return true; };
-  scene.add = {
-    zone: (x, y) => fakeDisplayObject({ x, y }),
-    graphics: () => fakeDisplayObject(),
-    image: () => fakeDisplayObject()
-  };
-  const group = {
-    children: new Set(),
-    add(zone) {
-      zone.body = { setCircle(radius) { this.radius = radius; }, updateFromGameObject() {} };
-      this.children.add(zone);
-    },
-    contains(zone) { return this.children.has(zone); },
-    remove(zone, fromScene, destroy) { this.children.delete(zone); if (destroy) zone.destroy(); }
-  };
-  scene.physics = { add: { staticGroup: () => group, collider: () => ({}) }, world: { fps: 60 } };
-  scene.isFinalBossRaidActive = () => false;
-  scene.getEnemyOutgoingDamage = (enemy, amount) => amount;
-  scene.getMutatedSkillDamage = (skillId, damage) => damage;
-  scene.applyRunEquipmentPlayerSkillDamageBonus = (skillId, damage) => damage;
-  scene.getSkillMutationCooldownMultiplier = () => 1;
-  scene.getRunEquipmentAttackIntervalMultiplier = () => 1;
-  scene.findClosestEnemiesFrom = () => [];
-  scene.applyDamageToEnemy = (enemy, damage, tint, impact) => calls.damage.push({ enemy: enemy.name, damage, impact: plain(impact) });
-  scene.playerSkills = {};
-  return { scene, api, calls, group };
-}
-
 const stage = (api, number) => api.skills[AEGIS].stages[number - 1];
-const enemy = (name, x, y, extra = {}) => ({ name, x, y, active: true, isDying: false, contactDamage: 13, ...extra });
-const skillState = (scene, api, number = 1) => {
-  const state = scene.createSkillState(api.skills[AEGIS]);
-  state.stageIndex = number - 1;
-  state.currentStage = stage(api, number);
-  return state;
-};
+const skillState = (scene, api, number = 1) => skillStateAt(scene, api, AEGIS, number);
 
 test("the stage table follows the approved territory values", () => {
   const { api, scene } = fixture();
@@ -118,13 +21,14 @@ test("the stage table follows the approved territory values", () => {
   for (const s of definition.stages) assert.equal(s.textureKey, undefined, "no sortie preload for the shield images");
 });
 
-test("Aegis Wall takes REGALIA's second slot only with ?debugRegaliaKit=1", () => {
+test("Aegis Wall and Counter Pulse take REGALIA's slots only with ?debugRegaliaKit=1", () => {
   const normal = fixture().scene;
   assert.deepEqual(plain(normal.getPlayerSkillSlotIds("regaliaBastion")), ["regaliaBastionCannon", "tornadoSkill", "rabbitThunderSkill"]);
   assert.equal(normal.isSkillAvailableForPlayerMech(AEGIS, "regaliaBastion"), false);
 
   const debug = fixture({ debug: true }).scene;
-  assert.deepEqual(plain(debug.getPlayerSkillSlotIds("regaliaBastion")), ["regaliaBastionCannon", AEGIS, "rabbitThunderSkill"]);
+  assert.deepEqual(plain(debug.getPlayerSkillSlotIds("regaliaBastion")), ["regaliaBastionCannon", AEGIS, "regaliaCounterPulse"]);
+  assert.equal(debug.isSkillAvailableForPlayerMech("rabbitThunderSkill", "regaliaBastion"), false);
   assert.equal(debug.isSkillAvailableForPlayerMech(AEGIS, "regaliaBastion"), true);
   assert.equal(debug.isSkillAvailableForPlayerMech("tornadoSkill", "regaliaBastion"), false);
   assert.deepEqual(plain(debug.getPlayerSkillSlotIds("defaultBear")), ["basicSkill", "tornadoSkill", "rabbitThunderSkill"]);
