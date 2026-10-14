@@ -139,5 +139,33 @@
       ],
       "screen_angle_deg": 315
     }
+  },
+  "counter-ring": {
+    "size": [
+      512,
+      512
+    ],
+    "pivot": [
+      256.0,
+      256.0
+    ],
+    "ring_radius_px": 200.0,
+    "camera": "top-down",
+    "blend": "additive; alpha derived from brightness",
+    "px_per_m": 80.0
+  },
+  "counter-emblem": {
+    "size": [
+      512,
+      512
+    ],
+    "pivot": [
+      256.0,
+      256.0
+    ],
+    "outer_radius_px": 184.0,
+    "camera": "top-down",
+    "blend": "additive; alpha derived from brightness",
+    "px_per_m": 80.0
   }
 }

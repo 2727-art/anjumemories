@@ -7,8 +7,13 @@ Renders five sample images for art-direction review only (not game assets yet):
   r1-icon-aegis    Aegis Wall skill icon
   r1-icon-pulse    Counter Pulse skill icon
 
-Every image except the pulse also gets "<name>_emit.png" with only its glowing parts;
-make_r1_mock.py turns that into the glow and writes the review sheets.
+V1 (2026-10-14, the counter wave made distinct; docs/regalia-kit-design.md 12.5):
+  v1-counter-ring    the counter wave's ring in REGALIA gold  (top-down, emission on black)
+  v1-counter-emblem  REGALIA's crest flashing on the ground   (top-down, emission on black)
+
+Every image except the pulse rings and the emblem also gets "<name>_emit.png" with only its
+glowing parts; make_r1_mock.py turns that into the glow and writes the review sheets
+(make_v1_counter.py for V1).
 
   & "C:\\Program Files\\Blender Foundation\\Blender 5.2\\blender.exe" --background --factory-startup `
       --python tools/blender/regalia_kit/build_r1.py -- --out tools/blender/regalia_kit/preview
@@ -54,6 +59,8 @@ PALETTE = {
     "energy_core": "#e8f8ff",
     "aura_gold": "#ffd86b",    # cannon auraTint
     "pulse": "#8fa0f0",
+    "counter_core": "#fff3d0",  # warm white edge of the gold counter ring
+    "counter_band": "#e0a43c",  # deep gold inside the band
 }
 
 
@@ -599,6 +606,18 @@ def asset_crack(out_dir):
 
 def asset_pulse(out_dir):
     """One mid-expansion frame. Emission only, on black; make_r1_mock.py derives the alpha."""
+    return pulse_ring(out_dir, "r1-pulse", band_colors=("pulse", "energy"), edge="energy_core", streak="energy", shard="aura_gold")
+
+
+def asset_counter_ring(out_dir):
+    """V1: the same ring in REGALIA gold for the counter wave, with cyan sparks (the colours of the
+    cannon's aura swapped), so a counter never reads as the cool automatic wave."""
+    return pulse_ring(out_dir, "v1-counter-ring", band_colors=("counter_band", "aura_gold"), edge="counter_core", streak="aura_gold", shard="energy")
+
+
+def pulse_ring(out_dir, name, band_colors, edge, streak, shard):
+    """The pulse ring with the given PALETTE colours (band inner -> outer, edge line, streaks, shards).
+    Same geometry and seed for every colour set."""
     size = 512
     scene = setup_scene(size, size, samples=64, transparent=False)
     scene.cycles.use_denoising = False
@@ -615,15 +634,15 @@ def asset_pulse(out_dir):
     noise = nb.noise(obj_co, scale=3.0, detail=6.0, roughness=0.6)
     noise = noise.outputs["Fac"] if hasattr(noise, "outputs") else noise
     wobble = nb.map_range(noise, 0.3, 0.7, 0.55, 1.25)
-    color = nb.mix(nb.map_range(delta, -0.12, 0.03), srgb(PALETTE["pulse"]), srgb(PALETTE["energy"]))
+    color = nb.mix(nb.map_range(delta, -0.12, 0.03), srgb(PALETTE[band_colors[0]]), srgb(PALETTE[band_colors[1]]))
     nb.output(nb.emission(color, nb.mul(nb.mul(band, wobble), 0.6)))
     ow.plane_xy("rk_band", -3.4, -3.4, 3.4, 3.4, 0.0, material)
 
-    flat_ring("rk_edge", radius - 0.02, 0.022, "Z", 0.01, emission("rk_edge_mat", PALETTE["energy_core"], 1.1), segments=192)
+    flat_ring("rk_edge", radius - 0.02, 0.022, "Z", 0.01, emission("rk_edge_mat", PALETTE[edge], 1.1), segments=192)
 
     streak_mat, nb = ow.new_material("rk_streak")
     along = nb.separate(nb.uv())[1]
-    nb.output(nb.emission(srgb(PALETTE["energy"]), nb.mul(along, 1.1)))
+    nb.output(nb.emission(srgb(PALETTE[streak]), nb.mul(along, 1.1)))
     for i in range(56):
         a = math.tau * i / 56 + rng.uniform(-0.03, 0.03)
         r0, r1, w = radius - rng.uniform(0.15, 0.6), radius + rng.uniform(0.05, 0.35), rng.uniform(0.012, 0.03)
@@ -637,7 +656,7 @@ def asset_pulse(out_dir):
             loop[uv_layer].uv = uv  # v = 0 at the inner end, 1 at the outer end
         new_object(f"rk_streak{i}", bm, [streak_mat])
 
-    shard_mat = emission("rk_shard", PALETTE["aura_gold"], 1.6)
+    shard_mat = emission("rk_shard", PALETTE[shard], 1.6)
     for i in range(34):
         a, r = rng.uniform(0.0, math.tau), radius + rng.uniform(-0.25, 0.3)
         s, rot = rng.uniform(0.03, 0.07), rng.uniform(0.0, math.tau)
@@ -647,8 +666,89 @@ def asset_pulse(out_dir):
         new_object(f"rk_shard{i}", bm, [shard_mat])
 
     top_camera(scene, size / PX_PER_M)
-    ow.render_still(scene, os.path.join(out_dir, "r1-pulse.png"), "PNG", rgba=False)
+    ow.render_still(scene, os.path.join(out_dir, f"{name}.png"), "PNG", rgba=False)
     return {"size": [size, size], "pivot": [size / 2, size / 2], "ring_radius_px": radius * PX_PER_M,
+            "camera": "top-down", "blend": "additive; alpha derived from brightness", "px_per_m": PX_PER_M}
+
+
+def flat_polygon(name, pts, z, material):
+    """A flat n-gon in the XY plane at height z."""
+    bm = bmesh.new()
+    bm.faces.new([bm.verts.new((x, y, z)) for (x, y) in pts])
+    return new_object(name, bm, [material])
+
+
+def asset_counter_emblem(out_dir):
+    """V1: REGALIA's crest as light on the ground, flashed under the mech on a counter. The cross
+    pattee of the shields and the tabard, a ring of ticks and eight crown spikes like the shield's
+    crest. Emission only, on black (drawn additively, alpha from brightness)."""
+    size = 512
+    scene = setup_scene(size, size, samples=64, transparent=False)
+    scene.cycles.use_denoising = False
+    setup_world(scene, black=True)
+    outer = 2.3  # m; 184 px at 2x. The game scales it to its own size (V1: 150 world px).
+
+    # a faint disc of light inside the crest, brightest at the rim
+    material, nb = ow.new_material("rk_emblem_disc")
+    dist = nb.vmath("LENGTH", nb.node("ShaderNodeTexCoord").outputs["Object"])
+    rim = nb.mul(nb.map_range(dist, 0.4, outer, 0.25, 1.0), nb.map_range(dist, outer - 0.05, outer + 0.05, 1.0, 0.0))
+    nb.output(nb.emission(srgb(PALETTE["counter_band"]), nb.mul(rim, 0.14)))
+    ow.plane_xy("rk_emblem_disc", -3.0, -3.0, 3.0, 3.0, 0.0, material)
+
+    gold = emission("rk_emblem_gold", PALETTE["aura_gold"], 1.0)
+    gold_dim = emission("rk_emblem_gold_dim", PALETTE["counter_band"], 0.42)
+    white = emission("rk_emblem_white", PALETTE["counter_core"], 1.2)
+    cyan = emission("rk_emblem_cyan", PALETTE["energy"], 0.9)
+    gem = emission("rk_emblem_gem", PALETTE["energy_core"], 3.0)
+
+    flat_ring("rk_emblem_outer", outer, 0.045, "Z", 0.01, white, segments=192)
+    flat_ring("rk_emblem_outer2", outer - 0.3, 0.018, "Z", 0.01, gold, segments=192)
+    flat_ring("rk_emblem_inner", 1.85, 0.028, "Z", 0.01, cyan, segments=160)
+    # ticks between the two outer rings, a diamond at every eighth
+    for i in range(64):
+        a = math.tau * i / 64
+        ca, sa = math.cos(a), math.sin(a)
+        if i % 8 == 0:
+            r0, r1, w = outer - 0.27, outer - 0.03, 0.07
+            mid = (r0 + r1) / 2
+            pts = [(ca * r0, sa * r0), (ca * mid - sa * w, sa * mid + ca * w),
+                   (ca * r1, sa * r1), (ca * mid + sa * w, sa * mid - ca * w)]
+            flat_polygon(f"rk_emblem_diamond{i}", pts, 0.02, white)
+        else:
+            r0, r1, w = outer - 0.2, outer - 0.1, 0.012
+            pts = [(ca * r0 - sa * w, sa * r0 + ca * w), (ca * r0 + sa * w, sa * r0 - ca * w),
+                   (ca * r1 + sa * w, sa * r1 - ca * w), (ca * r1 - sa * w, sa * r1 + ca * w)]
+            flat_polygon(f"rk_emblem_tick{i}", pts, 0.02, gold)
+    # eight crown spikes outside the rim, between the diamonds
+    for i in range(8):
+        a = math.tau * i / 8 + math.pi / 8
+        ca, sa = math.cos(a), math.sin(a)
+        r0, r1, w = outer + 0.02, outer + 0.42, 0.11
+        pts = [(ca * r0 - sa * w, sa * r0 + ca * w), (ca * r0 + sa * w, sa * r0 - ca * w), (ca * r1, sa * r1)]
+        flat_polygon(f"rk_emblem_spike{i}", pts, 0.02, gold)
+        core = [(x * 0.55 + ca * r0 * 0.45, y * 0.55 + sa * r0 * 0.45) for (x, y) in pts]
+        flat_polygon(f"rk_emblem_spike_core{i}", core, 0.03, white)
+    # faint cyan rays between the cross arms
+    for i in range(4):
+        a = math.pi / 4 + math.pi / 2 * i
+        ca, sa = math.cos(a), math.sin(a)
+        r0, r1, w = 0.7, 1.75, 0.06
+        pts = [(ca * r0 - sa * w, sa * r0 + ca * w), (ca * r0 + sa * w, sa * r0 - ca * w), (ca * r1, sa * r1)]
+        flat_polygon(f"rk_emblem_ray{i}", pts, 0.02, cyan)
+    # the cross pattee reaching the inner ring, so its arms show around the mech standing on it:
+    # a bright rim around a dimmer gold fill, a gem in the middle
+    cross = cross_pattee(arm=1.8, root=0.2, flare=0.62)
+    flat_polygon("rk_emblem_cross", cross, 0.02, white)
+    flat_polygon("rk_emblem_cross_fill", [(x * 0.84, y * 0.84) for (x, y) in cross], 0.03, gold_dim)
+    bm = bmesh.new()
+    bmesh.ops.create_circle(bm, cap_ends=True, segments=32, radius=0.14)
+    for v in bm.verts:
+        v.co.z = 0.04
+    new_object("rk_emblem_gem", bm, [gem])
+
+    top_camera(scene, size / PX_PER_M)
+    ow.render_still(scene, os.path.join(out_dir, "v1-counter-emblem.png"), "PNG", rgba=False)
+    return {"size": [size, size], "pivot": [size / 2, size / 2], "outer_radius_px": outer * PX_PER_M,
             "camera": "top-down", "blend": "additive; alpha derived from brightness", "px_per_m": PX_PER_M}
 
 
@@ -720,6 +820,8 @@ def main():
         "icon-aegis": asset_icon_aegis,
         "icon-pulse": asset_icon_pulse,
         "shield-dirs": asset_shield_dirs,
+        "counter-ring": asset_counter_ring,
+        "counter-emblem": asset_counter_emblem,
     }
     manifest_path = os.path.join(out_dir, "r1-assets.json")
     manifest = {}
