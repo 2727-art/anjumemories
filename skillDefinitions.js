@@ -654,7 +654,7 @@
         buildRegaliaAegisWallStage(8, { shieldCount: 11, wallDistance: 225, wingCount: 2, damage: 32, impactRadius: 66, durabilityRatio: 0.8, lifetimeMs: 6500, cooldownMs: 5500, thornDamage: 6 })
       ]
     },
-    // REGALIA's third slot (docs/regalia-kit-design.md 5).
+    // REGALIA's third slot (docs/regalia-kit-design.md 5; guard shields 12.6).
     regaliaCounterPulse: {
       id: "regaliaCounterPulse",
       name: "Counter Pulse",
@@ -666,16 +666,16 @@
       behavior: "regaliaCounterPulse",
       startsUnlocked: false,
       exclusiveToMechId: "regaliaBastion",
-      description: "衝撃波を放ち、被弾すると反撃波を返す",
+      description: "回る盾が攻撃を防ぎ、反撃波を返す",
       stages: [
-        buildRegaliaCounterPulseStage(1, { autoIntervalMs: 3200, pulseRadius: 120, damage: 4, counterMultiplier: 1.5, knockback: 160 }),
-        buildRegaliaCounterPulseStage(2, { autoIntervalMs: 3000, pulseRadius: 128, damage: 5, counterMultiplier: 1.5, knockback: 170 }),
-        buildRegaliaCounterPulseStage(3, { autoIntervalMs: 2800, pulseRadius: 136, damage: 7, counterMultiplier: 1.6, knockback: 180 }),
-        buildRegaliaCounterPulseStage(4, { autoIntervalMs: 2600, pulseRadius: 146, damage: 9, counterMultiplier: 1.6, knockback: 190 }),
-        buildRegaliaCounterPulseStage(5, { autoIntervalMs: 2400, pulseRadius: 156, damage: 11, counterMultiplier: 1.7, knockback: 200, shieldBreakRadiusRatio: 0.7 }),
-        buildRegaliaCounterPulseStage(6, { autoIntervalMs: 2200, pulseRadius: 168, damage: 14, counterMultiplier: 1.8, knockback: 220, shieldBreakRadiusRatio: 0.7 }),
-        buildRegaliaCounterPulseStage(7, { autoIntervalMs: 2000, pulseRadius: 182, damage: 17, counterMultiplier: 1.9, knockback: 240, shieldBreakRadiusRatio: 0.7 }),
-        buildRegaliaCounterPulseStage(8, { autoIntervalMs: 1800, pulseRadius: 200, damage: 22, counterMultiplier: 2.0, knockback: 280, shieldBreakRadiusRatio: 0.7, echoDamageRatio: 0.5 })
+        buildRegaliaCounterPulseStage(1, { autoIntervalMs: 3200, pulseRadius: 120, damage: 4, counterMultiplier: 1.5, guardShieldCount: 1, guardRegenMs: 10000, knockback: 160 }),
+        buildRegaliaCounterPulseStage(2, { autoIntervalMs: 3000, pulseRadius: 128, damage: 5, counterMultiplier: 1.5, guardShieldCount: 1, guardRegenMs: 9500, knockback: 170 }),
+        buildRegaliaCounterPulseStage(3, { autoIntervalMs: 2800, pulseRadius: 136, damage: 7, counterMultiplier: 1.6, guardShieldCount: 2, guardRegenMs: 9000, knockback: 180 }),
+        buildRegaliaCounterPulseStage(4, { autoIntervalMs: 2600, pulseRadius: 146, damage: 9, counterMultiplier: 1.6, guardShieldCount: 2, guardRegenMs: 8500, knockback: 190 }),
+        buildRegaliaCounterPulseStage(5, { autoIntervalMs: 2400, pulseRadius: 156, damage: 11, counterMultiplier: 1.7, guardShieldCount: 3, guardRegenMs: 7500, knockback: 200, shieldBreakRadiusRatio: 0.7 }),
+        buildRegaliaCounterPulseStage(6, { autoIntervalMs: 2200, pulseRadius: 168, damage: 14, counterMultiplier: 1.8, guardShieldCount: 3, guardRegenMs: 7000, knockback: 220, shieldBreakRadiusRatio: 0.7 }),
+        buildRegaliaCounterPulseStage(7, { autoIntervalMs: 2000, pulseRadius: 182, damage: 17, counterMultiplier: 1.9, guardShieldCount: 4, guardRegenMs: 6000, knockback: 240, shieldBreakRadiusRatio: 0.7 }),
+        buildRegaliaCounterPulseStage(8, { autoIntervalMs: 1800, pulseRadius: 200, damage: 22, counterMultiplier: 2.0, guardShieldCount: 4, guardRegenMs: 5000, knockback: 280, shieldBreakRadiusRatio: 0.7, echoDamageRatio: 0.5 })
       ]
     }
   };

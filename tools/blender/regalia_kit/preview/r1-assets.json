@@ -167,5 +167,40 @@
     "camera": "top-down",
     "blend": "additive; alpha derived from brightness",
     "px_per_m": 80.0
+  },
+  "guard-dirs": {
+    "se": {
+      "size": [
+        256,
+        320
+      ],
+      "pivot": [
+        128.0,
+        284.0
+      ],
+      "screen_angle_deg": 45
+    },
+    "s": {
+      "size": [
+        256,
+        320
+      ],
+      "pivot": [
+        128.0,
+        284.0
+      ],
+      "screen_angle_deg": 90
+    },
+    "sw": {
+      "size": [
+        256,
+        320
+      ],
+      "pivot": [
+        128.0,
+        284.0
+      ],
+      "screen_angle_deg": 135
+    }
   }
 }

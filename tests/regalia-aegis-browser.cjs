@@ -241,7 +241,8 @@ async function main() {
     assert.deepEqual(s8se.directions, [0, 1, 2], "south-east wall with east and south wings");
     await snapshot(page, "s8-southeast.png");
 
-    // Counter Pulse (R3): owned at S8, then a hit through the real damage path fires a counter wave.
+    // Counter Pulse (R3): owned at S8, then a hit through the real damage path is taken by a guard
+    // shield (12.6) and fires the counter wave.
     await page.evaluate(() => {
       const scene = window.__SURVIVAL_GAME__.scene.getScene("survival-scene");
       scene.unlockSkill("regaliaCounterPulse");
@@ -251,16 +252,23 @@ async function main() {
     step({ step: "Counter Pulse Mutation selections", pulseMutations });
     assert.deepEqual(pulseMutations.map((pick) => pick.phase), ["stage4", "stage8"]);
     assert.deepEqual(pulseMutations[0].titles, ["RETRIBUTION CORE", "REPULSE CORE", "CAPACITOR CORE"]);
+    await page.waitForTimeout(300);
+    await snapshot(page, "s8-guard.png");
     const pulse = await page.evaluate(() => {
       const scene = window.__SURVIVAL_GAME__.scene.getScene("survival-scene");
       const state = scene.playerSkills.regaliaCounterPulse;
       scene.invincibleUntil = 0;
       const before = scene.stats.hp;
+      const readyBefore = scene.getReadyRegaliaGuardCount();
+      const guardVisuals = (scene.regaliaGuardVisuals || []).map((visual) => visual.sprite?.texture?.key || visual.sprite?.type);
       const accepted = scene.applyDamageToPlayer(5, { source: "regaliaKitBrowserCheck" });
       return {
         stage: state?.currentStage?.stage || 0,
         accepted,
         hpLost: before - scene.stats.hp,
+        readyBefore,
+        readyAfter: scene.getReadyRegaliaGuardCount(),
+        guardVisuals,
         counterFired: (state?.regaliaPulseCounterReadyAt || 0) > scene.time.now,
         timerMs: Math.round(state?.regaliaPulseTimerMs || 0),
         intervalMs: scene.getRegaliaCounterPulseIntervalMs(state, state.currentStage),
@@ -274,7 +282,11 @@ async function main() {
     });
     step({ step: "Counter Pulse S8 hit", ...pulse });
     assert.equal(pulse.stage, 8);
-    assert.equal(pulse.accepted, true);
+    assert.deepEqual([pulse.readyBefore, pulse.readyAfter], [4, 3], "one of the four shields took the hit");
+    assert.equal(pulse.accepted, false, "no damage was taken");
+    assert.equal(pulse.hpLost, 0);
+    assert.equal(pulse.guardVisuals.length, 4);
+    assert.ok(pulse.guardVisuals.every((key) => /^regalia-guard-v2-(se|s|sw)$/.test(key)), `guard visuals: ${pulse.guardVisuals}`);
     assert.equal(pulse.counterFired, true);
     // 1800 ms at S8, shortened by the Mutation picked above.
     assert.equal(pulse.timerMs, pulse.intervalMs, "the counter restarts the automatic timer");
@@ -297,6 +309,25 @@ async function main() {
     });
     step({ step: "Counter Pulse after 2.5 s", ...afterWaves });
     assert.equal(afterWaves.echoes <= 1, true);
+
+    // The other three shields take the next three hits; the fifth hit reaches AP.
+    const drain = await page.evaluate(() => {
+      const scene = window.__SURVIVAL_GAME__.scene.getScene("survival-scene");
+      const results = [];
+      for (let index = 0; index < 4; index += 1) {
+        scene.invincibleUntil = 0;
+        const before = scene.stats.hp;
+        scene.applyDamageToPlayer(5, { source: "regaliaKitBrowserCheck" });
+        results.push({ ready: scene.getReadyRegaliaGuardCount(), hpLost: before - scene.stats.hp });
+      }
+      return results;
+    });
+    step({ step: "Counter Pulse guard drained", drain });
+    assert.deepEqual(drain.map((row) => row.ready), [2, 1, 0, 0]);
+    assert.deepEqual(drain.slice(0, 3).map((row) => row.hpLost), [0, 0, 0]);
+    assert.ok(drain[3].hpLost > 0, "with no shield left the hit lands");
+    await page.waitForTimeout(200);
+    await snapshot(page, "s8-guard-used.png");
 
     // On PC the shop return reloads the page, so the run-end cleanup is checked on game over.
     await page.evaluate(() => window.__SURVIVAL_GAME__.scene.getScene("survival-scene").triggerGameOver({}));

@@ -11,6 +11,10 @@ V1 (2026-10-14, the counter wave made distinct; docs/regalia-kit-design.md 12.5)
   v1-counter-ring    the counter wave's ring in REGALIA gold  (top-down, emission on black)
   v1-counter-emblem  REGALIA's crest flashing on the ground   (top-down, emission on black)
 
+V2 (2026-10-14, Counter Pulse's guard shields; docs/regalia-kit-design.md 12.6):
+  v2-guard-<facing>  a small shield orbiting the mech: se / s / sw, so its cross always shows
+                     (the Aegis Wall shield without rubble, its tip not buried: it hovers)
+
 Every image except the pulse rings and the emblem also gets "<name>_emit.png" with only its
 glowing parts; make_r1_mock.py turns that into the glow and writes the review sheets
 (make_v1_counter.py for V1).
@@ -564,6 +568,31 @@ def asset_shield_dirs(out_dir):
     return result
 
 
+# V2: a guard shield on the east side of the orbit turns south-east, on the west side south-west, and
+# faces the camera in between. Facing outwards would leave the east / west ones edge-on and the north
+# ones showing their backs, and the player needs to count them at a glance.
+GUARD_FACINGS = (("se", 45), ("s", 90), ("sw", 135))
+
+
+def asset_guard_dirs(out_dir):
+    """V2: the guard shield in each of its three facings. Same shield, camera and lights as the R2
+    wall, but hovering: no rubble, no ground, the tip at z = 0 (the pivot)."""
+    width, height = 256, 320
+    result = {}
+    for name, degrees in GUARD_FACINGS:
+        scene = setup_scene(width, height)
+        setup_world(scene)
+        add_sprite_lights(scene)
+        mats = materials()
+        screen = math.radians(degrees)
+        yaw = math.atan2(-math.sin(screen), math.cos(screen)) + math.pi / 2.0
+        build_shield(mats, rotation_z=yaw, ground=0.0, name=f"guard_{name}")
+        ortho_camera(scene, (0.0, 0.0, 1.65), width / PX_PER_M, 20.0)
+        render_pair(scene, out_dir, f"v2-guard-{name}")
+        result[name] = {"size": [width, height], "pivot": pixel_of(scene, (0.0, 0.0, 0.0)), "screen_angle_deg": degrees}
+    return result
+
+
 def asset_crack(out_dir):
     size = 256
     scene = setup_scene(size, size)
@@ -822,6 +851,7 @@ def main():
         "shield-dirs": asset_shield_dirs,
         "counter-ring": asset_counter_ring,
         "counter-emblem": asset_counter_emblem,
+        "guard-dirs": asset_guard_dirs,
     }
     manifest_path = os.path.join(out_dir, "r1-assets.json")
     manifest = {}

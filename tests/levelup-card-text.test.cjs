@@ -258,6 +258,16 @@ test("Fire Control Link shortens REGALIA's own intervals down to 60% / 55% and k
   ownLostArm(withArms.scene);
   assert.equal(withArms.scene.buildLevelUpCardModel(passive(withArms.scene, "rapidSigil"), 0).description,
     "Counter Pulse の自動間隔 3.2 → 2.935秒\nLOST ARMS の再発動待ち 基本の 100% → 91.6%");
+
+  // Counter Pulse's guard shields come back faster too; the line shows when there is room.
+  const pulseOnly = fixture({ mechId: "regaliaBastion", orbitCore: false });
+  ownKit(pulseOnly.scene, pulseOnly.api, "regaliaCounterPulse");
+  const pulseCard = pulseOnly.scene.buildLevelUpCardModel(passive(pulseOnly.scene, "rapidSigil"), 0);
+  assert.equal(pulseCard.description, "Counter Pulse の自動間隔 3.2 → 2.935秒\nCounter Pulse の盾の復活 10 → 9.171秒");
+  assert.equal(pulseCard.chips[0].label, "自動間隔 -0.265秒");
+  const guard = pulseOnly.scene.playerSkills.regaliaCounterPulse;
+  pulseOnly.scene.stats.fireInterval = 160;
+  assert.equal(pulseOnly.scene.getRegaliaGuardRegenMs(guard, guard.currentStage), 5500, "55% of 10 s at the floor");
 });
 
 test("REGALIA keeps getting levels while its own skills still read the passives", () => {
