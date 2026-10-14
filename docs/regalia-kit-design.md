@@ -484,6 +484,17 @@ Depth20 での確認で壁の形が狙いどおりと確認されたため、通
 - 合成：`make_v1_counter.py`（ゲームと同じ重なり順で合成）
 - 試作で分かったこと：紋章を外周半径 92 にすると機体の絵にほぼ隠れたので、150 に広げた。十字の腕も内側の輪まで伸ばした。中の明るさは、地面が白く飛ばない程度に下げた。
 
+実装（2026-10-14、試作の承認後）：
+- 画像：`画像/skills/regalia_counter_pulse/counter_ring_v1.png` と `counter_emblem_v1.png`（`make_v1_counter.py` が書き出す）。ほかの Counter Pulse の画像と一緒に、REGALIA の出撃時だけ読み込む。
+- 値は `REGALIA_COUNTER_PULSE_CONFIG.counter` にまとめた（上の試作の値のまま）。
+- 揺れは、反撃が 10 体以上に当たったときだけ、既存でいちばん弱い揺れ（90ms・0.0011）を使う。
+- 文字は depth 29（ダメージ数字の 30 のすぐ下）。フォントはダメージ数字と同じ。
+- 画像がないときは、紋章も金の輪も Graphics で描く（`drawRegaliaCounterFallbackEmblem`）。
+- 後片付けは、ほかの波と同じく `clearRegaliaCounterPulse` が、閃光・紋章・輪・文字をすべて消す。
+- テスト：
+  - `tests/regalia-counter-pulse.test.cjs` に 4 件を加えた（見た目の中身と重なり順、画像がないとき、揺れの条件、読み込み）。
+  - 実ブラウザの確認では、反撃の 0.04 秒後と 0.15 秒後を撮る。
+
 ## 13. テストと検証
 
 【提案・未承認】

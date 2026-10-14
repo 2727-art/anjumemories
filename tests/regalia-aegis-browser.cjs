@@ -267,6 +267,8 @@ async function main() {
         echoes: scene.regaliaCounterPulseState?.echoes?.length || 0,
         rings: scene.regaliaPulseFxObjects?.size || 0,
         ringImage: scene.textures.exists("regalia-counter-pulse-r1"),
+        // V1 counter visuals (docs/regalia-kit-design.md 12.5): the textures or "COUNTER" of each object
+        counterFx: Array.from(scene.regaliaPulseFxObjects || []).map((object) => object.texture?.key === "__DEFAULT" ? object.type : (object.text || object.texture?.key || object.type)),
         hudChips: scene.getCompactHudSkillChipModels().map((chip) => chip.text)
       };
     });
@@ -280,8 +282,13 @@ async function main() {
     assert.equal(pulse.echoes, 1, "S8 queues the half-damage echo");
     assert.ok(pulse.rings >= 1);
     assert.equal(pulse.ringImage, true, "the R1 pulse image is loaded for this sortie");
+    for (const key of ["regalia-counter-ring-v1", "regalia-counter-emblem-v1", "COUNTER"]) {
+      assert.ok(pulse.counterFx.includes(key), `counter visuals: ${pulse.counterFx}`);
+    }
     assert.ok(pulse.hudChips.some((chip) => /^PLS S8\*?$/.test(chip)), `HUD chips: ${pulse.hudChips}`); // * = Final Mutation
-    await page.waitForTimeout(90);
+    await page.waitForTimeout(40);
+    await snapshot(page, "s8-counter-flash.png");
+    await page.waitForTimeout(110);
     await snapshot(page, "s8-counter-wave.png");
     await page.waitForTimeout(2500);
     const afterWaves = await page.evaluate(() => {

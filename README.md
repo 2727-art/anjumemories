@@ -29,13 +29,14 @@ REGALIA BASTION のスキル枠は、Regalia Bastion Cannon・Aegis Wall（王�
   - 一定間隔で機体の周りに衝撃波を出します（S1 は 3.2 秒ごと・半径 120、S8 は 1.8 秒ごと・半径 200）。
   - 攻撃を受けると、反撃倍率（×1.5〜2.0）を掛けた衝撃波を即座に出し、自動のタイマーを最初からやり直します。
   - S5 からは Aegis Wall の盾が砕けた場所からも衝撃波が出ます。S8 では、機体の周りの衝撃波が 0.15 秒後に威力 50% でもう 1 回出ます。
+  - 反撃の波は、自動の波（青い輪）と見分けられる見た目にしています。足元の閃光と REGALIA の紋章、金の輪 2 枚、機体の上の「COUNTER」の文字です。反撃が一度に 10 体以上に当たったときだけ、画面がわずかに揺れます。
 - **パッシブ**：Reactor Overcharge は 2 つのスキルの威力を Lv ごとに +1 します。Fire Control Link は、Aegis Wall の再設置と Counter Pulse の自動間隔を縮めます。短縮は Stage の値の最大 40%／45% までです。どちらも、2 つのスキルのどちらかを持っていると候補に出ます。キャノンには効きません。
 - **Mutation／TRIAD**：
   - 2 つのスキルは Stage4 で Core、Stage8 で Final を選べます。名前は専用で、たとえば Aegis Wall の Core は SPIKE WALL／HOLD LINE／RAPID RAMPART です。
   - 効果は、キャノンと同じ汎用の威力補正と間隔補正です。TRIAD MATRIX は 3 つの枠すべてを集計します。
 - **装備**：SENSOR は 2 つのスキルの間隔を縮め、ARMAMENT と OVERLIMIT はその威力を上げます。REGALIA の COMBAT LINK（OVERLIMIT）の対象は、この 2 つのスキルです。キャノンは以前と同じく対象外です。
 - **画像**：
-  - 盾（8 方向）・地面のひび・衝撃波・アイコン 2 種は Blender で作り、REGALIA で出撃したときだけ読み込みます。
+  - 盾（8 方向）・地面のひび・衝撃波（青と金）・反撃の紋章・アイコン 2 種は Blender で作り、REGALIA で出撃したときだけ読み込みます。
   - 読み込みの前や読み込みに失敗したときは、図形の描画や生成アイコンで代わりに表示します。
   - 作り方は `tools/blender/regalia_kit/README.md` を参照してください。
 - **戦闘記録**：RUN ARCHIVE は v3 になり、記録ごとにスキル枠（`skillSlotIds`）を保存します。切り替え前の REGALIA の記録は、旧枠（REGALIA／TORNADO／RABBIT）のまま表示します。MUTATION ATLAS の REGALIA のセルは、そのまま残ります。

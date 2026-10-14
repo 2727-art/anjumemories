@@ -10,15 +10,19 @@ const root = path.resolve(__dirname, "..");
 const source = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const plain = value => JSON.parse(JSON.stringify(value));
 
-// Any Phaser display object: every method returns the object itself.
+// Any Phaser display object: every method returns the object itself; setters (setDepth, setAlpha,
+// ...) keep their last arguments in `sets`.
 function fakeDisplayObject(extra = {}) {
-  const target = { active: true, alpha: 1, scaleX: 1, scaleY: 1, x: 0, y: 0, ...extra };
+  const target = { active: true, alpha: 1, scaleX: 1, scaleY: 1, x: 0, y: 0, sets: {}, ...extra };
   target.destroy = () => { target.active = false; };
   target.once = () => target;
   const proxy = new Proxy(target, {
     get(object, key) {
       if (key in object) return object[key];
       if (key === "then") return undefined;
+      if (typeof key === "string" && key.startsWith("set")) {
+        return (...args) => { object.sets[key] = args; return proxy; };
+      }
       return () => proxy;
     }
   });
@@ -53,7 +57,7 @@ function fixture({ mechId = "regaliaBastion" } = {}) {
     " pulseConfig: REGALIA_COUNTER_PULSE_CONFIG };", context);
   const api = context.api;
   const scene = Object.create(api.Scene.prototype);
-  const calls = { damage: [], loads: [], visuals: [] };
+  const calls = { damage: [], loads: [], visuals: [], shakes: [] };
   scene.getUrlStageParam = () => "";
   scene.getDebugPlayerMechIdOverride = () => null;
   scene.getSelectedPlayerMechId = () => mechId;
@@ -74,8 +78,10 @@ function fixture({ mechId = "regaliaBastion" } = {}) {
   scene.add = {
     zone: (x, y) => fakeDisplayObject({ x, y }),
     graphics: () => { const object = fakeDisplayObject(); calls.visuals.push("graphics"); return object; },
-    image: (x, y, key) => { const object = fakeDisplayObject({ x, y }); calls.visuals.push(key); return object; }
+    image: (x, y, key) => { const object = fakeDisplayObject({ x, y, key }); calls.visuals.push(key); return object; },
+    text: (x, y, value) => { const object = fakeDisplayObject({ x, y, text: value }); calls.visuals.push(`text:${value}`); return object; }
   };
+  scene.cameras = { main: { shake: (duration, intensity) => calls.shakes.push([duration, intensity]) } };
   const group = {
     children: new Set(),
     add(zone) {

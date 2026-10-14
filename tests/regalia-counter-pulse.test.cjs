@@ -1,7 +1,7 @@
 "use strict";
 // REGALIA Counter Pulse (docs/regalia-kit-design.md 5, R3): stage table, the automatic wave, the
-// counter wave on an accepted hit, pausing, the S5 shield-break wave, the S8 echo, cleanup and the
-// level-up card text. The hit -> counter path through applyDamageToPlayer is checked in the
+// counter wave on an accepted hit, pausing, the S5 shield-break wave, the S8 echo, cleanup, the
+// counter's own visuals and light camera shake (12.5) and the level-up card text. The hit -> counter path through applyDamageToPlayer is checked in the
 // browser test (tests/regalia-aegis-browser.cjs).
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -115,16 +115,99 @@ test("at S8 each wave around the mech repeats 0.15 s later at half damage", () =
 });
 
 test("cleanup drops pending echoes and wave visuals", () => {
-  const { scene, api, calls } = fixture();
+  const { scene, api } = fixture();
   owned(scene, api, 8);
-  scene.tweens = { add() { return {}; }, killTweensOf() {} }; // keep the rings alive
+  scene.tweens = { add() { return {}; }, killTweensOf() {} }; // keep the visuals alive
   scene.triggerRegaliaCounterPulse();
   assert.equal(scene.regaliaCounterPulseState.echoes.length, 1);
-  assert.equal(scene.regaliaPulseFxObjects.size, 1);
-  assert.deepEqual(calls.visuals, ["graphics"], "Graphics without the pulse image");
+  const objects = Array.from(scene.regaliaPulseFxObjects);
+  assert.equal(objects.length, 5, "flash, crest, gold ring, second ring, COUNTER");
   scene.clearRegaliaKitEffects("test");
   assert.equal(scene.regaliaCounterPulseState.echoes.length, 0);
   assert.equal(scene.regaliaPulseFxObjects.size, 0);
+  assert.ok(objects.every(object => object.active === false), "every object destroyed");
+});
+
+// Keeps every tween (and the objects they would destroy) so the visuals can be inspected.
+function holdTweens(scene) {
+  const tweens = [];
+  scene.tweens = { add(config) { tweens.push(config); return {}; }, killTweensOf() {} };
+  return tweens;
+}
+
+test("a counter shows the flash, the crest, the gold ring, a second ring and COUNTER; other waves keep the blue ring", () => {
+  const { scene, api, calls } = fixture();
+  owned(scene, api, 8);
+  scene.textures = { exists: () => true };
+  const tweens = holdTweens(scene);
+  const config = api.pulseConfig.counter;
+  scene.time.now = 1000;
+  scene.triggerRegaliaCounterPulse();
+  assert.deepEqual(calls.visuals, ["graphics", config.emblem.key, config.ring.key, "graphics", "text:COUNTER"]);
+  const [flash, emblem, ring, second, text] = Array.from(scene.regaliaPulseFxObjects);
+  // On the ground under enemies (18) and the mech (20); the text above them, under the damage numbers (30).
+  for (const object of [flash, emblem, ring, second]) assert.ok(object.sets.setDepth[0] < 18);
+  assert.ok(emblem.sets.setDepth[0] < ring.sets.setDepth[0], "the crest under the ring");
+  assert.equal(text.sets.setDepth[0], 29);
+  // The crest is 150 px out to its rim (184 px in the image); the ring meets the S8 radius 200.
+  const emblemGrow = tweens.find(tween => tween.targets === emblem && "scale" in tween);
+  assert.equal(emblemGrow.scale, 150 / 184);
+  const ringGrow = tweens.find(tween => tween.targets === ring && "scale" in tween);
+  assert.deepEqual([ringGrow.scale, ringGrow.duration], [1, 450]);
+  const secondGrow = tweens.find(tween => tween.targets === second && "scale" in tween);
+  assert.equal(secondGrow.delay, 60, "the second ring follows 0.06 s later");
+  assert.equal(second.sets.setAlpha[0], 0, "hidden until its delay ends");
+  assert.equal(text.text, "COUNTER");
+
+  // The automatic wave and the S8 echo keep the blue ring alone.
+  calls.visuals.length = 0;
+  scene.regaliaPulseFxObjects.clear();
+  scene.regaliaCounterPulseState.echoes = []; // the counter's own echo is checked below
+  scene.updateRegaliaCounterPulseSkill(scene.playerSkills[PULSE], stage(api, 8), 1800);
+  assert.deepEqual(calls.visuals, [api.pulseConfig.ring.key]);
+  calls.visuals.length = 0;
+  scene.updateRegaliaCounterPulseEchoes(200);
+  assert.ok(calls.visuals.length >= 1 && calls.visuals.every(key => key === api.pulseConfig.ring.key));
+});
+
+test("without the images the counter draws its crest and rings with Graphics", () => {
+  const { scene, api, calls } = fixture();
+  owned(scene, api, 1);
+  holdTweens(scene);
+  let fallbackRadius = 0;
+  const draw = scene.drawRegaliaCounterFallbackEmblem;
+  scene.drawRegaliaCounterFallbackEmblem = function (graphics, radius, color) {
+    fallbackRadius = radius;
+    return draw.call(this, graphics, radius, color);
+  };
+  scene.triggerRegaliaCounterPulse();
+  assert.deepEqual(calls.visuals, ["graphics", "graphics", "graphics", "graphics", "text:COUNTER"]);
+  assert.equal(fallbackRadius, 150);
+});
+
+test("a counter that hits a crowd shakes the camera lightly; small counters and other waves do not", () => {
+  const crowd = (count) => Array.from({ length: count }, (_, index) => enemy(`e${index}`, 1000 + 40 + index, 1000));
+  for (const [count, shakes] of [[9, 0], [10, 1]]) {
+    const { scene, api, calls } = fixture();
+    owned(scene, api, 1);
+    scene.enemyList.push(...crowd(count));
+    scene.triggerRegaliaCounterPulse();
+    assert.deepEqual(plain(calls.shakes), shakes ? [[90, 0.0011]] : [], `${count} hits`);
+  }
+  const { scene, api, calls } = fixture();
+  const state = owned(scene, api, 8);
+  scene.enemyList.push(...crowd(20));
+  scene.updateRegaliaCounterPulseSkill(state, stage(api, 8), 16); // automatic wave
+  scene.updateRegaliaCounterPulseSkill(state, stage(api, 8), 200); // its echo
+  assert.ok(calls.damage.length >= 40);
+  assert.deepEqual(plain(calls.shakes), [], "the automatic wave and its echo never shake");
+});
+
+test("a Counter Pulse sortie loads the counter ring and the crest with the other pulse images", () => {
+  const { scene, api, calls } = fixture();
+  scene.loadRegaliaCounterPulseAssets();
+  const config = api.pulseConfig;
+  assert.deepEqual(calls.loads.sort(), [config.counter.emblem.key, config.counter.ring.key, config.icon.key, config.ring.key].sort());
 });
 
 test("the level-up cards name range, interval and counter multiplier", () => {

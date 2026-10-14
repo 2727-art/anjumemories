@@ -5,6 +5,7 @@
 - ひびと反撃波：R2・R3 で `画像/skills/regalia_aegis_wall/crack_r1.png` と `画像/skills/regalia_counter_pulse/pulse_r1.png` として入れた。
 - 盾：2026-10-13 に Aegis Wall を「機体の前方に築く壁」に変えたため、8 方向の画像（`画像/skills/regalia_aegis_wall/shield_r2_<方向>.png`）に置き換えた（R2b）。
 - アイコン 2 種：R4 で、承認済みの R1 アイコンを 128 px に縮めて、各スキルのフォルダに `icon_r1.png` として入れた。レベルアップカード、Mutation カード、HUD に使う。
+- 反撃の金の輪と紋章：V1（2026-10-14）で、反撃の波を自動の波と見分けられるようにするため `画像/skills/regalia_counter_pulse/counter_ring_v1.png` と `counter_emblem_v1.png` を入れた。
 
 共通の設定は `tools/blender/openworld/ow_common.py` をそのまま使います（色管理 Standard、北西の主光、Cycles と GPU）。R1 は確認しやすいよう 2 倍の解像度（1 m = 80 px、ゲームは 1 m = 40 px）で描きます。
 
@@ -40,6 +41,12 @@ python tools/blender/regalia_kit/make_r2_wall.py
 
 # 5. R4：アイコン 2 種を 128 px に縮めて 画像/ に書き出す（手順 3 の *-final.png を使う）
 python tools/blender/regalia_kit/make_r4_icons.py
+
+# 6. V1：反撃の金の輪と紋章を描き出し、敵が密集した画面を撮って合成し、2 枚を 画像/ に書き出す
+& "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" --background --factory-startup `
+    --python tools/blender/regalia_kit/build_r1.py -- --out tools/blender/regalia_kit/preview --only counter-ring,counter-emblem
+node tools/blender/regalia_kit/capture_counter.cjs
+python tools/blender/regalia_kit/make_v1_counter.py
 ```
 
 撮影は新しいブラウザのプロファイルで行い、保存データには触れません。REGALIA は既存の debug 指定（`debugPlayerMech` / `debugPlayerMechUnlock`）で選びます。
@@ -52,6 +59,8 @@ python tools/blender/regalia_kit/make_r4_icons.py
 | `capture_regalia.cjs` | REGALIA で広域マップに出撃した 1280x720 の画面と、同じ一時停止中の画面から機体だけを消した画面を撮る（差分が機体のマスクになる） |
 | `make_r1_mock.py` | にじみ（`_emit` をぼかして加算）と 1 px 相当の暗い輪郭を焼き込んだ `*-final.png`、ゲーム画面への合成 2 枚（テリトリー S1 と S8）、既存の絵との比較画像を書く |
 | `make_r2_wall.py` | 8 方向の盾ににじみと輪郭を焼き込み、`画像/skills/regalia_aegis_wall/shield_r2_<方向>.png` に書き出す。方位どおりに並べた確認用の `preview/r2-shield-dirs.jpg` も書く |
+| `capture_counter.cjs` | REGALIA の周りに敵を約 40 体置いて一時停止し、同じ瞬間を 4 枚撮る（全部・機体なし・敵なし・両方なし）。差分が機体と敵の形になる |
+| `make_v1_counter.py` | 金の輪と紋章ににじみを焼き込み、ゲームと同じ重なり順で今の反撃と新しい反撃を合成した見本を書く。2 枚を `画像/skills/regalia_counter_pulse/` に書き出す |
 | `make_r4_icons.py` | 承認済みのアイコン（`preview/r1-icon-<名前>-final.png`、256 px）を 128 px に縮め、`画像/skills/regalia_aegis_wall/icon_r1.png` と `画像/skills/regalia_counter_pulse/icon_r1.png` に書き出す |
 | `preview/` | 描き出した画像、撮影した画面、合成と比較の画像、`r1-assets.json`（寸法と基準点） |
 

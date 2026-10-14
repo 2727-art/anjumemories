@@ -12,6 +12,9 @@ Writes to tools/blender/regalia_kit/preview/:
   v1-mock-counter-full.jpg     the whole screen at 0.15 s
   v1-sheet.jpg                 the two images on their own
 
+and the two finals to 画像/skills/regalia_counter_pulse/ for the game (counter_ring_v1.png,
+counter_emblem_v1.png; REGALIA_COUNTER_PULSE_CONFIG.counter).
+
 Layers follow the game: the ground, then the waves and the crest (depth 16.3, under enemies at 18
 and the mech at 20), then the enemies, the mech and the COUNTER text. Timings are the planned
 game values (the ring tween is Cubic.easeOut; the fade is linear).
@@ -19,11 +22,16 @@ game values (the ring tween is Cubic.easeOut; the fade is linear).
 
 import json
 import math
+import os
+import shutil
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-from make_r1_mock import FONT_JP, additive_to_rgba, blur, paste, path, to_image
+from make_r1_mock import FONT_JP, REPO, additive_to_rgba, blur, paste, path, to_image
+
+GAME_DIR = os.path.join(REPO, "画像", "skills", "regalia_counter_pulse")
+GAME_FILES = {"v1-counter-ring-final.png": "counter_ring_v1.png", "v1-counter-emblem-final.png": "counter_emblem_v1.png"}
 
 S8_RADIUS = 200          # Counter Pulse S8 pulseRadius (world px)
 AUTO_MS = 300            # REGALIA_COUNTER_PULSE_CONFIG.ringDurationMs (today, every wave)
@@ -188,7 +196,10 @@ def main():
     grid.save(path("v1-mock-counter.jpg"), quality=90)
     labelled(panels[2][1], "新しい反撃 0.15秒（S8 半径200、敵 49 体）。自動の波は今の青い輪のまま", font).save(path("v1-mock-counter-full.jpg"), quality=90)
     sheet(assets)
-    print("wrote v1-*-final.png, v1-mock-counter.jpg, v1-mock-counter-full.jpg, v1-sheet.jpg")
+    os.makedirs(GAME_DIR, exist_ok=True)
+    for source, target in GAME_FILES.items():
+        shutil.copyfile(path(source), os.path.join(GAME_DIR, target))
+    print("wrote v1-*-final.png, v1-mock-counter.jpg, v1-mock-counter-full.jpg, v1-sheet.jpg and the two game images")
 
 
 if __name__ == "__main__":

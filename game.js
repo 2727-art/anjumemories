@@ -130,7 +130,31 @@ const REGALIA_COUNTER_PULSE_CONFIG = Object.freeze({
   ringCoreColor: 0xe8f8ff,
   // R1 frame: emission on black, ring radius 200 px in the image; drawn additively.
   ring: { key: "regalia-counter-pulse-r1", path: "./画像/skills/regalia_counter_pulse/pulse_r1.png", ringRadiusPx: 200 },
-  icon: { key: "regalia-counter-pulse-icon-r1", path: "./画像/skills/regalia_counter_pulse/icon_r1.png" }
+  icon: { key: "regalia-counter-pulse-icon-r1", path: "./画像/skills/regalia_counter_pulse/icon_r1.png" },
+  // The counter wave (docs/regalia-kit-design.md 12.5): a flash and REGALIA's crest at the mech's
+  // feet, a gold ring with a thin second ring, and COUNTER above the mech. The automatic wave
+  // keeps the blue ring. Both images are emission on black, drawn additively.
+  counter: Object.freeze({
+    ring: { key: "regalia-counter-ring-v1", path: "./画像/skills/regalia_counter_pulse/counter_ring_v1.png", ringRadiusPx: 200 },
+    emblem: { key: "regalia-counter-emblem-v1", path: "./画像/skills/regalia_counter_pulse/counter_emblem_v1.png", outerRadiusPx: 184 },
+    ringDurationMs: 450,
+    ringColor: 0xffd86b,          // the gold ring drawn with Graphics when its image is missing
+    secondRingDelayMs: 60,
+    secondRingColor: 0xfff3d0,
+    flashRadius: 120,
+    flashDurationMs: 100,
+    flashColor: 0xfff3d6,
+    emblemRadius: 150,            // larger than the mech's sprite, so the rim and the cross show around it
+    emblemColor: 0xffd86b,
+    emblemInMs: 80,
+    emblemHoldMs: 250,
+    emblemOutMs: 550,
+    emblemAlpha: 0.85,
+    textDepth: 29,                // above enemies and the mech, just under the damage numbers (30)
+    shakeMinHits: 10,             // the weakest existing shake, only when the counter hits a crowd
+    shakeDurationMs: 90,
+    shakeIntensity: 0.0011
+  })
 });
 // The Blender icons of REGALIA's own skills. They load with the sortie's other kit images; until
 // then, or if they are missing, the cards and the HUD use the generated hud-icon-regalia-* icons.
@@ -76084,6 +76108,10 @@ class SurvivalScene extends Phaser.Scene {
     }
     const hits = this.applyRegaliaCounterPulseDamage(skillState?.id, stageData, center, wave);
     this.spawnRegaliaCounterPulseVisual(center, wave.radius, kind);
+    const { shakeMinHits, shakeDurationMs, shakeIntensity } = REGALIA_COUNTER_PULSE_CONFIG.counter;
+    if (kind === "counter" && hits >= shakeMinHits) {
+      this.cameras?.main?.shake?.(shakeDurationMs, shakeIntensity);
+    }
     const echoRatio = Math.max(0, Number(stageData?.echoDamageRatio) || 0);
     if (echoRatio > 0 && (kind === "auto" || kind === "counter")) {
       this.getRegaliaCounterPulseState().echoes.push({
@@ -76156,15 +76184,15 @@ class SurvivalScene extends Phaser.Scene {
     return reason;
   }
 
-  // The pulse frame and the icon load only for a sortie that can use Counter Pulse (design 11.3);
-  // without the frame the wave is drawn with Graphics.
+  // The pulse frames, the crest and the icon load only for a sortie that can use Counter Pulse
+  // (design 11.3); without them the waves and the crest are drawn with Graphics.
   loadRegaliaCounterPulseAssets() {
     if (!this.load || !this.textures) {
       return;
     }
-    const { ring, icon } = REGALIA_COUNTER_PULSE_CONFIG;
+    const { ring, icon, counter } = REGALIA_COUNTER_PULSE_CONFIG;
     const failed = this.regaliaKitAssetFailures || (this.regaliaKitAssetFailures = new Set());
-    for (const asset of [ring, icon]) {
+    for (const asset of [ring, icon, counter.ring, counter.emblem]) {
       if (!this.textures.exists(asset.key) && !failed.has(asset.key)) {
         this.loadImageAssetOnDemand(asset.key, asset.path, null, () => failed.add(asset.key));
       }
@@ -76176,36 +76204,192 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
     this.getRegaliaCounterPulseState();
-    const config = REGALIA_COUNTER_PULSE_CONFIG;
-    const strong = kind === "counter";
-    let ring;
-    let endScale = 1;
-    if (this.textures?.exists?.(config.ring.key)) {
-      endScale = radius / config.ring.ringRadiusPx;
-      ring = this.add.image(center.x, center.y, config.ring.key).setBlendMode(Phaser.BlendModes.ADD);
-    } else {
-      ring = this.add.graphics().setPosition(center.x, center.y).setBlendMode(Phaser.BlendModes.ADD);
-      ring.lineStyle(14, config.ringColor, 0.18);
-      ring.strokeCircle(0, 0, radius * 0.95);
-      ring.lineStyle(strong ? 5 : 3, config.ringCoreColor, 0.9);
-      ring.strokeCircle(0, 0, radius);
+    if (kind === "counter") {
+      this.spawnRegaliaCounterVisual(center, radius);
+      return;
     }
+    const config = REGALIA_COUNTER_PULSE_CONFIG;
+    const ring = this.createRegaliaPulseRing(center, radius, config.ring, config.ringColor, config.ringCoreColor);
+    this.playRegaliaPulseRing(ring.object, ring.endScale, config.ringDurationMs, kind === "echo" ? 0.6 : 0.85);
+  }
+
+  trackRegaliaPulseObject(object) {
     if (!this.regaliaPulseFxObjects) {
       this.regaliaPulseFxObjects = new Set();
     }
-    this.regaliaPulseFxObjects.add(ring);
-    ring.once?.("destroy", () => this.regaliaPulseFxObjects?.delete?.(ring));
-    ring.setDepth(config.ringDepth).setScale(endScale * 0.35).setAlpha(strong ? 1 : kind === "echo" ? 0.6 : 0.85);
-    this.tweens.add({ targets: ring, scale: endScale, duration: config.ringDurationMs, ease: "Cubic.easeOut" });
+    this.regaliaPulseFxObjects.add(object);
+    object.once?.("destroy", () => this.regaliaPulseFxObjects?.delete?.(object));
+    return object;
+  }
+
+  destroyRegaliaPulseObject(object) {
+    this.regaliaPulseFxObjects?.delete?.(object);
+    object?.destroy?.();
+  }
+
+  // A wave ring from its image (scaled so the image's ring meets `radius`), or two Graphics
+  // circles when the image is missing. Returns the object and the scale at full size.
+  createRegaliaPulseRing(center, radius, image, glowColor, coreColor) {
+    let object;
+    let endScale = 1;
+    if (this.textures?.exists?.(image.key)) {
+      endScale = radius / image.ringRadiusPx;
+      object = this.add.image(center.x, center.y, image.key);
+    } else {
+      object = this.add.graphics().setPosition(center.x, center.y);
+      object.lineStyle(14, glowColor, 0.18);
+      object.strokeCircle(0, 0, radius * 0.95);
+      object.lineStyle(3, coreColor, 0.9);
+      object.strokeCircle(0, 0, radius);
+    }
+    object.setBlendMode(Phaser.BlendModes.ADD).setDepth(REGALIA_COUNTER_PULSE_CONFIG.ringDepth);
+    return { object: this.trackRegaliaPulseObject(object), endScale };
+  }
+
+  // Grows from 35% to full size, then fades over the second half.
+  playRegaliaPulseRing(ring, endScale, durationMs, alpha, delayMs = 0) {
+    ring.setScale(endScale * 0.35).setAlpha(delayMs > 0 ? 0 : alpha);
+    this.tweens.add({
+      targets: ring,
+      scale: endScale,
+      delay: delayMs,
+      duration: durationMs,
+      ease: "Cubic.easeOut",
+      onStart: () => ring.setAlpha?.(alpha)
+    });
     this.tweens.add({
       targets: ring,
       alpha: 0,
-      delay: config.ringDurationMs * 0.45,
-      duration: config.ringDurationMs * 0.55,
-      onComplete: () => {
-        this.regaliaPulseFxObjects?.delete?.(ring);
-        ring.destroy?.();
-      }
+      delay: delayMs + durationMs * 0.45,
+      duration: durationMs * 0.55,
+      onComplete: () => this.destroyRegaliaPulseObject(ring)
+    });
+  }
+
+  // The counter wave (design 12.5): a flash and the crest at the mech's feet, the gold ring and a
+  // thin second ring on the ground (under enemies and the mech), and COUNTER above the mech.
+  spawnRegaliaCounterVisual(center, radius) {
+    const config = REGALIA_COUNTER_PULSE_CONFIG;
+    const counter = config.counter;
+    this.spawnRegaliaCounterFlash(center);
+    this.spawnRegaliaCounterEmblem(center);
+    const ring = this.createRegaliaPulseRing(center, radius, counter.ring, counter.ringColor, counter.secondRingColor);
+    this.playRegaliaPulseRing(ring.object, ring.endScale, counter.ringDurationMs, 1);
+    const second = this.trackRegaliaPulseObject(this.add.graphics()
+      .setPosition(center.x, center.y)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(config.ringDepth + 0.01));
+    second.lineStyle(10, counter.secondRingColor, 0.2);
+    second.strokeCircle(0, 0, radius);
+    second.lineStyle(3, counter.secondRingColor, 0.95);
+    second.strokeCircle(0, 0, radius);
+    this.playRegaliaPulseRing(second, 1, counter.ringDurationMs, 0.9, counter.secondRingDelayMs);
+    this.spawnRegaliaCounterText(center);
+  }
+
+  // A soft white disc: concentric additive circles, brightest in the middle.
+  spawnRegaliaCounterFlash(center) {
+    const counter = REGALIA_COUNTER_PULSE_CONFIG.counter;
+    const flash = this.trackRegaliaPulseObject(this.add.graphics()
+      .setPosition(center.x, center.y)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(REGALIA_COUNTER_PULSE_CONFIG.ringDepth - 0.02));
+    for (const share of [1, 0.78, 0.58, 0.4, 0.24]) {
+      flash.fillStyle(counter.flashColor, 0.16);
+      flash.fillCircle(0, 0, counter.flashRadius * share);
+    }
+    this.tweens.add({
+      targets: flash,
+      alpha: 0,
+      duration: counter.flashDurationMs,
+      onComplete: () => this.destroyRegaliaPulseObject(flash)
+    });
+  }
+
+  // REGALIA's crest flashes up on the ground under the mech and fades.
+  spawnRegaliaCounterEmblem(center) {
+    const counter = REGALIA_COUNTER_PULSE_CONFIG.counter;
+    let emblem;
+    let scale = 1;
+    if (this.textures?.exists?.(counter.emblem.key)) {
+      scale = counter.emblemRadius / counter.emblem.outerRadiusPx;
+      emblem = this.add.image(center.x, center.y, counter.emblem.key);
+    } else {
+      emblem = this.add.graphics().setPosition(center.x, center.y);
+      this.drawRegaliaCounterFallbackEmblem(emblem, counter.emblemRadius, counter.emblemColor);
+    }
+    this.trackRegaliaPulseObject(emblem)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(REGALIA_COUNTER_PULSE_CONFIG.ringDepth - 0.01)
+      .setScale(scale * 0.8)
+      .setAlpha(0);
+    this.tweens.add({ targets: emblem, scale, duration: 100, ease: "Cubic.easeOut" });
+    this.tweens.add({ targets: emblem, alpha: counter.emblemAlpha, duration: counter.emblemInMs });
+    this.tweens.add({
+      targets: emblem,
+      alpha: 0,
+      delay: counter.emblemHoldMs,
+      duration: counter.emblemOutMs - counter.emblemHoldMs,
+      onComplete: () => this.destroyRegaliaPulseObject(emblem)
+    });
+  }
+
+  // Without the image: the rim, a ring of eight spikes and the cross pattee in gold lines.
+  drawRegaliaCounterFallbackEmblem(graphics, radius, color) {
+    graphics.lineStyle(4, color, 0.85);
+    graphics.strokeCircle(0, 0, radius);
+    graphics.lineStyle(2, color, 0.6);
+    graphics.strokeCircle(0, 0, radius * 0.8);
+    graphics.fillStyle(color, 0.75);
+    for (let index = 0; index < 8; index += 1) {
+      const angle = (Math.PI / 4) * index + Math.PI / 8;
+      const side = angle + Math.PI / 2;
+      const base = radius + 2;
+      graphics.fillTriangle(
+        Math.cos(angle) * (radius + 26), Math.sin(angle) * (radius + 26),
+        Math.cos(angle) * base + Math.cos(side) * 8, Math.sin(angle) * base + Math.sin(side) * 8,
+        Math.cos(angle) * base - Math.cos(side) * 8, Math.sin(angle) * base - Math.sin(side) * 8
+      );
+    }
+    const arm = radius * 0.78;
+    const root = radius * 0.09;
+    const flare = radius * 0.27;
+    graphics.fillStyle(color, 0.4);
+    for (let index = 0; index < 4; index += 1) {
+      const angle = (Math.PI / 2) * index;
+      const point = (along, across) => ({
+        x: Math.cos(angle) * along - Math.sin(angle) * across,
+        y: Math.sin(angle) * along + Math.cos(angle) * across
+      });
+      graphics.fillPoints([point(0, root), point(0, -root), point(arm, -flare), point(arm, flare)], true);
+    }
+  }
+
+  // COUNTER above the mech: pops from 1.35x, rises and fades (the damage numbers' font).
+  spawnRegaliaCounterText(center) {
+    const counter = REGALIA_COUNTER_PULSE_CONFIG.counter;
+    const sprite = this.playerSprite;
+    const y = sprite?.active ? sprite.y - (Number(sprite.displayHeight) || 0) * 0.42 : center.y - 110;
+    const text = this.trackRegaliaPulseObject(this.add.text(center.x, y, "COUNTER", {
+      fontFamily: "Segoe UI, Yu Gothic UI, Arial, sans-serif",
+      fontSize: "34px",
+      color: "#ffd86b",
+      fontStyle: "bold",
+      stroke: "#2a1a08",
+      strokeThickness: 5
+    }));
+    text.setOrigin(0.5).setDepth(counter.textDepth).setScale(1.35);
+    if (typeof text.setResolution === "function") {
+      text.setResolution(2);
+    }
+    this.tweens.add({ targets: text, scale: 1, duration: 100, ease: "Cubic.easeOut" });
+    this.tweens.add({ targets: text, y: y - 24, duration: 600 });
+    this.tweens.add({
+      targets: text,
+      alpha: 0,
+      delay: 350,
+      duration: 250,
+      onComplete: () => this.destroyRegaliaPulseObject(text)
     });
   }
 
