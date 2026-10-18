@@ -1,0 +1,15 @@
+{
+  "mechId": "regaliaBastion",
+  "zoom": 0.8333333333333334,
+  "player": {
+    "x": 640,
+    "y": 360
+  },
+  "playerSprite": {
+    "x": 640,
+    "y": 338.01179321438974,
+    "width": 252,
+    "height": 252
+  },
+  "enemies": 49
+}

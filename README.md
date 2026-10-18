@@ -18,6 +18,36 @@ http://127.0.0.1:4173/
 
 このリポジトリはビルドなしの静的構成です。`file://` 直開きは画像、音声、Phaser の読み込みで不安定になる可能性があるため、ローカル HTTP サーバー経由で確認してください。
 
+### ALM-01 REGALIA BASTION — 専用スキル
+
+REGALIA BASTION のスキル枠は、Regalia Bastion Cannon・Aegis Wall（王盾陣）・Counter Pulse（反撃衝波）の 3 つです。以前は 2 枠目と 3 枠目が初期機体と同じ Tornado／Rabbit Thunder でしたが、R4（2026-10-13）で専用スキルに切り替えました。設計は [REGALIA 専用スキル設計書](docs/regalia-kit-design.md) を参照してください。
+
+- **Aegis Wall**：
+  - 機体が向いている方向（8 方向にそろえます）に、盾を横一列に隙間なく突き立てた壁を築き、壁の内側を REGALIA のテリトリーにします。S1 は盾 5 枚、S8 は 11 枚で、S8 では両端が後ろへ折れた袖（各 2 枚）が付きます。
+  - 敵は壁で止まり、ボスは盾を割って進みます。盾の耐久は押している敵の数で減るので、深い Depth でも持ちは変わりません。S6 からは、盾を押している敵に棘のダメージが入ります。
+- **Counter Pulse**：
+  - 機体の周りを身代わりの盾が回ります（S1 は 1 枚、S8 は 4 枚）。
+    - 敵の攻撃が届くと、盾が 1 枚砕けてダメージを 0 にし、反撃波を出します。
+    - 砕けた盾は 1 枚ずつ戻ります（S1 は 10 秒、S8 は 5 秒）。
+    - 盾がないときに攻撃を受けると、ダメージを受けたうえで反撃波を出します。
+    - 盾に触れた敵は軽く押し返されます（ボスは除く）。
+    - Final Raid 中は働きません。
+  - 一定間隔で機体の周りに衝撃波を出します（S1 は 3.2 秒ごと・半径 120、S8 は 1.8 秒ごと・半径 200）。
+  - 反撃波は、反撃倍率（×1.5〜2.0）を掛けた衝撃波です。出るたびに、自動のタイマーを最初からやり直します。
+  - S5 からは Aegis Wall の盾が砕けた場所からも衝撃波が出ます。S8 では、機体の周りの衝撃波が 0.15 秒後に威力 50% でもう 1 回出ます。
+  - 反撃の波は、自動の波（青い輪）と見分けられる見た目にしています。足元の閃光と REGALIA の紋章、金の輪 2 枚、機体の上の「COUNTER」の文字です。反撃が一度に 10 体以上に当たったときだけ、画面がわずかに揺れます。
+- **パッシブ**：Reactor Overcharge は 2 つのスキルの威力を Lv ごとに +1 します。Fire Control Link は、Aegis Wall の再設置と、Counter Pulse の自動間隔・盾の復活を縮めます。短縮は Stage の値の最大 40%／45% までです。どちらも、2 つのスキルのどちらかを持っていると候補に出ます。キャノンには効きません。
+- **Mutation／TRIAD**：
+  - 2 つのスキルは Stage4 で Core、Stage8 で Final を選べます。名前は専用で、たとえば Aegis Wall の Core は SPIKE WALL／HOLD LINE／RAPID RAMPART です。
+  - 効果は、キャノンと同じ汎用の威力補正と間隔補正です。TRIAD MATRIX は 3 つの枠すべてを集計します。
+- **装備**：SENSOR は 2 つのスキルの間隔を縮め、ARMAMENT と OVERLIMIT はその威力を上げます。REGALIA の COMBAT LINK（OVERLIMIT）の対象は、この 2 つのスキルです。キャノンは以前と同じく対象外です。
+- **画像**：
+  - 盾（8 方向）・地面のひび・身代わりの盾（3 向き）・衝撃波（青と金）・反撃の紋章・アイコン 2 種は Blender で作り、REGALIA で出撃したときだけ読み込みます。
+  - 読み込みの前や読み込みに失敗したときは、図形の描画や生成アイコンで代わりに表示します。
+  - 作り方は `tools/blender/regalia_kit/README.md` を参照してください。
+- **戦闘記録**：RUN ARCHIVE は v3 になり、記録ごとにスキル枠（`skillSlotIds`）を保存します。切り替え前の REGALIA の記録は、旧枠（REGALIA／TORNADO／RABBIT）のまま表示します。MUTATION ATLAS の REGALIA のセルは、そのまま残ります。
+- **確認方法**：ブラウザでの確認は、ローカルサーバーを起動したうえで `node tests/regalia-aegis-browser.cjs` を実行します（ローカルの Chrome を使います）。
+
 ### KGK-02 UMBRA SERAPH — 通常プレイ・購入・保存への接続
 
 バランス調整完了と通常プレイ・購入・保存互換への実装に続き、2026-10-04の「本番デプロイまで」の依頼を受けた公開版です。通常URLの **GEEKSHOP → HANGER** に3機体を表示します。UMBRAは **Depth10 Final Raid討伐済み・確定10,000,000 GEEK** で一度購入すると永続所有し、購入保存成功後に選択されます。出撃は手動で、毎runはMOONLIGHT S1から開始、SPIKE／NOVAは通常カードで取得します。
@@ -326,14 +356,14 @@ XP を獲得してレベルアップすると、3 択カード UI が表示さ�
 - カードの見出しは日本語です。未所持スキルは `新スキル`、所持済みスキルは `スキル強化`、新しい効果が付く段階は `新効果つき強化`、Stage8 への強化は `最終段階`、パッシブは `機体強化` と表示されます。スキル名は英語のままです。
 - スキルの段階は `段階 2 → 3`（新スキルは `段階 1 で取得`、最後は `段階 7 → 8（最終）`）と ●●●○○○○○ で表示されます。
 - 強化カードの説明文は、その強化で変わる主な数値を 2 つまで「今 → 次」で示します（例: `威力 1 → 2` / `攻撃間隔 0.46 → 0.38秒`）。新スキルのカードは役割の説明と開始時の値を表示します。下の数値チップは差分（`威力 +1`、`攻撃間隔 -0.08秒`）のままです。時間は秒で表示します。
-- パッシブのカードは `Lv 0 → 1（最大 10）` と 10 段の ● で今の Lv を示し、説明文も「今 → 次」で表示します（例: `最大AP 100 → 120` / `AP も 20 回復`）。Reactor Overcharge と Fire Control Link は Orbit Core の自動雷撃だけを強化するため、Orbit Core を持たない機体では「Orbit Core 所持時のみ有効」と表示します。
+- パッシブのカードは `Lv 0 → 1（最大 10）` と 10 段の ● で今の Lv を示し、説明文も「今 → 次」で表示します（例: `最大AP 100 → 120` / `AP も 20 回復`）。Reactor Overcharge と Fire Control Link は Orbit Core の自動雷撃を強化するため、Orbit Core をまだ持っていないときは「Orbit Core 所持時のみ有効」と表示します。Orbit Core の枠がない REGALIA BASTION には、2 つの専用スキルか LOST ARMS に効くときだけ出します。その場合の説明は `Aegis Wall の威力 8 → 9` や `LOST ARMS の再発動待ち` / `基本の 100% → 91.6%` の形です。
 - レベルアップなどの選択カードを開いている間は、表示中の通信メッセージをいったん隠し、閉じたあとで最初から表示し直します。
 - 上限到達済み、または選んでも効果が出ない候補は表示されません。
 - パッシブはラン内 Lv.10 が上限です。
 
 ### SKILL MUTATION / スキル変異
 
-`SKILL MUTATION` はラン内限定の分岐強化です。defaultBear では `basicSkill`、`tornadoSkill`、`rabbitThunderSkill`、REGALIA BASTION では `regaliaBastionCannon`、`tornadoSkill`、`rabbitThunderSkill` が対象になります。対象スキルが Stage4 に到達すると `MUTATION CORE SELECT` が開き、次の 3 種から方向性を選びます。
+`SKILL MUTATION` はラン内限定の分岐強化です。defaultBear では `basicSkill`、`tornadoSkill`、`rabbitThunderSkill`、REGALIA BASTION では `regaliaBastionCannon`、`regaliaAegisWall`、`regaliaCounterPulse` が対象になります。対象スキルが Stage4 に到達すると `MUTATION CORE SELECT` が開き、次の 3 種から方向性を選びます。
 
 - `ASSAULT CORE`: 火力、撃破速度、Boss / Elite 処理寄り。
 - `CONTROL CORE`: 鈍足、吸引、押し戻し、生存寄り。
@@ -351,7 +381,7 @@ mutation は抽出、緊急抽出、ゲームオーバー、Gate 崩壊、ショ
 
 ### TRIAD MATRIX / MUTATION ATLAS
 
-選択中機体の3つの Mutation 対象スキルを横断し、ラン内の `TRIAD MATRIX` 状態を算出します。defaultBear では `basicSkill`、`tornadoSkill`、`rabbitThunderSkill`、REGALIA BASTION では `regaliaBastionCannon`、`tornadoSkill`、`rabbitThunderSkill` を使います。Core 軸は `assault` / `control` / `reactor`、Final 軸は `execution` / `prism` / `singularity` を使い、既存 mutation 値はリネームしません。
+選択中機体の3つの Mutation 対象スキルを横断し、ラン内の `TRIAD MATRIX` 状態を算出します。defaultBear では `basicSkill`、`tornadoSkill`、`rabbitThunderSkill`、REGALIA BASTION では `regaliaBastionCannon`、`regaliaAegisWall`、`regaliaCounterPulse` を使います。Core 軸は `assault` / `control` / `reactor`、Final 軸は `execution` / `prism` / `singularity` を使い、既存 mutation 値はリネームしません。
 
 Core / Final とも、同じカテゴリが 2 個揃うと `LINK I` になります。3 スキルすべて同じカテゴリなら `MATRIX II`、3 種が 1 個ずつなら混成 `MATRIX II` です。3 個選択済みでも 2:1 構成は `LINK I` のままで、Atlas対象の完成ビルドにはなりません。
 
@@ -371,7 +401,7 @@ Final完成分類:
 
 Core と Final の両方が `MATRIX II` になった場合だけ、`assault_array__execution_protocol` のような安定 buildId を持つ完成ビルドになります。組み合わせは 4 x 4 の合計 16 種類です。HUD には `TRIAD: ASLT-I / PRSM-II`、`TRIAD: TRIN-II / ADPT-II` のような短縮表示が出ます。状態変化時だけ `TRIAD LINK ESTABLISHED` や `TRIAD MATRIX ONLINE` の短い通知が表示されます。
 
-TRIAD MATRIX の戦闘効果は、選択中機体の3つの Mutation 対象攻撃スキルと既存 SKILL MUTATION 効果だけへ適用されます。REGALIA CANNON はこの段階では汎用のダメージ/クールダウン補正とTRIAD集計に対応し、専用の追加爆風や残留フィールドは未実装です。Support、Robot 本体/ミサイル/回復フィールド、LOST ARMS、NEMESIS固有報酬、GEEK報酬、ANJU MEMORY報酬、環境ダメージには適用しません。
+TRIAD MATRIX の戦闘効果は、選択中機体の3つの Mutation 対象攻撃スキルと既存 SKILL MUTATION 効果だけへ適用されます。REGALIA CANNON・Aegis Wall・Counter Pulse はこの段階では汎用のダメージ/クールダウン補正とTRIAD集計に対応し、専用の追加爆風や残留フィールドは未実装です。Support、Robot 本体/ミサイル/回復フィールド、LOST ARMS、NEMESIS固有報酬、GEEK報酬、ANJU MEMORY報酬、環境ダメージには適用しません。
 
 - `ASSAULT LINK I` / `ASSAULT ARRAY`: 3 攻撃スキルの実ダメージ x1.04 / x1.08。
 - `CONTROL LINK I` / `CONTROL GRID`: 既存 Mutation 由来の鈍足、持続、押し戻し、制圧フィールド系の制御性能 x1.06 / x1.12。
@@ -612,7 +642,7 @@ Quick Boost SE は Quick Boost / 継続ブーストの開始成功時だけ鳴�
 - 左上（BOOST EN バーの右）に `×N KILL` のコンボと残り時間バーを出します。2.6 秒以内に次を倒すと継続し、10 / 25 / 50（以後 50 ごと）で金色に光ります。表示だけで報酬はありません。Final Raid 中、レベルアップなどの画面中は隠れます。
 - ヒット音・撃破音は音声ファイルを使わず Web Audio で合成する「装甲インパクト」系の音です（低い打撃音、金属を叩いたような倍音、軽い歪みと短い残響）。OPTIONS の SFX が OFF なら鳴らず、ヒット音は 50ms、撃破音は 52ms に 1 回までに間引きます。撃破音にはチャイムが重なり、コンボ中は撃破ごとに音階（マイナーペンタトニック）が 1 段ずつ上がって、11 体目で 2 オクターブ上に届きます。Elite / Boss 撃破とコンボの節目は専用音です。
 
-クリティカルは基本 3% で、ダメージ 1.5 倍です。数字は黄色で大きく `!` 付きになり、音と輪の演出が変わります。対象は 3 攻撃スキル（ORB の雷撃・TORNADO・THUNDER の接触とダッシュ衝撃、REGALIA の砲撃）、ロボットのミサイル爆発、LOST ARMS の主攻撃（ABYSS RAIL の射線、GRAVITY SEED の崩壊）です。継続ダメージ（ナパーム、残留場、重力場の毎秒ダメージ）、Mutation などの追加発動、サポート攻撃、UMBRA の武装、Final Raid の疑似ダメージはクリティカルしません。装備 CORE（内部 slot `accessory`）でクリティカル率が上がります（下記 EQUIPMENT ANALYSIS）。率の上限は 50% です。
+クリティカルは基本 3% で、ダメージ 1.5 倍です。数字は黄色で大きく `!` 付きになり、音と輪の演出が変わります。対象は 3 攻撃スキル（ORB の雷撃・TORNADO・THUNDER の接触とダッシュ衝撃、REGALIA の砲撃・盾の設置衝撃と棘・衝撃波）、ロボットのミサイル爆発、LOST ARMS の主攻撃（ABYSS RAIL の射線、GRAVITY SEED の崩壊）です。継続ダメージ（ナパーム、残留場、重力場の毎秒ダメージ）、Mutation などの追加発動、サポート攻撃、UMBRA の武装、Final Raid の疑似ダメージはクリティカルしません。装備 CORE（内部 slot `accessory`）でクリティカル率が上がります（下記 EQUIPMENT ANALYSIS）。率の上限は 50% です。
 
 `?hitFeel=0` を付けると比較用に従来の見た目（色付きの点滅、固定の数字、演出・コンボ・HP バー・合成音なし）へ戻ります。クリティカルはどちらでも有効です。
 
@@ -628,8 +658,8 @@ Quick Boost SE は Quick Boost / 継続ブーストの開始成功時だけ鳴�
 
 パッシブ:
 
-- Reactor Overcharge: 電撃ダメージを増やします。
-- Fire Control Link: 攻撃間隔を短縮します。
+- Reactor Overcharge: Orbit Core の自動雷撃の威力を増やします（OVERDRIVE の CHAIN VOLTAGE もこの値を基準にします）。REGALIA BASTION では Aegis Wall／Counter Pulse の威力を増やし、そのどちらかを持っているときだけ出ます。
+- Fire Control Link: Orbit Core の自動雷撃の間隔と、LOST ARMS の再発動待ちを短縮します。REGALIA BASTION では Aegis Wall の再設置と Counter Pulse の自動間隔も短縮し、そのどちらかか LOST ARMS を持っているときだけ出ます。
 - Booster Tuning: 推進出力を上げます。
 - Energy Capacitor: 最大ブーストENとブーストEN回復余地を増やします。
 - AP Reinforce: 最大APと現在APを増やします。
@@ -790,7 +820,7 @@ GEEKSHOP / EQUIPMENT ANALYSIS:
 - 出撃開始時に保存済み `bestBySlot` と部位別精錬値から `runEquipmentLoadoutSnapshot` と `runEquipmentBonuses` を作成します。このスナップショットはラン中固定で、NEXT STAGE、FORCE BREAKTHROUGH、Depth遷移、レベルアップ、Gate、overlay、pause、ショップ保存値変更では再取得しません。次の出撃から最新の保存装備と精錬値が反映されます。
 - 基礎装備ボーナスは品質スコア `rarityIndex * 5 + rank` を使います。SENSOR は攻撃間隔 -0.25% x score、FRAME は最大AP +3 x score、BOOSTER はブーストEN回復 +0.8% x score、ARMAMENT は `basicSkill` / `tornadoSkill` / `rabbitThunderSkill` とそれらのMutation派生ダメージ +1.2% x score、CORE は最大ブーストEN +1 x score とクリティカル率 +0.4% x score です。LEGEND Rank5 では SENSOR x0.9375、FRAME +75、BOOSTER x1.20、ARMAMENT x1.30、CORE +25 / クリティカル率 +10% になります。
 - 精錬は基礎装備ボーナスへ加算され、1Lvごとに SENSOR 攻撃間隔 -0.15%、FRAME 最大AP +8、BOOSTER ブーストEN回復 +0.5%、ARMAMENT対象スキルダメージ +0.6%、CORE最大ブーストEN +2 とクリティカル率 +0.25% です（CORE LEGEND Rank5 +20 で基本 3% と合わせて 18%）。FRAMEは精錬 `+5 / +10 / +15 / +20` でプレイヤーの通常被ダメージを `2% / 4% / 7% / 10%` 軽減します。軽減は `applyDamageToPlayer()` の受け付け時に適用し、Robot Barrierより前の被ダメージ量を減らします。
-- COMBAT LINK は出撃開始時の装備snapshotだけを参照するラン内効果です。対象3スキルが Stage8 に到達し、Final Mutation を選択済みの場合、通常 Level Up 候補として `EQUIPMENT OVERLIMIT` が出現します。Stage8 Final Mutation を正式に選択した直後にも、Combat Link 条件を満たす場合はそのスキル専用の `FINAL COMBAT LINK` OVERLIMIT bonus が出ることがあります。Depth6以降で Deep Level が実際に上がったときも、同じ条件を満たす未取得 OVERLIMIT があれば追加の `DEEP COMBAT LINK` 選択機会が出ます。OVERLIMIT I は対象スキルの実ダメージ x1.10、OVERLIMIT II は x1.20 で、Stage9 / Stage10 ではなく Stage8 のまま、Stage表記や保存schemaは増やさず、そのラン中だけ有効です。Opening Boost、Final Raid、Support、Robot、LOST ARMS、環境ダメージ、Final Raid疑似ダメージ、XP、GEEK、ANJU、Equipment報酬には影響しません。
+- COMBAT LINK は出撃開始時の装備snapshotだけを参照するラン内効果です。対象は機体ごとに決まり、初期機体は 3 スキル、REGALIA BASTION は Aegis Wall／Counter Pulse です（キャノンは対象外）。対象スキルが Stage8 に到達し、Final Mutation を選択済みの場合、通常 Level Up 候補として `EQUIPMENT OVERLIMIT` が出現します。Stage8 Final Mutation を正式に選択した直後にも、Combat Link 条件を満たす場合はそのスキル専用の `FINAL COMBAT LINK` OVERLIMIT bonus が出ることがあります。Depth6以降で Deep Level が実際に上がったときも、同じ条件を満たす未取得 OVERLIMIT があれば追加の `DEEP COMBAT LINK` 選択機会が出ます。OVERLIMIT I は対象スキルの実ダメージ x1.10、OVERLIMIT II は x1.20 で、Stage9 / Stage10 ではなく Stage8 のまま、Stage表記や保存schemaは増やさず、そのラン中だけ有効です。Opening Boost、Final Raid、Support、Robot、LOST ARMS、環境ダメージ、Final Raid疑似ダメージ、XP、GEEK、ANJU、Equipment報酬には影響しません。
 - OVERLIMIT 取得済みの対象スキルは戦闘HUDのスキル枠に `OVL-I` / `OVL-II` を表示します。Final Raid 中は COMBAT LINK の攻撃効果を抑制するため、このHUD表示も出ません。RUN ARCHIVE にはローカル閲覧用として Combat Link 段階と各対象スキルの OVERLIMIT 段階を記録しますが、ランキング、Firebase、Deep Result へは送信しません。OVERLIMIT はラン内効果で、次のランへ持ち越しません。
 - FRAME と CORE は開始ステータス再構築時に一度だけ加算します。BOOSTER はダッシュ回復遅延や消費量を変えず、ブーストEN回復量の最終倍率だけを変えます。SENSOR は3攻撃スキルの通常攻撃間隔 / 再発動間隔だけへ掛かり、演出ディレイ、持続時間、内部Mutationクールダウン、Support、Robot、LOST ARMS、CHAIN、敵行動には掛かりません。ARMAMENT は3攻撃スキル由来の実ダメージだけへ掛かり、Support、Robot、Recovery、LOST ARMS、CHAIN、環境ダメージ、敵攻撃、Final Raidの疑似ダメージ、支援ランキング、ボスHPタイムラインには掛かりません。
 - Depth10 初回 Final Raid 中はボスフィールドの時刻演出とランキングを守るため、SENSOR と ARMAMENT の有効倍率と CORE のクリティカル率加算を抑制します（基本 3% は残ります）。FRAME、BOOSTER、CORE の最大ブーストENは Final Raid 中も有効です。Final Raid 討伐後の通常 Depth10 ではこの抑制は発生しません。
@@ -913,6 +943,7 @@ OPERATIONS HUB の `ARCHIVE` タブから、`RUN ARCHIVE`、`MUTATION ATLAS`、`
 - ANJU MEMORY 獲得量、Grade、Stage
 - TRIAD BUILD。完成ビルドがある通常ランでは `BUILD: CONTROL GRID / PRISM CASCADE` のように表示します。
 - COMBAT LINK と対象スキルの OVERLIMIT 段階。古いログや未取得ランは従来どおり非表示です。
+- スキル枠（v3 から `skillSlotIds`）。v2 以前の REGALIA の記録は、旧枠の REGALIA／TORNADO／RABBIT で表示します。v3 の記録を古い版のゲームで開いた場合、その版は記録を書き換えません。
 - スキル、パッシブ、LOST ARMS、RESONANCE / Evolution、Robot Lv / SYNC
 - ANOMALY CONTRACT、DEPTH DIRECTIVE、OVERDRIVE MOD、STABILIZE PROTOCOL、NEMESIS
 

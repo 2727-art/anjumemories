@@ -81,6 +81,110 @@ const REGALIA_BASTION_CANNON_CONFIG = Object.freeze({
   impactDelayDistanceDivisor: 11,
   damageFalloffMultipliers: [1, 0.35, 0.15]
 });
+// REGALIA's own skills (docs/regalia-kit-design.md). Since R4 they take REGALIA's second and third
+// slots in place of the skills it shared with the default mech.
+const REGALIA_AEGIS_WALL_SKILL_ID = "regaliaAegisWall";
+const REGALIA_COUNTER_PULSE_SKILL_ID = "regaliaCounterPulse";
+const REGALIA_KIT_SKILL_IDS = Object.freeze([REGALIA_AEGIS_WALL_SKILL_ID, REGALIA_COUNTER_PULSE_SKILL_ID]);
+// REGALIA's slots before its own skills. RUN ARCHIVE v2 and older records are shown with them.
+const REGALIA_LEGACY_SKILL_SLOT_IDS = Object.freeze([REGALIA_BASTION_CANNON_SKILL_ID, "tornadoSkill", "rabbitThunderSkill"]);
+const REGALIA_AEGIS_WALL_CONFIG = Object.freeze({
+  minCooldownMs: 1000,
+  plantDelayMs: 170,          // drop time before the plant impact lands
+  // Durability lost per second for each enemy pushing a shield, whatever the depth (design 4.3):
+  // deep-depth contact damage would otherwise break the wall in a second.
+  erosionPerEnemy: 8,
+  eliteErosionMultiplier: 2,
+  knockbackForce: 200,
+  knockbackRecoverMs: 120,
+  shieldPitch: 76,            // shields 84 px wide overlap a little, so the wall has no gaps
+  bodyRadius: 16,             // one shield = three static circles along the wall line
+  bodySpacing: 25,
+  stripInset: 26,             // the territory strip runs this far inside the wall
+  sinkMs: 220,
+  shatterMs: 260,
+  shieldDepthNorth: 18.4,     // enemies draw at 18: north shields in front of them, south shields behind
+  shieldDepthSouth: 17.6,
+  groundDepth: 16.25,
+  territoryColor: 0x9fd2ff,
+  // One image per facing direction (screen angle: e, se, s, sw, w, nw, n, ne), same ground pivot.
+  shield: { keyPrefix: "regalia-aegis-shield-r2-", pathPrefix: "./画像/skills/regalia_aegis_wall/shield_r2_", pivotX: 128, pivotY: 269, scale: 0.5 },
+  crack: { key: "regalia-aegis-crack-r1", path: "./画像/skills/regalia_aegis_wall/crack_r1.png", scale: 0.5 },
+  icon: { key: "regalia-aegis-icon-r1", path: "./画像/skills/regalia_aegis_wall/icon_r1.png" }
+});
+const REGALIA_AEGIS_DIRECTION_NAMES = Object.freeze(["e", "se", "s", "sw", "w", "nw", "n", "ne"]);
+// Passives on REGALIA's own skills (docs/regalia-kit-design.md 6.1). Reactor Overcharge adds
+// (bulletDamage - 1) to every hit, as for UMBRA's weapons; Fire Control Link shortens the
+// intervals linearly from the base fire interval to its floor, down to these shares of the stage value.
+const REGALIA_KIT_PASSIVE_CONFIG = Object.freeze({
+  fireIntervalBaseMs: 540,
+  aegisIntervalFloorRatio: 0.6,
+  pulseIntervalFloorRatio: 0.55
+});
+const REGALIA_COUNTER_PULSE_CONFIG = Object.freeze({
+  minIntervalMs: 600,
+  counterMinGapMs: 300,       // a counter right after another one is skipped (hits already grant 900 ms of i-frames)
+  ringDurationMs: 300,
+  ringDepth: 16.3,            // on the ground, under enemies (18) and the mech (20)
+  ringColor: 0x8fa0f0,
+  ringCoreColor: 0xe8f8ff,
+  // R1 frame: emission on black, ring radius 200 px in the image; drawn additively.
+  ring: { key: "regalia-counter-pulse-r1", path: "./画像/skills/regalia_counter_pulse/pulse_r1.png", ringRadiusPx: 200 },
+  icon: { key: "regalia-counter-pulse-icon-r1", path: "./画像/skills/regalia_counter_pulse/icon_r1.png" },
+  // The counter wave (docs/regalia-kit-design.md 12.5): a flash and REGALIA's crest at the mech's
+  // feet, a gold ring with a thin second ring, and COUNTER above the mech. The automatic wave
+  // keeps the blue ring. Both images are emission on black, drawn additively.
+  counter: Object.freeze({
+    ring: { key: "regalia-counter-ring-v1", path: "./画像/skills/regalia_counter_pulse/counter_ring_v1.png", ringRadiusPx: 200 },
+    emblem: { key: "regalia-counter-emblem-v1", path: "./画像/skills/regalia_counter_pulse/counter_emblem_v1.png", outerRadiusPx: 184 },
+    ringDurationMs: 450,
+    ringColor: 0xffd86b,          // the gold ring drawn with Graphics when its image is missing
+    secondRingDelayMs: 60,
+    secondRingColor: 0xfff3d0,
+    flashRadius: 120,
+    flashDurationMs: 100,
+    flashColor: 0xfff3d6,
+    emblemRadius: 150,            // larger than the mech's sprite, so the rim and the cross show around it
+    emblemColor: 0xffd86b,
+    emblemInMs: 80,
+    emblemHoldMs: 250,
+    emblemOutMs: 550,
+    emblemAlpha: 0.85,
+    textDepth: 29,                // above enemies and the mech, just under the damage numbers (30)
+    shakeMinHits: 10,             // the weakest existing shake, only when the counter hits a crowd
+    shakeDurationMs: 90,
+    shakeIntensity: 0.0011
+  }),
+  // Guard shields (docs/regalia-kit-design.md 12.6): they orbit the mech, and an accepted hit uses
+  // one up instead of AP and fires the counter wave. Each comes back after the stage's guardRegenMs.
+  guard: Object.freeze({
+    minRegenMs: 1000,
+    orbitRadius: 125,
+    orbitSquash: 0.74,            // the orbit seen from above at an angle, as Orbit Core's
+    hover: 12,                    // px between the orbit point and the shield's tip
+    rotationSpeed: 1.4,           // rad/s
+    // Three facings so the cross always shows: south-east on the east side, south-west on the west.
+    image: { keyPrefix: "regalia-guard-v2-", pathPrefix: "./画像/skills/regalia_counter_pulse/guard_v2_", pivotX: 64, pivotY: 142, scale: 0.75 },
+    facings: ["se", "s", "sw"],
+    fallbackScale: 0.5,
+    depthBehind: 19.6,            // the mech is at 20: north shields behind it, south ones in front
+    depthFront: 20.4,
+    usedAlpha: 0.15,              // a used shield shows faintly and fills in as it comes back
+    regenAlphaGain: 0.3,
+    glowColor: 0x9fd2ff,
+    pushRadius: 40,
+    pushForce: 160,
+    pushRecoverMs: 140,
+    pushEveryMs: 80,
+    pushCooldownMs: 300
+  })
+});
+// The Blender icons of REGALIA's own skills. They load with the sortie's other kit images; until
+// then, or if they are missing, the cards and the HUD use the generated hud-icon-regalia-* icons.
+const REGALIA_KIT_ICON_TEXTURE_KEYS = Object.freeze({
+  [REGALIA_AEGIS_WALL_SKILL_ID]: REGALIA_AEGIS_WALL_CONFIG.icon.key,
+  [REGALIA_COUNTER_PULSE_SKILL_ID]: REGALIA_COUNTER_PULSE_CONFIG.icon.key
+});
 const DEFAULT_PLAYER_MECH_ID = "defaultBear";
 const REGALIA_BASTION_MECH_ID = "regaliaBastion";
 const UMBRA_SERAPH_MECH_ID = "umbraSeraph";
@@ -342,7 +446,7 @@ const SKILL_MUTATION_DEFINITIONS = window.skillMutationDefinitions || { cores: {
 // Combat slots include preview metadata; Mutation/Archive allowlists remain release-only.
 const PLAYER_MECH_SKILL_SLOT_IDS = Object.freeze({
   [DEFAULT_PLAYER_MECH_ID]: Object.freeze([DEFAULT_SKILL_ID, "tornadoSkill", "rabbitThunderSkill"]),
-  [REGALIA_BASTION_MECH_ID]: Object.freeze([REGALIA_BASTION_CANNON_SKILL_ID, "tornadoSkill", "rabbitThunderSkill"]),
+  [REGALIA_BASTION_MECH_ID]: Object.freeze([REGALIA_BASTION_CANNON_SKILL_ID, ...REGALIA_KIT_SKILL_IDS]),
   [UMBRA_SERAPH_MECH_ID]: Object.freeze([UMBRA_MOONLIGHT_SKILL_ID, UMBRA_BLOOD_SPIKE_SKILL_ID, UMBRA_PHANTOM_NOVA_SKILL_ID])
 });
 const DEFAULT_PLAYER_MECH_SKILL_MUTATION_SKILL_IDS = PLAYER_MECH_SKILL_SLOT_IDS[DEFAULT_PLAYER_MECH_ID];
@@ -1825,7 +1929,9 @@ const EXTRACTION_MESSAGE_SESSION_KEY = "lastmemoVansabaExtractionMessage";
 const DEEP_EXTRACTION_RESULT_DEBUG_QUERY_PARAM = "debugDeepResult";
 const RUN_ARCHIVE_STORAGE_KEY = "lastmemoVansabaRunArchive";
 const RUN_ARCHIVE_DEBUG_QUERY_PARAM = "debugRunArchive";
-const RUN_ARCHIVE_VERSION = 2;
+// v3: REGALIA's own skills and skillSlotIds. An older tab leaves v3 records alone instead of
+// writing them back without the new keys.
+const RUN_ARCHIVE_VERSION = 3;
 const RUN_ARCHIVE_MAX_ENTRIES = 20;
 const RUN_ARCHIVE_ENTRIES_PER_PAGE = 7;
 const RUN_ARCHIVE_UNKNOWN_SUBMITTED_AT = "1970-01-01T00:00:00.000Z";
@@ -2376,6 +2482,11 @@ const EQUIPMENT_COMBAT_LINK_TIER_CONFIG = Object.freeze({
   legendFive: Object.freeze({ combatLinkLevel: 2, overlimitCap: 2 })
 });
 const EQUIPMENT_COMBAT_LINK_SKILL_IDS = Object.freeze(["basicSkill", "tornadoSkill", "rabbitThunderSkill"]);
+// REGALIA's own skills take its Combat Link; the cannon stays outside (docs/regalia-kit-design.md 8).
+const REGALIA_EQUIPMENT_COMBAT_LINK_SKILL_IDS = REGALIA_KIT_SKILL_IDS;
+// Every non-UMBRA skill that can carry OVERLIMIT. A sortie owns only its own mech's share, so the
+// per-hit checks use this list and need no mech lookup.
+const EQUIPMENT_COMBAT_LINK_ALL_SKILL_IDS = Object.freeze([...EQUIPMENT_COMBAT_LINK_SKILL_IDS, ...REGALIA_EQUIPMENT_COMBAT_LINK_SKILL_IDS]);
 const EQUIPMENT_OVERLIMIT_DAMAGE_MULTIPLIERS = Object.freeze([1.00, 1.10, 1.20]);
 const EQUIPMENT_RUN_DEBUG_QUERY_PARAM = "debugEquipmentRun";
 const EQUIPMENT_DROP_DEBUG_QUERY_PARAM = "debugEquipmentDrop";
@@ -5295,6 +5406,22 @@ const LEVEL_UP_SKILL_UI_META = {
     glowColor: 0x91faff,
     accentColor: "#f0c463",
     iconTone: "CANNON"
+  },
+  [REGALIA_AEGIS_WALL_SKILL_ID]: {
+    displayName: "Aegis Wall",
+    description: "向いた方向に盾の壁を築き、敵の侵入を防ぐ",
+    themeColor: 0xf0c574,
+    glowColor: 0x9fd2ff,
+    accentColor: "#f0c574",
+    iconTone: "SHIELD"
+  },
+  [REGALIA_COUNTER_PULSE_SKILL_ID]: {
+    displayName: "Counter Pulse",
+    description: "回る盾が攻撃を防ぎ、反撃波を返す",
+    themeColor: 0x8fa0f0,
+    glowColor: 0xe8f8ff,
+    accentColor: "#9fb2ff",
+    iconTone: "PULSE"
   }
 };
 const LEVEL_UP_PASSIVE_UI_META = {
@@ -8959,6 +9086,8 @@ class SurvivalScene extends Phaser.Scene {
       this.textures.exists("wind-streak") &&
       this.textures.exists("hud-icon-basic-skill") &&
       this.textures.exists("hud-icon-tornado-skill") &&
+      this.textures.exists("hud-icon-regalia-aegis") &&
+      this.textures.exists("hud-icon-regalia-pulse") &&
       this.textures.exists("lost-arm-abyss-icon") &&
       this.textures.exists("lost-arm-gravity-icon") &&
       this.textures.exists("lost-arm-abyss-core") &&
@@ -9231,6 +9360,46 @@ class SurvivalScene extends Phaser.Scene {
     graphics.fillStyle(0x6affba, 0.34);
     graphics.fillCircle(24, 24, 8);
     graphics.generateTexture("hud-icon-tornado-skill", 48, 48);
+    graphics.clear();
+
+    // REGALIA Aegis Wall: a gold-rimmed heater shield with the navy panel and cyan seam.
+    graphics.fillStyle(0x111620, 0.94);
+    graphics.fillCircle(24, 24, 22);
+    graphics.lineStyle(3, 0xf0c574, 0.9);
+    graphics.strokeCircle(24, 24, 19);
+    const aegisIconShield = (scale) => [[24, 38], [17, 33], [13, 27], [12, 21], [12, 12], [18, 10], [24, 9], [30, 10], [36, 12], [36, 21], [35, 27], [31, 33]]
+      .map(([x, y]) => ({ x: 24 + (x - 24) * scale, y: 23 + (y - 23) * scale }));
+    graphics.fillStyle(0xf0c574, 1);
+    graphics.fillPoints(aegisIconShield(1), true);
+    graphics.fillStyle(0xece4d6, 1);
+    graphics.fillPoints(aegisIconShield(0.8), true);
+    graphics.fillStyle(0x1b2250, 1);
+    graphics.fillPoints(aegisIconShield(0.52), true);
+    graphics.lineStyle(1.5, 0x9fd2ff, 0.95);
+    graphics.strokePoints(aegisIconShield(0.56), true);
+    graphics.fillStyle(0xf0c574, 1);
+    graphics.fillRect(23, 17, 2, 10);
+    graphics.fillRect(20, 20, 8, 2);
+    graphics.generateTexture("hud-icon-regalia-aegis", 48, 48);
+    graphics.clear();
+
+    // REGALIA Counter Pulse: the cross crest with two shock rings.
+    graphics.fillStyle(0x0e1424, 0.94);
+    graphics.fillCircle(24, 24, 22);
+    graphics.lineStyle(2, 0x9fd2ff, 0.95);
+    graphics.strokeCircle(24, 24, 19);
+    graphics.lineStyle(2, 0x8fa0f0, 0.85);
+    graphics.strokeCircle(24, 24, 14.5);
+    graphics.fillStyle(0xf0c574, 1);
+    graphics.fillCircle(24, 24, 10);
+    graphics.fillStyle(0x1b2250, 1);
+    graphics.fillCircle(24, 24, 7.5);
+    graphics.fillStyle(0xf0c574, 1);
+    graphics.fillRect(23, 18.5, 2, 11);
+    graphics.fillRect(18.5, 23, 11, 2);
+    graphics.fillStyle(0xe8f8ff, 1);
+    graphics.fillCircle(24, 24, 1.6);
+    graphics.generateTexture("hud-icon-regalia-pulse", 48, 48);
     graphics.clear();
 
     graphics.fillStyle(0x071521, 0.96);
@@ -15876,7 +16045,8 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   createDefaultRunEquipmentOverlimitLevels() {
-    return EQUIPMENT_COMBAT_LINK_SKILL_IDS.reduce((levels, skillId) => {
+    // The UMBRA drive scene borrows these methods without the per-mech helper; it keeps the default three.
+    return (this.getRunEquipmentCombatLinkSkillIds?.() || EQUIPMENT_COMBAT_LINK_SKILL_IDS).reduce((levels, skillId) => {
       levels[skillId] = 0;
       return levels;
     }, {});
@@ -15913,7 +16083,7 @@ class SurvivalScene extends Phaser.Scene {
       EQUIPMENT_OVERLIMIT_DAMAGE_MULTIPLIERS.length - 1,
       Number.isInteger(overlimitCap) && Number.isSafeInteger(overlimitCap) ? overlimitCap : 0
     ));
-    return EQUIPMENT_COMBAT_LINK_SKILL_IDS.reduce((levels, skillId) => {
+    return (this.getRunEquipmentCombatLinkSkillIds?.() || EQUIPMENT_COMBAT_LINK_SKILL_IDS).reduce((levels, skillId) => {
       const rawLevel = source[skillId];
       levels[skillId] = Number.isInteger(rawLevel) && Number.isSafeInteger(rawLevel)
         ? Math.max(0, Math.min(cap, rawLevel))
@@ -16088,7 +16258,7 @@ class SurvivalScene extends Phaser.Scene {
 
   isEquipmentCombatLinkSkillId(skillId) {
     if (this.isUmbraEquipmentScope?.()) return UMBRA_TRIAD_COMBAT_SKILL_IDS.includes(String(skillId || ""));
-    return EQUIPMENT_COMBAT_LINK_SKILL_IDS.includes(String(skillId || ""));
+    return EQUIPMENT_COMBAT_LINK_ALL_SKILL_IDS.includes(String(skillId || ""));
   }
 
   getRunEquipmentSkillOverlimitCap(skillId, options = {}) {
@@ -20058,6 +20228,7 @@ class SurvivalScene extends Phaser.Scene {
     this.destroyGateSignalVisual();
     this.destroyStageGate();
     this.clearActiveLostArmEffects();
+    this.clearRegaliaKitEffects("finalBossRaidStart");
     this.clearNonFinalBossRaidEnemies("finalBossRaidStart");
     const supportSchedule = this.buildFinalBossRaidSupportSchedule(timing.timeScale, timing);
     const startElapsedMs = this.getFinalBossRaidDebugStartElapsedMs(timing);
@@ -32285,10 +32456,15 @@ class SurvivalScene extends Phaser.Scene {
 
   getLostArmCooldownMs(baseCooldownMs) {
     const baseCooldown = Math.max(120, Number(baseCooldownMs) || 1000);
+    return Math.max(200, Math.round(baseCooldown * (1 - this.getLostArmCooldownReduction())));
+  }
+
+  // Share of a LOST ARMS cooldown removed by a fire interval below 540ms (Fire Control Link).
+  getLostArmCooldownReduction(fireInterval = this.stats?.fireInterval) {
     const baseFireInterval = 540;
-    const currentFireInterval = Math.max(LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS, Number(this.stats?.fireInterval) || baseFireInterval);
+    const currentFireInterval = Math.max(LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS, Number(fireInterval) || baseFireInterval);
     const cooldownReduction = Phaser.Math.Clamp(1 - currentFireInterval / baseFireInterval, 0, 0.74);
-    return Math.max(200, Math.round(baseCooldown * (1 - cooldownReduction * 0.65)));
+    return cooldownReduction * 0.65;
   }
 
   applyAbyssRailResonanceDamageModifiers(enemy, damage) {
@@ -33871,6 +34047,11 @@ class SurvivalScene extends Phaser.Scene {
         levels[id] = Math.max(0, Math.min(8, Math.floor(Number(skills[id]) || 0)));
         return levels;
       }, {}),
+      skillSlotIds: this.normalizeRunArchiveSkillSlotIds(
+        entry.skillSlotIds,
+        MUTATION_ATLAS_PLAYER_MECH_IDS.includes(entry.mechId) ? entry.mechId : inferredMechId,
+        skills
+      ),
       skillMutations: this.normalizeRunArchiveSkillMutations(skillMutations),
       triadBuild: this.normalizeRunArchiveTriadBuild(entry.triadBuild),
       passives: {
@@ -34034,6 +34215,7 @@ class SurvivalScene extends Phaser.Scene {
       regaliaBastionCannon: getSkillLevel(REGALIA_BASTION_CANNON_SKILL_ID),
       tornadoSkill: getSkillLevel("tornadoSkill"),
       rabbitThunderSkill: getSkillLevel("rabbitThunderSkill"),
+      ...Object.fromEntries(REGALIA_KIT_SKILL_IDS.map(id => [id, getSkillLevel(id)])),
       ...Object.fromEntries(UMBRA_TRIAD_COMBAT_SKILL_IDS.map(id => [id, getSkillLevel(id)]))
     };
   }
@@ -34216,6 +34398,9 @@ class SurvivalScene extends Phaser.Scene {
       stageId: stage.id || "",
       stageName: stage.name || stage.areaLabel || "",
       skills: this.getRunArchiveSkillLevels(),
+      skillSlotIds: this.isUmbraProductionRunContext?.()
+        ? PLAYER_MECH_SKILL_SLOT_IDS[UMBRA_SERAPH_MECH_ID]
+        : this.getPlayerSkillSlotIds({ mechId: this.getRunPlayerMechId() }),
       skillMutations: this.getRunArchiveSkillMutationSnapshot(),
       equipmentCombatLink: this.createRunArchiveEquipmentCombatLinkSnapshot(this.runEquipmentCombatLinkState),
       triadBuild: this.getTriadRunArchiveBuildSnapshot(outcomeOptions.context || {}),
@@ -42817,6 +43002,12 @@ class SurvivalScene extends Phaser.Scene {
       pulseTimer: 0,
       dashCycleTimer: 0,
       regaliaCannonCooldownMs: 0,
+      regaliaAegisCooldownMs: 0,
+      regaliaPulseTimerMs: 0,
+      regaliaPulseCounterReadyAt: 0,
+      regaliaGuardSlots: [],
+      regaliaGuardAngle: 0,
+      regaliaGuardPushTimerMs: 0,
       orbitals: []
     };
   }
@@ -48589,6 +48780,7 @@ class SurvivalScene extends Phaser.Scene {
       (skillState.orbitals || []).forEach((orbital) => this.destroySkillOrbital(orbital));
       skillState.orbitals = [];
     });
+    this.clearRegaliaKitEffects("skillsRebuilt");
   }
 
   rebuildPlayerSkillsForRun(reason = "runStart") {
@@ -48601,6 +48793,15 @@ class SurvivalScene extends Phaser.Scene {
     const mechId = this.getRunPlayerMechId();
     this.playerSkills = this.buildInitialSkillStates({ reason, mechId });
     this.initializeSkillMutationState({ mechId });
+    // Only a sortie that can use REGALIA's own skills fetches their images (design 11.3), early
+    // enough for the first ring and wave.
+    const slotIds = this.getPlayerSkillSlotIds({ mechId });
+    if (slotIds.includes(REGALIA_AEGIS_WALL_SKILL_ID)) {
+      this.loadRegaliaAegisAssets();
+    }
+    if (slotIds.includes(REGALIA_COUNTER_PULSE_SKILL_ID)) {
+      this.loadRegaliaCounterPulseAssets();
+    }
     this.logRegaliaBastionCannonDebug("skills-rebuilt", {
       reason,
       mechId,
@@ -48614,7 +48815,7 @@ class SurvivalScene extends Phaser.Scene {
 
   isSkillRuntimeBehaviorImplemented(definition) {
     return definition?.previewOnly !== true
-      && ["orbit", "screenHoming", "directionalDash", "regaliaBastionCannon"].includes(definition?.behavior || "orbit");
+      && ["orbit", "screenHoming", "directionalDash", "regaliaBastionCannon", "regaliaAegisWall", "regaliaCounterPulse"].includes(definition?.behavior || "orbit");
   }
 
   applySkillStage(skillState, resetMotion = false) {
@@ -48638,6 +48839,27 @@ class SurvivalScene extends Phaser.Scene {
       skillState.currentStage = stageData;
       skillState.regaliaCannonCooldownMs = Math.min(
         Math.max(0, skillState.regaliaCannonCooldownMs || 0),
+        Math.max(0, stageData.cooldownMs || 0)
+      );
+      skillState.orbitals.forEach((orbital) => this.destroySkillOrbital(orbital));
+      skillState.orbitals = [];
+      return;
+    }
+    if (skillState.definition.behavior === "regaliaCounterPulse") {
+      skillState.currentStage = stageData;
+      skillState.regaliaPulseTimerMs = Math.min(
+        Math.max(0, skillState.regaliaPulseTimerMs || 0),
+        Math.max(0, stageData.autoIntervalMs || 0)
+      );
+      skillState.orbitals.forEach((orbital) => this.destroySkillOrbital(orbital));
+      skillState.orbitals = [];
+      return;
+    }
+    if (skillState.definition.behavior === "regaliaAegisWall") {
+      // Planted shields keep the stage they were planted with; the next deployment uses the new one.
+      skillState.currentStage = stageData;
+      skillState.regaliaAegisCooldownMs = Math.min(
+        Math.max(0, skillState.regaliaAegisCooldownMs || 0),
         Math.max(0, stageData.cooldownMs || 0)
       );
       skillState.orbitals.forEach((orbital) => this.destroySkillOrbital(orbital));
@@ -55519,6 +55741,8 @@ class SurvivalScene extends Phaser.Scene {
     const skillLabels = {
       [DEFAULT_SKILL_ID]: "ORB",
       [REGALIA_BASTION_CANNON_SKILL_ID]: "REG",
+      [REGALIA_AEGIS_WALL_SKILL_ID]: "AGS",
+      [REGALIA_COUNTER_PULSE_SKILL_ID]: "PLS",
       tornadoSkill: "TND",
       rabbitThunderSkill: "RBT"
     };
@@ -55716,6 +55940,8 @@ class SurvivalScene extends Phaser.Scene {
     const skillLabels = {
       [DEFAULT_SKILL_ID]: "ORB",
       [REGALIA_BASTION_CANNON_SKILL_ID]: "REG",
+      [REGALIA_AEGIS_WALL_SKILL_ID]: "AGS",
+      [REGALIA_COUNTER_PULSE_SKILL_ID]: "PLS",
       tornadoSkill: "TND",
       rabbitThunderSkill: "RBT",
       umbraMoonlight: "MOON", umbraBloodSpike: "SPIKE", umbraPhantomNova: "NOVA"
@@ -55723,6 +55949,8 @@ class SurvivalScene extends Phaser.Scene {
     const cardNames = {
       [DEFAULT_SKILL_ID]: "ORB",
       [REGALIA_BASTION_CANNON_SKILL_ID]: "REGALIA",
+      [REGALIA_AEGIS_WALL_SKILL_ID]: "AEGIS",
+      [REGALIA_COUNTER_PULSE_SKILL_ID]: "PULSE",
       tornadoSkill: "TORNADO",
       rabbitThunderSkill: "THUNDER"
     };
@@ -56896,11 +57124,17 @@ class SurvivalScene extends Phaser.Scene {
     icon.setScale(maxSize / longestSide);
   }
 
+  // A skill's icon: its drawn image once loaded, else the definition's (generated) HUD icon.
+  getSkillIconTextureKey(definition) {
+    const drawnKey = REGALIA_KIT_ICON_TEXTURE_KEYS[definition?.id];
+    return drawnKey && this.textures?.exists?.(drawnKey) ? drawnKey : (definition?.hudIconTextureKey || null);
+  }
+
   getSkillHudIconKey(definition) {
     const umbraAsset = this.isUmbraNormalPresentationContext?.() ? window.umbraPreviewAssets?.effects?.[definition?.id] : null;
     if (umbraAsset) return umbraAsset.key;
     if (definition?.hudIconTextureKey) {
-      return definition.hudIconTextureKey;
+      return this.getSkillIconTextureKey(definition);
     }
 
     if (definition?.behavior === "directionalDash") {
@@ -60883,13 +61117,29 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getRunArchiveSkillSlotIds(entry = null) {
-    if (MUTATION_ATLAS_PLAYER_MECH_IDS.includes(entry?.mechId)) return PLAYER_MECH_SKILL_SLOT_IDS[entry.mechId];
     const skills = entry?.skills || {};
     const mutations = entry?.skillMutations || {};
-    if ((skills[REGALIA_BASTION_CANNON_SKILL_ID] || 0) > 0 || mutations[REGALIA_BASTION_CANNON_SKILL_ID]?.core) {
-      return PLAYER_MECH_SKILL_MUTATION_SKILL_IDS[REGALIA_BASTION_MECH_ID];
+    const mechId = MUTATION_ATLAS_PLAYER_MECH_IDS.includes(entry?.mechId)
+      ? entry.mechId
+      : (((skills[REGALIA_BASTION_CANNON_SKILL_ID] || 0) > 0 || mutations[REGALIA_BASTION_CANNON_SKILL_ID]?.core)
+        ? REGALIA_BASTION_MECH_ID : DEFAULT_PLAYER_MECH_ID);
+    return this.normalizeRunArchiveSkillSlotIds(entry?.skillSlotIds, mechId, skills);
+  }
+
+  // The slots a record was played with. A stored list counts only when it is a known slot set; a
+  // record without one (v2 and older) is REGALIA's old set unless it has levels in REGALIA's own skills.
+  normalizeRunArchiveSkillSlotIds(value, mechId, skills = {}) {
+    const knownSlotSets = [...Object.values(PLAYER_MECH_SKILL_SLOT_IDS), REGALIA_LEGACY_SKILL_SLOT_IDS];
+    const stored = Array.isArray(value)
+      ? knownSlotSets.find((slots) => slots.length === value.length && slots.every((skillId, index) => skillId === value[index]))
+      : null;
+    if (stored) {
+      return [...stored];
     }
-    return PLAYER_MECH_SKILL_MUTATION_SKILL_IDS[DEFAULT_PLAYER_MECH_ID];
+    if (mechId === REGALIA_BASTION_MECH_ID && !REGALIA_KIT_SKILL_IDS.some((skillId) => Number(skills?.[skillId]) > 0)) {
+      return [...REGALIA_LEGACY_SKILL_SLOT_IDS];
+    }
+    return [...(PLAYER_MECH_SKILL_SLOT_IDS[mechId] || PLAYER_MECH_SKILL_SLOT_IDS[DEFAULT_PLAYER_MECH_ID])];
   }
 
   getRunArchiveSkillShortLabel(skillId) {
@@ -60899,6 +61149,8 @@ class SurvivalScene extends Phaser.Scene {
     if (skillId === REGALIA_BASTION_CANNON_SKILL_ID) {
       return "REGALIA";
     }
+    if (skillId === REGALIA_AEGIS_WALL_SKILL_ID) return "AEGIS";
+    if (skillId === REGALIA_COUNTER_PULSE_SKILL_ID) return "PULSE";
     if (skillId === DEFAULT_SKILL_ID) {
       return "BASIC";
     }
@@ -66737,6 +66989,7 @@ class SurvivalScene extends Phaser.Scene {
     this.clearActiveDepthDirective("depthTransition", { silent: true });
     this.cleanupNemesisBoss("depthTransition");
     this.cleanupVoidHunterBoss("depthTransition");
+    this.clearRegaliaKitEffects("depthTransition");
     this.stageDepth = targetDepth;
     this.runDepthProgressState = this.updateRunDepthProgressForEnteredDepth(
       this.runDepthProgressState,
@@ -66926,6 +67179,7 @@ class SurvivalScene extends Phaser.Scene {
     this.destroyStageGate();
     this.hideOverlay();
     this.clearActiveLostArmEffects();
+    this.clearRegaliaKitEffects(emergency ? "emergencyExtract" : "extract");
     this.physics.world.pause();
     const securedText = `${this.umbraRamResultUncertain ? "RAM結果未確認 / " : ""}${result.secured.toLocaleString()} GEEK SECURED`;
     const lostText = result.lost > 0 ? ` / LOST ${result.lost.toLocaleString()}` : "";
@@ -69181,7 +69435,17 @@ class SurvivalScene extends Phaser.Scene {
   }
 
   getEquipmentCombatLinkTargetSkillIds() {
-    return this.isUmbraEquipmentScope?.() ? UMBRA_TRIAD_COMBAT_SKILL_IDS : EQUIPMENT_COMBAT_LINK_SKILL_IDS;
+    return this.isUmbraEquipmentScope?.()
+      ? UMBRA_TRIAD_COMBAT_SKILL_IDS
+      : (this.getRunEquipmentCombatLinkSkillIds?.() || EQUIPMENT_COMBAT_LINK_SKILL_IDS);
+  }
+
+  // The OVERLIMIT targets of this sortie and the keys of its run state: the mech's own slots that
+  // carry a Combat Link. REGALIA has Aegis Wall / Counter Pulse; the other mechs keep the default three.
+  getRunEquipmentCombatLinkSkillIds() {
+    const slotIds = this.getPlayerSkillSlotIds();
+    const skillIds = EQUIPMENT_COMBAT_LINK_ALL_SKILL_IDS.filter((skillId) => slotIds.includes(skillId));
+    return skillIds.length ? skillIds : EQUIPMENT_COMBAT_LINK_SKILL_IDS;
   }
 
   initializeUmbraEquipmentRun(ramEquipment) {
@@ -74772,6 +75036,14 @@ class SurvivalScene extends Phaser.Scene {
         this.updateRegaliaBastionCannonSkill(skillState, stageData, delta);
         return;
       }
+      if (skillState.definition.behavior === "regaliaAegisWall") {
+        this.updateRegaliaAegisWallSkill(skillState, stageData, delta);
+        return;
+      }
+      if (skillState.definition.behavior === "regaliaCounterPulse") {
+        this.updateRegaliaCounterPulseSkill(skillState, stageData, delta);
+        return;
+      }
 
       skillState.orbitAngle = Phaser.Math.Angle.Wrap(
         skillState.orbitAngle + (stageData.rotationSpeed || Math.max(0.8, stageData.spinSpeed * 0.32)) * (delta / 1000)
@@ -75153,6 +75425,1215 @@ class SurvivalScene extends Phaser.Scene {
       });
     }
     return hitCount;
+  }
+
+  // --- REGALIA Aegis Wall (docs/regalia-kit-design.md 4) ------------------------------------------
+  // A ring of shields planted around the mech; the inside is REGALIA's territory. Each shield is
+  // three static circles in its own static group, so enemies push against it while the player,
+  // the stage obstacles and UMBRA's line checks are unaffected. Bosses walk through and break it.
+
+  getRegaliaAegisWallState() {
+    if (!this.regaliaAegisWallState) {
+      this.regaliaAegisWallState = { shields: [], territory: null, nextShieldId: 1, lastFacing: -Math.PI / 2 };
+    }
+    return this.regaliaAegisWallState;
+  }
+
+  ensureRegaliaAegisPhysics() {
+    if (this.regaliaAegisBodies && this.regaliaAegisCollider) {
+      return this.regaliaAegisBodies;
+    }
+    if (!this.physics?.add || !this.enemies) {
+      return null;
+    }
+    this.regaliaAegisBodies = this.physics.add.staticGroup();
+    this.regaliaAegisCollider = this.physics.add.collider(
+      this.enemies,
+      this.regaliaAegisBodies,
+      this.handleRegaliaAegisContact,
+      this.shouldRegaliaAegisBlockEnemy,
+      this
+    );
+    // The scene destroys the bodies, colliders and tweens on shutdown; drop the references with them.
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.regaliaAegisWallState = null;
+      this.regaliaAegisBodies = null;
+      this.regaliaAegisCollider = null;
+      this.regaliaAegisFxObjects = null;
+    });
+    return this.regaliaAegisBodies;
+  }
+
+  updateRegaliaAegisWallSkill(skillState, stageData, delta) {
+    if (
+      delta <= 0 ||
+      this.gameOver ||
+      this.shopActive ||
+      this.levelUpActive ||
+      this.gateChoiceActive ||
+      this.extractionComplete ||
+      this.isFinalBossRaidActive?.()
+    ) {
+      return;
+    }
+    this.updateRegaliaAegisShields(delta);
+    if (!this.playerHitbox?.active || !this.enemies?.children) {
+      return;
+    }
+    skillState.regaliaAegisCooldownMs = Math.max(0, (skillState.regaliaAegisCooldownMs || 0) - delta);
+    if (skillState.regaliaAegisCooldownMs > 0) {
+      return;
+    }
+    const deployed = this.deployRegaliaAegisWall(skillState, stageData);
+    skillState.regaliaAegisCooldownMs = deployed ? this.getRegaliaAegisWallCooldownMs(skillState, stageData) : 250;
+  }
+
+  getRegaliaAegisWallCooldownMs(skillState, stageData, fireInterval = this.stats?.fireInterval) {
+    return Math.max(
+      REGALIA_AEGIS_WALL_CONFIG.minCooldownMs,
+      Math.round(
+        this.getRegaliaKitFireControlIntervalMs(Number(stageData?.cooldownMs) || 7000, REGALIA_KIT_PASSIVE_CONFIG.aegisIntervalFloorRatio, fireInterval) *
+        this.getSkillMutationCooldownMultiplier(skillState?.id || REGALIA_AEGIS_WALL_SKILL_ID, { source: "skillCooldown" }) *
+        this.getRunEquipmentAttackIntervalMultiplier(skillState?.id || REGALIA_AEGIS_WALL_SKILL_ID)
+      )
+    );
+  }
+
+  // The first shield faces where the mech is aiming (target-facing), else the nearest enemy, else
+  // the previous direction.
+  getRegaliaAegisWallFacing(center) {
+    const state = this.getRegaliaAegisWallState();
+    const motionAngle = Number(this.playerRobotMotion?.angle);
+    if (Number.isFinite(motionAngle)) {
+      return motionAngle;
+    }
+    const [nearest] = this.findClosestEnemiesFrom?.(center.x, center.y, 1) || [];
+    if (nearest) {
+      return Math.atan2(nearest.y - center.y, nearest.x - center.x);
+    }
+    return state.lastFacing;
+  }
+
+  // Ground points of the shields (design 4.1): the facing snaps to the 8 directions of the mech
+  // sprites, then shieldCount shields stand side by side on a straight line wallDistance ahead.
+  // With wingCount, both ends bend back 45 degrees towards the mech. Each spot carries the
+  // direction its shield faces (outwards), which picks the image and lays its bodies along the line.
+  getRegaliaAegisWallLayout(stageData, center, facing) {
+    const step = Math.PI / 4;
+    const direction = ((Math.round((Number(facing) || 0) / step) % 8) + 8) % 8;
+    const angle = direction * step;
+    const pitch = REGALIA_AEGIS_WALL_CONFIG.shieldPitch;
+    const count = Math.max(1, Math.floor(Number(stageData?.shieldCount) || 1));
+    const wings = Math.max(0, Math.floor(Number(stageData?.wingCount) || 0));
+    const distance = Math.max(1, Number(stageData?.wallDistance) || 200);
+    const normal = { x: Math.cos(angle), y: Math.sin(angle) };
+    const tangent = { x: -normal.y, y: normal.x };
+    const middle = { x: center.x + normal.x * distance, y: center.y + normal.y * distance };
+    const spots = [];
+    for (let index = 0; index < count; index += 1) {
+      const offset = (index - (count - 1) / 2) * pitch;
+      spots.push({ x: middle.x + tangent.x * offset, y: middle.y + tangent.y * offset, angle, direction });
+    }
+    for (const side of [1, -1]) {
+      const end = (count - 1) / 2 * pitch * side;
+      const along = { x: (tangent.x * side - normal.x) * Math.SQRT1_2, y: (tangent.y * side - normal.y) * Math.SQRT1_2 };
+      for (let index = 1; index <= wings; index += 1) {
+        spots.push({
+          x: middle.x + tangent.x * end + along.x * pitch * index,
+          y: middle.y + tangent.y * end + along.y * pitch * index,
+          angle: angle + step * side,
+          direction: (direction + side + 8) % 8
+        });
+      }
+    }
+    return spots;
+  }
+
+  // Shield durability follows the mech's max AP (design 4.3).
+  getRegaliaAegisShieldDurability(stageData) {
+    const maxHp = Math.max(1, Number(this.stats?.maxHp) || 100);
+    return Math.max(1, Math.round(maxHp * Math.max(0, Number(stageData?.durabilityRatio) || 0)));
+  }
+
+  deployRegaliaAegisWall(skillState, stageData) {
+    if (!this.playerHitbox?.active || !this.ensureRegaliaAegisPhysics()) {
+      return false;
+    }
+    const state = this.getRegaliaAegisWallState();
+    this.retireRegaliaAegisShields();
+    this.loadRegaliaAegisAssets();
+    const center = { x: this.playerHitbox.x, y: this.playerHitbox.y };
+    const facing = this.getRegaliaAegisWallFacing(center);
+    state.lastFacing = facing;
+    const durability = this.getRegaliaAegisShieldDurability(stageData);
+    state.shields = this.getRegaliaAegisWallLayout(stageData, center, facing)
+      .map((spot) => this.createRegaliaAegisShield(skillState, stageData, spot, center, durability));
+    state.territory = this.createRegaliaAegisTerritoryVisual(state.shields);
+    return state.shields.length > 0;
+  }
+
+  createRegaliaAegisShield(skillState, stageData, spot, center, durability) {
+    const config = REGALIA_AEGIS_WALL_CONFIG;
+    const state = this.getRegaliaAegisWallState();
+    const shield = {
+      id: state.nextShieldId,
+      skillId: skillState?.id || REGALIA_AEGIS_WALL_SKILL_ID,
+      stage: stageData,
+      x: spot.x,
+      y: spot.y,
+      angle: spot.angle,
+      direction: spot.direction ?? 2,
+      centerX: center.x,
+      centerY: center.y,
+      durability,
+      maxDurability: durability,
+      lifetimeMs: Math.max(1, Number(stageData?.lifetimeMs) || 5000),
+      plantDelayMs: config.plantDelayMs,
+      planted: false,
+      pendingErosion: 0,
+      wearLevel: 0,
+      broken: false,
+      bodies: [],
+      sprite: null,
+      crack: null
+    };
+    state.nextShieldId += 1;
+    const tangentX = -Math.sin(spot.angle);
+    const tangentY = Math.cos(spot.angle);
+    for (const offset of [-config.bodySpacing, 0, config.bodySpacing]) {
+      const zone = this.add.zone(spot.x + tangentX * offset, spot.y + tangentY * offset, config.bodyRadius * 2, config.bodyRadius * 2);
+      this.regaliaAegisBodies.add(zone);
+      zone.body.setCircle(config.bodyRadius);
+      zone.body.updateFromGameObject();
+      zone.regaliaAegisShield = shield;
+      shield.bodies.push(zone);
+    }
+    this.createRegaliaAegisShieldVisual(shield);
+    return shield;
+  }
+
+  // Arcade process callback: returning false skips the separation. Bosses walk through and break
+  // the shield (design 4.3); it is removed in updateRegaliaAegisShields, outside the physics step.
+  shouldRegaliaAegisBlockEnemy(enemy, zone) {
+    const shield = zone?.regaliaAegisShield;
+    if (!shield || shield.broken || !enemy?.active || enemy.isDying) {
+      return false;
+    }
+    if (enemy.isFinalBossRaidBoss || enemy.isFinalBossRaidMinion || enemy.isFinalBossRaidGiantWeapon) {
+      return false;
+    }
+    if (enemy.isBoss) {
+      shield.broken = true;
+      return false;
+    }
+    return true;
+  }
+
+  // Each enemy pushing a shield wears it down by erosionPerEnemy per second (elites twice that),
+  // the same at every depth. From S6 the shield also hurts the enemies pushing it (thorns).
+  handleRegaliaAegisContact(enemy, zone) {
+    const shield = zone?.regaliaAegisShield;
+    if (!shield || shield.broken || !enemy?.active || enemy.isDying) {
+      return;
+    }
+    const now = Number(this.time?.now) || 0;
+    // A shield is three circles; count an enemy once per frame per shield.
+    if (enemy.regaliaAegisPressedAt === now && enemy.regaliaAegisPressedShieldId === shield.id) {
+      return;
+    }
+    enemy.regaliaAegisPressedAt = now;
+    enemy.regaliaAegisPressedShieldId = shield.id;
+    const frameSeconds = Math.max(0, Number(this.game?.loop?.delta) || 16.7) / 1000;
+    const config = REGALIA_AEGIS_WALL_CONFIG;
+    shield.pendingErosion += config.erosionPerEnemy * (enemy.isElite ? config.eliteErosionMultiplier : 1) * frameSeconds;
+    const thorn = Math.max(0, Number(shield.stage?.thornDamage) || 0);
+    if (thorn > 0 && shield.planted && now >= (enemy.regaliaAegisThornReadyAt || 0)) {
+      enemy.regaliaAegisThornReadyAt = now + Math.max(100, Number(shield.stage?.thornIntervalMs) || 500);
+      this.applyRegaliaAegisDamage(enemy, shield, thorn + this.getRegaliaKitReactorBonus(), { source: "regaliaAegisThorn", force: 60 });
+    }
+  }
+
+  applyRegaliaAegisDamage(enemy, shield, baseDamage, options = {}) {
+    if (!this.isFinalBossRaidEnemyTargetable(enemy) || enemy.isFinalBossRaidBoss || enemy.isFinalBossRaidMinion) {
+      return false;
+    }
+    const skillId = shield?.skillId || REGALIA_AEGIS_WALL_SKILL_ID;
+    const mutatedDamage = this.getMutatedSkillDamage(skillId, Math.max(1, Number(baseDamage) || 1), {
+      source: options.source || "regaliaAegisPlant",
+      enemy
+    });
+    const damage = Math.max(1, Math.round(this.applyRunEquipmentPlayerSkillDamageBonus(skillId, mutatedDamage)));
+    // Knockback pushes away from the territory centre, i.e. out of the territory.
+    this.applyDamageToEnemy(enemy, damage, shield?.stage?.damageTint || 0xfff1c8, {
+      sourceX: shield.centerX,
+      sourceY: shield.centerY,
+      force: options.force ?? REGALIA_AEGIS_WALL_CONFIG.knockbackForce,
+      recoverMs: REGALIA_AEGIS_WALL_CONFIG.knockbackRecoverMs,
+      canCrit: true
+    });
+    return true;
+  }
+
+  applyRegaliaAegisPlantImpact(shield) {
+    if (!this.enemies?.children || this.isFinalBossRaidActive?.()) {
+      return 0;
+    }
+    const radius = Math.max(1, Number(shield.stage?.impactRadius) || 44);
+    const damage = Math.max(1, Number(shield.stage?.damage) || 1) + this.getRegaliaKitReactorBonus();
+    let hits = 0;
+    this.enemies.children.each((enemy) => {
+      if (!enemy?.active || enemy.isDying || Phaser.Math.Distance.Between(shield.x, shield.y, enemy.x, enemy.y) > radius) {
+        return;
+      }
+      if (this.applyRegaliaAegisDamage(enemy, shield, damage, { source: "regaliaAegisPlant" })) {
+        hits += 1;
+      }
+    });
+    return hits;
+  }
+
+  updateRegaliaAegisShields(delta) {
+    const state = this.regaliaAegisWallState;
+    if (!state?.shields?.length) {
+      return;
+    }
+    for (const shield of state.shields.slice()) {
+      if (!shield.planted) {
+        shield.plantDelayMs -= delta;
+        if (shield.plantDelayMs <= 0) {
+          shield.planted = true;
+          this.applyRegaliaAegisPlantImpact(shield);
+          this.spawnRegaliaAegisPlantFx(shield);
+        }
+      }
+      shield.durability -= shield.pendingErosion;
+      shield.pendingErosion = 0;
+      shield.lifetimeMs -= delta;
+      if (shield.broken || shield.durability <= 0) {
+        this.removeRegaliaAegisShield(shield, "shatter");
+      } else if (shield.lifetimeMs <= 0) {
+        this.removeRegaliaAegisShield(shield, "sink");
+      } else {
+        this.updateRegaliaAegisShieldWear(shield);
+      }
+    }
+    if (!state.shields.length) {
+      this.fadeRegaliaAegisTerritory();
+    }
+  }
+
+  removeRegaliaAegisShield(shield, mode = "sink") {
+    const state = this.regaliaAegisWallState;
+    if (state?.shields) {
+      state.shields = state.shields.filter((entry) => entry !== shield);
+    }
+    shield.broken = true;
+    shield.bodies.forEach((zone) => {
+      zone.regaliaAegisShield = null;
+      if (this.regaliaAegisBodies?.contains?.(zone)) {
+        this.regaliaAegisBodies.remove(zone, true, true);
+      } else {
+        zone.destroy?.();
+      }
+    });
+    shield.bodies = [];
+    this.retireRegaliaAegisShieldVisual(shield, mode);
+    if (mode === "shatter") {
+      this.triggerRegaliaShieldBreakPulse(shield);
+    }
+  }
+
+  // A new deployment replaces the previous ring (design 4.1: one ring at a time).
+  retireRegaliaAegisShields() {
+    const state = this.regaliaAegisWallState;
+    (state?.shields || []).slice().forEach((shield) => this.removeRegaliaAegisShield(shield, "sink"));
+    this.fadeRegaliaAegisTerritory();
+  }
+
+  // Removes everything at once: run end, depth transition, shop return, skill rebuild.
+  clearRegaliaAegisWall(reason = "clear") {
+    const state = this.regaliaAegisWallState;
+    (state?.shields || []).slice().forEach((shield) => this.removeRegaliaAegisShield(shield, "immediate"));
+    if (state) {
+      state.shields = [];
+      state.territory = null;
+    }
+    if (this.regaliaAegisFxObjects) {
+      Array.from(this.regaliaAegisFxObjects).forEach((object) => {
+        this.tweens?.killTweensOf?.(object);
+        object?.destroy?.();
+      });
+      this.regaliaAegisFxObjects.clear();
+    }
+    return reason;
+  }
+
+  trackRegaliaAegisObject(object) {
+    if (!object) {
+      return object;
+    }
+    if (!this.regaliaAegisFxObjects) {
+      this.regaliaAegisFxObjects = new Set();
+    }
+    this.regaliaAegisFxObjects.add(object);
+    object.once?.("destroy", () => this.regaliaAegisFxObjects?.delete?.(object));
+    return object;
+  }
+
+  destroyRegaliaAegisObject(object) {
+    if (!object) {
+      return;
+    }
+    this.tweens?.killTweensOf?.(object);
+    this.regaliaAegisFxObjects?.delete?.(object);
+    object.destroy?.();
+  }
+
+  // The shield, crack and icon images load on demand for REGALIA only (design 11.3); until they
+  // arrive, or if they are missing, the shields are drawn with Graphics.
+  loadRegaliaAegisAssets() {
+    if (!this.load || !this.textures) {
+      return;
+    }
+    const failed = this.regaliaKitAssetFailures || (this.regaliaKitAssetFailures = new Set());
+    const { shield, crack, icon } = REGALIA_AEGIS_WALL_CONFIG;
+    const assets = REGALIA_AEGIS_DIRECTION_NAMES.map((name) => ({ key: `${shield.keyPrefix}${name}`, path: `${shield.pathPrefix}${name}.png` }));
+    for (const asset of [...assets, crack, icon]) {
+      if (!this.textures.exists(asset.key) && !failed.has(asset.key)) {
+        this.loadImageAssetOnDemand(asset.key, asset.path, null, () => failed.add(asset.key));
+      }
+    }
+  }
+
+  // A faint strip on the ground just inside the wall marks the territory (design 4.1, #11).
+  createRegaliaAegisTerritoryVisual(shields) {
+    if (!this.add || !shields?.length) {
+      return null;
+    }
+    const config = REGALIA_AEGIS_WALL_CONFIG;
+    const strip = this.trackRegaliaAegisObject(this.add.graphics()
+      .setDepth(config.groundDepth - 0.02)
+      .setAlpha(0));
+    for (const [width, alpha] of [[16, 0.12], [3, 0.5]]) {
+      strip.lineStyle(width, config.territoryColor, alpha);
+      for (const shield of shields) {
+        const inX = shield.x - Math.cos(shield.angle) * config.stripInset;
+        const inY = shield.y - Math.sin(shield.angle) * config.stripInset;
+        const half = config.shieldPitch / 2 + 1;
+        const tx = -Math.sin(shield.angle) * half;
+        const ty = Math.cos(shield.angle) * half;
+        strip.lineBetween(inX - tx, inY - ty, inX + tx, inY + ty);
+      }
+    }
+    this.tweens.add({ targets: strip, alpha: 1, duration: 220, ease: "Quad.easeOut" });
+    return strip;
+  }
+
+  fadeRegaliaAegisTerritory() {
+    const state = this.regaliaAegisWallState;
+    const ring = state?.territory;
+    if (!ring) {
+      return;
+    }
+    state.territory = null;
+    this.tweens.killTweensOf(ring);
+    this.tweens.add({
+      targets: ring,
+      alpha: 0,
+      duration: REGALIA_AEGIS_WALL_CONFIG.sinkMs,
+      onComplete: () => this.destroyRegaliaAegisObject(ring)
+    });
+  }
+
+  createRegaliaAegisShieldVisual(shield) {
+    if (!this.add) {
+      return;
+    }
+    const config = REGALIA_AEGIS_WALL_CONFIG;
+    const north = shield.y < shield.centerY;
+    const depth = north ? config.shieldDepthNorth : config.shieldDepthSouth;
+    if (this.textures?.exists?.(config.crack.key)) {
+      shield.crack = this.add.image(shield.x, shield.y, config.crack.key).setScale(config.crack.scale);
+    } else {
+      shield.crack = this.add.graphics().setPosition(shield.x, shield.y);
+      this.drawRegaliaAegisFallbackCrack(shield.crack, shield.id);
+    }
+    this.trackRegaliaAegisObject(shield.crack.setDepth(config.groundDepth).setAlpha(0));
+    const shieldKey = `${config.shield.keyPrefix}${REGALIA_AEGIS_DIRECTION_NAMES[shield.direction] || "s"}`;
+    if (this.textures?.exists?.(shieldKey)) {
+      const frame = this.textures.getFrame(shieldKey);
+      shield.sprite = this.add.image(shield.x, shield.y, shieldKey)
+        .setOrigin(config.shield.pivotX / Math.max(1, frame.width), config.shield.pivotY / Math.max(1, frame.height))
+        .setScale(config.shield.scale);
+    } else {
+      // The fallback is drawn face-on; narrow it for shields seen from the side.
+      shield.sprite = this.add.graphics().setPosition(shield.x, shield.y)
+        .setScale(Math.max(0.3, Math.abs(Math.sin(shield.angle))), 1);
+      this.drawRegaliaAegisFallbackShield(shield.sprite);
+    }
+    this.trackRegaliaAegisObject(shield.sprite.setDepth(depth).setAlpha(0));
+    shield.sprite.y = shield.y - 70;
+    this.tweens.add({
+      targets: shield.sprite,
+      y: shield.y,
+      alpha: 1,
+      duration: config.plantDelayMs,
+      ease: "Quad.easeIn"
+    });
+  }
+
+  spawnRegaliaAegisPlantFx(shield) {
+    if (!this.add || !shield.sprite?.active) {
+      return;
+    }
+    if (shield.crack?.active) {
+      this.tweens.add({ targets: shield.crack, alpha: 0.92, duration: 120, ease: "Quad.easeOut" });
+    }
+    const dust = this.trackRegaliaAegisObject(this.add.graphics()
+      .setPosition(shield.x, shield.y)
+      .setDepth(REGALIA_AEGIS_WALL_CONFIG.groundDepth + 0.01));
+    dust.lineStyle(3, 0xd0c0a5, 0.55);
+    dust.strokeEllipse(0, 0, 46, 18);
+    dust.lineStyle(2, REGALIA_AEGIS_WALL_CONFIG.territoryColor, 0.45);
+    dust.strokeEllipse(0, 0, 30, 12);
+    this.tweens.add({
+      targets: dust,
+      scaleX: 2.6,
+      scaleY: 2.2,
+      alpha: 0,
+      duration: 320,
+      ease: "Cubic.easeOut",
+      onComplete: () => this.destroyRegaliaAegisObject(dust)
+    });
+  }
+
+  // Shows wear: tinted below half durability, darker below a quarter (Graphics shields dim).
+  updateRegaliaAegisShieldWear(shield) {
+    const ratio = shield.maxDurability > 0 ? shield.durability / shield.maxDurability : 1;
+    const level = ratio <= 0.25 ? 2 : ratio <= 0.5 ? 1 : 0;
+    if (level === shield.wearLevel || !shield.sprite?.active) {
+      return;
+    }
+    shield.wearLevel = level;
+    if (typeof shield.sprite.setTint === "function") {
+      if (level === 0) {
+        shield.sprite.clearTint();
+      } else {
+        shield.sprite.setTint(level === 2 ? 0xff9f8a : 0xffd6c8);
+      }
+    } else {
+      shield.sprite.setAlpha(level === 2 ? 0.7 : 0.85);
+    }
+  }
+
+  retireRegaliaAegisShieldVisual(shield, mode) {
+    const sprite = shield.sprite?.active ? shield.sprite : null;
+    const crack = shield.crack?.active ? shield.crack : null;
+    shield.sprite = null;
+    shield.crack = null;
+    [sprite, crack].forEach((part) => part && this.tweens?.killTweensOf?.(part));
+    if (mode === "immediate" || !this.tweens) {
+      [sprite, crack].forEach((part) => part && this.destroyRegaliaAegisObject(part));
+      return;
+    }
+    const config = REGALIA_AEGIS_WALL_CONFIG;
+    if (crack) {
+      this.tweens.add({ targets: crack, alpha: 0, duration: config.sinkMs, onComplete: () => this.destroyRegaliaAegisObject(crack) });
+    }
+    if (!sprite) {
+      return;
+    }
+    if (mode === "shatter") {
+      this.spawnRegaliaAegisShards(sprite.x, sprite.y);
+      this.tweens.add({
+        targets: sprite,
+        scaleX: (sprite.scaleX || 1) * 1.18,
+        scaleY: (sprite.scaleY || 1) * 1.18,
+        alpha: 0,
+        duration: config.shatterMs,
+        ease: "Quad.easeOut",
+        onComplete: () => this.destroyRegaliaAegisObject(sprite)
+      });
+      return;
+    }
+    this.tweens.add({
+      targets: sprite,
+      y: sprite.y + 14,
+      alpha: 0,
+      duration: config.sinkMs,
+      ease: "Quad.easeIn",
+      onComplete: () => this.destroyRegaliaAegisObject(sprite)
+    });
+  }
+
+  spawnRegaliaAegisShards(x, y) {
+    if (!this.add) {
+      return;
+    }
+    for (let index = 0; index < 6; index += 1) {
+      const angle = -Math.PI / 2 + (index - 2.5) * 0.45;
+      const shard = this.trackRegaliaAegisObject(this.add.graphics()
+        .setPosition(x, y - 40)
+        .setDepth(REGALIA_AEGIS_WALL_CONFIG.shieldDepthNorth + 0.05));
+      shard.fillStyle(index % 2 ? 0xece4d6 : 0xe0b462, 0.95);
+      shard.fillTriangle(-5, 3, 6, 2, 0, -7);
+      this.tweens.add({
+        targets: shard,
+        x: x + Math.cos(angle) * 46,
+        y: y - 40 + Math.sin(angle) * 34 + 30,
+        angle: (index % 2 ? 1 : -1) * 160,
+        alpha: 0,
+        duration: REGALIA_AEGIS_WALL_CONFIG.shatterMs + 120,
+        ease: "Cubic.easeOut",
+        onComplete: () => this.destroyRegaliaAegisObject(shard)
+      });
+    }
+  }
+
+  // Fallback heater shield (tip at 0,0; about 84 x 110 px), same palette as the R1 render.
+  drawRegaliaAegisFallbackShield(graphics) {
+    const outline = [[0, 0], [-24, -18], [-38, -40], [-42, -62], [-42, -100], [-22, -106], [0, -109], [22, -106], [42, -100], [42, -62], [38, -40], [24, -18]];
+    const shape = (scale, cy = -58) => outline.map(([x, y]) => ({ x: x * scale, y: cy + (y - cy) * scale }));
+    graphics.fillStyle(0xe0b462, 1);
+    graphics.fillPoints(shape(1), true);
+    graphics.fillStyle(0xece4d6, 1);
+    graphics.fillPoints(shape(0.86), true);
+    graphics.lineStyle(2, 0x9fd2ff, 0.95);
+    graphics.strokePoints(shape(0.58), true);
+    graphics.fillStyle(0x1b2250, 1);
+    graphics.fillPoints(shape(0.54), true);
+    graphics.fillStyle(0xe0b462, 1);
+    graphics.fillRect(-3, -72, 6, 28);
+    graphics.fillRect(-11, -62, 22, 6);
+    graphics.fillStyle(0xe8f8ff, 1);
+    graphics.fillCircle(0, -59, 2.5);
+    graphics.fillStyle(0xe0b462, 1);
+    graphics.fillTriangle(-5, -108, 5, -108, 0, -126);
+    graphics.fillTriangle(-26, -104, -19, -105, -23, -116);
+    graphics.fillTriangle(19, -105, 26, -104, 23, -116);
+  }
+
+  drawRegaliaAegisFallbackCrack(graphics, seed = 1) {
+    graphics.fillStyle(0x2a2530, 0.45);
+    graphics.fillEllipse(0, 0, 54, 26);
+    graphics.lineStyle(2, 0x151018, 0.85);
+    for (let index = 0; index < 6; index += 1) {
+      const angle = (Math.PI * 2 * index) / 6 + seed * 0.7;
+      const length = 26 + ((seed * 7 + index * 5) % 12);
+      graphics.lineBetween(0, 0, Math.cos(angle) * length, Math.sin(angle) * length * 0.5);
+    }
+  }
+
+  // --- REGALIA Counter Pulse (docs/regalia-kit-design.md 5) ---------------------------------------
+  // A shockwave around the mech every autoIntervalMs. An accepted hit fires a stronger wave at once
+  // and restarts the timer. From S5 a smaller wave also rises where an Aegis Wall shield breaks; at
+  // S8 each wave around the mech repeats 150 ms later at half damage.
+
+  // Run end, depth transition, shop return, skill rebuild: both REGALIA skills leave nothing behind.
+  clearRegaliaKitEffects(reason = "clear") {
+    this.clearRegaliaAegisWall(reason);
+    this.clearRegaliaCounterPulse(reason);
+  }
+
+  isRegaliaKitSkillPaused() {
+    return Boolean(
+      this.gameOver ||
+      this.shopActive ||
+      this.levelUpActive ||
+      this.gateChoiceActive ||
+      this.extractionComplete ||
+      this.isFinalBossRaidActive?.()
+    );
+  }
+
+  getRegaliaCounterPulseState() {
+    if (!this.regaliaCounterPulseState) {
+      this.regaliaCounterPulseState = { echoes: [] };
+      // The scene destroys the ring objects on shutdown; drop the references with them.
+      this.events?.once?.(Phaser.Scenes.Events.SHUTDOWN, () => {
+        this.regaliaCounterPulseState = null;
+        this.regaliaPulseFxObjects = null;
+      });
+    }
+    return this.regaliaCounterPulseState;
+  }
+
+  getRegaliaCounterPulseIntervalMs(skillState, stageData, fireInterval = this.stats?.fireInterval) {
+    const skillId = skillState?.id || REGALIA_COUNTER_PULSE_SKILL_ID;
+    return Math.max(
+      REGALIA_COUNTER_PULSE_CONFIG.minIntervalMs,
+      Math.round(
+        this.getRegaliaKitFireControlIntervalMs(Number(stageData?.autoIntervalMs) || 3200, REGALIA_KIT_PASSIVE_CONFIG.pulseIntervalFloorRatio, fireInterval) *
+        this.getSkillMutationCooldownMultiplier(skillId, { source: "skillCooldown" }) *
+        this.getRunEquipmentAttackIntervalMultiplier(skillId)
+      )
+    );
+  }
+
+  updateRegaliaCounterPulseSkill(skillState, stageData, delta) {
+    if (delta <= 0 || this.isRegaliaKitSkillPaused()) {
+      return;
+    }
+    this.updateRegaliaCounterPulseEchoes(delta);
+    if (!this.playerHitbox?.active || !this.enemies?.children) {
+      return;
+    }
+    this.updateRegaliaGuardShields(skillState, stageData, delta);
+    skillState.regaliaPulseTimerMs = Math.max(0, (skillState.regaliaPulseTimerMs || 0) - delta);
+    if (skillState.regaliaPulseTimerMs > 0) {
+      return;
+    }
+    this.fireRegaliaCounterPulse(skillState, stageData, { x: this.playerHitbox.x, y: this.playerHitbox.y }, { kind: "auto" });
+    skillState.regaliaPulseTimerMs = this.getRegaliaCounterPulseIntervalMs(skillState, stageData);
+  }
+
+  // Called from applyDamageToPlayer once a hit is accepted (the 900 ms i-frames already space them).
+  triggerRegaliaCounterPulse(source = "playerDamage") {
+    const skillState = this.playerSkills?.[REGALIA_COUNTER_PULSE_SKILL_ID];
+    const stageData = skillState?.currentStage;
+    if (!stageData || !this.playerHitbox?.active || this.isRegaliaKitSkillPaused()) {
+      return false;
+    }
+    const now = Number(this.time?.now) || 0;
+    if (now < (skillState.regaliaPulseCounterReadyAt || 0)) {
+      return false;
+    }
+    skillState.regaliaPulseCounterReadyAt = now + REGALIA_COUNTER_PULSE_CONFIG.counterMinGapMs;
+    this.fireRegaliaCounterPulse(skillState, stageData, { x: this.playerHitbox.x, y: this.playerHitbox.y }, { kind: "counter", source });
+    skillState.regaliaPulseTimerMs = this.getRegaliaCounterPulseIntervalMs(skillState, stageData);
+    return true;
+  }
+
+  // S5+: a smaller wave where an Aegis Wall shield breaks (worn down, or broken by a boss).
+  triggerRegaliaShieldBreakPulse(shield) {
+    const skillState = this.playerSkills?.[REGALIA_COUNTER_PULSE_SKILL_ID];
+    const stageData = skillState?.currentStage;
+    if (!stageData || !(Number(stageData.shieldBreakRadiusRatio) > 0) || this.isRegaliaKitSkillPaused()) {
+      return false;
+    }
+    this.fireRegaliaCounterPulse(skillState, stageData, { x: shield.x, y: shield.y }, { kind: "shieldBreak" });
+    return true;
+  }
+
+  // Damage and radius of one wave: a counter wave multiplies the damage by counterMultiplier, a
+  // shield-break wave uses shieldBreakRadiusRatio of the radius.
+  getRegaliaCounterPulseWave(stageData, kind = "auto") {
+    const baseDamage = Math.max(1, Number(stageData?.damage) || 1) + this.getRegaliaKitReactorBonus();
+    const baseRadius = Math.max(1, Number(stageData?.pulseRadius) || 120);
+    return {
+      damage: kind === "counter" ? baseDamage * Math.max(1, Number(stageData?.counterMultiplier) || 1) : baseDamage,
+      radius: kind === "shieldBreak" ? baseRadius * Math.max(0, Number(stageData?.shieldBreakRadiusRatio) || 0) : baseRadius,
+      knockback: Math.max(0, Number(stageData?.knockback) || 0)
+    };
+  }
+
+  fireRegaliaCounterPulse(skillState, stageData, center, options = {}) {
+    const kind = options.kind || "auto";
+    const wave = options.wave || this.getRegaliaCounterPulseWave(stageData, kind);
+    if (!(wave.radius > 0) || !(wave.damage > 0)) {
+      return 0;
+    }
+    const hits = this.applyRegaliaCounterPulseDamage(skillState?.id, stageData, center, wave);
+    this.spawnRegaliaCounterPulseVisual(center, wave.radius, kind);
+    const { shakeMinHits, shakeDurationMs, shakeIntensity } = REGALIA_COUNTER_PULSE_CONFIG.counter;
+    if (kind === "counter" && hits >= shakeMinHits) {
+      this.cameras?.main?.shake?.(shakeDurationMs, shakeIntensity);
+    }
+    const echoRatio = Math.max(0, Number(stageData?.echoDamageRatio) || 0);
+    if (echoRatio > 0 && (kind === "auto" || kind === "counter")) {
+      this.getRegaliaCounterPulseState().echoes.push({
+        skillId: skillState?.id || REGALIA_COUNTER_PULSE_SKILL_ID,
+        stageData,
+        x: center.x,
+        y: center.y,
+        delayMs: Math.max(0, Number(stageData?.echoDelayMs) || 150),
+        wave: { radius: wave.radius, damage: wave.damage * echoRatio, knockback: wave.knockback * 0.6 }
+      });
+    }
+    return hits;
+  }
+
+  updateRegaliaCounterPulseEchoes(delta) {
+    const state = this.regaliaCounterPulseState;
+    if (!state?.echoes?.length) {
+      return;
+    }
+    const due = [];
+    state.echoes = state.echoes.filter((echo) => {
+      echo.delayMs -= delta;
+      if (echo.delayMs <= 0) {
+        due.push(echo);
+        return false;
+      }
+      return true;
+    });
+    due.forEach((echo) => this.fireRegaliaCounterPulse({ id: echo.skillId }, echo.stageData, echo, { kind: "echo", wave: echo.wave }));
+  }
+
+  applyRegaliaCounterPulseDamage(skillId, stageData, center, wave) {
+    if (!this.enemies?.children || this.isFinalBossRaidActive?.()) {
+      return 0;
+    }
+    const id = skillId || REGALIA_COUNTER_PULSE_SKILL_ID;
+    let hits = 0;
+    this.enemies.children.each((enemy) => {
+      if (!this.isFinalBossRaidEnemyTargetable(enemy) || enemy.isFinalBossRaidBoss || enemy.isFinalBossRaidMinion) {
+        return;
+      }
+      if (Phaser.Math.Distance.Between(center.x, center.y, enemy.x, enemy.y) > wave.radius) {
+        return;
+      }
+      const mutatedDamage = this.getMutatedSkillDamage(id, wave.damage, { source: "regaliaCounterPulse", enemy });
+      const damage = Math.max(1, Math.round(this.applyRunEquipmentPlayerSkillDamageBonus(id, mutatedDamage)));
+      this.applyDamageToEnemy(enemy, damage, stageData?.damageTint || 0xdff4ff, {
+        sourceX: center.x,
+        sourceY: center.y,
+        force: wave.knockback,
+        recoverMs: 140,
+        canCrit: true
+      });
+      hits += 1;
+    });
+    return hits;
+  }
+
+  clearRegaliaCounterPulse(reason = "clear") {
+    if (this.regaliaCounterPulseState) {
+      this.regaliaCounterPulseState.echoes = [];
+    }
+    this.regaliaGuardVisuals = null; // their objects are in regaliaPulseFxObjects; the slots stay on the skill
+    if (this.regaliaPulseFxObjects) {
+      Array.from(this.regaliaPulseFxObjects).forEach((object) => {
+        this.tweens?.killTweensOf?.(object);
+        object?.destroy?.();
+      });
+      this.regaliaPulseFxObjects.clear();
+    }
+    return reason;
+  }
+
+  // The pulse frames, the crest, the guard shields and the icon load only for a sortie that can use
+  // Counter Pulse (design 11.3); without them the waves, the crest and the shields are drawn with Graphics.
+  loadRegaliaCounterPulseAssets() {
+    if (!this.load || !this.textures) {
+      return;
+    }
+    const { ring, icon, counter, guard } = REGALIA_COUNTER_PULSE_CONFIG;
+    const failed = this.regaliaKitAssetFailures || (this.regaliaKitAssetFailures = new Set());
+    const guards = guard.facings.map((facing) => ({ key: `${guard.image.keyPrefix}${facing}`, path: `${guard.image.pathPrefix}${facing}.png` }));
+    for (const asset of [ring, icon, counter.ring, counter.emblem, ...guards]) {
+      if (!this.textures.exists(asset.key) && !failed.has(asset.key)) {
+        this.loadImageAssetOnDemand(asset.key, asset.path, null, () => failed.add(asset.key));
+      }
+    }
+  }
+
+  spawnRegaliaCounterPulseVisual(center, radius, kind = "auto") {
+    if (!this.add || !this.tweens) {
+      return;
+    }
+    this.getRegaliaCounterPulseState();
+    if (kind === "counter") {
+      this.spawnRegaliaCounterVisual(center, radius);
+      return;
+    }
+    const config = REGALIA_COUNTER_PULSE_CONFIG;
+    const ring = this.createRegaliaPulseRing(center, radius, config.ring, config.ringColor, config.ringCoreColor);
+    this.playRegaliaPulseRing(ring.object, ring.endScale, config.ringDurationMs, kind === "echo" ? 0.6 : 0.85);
+  }
+
+  trackRegaliaPulseObject(object) {
+    if (!this.regaliaPulseFxObjects) {
+      this.regaliaPulseFxObjects = new Set();
+    }
+    this.regaliaPulseFxObjects.add(object);
+    object.once?.("destroy", () => this.regaliaPulseFxObjects?.delete?.(object));
+    return object;
+  }
+
+  destroyRegaliaPulseObject(object) {
+    this.regaliaPulseFxObjects?.delete?.(object);
+    object?.destroy?.();
+  }
+
+  // A wave ring from its image (scaled so the image's ring meets `radius`), or two Graphics
+  // circles when the image is missing. Returns the object and the scale at full size.
+  createRegaliaPulseRing(center, radius, image, glowColor, coreColor) {
+    let object;
+    let endScale = 1;
+    if (this.textures?.exists?.(image.key)) {
+      endScale = radius / image.ringRadiusPx;
+      object = this.add.image(center.x, center.y, image.key);
+    } else {
+      object = this.add.graphics().setPosition(center.x, center.y);
+      object.lineStyle(14, glowColor, 0.18);
+      object.strokeCircle(0, 0, radius * 0.95);
+      object.lineStyle(3, coreColor, 0.9);
+      object.strokeCircle(0, 0, radius);
+    }
+    object.setBlendMode(Phaser.BlendModes.ADD).setDepth(REGALIA_COUNTER_PULSE_CONFIG.ringDepth);
+    return { object: this.trackRegaliaPulseObject(object), endScale };
+  }
+
+  // Grows from 35% to full size, then fades over the second half.
+  playRegaliaPulseRing(ring, endScale, durationMs, alpha, delayMs = 0) {
+    ring.setScale(endScale * 0.35).setAlpha(delayMs > 0 ? 0 : alpha);
+    this.tweens.add({
+      targets: ring,
+      scale: endScale,
+      delay: delayMs,
+      duration: durationMs,
+      ease: "Cubic.easeOut",
+      onStart: () => ring.setAlpha?.(alpha)
+    });
+    this.tweens.add({
+      targets: ring,
+      alpha: 0,
+      delay: delayMs + durationMs * 0.45,
+      duration: durationMs * 0.55,
+      onComplete: () => this.destroyRegaliaPulseObject(ring)
+    });
+  }
+
+  // The counter wave (design 12.5): a flash and the crest at the mech's feet, the gold ring and a
+  // thin second ring on the ground (under enemies and the mech), and COUNTER above the mech.
+  spawnRegaliaCounterVisual(center, radius) {
+    const config = REGALIA_COUNTER_PULSE_CONFIG;
+    const counter = config.counter;
+    this.spawnRegaliaCounterFlash(center);
+    this.spawnRegaliaCounterEmblem(center);
+    const ring = this.createRegaliaPulseRing(center, radius, counter.ring, counter.ringColor, counter.secondRingColor);
+    this.playRegaliaPulseRing(ring.object, ring.endScale, counter.ringDurationMs, 1);
+    const second = this.trackRegaliaPulseObject(this.add.graphics()
+      .setPosition(center.x, center.y)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(config.ringDepth + 0.01));
+    second.lineStyle(10, counter.secondRingColor, 0.2);
+    second.strokeCircle(0, 0, radius);
+    second.lineStyle(3, counter.secondRingColor, 0.95);
+    second.strokeCircle(0, 0, radius);
+    this.playRegaliaPulseRing(second, 1, counter.ringDurationMs, 0.9, counter.secondRingDelayMs);
+    this.spawnRegaliaCounterText(center);
+  }
+
+  // A soft white disc: concentric additive circles, brightest in the middle.
+  spawnRegaliaCounterFlash(center) {
+    const counter = REGALIA_COUNTER_PULSE_CONFIG.counter;
+    const flash = this.trackRegaliaPulseObject(this.add.graphics()
+      .setPosition(center.x, center.y)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(REGALIA_COUNTER_PULSE_CONFIG.ringDepth - 0.02));
+    for (const share of [1, 0.78, 0.58, 0.4, 0.24]) {
+      flash.fillStyle(counter.flashColor, 0.16);
+      flash.fillCircle(0, 0, counter.flashRadius * share);
+    }
+    this.tweens.add({
+      targets: flash,
+      alpha: 0,
+      duration: counter.flashDurationMs,
+      onComplete: () => this.destroyRegaliaPulseObject(flash)
+    });
+  }
+
+  // REGALIA's crest flashes up on the ground under the mech and fades.
+  spawnRegaliaCounterEmblem(center) {
+    const counter = REGALIA_COUNTER_PULSE_CONFIG.counter;
+    let emblem;
+    let scale = 1;
+    if (this.textures?.exists?.(counter.emblem.key)) {
+      scale = counter.emblemRadius / counter.emblem.outerRadiusPx;
+      emblem = this.add.image(center.x, center.y, counter.emblem.key);
+    } else {
+      emblem = this.add.graphics().setPosition(center.x, center.y);
+      this.drawRegaliaCounterFallbackEmblem(emblem, counter.emblemRadius, counter.emblemColor);
+    }
+    this.trackRegaliaPulseObject(emblem)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(REGALIA_COUNTER_PULSE_CONFIG.ringDepth - 0.01)
+      .setScale(scale * 0.8)
+      .setAlpha(0);
+    this.tweens.add({ targets: emblem, scale, duration: 100, ease: "Cubic.easeOut" });
+    this.tweens.add({ targets: emblem, alpha: counter.emblemAlpha, duration: counter.emblemInMs });
+    this.tweens.add({
+      targets: emblem,
+      alpha: 0,
+      delay: counter.emblemHoldMs,
+      duration: counter.emblemOutMs - counter.emblemHoldMs,
+      onComplete: () => this.destroyRegaliaPulseObject(emblem)
+    });
+  }
+
+  // Without the image: the rim, a ring of eight spikes and the cross pattee in gold lines.
+  drawRegaliaCounterFallbackEmblem(graphics, radius, color) {
+    graphics.lineStyle(4, color, 0.85);
+    graphics.strokeCircle(0, 0, radius);
+    graphics.lineStyle(2, color, 0.6);
+    graphics.strokeCircle(0, 0, radius * 0.8);
+    graphics.fillStyle(color, 0.75);
+    for (let index = 0; index < 8; index += 1) {
+      const angle = (Math.PI / 4) * index + Math.PI / 8;
+      const side = angle + Math.PI / 2;
+      const base = radius + 2;
+      graphics.fillTriangle(
+        Math.cos(angle) * (radius + 26), Math.sin(angle) * (radius + 26),
+        Math.cos(angle) * base + Math.cos(side) * 8, Math.sin(angle) * base + Math.sin(side) * 8,
+        Math.cos(angle) * base - Math.cos(side) * 8, Math.sin(angle) * base - Math.sin(side) * 8
+      );
+    }
+    const arm = radius * 0.78;
+    const root = radius * 0.09;
+    const flare = radius * 0.27;
+    graphics.fillStyle(color, 0.4);
+    for (let index = 0; index < 4; index += 1) {
+      const angle = (Math.PI / 2) * index;
+      const point = (along, across) => ({
+        x: Math.cos(angle) * along - Math.sin(angle) * across,
+        y: Math.sin(angle) * along + Math.cos(angle) * across
+      });
+      graphics.fillPoints([point(0, root), point(0, -root), point(arm, -flare), point(arm, flare)], true);
+    }
+  }
+
+  // --- Guard shields (design 12.6) -------------------------------------------------------------
+
+  // The slots follow the stage's guardShieldCount; new ones arrive ready, used ones keep their timers.
+  getRegaliaGuardSlots(skillState) {
+    if (!Array.isArray(skillState.regaliaGuardSlots)) {
+      skillState.regaliaGuardSlots = [];
+    }
+    const slots = skillState.regaliaGuardSlots;
+    const count = Math.max(0, Math.floor(Number(skillState.currentStage?.guardShieldCount) || 0));
+    while (slots.length < count) {
+      slots.push({ ready: true, regenLeftMs: 0, regenTotalMs: 0 });
+    }
+    slots.length = count;
+    return slots;
+  }
+
+  // Comes back after the stage value, shortened like the automatic interval (Fire Control Link down to
+  // 55%), then by the Mutation cooldown multiplier and the SENSOR.
+  getRegaliaGuardRegenMs(skillState, stageData, fireInterval = this.stats?.fireInterval) {
+    const skillId = skillState?.id || REGALIA_COUNTER_PULSE_SKILL_ID;
+    return Math.max(
+      REGALIA_COUNTER_PULSE_CONFIG.guard.minRegenMs,
+      Math.round(
+        this.getRegaliaKitFireControlIntervalMs(Number(stageData?.guardRegenMs) || 10000, REGALIA_KIT_PASSIVE_CONFIG.pulseIntervalFloorRatio, fireInterval) *
+        this.getSkillMutationCooldownMultiplier(skillId, { source: "skillCooldown" }) *
+        this.getRunEquipmentAttackIntervalMultiplier(skillId)
+      )
+    );
+  }
+
+  getReadyRegaliaGuardCount(skillState = this.playerSkills?.[REGALIA_COUNTER_PULSE_SKILL_ID]) {
+    return skillState?.currentStage ? this.getRegaliaGuardSlots(skillState).filter((slot) => slot.ready).length : 0;
+  }
+
+  // Called from applyDamageToPlayer for a hit that would land: a ready shield takes it, the mech gets
+  // the usual 0.9 s of i-frames and the counter wave answers.
+  tryRegaliaGuardAbsorb(source = "playerDamage") {
+    const skillState = this.playerSkills?.[REGALIA_COUNTER_PULSE_SKILL_ID];
+    if (!skillState?.currentStage || !this.playerHitbox?.active || this.isRegaliaKitSkillPaused()) {
+      return false;
+    }
+    const slots = this.getRegaliaGuardSlots(skillState);
+    const index = slots.findIndex((slot) => slot.ready);
+    if (index < 0) {
+      return false;
+    }
+    const slot = slots[index];
+    slot.ready = false;
+    slot.regenTotalMs = this.getRegaliaGuardRegenMs(skillState, skillState.currentStage);
+    slot.regenLeftMs = slot.regenTotalMs;
+    this.invincibleUntil = (Number(this.time?.now) || 0) + 900;
+    const visual = this.regaliaGuardVisuals?.[index];
+    if (visual?.sprite?.active) {
+      this.spawnRegaliaAegisShards(visual.sprite.x, visual.sprite.y + 2);
+    }
+    this.triggerRegaliaCounterPulse(`${source}:guard`);
+    return true;
+  }
+
+  updateRegaliaGuardShields(skillState, stageData, delta) {
+    const config = REGALIA_COUNTER_PULSE_CONFIG.guard;
+    const slots = this.getRegaliaGuardSlots(skillState);
+    slots.forEach((slot, index) => {
+      if (slot.ready) {
+        return;
+      }
+      slot.regenLeftMs -= delta;
+      if (slot.regenLeftMs <= 0) {
+        slot.ready = true;
+        slot.regenLeftMs = 0;
+        this.popRegaliaGuardVisual(this.regaliaGuardVisuals?.[index]);
+      }
+    });
+    skillState.regaliaGuardAngle = ((Number(skillState.regaliaGuardAngle) || 0) + config.rotationSpeed * delta / 1000) % (Math.PI * 2);
+    const points = this.getRegaliaGuardPoints(skillState, slots.length);
+    this.syncRegaliaGuardVisuals(slots, points);
+    skillState.regaliaGuardPushTimerMs = (Number(skillState.regaliaGuardPushTimerMs) || 0) - delta;
+    if (skillState.regaliaGuardPushTimerMs <= 0) {
+      skillState.regaliaGuardPushTimerMs = config.pushEveryMs;
+      this.pushEnemiesFromRegaliaGuards(points.filter((point, index) => slots[index].ready));
+    }
+  }
+
+  // Evenly spaced on the orbit (used slots keep their places), squashed like Orbit Core's orbit.
+  getRegaliaGuardPoints(skillState, count) {
+    const config = REGALIA_COUNTER_PULSE_CONFIG.guard;
+    const center = { x: this.playerHitbox.x, y: this.playerHitbox.y };
+    return Array.from({ length: count }, (_, index) => {
+      const angle = (Number(skillState.regaliaGuardAngle) || 0) + (Math.PI * 2 * index) / Math.max(1, count);
+      return {
+        angle,
+        x: center.x + Math.cos(angle) * config.orbitRadius,
+        y: center.y + Math.sin(angle) * config.orbitRadius * config.orbitSquash
+      };
+    });
+  }
+
+  getRegaliaGuardFacing(angle) {
+    const cos = Math.cos(angle);
+    return cos > 0.38 ? "se" : (cos < -0.38 ? "sw" : "s");
+  }
+
+  syncRegaliaGuardVisuals(slots, points) {
+    if (!this.add) {
+      return;
+    }
+    const config = REGALIA_COUNTER_PULSE_CONFIG.guard;
+    if (!Array.isArray(this.regaliaGuardVisuals)) {
+      this.regaliaGuardVisuals = [];
+    }
+    const visuals = this.regaliaGuardVisuals;
+    while (visuals.length > slots.length) {
+      const extra = visuals.pop();
+      this.destroyRegaliaPulseObject(extra?.sprite);
+      this.destroyRegaliaPulseObject(extra?.glow);
+    }
+    const now = Number(this.time?.now) || 0;
+    slots.forEach((slot, index) => {
+      const point = points[index];
+      let visual = visuals[index];
+      if (!visual?.sprite?.active) {
+        visual = visuals[index] = this.createRegaliaGuardVisual(point.angle);
+      }
+      const facing = this.getRegaliaGuardFacing(point.angle);
+      if (visual.image && visual.facing !== facing) {
+        visual.sprite.setTexture(`${config.image.keyPrefix}${facing}`);
+        visual.facing = facing;
+      }
+      const bob = Math.sin(now / 320 + index * 1.7) * 2;
+      const progress = slot.ready || !(slot.regenTotalMs > 0) ? 1 : 1 - slot.regenLeftMs / slot.regenTotalMs;
+      visual.sprite
+        .setPosition(point.x, point.y - config.hover + bob)
+        .setDepth(Math.sin(point.angle) < 0 ? config.depthBehind : config.depthFront);
+      if (!visual.popping) {
+        visual.sprite.setAlpha(slot.ready ? 1 : config.usedAlpha + config.regenAlphaGain * Phaser.Math.Clamp(progress, 0, 1));
+      }
+      visual.glow.setPosition(point.x, point.y).setVisible(slot.ready);
+    });
+  }
+
+  createRegaliaGuardVisual(angle) {
+    const config = REGALIA_COUNTER_PULSE_CONFIG.guard;
+    const facing = this.getRegaliaGuardFacing(angle);
+    const key = `${config.image.keyPrefix}${facing}`;
+    let sprite;
+    let image = false;
+    let baseScale = config.fallbackScale;
+    if (this.textures?.exists?.(key)) {
+      const frame = this.textures.getFrame(key);
+      sprite = this.add.image(0, 0, key)
+        .setOrigin(config.image.pivotX / Math.max(1, frame.width), config.image.pivotY / Math.max(1, frame.height));
+      image = true;
+      baseScale = config.image.scale;
+    } else {
+      sprite = this.add.graphics();
+      this.drawRegaliaAegisFallbackShield(sprite);
+    }
+    sprite.setScale(baseScale);
+    const glow = this.add.graphics().setBlendMode(Phaser.BlendModes.ADD).setDepth(REGALIA_COUNTER_PULSE_CONFIG.ringDepth);
+    glow.fillStyle(config.glowColor, 0.22);
+    glow.fillEllipse(0, 0, 46, 16);
+    glow.fillStyle(config.glowColor, 0.3);
+    glow.fillEllipse(0, 0, 24, 8);
+    return {
+      sprite: this.trackRegaliaPulseObject(sprite),
+      glow: this.trackRegaliaPulseObject(glow),
+      image,
+      facing,
+      baseScale,
+      popping: false
+    };
+  }
+
+  // A shield that comes back pops in.
+  popRegaliaGuardVisual(visual) {
+    if (!visual?.sprite?.active || !this.tweens) {
+      return;
+    }
+    visual.popping = true;
+    visual.sprite.setScale(visual.baseScale * 1.35).setAlpha(1);
+    this.tweens.add({
+      targets: visual.sprite,
+      scale: visual.baseScale,
+      duration: 180,
+      ease: "Back.easeOut",
+      onComplete: () => { visual.popping = false; }
+    });
+  }
+
+  // Ready shields push touching enemies away from the mech (no damage, bosses are not moved).
+  pushEnemiesFromRegaliaGuards(points) {
+    if (!points.length || !this.enemies?.children) {
+      return 0;
+    }
+    const config = REGALIA_COUNTER_PULSE_CONFIG.guard;
+    const now = Number(this.time?.now) || 0;
+    const center = { x: this.playerHitbox.x, y: this.playerHitbox.y };
+    let pushed = 0;
+    this.enemies.children.each((enemy) => {
+      if (!enemy?.active || enemy.isDying || enemy.isBoss || enemy.isFinalBossRaidBoss || this.isNemesisBoss?.(enemy)
+        || now < (enemy.regaliaGuardPushedUntil || 0)) {
+        return;
+      }
+      const reach = config.pushRadius + Math.min(40, Number(enemy.body?.halfWidth) || 16);
+      if (!points.some((point) => Phaser.Math.Distance.Between(point.x, point.y, enemy.x, enemy.y) <= reach)) {
+        return;
+      }
+      enemy.regaliaGuardPushedUntil = now + config.pushCooldownMs;
+      this.applyEnemyImpact(enemy, { sourceX: center.x, sourceY: center.y, force: config.pushForce, recoverMs: config.pushRecoverMs });
+      pushed += 1;
+    });
+    return pushed;
+  }
+
+  // COUNTER above the mech: pops from 1.35x, rises and fades (the damage numbers' font).
+  spawnRegaliaCounterText(center) {
+    const counter = REGALIA_COUNTER_PULSE_CONFIG.counter;
+    const sprite = this.playerSprite;
+    const y = sprite?.active ? sprite.y - (Number(sprite.displayHeight) || 0) * 0.42 : center.y - 110;
+    const text = this.trackRegaliaPulseObject(this.add.text(center.x, y, "COUNTER", {
+      fontFamily: "Segoe UI, Yu Gothic UI, Arial, sans-serif",
+      fontSize: "34px",
+      color: "#ffd86b",
+      fontStyle: "bold",
+      stroke: "#2a1a08",
+      strokeThickness: 5
+    }));
+    text.setOrigin(0.5).setDepth(counter.textDepth).setScale(1.35);
+    if (typeof text.setResolution === "function") {
+      text.setResolution(2);
+    }
+    this.tweens.add({ targets: text, scale: 1, duration: 100, ease: "Cubic.easeOut" });
+    this.tweens.add({ targets: text, y: y - 24, duration: 600 });
+    this.tweens.add({
+      targets: text,
+      alpha: 0,
+      delay: 350,
+      duration: 250,
+      onComplete: () => this.destroyRegaliaPulseObject(text)
+    });
   }
 
   isRegaliaBastionCannonDebugEnabled() {
@@ -82189,8 +83670,15 @@ class SurvivalScene extends Phaser.Scene {
     if (this.shouldNegatePlayerDamageByAcEvade(damageSource, finalAmount, meta)) {
       return false;
     }
+    // REGALIA Counter Pulse: a ready guard shield takes the hit instead of AP. Optional calls: the
+    // UMBRA drive scenes borrow this method without REGALIA's.
+    if (finalAmount > 0 && this.tryRegaliaGuardAbsorb?.(damageSource)) {
+      return false;
+    }
 
     this.invincibleUntil = this.time.now + 900;
+    // REGALIA Counter Pulse answers an accepted hit, even one the robot barrier fully absorbs.
+    this.triggerRegaliaCounterPulse?.(damageSource);
     const barrierResult = this.applyRobotBarrierToIncomingDamage(finalAmount);
     const guildReductionResult = this.applyFinalRaidGuildDamageReduction?.(barrierResult.hpDamage || 0, {
       source: damageSource,
@@ -88495,6 +89983,12 @@ class SurvivalScene extends Phaser.Scene {
     const boosterTuningGain = this.getBoosterTuningSpeedGain();
     const energyCapacitorGain = 25;
     const verificationWeapons = this.getUmbraVerificationPassiveWeapons?.() ?? null;
+    // Without an Orbit Core slot (REGALIA) both lightning passives are offered only for what reads
+    // them there: REGALIA's own skills once owned, and Fire Control's LOST ARMS cooldowns. The
+    // isolated UMBRA drive does not install the helper and keeps its legacy cards.
+    const orbitCoreOutOfReach = !verificationWeapons && this.isOrbitCoreOutOfReachForPassives?.(options) === true;
+    // REGALIA's own skills read both passives once owned (design 6.2).
+    const regaliaKitSkillIds = orbitCoreOutOfReach ? (this.getOwnedRegaliaKitSkillIds?.() || []) : [];
     const formatDamage = (value) => Number(value.toFixed(2));
     const reactorWeapons = (verificationWeapons || []).flatMap(weapon => weapon.id === UMBRA_PHANTOM_NOVA_SKILL_ID
       ? [
@@ -88525,7 +90019,8 @@ class SurvivalScene extends Phaser.Scene {
         id: "overchargeBolt",
         type: "passive",
         title: "Reactor Overcharge",
-        description: "電撃ダメージ +1",
+        description: regaliaKitSkillIds.length ? "REGALIA 専用スキルの威力 +1" : "電撃ダメージ +1",
+        ...(regaliaKitSkillIds.length ? { regaliaKitReactor: this.getRegaliaKitReactorChanges(regaliaKitSkillIds) } : {}),
         ...verificationReactorDisplay,
         ...(equipmentReactorDisplay || {}),
         onSelect: () => {
@@ -88609,12 +90104,20 @@ class SurvivalScene extends Phaser.Scene {
         novaDeployedIntervalReductionMs: intervalChanges.find(change => change.novaMode === "deployed")?.reductionMs || 0,
         verificationIntervalReductionMs: intervalChanges.reduce((sum, change) => sum + change.reductionMs, 0)
       } : {};
+      const lostArmsCooldown = orbitCoreOutOfReach ? this.getFireControlLostArmsCooldownChange(nextFireInterval) : null;
+      const regaliaKitFireControl = regaliaKitSkillIds.length ? this.getRegaliaKitFireControlChanges(regaliaKitSkillIds, nextFireInterval) : [];
       choices.splice(1, 0, {
         id: "rapidSigil",
         type: "passive",
         title: "Fire Control Link",
         nextFireIntervalMs: nextFireInterval,
         description: `放電間隔 -${effectiveReduction}ms`,
+        ...(lostArmsCooldown
+          ? { lostArmsCooldown, description: `LOST ARMS 再発動待ち -${lostArmsCooldown.reductionPercent}%` }
+          : {}),
+        ...(regaliaKitFireControl.length
+          ? { regaliaKitFireControl, description: "REGALIA 専用スキルの間隔短縮" }
+          : {}),
         ...verificationFireDisplay,
         onSelect: () => {
           this.stats.fireInterval = Math.max(LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS, this.stats.fireInterval - 70);
@@ -88631,7 +90134,89 @@ class SurvivalScene extends Phaser.Scene {
       .filter((choice) => choice.id !== "swiftStep" || boosterTuningGain > 0)
       .filter((choice) => !verificationWeapons || choice.id !== "overchargeBolt" || reactorChanges.length > 0)
       .filter((choice) => !verificationWeapons || choice.id !== "rapidSigil" || choice.verificationIntervalReductionMs > 0)
+      .filter((choice) => !orbitCoreOutOfReach || choice.id !== "overchargeBolt" || choice.regaliaKitReactor?.length)
+      .filter((choice) => !orbitCoreOutOfReach || choice.id !== "rapidSigil" || choice.lostArmsCooldown || choice.regaliaKitFireControl?.length)
       .map((choice) => this.buildPassiveUpgradeChoice(choice)).filter(Boolean);
+  }
+
+  // Reactor Overcharge and Fire Control Link feed Orbit Core's auto lightning (fireAtClosestEnemy).
+  // A mech whose skill slots have no Orbit Core can never use that. UMBRA is excluded: its own
+  // weapons read both stats (getUmbraVerificationPassiveWeapons).
+  isOrbitCoreOutOfReachForPassives(options = {}) {
+    const mechId = this.getSkillSelectionPlayerMechId(options);
+    return mechId !== UMBRA_SERAPH_MECH_ID && !this.getPlayerSkillSlotIds(mechId).includes(DEFAULT_SKILL_ID);
+  }
+
+  // Fire Control Link also shortens LOST ARMS cooldowns (getLostArmCooldownMs). Returns the share
+  // of the base cooldown left now and after the next level, or null when no LOST ARM is owned or
+  // the cooldown would not change.
+  getFireControlLostArmsCooldownChange(nextFireInterval) {
+    if (!LOST_ARMS_IDS.some((armId) => this.getLostArmRuntimeLevel(armId) > 0)) {
+      return null;
+    }
+    const currentReduction = this.getLostArmCooldownReduction();
+    const nextReduction = this.getLostArmCooldownReduction(nextFireInterval);
+    if (nextReduction <= currentReduction) {
+      return null;
+    }
+    const percent = (value) => Number((value * 100).toFixed(1));
+    const beforePercent = percent(1 - currentReduction);
+    const afterPercent = percent(1 - nextReduction);
+    // The chip is the difference of the two shown values, so the card adds up.
+    return { beforePercent, afterPercent, reductionPercent: Number((beforePercent - afterPercent).toFixed(1)) };
+  }
+
+  getOwnedRegaliaKitSkillIds() {
+    return REGALIA_KIT_SKILL_IDS.filter((skillId) => this.playerSkills?.[skillId]?.currentStage);
+  }
+
+  // Reactor Overcharge levels: +1 to every hit of REGALIA's own skills per level (bulletDamage starts at 1).
+  getRegaliaKitReactorBonus(bulletDamage = this.stats?.bulletDamage) {
+    const value = Number(bulletDamage);
+    return Math.max(0, (Number.isFinite(value) ? value : 1) - 1);
+  }
+
+  // Fire Control Link: the stage interval shortened in proportion to how far the fire interval
+  // has come down from its base (540 ms) to its floor, down to floorRatio of the stage value.
+  getRegaliaKitFireControlIntervalMs(stageMs, floorRatio, fireInterval = this.stats?.fireInterval) {
+    const { fireIntervalBaseMs } = REGALIA_KIT_PASSIVE_CONFIG;
+    const value = Number(fireInterval);
+    const current = Number.isFinite(value) ? value : fireIntervalBaseMs;
+    const progress = Phaser.Math.Clamp((fireIntervalBaseMs - current) / (fireIntervalBaseMs - LEVEL_UP_RAPID_SIGIL_MIN_INTERVAL_MS), 0, 1);
+    return Math.max(0, Number(stageMs) || 0) * (1 - (1 - floorRatio) * progress);
+  }
+
+  // Card lines for Reactor Overcharge: the base damage of each owned skill, now and after the pick.
+  getRegaliaKitReactorChanges(skillIds) {
+    const bonus = this.getRegaliaKitReactorBonus();
+    return skillIds.map((skillId) => {
+      const before = Math.max(1, Number(this.playerSkills[skillId].currentStage.damage) || 1) + bonus;
+      return { skillId, before, after: before + 1 };
+    });
+  }
+
+  // Card lines for Fire Control Link: each owned skill's interval now and after the pick, when it shortens.
+  getRegaliaKitFireControlChanges(skillIds, nextFireInterval) {
+    const changes = [];
+    for (const skillId of skillIds) {
+      const state = this.playerSkills[skillId];
+      const interval = skillId === REGALIA_AEGIS_WALL_SKILL_ID
+        ? (fireInterval) => this.getRegaliaAegisWallCooldownMs(state, state.currentStage, fireInterval)
+        : (fireInterval) => this.getRegaliaCounterPulseIntervalMs(state, state.currentStage, fireInterval);
+      const beforeMs = interval(this.stats?.fireInterval);
+      const afterMs = interval(nextFireInterval);
+      if (afterMs < beforeMs) {
+        changes.push({ skillId, beforeMs, afterMs });
+      }
+      if (skillId === REGALIA_COUNTER_PULSE_SKILL_ID) {
+        const regenBefore = this.getRegaliaGuardRegenMs(state, state.currentStage, this.stats?.fireInterval);
+        const regenAfter = this.getRegaliaGuardRegenMs(state, state.currentStage, nextFireInterval);
+        if (regenAfter < regenBefore) {
+          changes.push({ skillId, beforeMs: regenBefore, afterMs: regenAfter, guardRegen: true });
+        }
+      }
+    }
+    return changes;
   }
 
   createEvasiveFirmwarePassiveChoice(options = {}) {
@@ -89011,6 +90596,12 @@ class SurvivalScene extends Phaser.Scene {
     if (definition.behavior === "regaliaBastionCannon") {
       return `王装閃砲を解放 / DMG ${stageData.damage} / CD ${stageData.cooldownMs}ms / TARGET ${stageData.targetCount || 1}`;
     }
+    if (definition.behavior === "regaliaAegisWall") {
+      return `王盾陣を解放 / 盾 ${stageData.shieldCount} / 距離 ${stageData.wallDistance} / DMG ${stageData.damage}`;
+    }
+    if (definition.behavior === "regaliaCounterPulse") {
+      return `反撃衝波を解放 / DMG ${stageData.damage} / 範囲 ${stageData.pulseRadius} / 自動 ${stageData.autoIntervalMs}ms`;
+    }
 
     return `周回球を強化 / ${this.buildSkillStatsSummary(stageData, definition)}`;
   }
@@ -89025,7 +90616,30 @@ class SurvivalScene extends Phaser.Scene {
       changes.push(`HIT ${currentStage.contactTickMs}->${nextStage.contactTickMs}ms`);
     }
 
-    if (definition.behavior === "regaliaBastionCannon") {
+    if (definition.behavior === "regaliaCounterPulse") {
+      if (currentStage.pulseRadius !== nextStage.pulseRadius) {
+        changes.push(`範囲 ${currentStage.pulseRadius}->${nextStage.pulseRadius}`);
+      }
+      if (currentStage.autoIntervalMs !== nextStage.autoIntervalMs) {
+        changes.push(`自動 ${currentStage.autoIntervalMs}->${nextStage.autoIntervalMs}ms`);
+      }
+      if (currentStage.counterMultiplier !== nextStage.counterMultiplier) {
+        changes.push(`反撃 x${currentStage.counterMultiplier}->x${nextStage.counterMultiplier}`);
+      }
+      if (currentStage.guardShieldCount !== nextStage.guardShieldCount) {
+        changes.push(`盾 ${currentStage.guardShieldCount}->${nextStage.guardShieldCount}`);
+      }
+    } else if (definition.behavior === "regaliaAegisWall") {
+      if (currentStage.shieldCount !== nextStage.shieldCount) {
+        changes.push(`盾 ${currentStage.shieldCount}->${nextStage.shieldCount}`);
+      }
+      if ((currentStage.wingCount || 0) !== (nextStage.wingCount || 0)) {
+        changes.push((currentStage.wingCount || 0) === 0 ? "袖 ON" : `袖 ${currentStage.wingCount}->${nextStage.wingCount}`);
+      }
+      if ((currentStage.thornDamage || 0) !== (nextStage.thornDamage || 0)) {
+        changes.push((currentStage.thornDamage || 0) === 0 ? "棘 ON" : `棘 ${currentStage.thornDamage}->${nextStage.thornDamage}`);
+      }
+    } else if (definition.behavior === "regaliaBastionCannon") {
       if ((currentStage.targetCount || 1) !== (nextStage.targetCount || 1)) {
         changes.push(`TARGET ${currentStage.targetCount || 1}->${nextStage.targetCount || 1}`);
       }
@@ -89397,7 +91011,7 @@ class SurvivalScene extends Phaser.Scene {
         glowColor: meta.glowColor || typeMeta.color,
         accentColor: "#f0c463",
         iconTone: "OVL",
-        iconTextureKey: option.definition?.hudIconTextureKey || option.definition?.stages?.[0]?.textureKey || null
+        iconTextureKey: this.getSkillIconTextureKey(option.definition) || option.definition?.stages?.[0]?.textureKey || null
       };
     }
 
@@ -89437,7 +91051,7 @@ class SurvivalScene extends Phaser.Scene {
         glowColor: meta.glowColor,
         accentColor: meta.accentColor,
         iconTone: meta.iconTone,
-        iconTextureKey: option.nextStage?.textureKey || option.definition?.hudIconTextureKey || null
+        iconTextureKey: option.nextStage?.textureKey || this.getSkillIconTextureKey(option.definition)
       };
     }
 
@@ -89476,14 +91090,50 @@ class SurvivalScene extends Phaser.Scene {
 
     const seconds = (ms) => this.formatLevelUpSeconds(ms);
     const whole = (value) => Math.round(Number(value) || 0);
-    // Both lightning passives only reach Orbit Core's auto lightning; say so when it is missing.
+    // Both lightning passives raise Orbit Core's auto lightning; say so when it is not owned.
+    // Mechs without an Orbit Core slot are not offered them for it (getPassiveUpgradeChoices).
     const lightning = (change) => (this.playerSkills?.[DEFAULT_SKILL_ID]
       ? `Orbit Core の自動雷撃\n${change}`
       : `自動雷撃の${change}\nOrbit Core 所持時のみ有効`);
+    const kitName = (skillId) => LEVEL_UP_SKILL_UI_META[skillId]?.displayName || skillId;
+    const kitInterval = (skillId) => (skillId === REGALIA_AEGIS_WALL_SKILL_ID ? "再設置" : "自動間隔");
+    const kitChangeLabel = (change) => (change.guardRegen ? "盾の復活" : kitInterval(change.skillId));
     switch (option.id) {
       case "overchargeBolt":
+        // REGALIA: one line per owned skill of its own.
+        if (option.regaliaKitReactor?.length) {
+          return {
+            description: option.regaliaKitReactor.map((change) => `${kitName(change.skillId)} の威力 ${change.before} → ${change.after}`).join("\n"),
+            chip: "威力 +1"
+          };
+        }
         return { description: lightning("威力 +1"), chip: "雷撃の威力 +1" };
       case "rapidSigil": {
+        // REGALIA: one line per owned skill of its own, then LOST ARMS if there is room (two lines).
+        if (option.regaliaKitFireControl?.length) {
+          // Each skill's own interval first, then LOST ARMS, then the guard regen while there is room.
+          const kitLine = (change) =>
+            `${kitName(change.skillId)} の${kitChangeLabel(change)} ${seconds(change.beforeMs)} → ${seconds(change.afterMs)}秒`;
+          const main = option.regaliaKitFireControl.filter((change) => !change.guardRegen);
+          const lines = main.map(kitLine);
+          if (option.lostArmsCooldown && lines.length < 2) {
+            lines.push(`LOST ARMS の再発動待ち 基本の ${option.lostArmsCooldown.beforePercent}% → ${option.lostArmsCooldown.afterPercent}%`);
+          }
+          option.regaliaKitFireControl.filter((change) => change.guardRegen && lines.length < 2).forEach((change) => lines.push(kitLine(change)));
+          const first = main[0] || option.regaliaKitFireControl[0];
+          return {
+            description: lines.join("\n"),
+            chip: `${kitChangeLabel(first)} -${seconds(first.beforeMs - first.afterMs)}秒`
+          };
+        }
+        // Offered without an Orbit Core slot only for the LOST ARMS cooldowns.
+        if (option.lostArmsCooldown) {
+          const { beforePercent, afterPercent, reductionPercent } = option.lostArmsCooldown;
+          return {
+            description: `LOST ARMS の再発動待ち\n基本の ${beforePercent}% → ${afterPercent}%`,
+            chip: `LOST ARMS 待ち -${reductionPercent}%`
+          };
+        }
         if (!Number.isFinite(option.nextFireIntervalMs)) {
           return null;
         }
@@ -89630,7 +91280,7 @@ class SurvivalScene extends Phaser.Scene {
         stageLabel: `${definition.name} / Stage4 / ${data.coreId.toUpperCase()}`,
         description: data.description, stageProgress: "●●●●○○○○", chips: data.chips, newEffects: [data.coreId.toUpperCase()],
         themeColor: option.themeColor, glowColor: option.themeColor, accentColor: option.accentColor,
-        iconTone: data.coreId.toUpperCase(), iconTextureKey: definition.hudIconTextureKey || definition.stages[0]?.textureKey || null };
+        iconTone: data.coreId.toUpperCase(), iconTextureKey: this.getSkillIconTextureKey(definition) || definition.stages[0]?.textureKey || null };
     }
     if (option.umbraFinalCard && this.isUmbraFinalSkillEligible?.(option.skillId)) {
       const data = option.umbraFinalCard, definition = SKILL_DEFINITIONS[option.skillId];
@@ -89639,7 +91289,7 @@ class SurvivalScene extends Phaser.Scene {
         stageLabel: `${definition.name} / Stage8 / ${data.coreId.toUpperCase()} + ${data.finalId.toUpperCase()}`,
         description: data.description, stageProgress: "●●●●●●●●", chips: data.chips, newEffects: [data.finalId.toUpperCase()],
         themeColor: option.themeColor, glowColor: option.themeColor, accentColor: option.accentColor,
-        iconTone: data.finalId.toUpperCase(), iconTextureKey: definition.hudIconTextureKey || definition.stages[0]?.textureKey || null };
+        iconTone: data.finalId.toUpperCase(), iconTextureKey: this.getSkillIconTextureKey(definition) || definition.stages[0]?.textureKey || null };
     }
     const typeMeta = LEVEL_UP_CARD_TYPE_META.skillMutation;
     const phase = option.phase === "stage8" ? "stage8" : "stage4";
@@ -89682,7 +91332,7 @@ class SurvivalScene extends Phaser.Scene {
       glowColor: coreStyle.secondaryTint || typeMeta.color,
       accentColor: coreStyle.textColor || this.colorToCss(coreStyle.primaryTint || typeMeta.color),
       iconTone: mutation.shortLabel || "MUT",
-      iconTextureKey: skillDefinition.hudIconTextureKey || skillDefinition.stages?.[0]?.textureKey || null
+      iconTextureKey: this.getSkillIconTextureKey(skillDefinition) || skillDefinition.stages?.[0]?.textureKey || null
     };
   }
 
@@ -89825,6 +91475,18 @@ class SurvivalScene extends Phaser.Scene {
     if (skillId === "rabbitThunderSkill" && (beforeStage.impactRepeatCount || 1) < 2 && (afterStage.impactRepeatCount || 1) >= 2) {
       effects.push("2連続の着地雷衝撃");
     }
+    if ((beforeStage.thornDamage || 0) <= 0 && (afterStage.thornDamage || 0) > 0) {
+      effects.push("棘盾：盾を押す敵に継続ダメージ");
+    }
+    if ((beforeStage.wingCount || 0) <= 0 && (afterStage.wingCount || 0) > 0) {
+      effects.push("城壁の袖：壁の両端が折れて側面を守る");
+    }
+    if ((beforeStage.shieldBreakRadiusRatio || 0) <= 0 && (afterStage.shieldBreakRadiusRatio || 0) > 0) {
+      effects.push("盾連動：砕けた盾からも反撃波");
+    }
+    if ((beforeStage.echoDamageRatio || 0) <= 0 && (afterStage.echoDamageRatio || 0) > 0) {
+      effects.push("二重波：直後に威力50%の追撃波");
+    }
     if ((beforeStage.orbitRadiusPulseAmount || 0) <= 0 && (afterStage.orbitRadiusPulseAmount || 0) > 0) {
       effects.push("可変オービット");
     }
@@ -89837,10 +91499,20 @@ class SurvivalScene extends Phaser.Scene {
 
   getSkillStatDisplaySpecs(skillId) {
     // Card labels are plain Japanese; times are shown in seconds (ms: true marks the source unit).
+    const aegis = skillId === REGALIA_AEGIS_WALL_SKILL_ID;
+    const pulse = skillId === REGALIA_COUNTER_PULSE_SKILL_ID;
     return [
       { key: "damage", label: "威力", priority: 120, unlock: true },
       { key: "contactTickMs", label: "攻撃間隔", priority: 115, unlock: true, ms: true },
+      { key: "shieldCount", label: "盾の数", priority: 112, unlock: aegis },
+      { key: "pulseRadius", label: "範囲", priority: 111, unlock: pulse },
+      { key: "autoIntervalMs", label: "自動間隔", priority: 108, unlock: pulse, ms: true },
+      { key: "counterMultiplier", label: "反撃倍率", priority: 105, multiplier: true },
+      { key: "guardShieldCount", label: "身代わり盾", priority: 118, unlock: pulse },
+      { key: "guardRegenMs", label: "盾の復活", priority: 106, ms: true },
       { key: "targetCount", label: "弾数", priority: 109, unlock: skillId === REGALIA_BASTION_CANNON_SKILL_ID },
+      { key: "durabilityRatio", label: "盾の耐久", priority: 107, unlock: aegis, percent: true },
+      { key: "lifetimeMs", label: "持続", priority: 103, unlock: aegis, ms: true },
       { key: "autoAttackShots", label: "雷撃本数", priority: 108 },
       { key: "orbitCount", label: "球数", priority: 106 },
       { key: "moveSpeed", label: "速度", priority: 104, unlock: skillId === "tornadoSkill" },
@@ -89851,6 +91523,8 @@ class SurvivalScene extends Phaser.Scene {
       { key: "displayScale", label: "大きさ", priority: 94, decimal: true, chipOnly: true },
       { key: "dashDurationMs", label: "突進時間", priority: 92, ms: true },
       { key: "impactRadius", label: "衝撃範囲", priority: 88, unlock: skillId === REGALIA_BASTION_CANNON_SKILL_ID },
+      { key: "thornDamage", label: "棘", priority: 87 },
+      { key: "knockback", label: "押し返し", priority: 85 },
       { key: "suctionRadius", label: "吸引範囲", priority: 86 },
       { key: "suctionForce", label: "吸引力", priority: 84 }
     ];
@@ -89921,6 +91595,12 @@ class SurvivalScene extends Phaser.Scene {
     if (spec.ms) {
       return `${this.formatLevelUpSeconds(value)}秒`;
     }
+    if (spec.percent) {
+      return `${Math.round(value * 100)}%`;
+    }
+    if (spec.multiplier) {
+      return `×${Number(value.toFixed(2))}`;
+    }
     if (spec.decimal) {
       return value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
     }
@@ -89932,6 +91612,12 @@ class SurvivalScene extends Phaser.Scene {
     const amount = Math.abs(delta);
     if (spec.ms) {
       return `${sign}${this.formatLevelUpSeconds(amount)}秒`;
+    }
+    if (spec.percent) {
+      return `${sign}${Math.round(amount * 100)}%`;
+    }
+    if (spec.multiplier) {
+      return `${sign}${Number(amount.toFixed(2))}`;
     }
     if (spec.decimal) {
       return `${sign}${amount.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}`;
@@ -90050,6 +91736,7 @@ class SurvivalScene extends Phaser.Scene {
     this.destroyStageGate(true);
     this.hideOverlay();
     this.clearActiveLostArmEffects();
+    this.clearRegaliaKitEffects("gameOver");
     this.cleanupGensoKnightsEvent(this.gensoKnightsEvent, true);
     this.stopSupportAttackBgmOverride(null, false, true);
     if (!this.clearEndlessVoidBgmOverride(reason)) {
@@ -90220,6 +91907,7 @@ class SurvivalScene extends Phaser.Scene {
     this.resetDepthDirectiveState("returnToOpeningShop");
     this.resetTriadMatrixRunState("returnToOpeningShop");
     this.resetSkillMutationState("returnToOpeningShop");
+    this.clearRegaliaKitEffects("returnToOpeningShop");
     this.resetNemesisBossState("returnToOpeningShop");
     this.resetVoidHunterState("returnToOpeningShop");
     this.resetFinalBossRaidState("returnToOpeningShop");
@@ -90964,7 +92652,8 @@ class SurvivalScene extends Phaser.Scene {
       compact ? contentWidth : width - 48,
       {
         maxChips: compact ? 3 : 6,
-        maxRows: compact ? 1 : 0,
+        // Under the new-effect strip a second row would cross the card's bottom edge.
+        maxRows: compact || model.newEffects.length > 0 ? 1 : 0,
         fontSize: compact ? "10px" : "12px",
         minFontSize: compact ? 8 : 10,
         chipHeight: compact ? 20 : 23,
@@ -91742,6 +93431,12 @@ class SurvivalScene extends Phaser.Scene {
     }
     if (definition?.behavior === "regaliaBastionCannon") {
       return `DMG ${stageData.damage} / CD ${stageData.cooldownMs}ms / TARGET ${stageData.targetCount || 1} / IMPACT ${stageData.impactRadius || 0}${effectsLabel}`;
+    }
+    if (definition?.behavior === "regaliaAegisWall") {
+      return `DMG ${stageData.damage} / 盾 ${stageData.shieldCount} / 袖 ${stageData.wingCount || 0} / 持続 ${stageData.lifetimeMs}ms`;
+    }
+    if (definition?.behavior === "regaliaCounterPulse") {
+      return `DMG ${stageData.damage} / 範囲 ${stageData.pulseRadius} / 自動 ${stageData.autoIntervalMs}ms / 反撃 x${stageData.counterMultiplier}`;
     }
 
     return `DMG ${stageData.damage} / HIT ${stageData.contactTickMs}ms / ORB ${stageData.orbitCount} / BOLT ${stageData.autoAttackShots || 1}${effectsLabel}`;

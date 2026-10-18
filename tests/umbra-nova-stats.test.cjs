@@ -343,8 +343,14 @@ test("queries and passive callbacks leave existing reservations, pending pulse a
   assert.deepEqual(calls, { storage: 0, network: 0 });
 });
 
-test("standard, REGALIA and earlier trace-only drive retain their existing candidate text and effect", () => {
-  for (const options of [{ mechId: "defaultBear" }, { mechId: "regaliaBastion" },
+test("REGALIA, without an Orbit Core slot or a LOST ARM, is not offered the lightning passives", () => {
+  const { scene } = fixture({ mechId: "regaliaBastion" });
+  assert.equal(scene.getUmbraVerificationPassiveWeapons(), null);
+  assert.equal(passive(scene, "overchargeBolt"), undefined); assert.equal(passive(scene, "rapidSigil"), undefined);
+});
+
+test("standard and earlier trace-only drive retain their existing candidate text and effect", () => {
+  for (const options of [{ mechId: "defaultBear" },
     { phase5: false, phase4: false, weapons: [] }]) {
     const { scene } = fixture(options);
     assert.equal(scene.getUmbraVerificationPassiveWeapons(), null);

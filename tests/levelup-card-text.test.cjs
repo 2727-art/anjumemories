@@ -137,10 +137,146 @@ test("passive cards show their level, a 10-step track and now → next values", 
   assert.equal(scene.buildLevelUpCardModel(passive(scene, "overchargeBolt"), 0).description, "Orbit Core の自動雷撃\n威力 +1");
 });
 
-test("the lightning passives say when Orbit Core is missing", () => {
-  const { scene } = fixture({ mechId: "regaliaBastion", orbitCore: false });
+test("the lightning passives say when Orbit Core is not owned", () => {
+  const { scene } = fixture({ orbitCore: false });
   assert.equal(scene.buildLevelUpCardModel(passive(scene, "overchargeBolt"), 0).description, "自動雷撃の威力 +1\nOrbit Core 所持時のみ有効");
   assert.match(scene.buildLevelUpCardModel(passive(scene, "rapidSigil"), 0).description, /^自動雷撃の間隔 [\d.]+ → [\d.]+秒\nOrbit Core 所持時のみ有効$/);
+});
+
+const passiveIds = (scene, options = { openingBoost: false }) => plain(scene.getPassiveUpgradeChoices(options).map(choice => choice.id));
+const ownLostArm = (scene, armId = "abyssRail") => {
+  scene.lostArmsState = { permanentLevels: { [armId]: 1 }, pendingLevels: {}, runtimeLevels: {} };
+};
+
+test("a mech without an Orbit Core slot is not offered the lightning passives", () => {
+  const { scene } = fixture({ mechId: "regaliaBastion", orbitCore: false });
+  assert.equal(scene.isOrbitCoreOutOfReachForPassives(), true);
+  for (const openingBoost of [false, true]) {
+    const ids = passiveIds(scene, { openingBoost });
+    assert.ok(!ids.includes("overchargeBolt") && !ids.includes("rapidSigil"), `openingBoost=${openingBoost}: ${ids}`);
+    assert.ok(["swiftStep", "staminaCore", "vitalBloom"].every(id => ids.includes(id)), "the other passives stay");
+  }
+
+  // The default mech has an Orbit Core slot and keeps both cards.
+  const standard = fixture().scene;
+  assert.equal(standard.isOrbitCoreOutOfReachForPassives(), false);
+  assert.ok(["overchargeBolt", "rapidSigil"].every(id => passiveIds(standard).includes(id)));
+});
+
+test("without an Orbit Core slot, Fire Control Link is offered for the LOST ARMS cooldowns", () => {
+  const { scene } = fixture({ mechId: "regaliaBastion", orbitCore: false });
+  ownLostArm(scene, "gravitySeed");
+  assert.deepEqual(passiveIds(scene).filter(id => id === "overchargeBolt" || id === "rapidSigil"), ["rapidSigil"]);
+
+  const fire = passive(scene, "rapidSigil");
+  assert.deepEqual(plain(fire.lostArmsCooldown), { beforePercent: 100, afterPercent: 91.6, reductionPercent: 8.4 });
+  const card = scene.buildLevelUpCardModel(fire, 0);
+  assert.equal(card.description, "LOST ARMS の再発動待ち\n基本の 100% → 91.6%");
+  assert.equal(card.chips[0].label, "LOST ARMS 待ち -8.4%");
+
+  // The card matches the cooldown the LOST ARMS actually use after the pick.
+  assert.equal(scene.getLostArmCooldownMs(6500), 6500);
+  fire.onSelect();
+  assert.equal(scene.stats.fireInterval, 470);
+  assert.equal(scene.getLostArmCooldownMs(6500), 5952); // 6500 × 91.57%
+  assert.equal(scene.passiveLevels.rapidSigil, 1);
+  assert.equal(scene.buildLevelUpCardModel(passive(scene, "rapidSigil"), 0).description, "LOST ARMS の再発動待ち\n基本の 91.6% → 83.1%");
+
+  // At the fire interval floor, or above 610ms where the next level would not reach 540ms, the
+  // LOST ARMS cooldown does not change, so the card is not offered.
+  scene.stats.fireInterval = 160;
+  assert.equal(passive(scene, "rapidSigil"), undefined);
+  scene.stats.fireInterval = 610;
+  assert.equal(passive(scene, "rapidSigil"), undefined);
+  scene.stats.fireInterval = 609;
+  assert.ok(passive(scene, "rapidSigil"));
+});
+
+test("XP overflows to OVERDRIVE once only ineffective lightning passives would remain", () => {
+  const maxOtherPassives = (scene) => {
+    scene.getAvailableSkillChoices = () => [];
+    for (const id of ["swiftStep", "staminaCore", "vitalBloom"]) scene.passiveLevels[id] = scene.getPassiveMaxLevel(id);
+  };
+  const regalia = fixture({ mechId: "regaliaBastion", orbitCore: false }).scene;
+  maxOtherPassives(regalia);
+  assert.deepEqual(passiveIds(regalia), []);
+  assert.equal(regalia.isXpProgressionCapped(), true);
+  ownLostArm(regalia);
+  assert.equal(regalia.isXpProgressionCapped(), false, "Fire Control Link still shortens the LOST ARMS cooldowns");
+
+  const standard = fixture().scene;
+  maxOtherPassives(standard);
+  assert.equal(standard.isXpProgressionCapped(), false, "the default mech still raises Orbit Core's lightning");
+  standard.passiveLevels.overchargeBolt = standard.getPassiveMaxLevel("overchargeBolt");
+  standard.passiveLevels.rapidSigil = standard.getPassiveMaxLevel("rapidSigil");
+  assert.equal(standard.isXpProgressionCapped(), true);
+});
+
+// REGALIA's own skills (docs/regalia-kit-design.md 6): both passives reach them once owned.
+const ownKit = (scene, api, ...skillIds) => {
+  for (const skillId of skillIds) scene.playerSkills[skillId] = scene.createSkillState(api.skills[skillId]);
+};
+
+test("REGALIA is offered Reactor Overcharge once it owns one of its own skills", () => {
+  const { scene, api } = fixture({ mechId: "regaliaBastion", orbitCore: false });
+  assert.equal(passive(scene, "overchargeBolt"), undefined, "the cannon alone does not read Reactor");
+  ownKit(scene, api, "regaliaAegisWall");
+  const reactor = passive(scene, "overchargeBolt");
+  assert.equal(scene.buildLevelUpCardModel(reactor, 0).description, "Aegis Wall の威力 8 → 9");
+  assert.equal(scene.buildLevelUpCardModel(reactor, 0).chips[0].label, "威力 +1");
+  ownKit(scene, api, "regaliaCounterPulse");
+  assert.equal(scene.buildLevelUpCardModel(passive(scene, "overchargeBolt"), 0).description, "Aegis Wall の威力 8 → 9\nCounter Pulse の威力 4 → 5");
+
+  passive(scene, "overchargeBolt").onSelect();
+  assert.equal(scene.stats.bulletDamage, 2);
+  assert.equal(scene.getRegaliaKitReactorBonus(), 1);
+  assert.equal(scene.getRegaliaCounterPulseWave(api.skills.regaliaCounterPulse.stages[0], "counter").damage, 7.5, "(4 + 1) x 1.5");
+  assert.equal(scene.buildLevelUpCardModel(passive(scene, "overchargeBolt"), 0).description, "Aegis Wall の威力 9 → 10\nCounter Pulse の威力 5 → 6");
+});
+
+test("Fire Control Link shortens REGALIA's own intervals down to 60% / 55% and keeps the LOST ARMS line", () => {
+  const { scene, api } = fixture({ mechId: "regaliaBastion", orbitCore: false });
+  assert.equal(passive(scene, "rapidSigil"), undefined);
+  ownKit(scene, api, "regaliaAegisWall", "regaliaCounterPulse");
+  const fire = passive(scene, "rapidSigil");
+  const card = scene.buildLevelUpCardModel(fire, 0);
+  // 540 -> 470 ms is 70 / 380 of the way to the 160 ms floor
+  assert.equal(card.description, "Aegis Wall の再設置 7 → 6.484秒\nCounter Pulse の自動間隔 3.2 → 2.935秒");
+  assert.equal(card.chips[0].label, "再設置 -0.516秒");
+  fire.onSelect();
+  const aegis = scene.playerSkills.regaliaAegisWall;
+  const pulse = scene.playerSkills.regaliaCounterPulse;
+  assert.equal(scene.getRegaliaAegisWallCooldownMs(aegis, aegis.currentStage), 6484);
+  assert.equal(scene.getRegaliaCounterPulseIntervalMs(pulse, pulse.currentStage), 2935);
+  scene.stats.fireInterval = 160;
+  assert.equal(scene.getRegaliaAegisWallCooldownMs(aegis, aegis.currentStage), 4200, "60% of 7 s at the floor");
+  assert.equal(scene.getRegaliaCounterPulseIntervalMs(pulse, pulse.currentStage), 1760, "55% of 3.2 s");
+  assert.equal(passive(scene, "rapidSigil"), undefined, "nothing left to shorten");
+
+  const withArms = fixture({ mechId: "regaliaBastion", orbitCore: false });
+  ownKit(withArms.scene, withArms.api, "regaliaCounterPulse");
+  ownLostArm(withArms.scene);
+  assert.equal(withArms.scene.buildLevelUpCardModel(passive(withArms.scene, "rapidSigil"), 0).description,
+    "Counter Pulse の自動間隔 3.2 → 2.935秒\nLOST ARMS の再発動待ち 基本の 100% → 91.6%");
+
+  // Counter Pulse's guard shields come back faster too; the line shows when there is room.
+  const pulseOnly = fixture({ mechId: "regaliaBastion", orbitCore: false });
+  ownKit(pulseOnly.scene, pulseOnly.api, "regaliaCounterPulse");
+  const pulseCard = pulseOnly.scene.buildLevelUpCardModel(passive(pulseOnly.scene, "rapidSigil"), 0);
+  assert.equal(pulseCard.description, "Counter Pulse の自動間隔 3.2 → 2.935秒\nCounter Pulse の盾の復活 10 → 9.171秒");
+  assert.equal(pulseCard.chips[0].label, "自動間隔 -0.265秒");
+  const guard = pulseOnly.scene.playerSkills.regaliaCounterPulse;
+  pulseOnly.scene.stats.fireInterval = 160;
+  assert.equal(pulseOnly.scene.getRegaliaGuardRegenMs(guard, guard.currentStage), 5500, "55% of 10 s at the floor");
+});
+
+test("REGALIA keeps getting levels while its own skills still read the passives", () => {
+  const { scene, api } = fixture({ mechId: "regaliaBastion", orbitCore: false });
+  scene.getAvailableSkillChoices = () => [];
+  for (const id of ["swiftStep", "staminaCore", "vitalBloom"]) scene.passiveLevels[id] = scene.getPassiveMaxLevel(id);
+  assert.equal(scene.isXpProgressionCapped(), true);
+  ownKit(scene, api, "regaliaAegisWall");
+  assert.equal(scene.isXpProgressionCapped(), false);
 });
 
 test("a comms message on screen goes back to the front of the queue while a selection overlay is open", () => {

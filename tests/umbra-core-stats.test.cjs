@@ -273,10 +273,15 @@ function regularMutationFixture(loader, mechId) {
 for (const mechId of ["defaultBear", "regaliaBastion"]) test(`${mechId}: generic Mutation choices, selected state, damage/cadence and control slow match Phase 6B`, () => {
   const current = regularMutationFixture(live, mechId), previous = regularMutationFixture(legacy, mechId);
   const currentIds = plain(current.scene.getSkillMutationTargetSkillIds());
-  assert.deepEqual(currentIds, plain(previous.scene.getSkillMutationTargetSkillIds())); assert.equal(currentIds.length, 3);
+  const previousIds = plain(previous.scene.getSkillMutationTargetSkillIds());
+  // Since R4 REGALIA's second and third slots are its own skills (docs/regalia-kit-design.md 7.1). They
+  // run the same generic checks, without a Phase 6B counterpart to compare with.
+  assert.deepEqual(currentIds, mechId === "regaliaBastion"
+    ? ["regaliaBastionCannon", "regaliaAegisWall", "regaliaCounterPulse"] : previousIds);
+  assert.equal(currentIds.length, 3);
   for (const skillId of currentIds) for (const coreId of ["assault", "control", "reactor"]) {
     const results = [];
-    for (const loader of [live, legacy]) {
+    for (const loader of previousIds.includes(skillId) ? [live, legacy] : [live]) {
       const { scene: s, events, calls } = regularMutationFixture(loader, mechId);
       assert.equal(s.isUmbraCoreContextActive?.() || false, false);
       const choices = s.buildSkillMutationChoices(skillId, "stage4");
@@ -303,9 +308,12 @@ for (const mechId of ["defaultBear", "regaliaBastion"]) test(`${mechId}: generic
         } else assert.equal(slow, 1);
         values.push({ activeBoost, isBoss, damage, cooldown, slow, enemy: plain(enemy) });
       }
-      results.push({ choices: plain(choices), state: plain(s.skillMutationState), values, events: plain(events), calls });
+      const state = plain(s.skillMutationState);
+      // With different slot lists only the tested skill's own entry can match.
+      if (mechId === "regaliaBastion") state.entries = { [skillId]: state.entries[skillId] };
+      results.push({ choices: plain(choices), state, values, events: plain(events), calls });
     }
-    assert.deepEqual(results[0], results[1]);
+    if (results.length === 2) assert.deepEqual(results[0], results[1]);
   }
 });
 
@@ -322,11 +330,13 @@ test("existing Mutation axes and frame combat targets remain unchanged while pro
   }
   const current = regularMutationFixture(live, "defaultBear").scene;
   const previous = regularMutationFixture(legacy, "defaultBear").scene;
-  assert.equal(current.getAllSkillMutationSkillIds().length, 7);
+  // UMBRA's three and, since R4, REGALIA's own two (docs/regalia-kit-design.md 9) join the record IDs.
+  assert.equal(current.getAllSkillMutationSkillIds().length, 9);
   assert.equal(previous.getAllSkillMutationSkillIds().length, 4);
   assert.deepEqual(plain(current.getSkillMutationTargetSkillIds()), plain(previous.getSkillMutationTargetSkillIds()));
-  for (const id of ids) {
+  for (const id of [...ids, "regaliaAegisWall", "regaliaCounterPulse"]) {
     assert.equal(current.getAllSkillMutationSkillIds().includes(id), true);
     assert.equal(previous.getAllSkillMutationSkillIds().includes(id), false);
   }
+  for (const id of previous.getAllSkillMutationSkillIds()) assert.equal(current.getAllSkillMutationSkillIds().includes(id), true, id);
 });

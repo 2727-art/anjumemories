@@ -69,8 +69,11 @@ const state = f => plain({ combat: f.scene.getRunEquipmentCombatLinkState(), bon
   pending: f.scene.pendingLevelUps, mode: f.scene.levelUpSelectionMode, active: f.scene.levelUpActive,
   choices: f.scene.levelUpCardRecords?.map(record => record.model.option), events: f.events, calls: f.calls });
 function select(s, index = 0) { s.selectLevelUpCard(index); s.selectLevelUpCard(index); s.confirm(); }
+// Since R4 REGALIA links its own skills instead of Tornado / Rabbit, so only the default mech can
+// still match A61. REGALIA's Combat Link is covered in tests/regalia-kit-integration.test.cjs.
+const legacyMechs = ["defaultBear"];
 
-for (const mech of ["defaultBear", "regaliaBastion"]) test(`${mech}: old three-ID eligibility, default arithmetic and normal OVL selection match A61`, () => {
+for (const mech of legacyMechs) test(`${mech}: old three-ID eligibility, default arithmetic and normal OVL selection match A61`, () => {
   for (const undefinedFlag of [false, true]) for (const rarity of [null, "SSR", "LEGEND"]) {
     const pairs = [previous, current].map(source => fixture(source, mech, rarity, undefinedFlag));
     const results = pairs.map(f => {
@@ -100,7 +103,7 @@ for (const mech of ["defaultBear", "regaliaBastion"]) test(`${mech}: old three-I
   }
 });
 
-for (const mech of ["defaultBear", "regaliaBastion"]) test(`${mech}: Final-target bonus then Deep choices retain their queues, one-step awards and normal budget`, () => {
+for (const mech of legacyMechs) test(`${mech}: Final-target bonus then Deep choices retain their queues, one-step awards and normal budget`, () => {
   const results = [previous, current].map(source => {
     const f = fixture(source, mech), s = f.scene, target = mech === "defaultBear" ? oldIds[0] : oldIds[1];
     assert.equal(s.queueFinalMutationEquipmentOverlimitBonus(target), true); assert.equal(s.queueFinalMutationEquipmentOverlimitBonus(target), false);
@@ -118,7 +121,7 @@ for (const mech of ["defaultBear", "regaliaBastion"]) test(`${mech}: Final-targe
 });
 
 test("legacy blocked eligibility and empty queue defaults, Raid suppression, cannon exclusion and static normalizer IDs are unchanged", () => {
-  for (const mech of ["defaultBear", "regaliaBastion"]) {
+  for (const mech of legacyMechs) {
     const results = [previous, current].map(source => {
       const { scene: s, calls } = fixture(source, mech), target = "tornadoSkill", values = [];
       assert.equal(s.isUmbraEquipmentScope?.() || false, false);

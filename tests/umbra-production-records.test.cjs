@@ -53,13 +53,14 @@ test("Atlas adds an empty UMBRA scope while preserving both existing frames and 
   assert.deepEqual(plain(upgraded.entries), plain(upgraded.mechBuilds.defaultBear.entries));
 });
 
-test("Archive v2 retains dedicated stages mutations OVL Evasive and explicit frame; old records infer their frame", () => {
+test("Archive v3 retains dedicated stages mutations OVL Evasive, explicit frame and slots; old records infer their frame", () => {
   const { scene: s } = fixture();
   s.getPassiveLevel = () => 0;
   const entry = s.normalizeRunArchiveEntry({ id: "dedicated", mechId: U, skills: s.getRunArchiveSkillLevels(),
     skillMutations: s.getRunArchiveSkillMutationSnapshot(), equipmentCombatLink: s.createRunArchiveEquipmentCombatLinkSnapshot(),
     passives: s.getRunArchivePassiveLevels(), triadBuild: s.umbraNormalEndSnapshot.triad.completeBuild });
-  assert.equal(entry.version, 2); assert.equal(entry.mechId, U);
+  assert.equal(entry.version, 3); assert.equal(entry.mechId, U);
+  assert.deepEqual(plain(entry.skillSlotIds), [M, B, N]);
   assert.deepEqual(plain(s.getRunArchiveSkillSlotIds(entry)), [M, B, N]);
   for (const id of [M, B, N]) { assert.equal(entry.skills[id], 8); assert.equal(entry.skillMutations[id].final, "execution"); }
   assert.equal(entry.equipmentCombatLink.overlimitLevels[N], 2); assert.equal(entry.passives.evasiveFirmware, 4);

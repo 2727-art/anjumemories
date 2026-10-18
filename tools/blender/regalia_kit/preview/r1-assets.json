@@ -1,0 +1,206 @@
+{
+  "pulse": {
+    "size": [
+      512,
+      512
+    ],
+    "pivot": [
+      256.0,
+      256.0
+    ],
+    "ring_radius_px": 200.0,
+    "camera": "top-down",
+    "blend": "additive; alpha derived from brightness",
+    "px_per_m": 80.0
+  },
+  "icon-aegis": {
+    "size": [
+      256,
+      256
+    ]
+  },
+  "icon-pulse": {
+    "size": [
+      256,
+      256
+    ]
+  },
+  "_blender": "5.2.2 LTS",
+  "shield": {
+    "size": [
+      256,
+      320
+    ],
+    "pivot": [
+      128.0,
+      269.0
+    ],
+    "camera": "ortho, looking north, 20 deg down",
+    "px_per_m": 80.0
+  },
+  "crack": {
+    "size": [
+      256,
+      256
+    ],
+    "pivot": [
+      128.0,
+      128.0
+    ],
+    "camera": "top-down",
+    "px_per_m": 80.0
+  },
+  "shield-dirs": {
+    "e": {
+      "size": [
+        256,
+        320
+      ],
+      "pivot": [
+        128.0,
+        269.0
+      ],
+      "screen_angle_deg": 0
+    },
+    "se": {
+      "size": [
+        256,
+        320
+      ],
+      "pivot": [
+        128.0,
+        269.0
+      ],
+      "screen_angle_deg": 45
+    },
+    "s": {
+      "size": [
+        256,
+        320
+      ],
+      "pivot": [
+        128.0,
+        269.0
+      ],
+      "screen_angle_deg": 90
+    },
+    "sw": {
+      "size": [
+        256,
+        320
+      ],
+      "pivot": [
+        128.0,
+        269.0
+      ],
+      "screen_angle_deg": 135
+    },
+    "w": {
+      "size": [
+        256,
+        320
+      ],
+      "pivot": [
+        128.0,
+        269.0
+      ],
+      "screen_angle_deg": 180
+    },
+    "nw": {
+      "size": [
+        256,
+        320
+      ],
+      "pivot": [
+        128.0,
+        269.0
+      ],
+      "screen_angle_deg": 225
+    },
+    "n": {
+      "size": [
+        256,
+        320
+      ],
+      "pivot": [
+        128.0,
+        269.0
+      ],
+      "screen_angle_deg": 270
+    },
+    "ne": {
+      "size": [
+        256,
+        320
+      ],
+      "pivot": [
+        128.0,
+        269.0
+      ],
+      "screen_angle_deg": 315
+    }
+  },
+  "counter-ring": {
+    "size": [
+      512,
+      512
+    ],
+    "pivot": [
+      256.0,
+      256.0
+    ],
+    "ring_radius_px": 200.0,
+    "camera": "top-down",
+    "blend": "additive; alpha derived from brightness",
+    "px_per_m": 80.0
+  },
+  "counter-emblem": {
+    "size": [
+      512,
+      512
+    ],
+    "pivot": [
+      256.0,
+      256.0
+    ],
+    "outer_radius_px": 184.0,
+    "camera": "top-down",
+    "blend": "additive; alpha derived from brightness",
+    "px_per_m": 80.0
+  },
+  "guard-dirs": {
+    "se": {
+      "size": [
+        256,
+        320
+      ],
+      "pivot": [
+        128.0,
+        284.0
+      ],
+      "screen_angle_deg": 45
+    },
+    "s": {
+      "size": [
+        256,
+        320
+      ],
+      "pivot": [
+        128.0,
+        284.0
+      ],
+      "screen_angle_deg": 90
+    },
+    "sw": {
+      "size": [
+        256,
+        320
+      ],
+      "pivot": [
+        128.0,
+        284.0
+      ],
+      "screen_angle_deg": 135
+    }
+  }
+}
