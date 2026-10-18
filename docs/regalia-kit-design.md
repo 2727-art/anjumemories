@@ -546,6 +546,34 @@ Depth20 での確認で壁の形が狙いどおりと確認されたため、通
   - `tests/levelup-card-text.test.cjs` に、Fire Control Link のカードの盾の復活の行を加えた。
   - 実ブラウザの確認では、S8 の 4 枚が回る画面、身代わり、4 枚使い切ったあとの被弾を確かめる。
 
+### 12.7 本番公開（2026-10-18）
+
+【ユーザー決定】2026-10-18 に実機テストに合格し、本番デプロイまでの依頼を受けた。
+
+- **公開対象**：
+  - PR #23（雷撃パッシブの候補の整理）
+  - REGALIA 専用スキルの R2〜R4、V1（反撃の見た目）、V2（身代わりの盾）
+- **公開先**：GitHub の main に入れると、次の 2 つが更新される。
+  - GitHub Pages（https://2727-art.github.io/anjumemories/）
+  - Cloudflare Workers Builds（https://miragelabyrinth.anjugames.workers.dev/）
+- **Firestore Rules**：反映は不要。
+  - 今回 `firestore.rules` は変えていない。
+  - Google 保存の `requiredCapabilities` は固定の 4 つで、RUN ARCHIVE v3 でも変わらない。
+  - ルールは記録の中の版を見ていない。
+- **公開前の確認**（main への merge 前、HEAD `731fa7f`）：
+  - `node --check` は game.js・skillDefinitions.js・stageDefinitions.js・equipmentDefinitions.js・umbraPersistence.js のすべてで成功。
+  - `node --test tests/*.test.cjs` は 522 件中 511 件が成功した。失敗 11 件は main と同じで、`.tmp_umbra_*` の基準ファイルがない環境で起きるもの。
+  - ブラウザ確認（`tests/regalia-aegis-browser.cjs`）は成功。
+  - 参照する REGALIA の画像 17 枚は、すべてリポジトリにある。
+- **SHA-256**（改行を LF にそろえた値）：
+  - game.js `d1dce87bbaf4e54a260d7f57947a1d031e3e9bcbb629526596878d4c3919fe04`
+  - skillDefinitions.js `a3f6aad0cf3b06a269750d71ca24bfe9c68961cd3d48b8f2797af2b470b9a79b`
+  - スクリプトの版：`regalia-guard-v2`
+- **公開後の確認**：
+  - 2 つの公開先から HTML・JavaScript・画像を取得し、上の値と一致することを確かめる。Git の同期だけでは完了としない。
+  - 公開先での動作確認は、新しいブラウザのプロファイルで、外部の認証・Firestore・ランキングへの通信を遮断して行う。利用者の保存データには触れない。
+- **古いタブの注意**：古い版のゲームを開いたままのタブは、v3 の RUN ARCHIVE を書き換えない（未対応として保留する）。更新後は古いタブを閉じて開き直す。
+
 ## 13. テストと検証
 
 【提案・未承認】
