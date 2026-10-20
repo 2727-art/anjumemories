@@ -5685,6 +5685,34 @@ const ROBOT_MISSILE_SMOKE_TRAIL_CONFIG = {
     colors: [0xffffff, 0xff9df4, 0xff4fd8]
   }
 };
+// Flame and smoke trail behind falling napalm bombs, laid like the missile ribbon; colours follow the napalm palette.
+const ROBOT_NAPALM_BOMB_TRAIL_CONFIG = {
+  spacing: 14,
+  maxPuffsPerFrame: 4,
+  backOffset: 20,
+  sideJitter: 4,
+  smokeEvery: 2,
+  flame: {
+    depth: 22.8,
+    maxAlive: 220,
+    lifespanMin: 150,
+    lifespanMax: 240,
+    scaleStart: 0.46,
+    scaleEnd: 0.1,
+    alphaStart: 0.82
+  },
+  smoke: {
+    depth: 22.4,
+    maxAlive: 200,
+    lifespanMin: 420,
+    lifespanMax: 680,
+    driftSpeedMin: 4,
+    driftSpeedMax: 16,
+    scaleStart: 0.26,
+    scaleEnd: 0.9,
+    alphaStart: 0.42
+  }
+};
 // Burning floor look for napalm fields (visual only; damage radius / ticks stay in ROBOT_NAPALM_CONFIG).
 const ROBOT_NAPALM_FIELD_FX_CONFIG = {
   defaultPalette: "pink",
@@ -5749,6 +5777,7 @@ const ROBOT_NAPALM_FIELD_FX_CONFIG = {
   scorchFadeOutMs: 2600,
   maxScorches: 20
 };
+// marker / markerGlow: landing warning, shock: ignition ring, burnFlash / fieldFlash: hit flash on burning enemies.
 const ROBOT_NAPALM_FX_PALETTES = {
   gradient: {
     core: 0xfff1f8,
@@ -5758,7 +5787,12 @@ const ROBOT_NAPALM_FX_PALETTES = {
     ring: 0xffb347,
     embers: [0xffffff, 0xffb0e6, 0xff8a3c],
     smoke: [0x4a3a46, 0x2a2228],
-    scorch: 0x1c1216
+    scorch: 0x1c1216,
+    marker: 0xffb0e6,
+    markerGlow: 0xff7a5a,
+    shock: 0xff8a3c,
+    burnFlash: 0xff6ad5,
+    fieldFlash: 0xffb347
   },
   pink: {
     core: 0xfff0fb,
@@ -5768,8 +5802,14 @@ const ROBOT_NAPALM_FX_PALETTES = {
     ring: 0xff9df4,
     embers: [0xffffff, 0xff9df4, 0xc23cff],
     smoke: [0x4a3658, 0x241a2c],
-    scorch: 0x1a1020
+    scorch: 0x1a1020,
+    marker: 0xff9df4,
+    markerGlow: 0xff5cd0,
+    shock: 0xff5ce6,
+    burnFlash: 0xff5ce6,
+    fieldFlash: 0xff9df4
   },
+  // Orange flames; marker, shock and flash keep the original napalm tints, for comparison.
   orange: {
     core: 0xfff4d6,
     mid: 0xffb347,
@@ -5778,7 +5818,12 @@ const ROBOT_NAPALM_FX_PALETTES = {
     ring: 0xffb347,
     embers: [0xffffff, 0xffd27a, 0xff6a2a],
     smoke: [0x463c36, 0x221d1a],
-    scorch: 0x1d140f
+    scorch: 0x1d140f,
+    marker: 0xffb347,
+    markerGlow: 0xff8a4c,
+    shock: 0xff8a4c,
+    burnFlash: 0xff8a4c,
+    fieldFlash: 0xffb347
   }
 };
 const ROBOT_SYNC_CONFIG = {
@@ -81272,18 +81317,19 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
     const markerScale = Phaser.Math.Clamp(radius / 150, 0.68, 1.58);
+    const palette = this.getRobotNapalmFxPalette();
     const glow = this.add
       .image(x, y, "skill-hit-glow")
       .setDepth(17.8)
       .setScale(0.54 * markerScale)
-      .setTint(0xff8a4c)
+      .setTint(palette.markerGlow)
       .setAlpha(0.26)
       .setBlendMode(Phaser.BlendModes.ADD);
     const marker = this.add
       .image(x, y, "skill-hit-ring")
       .setDepth(18)
       .setScale(0.48 * markerScale)
-      .setTint(0xffb347)
+      .setTint(palette.marker)
       .setAlpha(0.58)
       .setBlendMode(Phaser.BlendModes.ADD);
     this.robotEffectsLayer.add([glow, marker]);
@@ -81576,6 +81622,8 @@ class SurvivalScene extends Phaser.Scene {
 
     const trail = ROBOT_MISSILE_SMOKE_TRAIL_CONFIG;
     const exhaust = trail.exhaust;
+    const bombFlame = ROBOT_NAPALM_BOMB_TRAIL_CONFIG.flame;
+    const bombSmoke = ROBOT_NAPALM_BOMB_TRAIL_CONFIG.smoke;
     const embers = ROBOT_NAPALM_FIELD_FX_CONFIG.embers;
     const smoke = ROBOT_NAPALM_FIELD_FX_CONFIG.smoke;
     const palette = this.getRobotNapalmFxPalette();
@@ -81602,6 +81650,25 @@ class SurvivalScene extends Phaser.Scene {
         color: exhaust.colors,
         blendMode: "ADD",
         maxAliveParticles: exhaust.maxAlive
+      }),
+      napalmBombFlame: create(ROBOT_FX_TEXTURE_KEYS.smoke, bombFlame.depth, {
+        lifespan: { min: bombFlame.lifespanMin, max: bombFlame.lifespanMax },
+        speed: 0,
+        scale: { start: bombFlame.scaleStart, end: bombFlame.scaleEnd },
+        alpha: { start: bombFlame.alphaStart, end: 0 },
+        color: [palette.core, palette.mid, palette.edge],
+        blendMode: "ADD",
+        maxAliveParticles: bombFlame.maxAlive
+      }),
+      napalmBombSmoke: create(ROBOT_FX_TEXTURE_KEYS.smoke, bombSmoke.depth, {
+        lifespan: { min: bombSmoke.lifespanMin, max: bombSmoke.lifespanMax },
+        speed: { min: bombSmoke.driftSpeedMin, max: bombSmoke.driftSpeedMax },
+        angle: { min: 0, max: 360 },
+        rotate: { min: 0, max: 360 },
+        scale: { start: bombSmoke.scaleStart, end: bombSmoke.scaleEnd, ease: "Quad.Out" },
+        alpha: { start: bombSmoke.alphaStart, end: 0, ease: "Quad.In" },
+        color: palette.smoke,
+        maxAliveParticles: bombSmoke.maxAlive
       }),
       fieldEmbers: create(ROBOT_FX_TEXTURE_KEYS.ember, embers.depth, {
         lifespan: { min: embers.lifespanMin, max: embers.lifespanMax },
@@ -81632,6 +81699,9 @@ class SurvivalScene extends Phaser.Scene {
     Object.values(this.robotFxEmitters || {}).forEach((emitter) => {
       if (emitter?.active && emitter.scene) {
         emitter.killAll();
+        // killAll() keeps each particle's last position and the next emitParticleAt adds to it,
+        // so reset them the way a normal death does or recycled puffs land far from their spot.
+        emitter.forEachDead((particle) => particle.setPosition());
       }
     });
   }
@@ -81652,14 +81722,44 @@ class SurvivalScene extends Phaser.Scene {
     const tailX = missile.x - forwardX * config.backOffset;
     const tailY = missile.y - forwardY * config.backOffset;
     emitters.missileExhaust.emitParticleAt(tailX, tailY, 1);
+    this.layRobotMissileTrail(missile, tailX, tailY, forwardX, forwardY, config, (x, y) => {
+      emitters.missileSmoke.emitParticleAt(x, y, 1);
+    });
+  }
 
+  // Flame streak plus a thinner smoke ribbon behind a falling napalm bomb.
+  updateRobotNapalmBombTrail(missile) {
+    if (!missile?.active || missile.napalm !== true) {
+      return;
+    }
+    const emitters = this.ensureRobotFxEmitters();
+    if (!emitters) {
+      return;
+    }
+
+    const config = ROBOT_NAPALM_BOMB_TRAIL_CONFIG;
+    const angle = Number.isFinite(missile.rotation) ? missile.rotation : 0;
+    const forwardX = Math.cos(angle);
+    const forwardY = Math.sin(angle);
+    const tailX = missile.x - forwardX * config.backOffset;
+    const tailY = missile.y - forwardY * config.backOffset;
+    this.layRobotMissileTrail(missile, tailX, tailY, forwardX, forwardY, config, (x, y) => {
+      emitters.napalmBombFlame.emitParticleAt(x, y, 1);
+      missile.napalmTrailPuffs = (missile.napalmTrailPuffs || 0) + 1;
+      if (missile.napalmTrailPuffs % config.smokeEvery === 0) {
+        emitters.napalmBombSmoke.emitParticleAt(x, y, 1);
+      }
+    });
+  }
+
+  // Fills the gap since the last puff at a fixed spacing so fast missiles still leave an unbroken ribbon.
+  layRobotMissileTrail(missile, tailX, tailY, forwardX, forwardY, config, emitPuff) {
     if (!Number.isFinite(missile.lastSmokeTrailX) || !Number.isFinite(missile.lastSmokeTrailY)) {
       missile.lastSmokeTrailX = tailX;
       missile.lastSmokeTrailY = tailY;
       return;
     }
 
-    // Fill the gap since the last puff at a fixed spacing so fast missiles still leave an unbroken ribbon.
     const lastX = missile.lastSmokeTrailX;
     const lastY = missile.lastSmokeTrailY;
     const distance = Phaser.Math.Distance.Between(lastX, lastY, tailX, tailY);
@@ -81671,10 +81771,9 @@ class SurvivalScene extends Phaser.Scene {
     for (let step = 1; step <= steps; step += 1) {
       const t = step * stepRatio;
       const jitter = Phaser.Math.FloatBetween(-config.sideJitter, config.sideJitter);
-      emitters.missileSmoke.emitParticleAt(
+      emitPuff(
         lastX + (tailX - lastX) * t - forwardY * jitter,
-        lastY + (tailY - lastY) * t + forwardX * jitter,
-        1
+        lastY + (tailY - lastY) * t + forwardX * jitter
       );
     }
     missile.lastSmokeTrailX = lastX + (tailX - lastX) * steps * stepRatio;
@@ -81709,6 +81808,7 @@ class SurvivalScene extends Phaser.Scene {
         const distance = Phaser.Math.Distance.Between(missile.x, missile.y, missile.landingX, missile.landingY);
         missile.setRotation(angle);
         this.physics.velocityFromRotation(angle, missile.speed, missile.body.velocity);
+        this.updateRobotNapalmBombTrail(missile);
         if (distance <= Math.max(18, missile.speed * (delta / 1000))) {
           this.detonateRobotMissile(missile, missile.landingX, missile.landingY, true);
         }
@@ -82220,7 +82320,7 @@ class SurvivalScene extends Phaser.Scene {
       .image(x, y, "skill-hit-ring")
       .setDepth(23.8)
       .setScale(isLargeExplosion ? 1.24 : 0.86)
-      .setTint(0xff8a4c)
+      .setTint(this.getRobotNapalmFxPalette().shock)
       .setAlpha(0.56)
       .setBlendMode(Phaser.BlendModes.ADD);
     this.robotEffectsLayer.add([effect, shockRing]);
@@ -82316,6 +82416,7 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
+    const flashTint = this.getRobotNapalmFxPalette().burnFlash;
     const remainingBurns = [];
     burns.forEach((entry) => {
       const enemy = entry.enemy;
@@ -82326,7 +82427,7 @@ class SurvivalScene extends Phaser.Scene {
       entry.tickTimerMs += delta;
       while (entry.tickTimerMs >= ROBOT_NAPALM_CONFIG.burnTickMs && entry.remainingMs > 0 && enemy.active && !enemy.isDying) {
         entry.tickTimerMs -= ROBOT_NAPALM_CONFIG.burnTickMs;
-        this.applyRobotNapalmDotDamageToEnemy(enemy, entry.tickDamage, 0xff8a4c, {
+        this.applyRobotNapalmDotDamageToEnemy(enemy, entry.tickDamage, flashTint, {
           sourceX: enemy.x,
           sourceY: enemy.y,
           force: 70,
@@ -82346,6 +82447,7 @@ class SurvivalScene extends Phaser.Scene {
       return;
     }
 
+    const flashTint = this.getRobotNapalmFxPalette().fieldFlash;
     const remainingFields = [];
     fields.forEach((field) => {
       field.remainingMs -= delta;
@@ -82362,7 +82464,7 @@ class SurvivalScene extends Phaser.Scene {
             return;
           }
           const tickDamage = this.getRobotNapalmTickDamageForEnemy(enemy, field.baseDamage, ROBOT_NAPALM_CONFIG.fieldTickDamageMultiplier, field.level);
-          this.applyRobotNapalmDotDamageToEnemy(enemy, tickDamage, 0xffb347, {
+          this.applyRobotNapalmDotDamageToEnemy(enemy, tickDamage, flashTint, {
             sourceX: field.x,
             sourceY: field.y,
             force: 60,
